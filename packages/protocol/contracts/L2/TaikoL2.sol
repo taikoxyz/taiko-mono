@@ -32,7 +32,7 @@ contract TaikoL2 {
         external
         whenAnchoreAllowed
     {
-        require(anchorHash != 0x0, "zero anchorHash");
+        require(anchorHeight != 0 && anchorHash != 0x0, "invalid anchor");
 
         if (anchorHashes[anchorHeight] == 0x0) {
             anchorHashes[anchorHeight] = anchorHash;
