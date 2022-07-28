@@ -10,24 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibTrieProof.sol";
-
-struct BlockHeader {
-    bytes32 parentHash;
-    bytes32 ommersHash;
-    address beneficiary;
-    bytes32 stateRoot;
-    bytes32 transactionsRoot;
-    bytes32 receiptsRoot;
-    bytes32[8] logsBloom;
-    uint256 difficulty;
-    uint128 height;
-    uint64 gasLimit;
-    uint64 gasUsed;
-    uint64 timestamp;
-    bytes extraData;
-    bytes32 mixHash;
-    uint64 nonce;
-}
+import "./LibBlockHeader.sol";
 
 struct BlockContext {
     uint256 anchorHeight;
@@ -63,6 +46,7 @@ struct ProofRecord {
 ///                 and `header.gasLimit <= MAX_BLOCK_GASLIMIT`
 ///
 contract TaikoL1 {
+    using LibBlockHeader for BlockHeader;
     /**********************
      * Constants   *
      **********************/
@@ -151,7 +135,7 @@ contract TaikoL1 {
         bytes[2] calldata proofs
     ) external withPendingBlock(id, context) {
         _validateHeaderForContext(header, context);
-        bytes32 blockHash = hashBlockHeader(header);
+        bytes32 blockHash = header.hashBlockHeader();
 
         verifyZKP(header.parentHash, blockHash, context.txListHash, proofs[0]);
 
@@ -200,7 +184,7 @@ contract TaikoL1 {
 
         verifyZKP(
             throwAwayHeader.parentHash,
-            hashBlockHeader(throwAwayHeader),
+            throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
             proofs[0]
         );
@@ -229,6 +213,10 @@ contract TaikoL1 {
         require(!isTxListDecodable(txList));
         _invalidateBlock(id);
     }
+
+    /**********************
+     * Public Functions   *
+     **********************/
 
     function verifyZKP(
         bytes32 parentBlockHash,
@@ -270,13 +258,9 @@ contract TaikoL1 {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
-    function hashBlockHeader(BlockHeader calldata header)
-        public
-        pure
-        returns (bytes32)
-    {
-        // TODO
-    }
+    /**********************
+     * Private Functions  *
+     **********************/
 
     function _invalidateBlock(uint256 id) private {
         proofRecords[id][JUMP_MARKER] = ProofRecord({
