@@ -172,11 +172,16 @@ contract TaikoL1 {
 
     function proveBlockInvalid(
         uint256 index,
-        bytes32 txListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
+        bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata header,
-        bytes calldata zkproof,
-        bytes calldata mkproof
-    ) external blockIsPending(index) mayFinalizeBlocks {
+        bytes[2] calldata proofs
+    )
+        external
+        // bytes calldata zkproof,
+        // bytes calldata mkproof
+        blockIsPending(index)
+        mayFinalizeBlocks
+    {
         PendingBlock memory blk = pendingBlocks[index];
         verifyBlockHeader(header, blk);
         bytes32 blockHash = hashBlockHeader(header);
@@ -185,7 +190,12 @@ contract TaikoL1 {
             header.parentHash == finalizedBlocks[header.height - 1].blockHash
         );
 
-        verifyZKProof(header.parentHash, blockHash, txListHash, zkproof);
+        verifyZKProof(
+            header.parentHash,
+            blockHash,
+            throwAwayTxListHash,
+            proofs[0]
+        );
 
         // we need to calculate key based on taikoL2Address and pendingBlocks[index].txListHash
         // but the following calculation is not correct.
@@ -196,7 +206,7 @@ contract TaikoL1 {
             taikoL2Address,
             expectedKey,
             pendingBlocks[index].txListHash,
-            mkproof
+            proofs[1]
         );
 
         proofRecords[index][INVALID_BLOCK_MARKER] = ProofRecord({
