@@ -109,7 +109,10 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(bytes calldata vKey, ShortHeader calldata genesis) external {
+    function init(bytes calldata vKey, ShortHeader calldata genesis)
+        external
+        initializer
+    {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
         OwnableUpgradeable.__Ownable_init();
 
@@ -132,6 +135,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
+        nonReentrant
     {
         require(txList.length > 0, "empty txList");
 
@@ -150,11 +154,11 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function proveBlock(
         uint256 id,
-        bool anchor,
+        bool anchored,
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(id, context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -172,7 +176,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             context.anchorHash
         );
 
-        if (!anchor) {
+        if (!anchored) {
             value = 0x0;
         }
 
@@ -201,7 +205,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(id, context) {
         _validateHeader(throwAwayHeader);
 
         require(
@@ -241,7 +245,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 id,
         BlockContext calldata context,
         bytes calldata txList
-    ) external whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(id, context) {
         require(keccak256(txList) == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
         _invalidateBlock(id);
