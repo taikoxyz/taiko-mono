@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTrieProof.sol";
+import "../libs/LibMerkleProof.sol";
 import "../libs/LibTxList.sol";
 import "../libs/LibConstants.sol";
 import "./LibBlockHeader.sol";
@@ -179,7 +179,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofVal = 0x0;
         }
 
-        LibTrieProof.verify(
+        LibMerkleProof.verify(
             header.stateRoot,
             taikoL2Address,
             proofKey,
@@ -231,7 +231,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         (bytes32 key, bytes32 value) = LibStorageProof
             .computeInvalidTxListProofKV(context.txListHash);
 
-        LibTrieProof.verify(
+        LibMerkleProof.verify(
             throwAwayHeader.stateRoot,
             taikoL2Address,
             key,

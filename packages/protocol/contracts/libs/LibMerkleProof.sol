@@ -13,7 +13,7 @@ import "../thirdparty/Lib_RLPWriter.sol";
 import "../thirdparty/Lib_SecureMerkleTrie.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library LibTrieProof {
+library LibMerkleProof {
     /*********************
      * Constants         *
      *********************/
