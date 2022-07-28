@@ -91,7 +91,7 @@ contract TaikoL1 {
 
         require(
             blk.txListHash == 0x0 && blk.mixHash == 0x0 && blk.timestamp == 0,
-            "not zero"
+            "placeholder not zero"
         );
 
         require(
