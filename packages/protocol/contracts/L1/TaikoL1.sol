@@ -37,12 +37,12 @@ struct BlockHeader {
 struct PendingBlock {
     uint256 anchorHeight; // known L1 block height
     bytes32 anchorHash; // known L1 block hash
-    bytes32 txListHash; // the hash or KGZ commitment of the encoded txList
     address beneficiary;
     uint64 gasLimit;
-    uint64 timestamp;
     bytes extraData;
+    bytes32 txListHash; // the hash or KGZ commitment of the encoded txList
     bytes32 mixHash;
+    uint64 timestamp;
 }
 
 struct ProofRecord {
