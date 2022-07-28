@@ -17,7 +17,7 @@ struct ShortHeader {
 }
 
 struct BlockHeader {
-    bytes32 parentHash; // the hash of the parent's BlockHeader
+    bytes32 parentHash;
     bytes32 ommersHash;
     address beneficiary;
     bytes32 stateRoot;
@@ -38,11 +38,11 @@ struct PendingBlock {
     uint256 anchorHeight; // known L1 block height
     bytes32 anchorHash; // known L1 block hash
     bytes32 txListHash; // the hash or KGZ commitment of the encoded txList
-    uint64 timestamp;
-    uint64 gasLimit;
     address beneficiary;
+    uint64 gasLimit;
+    uint64 timestamp;
+    bytes extraData;
     bytes32 mixHash;
-    uint64 nonce;
 }
 
 struct ProofRecord {
@@ -51,19 +51,21 @@ struct ProofRecord {
 }
 
 contract TaikoL1 {
+    uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
+    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO
     bytes32 public constant INVALID_BLOCK_MARKER =
         keccak256("INVALID_BLOCK_MARKER");
     // Finalized taiko block headers
-    ShortHeader[] finalizedBlockHeaders;
+    ShortHeader[] public finalizedBlocks;
 
     // Pending Taiko blocks
-    mapping(uint256 => PendingBlock) pendingBlocks;
+    mapping(uint256 => PendingBlock) public pendingBlocks;
 
-    mapping(uint256 => mapping(bytes32 => ProofRecord)) proofRecords;
+    mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
 
-    address taikoL2Address;
-    uint64 lastFinalizedBlockIndex;
-    uint64 nextPendingBlockIndex;
+    address public taikoL2Address;
+    uint64 public lastFinalizedBlockIndex;
+    uint64 public nextPendingBlockIndex;
 
     modifier mayFinalizeBlocks() {
         _;
@@ -78,30 +80,40 @@ contract TaikoL1 {
     }
 
     function proposeBlock(
-        PendingBlock memory blk,
-        bytes calldata txList // or bytes32 txListHash when using blob
+        bytes calldata txList, // or bytes32 txListHash when using blob
+        PendingBlock memory blk
     ) external {
-        require(txList.length > 0);
-        require(blk.timestamp == 0);
-        require(blk.txListHash == keccak256(txList));
+        require(txList.length > 0, "null tx list");
 
         require(
-            blk.anchorHeight >= block.number - 100 &&
-                blockhash(blk.anchorHeight) == blk.anchorHash
+            blk.txListHash == 0x0 && blk.mixHash == 0x0 && blk.timestamp == 0,
+            "not zero"
         );
 
-        uint256 parentTimestamp = pendingBlocks[nextPendingBlockIndex - 1]
-            .timestamp;
+        require(
+            blk.anchorHeight >= block.number - MAX_ANCHOR_HEIGHT_DIFF &&
+                blk.anchorHash == blockhash(blk.anchorHeight) &&
+                blk.anchorHash != 0x0
+        );
 
-        if (block.timestamp <= parentTimestamp) {
-            blk.timestamp = uint64(parentTimestamp + 1);
-        } else {
-            blk.timestamp = uint64(block.timestamp);
-        }
+        require(blk.beneficiary != address(0), "null beneficiary");
+        require(
+            blk.gasLimit > 0 && blk.gasLimit <= MAX_BLOCK_GASLIMIT,
+            "gas limit too large"
+        );
+
+        require(blk.extraData.length <= 32, "extraData too large");
+
+        // WARN: Taiko L2 allows block.timestamp >= parent.timestamp
+        blk.timestamp = uint64(block.timestamp);
+
+        // See https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer/
+        blk.mixHash = bytes32(block.difficulty);
+
+        blk.txListHash = keccak256(txList);
 
         pendingBlocks[nextPendingBlockIndex++] = blk;
     }
-
 
     //TODO:add MAX_PENDING_SIZE
     function proveBlock(
@@ -154,8 +166,7 @@ contract TaikoL1 {
         bytes32 blockHash = hashBlockHeader(header);
 
         require(
-            header.parentHash ==
-                finalizedBlockHeaders[header.height - 1].blockHash
+            header.parentHash == finalizedBlocks[header.height - 1].blockHash
         );
 
         verifyZKProof(header.parentHash, blockHash, txListHash, zkproof);
@@ -229,12 +240,16 @@ contract TaikoL1 {
         BlockHeader calldata header,
         PendingBlock memory blk
     ) public pure {
-        require(header.nonce == blk.nonce);
-        require(header.timestamp == blk.timestamp);
-        require(header.gasLimit == blk.gasLimit);
-        require(header.mixHash == blk.mixHash);
-        require(header.beneficiary == blk.beneficiary);
-        require(header.extraData.length == 0);
+        require(
+            header.beneficiary == blk.beneficiary &&
+                header.difficulty == 0 &&
+                header.gasLimit == blk.gasLimit &&
+                header.timestamp == blk.timestamp &&
+                keccak256(header.extraData) == keccak256(blk.extraData) && // TODO: direct compare
+                header.mixHash == blk.mixHash &&
+                header.nonce == 0,
+            "header mismatch"
+        );
     }
 
     function hashBlockHeader(BlockHeader calldata header)
@@ -246,9 +261,7 @@ contract TaikoL1 {
     }
 
     function tryToFinalizedMoreBlocks() internal {
-        ShortHeader memory parent = finalizedBlockHeaders[
-            finalizedBlockHeaders.length - 1
-        ];
+        ShortHeader memory parent = finalizedBlocks[finalizedBlocks.length - 1];
 
         uint256 i = lastFinalizedBlockIndex + 1;
 
@@ -257,7 +270,7 @@ contract TaikoL1 {
                 .header;
 
             if (header.blockHash != 0x0) {
-                finalizedBlockHeaders.push(header);
+                finalizedBlocks.push(header);
                 parent = header;
                 lastFinalizedBlockIndex += 1;
                 i += 1;
