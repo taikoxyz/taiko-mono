@@ -11,11 +11,6 @@ pragma solidity ^0.8.9;
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibTrieProof.sol";
 
-struct ShortHeader {
-    bytes32 blockHash;
-    bytes32 stateRoot;
-}
-
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;
@@ -45,18 +40,35 @@ struct BlockContext {
     uint64 timestamp;
 }
 
+struct ShortHeader {
+    bytes32 blockHash;
+    bytes32 stateRoot;
+}
+
 struct ProofRecord {
     address prover;
     ShortHeader header;
 }
 
+/// @dev We have the following design assumptions:
+/// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
+//                  will always be zeros.
+///
+/// - Assumption 2: Taiko L2 allows block.timestamp >= parent.timestamp.
+///
+/// - Assumption 3: mixHash will be used by Taiko L2 for randomness, see:
+///                 https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer
+///
+/// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
+///                 and `header.gasLimit <= MAX_BLOCK_GASLIMIT`
+///
 contract TaikoL1 {
     /**********************
      * Constants   *
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO
-    bytes32 public constant JUMP_MARKER = bytes32(uint256(1));
+    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
+    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
     /**********************
      * State Variables    *
@@ -71,20 +83,24 @@ contract TaikoL1 {
     mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
 
     address public taikoL2Address;
-    uint64 public lastFinalizedBlockHeight;
-    uint64 public lastFinalizedBlockId;
-    uint64 public nextPendingBlockId;
+    uint64 public lastFinalizedHeight;
+    uint64 public lastFinalizedId;
+    uint64 public nextPendingId;
 
-    // uint256[50] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Modifiers          *
      **********************/
 
-    modifier mayFinalizeBlocks(uint256 id) {
-        require(id > lastFinalizedBlockId && id < nextPendingBlockId);
+    modifier mayFinalizeBlocks(uint256 id, BlockContext calldata context) {
+        require(id > lastFinalizedId && id < nextPendingId, "invalid id");
+        require(
+            pendingBlocks[id] == keccak256(abi.encode(context)),
+            "context mismatch"
+        );
         _;
-        tryToFinalizedMoreBlocks();
+        tryFinalizingBlocks();
     }
 
     /**********************
@@ -92,24 +108,31 @@ contract TaikoL1 {
      **********************/
 
     event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockFinalized(uint256 indexed id, BlockHeader header);
 
     /**********************
      * External Functions *
      **********************/
 
-    /// @dev When a L2 block is proposed, we always implicitly require that the following
-    // fields have zero values: difficulty, nonce.
-    function proposeBlock(
-        bytes calldata txList, // or bytes32 txListHash when using blob
-        BlockContext memory context
-    ) external {
-        require(txList.length > 0, "null tx list");
+    /// @notice Propose a Taiko L2 block.
+    /// @param context The context that the actual L2 block header must satisfy.
+    ///        Note the following fields in the provided context object must
+    ///        be zeros, and their actual values will be provisioned by Ethereum.
+    ///        - txListHash
+    ///        - mixHash
+    ///        - timestamp
+    /// @param txList A list of transactions in this block, encoded with RLP.
+    ///
+    function proposeBlock(BlockContext memory context, bytes calldata txList)
+        external
+    {
+        require(txList.length > 0, "empty txList");
 
         require(
             context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
                 context.timestamp == 0,
-            "placeholder not zero"
+            "nonzero placeholder fields"
         );
 
         require(
@@ -119,48 +142,30 @@ contract TaikoL1 {
         );
 
         require(context.beneficiary != address(0), "null beneficiary");
-        require(
-            context.gasLimit > 0 && context.gasLimit <= MAX_BLOCK_GASLIMIT,
-            "gas limit too large"
-        );
-
+        require(context.gasLimit <= MAX_BLOCK_GASLIMIT, "invalid gasLimit");
         require(context.extraData.length <= 32, "extraData too large");
 
-        // WARN: Taiko L2 allows block.timestamp >= parent.timestamp
         context.timestamp = uint64(block.timestamp);
-
-        // See https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer/
         context.mixHash = bytes32(block.difficulty);
-
         context.txListHash = keccak256(txList);
 
-        pendingBlocks[nextPendingBlockId] = keccak256(abi.encode(context));
-        emit BlockProposed(nextPendingBlockId, context);
+        pendingBlocks[nextPendingId] = keccak256(abi.encode(context));
+        emit BlockProposed(nextPendingId, context);
 
-        nextPendingBlockId += 1;
+        nextPendingId += 1;
     }
 
     function proveBlock(
         uint256 id,
+        bool anchoring,
         BlockContext calldata context,
         BlockHeader calldata header,
-        bytes32 anchorHash,
-        bytes calldata zkproof,
-        bytes calldata mkproof
-    ) external mayFinalizeBlocks(id) {
-        require(
-            pendingBlocks[id] == keccak256(abi.encode(context)),
-            "mismatch"
-        );
+        bytes[2] calldata proofs
+    ) external mayFinalizeBlocks(id, context) {
         verifyBlockHeader(header, context);
         bytes32 blockHash = hashBlockHeader(header);
 
-        verifyZKProof(
-            header.parentHash,
-            blockHash,
-            context.txListHash,
-            zkproof
-        );
+        verifyZKP(header.parentHash, blockHash, context.txListHash, proofs[0]);
 
         // we need to calculate key based on taikoL2Address,  pendingBlocks[id].anchorHeight
         // but the following calculation is not correct.
@@ -169,18 +174,14 @@ contract TaikoL1 {
         bytes32 expectedKey = keccak256(
             abi.encodePacked("PREPARE BLOCK", header.height)
         );
-
-        // The prepareBlock tx may fail due to out-of-gas, therefore, we have to accept
-        // an 0x0 value. In such case, we need to punish the block proposer for the failed
-        // prepareBlock tx.
-        require(anchorHash == 0x0 || anchorHash == context.anchorHash);
+        bytes32 expectedValue = anchoring ? context.anchorHash : bytes32(0);
 
         LibTrieProof.verify(
             header.stateRoot,
             taikoL2Address,
             expectedKey,
-            anchorHash,
-            mkproof
+            expectedValue,
+            proofs[1]
         );
 
         proofRecords[id][header.parentHash] = ProofRecord({
@@ -198,11 +199,7 @@ contract TaikoL1 {
         BlockContext calldata context,
         BlockHeader calldata header,
         bytes[2] calldata proofs
-    ) external mayFinalizeBlocks(id) {
-        require(
-            pendingBlocks[id] == keccak256(abi.encode(context)),
-            "mismatch"
-        );
+    ) external mayFinalizeBlocks(id, context) {
         verifyBlockHeader(header, context);
         bytes32 blockHash = hashBlockHeader(header);
 
@@ -212,12 +209,7 @@ contract TaikoL1 {
                 finalizedBlocks[header.height - 1].blockHash
         );
 
-        verifyZKProof(
-            header.parentHash,
-            blockHash,
-            throwAwayTxListHash,
-            proofs[0]
-        );
+        verifyZKP(header.parentHash, blockHash, throwAwayTxListHash, proofs[0]);
 
         // we need to calculate key based on taikoL2Address and pendingBlocks[id].txListHash
         // but the following calculation is not correct.
@@ -241,11 +233,7 @@ contract TaikoL1 {
         uint256 id,
         BlockContext calldata context,
         bytes calldata txList
-    ) external mayFinalizeBlocks(id) {
-        require(
-            pendingBlocks[id] == keccak256(abi.encode(context)),
-            "mismatch"
-        );
+    ) external mayFinalizeBlocks(id, context) {
         require(!isTxListDecodable(txList));
         require(keccak256(txList) == context.txListHash);
 
@@ -267,7 +255,7 @@ contract TaikoL1 {
         }
     }
 
-    function verifyZKProof(
+    function verifyZKP(
         bytes32 parentBlockHash,
         bytes32 blockHash,
         bytes32 txListHash,
@@ -300,22 +288,22 @@ contract TaikoL1 {
         // TODO
     }
 
-    function tryToFinalizedMoreBlocks() internal {
+    function tryFinalizingBlocks() internal {
         // ShortHeader memory parent = finalizedBlocks[finalizedBlocks.length - 1];
-        // uint256 i = lastFinalizedBlockId + 1;
-        // while (i < nextPendingBlockId) {
-        //     ShortHeader storage header = proofRecords[i][parent.blockHash]
+        // uint256 i = lastFinalizedId + 1;
+        // while (i < nextPendingId) {
+        //     ShortHeader storage header = proofs[i][parent.blockHash]
         //         .header;
         //     if (header.blockHash != 0x0) {
-        //         finalizedBlocks[lastFinalizedBlockHeight++] = header;
+        //         finalizedBlocks[lastFinalizedHeight++] = header;
         //         parent = header;
-        //         lastFinalizedBlockId++;
+        //         lastFinalizedId++;
         //         i++;
         //     } else if (
-        //         proofRecords[i][JUMP_MARKER].header.blockHash ==
+        //         proofs[i][JUMP_MARKER].header.blockHash ==
         //         JUMP_MARKER
         //     ) {
-        //         lastFinalizedBlockId++;
+        //         lastFinalizedId++;
         //         i++;
         //     } else {
         //         break;
