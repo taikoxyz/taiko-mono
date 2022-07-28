@@ -79,6 +79,10 @@ contract TaikoL1 {
         _;
     }
 
+    event BlockProposed(uint256 indexed index, PendingBlock blk);
+
+    /// @dev When a L2 block is proposed, we always implicitly require that the following fields
+    ///      have zero values: difficulty, nonce.
     function proposeBlock(
         bytes calldata txList, // or bytes32 txListHash when using blob
         PendingBlock memory blk
@@ -112,7 +116,11 @@ contract TaikoL1 {
 
         blk.txListHash = keccak256(txList);
 
-        pendingBlocks[nextPendingBlockIndex++] = blk;
+        pendingBlocks[nextPendingBlockIndex] = blk;
+
+        emit BlockProposed(nextPendingBlockIndex, blk);
+
+        nextPendingBlockIndex += 1;
     }
 
     //TODO:add MAX_PENDING_SIZE
