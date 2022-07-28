@@ -24,14 +24,14 @@ struct BlockHeader {
     bytes32 transactionsRoot;
     bytes32 receiptsRoot;
     bytes32[8] logsBloom;
-    uint256 difficulty; // myst be 0
+    uint256 difficulty; // must always be 0
     uint128 height;
     uint64 gasLimit;
     uint64 gasUsed;
     uint64 timestamp;
     bytes extraData;
     bytes32 mixHash;
-    uint64 nonce; // must be 0
+    uint64 nonce; // must always be 0
 }
 
 struct PendingBlock {
