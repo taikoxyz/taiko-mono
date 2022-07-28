@@ -170,11 +170,12 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[0]
         );
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof.computeAnchorProofKV(
-            header.height,
-            context.anchorHeight,
-            context.anchorHash
-        );
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeAnchorProofKV(
+                header.height,
+                context.anchorHeight,
+                context.anchorHash
+            );
 
         if (!anchored) {
             proofVal = 0x0;
