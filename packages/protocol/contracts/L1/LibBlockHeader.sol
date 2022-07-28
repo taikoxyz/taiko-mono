@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "../thirdparty/Lib_RLPWriter.sol";
+import "../libs/LibConstants.sol";
 
 struct BlockHeader {
     bytes32 parentHash;
@@ -29,6 +30,9 @@ struct BlockHeader {
 }
 
 library LibBlockHeader {
+    bytes32 private constant EMPTY_OMMERS_HASH =
+        0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
+
     function hashBlockHeader(BlockHeader calldata header)
         internal
         pure
@@ -55,5 +59,19 @@ library LibBlockHeader {
 
         bytes memory rlpHeader = Lib_RLPWriter.writeList(list);
         return keccak256(rlpHeader);
+    }
+
+    function isPartiallyValidForTaiko(BlockHeader calldata header)
+        internal
+        pure
+        returns (bool)
+    {
+        return
+            header.parentHash != 0x0 &&
+            header.ommersHash == EMPTY_OMMERS_HASH &&
+            header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.extraData.length <= 32 &&
+            header.difficulty == 0 &&
+            header.nonce == 0;
     }
 }

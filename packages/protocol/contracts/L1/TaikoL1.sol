@@ -14,7 +14,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTrieProof.sol";
 import "../libs/LibTxList.sol";
-import "../libs/LibTaikoConsts.sol";
+import "../libs/LibConstants.sol";
 import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
 
@@ -59,7 +59,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
     uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
-    uint256 public constant MAX_FINALIZATIONS_PER_TX = 5;
+    uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
+    uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
     /**********************
@@ -207,7 +208,10 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         BlockContext calldata context,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(id, context) {
-        _validateHeader(throwAwayHeader);
+        require(
+            throwAwayHeader.isPartiallyValidForTaiko(),
+            "throwAwayHeader invalid"
+        );
 
         require(
             lastFinalizedHeight <=
@@ -273,7 +277,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         require(context.beneficiary != address(0), "null beneficiary");
         require(
-            context.gasLimit <= LibTaikoConsts.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            context.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
             "invalid gasLimit"
         );
         require(context.extraData.length <= 32, "extraData too large");
@@ -286,10 +290,16 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function _finalizeBlocks() private {
         ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
         uint256 nextId = lastFinalizedId + 1;
-        uint256 count = 0;
-        while (nextId < nextPendingId && count <= MAX_FINALIZATIONS_PER_TX) {
+        uint256 reads = 0;
+        uint256 writes = 0;
+        while (
+            nextId < nextPendingId &&
+            reads <= MAX_FINALIZATION_READS_PER_TX &&
+            writes <= MAX_FINALIZATION_WRITES_PER_TX
+        ) {
             ShortHeader storage header = proofRecords[nextId][parent.blockHash]
                 .header;
+
             if (header.blockHash != 0x0) {
                 lastFinalizedHeight += 1;
 
@@ -297,6 +307,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 emit BlockFinalized(lastFinalizedHeight, header);
 
                 parent = header;
+                writes += 1;
             } else if (
                 proofRecords[nextId][JUMP_MARKER].header.blockHash ==
                 JUMP_MARKER
@@ -305,9 +316,10 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             } else {
                 break;
             }
+
             lastFinalizedId += 1;
             nextId += 1;
-            count += 1;
+            reads += 1;
         }
     }
 
@@ -329,7 +341,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
             header.parentHash != 0x0 &&
-                header.gasLimit <= LibTaikoConsts.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+                header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,

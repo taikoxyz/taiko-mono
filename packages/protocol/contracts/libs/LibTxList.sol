@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "./LibTaikoConsts.sol";
+import "./LibConstants.sol";
 struct TxList {
     bytes32 todo;
 }
@@ -37,7 +37,7 @@ library LibTxListValidator {
             // TODO: check list length
             return
                 LibTxList.sumGasLimit(txList) <=
-                LibTaikoConsts.MAX_TAIKO_BLOCK_GAS_LIMIT;
+                LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT;
         } catch (bytes memory) {
             return false;
         }
