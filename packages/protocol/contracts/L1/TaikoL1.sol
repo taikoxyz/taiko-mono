@@ -101,7 +101,7 @@ contract TaikoL1 {
             "context mismatch"
         );
         _;
-        tryFinalizingBlocks();
+        _finalizeBlocks();
     }
 
     /**********************
@@ -110,6 +110,7 @@ contract TaikoL1 {
 
     event BlockProposed(uint256 indexed id, BlockContext context);
     event BlockProven(uint256 indexed id, BlockHeader header);
+    event BlockInvalidated(uint256 indexed id);
     event BlockFinalized(uint256 indexed id, BlockHeader header);
 
     /**********************
@@ -149,7 +150,7 @@ contract TaikoL1 {
         BlockContext calldata context,
         bytes[2] calldata proofs
     ) external withPendingBlock(id, context) {
-        validateHeaderAgainstContext(header, context);
+        _validateHeaderForContext(header, context);
         bytes32 blockHash = hashBlockHeader(header);
 
         verifyZKP(header.parentHash, blockHash, context.txListHash, proofs[0]);
@@ -185,7 +186,7 @@ contract TaikoL1 {
         BlockContext calldata context,
         bytes[2] calldata proofs
     ) external withPendingBlock(id, context) {
-        validateHeader(throwAwayHeader);
+        _validateHeader(throwAwayHeader);
 
         require(
             lastFinalizedHeight <=
@@ -216,13 +217,7 @@ contract TaikoL1 {
             proofs[1]
         );
 
-        proofRecords[id][JUMP_MARKER] = ProofRecord({
-            prover: msg.sender,
-            header: ShortHeader({
-                blockHash: JUMP_MARKER,
-                stateRoot: JUMP_MARKER
-            })
-        });
+        _invalidateBlock(id);
     }
 
     function verifyBlockInvalid(
@@ -230,16 +225,18 @@ contract TaikoL1 {
         BlockContext calldata context,
         bytes calldata txList
     ) external withPendingBlock(id, context) {
+        require(keccak256(txList) == context.txListHash, "txList mismatch");
         require(!isTxListDecodable(txList));
-        require(keccak256(txList) == context.txListHash);
+        _invalidateBlock(id);
+    }
 
-        proofRecords[id][JUMP_MARKER] = ProofRecord({
-            prover: msg.sender,
-            header: ShortHeader({
-                blockHash: JUMP_MARKER,
-                stateRoot: JUMP_MARKER
-            })
-        });
+    function verifyZKP(
+        bytes32 parentBlockHash,
+        bytes32 blockHash,
+        bytes32 txListHash,
+        bytes calldata zkproof
+    ) public view {
+        // TODO
     }
 
     function isTxListDecodable(bytes calldata encoded)
@@ -252,26 +249,6 @@ contract TaikoL1 {
         } catch (bytes memory) {
             return false;
         }
-    }
-
-    function verifyZKP(
-        bytes32 parentBlockHash,
-        bytes32 blockHash,
-        bytes32 txListHash,
-        bytes calldata zkproof
-    ) public view {
-        // TODO
-    }
-
-    function validateHeader(BlockHeader calldata header) public pure {
-        require(
-            header.parentHash != 0x0 &&
-                header.gasLimit <= MAX_BLOCK_GASLIMIT &&
-                header.extraData.length <= 32 &&
-                header.difficulty == 0 &&
-                header.nonce == 0,
-            "header mismatch"
-        );
     }
 
     function validateContext(BlockContext memory context) public view {
@@ -293,20 +270,6 @@ contract TaikoL1 {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
-    function validateHeaderAgainstContext(
-        BlockHeader calldata header,
-        BlockContext memory context
-    ) public pure {
-        require(
-            header.beneficiary == context.beneficiary &&
-                header.gasLimit == context.gasLimit &&
-                header.timestamp == context.timestamp &&
-                keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
-                header.mixHash == context.mixHash,
-            "header mismatch"
-        );
-    }
-
     function hashBlockHeader(BlockHeader calldata header)
         public
         pure
@@ -315,7 +278,18 @@ contract TaikoL1 {
         // TODO
     }
 
-    function tryFinalizingBlocks() internal {
+    function _invalidateBlock(uint256 id) private {
+        proofRecords[id][JUMP_MARKER] = ProofRecord({
+            prover: msg.sender,
+            header: ShortHeader({
+                blockHash: JUMP_MARKER,
+                stateRoot: JUMP_MARKER
+            })
+        });
+        emit BlockInvalidated(id);
+    }
+
+    function _finalizeBlocks() private {
         // ShortHeader memory parent = finalizedBlocks[finalizedBlocks.length - 1];
         // uint256 i = lastFinalizedId + 1;
         // while (i < nextPendingId) {
@@ -336,5 +310,30 @@ contract TaikoL1 {
         //         break;
         //     }
         // }
+    }
+
+    function _validateHeader(BlockHeader calldata header) private pure {
+        require(
+            header.parentHash != 0x0 &&
+                header.gasLimit <= MAX_BLOCK_GASLIMIT &&
+                header.extraData.length <= 32 &&
+                header.difficulty == 0 &&
+                header.nonce == 0,
+            "header mismatch"
+        );
+    }
+
+    function _validateHeaderForContext(
+        BlockHeader calldata header,
+        BlockContext memory context
+    ) private pure {
+        require(
+            header.beneficiary == context.beneficiary &&
+                header.gasLimit == context.gasLimit &&
+                header.timestamp == context.timestamp &&
+                keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
+                header.mixHash == context.mixHash,
+            "header mismatch"
+        );
     }
 }
