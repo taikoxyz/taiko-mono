@@ -23,7 +23,7 @@ contract TaikoL2 {
             l1blockhashes[anchorHeight] = anchorHash;
 
             bytes32 key = keccak256(
-                abi.encodePacked("PREPARE BLOCK", block.number)
+                abi.encodePacked("ANCHOR_KEY", block.number)
             );
 
             assembly {
@@ -34,11 +34,11 @@ contract TaikoL2 {
 
     function verifyBlockInvalid(bytes calldata txList) external {
         require(!isTxListDecodable(txList));
-        bytes32 txListHash = keccak256(txList);
-        bytes32 expectedStorageKey; // = keccak256(address(this), txListHash);
 
+        bytes32 txListHash = keccak256(txList);
+        bytes32 key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
         assembly {
-            sstore(expectedStorageKey, txListHash)
+            sstore(key, txListHash)
         }
     }
 

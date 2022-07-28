@@ -52,7 +52,7 @@ struct ProofRecord {
 
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
-//                  will always be zeros.
+//                  will always be zeros, and this will be checked by zkEVM.
 ///
 /// - Assumption 2: Taiko L2 allows block.timestamp >= parent.timestamp.
 ///
@@ -68,6 +68,7 @@ contract TaikoL1 {
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
     uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
+    uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
     /**********************
@@ -93,7 +94,7 @@ contract TaikoL1 {
      * Modifiers          *
      **********************/
 
-    modifier mayFinalizeBlocks(uint256 id, BlockContext calldata context) {
+    modifier withPendingBlock(uint256 id, BlockContext calldata context) {
         require(id > lastFinalizedId && id < nextPendingId, "invalid id");
         require(
             pendingBlocks[id] == keccak256(abi.encode(context)),
@@ -108,6 +109,7 @@ contract TaikoL1 {
      **********************/
 
     event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockProven(uint256 indexed id, BlockHeader header);
     event BlockFinalized(uint256 indexed id, BlockHeader header);
 
     /**********************
@@ -128,22 +130,7 @@ contract TaikoL1 {
     {
         require(txList.length > 0, "empty txList");
 
-        require(
-            context.txListHash == 0x0 &&
-                context.mixHash == 0x0 &&
-                context.timestamp == 0,
-            "nonzero placeholder fields"
-        );
-
-        require(
-            context.anchorHeight >= block.number - MAX_ANCHOR_HEIGHT_DIFF &&
-                context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0x0
-        );
-
-        require(context.beneficiary != address(0), "null beneficiary");
-        require(context.gasLimit <= MAX_BLOCK_GASLIMIT, "invalid gasLimit");
-        require(context.extraData.length <= 32, "extraData too large");
+        validateContext(context);
 
         context.timestamp = uint64(block.timestamp);
         context.mixHash = bytes32(block.difficulty);
@@ -157,24 +144,20 @@ contract TaikoL1 {
 
     function proveBlock(
         uint256 id,
-        bool anchoring,
-        BlockContext calldata context,
+        bool anchor,
         BlockHeader calldata header,
+        BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external mayFinalizeBlocks(id, context) {
-        verifyBlockHeader(header, context);
+    ) external withPendingBlock(id, context) {
+        validateHeaderAgainstContext(header, context);
         bytes32 blockHash = hashBlockHeader(header);
 
         verifyZKP(header.parentHash, blockHash, context.txListHash, proofs[0]);
 
-        // we need to calculate key based on taikoL2Address,  pendingBlocks[id].anchorHeight
-        // but the following calculation is not correct.
-        //
-        // see TaikoL2.sol `prepareBlock`
         bytes32 expectedKey = keccak256(
-            abi.encodePacked("PREPARE BLOCK", header.height)
+            abi.encodePacked("ANCHOR_KEY", header.height)
         );
-        bytes32 expectedValue = anchoring ? context.anchorHash : bytes32(0);
+        bytes32 expectedValue = anchor ? context.anchorHash : bytes32(0);
 
         LibTrieProof.verify(
             header.stateRoot,
@@ -191,41 +174,54 @@ contract TaikoL1 {
                 stateRoot: header.stateRoot
             })
         });
+
+        emit BlockProven(id, header);
     }
 
     function proveBlockInvalid(
         uint256 id,
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
+        BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
-        BlockHeader calldata header,
         bytes[2] calldata proofs
-    ) external mayFinalizeBlocks(id, context) {
-        verifyBlockHeader(header, context);
-        bytes32 blockHash = hashBlockHeader(header);
+    ) external withPendingBlock(id, context) {
+        validateHeader(throwAwayHeader);
 
         require(
-            header.parentHash != 0x0 &&
-                header.parentHash ==
-                finalizedBlocks[header.height - 1].blockHash
+            lastFinalizedHeight <=
+                throwAwayHeader.height + MAX_THROW_AWAY_PARENT_DIFF,
+            "parent too old"
+        );
+        require(
+            throwAwayHeader.parentHash ==
+                finalizedBlocks[throwAwayHeader.height - 1].blockHash
         );
 
-        verifyZKP(header.parentHash, blockHash, throwAwayTxListHash, proofs[0]);
+        verifyZKP(
+            throwAwayHeader.parentHash,
+            hashBlockHeader(throwAwayHeader),
+            throwAwayTxListHash,
+            proofs[0]
+        );
 
-        // we need to calculate key based on taikoL2Address and pendingBlocks[id].txListHash
-        // but the following calculation is not correct.
-        bytes32 expectedKey; // = keccak256(taikoL2Address, pendingBlocks[id].txListHash);
+        bytes32 key = keccak256(
+            abi.encodePacked("TXLIST_KEY", context.txListHash)
+        );
 
         LibTrieProof.verify(
-            header.stateRoot,
+            throwAwayHeader.stateRoot,
             taikoL2Address,
-            expectedKey,
+            key,
             context.txListHash,
             proofs[1]
         );
 
         proofRecords[id][JUMP_MARKER] = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({blockHash: JUMP_MARKER, stateRoot: 0x0})
+            header: ShortHeader({
+                blockHash: JUMP_MARKER,
+                stateRoot: JUMP_MARKER
+            })
         });
     }
 
@@ -233,13 +229,16 @@ contract TaikoL1 {
         uint256 id,
         BlockContext calldata context,
         bytes calldata txList
-    ) external mayFinalizeBlocks(id, context) {
+    ) external withPendingBlock(id, context) {
         require(!isTxListDecodable(txList));
         require(keccak256(txList) == context.txListHash);
 
         proofRecords[id][JUMP_MARKER] = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({blockHash: JUMP_MARKER, stateRoot: 0x0})
+            header: ShortHeader({
+                blockHash: JUMP_MARKER,
+                stateRoot: JUMP_MARKER
+            })
         });
     }
 
@@ -264,18 +263,46 @@ contract TaikoL1 {
         // TODO
     }
 
-    function verifyBlockHeader(
+    function validateHeader(BlockHeader calldata header) public pure {
+        require(
+            header.parentHash != 0x0 &&
+                header.gasLimit <= MAX_BLOCK_GASLIMIT &&
+                header.extraData.length <= 32 &&
+                header.difficulty == 0 &&
+                header.nonce == 0,
+            "header mismatch"
+        );
+    }
+
+    function validateContext(BlockContext memory context) public view {
+        require(
+            context.txListHash == 0x0 &&
+                context.mixHash == 0x0 &&
+                context.timestamp == 0,
+            "nonzero placeholder fields"
+        );
+
+        require(
+            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
+                context.anchorHash == blockhash(context.anchorHeight) &&
+                context.anchorHash != 0x0
+        );
+
+        require(context.beneficiary != address(0), "null beneficiary");
+        require(context.gasLimit <= MAX_BLOCK_GASLIMIT, "invalid gasLimit");
+        require(context.extraData.length <= 32, "extraData too large");
+    }
+
+    function validateHeaderAgainstContext(
         BlockHeader calldata header,
         BlockContext memory context
     ) public pure {
         require(
             header.beneficiary == context.beneficiary &&
-                header.difficulty == 0 &&
                 header.gasLimit == context.gasLimit &&
                 header.timestamp == context.timestamp &&
                 keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
-                header.mixHash == context.mixHash &&
-                header.nonce == 0,
+                header.mixHash == context.mixHash,
             "header mismatch"
         );
     }
