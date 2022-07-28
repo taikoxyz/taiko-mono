@@ -170,21 +170,21 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[0]
         );
 
-        (bytes32 key, bytes32 value) = LibStorageProof.computeAnchorProofKV(
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof.computeAnchorProofKV(
             header.height,
             context.anchorHeight,
             context.anchorHash
         );
 
         if (!anchored) {
-            value = 0x0;
+            proofVal = 0x0;
         }
 
         LibTrieProof.verify(
             header.stateRoot,
             taikoL2Address,
-            key,
-            value,
+            proofKey,
+            proofVal,
             proofs[1]
         );
 
@@ -311,6 +311,10 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function _invalidateBlock(uint256 id) private {
+        require(
+            proofRecords[id][JUMP_MARKER].header.blockHash == 0x0,
+            "already invalidated"
+        );
         proofRecords[id][JUMP_MARKER] = ProofRecord({
             prover: msg.sender,
             header: ShortHeader({
