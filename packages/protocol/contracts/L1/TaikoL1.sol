@@ -8,303 +8,358 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibTxListDecoder.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
+import "../libs/LibStorageProof.sol";
 import "../libs/LibTrieProof.sol";
+import "../libs/LibTxList.sol";
+import "../libs/LibConstants.sol";
+import "./LibBlockHeader.sol";
+import "./LibZKP.sol";
+
+struct BlockContext {
+    uint256 anchorHeight;
+    bytes32 anchorHash;
+    address beneficiary;
+    uint64 gasLimit;
+    bytes extraData;
+    bytes32 txListHash;
+    bytes32 mixHash;
+    uint64 timestamp;
+}
 
 struct ShortHeader {
     bytes32 blockHash;
     bytes32 stateRoot;
-    uint256 height;
-}
-
-struct BlockHeader {
-    bytes32 parentHash;
-    bytes32 ommersHash;
-    address beneficiary;
-    bytes32 stateRoot;
-    bytes32 transactionsRoot;
-    bytes32 receiptsRoot;
-    bytes32[8] logsBloom;
-    uint256 difficulty; // must always be 0
-    uint128 height;
-    uint64 gasLimit;
-    uint64 gasUsed;
-    uint64 timestamp;
-    bytes extraData;
-    bytes32 mixHash;
-    uint64 nonce; // must always be 0
-}
-
-struct PendingBlock {
-    uint256 anchorHeight; // known L1 block height
-    bytes32 anchorHash; // known L1 block hash
-    address beneficiary;
-    uint64 gasLimit;
-    bytes extraData;
-    bytes32 txListHash; // the hash or KGZ commitment of the encoded txList
-    bytes32 mixHash;
-    uint64 timestamp;
 }
 
 struct ProofRecord {
-    address prover; // msg.sender of proveBlock tx
+    address prover;
     ShortHeader header;
 }
 
-contract TaikoL1 {
+/// @dev We have the following design assumptions:
+/// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
+//                  will always be zeros, and this will be checked by zkEVM.
+///
+/// - Assumption 2: Taiko L2 allows block.timestamp >= parent.timestamp.
+///
+/// - Assumption 3: mixHash will be used by Taiko L2 for randomness, see:
+///                 https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer
+///
+/// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
+///                 and `header.gasLimit <= MAX_TAIKO_BLOCK_GAS_LIMIT`
+///
+contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+    using LibBlockHeader for BlockHeader;
+    /**********************
+     * Constants   *
+     **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO
-    bytes32 public constant INVALID_BLOCK_MARKER =
-        keccak256("INVALID_BLOCK_MARKER");
-    // Finalized taiko block headers
-    ShortHeader[] public finalizedBlocks;
+    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
+    uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
+    uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
+    uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
+    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
-    // Pending Taiko blocks
-    mapping(uint256 => PendingBlock) public pendingBlocks;
+    /**********************
+     * State Variables    *
+     **********************/
+
+    // Finalized taiko block headers
+    mapping(uint256 => ShortHeader) public finalizedBlocks;
+
+    // block id => block context hash
+    mapping(uint256 => bytes32) public pendingBlocks;
 
     mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
 
     address public taikoL2Address;
-    uint64 public lastFinalizedBlockIndex;
-    uint64 public nextPendingBlockIndex;
+    uint64 public lastFinalizedHeight;
+    uint64 public lastFinalizedId;
+    uint64 public nextPendingId;
+    bytes public verificationKey; // TODO
 
-    modifier mayFinalizeBlocks() {
-        _;
-        tryToFinalizedMoreBlocks();
-    }
+    uint256[45] private __gap;
 
-    modifier blockIsPending(uint256 index) {
+    /**********************
+     * Events             *
+     **********************/
+
+    event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockProven(uint256 indexed id, BlockHeader header);
+    event BlockInvalidated(uint256 indexed id);
+    event BlockFinalized(uint256 indexed id, ShortHeader header);
+
+    /**********************
+     * Modifiers          *
+     **********************/
+
+    modifier whenBlockIsPending(uint256 id, BlockContext calldata context) {
+        require(id > lastFinalizedId && id < nextPendingId, "invalid id");
         require(
-            index > lastFinalizedBlockIndex && index < nextPendingBlockIndex
+            pendingBlocks[id] == keccak256(abi.encode(context)),
+            "context mismatch"
         );
         _;
+        _finalizeBlocks();
     }
 
-    event BlockProposed(uint256 indexed index, PendingBlock blk);
+    /**********************
+     * External Functions *
+     **********************/
 
-    /// @dev When a L2 block is proposed, we always implicitly require that the following
-    // fields have zero values: difficulty, nonce.
-    function proposeBlock(
-        bytes calldata txList, // or bytes32 txListHash when using blob
-        PendingBlock memory blk
-    ) external {
-        require(txList.length > 0, "null tx list");
+    function init(bytes calldata vKey, ShortHeader calldata genesis)
+        external
+        initializer
+    {
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
+        OwnableUpgradeable.__Ownable_init();
 
-        require(
-            blk.txListHash == 0x0 && blk.mixHash == 0x0 && blk.timestamp == 0,
-            "placeholder not zero"
-        );
+        finalizedBlocks[0] = genesis;
+        nextPendingId = 1;
 
-        require(
-            blk.anchorHeight >= block.number - MAX_ANCHOR_HEIGHT_DIFF &&
-                blk.anchorHash == blockhash(blk.anchorHeight) &&
-                blk.anchorHash != 0x0
-        );
+        verificationKey = vKey;
 
-        require(blk.beneficiary != address(0), "null beneficiary");
-        require(
-            blk.gasLimit > 0 && blk.gasLimit <= MAX_BLOCK_GASLIMIT,
-            "gas limit too large"
-        );
-
-        require(blk.extraData.length <= 32, "extraData too large");
-
-        // WARN: Taiko L2 allows block.timestamp >= parent.timestamp
-        blk.timestamp = uint64(block.timestamp);
-
-        // See https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer/
-        blk.mixHash = bytes32(block.difficulty);
-
-        blk.txListHash = keccak256(txList);
-
-        pendingBlocks[nextPendingBlockIndex] = blk;
-        emit BlockProposed(nextPendingBlockIndex, blk);
-
-        nextPendingBlockIndex += 1;
+        emit BlockFinalized(0, genesis);
     }
 
-    //TODO:add MAX_PENDING_SIZE
+    /// @notice Propose a Taiko L2 block.
+    /// @param context The context that the actual L2 block header must satisfy.
+    ///        Note the following fields in the provided context object must
+    ///        be zeros, and their actual values will be provisioned by Ethereum.
+    ///        - txListHash
+    ///        - mixHash
+    ///        - timestamp
+    /// @param txList A list of transactions in this block, encoded with RLP.
+    ///
+    function proposeBlock(BlockContext memory context, bytes calldata txList)
+        external
+        nonReentrant
+    {
+        require(txList.length > 0, "empty txList");
+
+        validateContext(context);
+
+        context.timestamp = uint64(block.timestamp);
+        context.mixHash = bytes32(block.difficulty);
+        context.txListHash = keccak256(txList);
+
+        pendingBlocks[nextPendingId] = keccak256(abi.encode(context));
+        emit BlockProposed(nextPendingId, context);
+
+        nextPendingId += 1;
+        _finalizeBlocks();
+    }
+
     function proveBlock(
-        uint256 index,
+        uint256 id,
+        bool anchored,
         BlockHeader calldata header,
-        bytes32 anchorHash,
-        bytes calldata zkproof,
-        bytes calldata mkproof
-    ) external blockIsPending(index) mayFinalizeBlocks {
-        PendingBlock memory blk = pendingBlocks[index];
-        verifyBlockHeader(header, blk);
-        bytes32 blockHash = hashBlockHeader(header);
+        BlockContext calldata context,
+        bytes[2] calldata proofs
+    ) external nonReentrant whenBlockIsPending(id, context) {
+        _validateHeaderForContext(header, context);
+        bytes32 blockHash = header.hashBlockHeader();
 
-        verifyZKProof(header.parentHash, blockHash, blk.txListHash, zkproof);
-
-        // we need to calculate key based on taikoL2Address,  pendingBlocks[index].anchorHeight
-        // but the following calculation is not correct.
-        //
-        // see TaikoL2.sol `prepareBlock`
-        bytes32 expectedKey = keccak256(
-            abi.encodePacked("PREPARE BLOCK", header.height)
+        LibZKP.verify(
+            verificationKey,
+            header.parentHash,
+            blockHash,
+            context.txListHash,
+            proofs[0]
         );
 
-        // The prepareBlock tx may fail due to out-of-gas, therefore, we have to accept
-        // an 0x0 value. In such case, we need to punish the block proposer for the failed
-        // prepareBlock tx.
-        require(
-            anchorHash == 0x0 || anchorHash == pendingBlocks[index].anchorHash
-        );
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeAnchorProofKV(
+                header.height,
+                context.anchorHeight,
+                context.anchorHash
+            );
+
+        if (!anchored) {
+            proofVal = 0x0;
+        }
 
         LibTrieProof.verify(
             header.stateRoot,
             taikoL2Address,
-            expectedKey,
-            anchorHash,
-            mkproof
+            proofKey,
+            proofVal,
+            proofs[1]
         );
 
-        proofRecords[index][header.parentHash] = ProofRecord({
+        proofRecords[id][header.parentHash] = ProofRecord({
             prover: msg.sender,
             header: ShortHeader({
                 blockHash: blockHash,
-                stateRoot: header.stateRoot,
-                height: header.height
+                stateRoot: header.stateRoot
             })
         });
+
+        emit BlockProven(id, header);
     }
 
     function proveBlockInvalid(
-        uint256 index,
+        uint256 id,
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
-        BlockHeader calldata header,
+        BlockHeader calldata throwAwayHeader,
+        BlockContext calldata context,
         bytes[2] calldata proofs
-    )
-        external
-        // bytes calldata zkproof,
-        // bytes calldata mkproof
-        blockIsPending(index)
-        mayFinalizeBlocks
-    {
-        PendingBlock memory blk = pendingBlocks[index];
-        verifyBlockHeader(header, blk);
-        bytes32 blockHash = hashBlockHeader(header);
-
+    ) external nonReentrant whenBlockIsPending(id, context) {
         require(
-            header.parentHash == finalizedBlocks[header.height - 1].blockHash
+            throwAwayHeader.isPartiallyValidForTaiko(),
+            "throwAwayHeader invalid"
         );
 
-        verifyZKProof(
-            header.parentHash,
-            blockHash,
+        require(
+            lastFinalizedHeight <=
+                throwAwayHeader.height + MAX_THROW_AWAY_PARENT_DIFF,
+            "parent too old"
+        );
+        require(
+            throwAwayHeader.parentHash ==
+                finalizedBlocks[throwAwayHeader.height - 1].blockHash,
+            "parent mismatch"
+        );
+
+        LibZKP.verify(
+            verificationKey,
+            throwAwayHeader.parentHash,
+            throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
             proofs[0]
         );
 
-        // we need to calculate key based on taikoL2Address and pendingBlocks[index].txListHash
-        // but the following calculation is not correct.
-        bytes32 expectedKey; // = keccak256(taikoL2Address, pendingBlocks[index].txListHash);
+        (bytes32 key, bytes32 value) = LibStorageProof
+            .computeInvalidTxListProofKV(context.txListHash);
 
         LibTrieProof.verify(
-            header.stateRoot,
+            throwAwayHeader.stateRoot,
             taikoL2Address,
-            expectedKey,
-            pendingBlocks[index].txListHash,
+            key,
+            value,
             proofs[1]
         );
 
-        proofRecords[index][INVALID_BLOCK_MARKER] = ProofRecord({
-            prover: msg.sender,
-            header: ShortHeader({
-                blockHash: INVALID_BLOCK_MARKER,
-                stateRoot: 0x0,
-                height: 0
-            })
-        });
+        _invalidateBlock(id);
     }
 
-    function verifyBlockInvalid(uint256 index, bytes calldata txList)
-        external
-        blockIsPending(index)
-        mayFinalizeBlocks
-    {
-        require(!isTxListDecodable(txList));
-        require(keccak256(txList) == pendingBlocks[index].txListHash);
-
-        proofRecords[index][INVALID_BLOCK_MARKER] = ProofRecord({
-            prover: msg.sender,
-            header: ShortHeader({
-                blockHash: INVALID_BLOCK_MARKER,
-                stateRoot: 0x0,
-                height: 0
-            })
-        });
+    function verifyBlockInvalid(
+        uint256 id,
+        BlockContext calldata context,
+        bytes calldata txList
+    ) external nonReentrant whenBlockIsPending(id, context) {
+        require(keccak256(txList) == context.txListHash, "txList mismatch");
+        require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
+        _invalidateBlock(id);
     }
 
-    function isTxListDecodable(bytes calldata encoded)
-        public
-        view
-        returns (bool)
-    {
-        try LibTxListDecoder.decodeTxList(encoded) returns (TxList memory) {
-            return true;
-        } catch (bytes memory) {
-            return false;
+    /**********************
+     * Public Functions   *
+     **********************/
+
+    function validateContext(BlockContext memory context) public view {
+        require(
+            context.txListHash == 0x0 &&
+                context.mixHash == 0x0 &&
+                context.timestamp == 0,
+            "nonzero placeholder fields"
+        );
+
+        require(
+            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
+                context.anchorHash == blockhash(context.anchorHeight) &&
+                context.anchorHash != 0x0,
+            "invalid anchor"
+        );
+
+        require(context.beneficiary != address(0), "null beneficiary");
+        require(
+            context.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            "invalid gasLimit"
+        );
+        require(context.extraData.length <= 32, "extraData too large");
+    }
+
+    /**********************
+     * Private Functions  *
+     **********************/
+
+    function _finalizeBlocks() private {
+        ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
+        uint256 nextId = lastFinalizedId + 1;
+        uint256 reads = 0;
+        uint256 writes = 0;
+        while (
+            nextId < nextPendingId &&
+            reads <= MAX_FINALIZATION_READS_PER_TX &&
+            writes <= MAX_FINALIZATION_WRITES_PER_TX
+        ) {
+            ShortHeader storage header = proofRecords[nextId][parent.blockHash]
+                .header;
+
+            if (header.blockHash != 0x0) {
+                lastFinalizedHeight += 1;
+
+                finalizedBlocks[lastFinalizedHeight] = header;
+                emit BlockFinalized(lastFinalizedHeight, header);
+
+                parent = header;
+                writes += 1;
+            } else if (
+                proofRecords[nextId][JUMP_MARKER].header.blockHash ==
+                JUMP_MARKER
+            ) {
+                // Do nothing
+            } else {
+                break;
+            }
+
+            lastFinalizedId += 1;
+            nextId += 1;
+            reads += 1;
         }
     }
 
-    function verifyZKProof(
-        bytes32 parentBlockHash,
-        bytes32 blockHash,
-        bytes32 txListHash,
-        bytes calldata zkproof
-    ) public view {
-        // TODO
+    function _invalidateBlock(uint256 id) private {
+        require(
+            proofRecords[id][JUMP_MARKER].header.blockHash == 0x0,
+            "already invalidated"
+        );
+        proofRecords[id][JUMP_MARKER] = ProofRecord({
+            prover: msg.sender,
+            header: ShortHeader({
+                blockHash: JUMP_MARKER,
+                stateRoot: JUMP_MARKER
+            })
+        });
+        emit BlockInvalidated(id);
     }
 
-    function verifyBlockHeader(
-        BlockHeader calldata header,
-        PendingBlock memory blk
-    ) public pure {
+    function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.beneficiary == blk.beneficiary &&
+            header.parentHash != 0x0 &&
+                header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+                header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
-                header.gasLimit == blk.gasLimit &&
-                header.timestamp == blk.timestamp &&
-                keccak256(header.extraData) == keccak256(blk.extraData) && // TODO: direct compare
-                header.mixHash == blk.mixHash &&
                 header.nonce == 0,
             "header mismatch"
         );
     }
 
-    function hashBlockHeader(BlockHeader calldata header)
-        public
-        pure
-        returns (bytes32)
-    {
-        // TODO
-    }
-
-    function tryToFinalizedMoreBlocks() internal {
-        ShortHeader memory parent = finalizedBlocks[finalizedBlocks.length - 1];
-
-        uint256 i = lastFinalizedBlockIndex + 1;
-
-        while (i < nextPendingBlockIndex) {
-            ShortHeader storage header = proofRecords[i][parent.blockHash]
-                .header;
-
-            if (header.blockHash != 0x0) {
-                finalizedBlocks.push(header);
-                parent = header;
-                lastFinalizedBlockIndex += 1;
-                i += 1;
-            } else if (
-                proofRecords[i][INVALID_BLOCK_MARKER].header.blockHash ==
-                INVALID_BLOCK_MARKER
-            ) {
-                lastFinalizedBlockIndex += 1;
-                i += 1;
-            } else {
-                break;
-            }
-        }
+    function _validateHeaderForContext(
+        BlockHeader calldata header,
+        BlockContext memory context
+    ) private pure {
+        require(
+            header.beneficiary == context.beneficiary &&
+                header.gasLimit == context.gasLimit &&
+                header.timestamp == context.timestamp &&
+                keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
+                header.mixHash == context.mixHash,
+            "header mismatch"
+        );
     }
 }
