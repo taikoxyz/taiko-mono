@@ -14,9 +14,22 @@ contract TaikoL2 {
     mapping(uint256 => bytes32) public l1blockhashes;
 
     // this function must be called in each L2 block so the expected storage writes will happen.
-    function prepareBlock(uint256 height, bytes32 hash) external {
-        require(hash != 0x0);
-        l1blockhashes[height] = hash;
+    function prepareBlock(uint256 anchorHeight, bytes32 anchorHash) external {
+        require(anchorHash != 0x0);
+        bytes32 _anchorHash = l1blockhashes[anchorHeight];
+
+        if (_anchorHash != anchorHash) {
+            require(_anchorHash == 0x0);
+            l1blockhashes[anchorHeight] = anchorHash;
+
+            bytes32 key = keccak256(
+                abi.encodePacked("PREPARE BLOCK", block.number)
+            );
+
+            assembly {
+                sstore(key, anchorHash)
+            }
+        }
     }
 
     function verifyBlockInvalid(bytes calldata txList) external {
