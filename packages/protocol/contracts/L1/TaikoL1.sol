@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "../libs/LibTxListDecoder.sol";
+import "../libs/LibTrieProof.sol";
 
 struct ShortHeader {
     bytes32 blockHash;
@@ -102,11 +103,11 @@ contract TaikoL1 {
         pendingBlocks[nextPendingBlockIndex++] = blk;
     }
 
-
     //TODO:add MAX_PENDING_SIZE
     function proveBlock(
         uint256 index,
         BlockHeader calldata header,
+        bytes32 anchorHash,
         bytes calldata zkproof,
         bytes calldata mkproof
     ) external blockIsPending(index) mayFinalizeBlocks {
@@ -115,7 +116,6 @@ contract TaikoL1 {
         bytes32 blockHash = hashBlockHeader(header);
 
         verifyZKProof(header.parentHash, blockHash, blk.txListHash, zkproof);
-        (bytes32 key, bytes32 value) = verifyMKProof(header.stateRoot, mkproof);
 
         // we need to calculate key based on taikoL2Address,  pendingBlocks[index].anchorHeight
         // but the following calculation is not correct.
@@ -125,12 +125,20 @@ contract TaikoL1 {
             abi.encodePacked("PREPARE BLOCK", header.height)
         );
 
-        require(key == expectedKey);
-
         // The prepareBlock tx may fail due to out-of-gas, therefore, we have to accept
         // an 0x0 value. In such case, we need to punish the block proposer for the failed
         // prepareBlock tx.
-        require(value == 0x0 || value == pendingBlocks[index].anchorHash);
+        require(
+            anchorHash == 0x0 || anchorHash == pendingBlocks[index].anchorHash
+        );
+
+        LibTrieProof.verify(
+            header.stateRoot,
+            taikoL2Address,
+            expectedKey,
+            anchorHash,
+            mkproof
+        );
 
         proofRecords[index][header.parentHash] = ProofRecord({
             prover: msg.sender,
@@ -160,13 +168,17 @@ contract TaikoL1 {
 
         verifyZKProof(header.parentHash, blockHash, txListHash, zkproof);
 
-        (bytes32 key, bytes32 value) = verifyMKProof(header.stateRoot, mkproof);
-
         // we need to calculate key based on taikoL2Address and pendingBlocks[index].txListHash
         // but the following calculation is not correct.
         bytes32 expectedKey; // = keccak256(taikoL2Address, pendingBlocks[index].txListHash);
 
-        require(key == expectedKey && value == pendingBlocks[index].txListHash);
+        LibTrieProof.verify(
+            header.stateRoot,
+            taikoL2Address,
+            expectedKey,
+            pendingBlocks[index].txListHash,
+            mkproof
+        );
 
         proofRecords[index][INVALID_BLOCK_MARKER] = ProofRecord({
             prover: msg.sender,
@@ -214,14 +226,6 @@ contract TaikoL1 {
         bytes32 txListHash,
         bytes calldata zkproof
     ) public view {
-        // TODO
-    }
-
-    function verifyMKProof(bytes32 stateRoot, bytes memory mkproof)
-        public
-        view
-        returns (bytes32 key, bytes32 value)
-    {
         // TODO
     }
 
