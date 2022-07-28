@@ -11,8 +11,10 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "../libs/LibTxListDecoder.sol";
+import "../libs/LibStorageProof.sol";
 import "../libs/LibTrieProof.sol";
+import "../libs/LibTxList.sol";
+import "../libs/LibTaikoConsts.sol";
 import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
 
@@ -47,7 +49,7 @@ struct ProofRecord {
 ///                 https://blog.ethereum.org/2021/11/29/how-the-merge-impacts-app-layer
 ///
 /// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
-///                 and `header.gasLimit <= MAX_BLOCK_GASLIMIT`
+///                 and `header.gasLimit <= MAX_TAIKO_BLOCK_GAS_LIMIT`
 ///
 contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using LibBlockHeader for BlockHeader;
@@ -81,6 +83,15 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint256[45] private __gap;
 
     /**********************
+     * Events             *
+     **********************/
+
+    event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockProven(uint256 indexed id, BlockHeader header);
+    event BlockInvalidated(uint256 indexed id);
+    event BlockFinalized(uint256 indexed id, ShortHeader header);
+
+    /**********************
      * Modifiers          *
      **********************/
 
@@ -93,15 +104,6 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _;
         _finalizeBlocks();
     }
-
-    /**********************
-     * Events             *
-     **********************/
-
-    event BlockProposed(uint256 indexed id, BlockContext context);
-    event BlockProven(uint256 indexed id, BlockHeader header);
-    event BlockInvalidated(uint256 indexed id);
-    event BlockFinalized(uint256 indexed id, ShortHeader header);
 
     /**********************
      * External Functions *
@@ -164,8 +166,15 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[0]
         );
 
-        bytes32 key = keccak256(abi.encodePacked("ANCHOR_KEY", header.height));
-        bytes32 value = anchor ? context.anchorHash : bytes32(0);
+        (bytes32 key, bytes32 value) = LibStorageProof.computeAnchorProofKV(
+            header.height,
+            context.anchorHeight,
+            context.anchorHash
+        );
+
+        if (!anchor) {
+            value = 0x0;
+        }
 
         LibTrieProof.verify(
             header.stateRoot,
@@ -202,7 +211,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         );
         require(
             throwAwayHeader.parentHash ==
-                finalizedBlocks[throwAwayHeader.height - 1].blockHash
+                finalizedBlocks[throwAwayHeader.height - 1].blockHash,
+            "parent mismatch"
         );
 
         LibZKP.verify(
@@ -213,15 +223,14 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[0]
         );
 
-        bytes32 key = keccak256(
-            abi.encodePacked("TXLIST_KEY", context.txListHash)
-        );
+        (bytes32 key, bytes32 value) = LibStorageProof
+            .computeInvalidTxListProofKV(context.txListHash);
 
         LibTrieProof.verify(
             throwAwayHeader.stateRoot,
             taikoL2Address,
             key,
-            context.txListHash,
+            value,
             proofs[1]
         );
 
@@ -234,25 +243,13 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         bytes calldata txList
     ) external whenBlockIsPending(id, context) {
         require(keccak256(txList) == context.txListHash, "txList mismatch");
-        require(!isTxListDecodable(txList));
+        require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
         _invalidateBlock(id);
     }
 
     /**********************
      * Public Functions   *
      **********************/
-
-    function isTxListDecodable(bytes calldata encoded)
-        public
-        view
-        returns (bool)
-    {
-        try LibTxListDecoder.decodeTxList(encoded) returns (TxList memory) {
-            return true;
-        } catch (bytes memory) {
-            return false;
-        }
-    }
 
     function validateContext(BlockContext memory context) public view {
         require(
@@ -265,28 +262,21 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(
             block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
                 context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0x0
+                context.anchorHash != 0x0,
+            "invalid anchor"
         );
 
         require(context.beneficiary != address(0), "null beneficiary");
-        require(context.gasLimit <= MAX_BLOCK_GASLIMIT, "invalid gasLimit");
+        require(
+            context.gasLimit <= LibTaikoConsts.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            "invalid gasLimit"
+        );
         require(context.extraData.length <= 32, "extraData too large");
     }
 
     /**********************
      * Private Functions  *
      **********************/
-
-    function _invalidateBlock(uint256 id) private {
-        proofRecords[id][JUMP_MARKER] = ProofRecord({
-            prover: msg.sender,
-            header: ShortHeader({
-                blockHash: JUMP_MARKER,
-                stateRoot: JUMP_MARKER
-            })
-        });
-        emit BlockInvalidated(id);
-    }
 
     function _finalizeBlocks() private {
         ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
@@ -305,7 +295,9 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             } else if (
                 proofRecords[nextId][JUMP_MARKER].header.blockHash ==
                 JUMP_MARKER
-            ) {} else {
+            ) {
+                // Do nothing
+            } else {
                 break;
             }
             lastFinalizedId += 1;
@@ -314,10 +306,21 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
+    function _invalidateBlock(uint256 id) private {
+        proofRecords[id][JUMP_MARKER] = ProofRecord({
+            prover: msg.sender,
+            header: ShortHeader({
+                blockHash: JUMP_MARKER,
+                stateRoot: JUMP_MARKER
+            })
+        });
+        emit BlockInvalidated(id);
+    }
+
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
             header.parentHash != 0x0 &&
-                header.gasLimit <= MAX_BLOCK_GASLIMIT &&
+                header.gasLimit <= LibTaikoConsts.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,

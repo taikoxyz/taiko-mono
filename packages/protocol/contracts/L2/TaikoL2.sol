@@ -8,49 +8,42 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibTxListDecoder.sol";
+import "../libs/LibStorageProof.sol";
+import "../libs/LibTxList.sol";
 
 contract TaikoL2 {
-    mapping(uint256 => bytes32) public l1blockhashes;
+    mapping(uint256 => bytes32) public anchorHashes;
 
     // this function must be called in each L2 block so the expected storage writes will happen.
     function prepareBlock(uint256 anchorHeight, bytes32 anchorHash) external {
-        require(anchorHash != 0x0);
-        bytes32 _anchorHash = l1blockhashes[anchorHeight];
+        require(anchorHash != 0x0, "zero anchorHash");
 
-        if (_anchorHash != anchorHash) {
-            require(_anchorHash == 0x0);
-            l1blockhashes[anchorHeight] = anchorHash;
+        bytes32 _anchorHash = anchorHashes[anchorHeight];
+        if (_anchorHash == 0x0) {
+            anchorHashes[anchorHeight] = anchorHash;
 
-            bytes32 key = keccak256(
-                abi.encodePacked("ANCHOR_KEY", block.number)
+            (bytes32 key, bytes32 value) = LibStorageProof.computeAnchorProofKV(
+                block.number,
+                anchorHeight,
+                anchorHash
             );
 
             assembly {
-                sstore(key, anchorHash)
+                sstore(key, value)
             }
+        } else {
+            require(_anchorHash == anchorHash, "anchorHash mismatch");
         }
     }
 
     function verifyBlockInvalid(bytes calldata txList) external {
-        require(!isTxListDecodable(txList));
+        require(!LibTxListValidator.isTxListValid(txList), "txList is valid");
 
-        bytes32 txListHash = keccak256(txList);
-        bytes32 key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
+        (bytes32 key, bytes32 value) = LibStorageProof
+            .computeInvalidTxListProofKV(keccak256(txList));
+
         assembly {
-            sstore(key, txListHash)
-        }
-    }
-
-    function isTxListDecodable(bytes calldata encoded)
-        public
-        view
-        returns (bool)
-    {
-        try LibTxListDecoder.decodeTxList(encoded) returns (TxList memory) {
-            return true;
-        } catch (bytes memory) {
-            return false;
+            sstore(key, value)
         }
     }
 }
