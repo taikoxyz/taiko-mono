@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibTrieProof.sol";
 import "./LibBlockHeader.sol";
+import "./LibZKP.sol";
 
 struct BlockContext {
     uint256 anchorHeight;
@@ -71,6 +72,7 @@ contract TaikoL1 {
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
+    bytes public verificationKey; // TODO
 
     uint256[45] private __gap;
 
@@ -137,7 +139,13 @@ contract TaikoL1 {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
-        verifyZKP(header.parentHash, blockHash, context.txListHash, proofs[0]);
+        LibZKP.verify(
+            verificationKey,
+            header.parentHash,
+            blockHash,
+            context.txListHash,
+            proofs[0]
+        );
 
         bytes32 expectedKey = keccak256(
             abi.encodePacked("ANCHOR_KEY", header.height)
@@ -182,7 +190,8 @@ contract TaikoL1 {
                 finalizedBlocks[throwAwayHeader.height - 1].blockHash
         );
 
-        verifyZKP(
+        LibZKP.verify(
+            verificationKey,
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
@@ -217,15 +226,6 @@ contract TaikoL1 {
     /**********************
      * Public Functions   *
      **********************/
-
-    function verifyZKP(
-        bytes32 parentBlockHash,
-        bytes32 blockHash,
-        bytes32 txListHash,
-        bytes calldata zkproof
-    ) public view {
-        // TODO
-    }
 
     function isTxListDecodable(bytes calldata encoded)
         public
