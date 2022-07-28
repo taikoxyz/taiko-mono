@@ -147,16 +147,14 @@ contract TaikoL1 {
             proofs[0]
         );
 
-        bytes32 expectedKey = keccak256(
-            abi.encodePacked("ANCHOR_KEY", header.height)
-        );
-        bytes32 expectedValue = anchor ? context.anchorHash : bytes32(0);
+        bytes32 key = keccak256(abi.encodePacked("ANCHOR_KEY", header.height));
+        bytes32 value = anchor ? context.anchorHash : bytes32(0);
 
         LibTrieProof.verify(
             header.stateRoot,
             taikoL2Address,
-            expectedKey,
-            expectedValue,
+            key,
+            value,
             proofs[1]
         );
 
