@@ -8,6 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibTrieProof.sol";
 import "./LibBlockHeader.sol";
@@ -46,7 +49,7 @@ struct ProofRecord {
 /// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
 ///                 and `header.gasLimit <= MAX_BLOCK_GASLIMIT`
 ///
-contract TaikoL1 {
+contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using LibBlockHeader for BlockHeader;
     /**********************
      * Constants   *
@@ -54,6 +57,7 @@ contract TaikoL1 {
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
     uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
+    uint256 public constant MAX_FINALIZATIONS_PER_TX = 5;
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
     /**********************
@@ -80,7 +84,7 @@ contract TaikoL1 {
      * Modifiers          *
      **********************/
 
-    modifier withPendingBlock(uint256 id, BlockContext calldata context) {
+    modifier whenBlockIsPending(uint256 id, BlockContext calldata context) {
         require(id > lastFinalizedId && id < nextPendingId, "invalid id");
         require(
             pendingBlocks[id] == keccak256(abi.encode(context)),
@@ -97,11 +101,23 @@ contract TaikoL1 {
     event BlockProposed(uint256 indexed id, BlockContext context);
     event BlockProven(uint256 indexed id, BlockHeader header);
     event BlockInvalidated(uint256 indexed id);
-    event BlockFinalized(uint256 indexed id, BlockHeader header);
+    event BlockFinalized(uint256 indexed id, ShortHeader header);
 
     /**********************
      * External Functions *
      **********************/
+
+    function init(bytes calldata vKey, ShortHeader calldata genesis) external {
+        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
+        OwnableUpgradeable.__Ownable_init();
+
+        finalizedBlocks[0] = genesis;
+        nextPendingId = 1;
+
+        verificationKey = vKey;
+
+        emit BlockFinalized(0, genesis);
+    }
 
     /// @notice Propose a Taiko L2 block.
     /// @param context The context that the actual L2 block header must satisfy.
@@ -127,6 +143,7 @@ contract TaikoL1 {
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
+        _finalizeBlocks();
     }
 
     function proveBlock(
@@ -135,7 +152,7 @@ contract TaikoL1 {
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external withPendingBlock(id, context) {
+    ) external whenBlockIsPending(id, context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -175,7 +192,7 @@ contract TaikoL1 {
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external withPendingBlock(id, context) {
+    ) external whenBlockIsPending(id, context) {
         _validateHeader(throwAwayHeader);
 
         require(
@@ -215,7 +232,7 @@ contract TaikoL1 {
         uint256 id,
         BlockContext calldata context,
         bytes calldata txList
-    ) external withPendingBlock(id, context) {
+    ) external whenBlockIsPending(id, context) {
         require(keccak256(txList) == context.txListHash, "txList mismatch");
         require(!isTxListDecodable(txList));
         _invalidateBlock(id);
@@ -272,26 +289,29 @@ contract TaikoL1 {
     }
 
     function _finalizeBlocks() private {
-        // ShortHeader memory parent = finalizedBlocks[finalizedBlocks.length - 1];
-        // uint256 i = lastFinalizedId + 1;
-        // while (i < nextPendingId) {
-        //     ShortHeader storage header = proofs[i][parent.blockHash]
-        //         .header;
-        //     if (header.blockHash != 0x0) {
-        //         finalizedBlocks[lastFinalizedHeight++] = header;
-        //         parent = header;
-        //         lastFinalizedId++;
-        //         i++;
-        //     } else if (
-        //         proofs[i][JUMP_MARKER].header.blockHash ==
-        //         JUMP_MARKER
-        //     ) {
-        //         lastFinalizedId++;
-        //         i++;
-        //     } else {
-        //         break;
-        //     }
-        // }
+        ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
+        uint256 nextId = lastFinalizedId + 1;
+        uint256 count = 0;
+        while (nextId < nextPendingId && count <= MAX_FINALIZATIONS_PER_TX) {
+            ShortHeader storage header = proofRecords[nextId][parent.blockHash]
+                .header;
+            if (header.blockHash != 0x0) {
+                lastFinalizedHeight += 1;
+
+                finalizedBlocks[lastFinalizedHeight] = header;
+                emit BlockFinalized(lastFinalizedHeight, header);
+
+                parent = header;
+            } else if (
+                proofRecords[nextId][JUMP_MARKER].header.blockHash ==
+                JUMP_MARKER
+            ) {} else {
+                break;
+            }
+            lastFinalizedId += 1;
+            nextId += 1;
+            count += 1;
+        }
     }
 
     function _validateHeader(BlockHeader calldata header) private pure {
