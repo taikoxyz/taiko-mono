@@ -19,6 +19,7 @@ import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
 
 struct BlockContext {
+    uint256 id;
     uint256 anchorHeight;
     bytes32 anchorHash;
     address beneficiary;
@@ -96,12 +97,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * Modifiers          *
      **********************/
 
-    modifier whenBlockIsPending(uint256 id, BlockContext calldata context) {
-        require(id > lastFinalizedId && id < nextPendingId, "invalid id");
-        require(
-            pendingBlocks[id] == keccak256(abi.encode(context)),
-            "context mismatch"
-        );
+    modifier whenBlockIsPending(BlockContext calldata context) {
+        _checkContextPending(context);
         _;
         _finalizeBlocks();
     }
@@ -142,6 +139,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         validateContext(context);
 
+        context.id = nextPendingId;
         context.timestamp = uint64(block.timestamp);
         context.mixHash = bytes32(block.difficulty);
         context.txListHash = keccak256(txList);
@@ -154,12 +152,11 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function proveBlock(
-        uint256 id,
         bool anchored,
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -190,7 +187,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        proofRecords[id][header.parentHash] = ProofRecord({
+        proofRecords[context.id][header.parentHash] = ProofRecord({
             prover: msg.sender,
             header: ShortHeader({
                 blockHash: blockHash,
@@ -198,16 +195,15 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             })
         });
 
-        emit BlockProven(id, header);
+        emit BlockProven(context.id, header);
     }
 
-    function proveBlockInvalid(
-        uint256 id,
+    function proveBlocksInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(context) {
         require(
             throwAwayHeader.isPartiallyValidForTaiko(),
             "throwAwayHeader invalid"
@@ -243,17 +239,17 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        _invalidateBlock(id);
+        _invalidateBlock(context.id);
     }
 
     function verifyBlockInvalid(
-        uint256 id,
         BlockContext calldata context,
         bytes calldata txList
-    ) external nonReentrant whenBlockIsPending(id, context) {
+    ) external nonReentrant whenBlockIsPending(context) {
         require(keccak256(txList) == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
-        _invalidateBlock(id);
+
+        _invalidateBlock(context.id);
     }
 
     /**********************
@@ -262,7 +258,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function validateContext(BlockContext memory context) public view {
         require(
-            context.txListHash == 0x0 &&
+            context.id == 0 &&
+                context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
                 context.timestamp == 0,
             "nonzero placeholder fields"
@@ -336,6 +333,17 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             })
         });
         emit BlockProvenInvalid(id);
+    }
+
+    function _checkContextPending(BlockContext calldata context) private view {
+        require(
+            context.id > lastFinalizedId && context.id < nextPendingId,
+            "invalid id"
+        );
+        require(
+            pendingBlocks[context.id] == keccak256(abi.encode(context)),
+            "context mismatch"
+        );
     }
 
     function _validateHeader(BlockHeader calldata header) private pure {
