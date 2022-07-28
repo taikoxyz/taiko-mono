@@ -1,0 +1,51 @@
+name: Solidity
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'packages/proto/**'
+
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'packages/rollup/**'
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.9.1
+      with:
+        access_token: ${{ github.token }}
+
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '16.15'
+
+    - name: 1:Rollup - Unit Tests
+      working-directory: ./packages/rollup
+      run: yarn && yarn clean && yarn test && yarn export:abi
+
+    # - name: 1:Rollup - Generate L2 Genesis
+    #   working-directory: ./packages/rollup
+    #   run: yarn test:genesis
+
+    - name: 1:Rollup - Export ABIs
+      working-directory: ./packages/rollup
+      run: yarn export:abi
+
+    # - name: 2:L2Subgraph
+    #   working-directory: ./packages/l2subgraph
+    #   run: rm -rf generated build && yarn && yarn build
+
+    # - name: 3:L1Subgraph
+    #   working-directory: ./packages/l1subgraph
+    #   run: rm -rf generated build && yarn && yarn build
+
+    # - name: 4:Rollup - Integration Tests
+    #   working-directory: ./packages/rollup
+    #   run: yarn clean && yarn test:integration

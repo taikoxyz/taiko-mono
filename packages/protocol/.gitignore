@@ -1,0 +1,20 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+docs
+abis
+
+yarn.lock
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+npm-debug.log*
+
+# Hardhat files
+cache
+artifacts
+
+# Editors
+.vscode
