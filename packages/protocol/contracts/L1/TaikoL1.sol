@@ -54,10 +54,12 @@ struct ProofRecord {
 ///
 contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using LibBlockHeader for BlockHeader;
+    using LibTxList for bytes;
     /**********************
      * Constants   *
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
+    uint256 public constant MAX_PENDING_BLOCKS = 1024;
     uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
@@ -136,15 +138,18 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         nonReentrant
     {
         require(txList.length > 0, "empty txList");
-
+        require(
+            nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
+            "too many pending blocks"
+        );
         validateContext(context);
 
         context.id = nextPendingId;
         context.timestamp = uint64(block.timestamp);
         context.mixHash = bytes32(block.difficulty);
-        context.txListHash = keccak256(txList);
+        context.txListHash = txList.hashTxList();
 
-        pendingBlocks[nextPendingId] = keccak256(abi.encode(context));
+        _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
@@ -246,7 +251,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         BlockContext calldata context,
         bytes calldata txList
     ) external nonReentrant whenBlockIsPending(context) {
-        require(keccak256(txList) == context.txListHash, "txList mismatch");
+        require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
         _invalidateBlock(context.id);
@@ -335,13 +340,24 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit BlockProvenInvalid(id);
     }
 
+    function _savePendingBlock(uint256 id, bytes32 contextHash)
+        private
+        returns (bytes32)
+    {
+        return pendingBlocks[id % MAX_PENDING_BLOCKS] = contextHash;
+    }
+
+    function _getPendingBlock(uint256 id) private view returns (bytes32) {
+        return pendingBlocks[id % MAX_PENDING_BLOCKS];
+    }
+
     function _checkContextPending(BlockContext calldata context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
             "invalid id"
         );
         require(
-            pendingBlocks[context.id] == keccak256(abi.encode(context)),
+            _getPendingBlock(context.id) == _hashContext(context),
             "context mismatch"
         );
     }
@@ -369,5 +385,13 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 header.mixHash == context.mixHash,
             "header mismatch"
         );
+    }
+
+    function _hashContext(BlockContext memory context)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(context));
     }
 }
