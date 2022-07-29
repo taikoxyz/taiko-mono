@@ -214,15 +214,15 @@ library LibTxList {
         }
     }
 
-    function sumGasLimit(TxList memory txList) internal pure returns (uint256) {
-        uint256 sum = 0;
-
+    function sumGasLimit(TxList memory txList)
+        internal
+        pure
+        returns (uint256 sum)
+    {
         Tx[] memory items = txList.items;
         for (uint256 i = 0; i < items.length; i++) {
             sum += items[i].gasLimit;
         }
-
-        return sum;
     }
 }
 
