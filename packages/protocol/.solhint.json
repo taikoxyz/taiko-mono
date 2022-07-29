@@ -1,0 +1,13 @@
+{
+    "extends": "solhint:recommended",
+    "rules": {
+        "avoid-low-level-calls": "off",
+        "no-inline-assembly": "off",
+        "not-rely-on-time": "off",
+        "no-empty-blocks": "off",
+        "ordering": "warn",
+        "payable-fallback": "off",
+        "compiler-version": ["error", "^0.8.0"],
+        "func-visibility": ["warn", { "ignoreConstructors": true }]
+    }
+}
