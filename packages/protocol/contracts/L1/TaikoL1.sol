@@ -137,6 +137,9 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external
         nonReentrant
     {
+        // Try to finalize blocks first to make room
+        finalizeBlocks();
+
         require(txList.length > 0, "empty txList");
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
@@ -153,7 +156,6 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
-        finalizeBlocks();
     }
 
     function proveBlock(
