@@ -68,6 +68,10 @@ struct TxList {
 }
 
 library LibTxList {
+    function hashTxList(bytes calldata encoded) public pure returns (bytes32) {
+        return keccak256(encoded);
+    }
+
     function decodeTxList(bytes calldata encoded)
         public
         pure
