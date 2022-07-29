@@ -198,9 +198,9 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit BlockProven(context.id, header);
     }
 
-    function proveBlocksInvalid(
-        bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
+    function proveBlockInvalid(
         BlockHeader calldata throwAwayHeader,
+        bytes calldata throwAwayTxList,
         BlockContext calldata context,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
@@ -224,7 +224,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             verificationKey,
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
-            throwAwayTxListHash,
+            keccak256(throwAwayTxList),
+            // throwAwayTxList.hashTxList(), //TODO: use this later
             proofs[0]
         );
 
