@@ -89,7 +89,11 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
 
     event BlockProposed(uint256 indexed id, BlockContext context);
-    event BlockProven(uint256 indexed id, BlockHeader header);
+    event BlockProven(
+        uint256 indexed id,
+        BlockHeader header,
+        bytes32 blockHash
+    );
     event BlockProvenInvalid(uint256 indexed id);
     event BlockFinalized(uint256 indexed id, ShortHeader header);
 
@@ -195,7 +199,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             })
         });
 
-        emit BlockProven(context.id, header);
+        emit BlockProven(context.id, header, blockHash);
     }
 
     function proveBlocksInvalid(
