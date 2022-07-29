@@ -91,8 +91,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event BlockProposed(uint256 indexed id, BlockContext context);
     event BlockProven(
         uint256 indexed id,
-        BlockHeader header,
-        bytes32 blockHash
+        bytes32 parentHash,
+        ProofRecord record
     );
     event BlockProvenInvalid(uint256 indexed id);
     event BlockFinalized(uint256 indexed id, ShortHeader header);
@@ -191,7 +191,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        proofRecords[context.id][header.parentHash] = ProofRecord({
+        ProofRecord memory record = ProofRecord({
             prover: msg.sender,
             header: ShortHeader({
                 blockHash: blockHash,
@@ -199,7 +199,9 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             })
         });
 
-        emit BlockProven(context.id, header, blockHash);
+        proofRecords[context.id][header.parentHash] = record;
+
+        emit BlockProven(context.id, header.parentHash, record);
     }
 
     function proveBlocksInvalid(
