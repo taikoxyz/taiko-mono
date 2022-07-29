@@ -30,22 +30,6 @@ jobs:
       working-directory: ./packages/rollup
       run: yarn && yarn clean && yarn test && yarn export:abi
 
-    # - name: 1:Rollup - Generate L2 Genesis
-    #   working-directory: ./packages/rollup
-    #   run: yarn test:genesis
-
     - name: 1:Rollup - Export ABIs
       working-directory: ./packages/rollup
       run: yarn export:abi
-
-    # - name: 2:L2Subgraph
-    #   working-directory: ./packages/l2subgraph
-    #   run: rm -rf generated build && yarn && yarn build
-
-    # - name: 3:L1Subgraph
-    #   working-directory: ./packages/l1subgraph
-    #   run: rm -rf generated build && yarn && yarn build
-
-    # - name: 4:Rollup - Integration Tests
-    #   working-directory: ./packages/rollup
-    #   run: yarn clean && yarn test:integration

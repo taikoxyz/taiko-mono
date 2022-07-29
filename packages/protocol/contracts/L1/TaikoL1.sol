@@ -30,14 +30,14 @@ struct BlockContext {
     uint64 timestamp;
 }
 
-struct ShortHeader {
+struct Snippet {
     bytes32 blockHash;
     bytes32 stateRoot;
 }
 
 struct ProofRecord {
     address prover;
-    ShortHeader header;
+    Snippet snippet;
 }
 
 /// @dev We have the following design assumptions:
@@ -54,10 +54,12 @@ struct ProofRecord {
 ///
 contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using LibBlockHeader for BlockHeader;
+    using LibTxList for bytes;
     /**********************
      * Constants   *
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
+    uint256 public constant MAX_PENDING_BLOCKS = 1024;
     uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
@@ -69,7 +71,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
 
     // Finalized taiko block headers
-    mapping(uint256 => ShortHeader) public finalizedBlocks;
+    mapping(uint256 => Snippet) public finalizedBlocks;
 
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
@@ -95,7 +97,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ProofRecord record
     );
     event BlockProvenInvalid(uint256 indexed id);
-    event BlockFinalized(uint256 indexed id, ShortHeader header);
+    event BlockFinalized(uint256 indexed id, Snippet snippet);
 
     /**********************
      * Modifiers          *
@@ -111,7 +113,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(bytes calldata vKey, ShortHeader calldata genesis)
+    function init(bytes calldata vKey, Snippet calldata genesis)
         external
         initializer
     {
@@ -139,20 +141,25 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         external
         nonReentrant
     {
-        require(txList.length > 0, "empty txList");
+        // Try to finalize blocks first to make room
+        finalizeBlocks();
 
+        require(txList.length > 0, "empty txList");
+        require(
+            nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
+            "too many pending blocks"
+        );
         validateContext(context);
 
         context.id = nextPendingId;
         context.timestamp = uint64(block.timestamp);
         context.mixHash = bytes32(block.difficulty);
-        context.txListHash = keccak256(txList);
+        context.txListHash = txList.hashTxList();
 
-        pendingBlocks[nextPendingId] = keccak256(abi.encode(context));
+        _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
-        finalizeBlocks();
     }
 
     function proveBlock(
@@ -193,7 +200,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         ProofRecord memory record = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({
+            snippet: Snippet({
                 blockHash: blockHash,
                 stateRoot: header.stateRoot
             })
@@ -252,7 +259,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         BlockContext calldata context,
         bytes calldata txList
     ) external nonReentrant whenBlockIsPending(context) {
-        require(keccak256(txList) == context.txListHash, "txList mismatch");
+        require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
         _invalidateBlock(context.id);
@@ -261,6 +268,43 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /**********************
      * Public Functions   *
      **********************/
+
+    function finalizeBlocks() public {
+        Snippet memory parent = finalizedBlocks[lastFinalizedHeight];
+        uint256 nextId = lastFinalizedId + 1;
+        uint256 reads = 0;
+        uint256 writes = 0;
+        while (
+            nextId < nextPendingId &&
+            reads <= MAX_FINALIZATION_READS_PER_TX &&
+            writes <= MAX_FINALIZATION_WRITES_PER_TX
+        ) {
+            Snippet storage snippet = proofRecords[nextId][parent.blockHash]
+                .snippet;
+
+            if (snippet.blockHash != 0x0) {
+                delete proofRecords[nextId][parent.blockHash];
+                lastFinalizedHeight += 1;
+
+                finalizedBlocks[lastFinalizedHeight] = snippet;
+                emit BlockFinalized(lastFinalizedHeight, snippet);
+
+                parent = snippet;
+                writes += 1;
+            } else if (
+                proofRecords[nextId][JUMP_MARKER].snippet.blockHash ==
+                JUMP_MARKER
+            ) {
+                delete proofRecords[nextId][JUMP_MARKER];
+            } else {
+                break;
+            }
+
+            lastFinalizedId += 1;
+            nextId += 1;
+            reads += 1;
+        }
+    }
 
     function validateContext(BlockContext memory context) public view {
         require(
@@ -286,61 +330,31 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
-    function finalizeBlocks() public {
-        ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
-        uint256 nextId = lastFinalizedId + 1;
-        uint256 reads = 0;
-        uint256 writes = 0;
-        while (
-            nextId < nextPendingId &&
-            reads <= MAX_FINALIZATION_READS_PER_TX &&
-            writes <= MAX_FINALIZATION_WRITES_PER_TX
-        ) {
-            ShortHeader storage header = proofRecords[nextId][parent.blockHash]
-                .header;
-
-            if (header.blockHash != 0x0) {
-                delete proofRecords[nextId][parent.blockHash];
-
-                lastFinalizedHeight += 1;
-
-                finalizedBlocks[lastFinalizedHeight] = header;
-                emit BlockFinalized(lastFinalizedHeight, header);
-
-                parent = header;
-                writes += 1;
-            } else if (
-                proofRecords[nextId][JUMP_MARKER].header.blockHash ==
-                JUMP_MARKER
-            ) {
-                delete proofRecords[nextId][JUMP_MARKER];
-            } else {
-                break;
-            }
-
-            lastFinalizedId += 1;
-            nextId += 1;
-            reads += 1;
-        }
-    }
-
     /**********************
      * Private Functions  *
      **********************/
 
     function _invalidateBlock(uint256 id) private {
         require(
-            proofRecords[id][JUMP_MARKER].header.blockHash == 0x0,
+            proofRecords[id][JUMP_MARKER].snippet.blockHash == 0x0,
             "already invalidated"
         );
         proofRecords[id][JUMP_MARKER] = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({
-                blockHash: JUMP_MARKER,
-                stateRoot: JUMP_MARKER
-            })
+            snippet: Snippet({blockHash: JUMP_MARKER, stateRoot: JUMP_MARKER})
         });
         emit BlockProvenInvalid(id);
+    }
+
+    function _savePendingBlock(uint256 id, bytes32 contextHash)
+        private
+        returns (bytes32)
+    {
+        return pendingBlocks[id % MAX_PENDING_BLOCKS] = contextHash;
+    }
+
+    function _getPendingBlock(uint256 id) private view returns (bytes32) {
+        return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
     function _checkContextPending(BlockContext calldata context) private view {
@@ -349,7 +363,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             "invalid id"
         );
         require(
-            pendingBlocks[context.id] == keccak256(abi.encode(context)),
+            _getPendingBlock(context.id) == _hashContext(context),
             "context mismatch"
         );
     }
@@ -377,5 +391,13 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 header.mixHash == context.mixHash,
             "header mismatch"
         );
+    }
+
+    function _hashContext(BlockContext memory context)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(context));
     }
 }
