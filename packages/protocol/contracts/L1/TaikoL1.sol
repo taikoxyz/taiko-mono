@@ -100,7 +100,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     modifier whenBlockIsPending(BlockContext calldata context) {
         _checkContextPending(context);
         _;
-        _finalizeBlocks();
+        finalizeBlocks();
     }
 
     /**********************
@@ -148,7 +148,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
-        _finalizeBlocks();
+        finalizeBlocks();
     }
 
     function proveBlock(
@@ -280,11 +280,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
-    /**********************
-     * Private Functions  *
-     **********************/
-
-    function _finalizeBlocks() private {
+    function finalizeBlocks() public {
         ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
         uint256 nextId = lastFinalizedId + 1;
         uint256 reads = 0;
@@ -319,6 +315,10 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             reads += 1;
         }
     }
+
+    /**********************
+     * Private Functions  *
+     **********************/
 
     function _invalidateBlock(uint256 id) private {
         require(
