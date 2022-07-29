@@ -30,14 +30,14 @@ struct BlockContext {
     uint64 timestamp;
 }
 
-struct ShortHeader {
+struct Snippet {
     bytes32 blockHash;
     bytes32 stateRoot;
 }
 
 struct ProofRecord {
     address prover;
-    ShortHeader header;
+    Snippet snippet;
 }
 
 /// @dev We have the following design assumptions:
@@ -71,7 +71,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
 
     // Finalized taiko block headers
-    mapping(uint256 => ShortHeader) public finalizedBlocks;
+    mapping(uint256 => Snippet) public finalizedBlocks;
 
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
@@ -93,7 +93,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event BlockProposed(uint256 indexed id, BlockContext context);
     event BlockProven(uint256 indexed id, BlockHeader header);
     event BlockProvenInvalid(uint256 indexed id);
-    event BlockFinalized(uint256 indexed id, ShortHeader header);
+    event BlockFinalized(uint256 indexed id, Snippet snippet);
 
     /**********************
      * Modifiers          *
@@ -109,7 +109,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(bytes calldata vKey, ShortHeader calldata genesis)
+    function init(bytes calldata vKey, Snippet calldata genesis)
         external
         initializer
     {
@@ -196,7 +196,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         proofRecords[context.id][header.parentHash] = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({
+            snippet: Snippet({
                 blockHash: blockHash,
                 stateRoot: header.stateRoot
             })
@@ -264,7 +264,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
 
     function finalizeBlocks() public {
-        ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
+        Snippet memory parent = finalizedBlocks[lastFinalizedHeight];
         uint256 nextId = lastFinalizedId + 1;
         uint256 reads = 0;
         uint256 writes = 0;
@@ -273,19 +273,19 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             reads <= MAX_FINALIZATION_READS_PER_TX &&
             writes <= MAX_FINALIZATION_WRITES_PER_TX
         ) {
-            ShortHeader storage header = proofRecords[nextId][parent.blockHash]
-                .header;
+            Snippet storage snippet = proofRecords[nextId][parent.blockHash]
+                .snippet;
 
-            if (header.blockHash != 0x0) {
+            if (snippet.blockHash != 0x0) {
                 lastFinalizedHeight += 1;
 
-                finalizedBlocks[lastFinalizedHeight] = header;
-                emit BlockFinalized(lastFinalizedHeight, header);
+                finalizedBlocks[lastFinalizedHeight] = snippet;
+                emit BlockFinalized(lastFinalizedHeight, snippet);
 
-                parent = header;
+                parent = snippet;
                 writes += 1;
             } else if (
-                proofRecords[nextId][JUMP_MARKER].header.blockHash ==
+                proofRecords[nextId][JUMP_MARKER].snippet.blockHash ==
                 JUMP_MARKER
             ) {
                 // Do nothing
@@ -329,15 +329,12 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function _invalidateBlock(uint256 id) private {
         require(
-            proofRecords[id][JUMP_MARKER].header.blockHash == 0x0,
+            proofRecords[id][JUMP_MARKER].snippet.blockHash == 0x0,
             "already invalidated"
         );
         proofRecords[id][JUMP_MARKER] = ProofRecord({
             prover: msg.sender,
-            header: ShortHeader({
-                blockHash: JUMP_MARKER,
-                stateRoot: JUMP_MARKER
-            })
+            snippet: Snippet({blockHash: JUMP_MARKER, stateRoot: JUMP_MARKER})
         });
         emit BlockProvenInvalid(id);
     }
