@@ -294,6 +294,8 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 .header;
 
             if (header.blockHash != 0x0) {
+                delete proofRecords[nextId][parent.blockHash];
+
                 lastFinalizedHeight += 1;
 
                 finalizedBlocks[lastFinalizedHeight] = header;
@@ -305,7 +307,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 proofRecords[nextId][JUMP_MARKER].header.blockHash ==
                 JUMP_MARKER
             ) {
-                // Do nothing
+                delete proofRecords[nextId][JUMP_MARKER];
             } else {
                 break;
             }
