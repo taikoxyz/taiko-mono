@@ -2,7 +2,7 @@
 // Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/Lib_RLPWriter.sol
 // Modified to support writeBytes32/writeUint64
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.15;
 
 /**
  * @title Lib_RLPWriter

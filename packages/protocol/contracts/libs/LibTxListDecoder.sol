@@ -8,22 +8,16 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-library LibStorageProof {
-    function computeAnchorProofKV(
-        uint256 height,
-        uint256 anchorHeight,
-        bytes32 anchorHash
-    ) internal pure returns (bytes32 key, bytes32 value) {
-        key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
-        value = keccak256(abi.encodePacked(anchorHeight, anchorHash));
-    }
+struct TxList {
+    bytes32 todo;
+}
 
-    function computeInvalidTxListProofKV(bytes32 txListHash)
-        internal
-        pure
-        returns (bytes32 key, bytes32 value)
+library LibTxListDecoder {
+    function decodeTxList(bytes calldata encoded)
+        public
+        view
+        returns (TxList memory txList)
     {
-        key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
-        value = txListHash;
+        // throw exception if failed
     }
 }

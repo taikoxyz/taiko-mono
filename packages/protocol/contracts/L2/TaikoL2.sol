@@ -8,54 +8,49 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibStorageProof.sol";
-import "../libs/LibTxList.sol";
+import "../libs/LibTxListDecoder.sol";
 
 contract TaikoL2 {
-    mapping(uint256 => bytes32) public anchorHashes;
-    uint256 public lastAnchorHeight;
+    mapping(uint256 => bytes32) public l1blockhashes;
 
-    event Anchored(
-        uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
+    // this function must be called in each L2 block so the expected storage writes will happen.
+    function prepareBlock(uint256 anchorHeight, bytes32 anchorHash) external {
+        require(anchorHash != 0x0);
+        bytes32 _anchorHash = l1blockhashes[anchorHeight];
 
-    modifier whenAnchoreAllowed() {
-        require(lastAnchorHeight < block.number, "anchored already");
-        lastAnchorHeight = block.number;
-        _;
-    }
+        if (_anchorHash != anchorHash) {
+            require(_anchorHash == 0x0);
+            l1blockhashes[anchorHeight] = anchorHash;
 
-    function anchor(uint256 anchorHeight, bytes32 anchorHash)
-        external
-        whenAnchoreAllowed
-    {
-        require(anchorHeight != 0 && anchorHash != 0x0, "invalid anchor");
-
-        if (anchorHashes[anchorHeight] == 0x0) {
-            anchorHashes[anchorHeight] = anchorHash;
-
-            (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-                .computeAnchorProofKV(block.number, anchorHeight, anchorHash);
+            bytes32 key = keccak256(
+                abi.encodePacked("PREPARE BLOCK", block.number)
+            );
 
             assembly {
-                sstore(proofKey, proofVal)
+                sstore(key, anchorHash)
             }
-
-            emit Anchored(anchorHeight, anchorHash, proofKey, proofVal);
         }
     }
 
     function verifyBlockInvalid(bytes calldata txList) external {
-        require(!LibTxListValidator.isTxListValid(txList), "txList is valid");
-
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(keccak256(txList));
+        require(!isTxListDecodable(txList));
+        bytes32 txListHash = keccak256(txList);
+        bytes32 expectedStorageKey; // = keccak256(address(this), txListHash);
 
         assembly {
-            sstore(proofKey, proofVal)
+            sstore(expectedStorageKey, txListHash)
+        }
+    }
+
+    function isTxListDecodable(bytes calldata encoded)
+        public
+        view
+        returns (bool)
+    {
+        try LibTxListDecoder.decodeTxList(encoded) returns (TxList memory) {
+            return true;
+        } catch (bytes memory) {
+            return false;
         }
     }
 }
