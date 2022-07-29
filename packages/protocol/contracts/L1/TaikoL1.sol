@@ -261,30 +261,6 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      * Public Functions   *
      **********************/
 
-    function validateContext(BlockContext memory context) public view {
-        require(
-            context.id == 0 &&
-                context.txListHash == 0x0 &&
-                context.mixHash == 0x0 &&
-                context.timestamp == 0,
-            "nonzero placeholder fields"
-        );
-
-        require(
-            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
-                context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0x0,
-            "invalid anchor"
-        );
-
-        require(context.beneficiary != address(0), "null beneficiary");
-        require(
-            context.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
-            "invalid gasLimit"
-        );
-        require(context.extraData.length <= 32, "extraData too large");
-    }
-
     function finalizeBlocks() public {
         ShortHeader memory parent = finalizedBlocks[lastFinalizedHeight];
         uint256 nextId = lastFinalizedId + 1;
@@ -319,6 +295,30 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             nextId += 1;
             reads += 1;
         }
+    }
+
+    function validateContext(BlockContext memory context) public view {
+        require(
+            context.id == 0 &&
+                context.txListHash == 0x0 &&
+                context.mixHash == 0x0 &&
+                context.timestamp == 0,
+            "nonzero placeholder fields"
+        );
+
+        require(
+            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
+                context.anchorHash == blockhash(context.anchorHeight) &&
+                context.anchorHash != 0x0,
+            "invalid anchor"
+        );
+
+        require(context.beneficiary != address(0), "null beneficiary");
+        require(
+            context.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            "invalid gasLimit"
+        );
+        require(context.extraData.length <= 32, "extraData too large");
     }
 
     /**********************
