@@ -15,6 +15,8 @@ contract TaikoL2 {
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
 
+    uint256[48] private __gap;
+
     event Anchored(
         uint256 anchorHeight,
         bytes32 anchorHash,

@@ -60,7 +60,6 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
     uint256 public constant MAX_PENDING_BLOCKS = 1024;
-    uint256 public constant MAX_BLOCK_GASLIMIT = 5000000; // TODO: figure out this value
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
     uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
@@ -79,12 +78,13 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
 
     address public taikoL2Address;
+    uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
     bytes public verificationKey; // TODO
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     /**********************
      * Events             *
@@ -119,6 +119,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
+        genesisHeight = uint64(block.number);
         verificationKey = vKey;
 
         emit BlockFinalized(0, genesis);
@@ -149,8 +150,11 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         context.id = nextPendingId;
         context.timestamp = uint64(block.timestamp);
-        context.mixHash = bytes32(block.difficulty);
         context.txListHash = txList.hashTxList();
+
+        // if multiple L2 blocks included in the same L1 block,
+        // their block.mixHash fields for randomness will be the same.
+        context.mixHash = bytes32(block.difficulty);
 
         _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId, context);
@@ -205,7 +209,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit BlockProven(context.id, header);
     }
 
-    function proveBlocksInvalid(
+    function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
