@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "../libs/LibStorageProof.sol";
@@ -52,7 +51,11 @@ struct ProofRecord {
 /// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
 ///                 and `header.gasLimit <= MAX_TAIKO_BLOCK_GAS_LIMIT`
 ///
-contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+/// This contract shall be deployed as the initial implementation of a
+/// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
+/// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
+/// shall be deployed infront of it.
+contract TaikoL1 is ReentrancyGuardUpgradeable {
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
     /**********************
