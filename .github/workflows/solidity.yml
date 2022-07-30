@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'packages/proto/**'
+      - 'packages/protocol/**'
 
   pull_request:
     branches: [ main ]
     paths:
-      - 'packages/rollup/**'
+      - 'packages/protocol/**'
 
 jobs:
 
@@ -27,9 +27,9 @@ jobs:
         node-version: '16.15'
 
     - name: 1:Rollup - Unit Tests
-      working-directory: ./packages/rollup
+      working-directory: ./packages/protocol
       run: yarn && yarn clean && yarn test && yarn export:abi
 
     - name: 1:Rollup - Export ABIs
-      working-directory: ./packages/rollup
+      working-directory: ./packages/protocol
       run: yarn export:abi
