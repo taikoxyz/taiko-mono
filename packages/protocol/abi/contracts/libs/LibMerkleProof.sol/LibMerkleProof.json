@@ -1,0 +1,35 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "stateRoot",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "address",
+                "name": "addr",
+                "type": "address"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "key",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "value",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes",
+                "name": "mkproof",
+                "type": "bytes"
+            }
+        ],
+        "name": "verify",
+        "outputs": [],
+        "stateMutability": "pure",
+        "type": "function"
+    }
+]

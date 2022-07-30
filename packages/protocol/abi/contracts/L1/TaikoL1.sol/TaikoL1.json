@@ -1,0 +1,945 @@
+[
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "blockHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "stateRoot",
+                        "type": "bytes32"
+                    }
+                ],
+                "indexed": false,
+                "internalType": "struct Snippet",
+                "name": "snippet",
+                "type": "tuple"
+            }
+        ],
+        "name": "BlockFinalized",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "indexed": false,
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            }
+        ],
+        "name": "BlockProposed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "parentHash",
+                "type": "bytes32"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "address",
+                        "name": "prover",
+                        "type": "address"
+                    },
+                    {
+                        "components": [
+                            {
+                                "internalType": "bytes32",
+                                "name": "blockHash",
+                                "type": "bytes32"
+                            },
+                            {
+                                "internalType": "bytes32",
+                                "name": "stateRoot",
+                                "type": "bytes32"
+                            }
+                        ],
+                        "internalType": "struct Snippet",
+                        "name": "snippet",
+                        "type": "tuple"
+                    }
+                ],
+                "indexed": false,
+                "internalType": "struct ProofRecord",
+                "name": "record",
+                "type": "tuple"
+            }
+        ],
+        "name": "BlockProven",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            }
+        ],
+        "name": "BlockProvenInvalid",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "uint8",
+                "name": "version",
+                "type": "uint8"
+            }
+        ],
+        "name": "Initialized",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_ANCHOR_HEIGHT_DIFF",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_FINALIZATION_READS_PER_TX",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_FINALIZATION_WRITES_PER_TX",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_PENDING_BLOCKS",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_THROW_AWAY_PARENT_DIFF",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ZKP_VKEY",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "finalizeBlocks",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "finalizedBlocks",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "blockHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "stateRoot",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "genesisHeight",
+        "outputs": [
+            {
+                "internalType": "uint64",
+                "name": "",
+                "type": "uint64"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "blockHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "stateRoot",
+                        "type": "bytes32"
+                    }
+                ],
+                "internalType": "struct Snippet",
+                "name": "genesis",
+                "type": "tuple"
+            },
+            {
+                "internalType": "address",
+                "name": "keyManagerAddr",
+                "type": "address"
+            }
+        ],
+        "name": "init",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "keyManager",
+        "outputs": [
+            {
+                "internalType": "contract KeyManager",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "lastFinalizedHeight",
+        "outputs": [
+            {
+                "internalType": "uint64",
+                "name": "",
+                "type": "uint64"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "lastFinalizedId",
+        "outputs": [
+            {
+                "internalType": "uint64",
+                "name": "",
+                "type": "uint64"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "nextPendingId",
+        "outputs": [
+            {
+                "internalType": "uint64",
+                "name": "",
+                "type": "uint64"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "pendingBlocks",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "name": "proofRecords",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "prover",
+                "type": "address"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "blockHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "stateRoot",
+                        "type": "bytes32"
+                    }
+                ],
+                "internalType": "struct Snippet",
+                "name": "snippet",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            },
+            {
+                "internalType": "bytes",
+                "name": "txList",
+                "type": "bytes"
+            }
+        ],
+        "name": "proposeBlock",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bool",
+                "name": "anchored",
+                "type": "bool"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "parentHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "ommersHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "stateRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "transactionsRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "receiptsRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32[8]",
+                        "name": "logsBloom",
+                        "type": "bytes32[8]"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "difficulty",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint128",
+                        "name": "height",
+                        "type": "uint128"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasUsed",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "nonce",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockHeader",
+                "name": "header",
+                "type": "tuple"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            },
+            {
+                "internalType": "bytes[2]",
+                "name": "proofs",
+                "type": "bytes[2]"
+            }
+        ],
+        "name": "proveBlock",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "throwAwayTxListHash",
+                "type": "bytes32"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "bytes32",
+                        "name": "parentHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "ommersHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "stateRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "transactionsRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "receiptsRoot",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32[8]",
+                        "name": "logsBloom",
+                        "type": "bytes32[8]"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "difficulty",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint128",
+                        "name": "height",
+                        "type": "uint128"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasUsed",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "nonce",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockHeader",
+                "name": "throwAwayHeader",
+                "type": "tuple"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            },
+            {
+                "internalType": "bytes[2]",
+                "name": "proofs",
+                "type": "bytes[2]"
+            }
+        ],
+        "name": "proveBlockInvalid",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "taikoL2Address",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            }
+        ],
+        "name": "validateContext",
+        "outputs": [],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "anchorHeight",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "anchorHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "beneficiary",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "gasLimit",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "extraData",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "txListHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "bytes32",
+                        "name": "mixHash",
+                        "type": "bytes32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "timestamp",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct BlockContext",
+                "name": "context",
+                "type": "tuple"
+            },
+            {
+                "internalType": "bytes",
+                "name": "txList",
+                "type": "bytes"
+            }
+        ],
+        "name": "verifyBlockInvalid",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]
