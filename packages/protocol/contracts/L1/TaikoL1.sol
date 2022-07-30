@@ -91,7 +91,11 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
      **********************/
 
     event BlockProposed(uint256 indexed id, BlockContext context);
-    event BlockProven(uint256 indexed id, BlockHeader header);
+    event BlockProven(
+        uint256 indexed id,
+        bytes32 parentHash,
+        ProofRecord record
+    );
     event BlockProvenInvalid(uint256 indexed id);
     event BlockFinalized(uint256 indexed id, Snippet snippet);
 
@@ -198,7 +202,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        proofRecords[context.id][header.parentHash] = ProofRecord({
+        ProofRecord memory record = ProofRecord({
             prover: msg.sender,
             snippet: Snippet({
                 blockHash: blockHash,
@@ -206,7 +210,9 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             })
         });
 
-        emit BlockProven(context.id, header);
+        proofRecords[context.id][header.parentHash] = record;
+
+        emit BlockProven(context.id, header.parentHash, record);
     }
 
     function proveBlockInvalid(
@@ -281,6 +287,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 .snippet;
 
             if (snippet.blockHash != 0x0) {
+                delete proofRecords[nextId][parent.blockHash];
                 lastFinalizedHeight += 1;
 
                 finalizedBlocks[lastFinalizedHeight] = snippet;
@@ -292,7 +299,7 @@ contract TaikoL1 is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 proofRecords[nextId][JUMP_MARKER].snippet.blockHash ==
                 JUMP_MARKER
             ) {
-                // Do nothing
+                delete proofRecords[nextId][JUMP_MARKER];
             } else {
                 break;
             }
