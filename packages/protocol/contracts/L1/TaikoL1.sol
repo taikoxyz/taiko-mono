@@ -121,7 +121,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         initializer
     {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
