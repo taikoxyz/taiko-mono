@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
@@ -16,6 +17,7 @@ import "../libs/LibTxList.sol";
 import "../libs/LibConstants.sol";
 import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
+import "./KeyManager.sol";
 
 struct BlockContext {
     uint256 id;
@@ -66,6 +68,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 64;
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
     uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
+    string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
 
     /**********************
@@ -85,7 +88,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
-    bytes public verificationKey; // TODO: use a KeyManager instead.
+    KeyManager public keyManager;
 
     uint256[44] private __gap;
 
@@ -116,18 +119,22 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(bytes calldata vKey, Snippet calldata genesis)
+    function init(Snippet calldata genesis, address keyManagerAddr)
         external
         initializer
     {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
-        OwnableUpgradeable.__Ownable_init();
+
+        require(
+            !AddressUpgradeable.isContract(keyManagerAddr),
+            "invalid keyManager"
+        );
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
         genesisHeight = uint64(block.number);
-        verificationKey = vKey;
+        keyManager = KeyManager(keyManagerAddr);
 
         emit BlockFinalized(0, genesis);
     }
@@ -179,7 +186,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            verificationKey,
+            keyManager.getKey(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -241,7 +248,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         LibZKP.verify(
-            verificationKey,
+            keyManager.getKey(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,

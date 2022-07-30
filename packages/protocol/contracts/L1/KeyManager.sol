@@ -10,13 +10,18 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+// TODO: implement this contract
 contract KeyManager is OwnableUpgradeable {
-    function init(bytes calldata vKey, Snippet calldata genesis)
+    function init() external initializer {
+        OwnableUpgradeable.__Ownable_init();
+    }
+
+    function setKey(string calldata name, bytes calldata key)
         external
-        initializer
-    {}
+        onlyOwner
+    {
+        // TODO: implement and emit event
+    }
 
-    function setKey(string name, bytes calldata key) external onlyOwner {}
-
-    function getKey(string name) public view returns (bytes memory) {}
+    function getKey(string memory name) public view returns (bytes memory) {}
 }
