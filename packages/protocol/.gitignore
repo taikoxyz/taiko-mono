@@ -5,6 +5,7 @@ coverage.json
 typechain
 docs
 abis
+abi
 
 yarn.lock
 yarn-debug.log*
