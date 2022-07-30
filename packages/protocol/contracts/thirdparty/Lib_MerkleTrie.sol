@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/Lib_MerkleTrie.sol
 
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.9;
 
 /* Library Imports */
 import {Lib_BytesUtils} from "./Lib_BytesUtils.sol";

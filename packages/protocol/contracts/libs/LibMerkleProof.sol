@@ -6,14 +6,14 @@
 // ╱╱┃┃┃╭╮┣┫╰╯┫╭╮┃┃┃╱╭┫╭╮┃╭╮┃━━┫
 // ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.9;
 
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 import "../thirdparty/Lib_SecureMerkleTrie.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library LibTrieProof {
+library LibMerkleProof {
     /*********************
      * Constants         *
      *********************/
