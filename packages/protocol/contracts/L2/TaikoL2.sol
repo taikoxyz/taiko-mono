@@ -27,6 +27,7 @@ contract TaikoL2 {
     modifier whenAnchoreAllowed() {
         require(lastAnchorHeight < block.number, "anchored already");
         lastAnchorHeight = block.number;
+        ///test
         _;
     }
 
