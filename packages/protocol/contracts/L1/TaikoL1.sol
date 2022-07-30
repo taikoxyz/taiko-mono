@@ -85,7 +85,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
-    bytes public verificationKey; // TODO
+    bytes public verificationKey; // TODO: use a KeyManager instead.
 
     uint256[44] private __gap;
 
