@@ -48,7 +48,6 @@ struct Stats {
     uint64 avgPendingSize; // scaled by STAT_SCALE
     uint64 avgProvingDelay; // scaled by STAT_SCALE
     uint64 avgFinalizationDelay; // scaled by STAT_SCALE
-    uint64 __reserved1;
 }
 
 /// @dev We have the following design assumptions:
@@ -105,7 +104,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
-    Stats private _stats;
+    Stats private _stats; // 1 slot
 
     uint256[43] private __gap;
 
