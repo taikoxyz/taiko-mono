@@ -6,6 +6,7 @@ typechain
 docs
 abis
 abi
+deployments/*.json
 
 yarn.lock
 yarn-debug.log*
