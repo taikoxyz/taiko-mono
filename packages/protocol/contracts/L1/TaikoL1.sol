@@ -126,7 +126,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
-            !AddressUpgradeable.isContract(keyManagerAddr),
+            AddressUpgradeable.isContract(keyManagerAddr),
             "invalid keyManager"
         );
 
