@@ -201,7 +201,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         context.id = nextPendingId;
         context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
-
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
 
         require(msg.value >= proverFee, "insufficient prover fee");
