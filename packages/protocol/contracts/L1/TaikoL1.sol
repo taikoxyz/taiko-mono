@@ -198,20 +198,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         validateContext(context);
 
-        uint256 proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
-        require(msg.value >= proverFee, "insufficient prover fee");
-
-        if (msg.value > proverFee) {
-            bool success;
-            (success, ) = msg.sender.call{value: msg.value - proverFee}("");
-        }
-
         context.id = nextPendingId;
         context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
-        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
-        require(msg.value >= proverFee, "insufficient prover fee");
 
+        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+
+        require(msg.value >= proverFee, "insufficient prover fee");
         if (msg.value > context.proverFee) {
             payable(msg.sender).transfer(msg.value - context.proverFee);
         }
