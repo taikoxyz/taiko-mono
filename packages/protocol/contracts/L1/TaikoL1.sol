@@ -42,6 +42,7 @@ struct Evidence {
     address prover;
     uint64 proposedAt;
     uint64 provenAt;
+    uint256 proverFee;
     Snippet snippet;
 }
 
@@ -169,6 +170,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             prover: address(0),
             proposedAt: 0,
             provenAt: 0,
+            proverFee: 0,
             snippet: genesis
         });
         emit BlockFinalized(0, 0, evidence);
@@ -201,12 +203,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         context.id = nextPendingId;
         context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
-        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
-
-        require(msg.value >= proverFee, "insufficient prover fee");
-        if (msg.value > context.proverFee) {
-            payable(msg.sender).transfer(msg.value - context.proverFee);
-        }
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -263,6 +259,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             prover: msg.sender,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
+            proverFee: context.proverFee,
             snippet: Snippet({
                 blockHash: blockHash,
                 stateRoot: header.stateRoot
@@ -374,7 +371,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
                 context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
                 context.proposedAt == 0 &&
-                context.proverFee == 0,
+                context.proverFee >=
+                context.gasLimit * proverGasPrice + proverBaseFee,
             "nonzero placeholder fields"
         );
 
@@ -413,6 +411,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             prover: msg.sender,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
+            proverFee: context.proverFee,
             snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
         });
         emit BlockProvenInvalid(context.id);
@@ -439,6 +438,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidence.prover = address(0);
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
+        evidence.proverFee = 0;
         delete evidence.snippet;
     }
 
