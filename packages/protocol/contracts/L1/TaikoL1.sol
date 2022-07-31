@@ -39,10 +39,10 @@ struct Snippet {
 }
 
 struct Evidence {
+    uint256 proverFee;
     address prover;
     uint64 proposedAt;
     uint64 provenAt;
-    uint256 proverFee;
     Snippet snippet;
 }
 
@@ -168,9 +168,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         Evidence memory evidence = Evidence({
             prover: address(0),
+            proverFee: 0,
             proposedAt: 0,
             provenAt: 0,
-            proverFee: 0,
             snippet: genesis
         });
         emit BlockFinalized(0, 0, evidence);
@@ -257,9 +257,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         Evidence memory evidence = Evidence({
             prover: msg.sender,
+            proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
-            proverFee: context.proverFee,
             snippet: Snippet({
                 blockHash: blockHash,
                 stateRoot: header.stateRoot
@@ -409,9 +409,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         evidences[context.id][JUMP_MARKER] = Evidence({
             prover: msg.sender,
+            proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
-            proverFee: context.proverFee,
             snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
         });
         emit BlockProvenInvalid(context.id);
@@ -422,6 +422,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 height,
         Evidence storage evidence
     ) private {
+        payable(evidence.prover).transfer(evidence.proverFee);
+
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
@@ -436,9 +438,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         // Delete the evidence
         evidence.prover = address(0);
-        evidence.proposedAt = 0;
-        evidence.proposedAt = 0;
         evidence.proverFee = 0;
+        evidence.proposedAt = 0;
+        evidence.proposedAt = 0;
         delete evidence.snippet;
     }
 
