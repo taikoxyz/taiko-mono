@@ -39,8 +39,8 @@ struct Snippet {
 }
 
 struct Evidence {
-    uint256 proverFee;
     address prover;
+    uint256 proverFee;
     uint64 proposedAt;
     uint64 provenAt;
     Snippet snippet;
