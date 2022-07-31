@@ -107,7 +107,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint64 public nextPendingId;
 
     uint256 public proverBaseFee;
-    uint256 public proverGasPrice;
+    uint256 public proverGasPrice; // TODO: auto-adjustable
 
     Stats private _stats; // 1 slot
 
@@ -207,6 +207,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
+
+        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+
+        require(msg.value >= context.proverFee, "insufficient fee");
+
+        if (msg.value > context.proverFee) {
+            payable(msg.sender).transfer(msg.value - context.proverFee);
+        }
 
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
@@ -371,8 +379,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
                 context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
                 context.proposedAt == 0 &&
-                context.proverFee >=
-                context.gasLimit * proverGasPrice + proverBaseFee,
+                context.proverFee == 0,
             "nonzero placeholder fields"
         );
 
