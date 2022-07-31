@@ -29,7 +29,7 @@ struct BlockContext {
     bytes extraData;
     bytes32 txListHash;
     bytes32 mixHash;
-    uint64 timestamp;
+    uint64 proposedAt;
 }
 
 struct Snippet {
@@ -37,17 +37,20 @@ struct Snippet {
     bytes32 stateRoot;
 }
 
-struct ProofRecord {
+struct ProvingRecord {
     address prover;
+    uint64 proposedAt;
+    uint64 provenAt;
     Snippet snippet;
 }
 
 struct Stats {
-        uint64  avgPendingSize; // scaled by STAT_SCALE (1000)
-    uint64  avgProvingDelay;
-    uint64  avgFinalizationDelay;
-    uint64  __reserved_1;
+    uint64 avgPendingSize; // scaled by STAT_SCALE
+    uint64 avgProvingDelay; // scaled by STAT_SCALE
+    uint64 avgFinalizationDelay; // scaled by STAT_SCALE
+    uint64 __reserved1;
 }
+
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
 //                  will always be zeros, and this will be checked by zkEVM.
@@ -79,7 +82,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
-    uint256 private constant STAT_SCALE = 1000;
+    uint64 private constant STAT_SCALE = 1000000;
 
     /**********************
      * State Variables    *
@@ -91,17 +94,17 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
 
-    mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
+    mapping(uint256 => mapping(bytes32 => ProvingRecord)) public provingRecords;
 
     address public taikoL2Address;
-     KeyManager public keyManager;
+    KeyManager public keyManager;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
-    Stats public stats;
+    Stats private _stats;
 
     uint256[43] private __gap;
 
@@ -113,10 +116,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
-        ProofRecord record
+        ProvingRecord record
     );
     event BlockProvenInvalid(uint256 indexed id);
-    event BlockFinalized(uint256 indexed id, Snippet snippet);
+    event BlockFinalized(
+        uint256 indexed id,
+        uint256 indexed height,
+        ProvingRecord provingRecord
+    );
 
     /**********************
      * Modifiers          *
@@ -146,10 +153,16 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
-        genesisHeight = uint64(block.number);
+        genesisHeight = block.number.toUint64();
         keyManager = KeyManager(keyManagerAddr);
 
-        emit BlockFinalized(0, genesis);
+        ProvingRecord memory record = ProvingRecord({
+            prover: address(0),
+            proposedAt: 0,
+            provenAt: 0,
+            snippet: genesis
+        });
+        emit BlockFinalized(0, 0, record);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -176,21 +189,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         validateContext(context);
 
         context.id = nextPendingId;
-        context.timestamp = uint64(block.timestamp);
+        context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        stats.avgPendingSize = calcAverage(stats.avgPendingSize, nextPendingId - lastFinalizedId - 1);
+        _stats.avgPendingSize = _calcAverage(
+            _stats.avgPendingSize,
+            nextPendingId - lastFinalizedId - 1
+        );
 
         _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
     }
-
 
     function proveBlock(
         bool anchored,
@@ -228,15 +243,17 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        ProofRecord memory record = ProofRecord({
+        ProvingRecord memory record = ProvingRecord({
             prover: msg.sender,
+            proposedAt: context.proposedAt,
+            provenAt: block.timestamp.toUint64(),
             snippet: Snippet({
                 blockHash: blockHash,
                 stateRoot: header.stateRoot
             })
         });
 
-        proofRecords[context.id][header.parentHash] = record;
+        provingRecords[context.id][header.parentHash] = record;
 
         emit BlockProven(context.id, header.parentHash, record);
     }
@@ -282,7 +299,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        _invalidateBlock(context.id);
+        _invalidateBlock(context);
     }
 
     function verifyBlockInvalid(
@@ -292,7 +309,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _invalidateBlock(context.id);
+        _invalidateBlock(context);
     }
 
     /**********************
@@ -301,37 +318,36 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     function finalizeBlocks() public {
         Snippet memory parent = finalizedBlocks[lastFinalizedHeight];
-        uint256 nextId = lastFinalizedId + 1;
+        uint64 id = lastFinalizedId + 1;
         uint256 reads = 0;
         uint256 writes = 0;
         while (
-            nextId < nextPendingId &&
+            id < nextPendingId &&
             reads <= MAX_FINALIZATION_READS_PER_TX &&
             writes <= MAX_FINALIZATION_WRITES_PER_TX
         ) {
-            Snippet storage snippet = proofRecords[nextId][parent.blockHash]
-                .snippet;
+            ProvingRecord storage record = provingRecords[id][parent.blockHash];
 
-            if (snippet.blockHash != 0x0) {
-                delete proofRecords[nextId][parent.blockHash];
-                lastFinalizedHeight += 1;
+            if (record.prover != address(0)) {
+                finalizedBlocks[++lastFinalizedHeight] = record.snippet;
 
-                finalizedBlocks[lastFinalizedHeight] = snippet;
-                emit BlockFinalized(lastFinalizedHeight, snippet);
-
-                parent = snippet;
+                _handleFinalizedBlock(id, lastFinalizedHeight, record);
+                parent = record.snippet;
                 writes += 1;
-            } else if (
-                proofRecords[nextId][JUMP_MARKER].snippet.blockHash ==
-                JUMP_MARKER
-            ) {
-                delete proofRecords[nextId][JUMP_MARKER];
             } else {
-                break;
+                if (provingRecords[id][JUMP_MARKER].prover != address(0)) {
+                    _handleFinalizedBlock(
+                        id,
+                        lastFinalizedHeight,
+                        provingRecords[id][JUMP_MARKER]
+                    );
+                } else {
+                    break;
+                }
             }
 
             lastFinalizedId += 1;
-            nextId += 1;
+            id += 1;
             reads += 1;
         }
     }
@@ -341,7 +357,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             context.id == 0 &&
                 context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
-                context.timestamp == 0,
+                context.proposedAt == 0,
             "nonzero placeholder fields"
         );
 
@@ -360,20 +376,53 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
+    function getStats() public view returns (Stats memory stats) {
+        stats = _stats;
+        stats.avgPendingSize /= STAT_SCALE;
+        stats.avgProvingDelay /= STAT_SCALE;
+        stats.avgFinalizationDelay /= STAT_SCALE;
+    }
+
     /**********************
      * Private Functions  *
      **********************/
 
-    function _invalidateBlock(uint256 id) private {
+    function _invalidateBlock(BlockContext memory context) private {
         require(
-            proofRecords[id][JUMP_MARKER].snippet.blockHash == 0x0,
+            provingRecords[context.id][JUMP_MARKER].prover == address(0),
             "already invalidated"
         );
-        proofRecords[id][JUMP_MARKER] = ProofRecord({
+        provingRecords[context.id][JUMP_MARKER] = ProvingRecord({
             prover: msg.sender,
-            snippet: Snippet({blockHash: JUMP_MARKER, stateRoot: JUMP_MARKER})
+            proposedAt: context.proposedAt,
+            provenAt: block.timestamp.toUint64(),
+            snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
         });
-        emit BlockProvenInvalid(id);
+        emit BlockProvenInvalid(context.id);
+    }
+
+    function _handleFinalizedBlock(
+        uint64 id,
+        uint64 height,
+        ProvingRecord storage record
+    ) private {
+        _stats.avgProvingDelay = _calcAverage(
+            _stats.avgProvingDelay,
+            record.provenAt - record.proposedAt
+        );
+
+        _stats.avgFinalizationDelay = _calcAverage(
+            _stats.avgFinalizationDelay,
+            block.timestamp.toUint64() - record.proposedAt
+        );
+
+        emit BlockFinalized(id, height, record);
+
+        // Delete the record
+        record.prover = address(0);
+        record.proposedAt = 0;
+        record.proposedAt = 0;
+        delete record.snippet;
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
@@ -416,7 +465,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         require(
             header.beneficiary == context.beneficiary &&
                 header.gasLimit == context.gasLimit &&
-                header.timestamp == context.timestamp &&
+                header.timestamp == context.proposedAt &&
                 keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
                 header.mixHash == context.mixHash,
             "header mismatch"
@@ -431,9 +480,15 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         return keccak256(abi.encode(context));
     }
 
-
-    function calcAverage(uint64 avg, uint64 current) private pure returns (uint64) {
-      uint value =  ((STAT_AVERAGING_FACTOR - 1)*avg + current*STAT_SCALE)/STAT_AVERAGING_FACTOR;
-      return value.toUint64();
+    function _calcAverage(uint64 avg, uint64 current)
+        private
+        pure
+        returns (uint64)
+    {
+        uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
+            avg +
+            current *
+            STAT_SCALE) / STAT_AVERAGING_FACTOR;
+        return value.toUint64();
     }
 }
