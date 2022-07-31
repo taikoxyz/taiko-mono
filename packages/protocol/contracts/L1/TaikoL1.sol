@@ -30,6 +30,7 @@ struct BlockContext {
     bytes32 txListHash;
     bytes32 mixHash;
     bytes extraData;
+    uint256 proverFee;
 }
 
 struct Snippet {
@@ -104,9 +105,12 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
+    uint256 public proverBaseFee;
+    uint256 public proverGasPrice;
+
     Stats private _stats; // 1 slot
 
-    uint256[43] private __gap;
+    uint256[41] private __gap;
 
     /**********************
      * Events             *
@@ -139,16 +143,21 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(Snippet calldata genesis, address keyManagerAddr)
-        external
-        initializer
-    {
+    function init(
+        Snippet calldata genesis,
+        address keyManagerAddr,
+        uint256 _proverBaseFee,
+        uint256 _proverGasPrice
+    ) external initializer {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
             !AddressUpgradeable.isContract(keyManagerAddr),
             "invalid keyManager"
         );
+
+        proverBaseFee = _proverBaseFee;
+        proverGasPrice = _proverGasPrice;
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
@@ -176,6 +185,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
+        payable
         nonReentrant
     {
         // Try to finalize blocks first to make room
@@ -188,9 +198,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         validateContext(context);
 
+        uint256 proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+        require(msg.value >= proverFee, "insufficient prover fee");
+
+        if (msg.value > proverFee) {
+            bool success;
+            (success, ) = msg.sender.call{value: msg.value - proverFee}("");
+        }
+
         context.id = nextPendingId;
         context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
+        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+        require(msg.value >= proverFee, "insufficient prover fee");
+
+        if (msg.value > context.proverFee) {
+            payable(msg.sender).transfer(msg.value - context.proverFee);
+        }
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -357,7 +381,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             context.id == 0 &&
                 context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
-                context.proposedAt == 0,
+                context.proposedAt == 0 &&
+                context.proverFee == 0,
             "nonzero placeholder fields"
         );
 
