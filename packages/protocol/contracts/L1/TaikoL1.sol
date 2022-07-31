@@ -37,7 +37,7 @@ struct Snippet {
     bytes32 stateRoot;
 }
 
-struct ProvingRecord {
+struct Evidence {
     address prover;
     uint64 proposedAt;
     uint64 provenAt;
@@ -94,7 +94,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
 
-    mapping(uint256 => mapping(bytes32 => ProvingRecord)) public provingRecords;
+    mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
     address public taikoL2Address;
     KeyManager public keyManager;
@@ -116,13 +116,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
-        ProvingRecord record
+        Evidence evidence
     );
     event BlockProvenInvalid(uint256 indexed id);
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,
-        ProvingRecord provingRecord
+        Evidence evidence
     );
 
     /**********************
@@ -156,13 +156,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         genesisHeight = block.number.toUint64();
         keyManager = KeyManager(keyManagerAddr);
 
-        ProvingRecord memory record = ProvingRecord({
+        Evidence memory evidence = Evidence({
             prover: address(0),
             proposedAt: 0,
             provenAt: 0,
             snippet: genesis
         });
-        emit BlockFinalized(0, 0, record);
+        emit BlockFinalized(0, 0, evidence);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -243,7 +243,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        ProvingRecord memory record = ProvingRecord({
+        Evidence memory evidence = Evidence({
             prover: msg.sender,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
@@ -253,9 +253,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             })
         });
 
-        provingRecords[context.id][header.parentHash] = record;
+        evidences[context.id][header.parentHash] = evidence;
 
-        emit BlockProven(context.id, header.parentHash, record);
+        emit BlockProven(context.id, header.parentHash, evidence);
     }
 
     function proveBlockInvalid(
@@ -326,20 +326,20 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             reads <= MAX_FINALIZATION_READS_PER_TX &&
             writes <= MAX_FINALIZATION_WRITES_PER_TX
         ) {
-            ProvingRecord storage record = provingRecords[id][parent.blockHash];
+            Evidence storage evidence = evidences[id][parent.blockHash];
 
-            if (record.prover != address(0)) {
-                finalizedBlocks[++lastFinalizedHeight] = record.snippet;
+            if (evidence.prover != address(0)) {
+                finalizedBlocks[++lastFinalizedHeight] = evidence.snippet;
 
-                _handleFinalizedBlock(id, lastFinalizedHeight, record);
-                parent = record.snippet;
+                _handleFinalizedBlock(id, lastFinalizedHeight, evidence);
+                parent = evidence.snippet;
                 writes += 1;
             } else {
-                if (provingRecords[id][JUMP_MARKER].prover != address(0)) {
+                if (evidences[id][JUMP_MARKER].prover != address(0)) {
                     _handleFinalizedBlock(
                         id,
                         lastFinalizedHeight,
-                        provingRecords[id][JUMP_MARKER]
+                        evidences[id][JUMP_MARKER]
                     );
                 } else {
                     break;
@@ -389,10 +389,10 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     function _invalidateBlock(BlockContext memory context) private {
         require(
-            provingRecords[context.id][JUMP_MARKER].prover == address(0),
+            evidences[context.id][JUMP_MARKER].prover == address(0),
             "already invalidated"
         );
-        provingRecords[context.id][JUMP_MARKER] = ProvingRecord({
+        evidences[context.id][JUMP_MARKER] = Evidence({
             prover: msg.sender,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
@@ -404,25 +404,25 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     function _handleFinalizedBlock(
         uint64 id,
         uint64 height,
-        ProvingRecord storage record
+        Evidence storage evidence
     ) private {
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
-            record.provenAt - record.proposedAt
+            evidence.provenAt - evidence.proposedAt
         );
 
         _stats.avgFinalizationDelay = _calcAverage(
             _stats.avgFinalizationDelay,
-            block.timestamp.toUint64() - record.proposedAt
+            block.timestamp.toUint64() - evidence.proposedAt
         );
 
-        emit BlockFinalized(id, height, record);
+        emit BlockFinalized(id, height, evidence);
 
-        // Delete the record
-        record.prover = address(0);
-        record.proposedAt = 0;
-        record.proposedAt = 0;
-        delete record.snippet;
+        // Delete the evidence
+        evidence.prover = address(0);
+        evidence.proposedAt = 0;
+        evidence.proposedAt = 0;
+        delete evidence.snippet;
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
