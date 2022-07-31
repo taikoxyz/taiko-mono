@@ -26,10 +26,10 @@ struct BlockContext {
     bytes32 anchorHash;
     address beneficiary;
     uint64 gasLimit;
-    bytes extraData;
+    uint64 proposedAt;
     bytes32 txListHash;
     bytes32 mixHash;
-    uint64 proposedAt;
+    bytes extraData;
 }
 
 struct Snippet {
