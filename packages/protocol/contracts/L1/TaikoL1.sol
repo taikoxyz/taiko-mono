@@ -10,6 +10,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
@@ -41,6 +42,12 @@ struct ProofRecord {
     Snippet snippet;
 }
 
+struct Stats {
+        uint64  avgPendingSize; // scaled by STAT_SCALE (1000)
+    uint64  avgProvingDelay;
+    uint64  avgFinalizationDelay;
+    uint64  __reserved_1;
+}
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
 //                  will always be zeros, and this will be checked by zkEVM.
@@ -58,6 +65,7 @@ struct ProofRecord {
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
 contract TaikoL1 is ReentrancyGuardUpgradeable {
+    using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
     /**********************
@@ -70,6 +78,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
+    uint256 private constant STAT_AVERAGING_FACTOR = 2048;
+    uint256 private constant STAT_SCALE = 1000;
 
     /**********************
      * State Variables    *
@@ -84,13 +94,16 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     mapping(uint256 => mapping(bytes32 => ProofRecord)) public proofRecords;
 
     address public taikoL2Address;
+     KeyManager public keyManager;
+
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
-    KeyManager public keyManager;
 
-    uint256[44] private __gap;
+    Stats public stats;
+
+    uint256[43] private __gap;
 
     /**********************
      * Events             *
@@ -170,11 +183,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
+        stats.avgPendingSize = calcAverage(stats.avgPendingSize, nextPendingId - lastFinalizedId - 1);
+
         _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
     }
+
 
     function proveBlock(
         bool anchored,
@@ -413,5 +429,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
+    }
+
+
+    function calcAverage(uint64 avg, uint64 current) private pure returns (uint64) {
+      uint value =  ((STAT_AVERAGING_FACTOR - 1)*avg + current*STAT_SCALE)/STAT_AVERAGING_FACTOR;
+      return value.toUint64();
     }
 }
