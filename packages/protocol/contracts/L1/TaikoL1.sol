@@ -299,7 +299,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        _invalidateBlock(context);
+        _invalidateBlock(context, false);
     }
 
     function verifyBlockInvalid(
@@ -309,7 +309,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _invalidateBlock(context);
+        _invalidateBlock(context, true);
     }
 
     /**********************
@@ -387,7 +387,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * Private Functions  *
      **********************/
 
-    function _invalidateBlock(BlockContext memory context) private {
+    function _invalidateBlock(BlockContext memory context, bool noZKP) private {
         require(
             evidences[context.id][JUMP_MARKER].prover == address(0),
             "already invalidated"
@@ -395,7 +395,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidences[context.id][JUMP_MARKER] = Evidence({
             prover: msg.sender,
             proposedAt: context.proposedAt,
-            provenAt: block.timestamp.toUint64(),
+            provenAt: noZKP ? context.proposedAt : block.timestamp.toUint64(),
             snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
         });
         emit BlockProvenInvalid(context.id);
@@ -485,9 +485,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         pure
         returns (uint64)
     {
+        if (current == 0) {
+            return avg;
+        }
+
         if (avg == 0) {
             return current;
         }
+
         uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
             avg +
             current *
