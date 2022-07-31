@@ -80,6 +80,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
     uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
+
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant STAT_SCALE = 1000000;
@@ -485,6 +486,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         pure
         returns (uint64)
     {
+        if (avg == 0) {
+            return current;
+        }
         uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
             avg +
             current *
