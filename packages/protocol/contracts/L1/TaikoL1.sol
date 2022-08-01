@@ -76,7 +76,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * Constants   *
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_PENDING_BLOCKS = 1024;
+    uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
     uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
