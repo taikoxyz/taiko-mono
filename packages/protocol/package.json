@@ -9,7 +9,9 @@
         "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
         "eslint": "npx eslint --ignore-path .eslintignore --ext .js,.ts .",
         "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
-        "test": "npx hardhat test"
+        "test": "npx hardhat test",
+        "generate:genesis": "ts-node ./utils/generate_l2_genesis.ts",
+        "test:genesis": "./test/l2_genesis/test_entrypoint.sh"
     },
     "lint-staged": {
         "*.sol": "yarn lint:sol",
@@ -31,7 +33,7 @@
     "author": "Taiko Labs",
     "license": "MIT",
     "devDependencies": {
-        "@defi-wonderland/smock": "git+https://git@github.com/taikochain/smock.git#taiko",
+        "@defi-wonderland/smock": "^2.2.0",
         "@nomiclabs/hardhat-ethers": "^2.0.0",
         "@nomiclabs/hardhat-etherscan": "^2.1.8",
         "@nomiclabs/hardhat-waffle": "^2.0.0",

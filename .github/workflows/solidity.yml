@@ -30,6 +30,10 @@ jobs:
       working-directory: ./packages/protocol
       run: yarn && yarn clean && yarn test && yarn export:abi
 
+    - name: 1:Rollup - Generate L2 Genesis
+      working-directory: ./packages/protocol
+      run: yarn test:genesis
+
     - name: 1:Rollup - Export ABIs
       working-directory: ./packages/protocol
       run: yarn export:abi
