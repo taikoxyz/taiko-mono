@@ -216,12 +216,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
 
-        require(msg.value >= context.proverFee, "insufficient fee");
-
-        if (msg.value > context.proverFee) {
-            payable(msg.sender).transfer(msg.value - context.proverFee);
-        }
-
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
             nextPendingId - lastFinalizedId - 1
@@ -231,6 +225,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
+
+        require(msg.value >= context.proverFee, "insufficient fee");
+        if (msg.value > context.proverFee) {
+            payable(msg.sender).transfer(msg.value - context.proverFee);
+        }
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
