@@ -63,6 +63,10 @@ struct Stats {
 /// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
 ///                 and `header.gasLimit <= MAX_TAIKO_BLOCK_GAS_LIMIT`
 ///
+/// - Assumption 5: Prover can use its address as public input to generate unique
+///                 ZKP that's only valid if he transacts with this address. This is
+///                 critical to ensure the ZKP will not be stolen by others
+///
 /// This contract shall be deployed as the initial implementation of a
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
@@ -208,6 +212,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         nextPendingId += 1;
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlock(
         bool anchored,
         BlockHeader calldata header,
@@ -259,6 +264,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProven(context.id, header.parentHash, evidence);
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
