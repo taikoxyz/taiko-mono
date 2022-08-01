@@ -85,7 +85,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
-    uint64 private constant UTILIZATION_FEE_RATIO = 50; // 50%
+    uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
 
     /**********************
      * State Variables    *
