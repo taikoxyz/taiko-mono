@@ -85,6 +85,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
+    uint64 private constant UTILIZATION_FEE_RATIO = 50; // 20%
 
     /**********************
      * State Variables    *
@@ -156,7 +157,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
-            AddressUpgradeable.isContract(keyManagerAddr),
+            AddressUpgradeable.isContract(_keyManagerAddress),
             "invalid keyManager"
         );
         require(_taikoL2Address != address(0), "invalid taikoL2Address");
@@ -222,14 +223,24 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         _savePendingBlock(nextPendingId, _hashContext(context));
-        emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
 
-        require(msg.value >= context.proverFee, "insufficient fee");
-        if (msg.value > context.proverFee) {
-            payable(msg.sender).transfer(msg.value - context.proverFee);
+        uint256 utilizationFee = _getUtilizationFee(
+            context.proverFee,
+            nextPendingId - lastFinalizedId
+        );
+        uint256 totalFees = context.proverFee + utilizationFee;
+        require(msg.value >= totalFees, "insufficient fee");
+
+        if (msg.value > totalFees) {
+            payable(msg.sender).transfer(msg.value - totalFees);
         }
+        if (utilizationFee > 0) {
+            payable(daoAddress).transfer(utilizationFee);
+        }
+
+        emit BlockProposed(nextPendingId, context);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -480,6 +491,18 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             _getPendingBlock(context.id) == _hashContext(context),
             "context mismatch"
         );
+    }
+
+    function _getUtilizationFee(uint256 proverFee, uint256 numPendingBlocks)
+        private
+        pure
+        returns (uint256)
+    {
+        if (numPendingBlocks <= MAX_PENDING_BLOCKS / 2) return 0;
+        uint256 diff = numPendingBlocks - MAX_PENDING_BLOCKS / 2;
+        return
+            (UTILIZATION_FEE_RATIO * proverFee * diff * 2) /
+            (100 * MAX_PENDING_BLOCKS);
     }
 
     function _validateHeader(BlockHeader calldata header) private pure {
