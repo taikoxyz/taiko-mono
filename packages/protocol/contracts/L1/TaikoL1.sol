@@ -228,7 +228,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         _savePendingBlock(nextPendingId, _hashContext(context));
-        nextPendingId += 1;
 
         // Refund
         if (msg.value > totalFees) {
@@ -238,7 +237,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             payable(daoAddress).transfer(utilizationFee);
         }
 
-        emit BlockProposed(nextPendingId, context);
+        emit BlockProposed(nextPendingId++, context);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
