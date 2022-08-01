@@ -226,10 +226,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         nextPendingId += 1;
 
-        uint256 utilizationFee = _getUtilizationFee(
-            context.proverFee,
-            nextPendingId - lastFinalizedId
-        );
+        uint256 utilizationFee = (context.proverFee *
+            getUtilizationFeeRatio()) / 10000;
+
         uint256 totalFees = context.proverFee + utilizationFee;
         require(msg.value >= totalFees, "insufficient fee");
 
@@ -420,6 +419,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
+    function getUtilizationFeeRatio()
+        public
+        view
+        returns (
+            uint256 /*basisPoints*/
+        )
+    {
+        uint256 numPendingBlocks = nextPendingId - lastFinalizedId;
+        if (numPendingBlocks <= MAX_PENDING_BLOCKS / 2) return 0;
+
+        return
+            (UTILIZATION_FEE_RATIO *
+                100 *
+                (2 * numPendingBlocks - MAX_PENDING_BLOCKS)) /
+            MAX_PENDING_BLOCKS;
+    }
+
     /**********************
      * Private Functions  *
      **********************/
@@ -491,18 +507,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             _getPendingBlock(context.id) == _hashContext(context),
             "context mismatch"
         );
-    }
-
-    function _getUtilizationFee(uint256 proverFee, uint256 numPendingBlocks)
-        private
-        pure
-        returns (uint256)
-    {
-        if (numPendingBlocks <= MAX_PENDING_BLOCKS / 2) return 0;
-        uint256 diff = numPendingBlocks - MAX_PENDING_BLOCKS / 2;
-        return
-            (UTILIZATION_FEE_RATIO * proverFee * diff * 2) /
-            (100 * MAX_PENDING_BLOCKS);
     }
 
     function _validateHeader(BlockHeader calldata header) private pure {
