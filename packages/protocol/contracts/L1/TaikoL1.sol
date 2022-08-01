@@ -159,7 +159,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             !AddressUpgradeable.isContract(_keyManagerAddress),
             "invalid keyManager"
         );
-        require(_taikoL2Address != address(0), "invalid keyManager");
+        require(_taikoL2Address != address(0), "invalid taikoL2Address");
 
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
