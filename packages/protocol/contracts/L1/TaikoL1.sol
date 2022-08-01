@@ -429,8 +429,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         if (numPendingBlocks <= target) return 0;
 
         return
-            (UTILIZATION_FEE_RATIO * 100 * (target - numPendingBlocks)) /
-            (MAX_PENDING_BLOCKS - numPendingBlocks);
+            (UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - target)) /
+            (MAX_PENDING_BLOCKS - target);
     }
 
     /**********************
