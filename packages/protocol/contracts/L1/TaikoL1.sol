@@ -489,10 +489,10 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         if (current == 0) return avg;
         if (avg == 0) return current;
 
-        uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
+        uint256 _avg = ((STAT_AVERAGING_FACTOR - 1) *
             avg +
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return value.toUint64();
+        return _avg.toUint64();
     }
 }
