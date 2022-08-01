@@ -44,7 +44,7 @@ struct Evidence {
     Snippet snippet;
 }
 
-// all state time units are nanosecond
+// all stat time units are nanosecond
 struct Stats {
     uint64 avgPendingSize;
     uint64 avgProvingDelay;
