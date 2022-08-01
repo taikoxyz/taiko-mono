@@ -41,10 +41,11 @@ struct Evidence {
     bytes32 blockHash;
 }
 
+// all stat time units are nanosecond
 struct Stats {
-    uint64 avgPendingSize; // scaled by STAT_SCALE
-    uint64 avgProvingDelay; // scaled by STAT_SCALE
-    uint64 avgFinalizationDelay; // scaled by STAT_SCALE
+    uint64 avgPendingSize;
+    uint64 avgProvingDelay;
+    uint64 avgFinalizationDelay;
 }
 
 /// @dev We have the following design assumptions:
@@ -58,6 +59,10 @@ struct Stats {
 ///
 /// - Assumption 4: Taiko zkEVM will check `sum(tx_i.gasLimit) <= header.gasLimit`
 ///                 and `header.gasLimit <= MAX_TAIKO_BLOCK_GAS_LIMIT`
+///
+/// - Assumption 5: Prover can use its address as public input to generate unique
+///                 ZKP that's only valid if he transacts with this address. This is
+///                 critical to ensure the ZKP will not be stolen by others
 ///
 /// This contract shall be deployed as the initial implementation of a
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
@@ -79,7 +84,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
-    uint64 private constant STAT_SCALE = 1000000;
+    uint64 private constant NANO_PER_SECOND = 1E9;
 
     /**********************
      * State Variables    *
@@ -228,6 +233,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         nextPendingId += 1;
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlock(
         bool anchored,
         BlockHeader calldata header,
@@ -277,6 +283,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProven(context.id, header.parentHash, evidence);
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
@@ -318,7 +325,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proofs[1]
         );
 
-        _invalidateBlock(context);
+        _invalidateBlock(context, false);
     }
 
     function verifyBlockInvalid(
@@ -328,7 +335,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _invalidateBlock(context);
+        _invalidateBlock(context, true);
     }
 
     /**********************
@@ -398,16 +405,16 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     function getStats() public view returns (Stats memory stats) {
         stats = _stats;
-        stats.avgPendingSize /= STAT_SCALE;
-        stats.avgProvingDelay /= STAT_SCALE;
-        stats.avgFinalizationDelay /= STAT_SCALE;
+        stats.avgPendingSize /= NANO_PER_SECOND;
+        stats.avgProvingDelay /= NANO_PER_SECOND;
+        stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
     /**********************
      * Private Functions  *
      **********************/
 
-    function _invalidateBlock(BlockContext memory context) private {
+    function _invalidateBlock(BlockContext memory context, bool noZKP) private {
         require(
             evidences[context.id][JUMP_MARKER].prover == address(0),
             "already invalidated"
@@ -416,7 +423,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             prover: msg.sender,
             proverFee: context.proverFee,
             proposedAt: context.proposedAt,
-            provenAt: block.timestamp.toUint64(),
+            provenAt: noZKP ? context.proposedAt : block.timestamp.toUint64(),
             blockHash: 0x0
         });
         emit BlockProvenInvalid(context.id);
@@ -514,13 +521,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         pure
         returns (uint64)
     {
-        if (avg == 0) {
-            return current;
-        }
-        uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
+        if (current == 0) return avg;
+        if (avg == 0) return current;
+
+        uint256 _avg = ((STAT_AVERAGING_FACTOR - 1) *
             avg +
             current *
-            STAT_SCALE) / STAT_AVERAGING_FACTOR;
-        return value.toUint64();
+            NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
+        return _avg.toUint64();
     }
 }
