@@ -112,7 +112,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     Stats private _stats; // 1 slot
 
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 
     /**********************
      * Events             *
