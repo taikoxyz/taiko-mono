@@ -226,8 +226,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         nextPendingId += 1;
 
-        uint256 utilizationFee = (context.proverFee *
-            getUtilizationFeeRatio()) / 10000;
+        uint256 utilizationFee = (context.proverFee * getUtilizationFeeBips()) /
+            10000;
 
         uint256 totalFees = context.proverFee + utilizationFee;
         require(msg.value >= totalFees, "insufficient fee");
@@ -419,7 +419,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
-    function getUtilizationFeeRatio()
+    function getUtilizationFeeBips()
         public
         view
         returns (
@@ -430,10 +430,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         if (numPendingBlocks <= MAX_PENDING_BLOCKS / 2) return 0;
 
         return
-            (UTILIZATION_FEE_RATIO *
+            ((2 * numPendingBlocks - MAX_PENDING_BLOCKS) *
                 100 *
-                (2 * numPendingBlocks - MAX_PENDING_BLOCKS)) /
-            MAX_PENDING_BLOCKS;
+                UTILIZATION_FEE_RATIO) / MAX_PENDING_BLOCKS;
     }
 
     /**********************
