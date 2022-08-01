@@ -98,7 +98,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
-    KeyManager public keyManager;
+    address public keyManagerAddress;
     address public taikoL2Address;
     address public daoAddress;
 
@@ -147,7 +147,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     function init(
         Snippet calldata genesis,
-        address keyManagerAddr,
+        address _keyManagerAddress,
         address _taikoL2Address,
         address _daoAddress,
         uint256 _proverBaseFee,
@@ -156,21 +156,21 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
-            !AddressUpgradeable.isContract(keyManagerAddr),
+            !AddressUpgradeable.isContract(_keyManagerAddress),
             "invalid keyManager"
         );
         require(_taikoL2Address != address(0), "invalid keyManager");
 
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
-        daoAddress = _daoAddress;
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
-        keyManager = KeyManager(keyManagerAddr);
+        keyManagerAddress = _keyManagerAddress;
         taikoL2Address = _taikoL2Address;
+        daoAddress = _daoAddress;
 
         Evidence memory evidence = Evidence({
             prover: address(0),
@@ -243,7 +243,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            keyManager.getKey(ZKP_VKEY),
+            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -308,7 +308,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         LibZKP.verify(
-            keyManager.getKey(ZKP_VKEY),
+            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
