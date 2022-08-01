@@ -1,0 +1,10 @@
+{
+    "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
+    "chainId": 1337,
+    "premintEthAccounts": [
+        { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1024 },
+        { "0x4Ec242468812B6fFC8Be8FF423Af7bd23108d991": 1024 },
+        { "0x513b9b8bffd6b79056f5250b04b0e863814d6dd6": 1024 },
+        { "0x79b9f64744c98cd8cc20adb79b6a297e964254cc": 1024 }
+    ]
+}
