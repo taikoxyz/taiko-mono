@@ -454,7 +454,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         emit BlockFinalized(id, height, evidence);
 
-        // Delete the evidence
+        // Delete the evidence to potentially avoid a sstore.
         evidence.prover = address(0);
         evidence.proverFee = 0;
         evidence.proposedAt = 0;
