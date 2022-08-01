@@ -215,7 +215,12 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
+        // Check fees
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+        uint256 utilizationFee = (context.proverFee * getUtilizationFeeBips()) /
+            10000;
+        uint256 totalFees = context.proverFee + utilizationFee;
+        require(msg.value >= totalFees, "insufficient fee");
 
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
@@ -223,15 +228,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         _savePendingBlock(nextPendingId, _hashContext(context));
-
         nextPendingId += 1;
 
-        uint256 utilizationFee = (context.proverFee * getUtilizationFeeBips()) /
-            10000;
-
-        uint256 totalFees = context.proverFee + utilizationFee;
-        require(msg.value >= totalFees, "insufficient fee");
-
+        // Refund
         if (msg.value > totalFees) {
             payable(msg.sender).transfer(msg.value - totalFees);
         }
