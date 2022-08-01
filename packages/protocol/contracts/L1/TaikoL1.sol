@@ -180,6 +180,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         nextPendingId += 1;
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlock(
         bool anchored,
         BlockHeader calldata header,
@@ -229,6 +230,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProven(context.id, header.parentHash, record);
     }
 
+    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
