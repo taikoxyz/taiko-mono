@@ -33,17 +33,12 @@ struct BlockContext {
     uint256 proverFee;
 }
 
-struct Snippet {
-    bytes32 blockHash;
-    bytes32 stateRoot;
-}
-
 struct Evidence {
     address prover;
     uint256 proverFee;
     uint64 proposedAt;
     uint64 provenAt;
-    Snippet snippet;
+    bytes32 blockHash;
 }
 
 // all stat time units are nanosecond
@@ -96,7 +91,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      **********************/
 
     // Finalized taiko block headers
-    mapping(uint256 => Snippet) public finalizedBlocks;
+    mapping(uint256 => bytes32) public finalizedBlocks;
 
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
@@ -151,7 +146,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      **********************/
 
     function init(
-        Snippet calldata genesis,
+        bytes32 _genesisBlockHash,
         address _keyManagerAddress,
         address _taikoL2Address,
         address _daoAddress,
@@ -169,7 +164,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
 
-        finalizedBlocks[0] = genesis;
+        finalizedBlocks[0] = _genesisBlockHash;
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
@@ -182,7 +177,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proverFee: 0,
             proposedAt: 0,
             provenAt: 0,
-            snippet: genesis
+            blockHash: _genesisBlockHash
         });
         emit BlockFinalized(0, 0, evidence);
     }
@@ -221,12 +216,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
 
-        require(msg.value >= context.proverFee, "insufficient fee");
-
-        if (msg.value > context.proverFee) {
-            payable(msg.sender).transfer(msg.value - context.proverFee);
-        }
-
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
             nextPendingId - lastFinalizedId - 1
@@ -236,6 +225,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProposed(nextPendingId, context);
 
         nextPendingId += 1;
+
+        require(msg.value >= context.proverFee, "insufficient fee");
+        if (msg.value > context.proverFee) {
+            payable(msg.sender).transfer(msg.value - context.proverFee);
+        }
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -280,10 +274,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
-            snippet: Snippet({
-                blockHash: blockHash,
-                stateRoot: header.stateRoot
-            })
+            blockHash: blockHash
         });
 
         evidences[context.id][header.parentHash] = evidence;
@@ -310,7 +301,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         require(
             throwAwayHeader.parentHash ==
-                finalizedBlocks[throwAwayHeader.height - 1].blockHash,
+                finalizedBlocks[throwAwayHeader.height - 1],
             "parent mismatch"
         );
 
@@ -351,7 +342,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      **********************/
 
     function finalizeBlocks() public {
-        Snippet memory parent = finalizedBlocks[lastFinalizedHeight];
+        bytes32 parentHash = finalizedBlocks[lastFinalizedHeight];
         uint64 id = lastFinalizedId + 1;
         uint256 reads = 0;
         uint256 writes = 0;
@@ -360,13 +351,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             reads <= MAX_FINALIZATION_READS_PER_TX &&
             writes <= MAX_FINALIZATION_WRITES_PER_TX
         ) {
-            Evidence storage evidence = evidences[id][parent.blockHash];
+            Evidence storage evidence = evidences[id][parentHash];
 
             if (evidence.prover != address(0)) {
-                finalizedBlocks[++lastFinalizedHeight] = evidence.snippet;
+                finalizedBlocks[++lastFinalizedHeight] = evidence.blockHash;
 
                 _handleFinalizedBlock(id, lastFinalizedHeight, evidence);
-                parent = evidence.snippet;
+                parentHash = evidence.blockHash;
                 writes += 1;
             } else {
                 if (evidences[id][JUMP_MARKER].prover != address(0)) {
@@ -432,7 +423,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: noZKP ? context.proposedAt : block.timestamp.toUint64(),
-            snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
+            blockHash: 0x0
         });
         emit BlockProvenInvalid(context.id);
     }
@@ -461,12 +452,12 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         emit BlockFinalized(id, height, evidence);
 
-        // Delete the evidence to potentially avoid 5 sstore ops.
+        // Delete the evidence to potentially avoid 4 sstore ops.
         evidence.prover = address(0);
         evidence.proverFee = 0;
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
-        delete evidence.snippet;
+        evidence.blockHash = 0x0;
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
