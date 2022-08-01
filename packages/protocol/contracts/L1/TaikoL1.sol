@@ -98,8 +98,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
-    address public taikoL2Address;
     KeyManager public keyManager;
+    address public taikoL2Address;
+    address public daoAddress;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
@@ -147,6 +148,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     function init(
         Snippet calldata genesis,
         address keyManagerAddr,
+        address _taikoL2Address,
+        address _daoAddress,
         uint256 _proverBaseFee,
         uint256 _proverGasPrice
     ) external initializer {
@@ -156,15 +159,18 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             !AddressUpgradeable.isContract(keyManagerAddr),
             "invalid keyManager"
         );
+        require(_taikoL2Address != address(0), "invalid keyManager");
 
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
+        daoAddress = _daoAddress;
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
         keyManager = KeyManager(keyManagerAddr);
+        taikoL2Address = _taikoL2Address;
 
         Evidence memory evidence = Evidence({
             prover: address(0),
@@ -429,7 +435,12 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 height,
         Evidence storage evidence
     ) private {
-        payable(evidence.prover).transfer(evidence.proverFee);
+        bool success;
+        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+
+        if (!success && daoAddress != address(0)) {
+            (success, ) = daoAddress.call{value: evidence.proverFee}("");
+        }
 
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
