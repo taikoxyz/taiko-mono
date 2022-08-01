@@ -425,12 +425,12 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         )
     {
         uint256 numPendingBlocks = nextPendingId - lastFinalizedId;
-        if (numPendingBlocks <= MAX_PENDING_BLOCKS / 2) return 0;
+        uint256 threshold = MAX_PENDING_BLOCKS / 2;
+        if (numPendingBlocks <= threshold) return 0;
 
         return
-            ((2 * numPendingBlocks - MAX_PENDING_BLOCKS) *
-                100 *
-                UTILIZATION_FEE_RATIO) / MAX_PENDING_BLOCKS;
+            (UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
+            (MAX_PENDING_BLOCKS - threshold);
     }
 
     /**********************
