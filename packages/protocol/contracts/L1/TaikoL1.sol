@@ -44,10 +44,11 @@ struct Evidence {
     Snippet snippet;
 }
 
+// all state time units are nanosecond
 struct Stats {
-    uint64 avgPendingSize; // scaled by STAT_SCALE
-    uint64 avgProvingDelay; // scaled by STAT_SCALE
-    uint64 avgFinalizationDelay; // scaled by STAT_SCALE
+    uint64 avgPendingSize;
+    uint64 avgProvingDelay;
+    uint64 avgFinalizationDelay;
 }
 
 /// @dev We have the following design assumptions:
@@ -82,7 +83,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
-    uint64 private constant STAT_SCALE = 1000000;
+    uint64 private constant NANO_PER_SECOND = 1E9;
 
     /**********************
      * State Variables    *
@@ -378,9 +379,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     function getStats() public view returns (Stats memory stats) {
         stats = _stats;
-        stats.avgPendingSize /= STAT_SCALE;
-        stats.avgProvingDelay /= STAT_SCALE;
-        stats.avgFinalizationDelay /= STAT_SCALE;
+        stats.avgPendingSize /= NANO_PER_SECOND;
+        stats.avgProvingDelay /= NANO_PER_SECOND;
+        stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
     /**********************
@@ -496,7 +497,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint256 value = ((STAT_AVERAGING_FACTOR - 1) *
             avg +
             current *
-            STAT_SCALE) / STAT_AVERAGING_FACTOR;
+            NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
         return value.toUint64();
     }
 }
