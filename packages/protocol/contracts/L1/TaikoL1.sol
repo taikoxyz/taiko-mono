@@ -30,6 +30,7 @@ struct BlockContext {
     bytes32 txListHash;
     bytes32 mixHash;
     bytes extraData;
+    uint256 proverFee;
 }
 
 struct Snippet {
@@ -39,6 +40,7 @@ struct Snippet {
 
 struct Evidence {
     address prover;
+    uint256 proverFee;
     uint64 proposedAt;
     uint64 provenAt;
     Snippet snippet;
@@ -101,17 +103,21 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
+    address public keyManagerAddress;
     address public taikoL2Address;
-    KeyManager public keyManager;
+    address public daoAddress;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
+    uint256 public proverBaseFee;
+    uint256 public proverGasPrice; // TODO: auto-adjustable
+
     Stats private _stats; // 1 slot
 
-    uint256[43] private __gap;
+    uint256[40] private __gap;
 
     /**********************
      * Events             *
@@ -144,25 +150,36 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * External Functions *
      **********************/
 
-    function init(Snippet calldata genesis, address keyManagerAddr)
-        external
-        initializer
-    {
+    function init(
+        Snippet calldata genesis,
+        address _keyManagerAddress,
+        address _taikoL2Address,
+        address _daoAddress,
+        uint256 _proverBaseFee,
+        uint256 _proverGasPrice
+    ) external initializer {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
-            !AddressUpgradeable.isContract(keyManagerAddr),
+            !AddressUpgradeable.isContract(_keyManagerAddress),
             "invalid keyManager"
         );
+        require(_taikoL2Address != address(0), "invalid taikoL2Address");
+
+        proverBaseFee = _proverBaseFee;
+        proverGasPrice = _proverGasPrice;
 
         finalizedBlocks[0] = genesis;
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
-        keyManager = KeyManager(keyManagerAddr);
+        keyManagerAddress = _keyManagerAddress;
+        taikoL2Address = _taikoL2Address;
+        daoAddress = _daoAddress;
 
         Evidence memory evidence = Evidence({
             prover: address(0),
+            proverFee: 0,
             proposedAt: 0,
             provenAt: 0,
             snippet: genesis
@@ -181,6 +198,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
+        payable
         nonReentrant
     {
         // Try to finalize blocks first to make room
@@ -200,6 +218,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
+
+        context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
+
+        require(msg.value >= context.proverFee, "insufficient fee");
+
+        if (msg.value > context.proverFee) {
+            payable(msg.sender).transfer(msg.value - context.proverFee);
+        }
 
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
@@ -223,7 +249,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            keyManager.getKey(ZKP_VKEY),
+            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -251,6 +277,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         Evidence memory evidence = Evidence({
             prover: msg.sender,
+            proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: block.timestamp.toUint64(),
             snippet: Snippet({
@@ -288,7 +315,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         LibZKP.verify(
-            keyManager.getKey(ZKP_VKEY),
+            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
@@ -364,7 +391,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             context.id == 0 &&
                 context.txListHash == 0x0 &&
                 context.mixHash == 0x0 &&
-                context.proposedAt == 0,
+                context.proposedAt == 0 &&
+                context.proverFee == 0,
             "nonzero placeholder fields"
         );
 
@@ -401,6 +429,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         evidences[context.id][JUMP_MARKER] = Evidence({
             prover: msg.sender,
+            proverFee: context.proverFee,
             proposedAt: context.proposedAt,
             provenAt: noZKP ? context.proposedAt : block.timestamp.toUint64(),
             snippet: Snippet({blockHash: 0x0, stateRoot: 0x0})
@@ -413,6 +442,13 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 height,
         Evidence storage evidence
     ) private {
+        bool success;
+        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+
+        if (!success && daoAddress != address(0)) {
+            (success, ) = daoAddress.call{value: evidence.proverFee}("");
+        }
+
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
@@ -425,8 +461,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         emit BlockFinalized(id, height, evidence);
 
-        // Delete the evidence
+        // Delete the evidence to potentially avoid 5 sstore ops.
         evidence.prover = address(0);
+        evidence.proverFee = 0;
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
         delete evidence.snippet;
