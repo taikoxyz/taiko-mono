@@ -172,13 +172,13 @@ contract TaikoL1 is EssentialContract {
             blockHash: _genesisBlockHash
         });
 
-        IMintableERC20 protoToken = IMintableERC20(resolve("proto_token"));
+        IMintableERC20 taiToken = IMintableERC20(resolve("dai_token"));
         if (_amountMintToDAO != 0) {
-            protoToken.mint(resolve("dao_vault"), _amountMintToDAO);
+            taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
         }
 
         if (_amountMintToTeam != 0) {
-            protoToken.mint(resolve("team_vault"), _amountMintToTeam);
+            taiToken.mint(resolve("team_vault"), _amountMintToTeam);
         }
 
         emit BlockFinalized(0, 0, evidence, 0, 0);
