@@ -30,7 +30,6 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /*********************
      * Events            *
      *********************/
-    event Burn(address account, uint256 amount);
     event Mint(address account, uint256 amount);
 
     /*********************
