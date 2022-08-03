@@ -150,7 +150,9 @@ contract TaikoL1 is EssentialContract {
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint256 _proverBaseFee,
-        uint256 _proverGasPrice
+        uint256 _proverGasPrice,
+        uint256 _amountMintToDAO,
+        uint256 _amountMintToTeam
     ) external initializer {
         EssentialContract._init(_addressManager);
 
@@ -169,6 +171,16 @@ contract TaikoL1 is EssentialContract {
             provenAt: 0,
             blockHash: _genesisBlockHash
         });
+
+        IMintableERC20 taiToken = IMintableERC20(resolve("dai_token"));
+        if (_amountMintToDAO != 0) {
+            taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
+        }
+
+        if (_amountMintToTeam != 0) {
+            taiToken.mint(resolve("team_vault"), _amountMintToTeam);
+        }
+
         emit BlockFinalized(0, 0, evidence, 0, 0);
     }
 
