@@ -407,6 +407,14 @@ contract TaikoL1 is EssentialContract {
             (MAX_PENDING_BLOCKS - threshold);
     }
 
+    function getBlockTaiReward(uint256 provingDelay)
+        public
+        view
+        returns (uint256)
+    {
+        // TODO: implement this
+    }
+
     /**********************
      * Private Functions  *
      **********************/
@@ -506,7 +514,7 @@ contract TaikoL1 is EssentialContract {
         address taiToken = resolve("tai_token");
         if (taiToken == address(0)) return (0, 0);
 
-        blockReward = _getBlockReward(provingDelay);
+        blockReward = getBlockTaiReward(provingDelay);
         if (blockReward != 0) {
             TaiToken(taiToken).mint(prover, blockReward);
 
@@ -531,12 +539,6 @@ contract TaikoL1 is EssentialContract {
     function _getPendingBlock(uint256 id) private view returns (bytes32) {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
-
-    function _getBlockReward(uint256 provingDelay)
-        private
-        view
-        returns (uint256)
-    {}
 
     function _checkContextPending(BlockContext calldata context) private view {
         require(
