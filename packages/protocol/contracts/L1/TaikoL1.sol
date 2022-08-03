@@ -128,7 +128,7 @@ contract TaikoL1 is EssentialContract {
         uint256 indexed id,
         uint256 indexed height,
         Evidence evidence,
-        uint256 blockReward,
+        uint256 blockTaiReward,
         uint256 daoReward
     );
 
@@ -511,12 +511,12 @@ contract TaikoL1 is EssentialContract {
         private
         returns (uint256 blockReward, uint256 daoReward)
     {
-        address protoToken = resolve("proto_token");
-        if (protoToken == address(0)) return (0, 0);
+        address taiToken = resolve("tai_token");
+        if (taiToken == address(0)) return (0, 0);
 
         blockReward = getBlockTaiReward(provingDelay);
         if (blockReward != 0) {
-            IMintableERC20(protoToken).mint(prover, blockReward);
+            IMintableERC20(taiToken).mint(prover, blockReward);
 
             address daoVault = resolve("dao_vault");
             daoReward = daoVault == address(0)
@@ -524,7 +524,7 @@ contract TaikoL1 is EssentialContract {
                 : (blockReward * DAO_REWARD_RATIO) / 100;
 
             if (daoReward != 0) {
-                IMintableERC20(protoToken).mint(daoVault, daoReward);
+                IMintableERC20(taiToken).mint(daoVault, daoReward);
             }
         }
     }
