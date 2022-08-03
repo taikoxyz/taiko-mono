@@ -462,11 +462,10 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         Evidence storage evidence
     ) private {
         _payProverFee(evidence.prover, evidence.proverFee);
-
-        uint256 blockReward = _getBlockReward();
-        if (blockReward > 0) {
-            taiToken.mint(evidence.prover, blockReward);
-        }
+        _payBlockReward(
+            evidence.prover,
+            evidence.provenAt - evidence.proposedAt
+        );
 
         // Update stats
         _stats.avgProvingDelay = _calcAverage(
@@ -506,6 +505,16 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         }
     }
 
+    function _payBlockReward(address prover, uint256 provingDelay)
+        private
+        returns (uint256 blockReward)
+    {
+        blockReward = _getBlockReward(provingDelay);
+        if (blockReward > 0) {
+            taiToken.mint(prover, blockReward);
+        }
+    }
+
     function _savePendingBlock(uint256 id, bytes32 contextHash)
         private
         returns (bytes32)
@@ -517,7 +526,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
-    function _getBlockReward() private view returns (uint256) {}
+    function _getBlockReward(uint256 provingDelay)
+        private
+        view
+        returns (uint256)
+    {}
 
     function _checkContextPending(BlockContext calldata context) private view {
         require(
