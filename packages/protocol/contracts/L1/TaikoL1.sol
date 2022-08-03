@@ -112,6 +112,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
 
+    uint256 public reservedProverFee;
+
     Stats private _stats; // 1 slot
 
     uint256[39] private __gap;
@@ -459,18 +461,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 _lastFinalizedHeight,
         Evidence storage evidence
     ) private {
-        bool success;
-        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
-
-        if (!success && daoAddress != address(0)) {
-            (success, ) = daoAddress.call{value: evidence.proverFee}("");
-        }
+        _payProverFee(evidence.prover, evidence.proverFee);
 
         uint256 blockReward = _getBlockReward();
         if (blockReward > 0) {
             taiToken.mint(evidence.prover, blockReward);
         }
 
+        // Update stats
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
@@ -481,7 +479,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             block.timestamp.toUint64() - evidence.proposedAt
         );
 
-        payable(msg.sender).transfer(evidence.proverFee);
         emit BlockFinalized(id, _lastFinalizedHeight, evidence);
 
         // Delete the evidence to potentially avoid 4 sstore ops.
@@ -490,6 +487,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
         evidence.blockHash = 0x0;
+    }
+
+    function _payProverFee(address prover, uint256 proverFee) private {
+        // Pay prover fee
+        bool success;
+        (success, ) = prover.call{value: proverFee}("");
+        if (success) return;
+
+        if (daoAddress == address(0)) {
+            reservedProverFee += proverFee;
+            return;
+        }
+
+        (success, ) = daoAddress.call{value: proverFee}("");
+        if (!success) {
+            reservedProverFee += proverFee;
+        }
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
