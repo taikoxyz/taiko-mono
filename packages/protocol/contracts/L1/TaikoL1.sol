@@ -463,7 +463,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             (success, ) = daoAddress.call{value: evidence.proverFee}("");
         }
         // Update stats
-
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
             nextPendingId - lastFinalizedId - 1
