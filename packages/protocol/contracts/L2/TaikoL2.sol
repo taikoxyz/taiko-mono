@@ -35,12 +35,15 @@ contract TaikoL2 is EssentialContract {
         bytes32 proofVal
     );
 
+    event EtherCredited(address receipient, uint256 amount);
+    event EtherReturned(address receipient, uint256 amount);
+
     /**********************
      * Modifiers          *
      **********************/
 
     modifier whenAnchoreAllowed() {
-        require(lastAnchorHeight < block.number, "anchored already");
+        require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
         _;
     }
@@ -49,28 +52,29 @@ contract TaikoL2 is EssentialContract {
      * External Functions *
      **********************/
 
+    receive() external payable {
+        emit EtherReturned(msg.sender, msg.value);
+    }
+
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
-    function unwrapEther(address receipient, uint256 amount) external {
-        if (amount == 0) return;
-
-        IERC20(resolve("WETH")).transferFrom(msg.sender, address(this), amount);
+    function creditEther(address receipient, uint256 amount)
+        external
+        nonReentrant
+        onlyFromNamed("bridge_helper")
+    {
+        require(receipient != address(this), "L2:invalid address");
         payable(receipient).transfer(amount);
-    }
-
-    function wrapEther(address receipient) external payable {
-        if (msg.value == 0) return;
-
-        IERC20(resolve("WETH")).transfer(receipient, msg.value);
+        emit EtherCredited(receipient, amount);
     }
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
         whenAnchoreAllowed
     {
-        require(anchorHeight != 0 && anchorHash != 0x0, "invalid anchor");
+        require(anchorHeight != 0 && anchorHash != 0x0, "L2:invalid anchor");
 
         if (anchorHashes[anchorHeight] == 0x0) {
             anchorHashes[anchorHeight] = anchorHash;
@@ -87,7 +91,10 @@ contract TaikoL2 is EssentialContract {
     }
 
     function verifyBlockInvalid(bytes calldata txList) external {
-        require(!LibTxListValidator.isTxListValid(txList), "txList is valid");
+        require(
+            !LibTxListValidator.isTxListValid(txList),
+            "L2:txList is valid"
+        );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(keccak256(txList));
