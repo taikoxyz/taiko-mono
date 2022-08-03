@@ -44,7 +44,7 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
-    modifier whenAnchoreAllowed() {
+    modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
         _;
@@ -75,7 +75,7 @@ contract TaikoL2 is EssentialContract {
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
-        whenAnchoreAllowed
+        onlyWhenNotAnchored
     {
         require(anchorHeight != 0 && anchorHash != 0x0, "L2:invalid anchor");
 
