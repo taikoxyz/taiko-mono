@@ -8,14 +8,23 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../common/EssentialContract.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
 
-contract TaikoL2 {
+contract TaikoL2 is EssentialContract {
+    /**********************
+     * State Variables    *
+     **********************/
+
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
 
     uint256[48] private __gap;
+
+    /**********************
+     * Events             *
+     **********************/
 
     event Anchored(
         uint256 anchorHeight,
@@ -24,10 +33,31 @@ contract TaikoL2 {
         bytes32 proofVal
     );
 
+    /**********************
+     * Modifiers          *
+     **********************/
+
     modifier whenAnchoreAllowed() {
         require(lastAnchorHeight < block.number, "anchored already");
         lastAnchorHeight = block.number;
         _;
+    }
+
+    /**********************
+     * External Functions *
+     **********************/
+
+    function init(address _addressManager) external initializer {
+        EssentialContract._init(_addressManager);
+    }
+
+    /// @dev Transfers Ether out of this contract to an recipient. We expect
+    ///      this method will be called by a Bridge on L2.
+    function transferEther(address receipient, uint256 amount)
+        external
+        onlyFromNamed("authorized_bridge")
+    {
+        payable(receipient).transfer(amount);
     }
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
