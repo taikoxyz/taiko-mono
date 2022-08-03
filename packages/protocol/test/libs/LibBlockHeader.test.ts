@@ -1,5 +1,4 @@
 import { expect } from "chai"
-import { L2_GENESIS_BLOCK } from "../../tasks/config"
 import * as log from "../../tasks/log"
 const hre = require("hardhat")
 const ethers = hre.ethers
@@ -12,13 +11,6 @@ describe("LibBlockHeader tests", function () {
         libBlockHeader = await (
             await ethers.getContractFactory("TestLibBlockHeader")
         ).deploy()
-    })
-
-    it("calculating headerHash for genesis block", async function () {
-        const headerHash = await libBlockHeader.hashBlockHeader(
-            L2_GENESIS_BLOCK.header
-        )
-        console.log("headerHash: ", headerHash)
     })
 
     it("should be able to calculate block header hash correctly", async function () {
