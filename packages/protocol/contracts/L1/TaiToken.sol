@@ -66,7 +66,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
 
     function transfer(address to, uint256 amount)
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         require(to != address(this), "TAI: invalid to");
@@ -77,7 +77,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address from,
         address to,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
         require(to != address(this), "TAI: invalid to");
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }

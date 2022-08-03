@@ -150,7 +150,9 @@ contract TaikoL1 is EssentialContract {
         address _addressManager,
         bytes32 _genesisBlockHash,
         uint256 _proverBaseFee,
-        uint256 _proverGasPrice
+        uint256 _proverGasPrice,
+        uint256 _ethAmountToConvert,
+        address _ethReceiver
     ) external initializer {
         EssentialContract._init(_addressManager);
 
@@ -170,6 +172,11 @@ contract TaikoL1 is EssentialContract {
             blockHash: _genesisBlockHash
         });
         emit BlockFinalized(0, 0, evidence, 0, 0);
+
+        if (_ethAmountToConvert != 0) {
+            require(_ethReceiver != address(0), "invalid eth receiver");
+            payable(_ethReceiver).transfer(_ethAmountToConvert);
+        }
     }
 
     /// @notice Propose a Taiko L2 block.
