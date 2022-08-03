@@ -40,24 +40,9 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /// @dev Initializer to be called after being deployed behind a proxy.
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
-    function init(
-        address _addressManager,
-        uint256 amountMintToDAO,
-        uint256 amountMintToDev
-    ) external initializer {
+    function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init("Taiko Token", "TAI", 18);
-
-        address daoVault = resolve("dao_vault");
-        address devVault = resolve("dev_vault");
-
-        require(
-            daoVault != address(0) && devVault != address(0),
-            "TAI:zero address"
-        );
-
-        _mint(daoVault, amountMintToDAO);
-        _mint(devVault, amountMintToDev);
     }
 
     /*********************

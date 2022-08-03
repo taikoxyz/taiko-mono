@@ -151,8 +151,8 @@ contract TaikoL1 is EssentialContract {
         bytes32 _genesisBlockHash,
         uint256 _proverBaseFee,
         uint256 _proverGasPrice,
-        uint256 _ethAmountToConvert,
-        address _ethReceiver
+        uint256 amountMintToDAO,
+        uint256 amountMintToTeam
     ) external initializer {
         EssentialContract._init(_addressManager);
 
@@ -171,12 +171,24 @@ contract TaikoL1 is EssentialContract {
             provenAt: 0,
             blockHash: _genesisBlockHash
         });
-        emit BlockFinalized(0, 0, evidence, 0, 0);
 
-        if (_ethAmountToConvert != 0) {
-            require(_ethReceiver != address(0), "invalid eth receiver");
-            payable(_ethReceiver).transfer(_ethAmountToConvert);
+        if (amountMintToDAO != 0) {
+            require(resolve("dao_vault") != address(0), "invalid dao vault");
+            IMintableERC20(resolve("proto_token")).mint(
+                resolve("dao_vault"),
+                amountMintToDAO
+            );
         }
+
+        if (amountMintToTeam != 0) {
+            require(resolve("team_vault") != address(0), "invalid team vault");
+            IMintableERC20(resolve("proto_token")).mint(
+                resolve("team_vault"),
+                amountMintToTeam
+            );
+        }
+
+        emit BlockFinalized(0, 0, evidence, 0, 0);
     }
 
     /// @notice Propose a Taiko L2 block.
