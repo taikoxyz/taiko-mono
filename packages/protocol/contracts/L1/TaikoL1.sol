@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
-import "../common/KeyManager.sol";
+import "../common/ConfigManager.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTxList.sol";
@@ -229,7 +229,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            KeyManager(resolve("key_manager")).getKey(ZKP_VKEY),
+            ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -292,7 +292,7 @@ contract TaikoL1 is EssentialContract {
         );
 
         LibZKP.verify(
-            KeyManager(resolve("key_manager")).getKey(ZKP_VKEY),
+            ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
