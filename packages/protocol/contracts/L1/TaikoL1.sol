@@ -76,15 +76,15 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      * Constants   *
      **********************/
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_PENDING_BLOCKS = 1024;
+    uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
-    uint256 public constant MAX_FINALIZATION_WRITES_PER_TX = 5;
-    uint256 public constant MAX_FINALIZATION_READS_PER_TX = 50;
+    uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
+    uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
 
     /**********************
      * State Variables    *
@@ -110,9 +110,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
 
+    uint256 public reservedProverFee;
+
     Stats private _stats; // 1 slot
 
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     /**********************
      * Events             *
@@ -156,7 +158,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
 
         require(
-            AddressUpgradeable.isContract(keyManagerAddress),
+            AddressUpgradeable.isContract(_keyManagerAddress),
             "invalid keyManager"
         );
         require(_taikoL2Address != address(0), "invalid taikoL2Address");
@@ -206,6 +208,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
         validateContext(context);
 
+        _stats.avgPendingSize = _calcAverage(
+            _stats.avgPendingSize,
+            nextPendingId - lastFinalizedId - 1
+        );
+
         context.id = nextPendingId;
         context.proposedAt = block.timestamp.toUint64();
         context.txListHash = txList.hashTxList();
@@ -214,22 +221,26 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
+        // Check fees
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
 
-        _stats.avgPendingSize = _calcAverage(
-            _stats.avgPendingSize,
-            nextPendingId - lastFinalizedId - 1
-        );
+        uint256 utilizationFee = daoAddress == address(0)
+            ? 0
+            : (context.proverFee * getUtilizationFeeBips()) / 10000;
+        uint256 totalFees = context.proverFee + utilizationFee;
+
+        require(msg.value >= totalFees, "insufficient fee");
+
+        // Refund
+        if (msg.value > totalFees) {
+            payable(msg.sender).transfer(msg.value - totalFees);
+        }
+        if (utilizationFee > 0) {
+            payable(daoAddress).transfer(utilizationFee);
+        }
 
         _savePendingBlock(nextPendingId, _hashContext(context));
-        emit BlockProposed(nextPendingId, context);
-
-        nextPendingId += 1;
-
-        require(msg.value >= context.proverFee, "insufficient fee");
-        if (msg.value > context.proverFee) {
-            payable(msg.sender).transfer(msg.value - context.proverFee);
-        }
+        emit BlockProposed(nextPendingId++, context);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -342,38 +353,29 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      **********************/
 
     function finalizeBlocks() public {
-        bytes32 parentHash = finalizedBlocks[lastFinalizedHeight];
         uint64 id = lastFinalizedId + 1;
-        uint256 reads = 0;
-        uint256 writes = 0;
-        while (
-            id < nextPendingId &&
-            reads <= MAX_FINALIZATION_READS_PER_TX &&
-            writes <= MAX_FINALIZATION_WRITES_PER_TX
-        ) {
-            Evidence storage evidence = evidences[id][parentHash];
+        uint256 processed = 0;
+        while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
+            Evidence storage evidence = evidences[id][
+                finalizedBlocks[lastFinalizedHeight]
+            ];
 
             if (evidence.prover != address(0)) {
                 finalizedBlocks[++lastFinalizedHeight] = evidence.blockHash;
-
-                _handleFinalizedBlock(id, lastFinalizedHeight, evidence);
-                parentHash = evidence.blockHash;
-                writes += 1;
+                _finalizeBlock(id, lastFinalizedHeight, evidence);
+            } else if (evidences[id][JUMP_MARKER].prover != address(0)) {
+                _finalizeBlock(
+                    id,
+                    lastFinalizedHeight,
+                    evidences[id][JUMP_MARKER]
+                );
             } else {
-                if (evidences[id][JUMP_MARKER].prover != address(0)) {
-                    _handleFinalizedBlock(
-                        id,
-                        lastFinalizedHeight,
-                        evidences[id][JUMP_MARKER]
-                    );
-                } else {
-                    break;
-                }
+                break;
             }
 
             lastFinalizedId += 1;
             id += 1;
-            reads += 1;
+            processed += 1;
         }
     }
 
@@ -409,6 +411,27 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
+    function getUtilizationFeeBips()
+        public
+        view
+        returns (
+            uint256 /*basisPoints*/
+        )
+    {
+        // TODO(daniel): optimize the math. Maybe also include `proverGasPrice` in the
+        // calculation.
+        uint256 numPendingBlocks = nextPendingId - lastFinalizedId;
+
+        // threshold is the middle point of MAX_PENDING_BLOCKS/2 and
+        // _stats.avgPendingSize
+        uint256 threshold = MAX_PENDING_BLOCKS / 4 + _stats.avgPendingSize / 2;
+        if (numPendingBlocks <= threshold) return 0;
+
+        return
+            (UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
+            (MAX_PENDING_BLOCKS - threshold);
+    }
+
     /**********************
      * Private Functions  *
      **********************/
@@ -428,18 +451,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProvenInvalid(context.id);
     }
 
-    function _handleFinalizedBlock(
+    function _finalizeBlock(
         uint64 id,
-        uint64 height,
+        uint64 _lastFinalizedHeight,
         Evidence storage evidence
     ) private {
-        bool success;
-        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+        _payProverFee(evidence.prover, evidence.proverFee);
 
-        if (!success && daoAddress != address(0)) {
-            (success, ) = daoAddress.call{value: evidence.proverFee}("");
-        }
-
+        // Update stats
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
@@ -450,7 +469,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             block.timestamp.toUint64() - evidence.proposedAt
         );
 
-        emit BlockFinalized(id, height, evidence);
+        emit BlockFinalized(id, _lastFinalizedHeight, evidence);
 
         // Delete the evidence to potentially avoid 4 sstore ops.
         evidence.prover = address(0);
@@ -458,6 +477,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
         evidence.blockHash = 0x0;
+    }
+
+    function _payProverFee(address prover, uint256 proverFee) private {
+        // Pay prover fee
+        bool success;
+        (success, ) = prover.call{value: proverFee}("");
+        if (success) return;
+
+        if (daoAddress == address(0)) {
+            reservedProverFee += proverFee;
+            return;
+        }
+
+        (success, ) = daoAddress.call{value: proverFee}("");
+        if (!success) {
+            reservedProverFee += proverFee;
+        }
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
