@@ -1,0 +1,34 @@
+name: Website
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'packages/website/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'packages/website/**'
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.9.1
+      with:
+        access_token: ${{ github.token }}
+
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '16.15'
+
+    - name: Install Packages
+      working-directory: ./packages/website
+      run: yarn
+
+    - name: Build Website
+      working-directory: ./packages/website
+      run: yarn build
