@@ -111,7 +111,7 @@ contract TaikoL1 is EssentialContract {
 
     Stats private _stats; // 1 slot
 
-    uint256[39] private __gap;
+    uint256[42] private __gap;
 
     /**********************
      * Events             *
