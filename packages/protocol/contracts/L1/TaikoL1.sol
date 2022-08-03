@@ -480,6 +480,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         payable(msg.sender).transfer(evidence.proverFee);
+        emit BlockFinalized(id, height, evidence);
 
         // Delete the evidence to potentially avoid 4 sstore ops.
         evidence.prover = address(0);
@@ -487,8 +488,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
         evidence.blockHash = 0x0;
-
-        emit BlockFinalized(id, height, evidence);
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
