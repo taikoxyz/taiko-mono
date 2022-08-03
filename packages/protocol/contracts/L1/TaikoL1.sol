@@ -79,6 +79,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
+    uint256 public constant DAO_REWARD_RATIO = 100; // 100%
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
@@ -98,17 +99,15 @@ contract TaikoL1 is EssentialContract {
 
     mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
-    TaiToken public taiToken;
-
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
+    uint256 public reservedProverFee;
+
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
-
-    uint256 public reservedProverFee;
 
     Stats private _stats; // 1 slot
 
@@ -128,7 +127,9 @@ contract TaikoL1 is EssentialContract {
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,
-        Evidence evidence
+        Evidence evidence,
+        uint256 blockReward,
+        uint256 daoReward
     );
 
     /**********************
@@ -148,13 +149,10 @@ contract TaikoL1 is EssentialContract {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        address _taiTokenAddress,
         uint256 _proverBaseFee,
         uint256 _proverGasPrice
     ) external initializer {
         EssentialContract._init(_addressManager);
-
-        require(_taiTokenAddress != address(0), "invalid taiTokenAddress");
 
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
@@ -163,7 +161,6 @@ contract TaikoL1 is EssentialContract {
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
-        taiToken = TaiToken(_taiTokenAddress);
 
         Evidence memory evidence = Evidence({
             prover: address(0),
@@ -172,7 +169,7 @@ contract TaikoL1 is EssentialContract {
             provenAt: 0,
             blockHash: _genesisBlockHash
         });
-        emit BlockFinalized(0, 0, evidence);
+        emit BlockFinalized(0, 0, evidence, 0, 0);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -219,24 +216,6 @@ contract TaikoL1 is EssentialContract {
 
         _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId++, context);
-    }
-
-    function _chargeProposerFee(uint256 proverFee) internal {
-        address daoAddress = resolve("dao");
-        uint256 utilizationFee = daoAddress == address(0)
-            ? 0
-            : (proverFee * getUtilizationFeeBips()) / 10000;
-        uint256 totalFees = proverFee + utilizationFee;
-
-        require(msg.value >= totalFees, "insufficient fee");
-
-        // Refund
-        if (msg.value > totalFees) {
-            payable(msg.sender).transfer(msg.value - totalFees);
-        }
-        if (utilizationFee > 0) {
-            payable(daoAddress).transfer(utilizationFee);
-        }
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -453,7 +432,7 @@ contract TaikoL1 is EssentialContract {
         Evidence storage evidence
     ) private {
         _payProverFee(evidence.prover, evidence.proverFee);
-        _payBlockReward(
+        (uint256 blockReward, uint256 daoReward) = _payBlockReward(
             evidence.prover,
             evidence.provenAt - evidence.proposedAt
         );
@@ -469,7 +448,13 @@ contract TaikoL1 is EssentialContract {
             block.timestamp.toUint64() - evidence.proposedAt
         );
 
-        emit BlockFinalized(id, _lastFinalizedHeight, evidence);
+        emit BlockFinalized(
+            id,
+            _lastFinalizedHeight,
+            evidence,
+            blockReward,
+            daoReward
+        );
 
         // Delete the evidence to potentially avoid 4 sstore ops.
         evidence.prover = address(0);
@@ -479,35 +464,59 @@ contract TaikoL1 is EssentialContract {
         evidence.blockHash = 0x0;
     }
 
+    function _chargeProposerFee(uint256 proverFee) private {
+        address daoVault = resolve("dao_vault");
+        uint256 utilizationFee = daoVault == address(0)
+            ? 0
+            : (proverFee * getUtilizationFeeBips()) / 10000;
+        uint256 totalFees = proverFee + utilizationFee;
+
+        require(msg.value >= totalFees, "insufficient fee");
+
+        // Refund
+        if (msg.value > totalFees) {
+            payable(msg.sender).transfer(msg.value - totalFees);
+        }
+        if (utilizationFee > 0) {
+            payable(daoVault).transfer(utilizationFee);
+        }
+    }
+
     function _payProverFee(address prover, uint256 proverFee) private {
         // Pay prover fee
         bool success;
         (success, ) = prover.call{value: proverFee}("");
         if (success) return;
 
-        address daoAddress = resolve("dao");
-        if (daoAddress == address(0)) {
-            reservedProverFee += proverFee;
-            return;
-        }
+        reservedProverFee += proverFee;
 
-        (success, ) = daoAddress.call{value: proverFee}("");
-        if (!success) {
-            reservedProverFee += proverFee;
+        address daoVault = resolve("dao_vault");
+        if (daoVault == address(0)) return;
+
+        (success, ) = daoVault.call{value: reservedProverFee - 1}("");
+        if (success) {
+            reservedProverFee = 1;
         }
     }
 
     function _payBlockReward(address prover, uint256 provingDelay)
         private
-        returns (uint256 blockReward)
+        returns (uint256 blockReward, uint256 daoReward)
     {
-        blockReward = _getBlockReward(provingDelay);
-        if (blockReward > 0) {
-            taiToken.mint(prover, blockReward);
+        address taiToken = resolve("tai_token");
+        if (taiToken == address(0)) return (0, 0);
 
-            address daoAddress = resolve("dao");
-            if (daoAddress != address(0)) {
-                taiToken.mint(daoAddress, blockReward);
+        blockReward = _getBlockReward(provingDelay);
+        if (blockReward != 0) {
+            TaiToken(taiToken).mint(prover, blockReward);
+
+            address daoVault = resolve("dao_vault");
+            daoReward = daoVault == address(0)
+                ? 0
+                : (blockReward * DAO_REWARD_RATIO) / 100;
+
+            if (daoReward != 0) {
+                TaiToken(taiToken).mint(daoVault, daoReward);
             }
         }
     }
