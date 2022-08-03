@@ -455,6 +455,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         Evidence storage evidence
     ) private {
         bool success;
+
+        // Pay the prover fee
         (success, ) = evidence.prover.call{value: evidence.proverFee}("");
 
         if (!success && daoAddress != address(0)) {
@@ -471,7 +473,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             block.timestamp.toUint64() - evidence.proposedAt
         );
 
-        payable(msg.sender).transfer(evidence.proverFee);
         emit BlockFinalized(id, _lastFinalizedHeight, evidence);
 
         // Delete the evidence to potentially avoid 4 sstore ops.
