@@ -493,6 +493,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
+    function _getBlockReward() private view returns (uint256) {}
+
     function _checkContextPending(BlockContext calldata context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
