@@ -8,6 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-interface MintableERC20 {
+interface IMintableERC20 {
     function mint(address account, uint256 amount) external;
 }

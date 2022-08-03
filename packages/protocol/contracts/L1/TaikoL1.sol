@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
-import "../common/MintableERC20.sol";
+import "../common/IMintableERC20.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTxList.sol";
@@ -516,7 +516,7 @@ contract TaikoL1 is EssentialContract {
 
         blockReward = getBlockTaiReward(provingDelay);
         if (blockReward != 0) {
-            MintableERC20(protoToken).mint(prover, blockReward);
+            IMintableERC20(protoToken).mint(prover, blockReward);
 
             address daoVault = resolve("dao_vault");
             daoReward = daoVault == address(0)
@@ -524,7 +524,7 @@ contract TaikoL1 is EssentialContract {
                 : (blockReward * DAO_REWARD_RATIO) / 100;
 
             if (daoReward != 0) {
-                MintableERC20(protoToken).mint(daoVault, daoReward);
+                IMintableERC20(protoToken).mint(daoVault, daoReward);
             }
         }
     }
