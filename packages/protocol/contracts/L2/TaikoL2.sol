@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import "../common/EssentialContract.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
@@ -51,13 +53,17 @@ contract TaikoL2 is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    /// @dev Transfers Ether out of this contract to an recipient. We expect
-    ///      this method will be called by a Bridge on L2.
-    function transferEther(address receipient, uint256 amount)
-        external
-        onlyFromNamed("authorized_bridge")
-    {
+    function unwrapEther(address receipient, uint256 amount) external {
+        if (amount == 0) return;
+
+        IERC20(resolve("WETH")).transferFrom(msg.sender, address(this), amount);
         payable(receipient).transfer(amount);
+    }
+
+    function wrapEther(address receipient) external payable {
+        if (msg.value == 0) return;
+
+        IERC20(resolve("WETH")).transfer(receipient, msg.value);
     }
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
