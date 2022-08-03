@@ -360,9 +360,9 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
             if (evidence.prover != address(0)) {
                 finalizedBlocks[++lastFinalizedHeight] = evidence.blockHash;
-                _processBlock(id, lastFinalizedHeight, evidence);
+                _finalizeBlock(id, lastFinalizedHeight, evidence);
             } else if (evidences[id][JUMP_MARKER].prover != address(0)) {
-                _processBlock(
+                _finalizeBlock(
                     id,
                     lastFinalizedHeight,
                     evidences[id][JUMP_MARKER]
@@ -449,7 +449,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         emit BlockProvenInvalid(context.id);
     }
 
-    function _processBlock(
+    function _finalizeBlock(
         uint64 id,
         uint64 _lastFinalizedHeight,
         Evidence storage evidence
