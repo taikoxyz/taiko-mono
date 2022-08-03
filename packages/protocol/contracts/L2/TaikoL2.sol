@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
@@ -16,7 +15,6 @@ import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
 
 contract TaikoL2 is EssentialContract {
-    using AddressUpgradeable for address;
     /**********************
      * State Variables    *
      **********************/
@@ -54,8 +52,7 @@ contract TaikoL2 is EssentialContract {
      * External Functions *
      **********************/
 
-    receive() external payable {
-        require(msg.sender.isContract(), "L2:not contract");
+    receive() external payable onlyFromNamed("bridge_helper") {
         emit EtherReturned(msg.sender, msg.value);
     }
 
