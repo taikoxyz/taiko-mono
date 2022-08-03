@@ -8,10 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../common/EssentialContract.sol";
 import "../common/KeyManager.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
@@ -69,7 +68,7 @@ struct Stats {
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
-contract TaikoL1 is ReentrancyGuardUpgradeable {
+contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
@@ -99,9 +98,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
 
-    address public keyManagerAddress;
-    address public taikoL2Address;
-    address public daoAddress;
     TaiToken public taiToken;
 
     uint64 public genesisHeight;
@@ -150,21 +146,14 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
      **********************/
 
     function init(
+        address _addressManager,
         bytes32 _genesisBlockHash,
-        address _keyManagerAddress,
-        address _taikoL2Address,
-        address _daoAddress,
         address _taiTokenAddress,
         uint256 _proverBaseFee,
         uint256 _proverGasPrice
     ) external initializer {
-        ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
+        EssentialContract._init(_addressManager);
 
-        require(
-            AddressUpgradeable.isContract(_keyManagerAddress),
-            "invalid keyManager"
-        );
-        require(_taikoL2Address != address(0), "invalid taikoL2Address");
         require(_taiTokenAddress != address(0), "invalid taiTokenAddress");
 
         proverBaseFee = _proverBaseFee;
@@ -174,9 +163,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         nextPendingId = 1;
 
         genesisHeight = block.number.toUint64();
-        keyManagerAddress = _keyManagerAddress;
-        taikoL2Address = _taikoL2Address;
-        daoAddress = _daoAddress;
         taiToken = TaiToken(_taiTokenAddress);
 
         Evidence memory evidence = Evidence({
@@ -229,10 +215,18 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         // Check fees
         context.proverFee = context.gasLimit * proverGasPrice + proverBaseFee;
 
+        _chargeProposerFee(context.proverFee);
+
+        _savePendingBlock(nextPendingId, _hashContext(context));
+        emit BlockProposed(nextPendingId++, context);
+    }
+
+    function _chargeProposerFee(uint256 proverFee) internal {
+        address daoAddress = resolve("dao");
         uint256 utilizationFee = daoAddress == address(0)
             ? 0
-            : (context.proverFee * getUtilizationFeeBips()) / 10000;
-        uint256 totalFees = context.proverFee + utilizationFee;
+            : (proverFee * getUtilizationFeeBips()) / 10000;
+        uint256 totalFees = proverFee + utilizationFee;
 
         require(msg.value >= totalFees, "insufficient fee");
 
@@ -243,9 +237,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         if (utilizationFee > 0) {
             payable(daoAddress).transfer(utilizationFee);
         }
-
-        _savePendingBlock(nextPendingId, _hashContext(context));
-        emit BlockProposed(nextPendingId++, context);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -259,7 +250,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
+            KeyManager(resolve("key_manager")).getKey(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -279,7 +270,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         LibMerkleProof.verify(
             header.stateRoot,
-            taikoL2Address,
+            resolve("taiko_l2"),
             proofKey,
             proofVal,
             proofs[1]
@@ -322,7 +313,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         );
 
         LibZKP.verify(
-            KeyManager(keyManagerAddress).getKey(ZKP_VKEY),
+            KeyManager(resolve("key_manager")).getKey(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
@@ -334,7 +325,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         LibMerkleProof.verify(
             throwAwayHeader.stateRoot,
-            taikoL2Address,
+            resolve("taiko_l2"),
             key,
             value,
             proofs[1]
@@ -494,6 +485,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         (success, ) = prover.call{value: proverFee}("");
         if (success) return;
 
+        address daoAddress = resolve("dao");
         if (daoAddress == address(0)) {
             reservedProverFee += proverFee;
             return;
@@ -512,6 +504,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         blockReward = _getBlockReward(provingDelay);
         if (blockReward > 0) {
             taiToken.mint(prover, blockReward);
+
+            address daoAddress = resolve("dao");
+            if (daoAddress != address(0)) {
+                taiToken.mint(daoAddress, blockReward);
+            }
         }
     }
 
