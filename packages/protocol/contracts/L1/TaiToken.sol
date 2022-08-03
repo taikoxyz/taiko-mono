@@ -30,8 +30,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /*********************
      * Events            *
      *********************/
-    event Burn(address account, uint256 amount, bool fromStaking);
-    event Mint(address account, uint256 amount, bool toStaking);
+    event Mint(address account, uint256 amount);
 
     /*********************
      * External Functions*
@@ -93,6 +92,6 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         onlyFromNamedEither("rollup", "erc20_vault")
     {
         _mint(account, amount);
-        emit Mint(account, amount, false);
+        emit Mint(account, amount);
     }
 }

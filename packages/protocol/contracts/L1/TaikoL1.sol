@@ -407,7 +407,7 @@ contract TaikoL1 is EssentialContract {
             (MAX_PENDING_BLOCKS - threshold);
     }
 
-    function getBlockTaiReward(uint256 provingDelay)
+    function getBlockReward(uint256 provingDelay)
         public
         view
         returns (uint256)
@@ -514,7 +514,7 @@ contract TaikoL1 is EssentialContract {
         address protoToken = resolve("proto_token");
         if (protoToken == address(0)) return (0, 0);
 
-        blockReward = getBlockTaiReward(provingDelay);
+        blockReward = getBlockReward(provingDelay);
         if (blockReward != 0) {
             IMintableERC20(protoToken).mint(prover, blockReward);
 
