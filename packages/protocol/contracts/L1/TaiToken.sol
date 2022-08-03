@@ -11,12 +11,9 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
+import "../common/MintableERC20.sol";
 import "../libs/LibMath.sol";
 import "../thirdparty/ERC20Upgradeable.sol";
-
-interface MintableERC20 {
-    function mint(address account, uint256 amount) external;
-}
 
 /// @author dantaik <dan@taiko.xyz>
 /// @dev This is Taiko's governance token.
