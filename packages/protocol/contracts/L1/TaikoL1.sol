@@ -459,11 +459,6 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         _payProverFee(evidence.prover, evidence.proverFee);
 
         // Update stats
-        _stats.avgPendingSize = _calcAverage(
-            _stats.avgPendingSize,
-            nextPendingId - lastFinalizedId - 1
-        );
-
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
