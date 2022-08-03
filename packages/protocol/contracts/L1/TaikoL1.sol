@@ -18,7 +18,7 @@ import "../libs/LibTxList.sol";
 import "../libs/LibConstants.sol";
 import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
-import "./TaiToken.sol";
+import {MintableERC20} from "./TaiToken.sol";
 
 struct BlockContext {
     uint256 id;
@@ -511,12 +511,12 @@ contract TaikoL1 is EssentialContract {
         private
         returns (uint256 blockReward, uint256 daoReward)
     {
-        address taiToken = resolve("tai_token");
-        if (taiToken == address(0)) return (0, 0);
+        address protoToken = resolve("proto_token");
+        if (protoToken == address(0)) return (0, 0);
 
         blockReward = getBlockTaiReward(provingDelay);
         if (blockReward != 0) {
-            TaiToken(taiToken).mint(prover, blockReward);
+            MintableERC20(protoToken).mint(prover, blockReward);
 
             address daoVault = resolve("dao_vault");
             daoReward = daoVault == address(0)
@@ -524,7 +524,7 @@ contract TaikoL1 is EssentialContract {
                 : (blockReward * DAO_REWARD_RATIO) / 100;
 
             if (daoReward != 0) {
-                TaiToken(taiToken).mint(daoVault, daoReward);
+                MintableERC20(protoToken).mint(daoVault, daoReward);
             }
         }
     }

@@ -14,9 +14,13 @@ import "../common/EssentialContract.sol";
 import "../libs/LibMath.sol";
 import "../thirdparty/ERC20Upgradeable.sol";
 
+interface MintableERC20 {
+    function mint(address account, uint256 amount) external;
+}
+
 /// @author dantaik <dan@taiko.xyz>
 /// @dev This is Taiko's governance token.
-contract TaiToken is EssentialContract, ERC20Upgradeable {
+contract TaiToken is EssentialContract, ERC20Upgradeable, MintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
