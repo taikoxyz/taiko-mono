@@ -454,9 +454,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 _lastFinalizedHeight,
         Evidence storage evidence
     ) private {
-        bool success;
-
         // Pay prover fee
+        bool success;
         (success, ) = evidence.prover.call{value: evidence.proverFee}("");
 
         if (!success && daoAddress != address(0)) {
