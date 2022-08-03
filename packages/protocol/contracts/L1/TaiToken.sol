@@ -39,24 +39,9 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /// @dev Initializer to be called after being deployed behind a proxy.
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
-    function init(
-        address _addressManager,
-        uint256 amountMintToDAO,
-        uint256 amountMintToDev
-    ) external initializer {
+    function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init("Taiko Token", "TAI", 18);
-
-        address daoVault = resolve("dao_vault");
-        address devVault = resolve("dev_vault");
-
-        require(
-            daoVault != address(0) && devVault != address(0),
-            "TAI:zero address"
-        );
-
-        _mint(daoVault, amountMintToDAO);
-        _mint(devVault, amountMintToDev);
     }
 
     /*********************
@@ -65,7 +50,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
 
     function transfer(address to, uint256 amount)
         public
-        override
+        override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
         require(to != address(this), "TAI: invalid to");
@@ -76,7 +61,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address from,
         address to,
         uint256 amount
-    ) public override returns (bool) {
+    ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
         require(to != address(this), "TAI: invalid to");
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
@@ -91,6 +76,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         public
         onlyFromNamed("taiko_l1")
     {
+        require(account != address(0), "TAI: invalid address");
         _mint(account, amount);
         emit Mint(account, amount);
     }
