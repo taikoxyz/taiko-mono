@@ -12,13 +12,14 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../common/KeyManager.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTxList.sol";
 import "../libs/LibConstants.sol";
 import "./LibBlockHeader.sol";
 import "./LibZKP.sol";
-import "./KeyManager.sol";
+import "./TaiToken.sol";
 
 struct BlockContext {
     uint256 id;
@@ -101,6 +102,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     address public keyManagerAddress;
     address public taikoL2Address;
     address public daoAddress;
+    TaiToken public taiToken;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
@@ -112,7 +114,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
     Stats private _stats; // 1 slot
 
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     /**********************
      * Events             *
@@ -150,6 +152,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         address _keyManagerAddress,
         address _taikoL2Address,
         address _daoAddress,
+        address _taiTokenAddress,
         uint256 _proverBaseFee,
         uint256 _proverGasPrice
     ) external initializer {
@@ -160,6 +163,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
             "invalid keyManager"
         );
         require(_taikoL2Address != address(0), "invalid taikoL2Address");
+        require(_taiTokenAddress != address(0), "invalid taiTokenAddress");
 
         proverBaseFee = _proverBaseFee;
         proverGasPrice = _proverGasPrice;
@@ -171,6 +175,7 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         keyManagerAddress = _keyManagerAddress;
         taikoL2Address = _taikoL2Address;
         daoAddress = _daoAddress;
+        taiToken = TaiToken(_taiTokenAddress);
 
         Evidence memory evidence = Evidence({
             prover: address(0),
@@ -459,6 +464,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
 
         if (!success && daoAddress != address(0)) {
             (success, ) = daoAddress.call{value: evidence.proverFee}("");
+        }
+
+        uint256 blockReward = _getBlockReward();
+        if (blockReward > 0) {
+            taiToken.mint(evidence.prover, blockReward);
         }
 
         _stats.avgProvingDelay = _calcAverage(
