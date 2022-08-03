@@ -104,7 +104,7 @@ contract TaikoL1 is EssentialContract {
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
-    uint256 public reservedProverFee;
+    uint256 public proverFeeToDAO;
 
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
@@ -488,14 +488,14 @@ contract TaikoL1 is EssentialContract {
         (success, ) = prover.call{value: proverFee}("");
         if (success) return;
 
-        reservedProverFee += proverFee;
+        proverFeeToDAO += proverFee;
 
         address daoVault = resolve("dao_vault");
         if (daoVault == address(0)) return;
 
-        (success, ) = daoVault.call{value: reservedProverFee - 1}("");
+        (success, ) = daoVault.call{value: proverFeeToDAO - 1}("");
         if (success) {
-            reservedProverFee = 1;
+            proverFeeToDAO = 1;
         }
     }
 
