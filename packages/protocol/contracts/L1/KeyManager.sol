@@ -35,7 +35,7 @@ contract KeyManager is OwnableUpgradeable {
         // TODO: implement and emit event
         _oldKey = keys[name];
         keys[name] = key;
-        emit KeySet(name, key, oldKey);
+        emit KeySet(name, key, _oldKey);
     }
 
     function getKey(string memory name) public view returns (bytes memory) {
