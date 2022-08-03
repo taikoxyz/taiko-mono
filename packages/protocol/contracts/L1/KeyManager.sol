@@ -12,6 +12,18 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 // TODO: implement this contract
 contract KeyManager is OwnableUpgradeable {
+    /*************
+     * Variables *
+     *************/
+
+    mapping(bytes32 => bytes) keys;
+
+    /*************
+     * Events *
+     *************/
+
+    event KeySet(string indexed _name, bytes _newKey, bytes _oldKey);
+
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
     }
@@ -21,7 +33,12 @@ contract KeyManager is OwnableUpgradeable {
         onlyOwner
     {
         // TODO: implement and emit event
+        _oldKey = keys[name];
+        keys[name] = key;
+        emit KeySet(name, key, oldKey);
     }
 
-    function getKey(string memory name) public view returns (bytes memory) {}
+    function getKey(string memory name) public view returns (bytes memory) {
+        return keys[name];
+    }
 }
