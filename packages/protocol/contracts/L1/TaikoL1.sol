@@ -110,9 +110,11 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
 
+    uint256 public reservedProverFee;
+
     Stats private _stats; // 1 slot
 
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     /**********************
      * Events             *
@@ -454,13 +456,8 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         uint64 _lastFinalizedHeight,
         Evidence storage evidence
     ) private {
-        // Pay prover fee
-        bool success;
-        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+        _payProverFee(evidence.prover, evidence.proverFee);
 
-        if (!success && daoAddress != address(0)) {
-            (success, ) = daoAddress.call{value: evidence.proverFee}("");
-        }
         // Update stats
         _stats.avgPendingSize = _calcAverage(
             _stats.avgPendingSize,
@@ -485,6 +482,23 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
         evidence.proposedAt = 0;
         evidence.proposedAt = 0;
         evidence.blockHash = 0x0;
+    }
+
+    function _payProverFee(address prover, uint256 proverFee) private {
+        // Pay prover fee
+        bool success;
+        (success, ) = prover.call{value: proverFee}("");
+        if (success) return;
+
+        if (daoAddress == address(0)) {
+            reservedProverFee += proverFee;
+            return;
+        }
+
+        (success, ) = daoAddress.call{value: proverFee}("");
+        if (!success) {
+            reservedProverFee += proverFee;
+        }
     }
 
     function _savePendingBlock(uint256 id, bytes32 contextHash)
