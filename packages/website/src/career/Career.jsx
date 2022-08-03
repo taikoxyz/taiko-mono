@@ -13,30 +13,30 @@ import Section from '../components/Section'
 const darkBgColor = 'rgb(9,9,9)'
 
 const jobs = [
-  {
-    title: 'cryptogrAphy  reseArcher',
-    desc: ['Drive the cutting-edge research and application of cryptography in Applied-zkEVM.'],
-    qualifications: [
-      'Strong background in cryptography and math, and deep understanding of ZKP protocols.',
-      'A strong inclination to stay abreast of the field, and help advance it.',
-      'Experience in Rust, C++, or similar programming language.',
-      'Ability to perform, synthesize, distill, and convey cryptographic research.',
-      'Understanding of Ethereum development is preferred.',
-    ],
-  },
+  // {
+  //   title: 'cryptogrAphy  reseArcher',
+  //   desc: ['Drive the cutting-edge research and application of cryptography in Applied-zkEVM.'],
+  //   qualifications: [
+  //     'Strong background in cryptography and math, and deep understanding of ZKP protocols.',
+  //     'A strong inclination to stay abreast of the field, and help advance it.',
+  //     'Experience in Rust, C++, or similar programming language.',
+  //     'Ability to perform, synthesize, distill, and convey cryptographic research.',
+  //     'Understanding of Ethereum development is preferred.',
+  //   ],
+  // },
 
-  {
-    title: 'senior full stAck engineer',
-    desc: [
-      'Design and develop high-quality frontend applications and backend services that interface with our zkEVM.',
-    ],
-    qualifications: [
-      '6+ years experience in software engineering.',
-      'Strong experience with TypeScript or JavaScript and modern frameworks such as React.',
-      'Significant experience writing solidity smart contracts (including assembly code) and deploying to production.',
-      'Understanding of Ethereum is preferred, as is familiarity with ethers/web3 JS libraries, and hardhat/truffle.',
-    ],
-  },
+  // {
+  //   title: 'senior full stAck engineer',
+  //   desc: [
+  //     'Design and develop high-quality frontend applications and backend services that interface with our zkEVM.',
+  //   ],
+  //   qualifications: [
+  //     '6+ years experience in software engineering.',
+  //     'Strong experience with TypeScript or JavaScript and modern frameworks such as React.',
+  //     'Significant experience writing solidity smart contracts (including assembly code) and deploying to production.',
+  //     'Understanding of Ethereum is preferred, as is familiarity with ethers/web3 JS libraries, and hardhat/truffle.',
+  //   ],
+  // },
 ]
 function Job({ job }) {
   const theme = useTheme()
@@ -93,6 +93,8 @@ function Hero({ theme }) {
   return (
     <Box
       sx={{
+        paddingTop:'10%',
+        paddingBottom:'10%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -103,7 +105,7 @@ function Hero({ theme }) {
       <Typography
         sx={{ fontSize: { xs: 40, md: 60 }, fontWeight: 800, px: 12, pt: 4, color: 'white' }}
       >
-        We have a <span style={{ color: cyan[500] }}>remote friendly</span> job for you!
+        Sorry, we don&apos;t have any <span style={{ color: cyan[500] }}>openings</span> for now.
       </Typography>
     </Box>
   )
@@ -135,7 +137,7 @@ function Career() {
         <Hero theme={theme} />
       </Section>
 
-      <Section
+{/*      <Section
         outersx={{
           pt: 16,
         }}
@@ -169,7 +171,7 @@ function Career() {
             Apply Now
           </Button>
         </Box>
-      </Section>
+      </Section>*/}
 
       <Section outersx={{ background: bannerBgColor }}>
         <Footer />
