@@ -13,12 +13,12 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../common/IMintableERC20.sol";
-import "../libs/LibStorageProof.sol";
-import "../libs/LibMerkleProof.sol";
-import "../libs/LibTxList.sol";
+import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
-import "./LibBlockHeader.sol";
-import "./LibZKP.sol";
+import "../libs/LibMerkleProof.sol";
+import "../libs/LibStorageProof.sol";
+import "../libs/LibTxList.sol";
+import "../libs/LibZKP.sol";
 
 struct BlockContext {
     uint256 id;
