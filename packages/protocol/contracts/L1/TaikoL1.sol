@@ -109,6 +109,8 @@ contract TaikoL1 is EssentialContract {
     uint256 public proverBaseFee;
     uint256 public proverGasPrice; // TODO: auto-adjustable
 
+    uint256 public reservedProverFee;
+
     Stats private _stats; // 1 slot
 
     uint256[42] private __gap;
