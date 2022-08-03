@@ -456,13 +456,19 @@ contract TaikoL1 is ReentrancyGuardUpgradeable {
     ) private {
         bool success;
 
-        // Pay the prover fee
+        // Pay prover fee
         (success, ) = evidence.prover.call{value: evidence.proverFee}("");
 
         if (!success && daoAddress != address(0)) {
             (success, ) = daoAddress.call{value: evidence.proverFee}("");
         }
-        // update Stats
+        // Update stats
+
+        _stats.avgPendingSize = _calcAverage(
+            _stats.avgPendingSize,
+            nextPendingId - lastFinalizedId - 1
+        );
+
         _stats.avgProvingDelay = _calcAverage(
             _stats.avgProvingDelay,
             evidence.provenAt - evidence.proposedAt
