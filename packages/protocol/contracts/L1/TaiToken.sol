@@ -75,7 +75,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function mint(address account, uint256 amount)
         public
-        onlyFromNamedEither("rollup", "erc20_vault")
+        onlyFromNamed("taiko_l1")
     {
         _mint(account, amount);
         emit Mint(account, amount, false);
