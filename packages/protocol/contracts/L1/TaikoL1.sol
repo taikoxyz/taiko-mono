@@ -89,7 +89,8 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
-    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
+    bytes32 private constant PARENT_HASH_PLACEHOLDER = bytes32(uint256(1));
+    bytes32 private constant JUMP_MARKER = keccak256("JUMP_MARKER");
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
     uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
@@ -452,6 +453,7 @@ contract TaikoL1 is EssentialContract {
 
         require(
             blk.parentHash == 0 ||
+                blk.parentHash == PARENT_HASH_PLACEHOLDER ||
                 (blk.parentHash == parentHash &&
                     blk.blockHash == blockHash &&
                     blk.evidences.length < MAX_PROOFS_PER_BLOCK),
@@ -566,8 +568,7 @@ contract TaikoL1 is EssentialContract {
     function _savePendingBlock(uint256 id, bytes32 contextHash) private {
         uint256 slot = id % MAX_PENDING_BLOCKS;
         pendingBlocks[slot].contextHash = contextHash;
-        pendingBlocks[slot].parentHash = 0; // TODO
-        pendingBlocks[slot].blockHash = 0;
+        pendingBlocks[slot].parentHash = PARENT_HASH_PLACEHOLDER;
 
         Evidence[] storage evidences = pendingBlocks[slot].evidences;
         assembly {
