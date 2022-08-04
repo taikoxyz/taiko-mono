@@ -359,7 +359,6 @@ contract TaikoL1 is EssentialContract {
                 _finalizeBlock(id, fc);
             } else {
                 fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
-
                 if (fc.blockHash != 0) {
                     _finalizeBlock(id, fc);
                 } else {
