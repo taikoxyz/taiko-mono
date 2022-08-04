@@ -56,6 +56,10 @@ contract TaikoL2 is EssentialContract {
         emit EtherReturned(msg.sender, msg.value);
     }
 
+    fallback() external payable {
+        revert("L2:not allowed");
+    }
+
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
