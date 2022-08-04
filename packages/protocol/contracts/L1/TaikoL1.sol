@@ -445,21 +445,27 @@ contract TaikoL1 is EssentialContract {
     ) private returns (Evidence memory evidence) {
         PendingBlock storage blk = _getPendingBlock(context.id);
 
-        require(
-            blk.parentHash == 0 ||
-                blk.parentHash == PARENT_HASH_PLACEHOLDER ||
-                (blk.parentHash == parentHash &&
-                    blk.blockHash == blockHash &&
-                    blk.evidences.length < MAX_PROOFS_PER_BLOCK),
-            "proving failure"
-        );
+        if (blk.parentHash == 0 || blk.parentHash == PARENT_HASH_PLACEHOLDER) {
+            blk.parentHash = parentHash;
+            blk.blockHash = blockHash;
+        } else {
+            require(
+                blk.parentHash == parentHash && blk.blockHash == blockHash,
+                "conflicting proof"
+            );
 
-        for (uint256 i = 0; i < blk.evidences.length; i++) {
-            require(blk.evidences[i].prover != msg.sender, "duplicate proof");
+            require(
+                blk.evidences.length < MAX_PROOFS_PER_BLOCK,
+                "too many proofs"
+            );
+
+            for (uint256 i = 0; i < blk.evidences.length; i++) {
+                require(
+                    blk.evidences[i].prover != msg.sender,
+                    "duplicate proof"
+                );
+            }
         }
-
-        blk.parentHash = parentHash;
-        blk.blockHash = blockHash;
 
         evidence = Evidence({
             prover: msg.sender,
