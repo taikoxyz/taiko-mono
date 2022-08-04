@@ -124,6 +124,12 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
+    event ProverPaid(
+        address indexed prover,
+        uint256 blockId,
+        uint256 proverFee,
+        uint256 reward
+    );
     event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProvenValid(
@@ -138,9 +144,9 @@ contract TaikoL1 is EssentialContract {
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,
+        bytes32 blockHash,
         uint256 blockTaiReward,
-        uint256 daoReward,
-        Evidence[] evidences
+        uint256 daoReward
     );
 
     /**********************
@@ -175,7 +181,7 @@ contract TaikoL1 is EssentialContract {
 
         genesisHeight = block.number.toUint64();
 
-        emit BlockFinalized(0, 0, 0, 0, new Evidence[](0));
+        emit BlockFinalized(0, 0, _genesisBlockHash, 0, 0);
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         if (_amountMintToDAO != 0) {
@@ -361,9 +367,9 @@ contract TaikoL1 is EssentialContract {
             PendingBlock storage blk = _getPendingBlock(id);
             if (blk.parentHash == finalizedBlocks[lastFinalizedHeight]) {
                 finalizedBlocks[++lastFinalizedHeight] = blk.blockHash;
-                _finalizeBlock(id, blk.evidences);
+                _finalizeBlock(id, blk.blockHash);
             } else if (blk.parentHash == JUMP_MARKER) {
-                _finalizeBlock(id, blk.evidences);
+                _finalizeBlock(id, blk.blockHash);
             } else {
                 break;
             }
@@ -468,29 +474,50 @@ contract TaikoL1 is EssentialContract {
         blk.evidences.push(evidence);
     }
 
-    function _finalizeBlock(uint64 id, Evidence[] storage evidences) private {
-        // TODO
-        // _payProverFee(evidence.prover, evidence.proverFee);
-        // (uint256 blockReward, uint256 daoReward) = _payBlockReward(
-        //     evidence.prover,
-        //     evidence.provenAt - evidence.proposedAt
-        // );
-        // // Update stats
-        // _stats.avgProvingDelay = _calcAverage(
-        //     _stats.avgProvingDelay,
-        //     evidence.provenAt - evidence.proposedAt
-        // );
-        // _stats.avgFinalizationDelay = _calcAverage(
-        //     _stats.avgFinalizationDelay,
-        //     block.timestamp.toUint64() - evidence.proposedAt
-        // );
-        // emit BlockFinalized(
-        //     id,
-        //     lastFinalizedHeight,
-        //     blockReward,
-        //     daoReward,
-        //      evidences
-        // );
+    function _finalizeBlock(uint64 id, bytes32 blockHash) private {
+        uint256 totalBlockReward;
+        uint256 totalDaoReward;
+
+        // TODO: pay the first higher
+        PendingBlock storage blk = _getPendingBlock(id);
+        for (uint256 i = 0; i < blk.evidences.length; i++) {
+            Evidence memory evidence = blk.evidences[i];
+            uint256 proverFee;
+            if (i == 0) {
+                proverFee = evidence.proverFee;
+                _payProverFee(evidence.prover, evidence.proverFee);
+
+                _stats.avgFinalizationDelay = _calcAverage(
+                    _stats.avgFinalizationDelay,
+                    block.timestamp.toUint64() - evidence.proposedAt
+                );
+            }
+
+            (uint256 blockReward, uint256 daoReward) = _payBlockReward(
+                i,
+                evidence.prover,
+                evidence.provenAt - evidence.proposedAt
+            );
+
+            emit ProverPaid(evidence.prover, id, proverFee, blockReward);
+
+            totalBlockReward += blockReward;
+            totalDaoReward += daoReward;
+
+            // Update stats
+            _stats.avgProvingDelay = _calcAverage(
+                _stats.avgProvingDelay,
+                evidence.provenAt - evidence.proposedAt
+            );
+        }
+
+        emit BlockFinalized(
+            id,
+            lastFinalizedHeight,
+            blockHash,
+            totalBlockReward,
+            totalDaoReward
+        );
     }
 
     function _chargeProposerFee(uint256 proverFee) private {
@@ -528,14 +555,15 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function _payBlockReward(address prover, uint256 provingDelay)
-        private
-        returns (uint256 blockReward, uint256 daoReward)
-    {
+    function _payBlockReward(
+        uint256 sequenceId,
+        address prover,
+        uint256 provingDelay
+    ) private returns (uint256 blockReward, uint256 daoReward) {
         address taiToken = resolve("tai_token");
         if (taiToken == address(0)) return (0, 0);
 
-        blockReward = getBlockTaiReward(provingDelay);
+        blockReward = getBlockTaiReward(provingDelay) / (sequenceId + 1);
         if (blockReward != 0) {
             IMintableERC20(taiToken).mint(prover, blockReward);
 
