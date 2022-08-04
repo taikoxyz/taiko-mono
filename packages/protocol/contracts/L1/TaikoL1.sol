@@ -102,7 +102,7 @@ contract TaikoL1 is EssentialContract {
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
 
-    // block id => parent hash => for choice
+    // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
     uint64 public genesisHeight;
