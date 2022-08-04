@@ -52,7 +52,7 @@ contract TaikoL2 is EssentialContract {
      * External Functions *
      **********************/
 
-    receive() external payable onlyFromNamed("bridge_helper") {
+    receive() external payable onlyFromNamed("tai_depositor") {
         emit TaiReturned(msg.sender, msg.value);
     }
 
@@ -67,7 +67,7 @@ contract TaikoL2 is EssentialContract {
     function creditTaiToken(address receipient, uint256 amount)
         external
         nonReentrant
-        onlyFromNamed("bridge_helper")
+        onlyFromNamed("tai_depositor")
     {
         require(receipient != address(this), "L2:invalid address");
         payable(receipient).transfer(amount);
