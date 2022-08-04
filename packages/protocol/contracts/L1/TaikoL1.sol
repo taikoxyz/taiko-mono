@@ -481,7 +481,7 @@ contract TaikoL1 is EssentialContract {
             _payProverFee(evidence.prover, proverFee);
 
             (uint256 blockReward, ) = _payBlockReward(
-                fc.evidences.length,
+                i,
                 evidence.prover,
                 evidence.provenAt - evidence.proposedAt
             );
