@@ -104,8 +104,6 @@ contract TaikoL1 is EssentialContract {
     // block id => block context hash
     mapping(uint256 => PendingBlock) public pendingBlocks;
 
-    // mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
-
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
@@ -131,6 +129,7 @@ contract TaikoL1 is EssentialContract {
     event BlockProvenValid(
         uint256 indexed id,
         bytes32 parentHash,
+        bytes32 blockHash,
         Evidence evidence
     );
 
@@ -176,15 +175,7 @@ contract TaikoL1 is EssentialContract {
 
         genesisHeight = block.number.toUint64();
 
-        Evidence[] memory evidences = new Evidence[](1);
-        evidences[0] = Evidence({
-            prover: address(0),
-            proverFee: 0,
-            proposedAt: 0,
-            provenAt: 0
-        });
-
-        emit BlockFinalized(0, 0, 0, 0, evidences);
+        emit BlockFinalized(0, 0, 0, 0, new Evidence[](0));
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         if (_amountMintToDAO != 0) {
@@ -285,7 +276,12 @@ contract TaikoL1 is EssentialContract {
             blockHash
         );
 
-        emit BlockProvenValid(context.id, header.parentHash, evidence);
+        emit BlockProvenValid(
+            context.id,
+            header.parentHash,
+            blockHash,
+            evidence
+        );
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
