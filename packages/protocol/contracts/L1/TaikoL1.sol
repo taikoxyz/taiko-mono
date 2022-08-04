@@ -534,7 +534,6 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _payProverFee(address prover, uint256 proverFee) private {
-        if (proverFee == 0) return;
         // Pay prover fee
         bool success;
         (success, ) = prover.call{value: proverFee}("");
