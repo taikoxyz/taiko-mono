@@ -357,11 +357,12 @@ contract TaikoL1 is EssentialContract {
 
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
             PendingBlock storage blk = _getPendingBlock(id);
+
             if (blk.parentHash == finalizedBlocks[lastFinalizedHeight]) {
                 finalizedBlocks[++lastFinalizedHeight] = blk.blockHash;
-                _finalizeBlock(id, blk.blockHash);
+                _finalizeBlock(id);
             } else if (blk.parentHash == JUMP_MARKER) {
-                _finalizeBlock(id, blk.blockHash);
+                _finalizeBlock(id);
             } else {
                 break;
             }
@@ -470,7 +471,7 @@ contract TaikoL1 is EssentialContract {
         blk.evidences.push(evidence);
     }
 
-    function _finalizeBlock(uint64 id, bytes32 blockHash) private {
+    function _finalizeBlock(uint64 id) private {
         PendingBlock storage blk = _getPendingBlock(id);
         for (uint256 i = 0; i < blk.evidences.length; i++) {
             Evidence memory evidence = blk.evidences[i];
@@ -500,7 +501,11 @@ contract TaikoL1 is EssentialContract {
             );
         }
 
-        emit BlockFinalized(id, lastFinalizedHeight, blockHash);
+        emit BlockFinalized(
+            id,
+            lastFinalizedHeight,
+            finalizedBlocks[lastFinalizedHeight]
+        );
     }
 
     function _chargeProposerFee(uint256 proverFee) private {
