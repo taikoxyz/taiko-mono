@@ -133,14 +133,12 @@ contract TaikoL1 is EssentialContract {
     );
     event BlockProposed(uint256 indexed id, BlockContext context);
 
-    event BlockProvenValid(
+    event BlockProven(
         uint256 indexed id,
+        Evidence evidence,
         bytes32 parentHash,
-        bytes32 blockHash,
-        Evidence evidence
+        bytes32 blockHash
     );
-
-    event BlockProvenInvalid(uint256 indexed id, Evidence evidence);
 
     event BlockFinalized(
         uint256 indexed id,
@@ -281,12 +279,7 @@ contract TaikoL1 is EssentialContract {
             blockHash
         );
 
-        emit BlockProvenValid(
-            context.id,
-            header.parentHash,
-            blockHash,
-            evidence
-        );
+        emit BlockProven(context.id, evidence, header.parentHash, blockHash);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -336,7 +329,7 @@ contract TaikoL1 is EssentialContract {
             JUMP_MARKER,
             JUMP_MARKER
         );
-        emit BlockProvenInvalid(context.id, evidence);
+        emit BlockProven(context.id, evidence, 0, 0);
     }
 
     function verifyBlockInvalid(
@@ -351,7 +344,7 @@ contract TaikoL1 is EssentialContract {
             JUMP_MARKER,
             JUMP_MARKER
         );
-        emit BlockProvenInvalid(context.id, evidence);
+        emit BlockProven(context.id, evidence, 0, 0);
     }
 
     /**********************
