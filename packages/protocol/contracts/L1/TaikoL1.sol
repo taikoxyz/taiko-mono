@@ -120,7 +120,7 @@ contract TaikoL1 is EssentialContract {
 
     Stats private _stats; // 1 slot
 
-    uint256[42] private __gap;
+    uint256[43] private __gap;
 
     /**********************
      * Events             *
@@ -128,7 +128,7 @@ contract TaikoL1 is EssentialContract {
 
     event BlockProposed(uint256 indexed id, BlockContext context);
 
-    event BlockProven(
+    event BlockProvenValid(
         uint256 indexed id,
         bytes32 parentHash,
         Evidence evidence
@@ -285,7 +285,7 @@ contract TaikoL1 is EssentialContract {
             blockHash
         );
 
-        emit BlockProven(context.id, header.parentHash, evidence);
+        emit BlockProvenValid(context.id, header.parentHash, evidence);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
