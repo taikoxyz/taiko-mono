@@ -17,7 +17,7 @@ describe("ConfigManager tests", function () {
         it("setKey should not revert & emit event KeySet", async function () {
             await expect(configManager.set(testName, testKey)).to.emit(
                 configManager,
-                "KeySet"
+                "Updated"
             )
         })
 

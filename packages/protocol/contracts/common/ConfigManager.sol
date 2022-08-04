@@ -21,7 +21,7 @@ contract ConfigManager is OwnableUpgradeable {
      * Events *
      *************/
 
-    event KeySet(string indexed _name, bytes _newKey, bytes _oldKey);
+    event Updated(string indexed _name, bytes _newKey, bytes _oldKey);
 
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
@@ -31,7 +31,7 @@ contract ConfigManager is OwnableUpgradeable {
         bytes32 _nameHash = keccak256(abi.encodePacked(name));
         bytes memory _oldKey = keys[_nameHash];
         keys[_nameHash] = key;
-        emit KeySet(name, key, _oldKey);
+        emit Updated(name, key, _oldKey);
     }
 
     function get(string memory name) public view returns (bytes memory) {
