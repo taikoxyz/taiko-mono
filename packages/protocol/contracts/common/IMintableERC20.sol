@@ -8,14 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibBlockHeader.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
-contract TestLibBlockHeader {
-    function hashBlockHeader(BlockHeader calldata header)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibBlockHeader.hashBlockHeader(header);
-    }
+interface IMintableERC20 is IERC20Upgradeable {
+    function mint(address account, uint256 amount) external;
 }
