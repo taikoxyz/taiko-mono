@@ -246,17 +246,11 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
-        // We currently assume the public input has at least
-        // two parts: msg.sender, and txListHash.
-        // TODO(daniel): figure it out.
-        bytes32 publicInputHash = keccak256(
-            abi.encodePacked(msg.sender, context.txListHash)
-        );
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
             header.parentHash,
             blockHash,
-            publicInputHash,
+            _computePublicInputHash(msg.sender, context.txListHash),
             proofs[0]
         );
 
@@ -314,7 +308,7 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
-            throwAwayTxListHash,
+            _computePublicInputHash(msg.sender, throwAwayTxListHash),
             proofs[0]
         );
 
@@ -642,5 +636,16 @@ contract TaikoL1 is EssentialContract {
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
         return _avg.toUint64();
+    }
+
+    // We currently assume the public input has at least
+    // two parts: msg.sender, and txListHash.
+    // TODO(daniel): figure it out.
+    function _computePublicInputHash(address prover, bytes32 txListHash)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(prover, txListHash));
     }
 }
