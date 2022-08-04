@@ -35,8 +35,8 @@ contract TaikoL2 is EssentialContract {
         bytes32 proofVal
     );
 
-    event EtherCredited(address receipient, uint256 amount);
-    event EtherReturned(address receipient, uint256 amount);
+    event TaiCredited(address receipient, uint256 amount);
+    event TaiReturned(address receipient, uint256 amount);
 
     /**********************
      * Modifiers          *
@@ -53,7 +53,7 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     receive() external payable onlyFromNamed("bridge_helper") {
-        emit EtherReturned(msg.sender, msg.value);
+        emit TaiReturned(msg.sender, msg.value);
     }
 
     fallback() external payable {
@@ -64,14 +64,14 @@ contract TaikoL2 is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function creditEther(address receipient, uint256 amount)
+    function creditTaiToken(address receipient, uint256 amount)
         external
         nonReentrant
         onlyFromNamed("bridge_helper")
     {
         require(receipient != address(this), "L2:invalid address");
         payable(receipient).transfer(amount);
-        emit EtherCredited(receipient, amount);
+        emit TaiCredited(receipient, amount);
     }
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
