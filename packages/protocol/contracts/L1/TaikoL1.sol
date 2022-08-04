@@ -487,7 +487,7 @@ contract TaikoL1 is EssentialContract {
                 );
             }
 
-            (uint256 blockReward, uint256 daoReward) = _payBlockReward(
+            (uint256 blockReward, ) = _payBlockReward(
                 i,
                 evidence.prover,
                 evidence.provenAt - evidence.proposedAt
