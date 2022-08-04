@@ -10,6 +10,12 @@ describe("TaikoL2 tests", function () {
     }
 
     before(async function () {
+        // Deploying addressManager Contract
+        const addressManager = await (
+            await ethers.getContractFactory("AddressManager")
+        ).deploy()
+        await addressManager.init()
+
         // Deploying TaikoL2 Contract linked with LibTxList (throws error otherwise)
         const txListLib = await (
             await ethers.getContractFactory("LibTxList")
@@ -21,6 +27,7 @@ describe("TaikoL2 tests", function () {
             },
         })
         taikoL2 = await taikoL2Factory.deploy()
+        await taikoL2.init(addressManager.address)
     })
 
     describe("Testing anchor() function", async function () {
