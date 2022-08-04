@@ -128,14 +128,14 @@ contract TaikoL1 is EssentialContract {
 
     event ProverPaid(
         address indexed prover,
-        uint256 blockId,
+        uint256 id,
         uint256 proverFee,
         uint256 reward
     );
-    event BlockProposed(uint256 indexed blockId, BlockContext context);
+    event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProven(
-        uint256 indexed blockId,
+        uint256 indexed id,
         Evidence evidence,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -143,7 +143,7 @@ contract TaikoL1 is EssentialContract {
     );
 
     event BlockFinalized(
-        uint256 indexed blockId,
+        uint256 indexed id,
         uint256 indexed height,
         bytes32 blockHash,
         uint256 proverFee
