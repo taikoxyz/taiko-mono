@@ -53,7 +53,7 @@ interface Tx1559 {
 
 type TxObj = TxLegacy | Tx2930 | Tx1559
 
-describe.only("LibTxList", function () {
+describe("LibTxList", function () {
     let rlpWriter: any
     let libTxList: any
 
