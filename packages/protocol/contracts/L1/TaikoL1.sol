@@ -89,8 +89,9 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
-    bytes32 private constant PARENT_HASH_PLACEHOLDER = bytes32(uint256(1));
-    bytes32 private constant JUMP_MARKER = keccak256("JUMP_MARKER");
+    bytes32 private constant PARENT_HASH_PLACEHOLDER =
+        keccak256("PARENT_HASH_PLACEHOLDER");
+    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
     uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
@@ -137,13 +138,15 @@ contract TaikoL1 is EssentialContract {
         uint256 indexed blockId,
         Evidence evidence,
         bytes32 parentHash,
-        bytes32 blockHash
+        bytes32 blockHash,
+        uint256 blockReward
     );
 
     event BlockFinalized(
         uint256 indexed blockId,
         uint256 indexed height,
-        bytes32 blockHash
+        bytes32 blockHash,
+        uint256 proverFee
     );
 
     /**********************
@@ -178,7 +181,7 @@ contract TaikoL1 is EssentialContract {
 
         genesisHeight = block.number.toUint64();
 
-        emit BlockFinalized(0, 0, _genesisBlockHash);
+        emit BlockFinalized(0, 0, _genesisBlockHash, 0);
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         if (_amountMintToDAO != 0) {
@@ -273,13 +276,12 @@ contract TaikoL1 is EssentialContract {
             proofs[1]
         );
 
-        Evidence memory evidence = _proveBlock(
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
             context,
             header.parentHash,
             blockHash
         );
-
-        emit BlockProven(context.id, evidence, header.parentHash, blockHash);
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -324,12 +326,7 @@ contract TaikoL1 is EssentialContract {
             proofs[1]
         );
 
-        Evidence memory evidence = _proveBlock(
-            context,
-            JUMP_MARKER,
-            JUMP_MARKER
-        );
-        emit BlockProven(context.id, evidence, 0, 0);
+        _proveBlock(MAX_PROOFS_PER_BLOCK, context, JUMP_MARKER, JUMP_MARKER);
     }
 
     function verifyBlockInvalid(
@@ -339,12 +336,7 @@ contract TaikoL1 is EssentialContract {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        Evidence memory evidence = _proveBlock(
-            context,
-            JUMP_MARKER,
-            JUMP_MARKER
-        );
-        emit BlockProven(context.id, evidence, 0, 0);
+        _proveBlock(1, context, JUMP_MARKER, JUMP_MARKER);
     }
 
     /**********************
@@ -439,10 +431,11 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
+        uint256 maxNumProofs,
         BlockContext memory context,
         bytes32 parentHash,
         bytes32 blockHash
-    ) private returns (Evidence memory evidence) {
+    ) private {
         PendingBlock storage blk = _getPendingBlock(context.id);
 
         if (blk.parentHash == 0 || blk.parentHash == PARENT_HASH_PLACEHOLDER) {
@@ -454,10 +447,7 @@ contract TaikoL1 is EssentialContract {
                 "conflicting proof"
             );
 
-            require(
-                blk.evidences.length < MAX_PROOFS_PER_BLOCK,
-                "too many proofs"
-            );
+            require(blk.evidences.length < maxNumProofs, "too many proofs");
 
             for (uint256 i = 0; i < blk.evidences.length; i++) {
                 require(
@@ -467,7 +457,13 @@ contract TaikoL1 is EssentialContract {
             }
         }
 
-        evidence = Evidence({
+        (uint256 blockReward, ) = _payBlockReward(
+            blk.evidences.length,
+            msg.sender,
+            block.timestamp - context.proposedAt
+        );
+
+        Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: context.proverFee,
             proposedAt: context.proposedAt,
@@ -475,13 +471,26 @@ contract TaikoL1 is EssentialContract {
         });
 
         blk.evidences.push(evidence);
+
+        _stats.avgProvingDelay = _calcAverage(
+            _stats.avgProvingDelay,
+            evidence.provenAt - evidence.proposedAt
+        );
+
+        emit BlockProven(
+            context.id,
+            evidence,
+            parentHash,
+            blockHash,
+            blockReward
+        );
     }
 
     function _finalizeBlock(uint64 id) private {
         PendingBlock storage blk = _getPendingBlock(id);
+        uint256 proverFee;
         for (uint256 i = 0; i < blk.evidences.length; i++) {
             Evidence memory evidence = blk.evidences[i];
-            uint256 proverFee;
             if (i == 0) {
                 proverFee = evidence.proverFee;
                 _payProverFee(evidence.prover, evidence.proverFee);
@@ -491,26 +500,13 @@ contract TaikoL1 is EssentialContract {
                     block.timestamp.toUint64() - evidence.proposedAt
                 );
             }
-
-            (uint256 blockReward, ) = _payBlockReward(
-                i,
-                evidence.prover,
-                evidence.provenAt - evidence.proposedAt
-            );
-
-            emit ProverPaid(evidence.prover, id, proverFee, blockReward);
-
-            // Update stats
-            _stats.avgProvingDelay = _calcAverage(
-                _stats.avgProvingDelay,
-                evidence.provenAt - evidence.proposedAt
-            );
         }
 
         emit BlockFinalized(
             id,
             lastFinalizedHeight,
-            finalizedBlocks[lastFinalizedHeight]
+            finalizedBlocks[lastFinalizedHeight],
+            proverFee
         );
     }
 
