@@ -246,11 +246,17 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
+        // We currently assume the public input has at least
+        // two parts: msg.sender, and txListHash.
+        // TODO(daniel): figure it out.
+        bytes32 publicInputHash = keccak256(
+            abi.encodePacked(msg.sender, context.txListHash)
+        );
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
             header.parentHash,
             blockHash,
-            context.txListHash,
+            publicInputHash,
             proofs[0]
         );
 
