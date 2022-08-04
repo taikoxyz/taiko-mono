@@ -144,9 +144,7 @@ contract TaikoL1 is EssentialContract {
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,
-        bytes32 blockHash,
-        uint256 blockTaiReward,
-        uint256 daoReward
+        bytes32 blockHash
     );
 
     /**********************
@@ -181,7 +179,7 @@ contract TaikoL1 is EssentialContract {
 
         genesisHeight = block.number.toUint64();
 
-        emit BlockFinalized(0, 0, _genesisBlockHash, 0, 0);
+        emit BlockFinalized(0, 0, _genesisBlockHash);
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         if (_amountMintToDAO != 0) {
@@ -475,10 +473,6 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _finalizeBlock(uint64 id, bytes32 blockHash) private {
-        uint256 totalBlockReward;
-        uint256 totalDaoReward;
-
-        // TODO: pay the first higher
         PendingBlock storage blk = _getPendingBlock(id);
         for (uint256 i = 0; i < blk.evidences.length; i++) {
             Evidence memory evidence = blk.evidences[i];
@@ -501,9 +495,6 @@ contract TaikoL1 is EssentialContract {
 
             emit ProverPaid(evidence.prover, id, proverFee, blockReward);
 
-            totalBlockReward += blockReward;
-            totalDaoReward += daoReward;
-
             // Update stats
             _stats.avgProvingDelay = _calcAverage(
                 _stats.avgProvingDelay,
@@ -511,13 +502,7 @@ contract TaikoL1 is EssentialContract {
             );
         }
 
-        emit BlockFinalized(
-            id,
-            lastFinalizedHeight,
-            blockHash,
-            totalBlockReward,
-            totalDaoReward
-        );
+        emit BlockFinalized(id, lastFinalizedHeight, blockHash);
     }
 
     function _chargeProposerFee(uint256 proverFee) private {
