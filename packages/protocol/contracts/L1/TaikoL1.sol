@@ -89,9 +89,9 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
-    bytes32 private constant PARENT_HASH_PLACEHOLDER =
-        keccak256("PARENT_HASH_PLACEHOLDER");
-    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
+    bytes32 private constant BLOCK_HASH_PLACEHOLDER =
+        keccak256("BLOCK_HASH_PLACEHOLDER");
+    bytes32 private constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
     uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
@@ -326,7 +326,12 @@ contract TaikoL1 is EssentialContract {
             proofs[1]
         );
 
-        _proveBlock(MAX_PROOFS_PER_BLOCK, context, JUMP_MARKER, JUMP_MARKER);
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
+            context,
+            SKIP_OVER_BLOCK_HASH,
+            SKIP_OVER_BLOCK_HASH
+        );
     }
 
     function verifyBlockInvalid(
@@ -336,7 +341,7 @@ contract TaikoL1 is EssentialContract {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _proveBlock(1, context, JUMP_MARKER, JUMP_MARKER);
+        _proveBlock(1, context, SKIP_OVER_BLOCK_HASH, SKIP_OVER_BLOCK_HASH);
     }
 
     /**********************
@@ -353,7 +358,7 @@ contract TaikoL1 is EssentialContract {
             if (blk.parentHash == finalizedBlocks[lastFinalizedHeight]) {
                 finalizedBlocks[++lastFinalizedHeight] = blk.blockHash;
                 _finalizeBlock(id);
-            } else if (blk.parentHash == JUMP_MARKER) {
+            } else if (blk.parentHash == SKIP_OVER_BLOCK_HASH) {
                 _finalizeBlock(id);
             } else {
                 break;
@@ -438,7 +443,7 @@ contract TaikoL1 is EssentialContract {
     ) private {
         PendingBlock storage blk = _getPendingBlock(context.id);
 
-        if (blk.parentHash == 0 || blk.parentHash == PARENT_HASH_PLACEHOLDER) {
+        if (blk.parentHash == 0 || blk.parentHash == BLOCK_HASH_PLACEHOLDER) {
             blk.parentHash = parentHash;
             blk.blockHash = blockHash;
         } else {
@@ -571,7 +576,7 @@ contract TaikoL1 is EssentialContract {
     function _savePendingBlock(uint256 id, bytes32 contextHash) private {
         uint256 slot = id % MAX_PENDING_BLOCKS;
         pendingBlocks[slot].contextHash = contextHash;
-        pendingBlocks[slot].parentHash = PARENT_HASH_PLACEHOLDER;
+        pendingBlocks[slot].parentHash = BLOCK_HASH_PLACEHOLDER;
 
         Evidence[] storage evidences = pendingBlocks[slot].evidences;
         assembly {
