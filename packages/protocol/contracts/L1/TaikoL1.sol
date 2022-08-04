@@ -450,8 +450,12 @@ contract TaikoL1 is EssentialContract {
                 (blk.parentHash == parentHash &&
                     blk.blockHash == blockHash &&
                     blk.evidences.length < MAX_PROOFS_PER_BLOCK),
-            "cannot update block"
+            "proving failure"
         );
+
+        for (uint256 i = 0; i < blk.evidences.length; i++) {
+            require(blk.evidences[i].prover != msg.sender, "duplicate proof");
+        }
 
         blk.parentHash = parentHash;
         blk.blockHash = blockHash;
@@ -463,7 +467,6 @@ contract TaikoL1 is EssentialContract {
             provenAt: block.timestamp.toUint64()
         });
 
-        // TODO: dedup
         blk.evidences.push(evidence);
     }
 
