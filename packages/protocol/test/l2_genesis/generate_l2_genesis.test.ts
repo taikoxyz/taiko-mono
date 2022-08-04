@@ -1,5 +1,5 @@
-const hre = require("hardhat")
-const { expect } = require("chai")
+import * as hre from "hardhat"
+import { expect } from "chai"
 
 const ethers = hre.ethers
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip

@@ -100,11 +100,11 @@ library LibTxList {
             bytes memory txData
         )
     {
-        txData = Lib_RLPReader.readRawBytes(txItem); // TODO readBytes? not sure, need some tests
+        txData = Lib_RLPReader.readRawBytes(txItem);
 
         uint8 prefix;
         assembly {
-            prefix := byte(0, mload(txData))
+            prefix := byte(0, mload(add(txData, 32)))
         }
 
         // @see https://eips.ethereum.org/EIPS/eip-2718#backwards-compatibility
