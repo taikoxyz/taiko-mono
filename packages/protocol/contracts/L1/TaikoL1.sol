@@ -131,17 +131,17 @@ contract TaikoL1 is EssentialContract {
         uint256 proverFee,
         uint256 reward
     );
-    event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockProposed(uint256 indexed blockId, BlockContext context);
 
     event BlockProven(
-        uint256 indexed id,
+        uint256 indexed blockId,
         Evidence evidence,
         bytes32 parentHash,
         bytes32 blockHash
     );
 
     event BlockFinalized(
-        uint256 indexed id,
+        uint256 indexed blockId,
         uint256 indexed height,
         bytes32 blockHash
     );
