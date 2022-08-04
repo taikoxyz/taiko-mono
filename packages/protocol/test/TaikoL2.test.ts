@@ -41,20 +41,22 @@ describe("TaikoL2 tests", function () {
 
     describe("Testing wrap/unwrapEther", async function () {
         describe("testing unwrapEther", async function () {
-            it("should revert if amount == 0", async function () {
+            it("should revert if amount to unwrap == 0", async function () {
                 await expect(taikoL2.unwrapEther(receiverWallet, 0)).to.reverted
             })
 
-            it("should not revert", async function () {
-                await taikoL2.unwrapEther(receiverWallet, 10)
-                expect(
-                    await ethers.provider.getBalance(taikoL2.address)
-                ).to.equal(ethers.utils.parseEther("10.0"))
-            })
+            // it("should not revert", async function () {
+            //     await taikoL2.unwrapEther(receiverWallet, 10)
+            //     expect(
+            //         await ethers.provider.getBalance(taikoL2.address)
+            //     ).to.equal(ethers.utils.parseEther("10.0"))
+            // })
         })
 
-        // describe("testing wrapEther", async function (){
-
+        // describe("testing wrapEther", async function () {
+        //     it("should not revert", async function () {
+        //         await taikoL2.wrapEther(receiverWallet, { value: 10.0 })
+        //     })
         // })
     })
 
