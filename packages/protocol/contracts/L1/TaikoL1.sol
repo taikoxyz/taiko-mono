@@ -449,7 +449,6 @@ contract TaikoL1 is EssentialContract {
             fc.blockHash = blockHash;
         } else {
             require(fc.blockHash == blockHash, "conflicting proof");
-
             require(fc.evidences.length < maxNumProofs, "too many proofs");
 
             for (uint256 i = 0; i < fc.evidences.length; i++) {
