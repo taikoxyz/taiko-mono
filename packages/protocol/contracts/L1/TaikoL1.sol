@@ -45,7 +45,7 @@ struct Evidence {
     uint128 feeRebate;
     uint128 reward;
     uint64 proposedAt;
-    uint64 provedAt;
+    uint64 provenAt;
 }
 
 struct ForkChoice {
@@ -481,7 +481,7 @@ contract TaikoL1 is EssentialContract {
             feeRebate: 0,
             reward: reward,
             proposedAt: context.proposedAt,
-            provedAt: block.timestamp.toUint64()
+            provenAt: block.timestamp.toUint64()
         });
 
         if (fc.evidences.length == 0) {
@@ -492,7 +492,7 @@ contract TaikoL1 is EssentialContract {
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
             evidence.reward = getBlockTaiReward(
-                evidence.provedAt - evidence.proposedAt
+                evidence.provenAt - evidence.proposedAt
             );
         } else {
             // Uncle proof reward is now based on the first proof submitted,
@@ -528,13 +528,13 @@ contract TaikoL1 is EssentialContract {
 
                 _stats.avgProvingDelay = _calcAverage(
                     _stats.avgProvingDelay,
-                    evidence.provedAt - evidence.proposedAt
+                    evidence.provenAt - evidence.proposedAt
                 );
             }
 
             _stats.avgProvingDelayWithUncles = _calcAverage(
                 _stats.avgProvingDelayWithUncles,
-                evidence.provedAt - evidence.proposedAt
+                evidence.provenAt - evidence.proposedAt
             );
         }
 
