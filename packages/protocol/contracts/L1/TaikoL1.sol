@@ -89,14 +89,16 @@ contract TaikoL1 is EssentialContract {
     /**********************
      * Constants   *
      **********************/
+
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant DAO_REWARD_RATIO = 100; // 100%
+    uint256 public constant MIN_BLOCK_REWARD_BASE = 2E18; // 2 TAI
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     uint256 public constant PROVER_FEE_RESERVE_MULTIPLIER = 4; // 4X
-    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 10; // 10X
+    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 16; // 16X
     uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
@@ -129,7 +131,7 @@ contract TaikoL1 is EssentialContract {
     // The following two variables are automiatically adjusted based on
     // the latest finalized blocks.
     uint128 public proverGasPrice; // TODO: auto-adjustable
-    uint128 public proverReward; // TODO: auto-adjustable
+    uint128 public avgProverReward; // TODO: auto-adjustable
 
     uint256[43] private __gap;
 
@@ -243,9 +245,12 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
 
         // Update stats first.
-        _stats.avgPendingSize = _calcAverage(
-            _stats.avgPendingSize,
-            nextPendingId - lastFinalizedId - 1
+        _stats.avgPendingSize = uint64(
+            _calcAverage(
+                _stats.avgPendingSize,
+                nextPendingId - lastFinalizedId - 1,
+                type(uint64).max
+            )
         );
     }
 
@@ -447,10 +452,10 @@ contract TaikoL1 is EssentialContract {
         view
         returns (uint128)
     {
-        uint256 reward = (proverReward * provingDelay * provingDelay) /
+        uint256 base = MIN_BLOCK_REWARD_BASE.max(avgProverReward);
+        uint256 reward = (base * provingDelay * provingDelay) /
             (_stats.avgProvingDelay * _stats.avgProvingDelay);
-        return
-            reward.min(proverReward * MAX_BLOCK_REWARD_MULTIPLIER).toUint128();
+        return reward.min(base * MAX_BLOCK_REWARD_MULTIPLIER).toUint128();
     }
 
     /**********************
@@ -527,20 +532,37 @@ contract TaikoL1 is EssentialContract {
 
             // Update stats
             if (i == 0) {
-                _stats.avgFinalizationDelay = _calcAverage(
-                    _stats.avgFinalizationDelay,
-                    uint64(block.timestamp - evidence.proposedAt)
+                _stats.avgFinalizationDelay = uint64(
+                    _calcAverage(
+                        _stats.avgFinalizationDelay,
+                        uint64(block.timestamp - evidence.proposedAt),
+                        type(uint64).max
+                    )
                 );
 
-                _stats.avgProvingDelay = _calcAverage(
-                    _stats.avgProvingDelay,
-                    evidence.provenAt - evidence.proposedAt
+                _stats.avgProvingDelay = uint64(
+                    _calcAverage(
+                        _stats.avgProvingDelay,
+                        evidence.provenAt - evidence.proposedAt,
+                        type(uint64).max
+                    )
+                );
+
+                avgProverReward = uint128(
+                    _calcAverage(
+                        avgProverReward,
+                        evidence.reward,
+                        type(uint128).max
+                    )
                 );
             }
 
-            _stats.avgProvingDelayWithUncles = _calcAverage(
-                _stats.avgProvingDelayWithUncles,
-                evidence.provenAt - evidence.proposedAt
+            _stats.avgProvingDelayWithUncles = uint64(
+                _calcAverage(
+                    _stats.avgProvingDelayWithUncles,
+                    evidence.provenAt - evidence.proposedAt,
+                    type(uint128).max
+                )
             );
         }
 
@@ -677,11 +699,11 @@ contract TaikoL1 is EssentialContract {
         return keccak256(abi.encode(context));
     }
 
-    function _calcAverage(uint64 avg, uint64 current)
-        private
-        pure
-        returns (uint64)
-    {
+    function _calcAverage(
+        uint256 avg,
+        uint256 current,
+        uint256 max
+    ) private pure returns (uint256) {
         if (current == 0) return avg;
         if (avg == 0) return current;
 
@@ -689,7 +711,7 @@ contract TaikoL1 is EssentialContract {
             avg +
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return uint64(_avg.max(type(uint64).max));
+        return _avg.max(max);
     }
 
     // We currently assume the public input has at least
