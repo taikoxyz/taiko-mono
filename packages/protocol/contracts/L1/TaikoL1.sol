@@ -499,7 +499,6 @@ contract TaikoL1 is EssentialContract {
             evidence.proverFee = uint128(
                 (proverGasPrice * (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
                     .min(context.feeReserve)
-                    .max(type(uint128).max)
             );
 
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
