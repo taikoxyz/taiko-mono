@@ -44,7 +44,8 @@ struct Evidence {
     uint128 proverFee;
     uint128 feeRebate;
     uint128 reward;
-    uint64 provingDelay;
+    uint64 proposedAt;
+    uint64 provedAt;
 }
 
 struct ForkChoice {
@@ -56,6 +57,7 @@ struct ForkChoice {
 struct Stats {
     uint64 avgPendingSize;
     uint64 avgProvingDelay;
+    uint64 avgProvingDelayWithUncles;
     uint64 avgFinalizationDelay;
 }
 
@@ -142,10 +144,9 @@ contract TaikoL1 is EssentialContract {
 
     event BlockProven(
         uint256 indexed id,
-        Evidence evidence,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint256 provingDelay
+        Evidence evidence
     );
 
     event BlockFinalized(
@@ -413,6 +414,7 @@ contract TaikoL1 is EssentialContract {
         stats = _stats;
         stats.avgPendingSize /= NANO_PER_SECOND;
         stats.avgProvingDelay /= NANO_PER_SECOND;
+        stats.avgProvingDelayWithUncles /= NANO_PER_SECOND;
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
@@ -471,16 +473,17 @@ contract TaikoL1 is EssentialContract {
             }
         }
 
-        uint64 provingDelay = (block.timestamp - context.proposedAt).toUint64();
-        uint128 reward = getBlockTaiReward(provingDelay) /
-            (fc.evidences.length + 1).toUint128();
+        uint128 reward = getBlockTaiReward(
+            block.timestamp - context.proposedAt
+        ) / (fc.evidences.length + 1).toUint128();
 
         Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: 0,
             feeRebate: 0,
             reward: reward,
-            provingDelay: provingDelay
+            proposedAt: context.proposedAt,
+            provedAt: block.timestamp.toUint64()
         });
 
         if (fc.evidences.length == 0) {
@@ -493,13 +496,7 @@ contract TaikoL1 is EssentialContract {
 
         fc.evidences.push(evidence);
 
-        emit BlockProven(
-            context.id,
-            evidence,
-            parentHash,
-            blockHash,
-            evidence.provingDelay
-        );
+        emit BlockProven(context.id, parentHash, blockHash, evidence);
     }
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc)
@@ -518,13 +515,18 @@ contract TaikoL1 is EssentialContract {
             if (i == 0) {
                 _stats.avgFinalizationDelay = _calcAverage(
                     _stats.avgFinalizationDelay,
-                    evidence.provingDelay
+                    (block.timestamp - evidence.proposedAt).toUint64()
+                );
+
+                _stats.avgProvingDelay = _calcAverage(
+                    _stats.avgProvingDelay,
+                    evidence.provedAt - evidence.proposedAt
                 );
             }
 
-            _stats.avgProvingDelay = _calcAverage(
-                _stats.avgProvingDelay,
-                evidence.provingDelay
+            _stats.avgProvingDelayWithUncles = _calcAverage(
+                _stats.avgProvingDelayWithUncles,
+                evidence.provedAt - evidence.proposedAt
             );
         }
 
