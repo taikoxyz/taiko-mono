@@ -228,11 +228,11 @@ contract TaikoL1 is EssentialContract {
         context.mixHash = bytes32(block.difficulty);
 
         // Check fees
-        context.feeReserve = (PROVER_FEE_RESERVE_RATIO *
-            proverGasPrice *
-            (context.gasLimit + blockGasBaseline))
-            .max(type(uint128).max)
-            .toUint128();
+        context.feeReserve = uint128(
+            (PROVER_FEE_RESERVE_RATIO *
+                proverGasPrice *
+                (context.gasLimit + blockGasBaseline)).max(type(uint128).max)
+        );
 
         _chargeProposer(context.feeReserve);
 
