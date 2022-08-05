@@ -81,6 +81,7 @@ struct Stats {
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
+
 contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
