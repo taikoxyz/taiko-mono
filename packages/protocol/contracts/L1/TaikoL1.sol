@@ -471,16 +471,12 @@ contract TaikoL1 is EssentialContract {
             }
         }
 
-        uint64 provingDelay = (block.timestamp - context.proposedAt).toUint64();
-        uint128 reward = getBlockTaiReward(provingDelay) /
-            (fc.evidences.length + 1).toUint128();
-
         Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: 0,
             feeRebate: 0,
-            reward: reward,
-            provingDelay: provingDelay
+            reward: 0,
+            provingDelay: (block.timestamp - context.proposedAt).toUint64()
         });
 
         if (fc.evidences.length == 0) {
@@ -489,6 +485,11 @@ contract TaikoL1 is EssentialContract {
                 .min(context.feeReserve)
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
+            evidence.reward = getBlockTaiReward(evidence.provingDelay);
+        } else {
+            evidence.reward =
+                fc.evidences[0].reward /
+                (fc.evidences.length + 1).toUint128();
         }
 
         fc.evidences.push(evidence);
