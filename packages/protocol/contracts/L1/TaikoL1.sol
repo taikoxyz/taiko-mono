@@ -132,7 +132,7 @@ contract TaikoL1 is EssentialContract {
     // The following two variables are automiatically adjusted based on
     // the latest finalized blocks.
     uint128 public proverGasPrice; // TODO: auto-adjustable
-    uint128 public avgProverReward; // TODO: auto-adjustable
+    uint128 public avgProverReward;
 
     uint256[43] private __gap;
 
@@ -255,7 +255,6 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlock(
         bool anchored,
         BlockHeader calldata header,
@@ -300,7 +299,6 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    // TODO: how to verify the zkp is associated with msg.sender?
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
@@ -691,7 +689,8 @@ contract TaikoL1 is EssentialContract {
             header.beneficiary == context.beneficiary &&
                 header.gasLimit == context.gasLimit &&
                 header.timestamp == context.proposedAt &&
-                keccak256(header.extraData) == keccak256(context.extraData) && // TODO: direct compare
+                header.extraData.length == context.extraData.length &&
+                keccak256(header.extraData) == keccak256(context.extraData) &&
                 header.mixHash == context.mixHash,
             "header mismatch"
         );
