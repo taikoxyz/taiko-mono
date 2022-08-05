@@ -94,6 +94,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant DAO_REWARD_RATIO = 100; // 100%
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     uint256 public constant PROVER_FEE_RESERVE_RATIO = 4; // 400%
+    uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     bytes32 private constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
@@ -120,7 +121,6 @@ contract TaikoL1 is EssentialContract {
     uint64 public nextPendingId;
 
     uint256 public unsettledProverFee;
-    uint256 public blockGasBaseline;
     uint256 public proverGasPrice; // TODO: auto-adjustable
 
     uint256 public reservedProverFee;
@@ -172,14 +172,12 @@ contract TaikoL1 is EssentialContract {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _blockGasBaseline,
         uint256 _proverGasPrice,
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
         EssentialContract._init(_addressManager);
 
-        blockGasBaseline = _blockGasBaseline;
         proverGasPrice = _proverGasPrice;
 
         finalizedBlocks[0] = _genesisBlockHash;
@@ -231,7 +229,9 @@ contract TaikoL1 is EssentialContract {
         context.feeReserve = uint128(
             (PROVER_FEE_RESERVE_RATIO *
                 proverGasPrice *
-                (context.gasLimit + blockGasBaseline)).max(type(uint128).max)
+                (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA)).max(
+                    type(uint128).max
+                )
         );
 
         _chargeProposer(context.feeReserve);
@@ -486,7 +486,7 @@ contract TaikoL1 is EssentialContract {
 
         if (fc.evidences.length == 0) {
             evidence.proverFee = (proverGasPrice *
-                (context.gasLimit + blockGasBaseline))
+                (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
                 .min(context.feeReserve)
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
