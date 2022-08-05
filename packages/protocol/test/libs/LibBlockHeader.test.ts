@@ -13,7 +13,7 @@ describe("LibBlockHeader tests", function () {
         ).deploy()
     })
 
-    it("should be able to calculate block header hash correctly", async function () {
+    it("can calculate block header hash correctly", async function () {
         const blockHash =
             "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8"
         // block 0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8 on Ethereum mainnet
@@ -52,7 +52,7 @@ describe("LibBlockHeader tests", function () {
         expect(headerComputed).to.equal(blockHash)
     })
 
-    it("should be able to hash block header which contains hash with leading zeros correctly", async function () {
+    it("can hash block header which contains hash with leading zeros correctly", async function () {
         const blockHash =
             "0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177"
         // block 0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177 on Rinkeby testnet
