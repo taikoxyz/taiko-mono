@@ -116,6 +116,8 @@ contract TaikoL1 is EssentialContract {
     // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
+    Stats private _stats; // 1 slot
+
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
@@ -127,8 +129,6 @@ contract TaikoL1 is EssentialContract {
     // the latest finalized blocks.
     uint128 public proverGasPrice; // TODO: auto-adjustable
     uint128 public proverReward; // TODO: auto-adjustable
-
-    Stats private _stats; // 1 slot
 
     uint256[43] private __gap;
 
@@ -491,7 +491,9 @@ contract TaikoL1 is EssentialContract {
                 .min(context.feeReserve)
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
-            evidence.reward = getBlockTaiReward(evidence.provedAt - evidence.proposedAt);
+            evidence.reward = getBlockTaiReward(
+                evidence.provedAt - evidence.proposedAt
+            );
         } else {
             // Uncle proof reward is now based on the first proof submitted,
             // which avoid provers waiting for larger block rewards.
