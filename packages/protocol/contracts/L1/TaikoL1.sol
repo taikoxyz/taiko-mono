@@ -122,13 +122,15 @@ contract TaikoL1 is EssentialContract {
     uint64 public nextPendingId;
 
     uint256 public unsettledProverFee;
-    uint256 public proverGasPrice; // TODO: auto-adjustable
 
-    uint256 public reservedProverFee;
+    // The following two variables are automiatically adjusted based on
+    // the latest finalized blocks.
+    uint128 public proverGasPrice; // TODO: auto-adjustable
+    uint128 public proverReward; // TODO: auto-adjustable
 
     Stats private _stats; // 1 slot
 
-    uint256[42] private __gap;
+    uint256[43] private __gap;
 
     /**********************
      * Events             *
