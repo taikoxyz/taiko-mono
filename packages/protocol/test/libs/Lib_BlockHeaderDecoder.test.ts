@@ -32,6 +32,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
         // console.log(block)
         const blockHash =
             "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8"
+
         const blockHeader: any = {
             parentHash:
                 "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb",
@@ -75,29 +76,21 @@ describe("Lib_BlockHeaderDecoder", async function () {
             blockHeader.mixHash,
             await ethers.utils.hexValue(blockHeader.nonce),
         ]
-        const encodedBlockHeader = await ethers.utils.RLP.encode(
-            bytesBlockHeader
-        )
-        console.log(
-            "blockHash = keccak256(RLP encoded blockHeader)",
-            keccak256(encodedBlockHeader) === blockHash
-        )
-        const { _stateRoot, _timeStamp } =
-            await blockHeaderDecoder.decodeBlockHeader(
-                encodedBlockHeader,
-                blockHash
-            )
-        console.log(_stateRoot, _timeStamp)
-
+        
         // following https://ethereum.stackexchange.com/questions/67279/block-hash-from-block-header-rlp
         // perhaps RLP encoding is different? or block data type is different? unsure.
         // VM revert exception happens at the decodeBlockHeader call.
 
-        // expect(
-        //     await blockHeaderDecoder.decodeBlockHeader(
-        //         await ethers.utils.RLP.encode(bytesBlockHeader),
-        //         blockHash
-        //     )
-        // ).to.equal({ headerStateRoot, headerTimeStamp })
+        const encodedBlockHeader = await ethers.utils.RLP.encode(
+            bytesBlockHeader
+        )
+    
+        const [_stateRoot, _timeStamp] = await blockHeaderDecoder.decodeBlockHeader(
+            encodedBlockHeader,
+            keccak256(encodedBlockHeader)
+        )
+
+        expect(_stateRoot).to.equal(blockHeader.stateRoot)
+        expect(_timeStamp).to.equal(blockHeader.timestamp)     
     })
 })
