@@ -43,7 +43,7 @@ struct Evidence {
     address prover;
     uint128 proverFee;
     uint128 feeRebate;
-    uint128 blockReward;
+    uint128 reward;
     uint64 provingDelay;
 }
 
@@ -137,7 +137,7 @@ contract TaikoL1 is EssentialContract {
         address indexed prover,
         uint256 id,
         uint256 proverFee,
-        uint256 blockReward
+        uint256 reward
     );
     event BlockProposed(uint256 indexed id, BlockContext context);
 
@@ -358,7 +358,7 @@ contract TaikoL1 is EssentialContract {
     function finalizeBlocks() public {
         uint64 id = lastFinalizedId + 1;
         uint256 processed = 0;
-        uint256 totalBlockReward = 0;
+        uint256 totalReward = 0;
 
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
             ForkChoice storage fc = forkChoices[id][
@@ -367,11 +367,11 @@ contract TaikoL1 is EssentialContract {
 
             if (fc.blockHash != 0) {
                 finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
-                totalBlockReward += _finalizeBlock(id, fc);
+                totalReward += _finalizeBlock(id, fc);
             } else {
                 fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
                 if (fc.blockHash != 0) {
-                    totalBlockReward += _finalizeBlock(id, fc);
+                    totalReward += _finalizeBlock(id, fc);
                 } else {
                     break;
                 }
@@ -382,7 +382,7 @@ contract TaikoL1 is EssentialContract {
             processed += 1;
         }
 
-        _mintDaoReward(totalBlockReward);
+        _mintDaoReward(totalReward);
     }
 
     function validateContext(BlockContext memory context) public view {
@@ -473,14 +473,14 @@ contract TaikoL1 is EssentialContract {
         }
 
         uint64 provingDelay = (block.timestamp - context.proposedAt).toUint64();
-        uint128 blockReward = getBlockTaiReward(provingDelay) /
+        uint128 reward = getBlockTaiReward(provingDelay) /
             (fc.evidences.length + 1).toUint128();
 
         Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: 0,
             feeRebate: 0,
-            blockReward: blockReward,
+            reward: reward,
             provingDelay: provingDelay
         });
 
@@ -505,7 +505,7 @@ contract TaikoL1 is EssentialContract {
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc)
         private
-        returns (uint256 totalBlockReward)
+        returns (uint256 totalReward)
     {
         for (uint256 i = 0; i < fc.evidences.length; i++) {
             Evidence memory evidence = fc.evidences[i];
@@ -513,7 +513,7 @@ contract TaikoL1 is EssentialContract {
             // Pay prover fee and block reward
             _payProver(i, evidence);
 
-            totalBlockReward += evidence.blockReward;
+            totalReward += evidence.reward;
 
             // Update stats
             if (i == 0) {
@@ -572,10 +572,10 @@ contract TaikoL1 is EssentialContract {
             unsettledProverFee = 1;
         }
 
-        if (evidence.blockReward != 0) {
+        if (evidence.reward != 0) {
             IMintableERC20(resolve("tai_token")).mint(
                 evidence.prover,
-                evidence.blockReward
+                evidence.reward
             );
         }
 
@@ -583,12 +583,12 @@ contract TaikoL1 is EssentialContract {
             evidence.prover,
             id,
             evidence.proverFee,
-            evidence.blockReward
+            evidence.reward
         );
     }
 
-    function _mintDaoReward(uint256 totalBlockReward) private {
-        uint256 daoReward = (totalBlockReward * DAO_REWARD_RATIO) / 100;
+    function _mintDaoReward(uint256 totalReward) private {
+        uint256 daoReward = (totalReward * DAO_REWARD_RATIO) / 100;
         if (daoReward == 0) return;
 
         IMintableERC20(resolve("tai_token")).mint(
