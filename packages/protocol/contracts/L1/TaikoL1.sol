@@ -142,10 +142,9 @@ contract TaikoL1 is EssentialContract {
 
     event BlockProven(
         uint256 indexed id,
-        Evidence evidence,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint256 provingDelay
+        Evidence evidence
     );
 
     event BlockFinalized(
@@ -494,13 +493,7 @@ contract TaikoL1 is EssentialContract {
 
         fc.evidences.push(evidence);
 
-        emit BlockProven(
-            context.id,
-            evidence,
-            parentHash,
-            blockHash,
-            evidence.provingDelay
-        );
+        emit BlockProven(context.id, parentHash, blockHash, evidence);
     }
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc)
