@@ -11,25 +11,27 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract ConfigManager is OwnableUpgradeable {
-    mapping(bytes32 => bytes) private keys;
+    mapping(bytes32 => bytes) private kv;
 
-    event Updated(string indexed _name, bytes _newKey, bytes _oldKey);
+    event Updated(string indexed name, bytes newVal, bytes oldVal);
 
     function init() external initializer {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    function set(string calldata name, bytes calldata key) external onlyOwner {
-        bytes32 _nameHash = keccak256(abi.encodePacked(name));
-        bytes memory _oldKey = keys[_nameHash];
-        bytes memory _newKey = key;
-        if (keccak256(_oldKey) != keccak256(_newKey)) {
-            keys[_nameHash] = _newKey;
-            emit Updated(name, _newKey, _oldKey);
+    function setValue(string calldata name, bytes calldata val)
+        external
+        onlyOwner
+    {
+        bytes32 k = keccak256(abi.encodePacked(name));
+        bytes memory oldVal = kv[k];
+        if (keccak256(oldVal) != keccak256(val)) {
+            kv[k] = val;
+            emit Updated(name, val, oldVal);
         }
     }
 
-    function get(string memory name) public view returns (bytes memory) {
-        return keys[keccak256(abi.encodePacked(name))];
+    function getValue(string memory name) public view returns (bytes memory) {
+        return kv[keccak256(abi.encodePacked(name))];
     }
 }

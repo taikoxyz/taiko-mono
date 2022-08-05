@@ -243,7 +243,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 blockHash = header.hashBlockHeader();
 
         LibZKP.verify(
-            ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             header.parentHash,
             blockHash,
             context.txListHash,
@@ -306,7 +306,7 @@ contract TaikoL1 is EssentialContract {
         );
 
         LibZKP.verify(
-            ConfigManager(resolve("config_manager")).get(ZKP_VKEY),
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
