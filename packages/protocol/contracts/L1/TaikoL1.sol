@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
@@ -82,7 +82,7 @@ struct Stats {
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
 contract TaikoL1 is EssentialContract {
-    using SafeCastUpgradeable for uint256;
+    // using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
     using LibMath for uint256;
@@ -174,7 +174,7 @@ contract TaikoL1 is EssentialContract {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _proverGasPrice,
+        uint128 _proverGasPrice,
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
@@ -185,7 +185,7 @@ contract TaikoL1 is EssentialContract {
         finalizedBlocks[0] = _genesisBlockHash;
         nextPendingId = 1;
 
-        genesisHeight = block.number.toUint64();
+        genesisHeight = uint64(block.number);
 
         emit BlockFinalized(0, 0, _genesisBlockHash);
 
@@ -220,7 +220,7 @@ contract TaikoL1 is EssentialContract {
         validateContext(context);
 
         context.id = nextPendingId;
-        context.proposedAt = block.timestamp.toUint64();
+        context.proposedAt = uint64(block.timestamp);
         context.txListHash = txList.hashTxList();
 
         // if multiple L2 blocks included in the same L1 block,
@@ -479,17 +479,19 @@ contract TaikoL1 is EssentialContract {
             prover: msg.sender,
             proverFee: 0,
             feeRebate: 0,
-            reward: reward,
+            reward: 0,
             proposedAt: context.proposedAt,
-            provenAt: block.timestamp.toUint64()
+            provenAt: uint64(block.timestamp)
         });
 
         if (fc.evidences.length == 0) {
             // Only the first prover get the proverFee
-            evidence.proverFee = (proverGasPrice *
-                (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
-                .min(context.feeReserve)
-                .toUint128();
+            evidence.proverFee = uint128(
+                (proverGasPrice * (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
+                    .min(context.feeReserve)
+                    .max(type(uint128).max)
+            );
+
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
             evidence.reward = getBlockTaiReward(
                 evidence.provenAt - evidence.proposedAt
@@ -499,7 +501,7 @@ contract TaikoL1 is EssentialContract {
             // which avoid provers waiting for larger block rewards.
             evidence.reward =
                 fc.evidences[0].reward /
-                (fc.evidences.length + 2).toUint128();
+                uint128(fc.evidences.length + 2);
         }
 
         fc.evidences.push(evidence);
@@ -523,7 +525,7 @@ contract TaikoL1 is EssentialContract {
             if (i == 0) {
                 _stats.avgFinalizationDelay = _calcAverage(
                     _stats.avgFinalizationDelay,
-                    (block.timestamp - evidence.proposedAt).toUint64()
+                    uint64(block.timestamp - evidence.proposedAt)
                 );
 
                 _stats.avgProvingDelay = _calcAverage(
@@ -683,7 +685,7 @@ contract TaikoL1 is EssentialContract {
             avg +
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return _avg.toUint64();
+        return uint64(_avg.max(type(uint64).max));
     }
 
     // We currently assume the public input has at least
