@@ -1,5 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import { expect } from "chai"
+import { keccak256 } from "ethers/lib/utils"
 // const Web3 = require("web3")
 const hre = require("hardhat")
 const ethers = hre.ethers
@@ -76,6 +77,10 @@ describe("Lib_BlockHeaderDecoder", async function () {
         ]
         const encodedBlockHeader = await ethers.utils.RLP.encode(
             bytesBlockHeader
+        )
+        console.log(
+            "blockHash = keccak256(RLP encoded blockHeader)",
+            keccak256(encodedBlockHeader) === blockHash
         )
         const { _stateRoot, _timeStamp } =
             await blockHeaderDecoder.decodeBlockHeader(
