@@ -711,7 +711,7 @@ contract TaikoL1 is EssentialContract {
             avg +
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return _avg.max(max);
+        return _avg.min(max);
     }
 
     // We currently assume the public input has at least
