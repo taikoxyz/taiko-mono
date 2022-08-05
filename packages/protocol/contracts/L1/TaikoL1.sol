@@ -270,7 +270,7 @@ contract TaikoL1 is EssentialContract {
             );
 
         if (!anchored) {
-            proofVal = 0x0;
+            proofVal = 0;
         }
 
         LibMerkleProof.verify(
@@ -386,8 +386,8 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
-                context.txListHash == 0x0 &&
-                context.mixHash == 0x0 &&
+                context.txListHash == 0 &&
+                context.mixHash == 0 &&
                 context.proposedAt == 0 &&
                 context.feeReserve == 0,
             "nonzero placeholder fields"
@@ -396,7 +396,7 @@ contract TaikoL1 is EssentialContract {
         require(
             block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
                 context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0x0,
+                context.anchorHash != 0,
             "invalid anchor"
         );
 
@@ -626,7 +626,7 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.parentHash != 0x0 &&
+            header.parentHash != 0 &&
                 header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&

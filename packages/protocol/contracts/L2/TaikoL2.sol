@@ -78,9 +78,9 @@ contract TaikoL2 is EssentialContract {
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0x0, "L2:invalid anchor");
+        require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
 
-        if (anchorHashes[anchorHeight] == 0x0) {
+        if (anchorHashes[anchorHeight] == 0) {
             anchorHashes[anchorHeight] = anchorHash;
 
             (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
