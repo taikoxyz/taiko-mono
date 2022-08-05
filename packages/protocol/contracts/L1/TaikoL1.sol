@@ -44,7 +44,8 @@ struct Evidence {
     uint128 proverFee;
     uint128 feeRebate;
     uint128 reward;
-    uint64 provingDelay;
+    uint64 proposedAt;
+    uint64 provedAt;
 }
 
 struct ForkChoice {
@@ -56,6 +57,7 @@ struct ForkChoice {
 struct Stats {
     uint64 avgPendingSize;
     uint64 avgProvingDelay;
+    uint64 avgProvingDelayWithUncles;
     uint64 avgFinalizationDelay;
 }
 
@@ -412,6 +414,7 @@ contract TaikoL1 is EssentialContract {
         stats = _stats;
         stats.avgPendingSize /= NANO_PER_SECOND;
         stats.avgProvingDelay /= NANO_PER_SECOND;
+        stats.avgProvingDelayWithUncles /= NANO_PER_SECOND;
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
     }
 
@@ -474,8 +477,9 @@ contract TaikoL1 is EssentialContract {
             prover: msg.sender,
             proverFee: 0,
             feeRebate: 0,
-            reward: 0,
-            provingDelay: (block.timestamp - context.proposedAt).toUint64()
+            reward: reward,
+            proposedAt: context.proposedAt,
+            provedAt: block.timestamp.toUint64()
         });
 
         if (fc.evidences.length == 0) {
@@ -485,7 +489,7 @@ contract TaikoL1 is EssentialContract {
                 .min(context.feeReserve)
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
-            evidence.reward = getBlockTaiReward(evidence.provingDelay);
+            evidence.reward = getBlockTaiReward(evidence.provedAt - evidence.proposedAt);
         } else {
             // Uncle proof reward is now based on the first proof submitted,
             // which avoid provers waiting for larger block rewards.
@@ -515,13 +519,18 @@ contract TaikoL1 is EssentialContract {
             if (i == 0) {
                 _stats.avgFinalizationDelay = _calcAverage(
                     _stats.avgFinalizationDelay,
-                    evidence.provingDelay
+                    (block.timestamp - evidence.proposedAt).toUint64()
+                );
+
+                _stats.avgProvingDelay = _calcAverage(
+                    _stats.avgProvingDelay,
+                    evidence.provedAt - evidence.proposedAt
                 );
             }
 
-            _stats.avgProvingDelay = _calcAverage(
-                _stats.avgProvingDelay,
-                evidence.provingDelay
+            _stats.avgProvingDelayWithUncles = _calcAverage(
+                _stats.avgProvingDelayWithUncles,
+                evidence.provedAt - evidence.proposedAt
             );
         }
 
