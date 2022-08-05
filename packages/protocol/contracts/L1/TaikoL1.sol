@@ -550,24 +550,30 @@ contract TaikoL1 is EssentialContract {
         address proposer = _getPendingBlock(id).proposer;
 
         bool success;
-        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
-        if (!success) {
-            unsettledProverFee += evidence.proverFee;
+        if (evidence.proverFee > 0) {
+            (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+            if (!success) {
+                unsettledProverFee += evidence.proverFee;
+            }
         }
 
-        (success, ) = proposer.call{value: evidence.feeRebate}("");
-        if (!success) {
-            unsettledProverFee += evidence.feeRebate;
+        if (evidence.feeRebate > 0) {
+            (success, ) = proposer.call{value: evidence.feeRebate}("");
+            if (!success) {
+                unsettledProverFee += evidence.feeRebate;
+            }
         }
 
-        (success, ) = resolve("dao_vault").call{value: unsettledProverFee - 1}(
-            ""
-        );
-        if (success) {
-            unsettledProverFee = 1;
+        if (unsettledProverFee > 1) {
+            (success, ) = resolve("dao_vault").call{
+                value: unsettledProverFee - 1
+            }("");
+            if (success) {
+                unsettledProverFee = 1;
+            }
         }
 
-        if (evidence.reward != 0) {
+        if (evidence.reward > 0) {
             IMintableERC20(resolve("tai_token")).mint(
                 evidence.prover,
                 evidence.reward
