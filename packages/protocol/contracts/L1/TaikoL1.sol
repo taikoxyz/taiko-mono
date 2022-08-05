@@ -486,6 +486,8 @@ contract TaikoL1 is EssentialContract {
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
             evidence.reward = getBlockTaiReward(evidence.provingDelay);
         } else {
+            // Uncle proof reward is now based on the first proof submitted,
+            // which avoid provers waiting for larger block rewards.
             evidence.reward =
                 fc.evidences[0].reward /
                 (fc.evidences.length + 1).toUint128();
