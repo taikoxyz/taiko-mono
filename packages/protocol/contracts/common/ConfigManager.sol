@@ -26,7 +26,7 @@ contract ConfigManager is OwnableUpgradeable {
         if (keccak256(_oldKey) != keccak256(_newKey)) {
             keys[_nameHash] = _newKey;
             emit Updated(name, _newKey, _oldKey);
-        } else {}
+        }
     }
 
     function get(string memory name) public view returns (bytes memory) {
