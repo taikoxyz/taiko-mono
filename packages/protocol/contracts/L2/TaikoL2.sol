@@ -53,6 +53,8 @@ contract TaikoL2 is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
+    receive() external payable {}
+
     function unwrapEther(address receipient, uint256 amount) external {
         if (amount == 0) return;
 
