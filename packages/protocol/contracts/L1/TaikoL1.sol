@@ -274,7 +274,7 @@ contract TaikoL1 is EssentialContract {
             );
 
         if (!anchored) {
-            proofVal = 0x0;
+            proofVal = 0;
         }
 
         LibMerkleProof.verify(
@@ -390,8 +390,8 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
-                context.txListHash == 0x0 &&
-                context.mixHash == 0x0 &&
+                context.txListHash == 0 &&
+                context.mixHash == 0 &&
                 context.proposedAt == 0 &&
                 context.feeReserve == 0,
             "nonzero placeholder fields"
@@ -400,7 +400,7 @@ contract TaikoL1 is EssentialContract {
         require(
             block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
                 context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0x0,
+                context.anchorHash != 0,
             "invalid anchor"
         );
 
@@ -475,10 +475,6 @@ contract TaikoL1 is EssentialContract {
             }
         }
 
-        uint128 reward = getBlockTaiReward(
-            block.timestamp - context.proposedAt
-        ) / (fc.evidences.length + 1).toUint128();
-
         Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: 0,
@@ -489,11 +485,19 @@ contract TaikoL1 is EssentialContract {
         });
 
         if (fc.evidences.length == 0) {
+            // Only the first prover get the proverFee
             evidence.proverFee = (proverGasPrice *
                 (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
                 .min(context.feeReserve)
                 .toUint128();
             evidence.feeRebate = context.feeReserve - evidence.proverFee;
+            evidence.reward = getBlockTaiReward(evidence.provedAt - evidence.proposedAt);
+        } else {
+            // Uncle proof reward is now based on the first proof submitted,
+            // which avoid provers waiting for larger block rewards.
+            evidence.reward =
+                fc.evidences[0].reward /
+                (fc.evidences.length + 2).toUint128();
         }
 
         fc.evidences.push(evidence);
@@ -558,24 +562,30 @@ contract TaikoL1 is EssentialContract {
         address proposer = _getPendingBlock(id).proposer;
 
         bool success;
-        (success, ) = evidence.prover.call{value: evidence.proverFee}("");
-        if (!success) {
-            unsettledProverFee += evidence.proverFee;
+        if (evidence.proverFee > 0) {
+            (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+            if (!success) {
+                unsettledProverFee += evidence.proverFee;
+            }
         }
 
-        (success, ) = proposer.call{value: evidence.feeRebate}("");
-        if (!success) {
-            unsettledProverFee += evidence.feeRebate;
+        if (evidence.feeRebate > 0) {
+            (success, ) = proposer.call{value: evidence.feeRebate}("");
+            if (!success) {
+                unsettledProverFee += evidence.feeRebate;
+            }
         }
 
-        (success, ) = resolve("dao_vault").call{value: unsettledProverFee - 1}(
-            ""
-        );
-        if (success) {
-            unsettledProverFee = 1;
+        if (unsettledProverFee > 1) {
+            (success, ) = resolve("dao_vault").call{
+                value: unsettledProverFee - 1
+            }("");
+            if (success) {
+                unsettledProverFee = 1;
+            }
         }
 
-        if (evidence.reward != 0) {
+        if (evidence.reward > 0) {
             IMintableERC20(resolve("tai_token")).mint(
                 evidence.prover,
                 evidence.reward
@@ -628,7 +638,7 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.parentHash != 0x0 &&
+            header.parentHash != 0 &&
                 header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
