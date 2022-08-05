@@ -182,7 +182,9 @@ library Lib_BlockHeaderDecoder {
       if iszero( eq(hash, blockHash) ) {
         revertWith('HASH')
       }
-      if iszero( eq(nItems, 16) ) {
+      
+      // Depends on if EIP1559 is enabled, check the item size to be 15 or 16.
+      if iszero( eq(nItems, 15) ) {
         revertWith('ITEMS')
       }
 
