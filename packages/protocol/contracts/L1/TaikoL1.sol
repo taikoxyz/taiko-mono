@@ -190,13 +190,9 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
-        if (_amountMintToDAO != 0) {
-            taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
-        }
+        taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
 
-        if (_amountMintToTeam != 0) {
-            taiToken.mint(resolve("team_vault"), _amountMintToTeam);
-        }
+        taiToken.mint(resolve("team_vault"), _amountMintToTeam);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -539,10 +535,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _chargeProposer(uint256 proverFee) private {
-        address daoVault = resolve("dao_vault");
-        uint256 utilizationFee = daoVault == address(0)
-            ? 0
-            : (proverFee * getUtilizationFeeBips()) / 10000;
+        uint256 utilizationFee = (proverFee * getUtilizationFeeBips()) / 10000;
         uint256 totalFees = proverFee + utilizationFee;
 
         require(msg.value >= totalFees, "insufficient fee");
@@ -552,7 +545,7 @@ contract TaikoL1 is EssentialContract {
             payable(msg.sender).transfer(msg.value - totalFees);
         }
         if (utilizationFee > 0) {
-            payable(daoVault).transfer(utilizationFee);
+            payable(resolve("dao_vault")).transfer(utilizationFee);
         }
     }
 
@@ -569,13 +562,11 @@ contract TaikoL1 is EssentialContract {
             unsettledProverFee += evidence.feeRebate;
         }
 
-        address daoVault = resolve("dao_vault");
-
-        if (daoVault != address(0)) {
-            (success, ) = daoVault.call{value: unsettledProverFee - 1}("");
-            if (success) {
-                unsettledProverFee = 1;
-            }
+        (success, ) = resolve("dao_vault").call{value: unsettledProverFee - 1}(
+            ""
+        );
+        if (success) {
+            unsettledProverFee = 1;
         }
 
         if (evidence.blockReward != 0) {
