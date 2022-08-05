@@ -230,7 +230,9 @@ contract TaikoL1 is EssentialContract {
         // Check fees
         context.feeReserve = (PROVER_FEE_RESERVE_RATIO *
             proverGasPrice *
-            (context.gasLimit + blockGasBaseline)).toUint128();
+            (context.gasLimit + blockGasBaseline))
+            .max(type(uint128).max)
+            .toUint128();
 
         _chargeProposer(context.feeReserve);
 
@@ -557,6 +559,7 @@ contract TaikoL1 is EssentialContract {
         if (!success) {
             unsettledProverFee += evidence.proverFee;
         }
+
         (success, ) = proposer.call{value: evidence.feeRebate}("");
         if (!success) {
             unsettledProverFee += evidence.feeRebate;
