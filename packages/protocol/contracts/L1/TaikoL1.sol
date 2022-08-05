@@ -38,7 +38,6 @@ struct Evidence {
     uint256 proverFee;
     uint64 proposedAt;
     uint64 provenAt;
-    bytes32 blockHash;
 }
 
 // all stat time units are nanosecond
@@ -46,6 +45,11 @@ struct Stats {
     uint64 avgPendingSize;
     uint64 avgProvingDelay;
     uint64 avgFinalizationDelay;
+}
+
+struct ForkChoice {
+    bytes32 blockHash;
+    Evidence[] evidences;
 }
 
 /// @dev We have the following design assumptions:
@@ -80,9 +84,10 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant DAO_REWARD_RATIO = 100; // 100%
+    uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
-    bytes32 private constant JUMP_MARKER = bytes32(uint256(1));
+    bytes32 private constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 private constant STAT_AVERAGING_FACTOR = 2048;
     uint64 private constant NANO_PER_SECOND = 1E9;
     uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
@@ -91,13 +96,14 @@ contract TaikoL1 is EssentialContract {
      * State Variables    *
      **********************/
 
-    // Finalized taiko block headers
+    // block id => block hash
     mapping(uint256 => bytes32) public finalizedBlocks;
 
     // block id => block context hash
     mapping(uint256 => bytes32) public pendingBlocks;
 
-    mapping(uint256 => mapping(bytes32 => Evidence)) public evidences;
+    // block id => parent hash => fork choice
+    mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
@@ -119,19 +125,25 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
+    event ProverPaid(
+        address indexed prover,
+        uint256 id,
+        uint256 proverFee,
+        uint256 reward
+    );
     event BlockProposed(uint256 indexed id, BlockContext context);
+
     event BlockProven(
         uint256 indexed id,
+        Evidence evidence,
         bytes32 parentHash,
-        Evidence evidence
+        bytes32 blockHash
     );
-    event BlockProvenInvalid(uint256 indexed id);
+
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,
-        Evidence evidence,
-        uint256 blockTaiReward,
-        uint256 daoReward
+        bytes32 blockHash
     );
 
     /**********************
@@ -166,13 +178,7 @@ contract TaikoL1 is EssentialContract {
 
         genesisHeight = block.number.toUint64();
 
-        Evidence memory evidence = Evidence({
-            prover: address(0),
-            proverFee: 0,
-            proposedAt: 0,
-            provenAt: 0,
-            blockHash: _genesisBlockHash
-        });
+        emit BlockFinalized(0, 0, _genesisBlockHash);
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         if (_amountMintToDAO != 0) {
@@ -182,8 +188,6 @@ contract TaikoL1 is EssentialContract {
         if (_amountMintToTeam != 0) {
             taiToken.mint(resolve("team_vault"), _amountMintToTeam);
         }
-
-        emit BlockFinalized(0, 0, evidence, 0, 0);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -246,7 +250,7 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             header.parentHash,
             blockHash,
-            context.txListHash,
+            _computePublicInputHash(msg.sender, context.txListHash),
             proofs[0]
         );
 
@@ -269,17 +273,12 @@ contract TaikoL1 is EssentialContract {
             proofs[1]
         );
 
-        Evidence memory evidence = Evidence({
-            prover: msg.sender,
-            proverFee: context.proverFee,
-            proposedAt: context.proposedAt,
-            provenAt: block.timestamp.toUint64(),
-            blockHash: blockHash
-        });
-
-        evidences[context.id][header.parentHash] = evidence;
-
-        emit BlockProven(context.id, header.parentHash, evidence);
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
+            context,
+            header.parentHash,
+            blockHash
+        );
     }
 
     // TODO: how to verify the zkp is associated with msg.sender?
@@ -309,7 +308,7 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
-            throwAwayTxListHash,
+            _computePublicInputHash(msg.sender, throwAwayTxListHash),
             proofs[0]
         );
 
@@ -324,7 +323,12 @@ contract TaikoL1 is EssentialContract {
             proofs[1]
         );
 
-        _invalidateBlock(context, false);
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
+            context,
+            SKIP_OVER_BLOCK_HASH,
+            SKIP_OVER_BLOCK_HASH
+        );
     }
 
     function verifyBlockInvalid(
@@ -334,7 +338,7 @@ contract TaikoL1 is EssentialContract {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _invalidateBlock(context, true);
+        _proveBlock(1, context, SKIP_OVER_BLOCK_HASH, SKIP_OVER_BLOCK_HASH);
     }
 
     /**********************
@@ -344,28 +348,31 @@ contract TaikoL1 is EssentialContract {
     function finalizeBlocks() public {
         uint64 id = lastFinalizedId + 1;
         uint256 processed = 0;
+        uint256 totalBlockReward = 0;
+
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
-            Evidence storage evidence = evidences[id][
+            ForkChoice storage fc = forkChoices[id][
                 finalizedBlocks[lastFinalizedHeight]
             ];
 
-            if (evidence.prover != address(0)) {
-                finalizedBlocks[++lastFinalizedHeight] = evidence.blockHash;
-                _finalizeBlock(id, lastFinalizedHeight, evidence);
-            } else if (evidences[id][JUMP_MARKER].prover != address(0)) {
-                _finalizeBlock(
-                    id,
-                    lastFinalizedHeight,
-                    evidences[id][JUMP_MARKER]
-                );
+            if (fc.blockHash != 0) {
+                finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
+                totalBlockReward += _finalizeBlock(id, fc);
             } else {
-                break;
+                fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
+                if (fc.blockHash != 0) {
+                    totalBlockReward += _finalizeBlock(id, fc);
+                } else {
+                    break;
+                }
             }
 
             lastFinalizedId += 1;
             id += 1;
             processed += 1;
         }
+
+        _mintDaoReward(totalBlockReward);
     }
 
     function validateContext(BlockContext memory context) public view {
@@ -433,57 +440,79 @@ contract TaikoL1 is EssentialContract {
      * Private Functions  *
      **********************/
 
-    function _invalidateBlock(BlockContext memory context, bool noZKP) private {
-        require(
-            evidences[context.id][JUMP_MARKER].prover == address(0),
-            "already invalidated"
-        );
-        evidences[context.id][JUMP_MARKER] = Evidence({
+    function _proveBlock(
+        uint256 maxNumProofs,
+        BlockContext memory context,
+        bytes32 parentHash,
+        bytes32 blockHash
+    ) private {
+        ForkChoice storage fc = forkChoices[context.id][parentHash];
+
+        if (fc.blockHash == 0) {
+            fc.blockHash = blockHash;
+        } else {
+            require(fc.blockHash == blockHash, "conflicting proof");
+            require(fc.evidences.length < maxNumProofs, "too many proofs");
+
+            for (uint256 i = 0; i < fc.evidences.length; i++) {
+                require(
+                    fc.evidences[i].prover != msg.sender,
+                    "duplicate proof"
+                );
+            }
+        }
+
+        Evidence memory evidence = Evidence({
             prover: msg.sender,
             proverFee: context.proverFee,
             proposedAt: context.proposedAt,
-            provenAt: noZKP ? context.proposedAt : block.timestamp.toUint64(),
-            blockHash: 0x0
+            provenAt: block.timestamp.toUint64()
         });
-        emit BlockProvenInvalid(context.id);
+
+        fc.evidences.push(evidence);
+
+        emit BlockProven(context.id, evidence, parentHash, blockHash);
     }
 
-    function _finalizeBlock(
-        uint64 id,
-        uint64 _lastFinalizedHeight,
-        Evidence storage evidence
-    ) private {
-        _payProverFee(evidence.prover, evidence.proverFee);
-        (uint256 blockReward, uint256 daoReward) = _payBlockReward(
-            evidence.prover,
-            evidence.provenAt - evidence.proposedAt
-        );
+    function _finalizeBlock(uint64 id, ForkChoice storage fc)
+        private
+        returns (uint256 blockRewardSum)
+    {
+        for (uint256 i = 0; i < fc.evidences.length; i++) {
+            Evidence memory evidence = fc.evidences[i];
 
-        // Update stats
-        _stats.avgProvingDelay = _calcAverage(
-            _stats.avgProvingDelay,
-            evidence.provenAt - evidence.proposedAt
-        );
+            // Pay prover fee and block reward
+            uint256 proverFee = i == 0 ? evidence.proverFee : 0;
+            _payProverFee(evidence.prover, proverFee);
 
-        _stats.avgFinalizationDelay = _calcAverage(
-            _stats.avgFinalizationDelay,
-            block.timestamp.toUint64() - evidence.proposedAt
-        );
+            uint256 blockReward = _payBlockReward(
+                i,
+                evidence.prover,
+                evidence.provenAt - evidence.proposedAt
+            );
+
+            emit ProverPaid(evidence.prover, id, proverFee, blockReward);
+            blockRewardSum += blockReward;
+
+            // Update stats
+            if (i == 0) {
+                _stats.avgFinalizationDelay = _calcAverage(
+                    _stats.avgFinalizationDelay,
+                    block.timestamp.toUint64() - evidence.proposedAt
+                );
+            }
+
+            _stats.avgProvingDelay = _calcAverage(
+                _stats.avgProvingDelay,
+                evidence.provenAt - evidence.proposedAt
+            );
+        }
 
         emit BlockFinalized(
             id,
-            _lastFinalizedHeight,
-            evidence,
-            blockReward,
-            daoReward
+            lastFinalizedHeight,
+            finalizedBlocks[lastFinalizedHeight]
         );
-
-        // Delete the evidence to potentially avoid 4 sstore ops.
-        evidence.prover = address(0);
-        evidence.proverFee = 0;
-        evidence.proposedAt = 0;
-        evidence.proposedAt = 0;
-        evidence.blockHash = 0x0;
     }
 
     function _chargeProposerFee(uint256 proverFee) private {
@@ -521,36 +550,36 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function _payBlockReward(address prover, uint256 provingDelay)
-        private
-        returns (uint256 blockReward, uint256 daoReward)
-    {
-        address taiToken = resolve("tai_token");
-        if (taiToken == address(0)) return (0, 0);
-
-        blockReward = getBlockTaiReward(provingDelay);
+    function _payBlockReward(
+        uint256 sequenceId,
+        address prover,
+        uint256 provingDelay
+    ) private returns (uint256 blockReward) {
+        blockReward = getBlockTaiReward(provingDelay) / (sequenceId + 1);
         if (blockReward != 0) {
-            IMintableERC20(taiToken).mint(prover, blockReward);
-
-            address daoVault = resolve("dao_vault");
-            daoReward = daoVault == address(0)
-                ? 0
-                : (blockReward * DAO_REWARD_RATIO) / 100;
-
-            if (daoReward != 0) {
-                IMintableERC20(taiToken).mint(daoVault, daoReward);
-            }
+            IMintableERC20(resolve("tai_token")).mint(prover, blockReward);
         }
     }
 
-    function _savePendingBlock(uint256 id, bytes32 contextHash)
-        private
-        returns (bytes32)
-    {
-        return pendingBlocks[id % MAX_PENDING_BLOCKS] = contextHash;
+    function _mintDaoReward(uint256 totalBlockReward) private {
+        uint256 daoReward = (totalBlockReward * DAO_REWARD_RATIO) / 100;
+        if (daoReward == 0) return;
+
+        address daoVault = resolve("dao_vault");
+        if (daoVault == address(0)) return;
+
+        IMintableERC20(resolve("tai_token")).mint(daoVault, daoReward);
     }
 
-    function _getPendingBlock(uint256 id) private view returns (bytes32) {
+    function _savePendingBlock(uint256 id, bytes32 contextHash) private {
+        pendingBlocks[id % MAX_PENDING_BLOCKS] = contextHash;
+    }
+
+    function _getPendingBlock(uint256 id)
+        private
+        view
+        returns (bytes32 contextHash)
+    {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
@@ -611,5 +640,16 @@ contract TaikoL1 is EssentialContract {
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
         return _avg.toUint64();
+    }
+
+    // We currently assume the public input has at least
+    // two parts: msg.sender, and txListHash.
+    // TODO(daniel): figure it out.
+    function _computePublicInputHash(address prover, bytes32 txListHash)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(prover, txListHash));
     }
 }
