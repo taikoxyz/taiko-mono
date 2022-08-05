@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-// import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
@@ -82,7 +82,7 @@ struct Stats {
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
 contract TaikoL1 is EssentialContract {
-    // using SafeCastUpgradeable for uint256;
+    using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
     using LibMath for uint256;
@@ -95,13 +95,14 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant DAO_REWARD_RATIO = 100; // 100%
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
-    uint256 public constant PROVER_FEE_RESERVE_RATIO = 4; // 400%
+    uint256 public constant PROVER_FEE_RESERVE_MULTIPLIER = 4; // 4X
+    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 10; // 10X
     uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
-    string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
+    uint64 public constant MAX_UTILIZATION_FEE_RATIO = 500; // 500%
     uint64 public constant NANO_PER_SECOND = 1E9;
-    uint64 public constant UTILIZATION_FEE_RATIO = 500; // 5x
+    string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     /**********************
      * State Variables    *
@@ -229,7 +230,7 @@ contract TaikoL1 is EssentialContract {
 
         // Check fees
         context.feeReserve = uint128(
-            (PROVER_FEE_RESERVE_RATIO *
+            (PROVER_FEE_RESERVE_MULTIPLIER *
                 proverGasPrice *
                 (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA)).max(
                     type(uint128).max
@@ -437,7 +438,7 @@ contract TaikoL1 is EssentialContract {
         if (numPendingBlocks <= threshold) return 0;
 
         return
-            (UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
+            (MAX_UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
             (MAX_PENDING_BLOCKS - threshold);
     }
 
@@ -446,7 +447,10 @@ contract TaikoL1 is EssentialContract {
         view
         returns (uint128)
     {
-        // TODO: implement this
+        uint256 reward = (proverReward * provingDelay * provingDelay) /
+            (_stats.avgProvingDelay * _stats.avgProvingDelay);
+        return
+            reward.min(proverReward * MAX_BLOCK_REWARD_MULTIPLIER).toUint128();
     }
 
     /**********************
