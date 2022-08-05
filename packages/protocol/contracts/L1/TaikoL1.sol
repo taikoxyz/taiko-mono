@@ -479,6 +479,7 @@ contract TaikoL1 is EssentialContract {
         });
 
         if (fc.evidences.length == 0) {
+            // Only the first prover get the proverFee
             evidence.proverFee = (proverGasPrice *
                 (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
                 .min(context.feeReserve)
@@ -490,7 +491,7 @@ contract TaikoL1 is EssentialContract {
             // which avoid provers waiting for larger block rewards.
             evidence.reward =
                 fc.evidences[0].reward /
-                (fc.evidences.length + 1).toUint128();
+                (fc.evidences.length + 2).toUint128();
         }
 
         fc.evidences.push(evidence);
