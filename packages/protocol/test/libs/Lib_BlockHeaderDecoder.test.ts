@@ -83,6 +83,11 @@ describe("Lib_BlockHeaderDecoder", async function () {
                 blockHash
             )
         console.log(_stateRoot, _timeStamp)
+
+        // following https://ethereum.stackexchange.com/questions/67279/block-hash-from-block-header-rlp
+        // perhaps RLP encoding is different? or block data type is different? unsure.
+        // VM revert exception happens at the decodeBlockHeader call.
+
         // expect(
         //     await blockHeaderDecoder.decodeBlockHeader(
         //         await ethers.utils.RLP.encode(bytesBlockHeader),
