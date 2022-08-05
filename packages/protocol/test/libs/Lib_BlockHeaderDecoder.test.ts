@@ -1,11 +1,13 @@
 // eslint-disable-next-line no-unused-vars
 import { expect } from "chai"
 import { keccak256 } from "ethers/lib/utils"
-// const Web3 = require("web3")
 const hre = require("hardhat")
 const ethers = hre.ethers
-// const web3 = new Web3(ethers.getDefaultProvider())
 const EBN = ethers.BigNumber
+const provider = new ethers.providers.AlchemyProvider()
+const Web3 = require("web3")
+hre.web3 = new Web3(provider)
+const web3 = hre.web3
 
 describe("Lib_BlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
@@ -28,11 +30,6 @@ describe("Lib_BlockHeaderDecoder", async function () {
     })
 
     it("Decode should return stateRoot and timeStamp", async function () {
-        // const block = await web3.eth.getBlock(randomInt(4000))
-        // console.log(block)
-        const blockHash =
-            "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8"
-
         const blockHeader: any = {
             parentHash:
                 "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb",
@@ -76,7 +73,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
             blockHeader.mixHash,
             await ethers.utils.hexValue(blockHeader.nonce),
         ]
-        
+
         // following https://ethereum.stackexchange.com/questions/67279/block-hash-from-block-header-rlp
         // perhaps RLP encoding is different? or block data type is different? unsure.
         // VM revert exception happens at the decodeBlockHeader call.
@@ -84,13 +81,50 @@ describe("Lib_BlockHeaderDecoder", async function () {
         const encodedBlockHeader = await ethers.utils.RLP.encode(
             bytesBlockHeader
         )
-    
-        const [_stateRoot, _timeStamp] = await blockHeaderDecoder.decodeBlockHeader(
-            encodedBlockHeader,
-            keccak256(encodedBlockHeader)
-        )
+
+        const [_stateRoot, _timeStamp] =
+            await blockHeaderDecoder.decodeBlockHeader(
+                encodedBlockHeader,
+                keccak256(encodedBlockHeader)
+            )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
-        expect(_timeStamp).to.equal(blockHeader.timestamp)     
+        expect(_timeStamp).to.equal(blockHeader.timestamp)
+    })
+
+    it.only("Testing with a couple other blockHeaders", async function () {
+        const blockHeader = await web3.eth.getBlock("latest")
+        console.log(blockHeader)
+        const bytesBlockHeader = [
+            blockHeader.parentHash,
+            blockHeader.sha3Uncles,
+            blockHeader.miner,
+            blockHeader.stateRoot,
+            blockHeader.transactionsRoot,
+            blockHeader.receiptsRoot,
+            blockHeader.logsBloom,
+            web3.utils.toHex(blockHeader.difficulty),
+            web3.utils.toHex(blockHeader.number),
+            web3.utils.toHex(blockHeader.gasLimit),
+            web3.utils.toHex(blockHeader.gasUsed),
+            web3.utils.toHex(blockHeader.timestamp),
+            blockHeader.extraData,
+            blockHeader.mixHash,
+            web3.utils.toHex(blockHeader.nonce),
+        ]
+        // console.log(bytesBlockHeader[7])
+        // console.log(ethers.utils.isBytesLike(bytesBlockHeader[7]))
+        const encodedBlockHeader = await ethers.utils.RLP.encode(
+            bytesBlockHeader
+        )
+
+        const [_stateRoot, _timeStamp] =
+            await blockHeaderDecoder.decodeBlockHeader(
+                encodedBlockHeader,
+                keccak256(encodedBlockHeader)
+            )
+
+        expect(_stateRoot).to.equal(blockHeader.stateRoot)
+        expect(_timeStamp).to.equal(blockHeader.timestamp)
     })
 })
