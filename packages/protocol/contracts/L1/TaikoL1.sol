@@ -102,6 +102,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
+    uint256 public constant ETH_TRANSFER_GAS_LIMIT = 25000;
     uint64 public constant MAX_UTILIZATION_FEE_RATIO = 500; // 500%
     uint64 public constant NANO_PER_SECOND = 1E9;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
@@ -593,14 +594,20 @@ contract TaikoL1 is EssentialContract {
 
         bool success;
         if (evidence.proverFee > 0) {
-            (success, ) = evidence.prover.call{value: evidence.proverFee}("");
+            (success, ) = evidence.prover.call{
+                gas: ETH_TRANSFER_GAS_LIMIT,
+                value: evidence.proverFee
+            }("");
             if (!success) {
                 unsettledProverFee += evidence.proverFee;
             }
         }
 
         if (evidence.feeRebate > 0) {
-            (success, ) = proposer.call{value: evidence.feeRebate}("");
+            (success, ) = proposer.call{
+                gas: ETH_TRANSFER_GAS_LIMIT,
+                value: evidence.feeRebate
+            }("");
             if (!success) {
                 unsettledProverFee += evidence.feeRebate;
             }
