@@ -98,7 +98,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MIN_BLOCK_REWARD_BASE = 2E18; // 2 TAI
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     uint256 public constant PROVER_FEE_RESERVE_MULTIPLIER = 4; // 4X
-    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 16; // 16X
+    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 64; // 64X
     uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
