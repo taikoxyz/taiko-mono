@@ -95,12 +95,11 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     uint256 public constant PROVER_FEE_RESERVE_RATIO = 4; // 400%
     uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
+    bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
+    uint256 public constant STAT_AVERAGING_FACTOR = 2048;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
-
-    bytes32 private constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
-    uint256 private constant STAT_AVERAGING_FACTOR = 2048;
-    uint64 private constant NANO_PER_SECOND = 1E9;
-    uint64 private constant UTILIZATION_FEE_RATIO = 500; // 5x
+    uint64 public constant NANO_PER_SECOND = 1E9;
+    uint64 public constant UTILIZATION_FEE_RATIO = 500; // 5x
 
     /**********************
      * State Variables    *
