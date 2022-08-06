@@ -34,6 +34,7 @@ struct PendingBlock {
     bytes32 contextHash;
     uint128 gasPriceAtProposal;
     uint128 gasLimit;
+    uint8 everProven;
 }
 
 struct Evidence {
@@ -99,6 +100,7 @@ contract TaikoL1 is EssentialContract {
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
+    uint64 public numUnprovenBlocks;
 
     uint256[46] private __gap;
 
@@ -181,19 +183,20 @@ contract TaikoL1 is EssentialContract {
         context.mixHash = bytes32(block.difficulty);
 
         uint128 gasPrice = IProtoBroker(resolve("proto_broker")).chargeProposer(
-                nextPendingId,
-                nextPendingId - lastFinalizedId - 1,
-                0, // TODO:
-                msg.sender,
-                context.gasLimit
-            );
+            nextPendingId,
+            nextPendingId - lastFinalizedId - 1,
+            numUnprovenBlocks,
+            msg.sender,
+            context.gasLimit
+        );
 
         _savePendingBlock(
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
                 gasPriceAtProposal: gasPrice,
-                gasLimit: context.gasLimit
+                gasLimit: context.gasLimit,
+                everProven: 1 // 0 and 1 means not proven ever
             })
         );
 
@@ -235,6 +238,8 @@ contract TaikoL1 is EssentialContract {
             proofVal,
             proofs[1]
         );
+
+        numUnprovenBlocks += 1;
 
         _proveBlock(
             MAX_PROOFS_PER_BLOCK,
@@ -300,7 +305,12 @@ contract TaikoL1 is EssentialContract {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
 
-        _proveBlock(1, context, SKIP_OVER_BLOCK_HASH, SKIP_OVER_BLOCK_HASH);
+        _proveBlock(
+            1, // no uncles
+            context,
+            SKIP_OVER_BLOCK_HASH,
+            SKIP_OVER_BLOCK_HASH
+        );
     }
 
     /**********************
@@ -391,6 +401,13 @@ contract TaikoL1 is EssentialContract {
         });
 
         fc.evidences.push(evidence);
+
+        PendingBlock storage blk = _getPendingBlock(context.id);
+        if (blk.everProven != 2) {
+            // special value 2 means this block is proven at least once.
+            blk.everProven = 2;
+            numUnprovenBlocks -= 1;
+        }
 
         emit BlockProven(context.id, parentHash, blockHash, evidence);
     }
