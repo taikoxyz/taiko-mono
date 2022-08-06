@@ -35,8 +35,8 @@ contract TaikoL2 is EssentialContract {
         bytes32 proofVal
     );
 
-    event EtherCredited(address receipient, uint256 amount);
-    event EtherReturned(address receipient, uint256 amount);
+    event EtherCredited(address recipient, uint256 amount);
+    event EtherReturned(address recipient, uint256 amount);
 
     /**********************
      * Modifiers          *
@@ -64,14 +64,14 @@ contract TaikoL2 is EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function creditEther(address receipient, uint256 amount)
+    function creditEther(address recipient, uint256 amount)
         external
         nonReentrant
         onlyFromNamed("eth_depositor")
     {
-        require(receipient != address(this), "L2:invalid address");
-        payable(receipient).transfer(amount);
-        emit EtherCredited(receipient, amount);
+        require(recipient != address(this), "L2:invalid address");
+        payable(recipient).transfer(amount);
+        emit EtherCredited(recipient, amount);
     }
 
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
