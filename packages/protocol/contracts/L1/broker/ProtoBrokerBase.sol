@@ -40,37 +40,32 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         virtual
         override
         onlyFromNamed("taiko_l1")
-        returns (uint128 gasPrice)
+        returns (uint128 askPrice)
     {
-        uint128 fee = estimateFee(gasLimit);
-        gasPrice = gasPriceNow;
-        require(charge(proposer, fee), "failed to charge");
-        emit FeeCharged(blockId, proposer, fee);
+        askPrice = getGasPrice();
+        uint128 gasFee = _calculateFee(askPrice, gasLimit);
 
-        postChargeProposer(
-            blockId,
-            numPendingBlocks,
-            numUnprovenBlocks,
-            proposer,
-            gasLimit
-        );
+        require(charge(proposer, gasFee), "failed to charge");
+        emit FeeCharged(blockId, proposer, gasFee);
+
+        postChargeProposer(numPendingBlocks, numUnprovenBlocks, gasLimit);
     }
 
     function payProver(
         uint256 blockId,
         uint256 uncleId,
         address prover,
-        uint128 gasPriceAtProposal,
+        uint128 askPrice,
         uint128 gasLimit,
         uint64 proposedAt,
         uint64 provenAt
     ) external virtual override onlyFromNamed("taiko_l1") {
-        uint128 actualGasPrice = calculateActualGasPrice(
-            gasPriceAtProposal,
+        uint128 bidPrice = calculateActualGasPrice(
+            askPrice,
             provenAt - proposedAt
         );
 
-        uint128 fee = actualGasPrice * (gasLimit + gasLimitBase());
+        uint128 fee = _calculateFee(bidPrice, gasLimit);
 
         for (uint256 i = 0; i < uncleId; i++) {
             fee /= 2;
@@ -89,34 +84,25 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         }
 
         emit FeePaid(blockId, prover, fee);
-        postPayProver(
-            blockId,
-            uncleId,
-            prover,
-            gasPriceAtProposal,
-            gasLimit,
-            proposedAt,
-            provenAt,
-            actualGasPrice
-        );
+        postPayProver(uncleId, askPrice, bidPrice, proposedAt, provenAt);
     }
 
-    function gasLimitBase() public view virtual override returns (uint128) {
-        return 1000000;
-    }
-
-    function currentGasPrice() public view virtual override returns (uint128) {
+    function getGasPrice() public view virtual override returns (uint128) {
         return gasPriceNow;
     }
 
-    function estimateFee(uint128 gasLimit)
+    function estimateGasFee(uint128 gasLimit)
         public
         view
         virtual
         override
         returns (uint128)
     {
-        return gasPriceNow * (gasLimit + gasLimitBase());
+        return _calculateFee(getGasPrice(), gasLimit);
+    }
+
+    function gasLimitBase() public pure virtual override returns (uint128) {
+        return 1000000;
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -132,29 +118,24 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     }
 
     function calculateActualGasPrice(
-        uint128 gasPriceAtProposal,
+        uint128 askPrice,
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
-        return gasPriceAtProposal;
+        return askPrice;
     }
 
     function postChargeProposer(
-        uint256, /*blockId*/
         uint64, /*numPendingBlocks*/
         uint64, /*numUnprovenBlocks*/
-        address, /*proposer*/
         uint128 /*gasLimit*/
     ) internal virtual {}
 
     function postPayProver(
-        uint256, /*blockId*/
         uint256, /*uncleId*/
-        address, /*prover*/
-        uint128, /*gasPriceAtProposal*/
-        uint128, /*gasLimit*/
+        uint128, /*askPrice*/
+        uint128, /*bidPrice*/
         uint64, /*proposedAt*/
-        uint64, /*provenAt*/
-        uint128 /*actualGasPrice*/
+        uint64 /*provenAt*/
     ) internal virtual {}
 
     function pay(
@@ -176,4 +157,12 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         returns (
             bool /*success*/
         );
+
+    function _calculateFee(uint128 gasPrice, uint128 gasLimit)
+        internal
+        pure
+        returns (uint128)
+    {
+        return gasPrice * (gasLimit + gasLimitBase());
+    }
 }

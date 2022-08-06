@@ -45,35 +45,34 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         );
     }
 
-    function calculateActualGasPrice(
-        uint128 gasPriceAtProposal,
-        uint64 provingDelay
-    ) internal virtual override returns (uint128) {
+    function calculateActualGasPrice(uint128 askPrice, uint64 provingDelay)
+        internal
+        virtual
+        override
+        returns (uint128)
+    {
         uint64 threshold = _avgProvingDelay * 2;
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 
-        uint128 gasPriceAtProposalAfterTax = (gasPriceAtProposal * 95) / 100;
+        uint128 askPriceAfterTax = (askPrice * 95) / 100;
 
         if (provingDelayNano < threshold) {
-            return gasPriceAtProposalAfterTax;
+            return askPriceAfterTax;
         }
 
-        uint256 fee = (uint256(gasPriceAtProposalAfterTax) *
+        uint256 fee = (uint256(askPriceAfterTax) *
             (provingDelayNano - threshold)) /
             _avgProvingDelay +
-            gasPriceAtProposalAfterTax;
+            askPriceAfterTax;
 
         return fee.toUint128();
     }
 
     function postChargeProposer(
-        uint256, /*blockId*/
         uint64, /* numPendingBlocks*/
         uint64 numUnprovenBlocks,
-        address, /*proposer*/
         uint128 /*gasLimit*/
     ) internal virtual override {
-        // Update stats first.
         _avgNumUnprovenBlocks = _calcAverage(
             _avgNumUnprovenBlocks,
             numUnprovenBlocks,
@@ -82,14 +81,11 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     }
 
     function postPayProver(
-        uint256, /*blockId*/
         uint256 uncleId,
-        address, /*prover*/
-        uint128, /*gasPriceAtProposal*/
-        uint128, /*gasLimit*/
+        uint128 askPrice,
+        uint128 bidPrice,
         uint64 proposedAt,
-        uint64 provenAt,
-        uint128 actualGasPrice
+        uint64 provenAt
     ) internal virtual override {
         if (uncleId != 0) return;
 
@@ -99,7 +95,10 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             512
         ).toUint64();
 
-        gasPriceNow = _calcAverage(gasPriceNow, actualGasPrice, 512).toUint128();
+        uint256 ratio = (bidPrice * 1000000) / askPrice;
+
+        // TODO: use 1559 to adjust gasPriceNow.
+        gasPriceNow = _calcAverage(gasPriceNow, bidPrice, 512).toUint128();
     }
 
     function _calcAverage(

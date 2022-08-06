@@ -16,13 +16,13 @@ interface IProtoBroker {
         uint64 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
-    ) external returns (uint128 gasPrice);
+    ) external returns (uint128 askPrice);
 
     function payProver(
         uint256 blockId,
         uint256 uncleId,
         address prover,
-        uint128 gasPriceAtProposal,
+        uint128 askPrice,
         uint128 gasLimit,
         uint64 proposedAt,
         uint64 provenAt
@@ -30,9 +30,9 @@ interface IProtoBroker {
 
     function gasLimitBase() external view returns (uint128);
 
-    function currentGasPrice() external view returns (uint128);
+    function getGasPrice() external view returns (uint128 askPrice);
 
     function feeToken() external view returns (address);
 
-    function estimateFee(uint128 gasLimit) external view returns (uint128);
+    function estimateGasFee(uint128 gasLimit) external view returns (uint128);
 }
