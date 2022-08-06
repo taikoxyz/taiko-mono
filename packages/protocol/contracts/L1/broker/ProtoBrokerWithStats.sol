@@ -56,6 +56,17 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
         avgFinalizationDelay = avgFinalizationDelay / NANO_PER_SECOND;
     }
 
+    function calculateActualFee(
+        uint256, /*blockId*/
+        uint256, /*uncleId*/
+        address, /*prover*/
+        uint128 gasPriceAtProposal,
+        uint128 gasLimit,
+        uint64 /*provingDelay*/
+    ) internal virtual override returns (uint128) {
+        // TODO:
+    }
+
     function postChargeProposer(
         uint256, /*blockId*/
         uint256 numPendingBlocks,

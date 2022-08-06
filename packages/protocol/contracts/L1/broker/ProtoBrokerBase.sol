@@ -129,13 +129,14 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function calculateActualFee(
         uint256, /*blockId*/
-        uint256, /*uncleId*/
+        uint256 uncleId,
         address, /*prover*/
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
-        return gasPriceAtProposal * (gasLimit + gasLimitBase());
+        uint128 prepaid = gasPriceAtProposal * (gasLimit + gasLimitBase());
+        return uncleId == 0 ? prepaid : 0;
     }
 
     function postChargeProposer(
