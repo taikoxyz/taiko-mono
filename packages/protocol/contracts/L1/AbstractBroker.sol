@@ -22,7 +22,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     uint256 public constant ETH_TRANSFER_GAS_LIMIT = 25000;
     uint256 unsettledProverFeeThreshold;
     uint256 unsettledProverFee;
-    uint256 currentGasPrice;
+    uint256 gasPriceNow;
 
     event FeeTransacted(
         uint256 indexed blockId,
@@ -34,23 +34,35 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint256 _currentGasPrice,
+        uint256 _gasPriceNow,
         uint256 _unsettledProverFeeThreshold
     ) internal initializer {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
-        currentGasPrice = _currentGasPrice;
+        gasPriceNow = _gasPriceNow;
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
+    }
+
+    function currentGasPrice() public view override returns (uint256) {
+        return gasPriceNow;
+    }
+
+    function estimateFee(uint256 gasLimit)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        return gasPriceNow * (gasLimit + BLOCK_GAS_LIMIT_EXTRA);
     }
 
     function chargeProposer(
         uint256 blockId,
         address proposer,
         uint256 gasLimit
-    ) external override onlyFromNamed("taiko") returns (uint128 fee) {
-        fee = (currentGasPrice * (gasLimit + BLOCK_GAS_LIMIT_EXTRA)).toUint128();
-        // ERC20Upgradeable.transferFrom(prover, address(this), fee);
-
+    ) external override onlyFromNamed("taiko") {
+        uint256 fee = estimateFee(gasLimit);
+        require(charge(proposer, fee), "failed to charge");
         emit FeeTransacted(blockId, proposer, fee, false);
     }
 
@@ -60,7 +72,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         uint256 gasPrice,
         uint256 gasLimit,
         uint256 provingDelay,
-        uint256 sequenceId
+        uint256 uncleId
     ) external override onlyFromNamed("taiko") {
         uint256 prepaid = gasPrice * (gasLimit + BLOCK_GAS_LIMIT_EXTRA);
         uint256 fee;
