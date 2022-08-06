@@ -8,14 +8,12 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
-import "../common/IMintableERC20.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
-import "../libs/LibMath.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
@@ -72,10 +70,8 @@ struct ForkChoice {
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
 contract TaikoL1 is EssentialContract {
-    using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
-    using LibMath for uint256;
     /**********************
      * Constants   *
      **********************/
