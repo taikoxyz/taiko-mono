@@ -100,13 +100,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         suggestedGasPrice = _suggestedGasPrice;
     }
 
-    function _getProposerGasPrice(
-        uint64 /*numUnprovenBlocks*/
-    ) public view virtual override returns (uint128) {
-        return suggestedGasPrice;
-    }
-
-    function _calculateActualProverFee(uint128 proposerFee, uint64 provingDelay)
+    function _getProverFee(uint128 proposerFee, uint64 provingDelay)
         internal
         virtual
         override
@@ -127,6 +121,13 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             gasFeeAfterTax;
 
         return fee.toUint128();
+    }
+
+    function _getProposerGasPrice(
+        uint64 /*numUnprovenBlocks*/
+    ) public view virtual override returns (uint128) {
+        //TODO: _avgNumUnprovenBlocks
+        return suggestedGasPrice;
     }
 
     function _calcAverage(

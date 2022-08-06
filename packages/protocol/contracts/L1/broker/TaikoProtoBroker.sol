@@ -37,7 +37,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return resolve("tai_token");
     }
 
-    function gasLimitBase() public pure override returns (uint128) {
+    function _gasLimitBase() internal pure override returns (uint128) {
         return 1000000;
     }
 
