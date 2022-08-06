@@ -14,41 +14,41 @@ import "./IBroker.sol";
 abstract contract AbstractBroker is IBroker, EssentialContract {
     uint256 public unsettledProverFeeThreshold;
     uint256 public unsettledProverFee;
-    uint256 internal gasPriceNow;
+    uint128 internal gasPriceNow;
 
     event FeeTransacted(
         uint256 indexed blockId,
         address indexed account,
-        uint256 amount,
+        uint128 amount,
         bool inbound
     );
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint256 _gasPriceNow,
+        uint128 _gasPriceNow,
         uint256 _unsettledProverFeeThreshold
-    ) internal initializer {
+    ) internal {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
         gasPriceNow = _gasPriceNow;
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
-    function gasLimitBase() public view virtual override returns (uint256) {
+    function gasLimitBase() public view virtual override returns (uint128) {
         return 1000000;
     }
 
-    function currentGasPrice() public view virtual override returns (uint256) {
+    function currentGasPrice() public view virtual override returns (uint128) {
         return gasPriceNow;
     }
 
-    function estimateFee(uint256 gasLimit)
+    function estimateFee(uint128 gasLimit)
         public
         view
         virtual
         override
-        returns (uint256)
+        returns (uint128)
     {
         return gasPriceNow * (gasLimit + gasLimitBase());
     }
@@ -56,9 +56,9 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     function chargeProposer(
         uint256 blockId,
         address proposer,
-        uint256 gasLimit
+        uint128 gasLimit
     ) external virtual override onlyFromNamed("taiko_l1") {
-        uint256 fee = estimateFee(gasLimit);
+        uint128 fee = estimateFee(gasLimit);
         require(charge(proposer, fee), "failed to charge");
         emit FeeTransacted(blockId, proposer, fee, false);
     }
@@ -66,13 +66,13 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     function payProver(
         uint256 blockId,
         address prover,
-        uint256 gasPrice,
-        uint256 gasLimit,
-        uint256 provingDelay,
+        uint128 gasPrice,
+        uint128 gasLimit,
+        uint64 provingDelay,
         uint256 uncleId
     ) external virtual override onlyFromNamed("taiko_l1") {
-        uint256 prepaid = gasPrice * (gasLimit + gasLimitBase());
-        uint256 fee;
+        uint128 prepaid = gasPrice * (gasLimit + gasLimitBase());
+        uint128 fee;
 
         if (fee > 0) {
             if (!pay(prover, fee)) {

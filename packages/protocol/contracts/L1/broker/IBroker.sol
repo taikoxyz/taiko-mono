@@ -10,26 +10,26 @@ pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
 interface IBroker {
-    function gasLimitBase() external view returns (uint256);
+    function gasLimitBase() external view returns (uint128);
 
-    function currentGasPrice() external view returns (uint256);
+    function currentGasPrice() external view returns (uint128);
 
     function feeToken() external view returns (address);
 
-    function estimateFee(uint256 gasLimit) external view returns (uint256);
+    function estimateFee(uint128 gasLimit) external view returns (uint128);
 
     function chargeProposer(
         uint256 blockId,
         address proposer,
-        uint256 gasLimit
+        uint128 gasLimit
     ) external;
 
     function payProver(
         uint256 blockId,
         address prover,
-        uint256 gasPrice,
-        uint256 gasLimit,
-        uint256 provingDelay,
+        uint128 gasPrice,
+        uint128 gasLimit,
+        uint64 provingDelay,
         uint256 uncleId
     ) external;
 }

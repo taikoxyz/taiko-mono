@@ -12,6 +12,25 @@ import "../../common/IMintableERC20.sol";
 import "./AbstractBroker.sol";
 
 contract TaiBroker is AbstractBroker {
+    /// @dev Initializer to be called after being deployed behind a proxy.
+    function init(
+        address _addressManager,
+        uint128 _gasPriceNow,
+        uint256 _unsettledProverFeeThreshold,
+        uint256 _amountMintToDAO,
+        uint256 _amountMintToTeam
+    ) external initializer {
+        AbstractBroker._init(
+            _addressManager,
+            _gasPriceNow,
+            _unsettledProverFeeThreshold
+        );
+
+        IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
+        taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
+        taiToken.mint(resolve("team_vault"), _amountMintToTeam);
+    }
+
     function feeToken() public view override returns (address) {
         return resolve("tai_token");
     }

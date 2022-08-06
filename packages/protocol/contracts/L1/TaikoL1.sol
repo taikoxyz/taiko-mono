@@ -123,12 +123,6 @@ contract TaikoL1 is EssentialContract {
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
-    uint256 public unsettledProverFee;
-
-    // The following two variables are automiatically adjusted based on
-    // the latest finalized blocks.
-    uint128 public gasPrice; // TODO: auto-adjustable
-
     uint256[43] private __gap;
 
     /**********************
@@ -164,27 +158,17 @@ contract TaikoL1 is EssentialContract {
      * External Functions *
      **********************/
 
-    function init(
-        address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint128 _gasPrice,
-        uint256 _amountMintToDAO,
-        uint256 _amountMintToTeam
-    ) external initializer {
+    function init(address _addressManager, bytes32 _genesisBlockHash)
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
-
-        gasPrice = _gasPrice;
 
         finalizedBlocks[0] = _genesisBlockHash;
         nextPendingId = 1;
-
         genesisHeight = uint64(block.number);
 
         emit BlockFinalized(0, 0, _genesisBlockHash);
-
-        IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
-        taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
-        taiToken.mint(resolve("team_vault"), _amountMintToTeam);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -219,21 +203,18 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
+        IBroker broker = IBroker(resolve("broker"));
         _savePendingBlock(
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
-                gasPrice: gasPrice,
+                gasPrice: broker.currentGasPrice(),
                 gasLimit: context.gasLimit
             })
         );
 
         // Check fees
-        IBroker(resolve("broker")).chargeProposer(
-            nextPendingId,
-            msg.sender,
-            context.gasLimit
-        );
+        broker.chargeProposer(nextPendingId, msg.sender, context.gasLimit);
 
         emit BlockProposed(nextPendingId++, context);
 
@@ -411,27 +392,6 @@ contract TaikoL1 is EssentialContract {
         stats.avgProvingDelay /= NANO_PER_SECOND;
         stats.avgProvingDelayWithUncles /= NANO_PER_SECOND;
         stats.avgFinalizationDelay /= NANO_PER_SECOND;
-    }
-
-    function getUtilizationFeeBips()
-        public
-        view
-        returns (
-            uint256 /*basisPoints*/
-        )
-    {
-        // TODO(daniel): optimize the math. Maybe also include `gasPrice` in the
-        // calculation.
-        uint256 numPendingBlocks = nextPendingId - lastFinalizedId;
-
-        // threshold is the middle point of MAX_PENDING_BLOCKS/2 and
-        // _stats.avgPendingSize
-        uint256 threshold = MAX_PENDING_BLOCKS / 4 + _stats.avgPendingSize / 2;
-        if (numPendingBlocks <= threshold) return 0;
-
-        return
-            (MAX_UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
-            (MAX_PENDING_BLOCKS - threshold);
     }
 
     /**********************
