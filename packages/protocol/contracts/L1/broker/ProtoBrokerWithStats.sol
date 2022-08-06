@@ -56,35 +56,26 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
         );
     }
 
-    function calculateActualFee(
+    function calculateActualGasPrice(
         uint256, /*blockId*/
-        uint256 uncleId,
+        uint256, /*uncleId*/
         uint128 gasPriceAtProposal,
-        uint128 gasLimit,
+        uint128, /*gasLimit*/
         uint64 provingDelay
     ) internal virtual override returns (uint128) {
-        //      uint64 internal _avgPendingSize;
-        // uint64 internal _avgProvingDelay;
-        // uint64 internal _avgProvingDelayWithUncles;
-        // uint64 internal _avgFinalizationDelay;
-
-        uint128 prepaid = gasPriceAtProposal * (gasLimit + gasLimitBase());
-        for (uint256 i = 0; i < uncleId; i++) {
-            prepaid = prepaid >> 1;
-        }
-
         uint64 threshold = _avgProvingDelay * 2;
-
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 
         if (provingDelayNano < threshold) {
-            return prepaid;
+            return gasPriceAtProposal;
         }
 
-        return
-            prepaid +
-            ((provingDelayNano - threshold) * prepaid) /
-            _avgProvingDelay;
+        uint256 fee = (uint256(gasPriceAtProposal) *
+            (provingDelayNano - threshold)) /
+            _avgProvingDelay +
+            gasPriceAtProposal;
+
+        return fee.toUint128();
     }
 
     function postChargeProposer(
@@ -108,7 +99,8 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
         uint128, /*gasPriceAtProposal*/
         uint128, /*gasLimit*/
         uint64 proposedAt,
-        uint64 provenAt
+        uint64 provenAt,
+        uint128 /*actualGasPrice*/
     ) internal virtual override {
         // Update stats
         if (uncleId == 0) {

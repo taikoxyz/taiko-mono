@@ -65,13 +65,20 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint64 proposedAt,
         uint64 provenAt
     ) external virtual override onlyFromNamed("taiko_l1") {
-        uint128 fee = calculateActualFee(
+        uint128 actualGasPrice = calculateActualGasPrice(
             blockId,
             uncleId,
             gasPriceAtProposal,
             gasLimit,
             provenAt - proposedAt
         );
+
+        uint128 fee = actualGasPrice * (gasLimit + gasLimitBase());
+
+        for (uint256 i = 0; i < uncleId; i++) {
+            fee /= 2;
+        }
+
         if (fee > 0) {
             if (!pay(prover, fee)) {
                 unsettledProverFee += fee;
@@ -92,7 +99,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             gasPriceAtProposal,
             gasLimit,
             proposedAt,
-            provenAt
+            provenAt,
+            actualGasPrice
         );
     }
 
@@ -126,15 +134,14 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
-    function calculateActualFee(
+    function calculateActualGasPrice(
         uint256, /*blockId*/
-        uint256 uncleId,
+        uint256, /*uncleId*/
         uint128 gasPriceAtProposal,
-        uint128 gasLimit,
+        uint128, /*gasLimit*/
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
-        uint128 prepaid = gasPriceAtProposal * (gasLimit + gasLimitBase());
-        return uncleId == 0 ? prepaid : 0;
+        return gasPriceAtProposal;
     }
 
     function postChargeProposer(
@@ -152,7 +159,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128, /*gasPriceAtProposal*/
         uint128, /*gasLimit*/
         uint64, /*proposedAt*/
-        uint64 /*provenAt*/
+        uint64, /*provenAt*/
+        uint128 /*actualGasPrice*/
     ) internal virtual {}
 
     function pay(
