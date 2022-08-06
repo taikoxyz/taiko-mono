@@ -10,20 +10,18 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-// import "../../libs/LibMath.sol";
 import "./AbstractProtoBroker.sol";
 
 abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
     using SafeCastUpgradeable for uint256;
-    // using LibMath for uint256;
 
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
     uint64 public constant NANO_PER_SECOND = 1E9;
 
-    uint64 public avgPendingSize;
-    uint64 public avgProvingDelay;
-    uint64 public avgProvingDelayWithUncles;
-    uint64 public avgFinalizationDelay;
+    uint64 internal _avgPendingSize;
+    uint64 internal _avgProvingDelay;
+    uint64 internal _avgProvingDelayWithUncles;
+    uint64 internal _avgFinalizationDelay;
 
     uint256[49] private __gap;
 
@@ -40,6 +38,24 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
         );
     }
 
+    function getStats()
+        public
+        view
+        returns (
+            uint64 avgPendingSize,
+            uint64 avgProvingDelay,
+            uint64 avgProvingDelayWithUncles,
+            uint64 avgFinalizationDelay
+        )
+    {
+        avgPendingSize = _avgPendingSize / NANO_PER_SECOND;
+        avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
+        avgProvingDelayWithUncles =
+            _avgProvingDelayWithUncles /
+            NANO_PER_SECOND;
+        avgFinalizationDelay = avgFinalizationDelay / NANO_PER_SECOND;
+    }
+
     function postChargeProposer(
         uint256, /*blockId*/
         uint256 numPendingBlocks,
@@ -48,7 +64,10 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
         uint128 /*gasLimit*/
     ) internal virtual override {
         // Update stats first.
-        avgPendingSize = _calcAverage(avgPendingSize, uint64(numPendingBlocks));
+        _avgPendingSize = _calcAverage(
+            _avgPendingSize,
+            uint64(numPendingBlocks)
+        );
     }
 
     function postPayProver(
@@ -62,19 +81,19 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
     ) internal virtual override {
         // Update stats
         if (uncleId == 0) {
-            avgFinalizationDelay = _calcAverage(
-                avgFinalizationDelay,
+            _avgFinalizationDelay = _calcAverage(
+                _avgFinalizationDelay,
                 uint64(block.timestamp - proposedAt)
             );
 
-            avgProvingDelay = _calcAverage(
-                avgProvingDelay,
+            _avgProvingDelay = _calcAverage(
+                _avgProvingDelay,
                 provenAt - proposedAt
             );
         }
 
-        avgProvingDelayWithUncles = _calcAverage(
-            avgProvingDelayWithUncles,
+        _avgProvingDelayWithUncles = _calcAverage(
+            _avgProvingDelayWithUncles,
             provenAt - proposedAt
         );
     }
