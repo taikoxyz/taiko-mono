@@ -16,11 +16,15 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     uint256 public unsettledProverFee;
     uint128 internal gasPriceNow;
 
-    event FeeTransacted(
+    event FeeCharged(
         uint256 indexed blockId,
         address indexed account,
-        uint128 amount,
-        bool inbound
+        uint128 amount
+    );
+    event FeePaid(
+        uint256 indexed blockId,
+        address indexed account,
+        uint128 amount
     );
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -69,7 +73,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         uint128 fee = estimateFee(gasLimit);
         gasPrice = gasPriceNow;
         require(charge(proposer, fee), "failed to charge");
-        emit FeeTransacted(blockId, proposer, fee, false);
+        emit FeeCharged(blockId, proposer, fee);
 
         postChargeProposer(
             blockId,
@@ -109,7 +113,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
             }
         }
 
-        emit FeeTransacted(blockId, prover, fee, false);
+        emit FeePaid(blockId, prover, fee);
         postPayProver(
             blockId,
             uncleId,
