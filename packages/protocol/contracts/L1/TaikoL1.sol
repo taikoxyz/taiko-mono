@@ -34,7 +34,7 @@ struct BlockContext {
 
 struct PendingBlock {
     bytes32 contextHash;
-    uint128 gasPrice;
+    uint128 gasPriceAtProposal;
     uint128 gasLimit;
 }
 
@@ -194,7 +194,7 @@ contract TaikoL1 is EssentialContract {
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
-                gasPrice: gasPrice,
+                gasPriceAtProposal: gasPrice,
                 gasLimit: context.gasLimit
             })
         );
@@ -407,7 +407,7 @@ contract TaikoL1 is EssentialContract {
                 id,
                 fc.evidences.length,
                 evidence.prover,
-                blk.gasPrice,
+                blk.gasPriceAtProposal,
                 blk.gasLimit,
                 evidence.provenAt,
                 evidence.proposedAt

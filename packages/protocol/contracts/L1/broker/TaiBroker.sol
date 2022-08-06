@@ -9,9 +9,9 @@
 pragma solidity ^0.8.9;
 
 import "../../common/IMintableERC20.sol";
-import "./AbstractBroker.sol";
+import "./StatsBasedBroker.sol";
 
-contract TaiBroker is AbstractBroker {
+contract TaiBroker is StatsBasedBroker {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(
         address _addressManager,
