@@ -56,15 +56,4 @@ contract TaiBroker is AbstractBroker {
         }
         return true;
     }
-
-    function calculateActualFee(
-        uint256 blockId,
-        uint256 uncleId,
-        address prover,
-        uint128 gasPriceAtProposal,
-        uint128 gasLimit,
-        uint64 provingDelay
-    ) internal virtual override returns (uint128) {
-        return gasPriceAtProposal * (gasLimit + gasLimitBase());
-    }
 }

@@ -101,6 +101,17 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         emit FeeTransacted(blockId, prover, fee, false);
     }
 
+    function calculateActualFee(
+        uint256 blockId,
+        uint256 uncleId,
+        address prover,
+        uint128 gasPriceAtProposal,
+        uint128 gasLimit,
+        uint64 provingDelay
+    ) internal virtual returns (uint128) {
+        return gasPriceAtProposal * (gasLimit + gasLimitBase());
+    }
+
     function pay(address recipient, uint256 amount)
         internal
         virtual
@@ -110,13 +121,4 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         internal
         virtual
         returns (bool success);
-
-    function calculateActualFee(
-        uint256 blockId,
-        uint256 uncleId,
-        address prover,
-        uint128 gasPriceAtProposal,
-        uint128 gasLimit,
-        uint64 provingDelay
-    ) internal virtual returns (uint128);
 }
