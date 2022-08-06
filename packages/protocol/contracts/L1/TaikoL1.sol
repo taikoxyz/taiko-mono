@@ -84,15 +84,8 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
-    uint256 public constant DAO_REWARD_RATIO = 100; // 100%
-    uint256 public constant MIN_BLOCK_REWARD_BASE = 2E18; // 2 TAI
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
-    uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 64; // 64X
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
-    uint256 public constant STAT_AVERAGING_FACTOR = 2048;
-
-    uint64 public constant MAX_UTILIZATION_FEE_RATIO = 500; // 500%
-    uint64 public constant NANO_PER_SECOND = 1E9;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     /**********************
@@ -487,21 +480,6 @@ contract TaikoL1 is EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
-    }
-
-    function _calcAverage(
-        uint256 avg,
-        uint256 current,
-        uint256 max
-    ) private pure returns (uint256) {
-        if (current == 0) return avg;
-        if (avg == 0) return current;
-
-        uint256 _avg = ((STAT_AVERAGING_FACTOR - 1) *
-            avg +
-            current *
-            NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return _avg.min(max);
     }
 
     // We currently assume the public input has at least
