@@ -18,7 +18,7 @@ import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
 import "../libs/LibZKP.sol";
-import "./broker/IBroker.sol";
+import "./broker/IProtoBroker.sol";
 
 struct BlockContext {
     uint256 id;
@@ -182,13 +182,13 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        uint128 gasPrice = IBroker(resolve("broker")).chargeProposer(
-            nextPendingId,
-            nextPendingId - lastFinalizedId - 1,
-            0, // TODO:
-            msg.sender,
-            context.gasLimit
-        );
+        uint128 gasPrice = IProtoBroker(resolve("proto_broker")).chargeProposer(
+                nextPendingId,
+                nextPendingId - lastFinalizedId - 1,
+                0, // TODO:
+                msg.sender,
+                context.gasLimit
+            );
 
         _savePendingBlock(
             nextPendingId,
@@ -403,7 +403,7 @@ contract TaikoL1 is EssentialContract {
         for (uint256 i = 0; i < fc.evidences.length; i++) {
             Evidence memory evidence = fc.evidences[i];
 
-            IBroker(resolve("broker")).payProver(
+            IProtoBroker(resolve("proto_broker")).payProver(
                 id,
                 fc.evidences.length,
                 evidence.prover,

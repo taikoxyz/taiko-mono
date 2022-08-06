@@ -75,7 +75,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function mint(address account, uint256 amount)
         public
-        onlyFromNamed("broker")
+        onlyFromNamed("proto_broker")
     {
         require(account != address(0), "TAI: invalid address");
         _mint(account, amount);
@@ -90,7 +90,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function burn(address account, uint256 amount)
         public
-        onlyFromNamed("broker")
+        onlyFromNamed("proto_broker")
     {
         require(account != address(0), "TAI: invalid address");
         _burn(account, amount);

@@ -9,9 +9,9 @@
 pragma solidity ^0.8.9;
 
 import "../../common/IMintableERC20.sol";
-import "./StatsBasedBroker.sol";
+import "./StatsBasedProtoBroker.sol";
 
-contract TaiBroker is StatsBasedBroker {
+contract TaiProtoBroker is StatsBasedProtoBroker {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(
         address _addressManager,
@@ -20,7 +20,7 @@ contract TaiBroker is StatsBasedBroker {
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
-        StatsBasedBroker._init(
+        StatsBasedProtoBroker._init(
             _addressManager,
             _gasPriceNow,
             _unsettledProverFeeThreshold

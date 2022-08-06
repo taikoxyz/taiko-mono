@@ -9,9 +9,9 @@
 pragma solidity ^0.8.9;
 
 import "../../libs/LibMath.sol";
-import "./AbstractBroker.sol";
+import "./AbstractProtoBroker.sol";
 
-abstract contract StatsBasedBroker is AbstractBroker {
+abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
     using LibMath for uint256;
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
     uint64 public constant NANO_PER_SECOND = 1E9;
@@ -27,7 +27,7 @@ abstract contract StatsBasedBroker is AbstractBroker {
         uint128 _gasPriceNow,
         uint256 _unsettledProverFeeThreshold
     ) internal virtual override {
-        AbstractBroker._init(
+        AbstractProtoBroker._init(
             _addressManager,
             _gasPriceNow,
             _unsettledProverFeeThreshold

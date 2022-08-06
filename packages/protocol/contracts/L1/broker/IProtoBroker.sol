@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
-interface IBroker {
+interface IProtoBroker {
     function gasLimitBase() external view returns (uint128);
 
     function currentGasPrice() external view returns (uint128);
