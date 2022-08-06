@@ -47,7 +47,7 @@ describe("LibTxList", function () {
             ).to.be.revertedWith("Invalid RLP")
         })
 
-        it("should be able to decode txList with legacy transaction", async function () {
+        it("can decode txList with legacy transaction", async function () {
             const txLegacy: UnsignedTransaction = {
                 nonce: 1,
                 gasPrice: 11e9,
@@ -77,7 +77,7 @@ describe("LibTxList", function () {
             expect(decodedTx1.gasLimit.toNumber()).to.equal(txLegacy.gasLimit)
         })
 
-        it("should be able to decode txList with 2930 transaction", async function () {
+        it("can decode txList with 2930 transaction", async function () {
             const tx2930: UnsignedTransaction = {
                 type: 1,
                 chainId: 12345,
@@ -106,7 +106,7 @@ describe("LibTxList", function () {
             expect(decodedTx1.gasLimit.toNumber()).to.equal(tx2930.gasLimit)
         })
 
-        it("should be able to decode txList with 1559 transaction", async function () {
+        it("can decode txList with 1559 transaction", async function () {
             const tx1559: UnsignedTransaction = {
                 type: 2,
                 chainId: 12345,
@@ -137,7 +137,7 @@ describe("LibTxList", function () {
         })
     })
 
-    it("should be able to decode txList with multiple types", async function () {
+    it("can decode txList with multiple types", async function () {
         const signature = await signer0.signMessage("123456abcdef")
         const txLegacy: UnsignedTransaction = {
             nonce: 1,
