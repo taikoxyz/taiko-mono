@@ -10,6 +10,7 @@ pragma solidity ^0.8.9;
 
 import "./LibConstants.sol";
 import "../thirdparty/Lib_RLPReader.sol";
+import "../thirdparty/Lib_BytesUtils.sol";
 
 struct TransactionLegacy {
     uint256 nonce;
@@ -32,7 +33,7 @@ struct Transaction2930 {
     uint256 amount;
     bytes data;
     AccessItem[] accessList;
-    bool signatureYParity;
+    uint8 signatureYParity;
     uint256 signatureR;
     uint256 signatureS;
 }
@@ -47,7 +48,7 @@ struct Transaction1559 {
     uint256 amount;
     bytes data;
     AccessItem[] accessList;
-    bool signatureYParity;
+    uint8 signatureYParity;
     uint256 signatureR;
     uint256 signatureS;
 }
@@ -82,49 +83,42 @@ library LibTxList {
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
-            (uint8 txType, uint256 gasLimit, bytes memory txData) = decodeTx(
-                txs[i]
-            );
-            _txList[i] = Tx(txType, gasLimit, txData);
+            bytes memory txBytes = Lib_RLPReader.readBytes(txs[i]);
+            (uint8 txType, uint256 gasLimit) = decodeTx(txBytes);
+            _txList[i] = Tx(txType, gasLimit, txBytes);
         }
 
         txList = TxList(_txList);
     }
 
-    function decodeTx(Lib_RLPReader.RLPItem memory txItem)
+    function decodeTx(bytes memory txBytes)
         public
         pure
-        returns (
-            uint8 txType,
-            uint256 gasLimit,
-            bytes memory txData
-        )
+        returns (uint8 txType, uint256 gasLimit)
     {
-        txData = Lib_RLPReader.readRawBytes(txItem);
-
-        uint8 prefix;
         assembly {
-            prefix := byte(0, mload(add(txData, 32)))
+            txType := byte(0, mload(add(txBytes, 32)))
         }
 
         // @see https://eips.ethereum.org/EIPS/eip-2718#backwards-compatibility
-        if (prefix >= 0xc0 && prefix <= 0xfe) {
+        if (txType >= 0xc0 && txType <= 0xfe) {
             // Legacy tx:
             txType = 0;
-            TransactionLegacy memory txLegacy = decodeLegacyTx(txItem);
-            gasLimit = txLegacy.gasLimit;
-        } else if (prefix <= 0x7f) {
-            Lib_RLPReader.RLPItem[] memory typeAndTx = Lib_RLPReader.readList(
-                txItem
+            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
+                txBytes
             );
-            require(typeAndTx.length == 2, "invalid newtype tx");
-            txType = uint8(Lib_RLPReader.readUint256(typeAndTx[0]));
+            TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
+            gasLimit = txLegacy.gasLimit;
+        } else if (txType <= 0x7f) {
+            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
+                Lib_BytesUtils.slice(txBytes, 1)
+            );
 
             if (txType == 1) {
-                Transaction2930 memory tx2930 = decodeTx2930(typeAndTx[1]);
+                Transaction2930 memory tx2930 = decodeTx2930(txBody);
                 gasLimit = tx2930.gasLimit;
             } else if (txType == 2) {
-                Transaction1559 memory tx1559 = decodeTx1559(typeAndTx[1]);
+                Transaction1559 memory tx1559 = decodeTx1559(txBody);
                 gasLimit = tx1559.gasLimit;
             } else {
                 revert("invalid txType");
@@ -134,12 +128,11 @@ library LibTxList {
         }
     }
 
-    function decodeLegacyTx(Lib_RLPReader.RLPItem memory txBody)
+    function decodeLegacyTx(Lib_RLPReader.RLPItem[] memory body)
         public
         pure
         returns (TransactionLegacy memory txLegacy)
     {
-        Lib_RLPReader.RLPItem[] memory body = Lib_RLPReader.readList(txBody);
         require(body.length == 9, "invalid items length");
 
         txLegacy.nonce = Lib_RLPReader.readUint256(body[0]);
@@ -153,12 +146,11 @@ library LibTxList {
         txLegacy.s = Lib_RLPReader.readUint256(body[8]);
     }
 
-    function decodeTx2930(Lib_RLPReader.RLPItem memory txBody)
+    function decodeTx2930(Lib_RLPReader.RLPItem[] memory body)
         public
         pure
         returns (Transaction2930 memory tx2930)
     {
-        Lib_RLPReader.RLPItem[] memory body = Lib_RLPReader.readList(txBody);
         require(body.length == 11, "invalid items length");
 
         tx2930.chainId = Lib_RLPReader.readUint256(body[0]);
@@ -169,17 +161,16 @@ library LibTxList {
         tx2930.amount = Lib_RLPReader.readUint256(body[5]);
         tx2930.data = Lib_RLPReader.readBytes(body[6]);
         tx2930.accessList = decodeAccessList(Lib_RLPReader.readList(body[7]));
-        tx2930.signatureYParity = Lib_RLPReader.readBool(body[8]);
+        tx2930.signatureYParity = uint8(Lib_RLPReader.readUint256(body[8]));
         tx2930.signatureR = Lib_RLPReader.readUint256(body[9]);
         tx2930.signatureS = Lib_RLPReader.readUint256(body[10]);
     }
 
-    function decodeTx1559(Lib_RLPReader.RLPItem memory txBody)
+    function decodeTx1559(Lib_RLPReader.RLPItem[] memory body)
         public
         pure
         returns (Transaction1559 memory tx1559)
     {
-        Lib_RLPReader.RLPItem[] memory body = Lib_RLPReader.readList(txBody);
         require(body.length == 12, "invalid items length");
 
         tx1559.chainId = Lib_RLPReader.readUint256(body[0]);
@@ -191,7 +182,7 @@ library LibTxList {
         tx1559.amount = Lib_RLPReader.readUint256(body[6]);
         tx1559.data = Lib_RLPReader.readBytes(body[7]);
         tx1559.accessList = decodeAccessList(Lib_RLPReader.readList(body[8]));
-        tx1559.signatureYParity = Lib_RLPReader.readBool(body[9]);
+        tx1559.signatureYParity = uint8(Lib_RLPReader.readUint256(body[9]));
         tx1559.signatureR = Lib_RLPReader.readUint256(body[10]);
         tx1559.signatureS = Lib_RLPReader.readUint256(body[11]);
     }

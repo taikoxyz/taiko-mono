@@ -1,61 +1,11 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { BigNumber as EBN } from "ethers"
-
-interface TxLegacy {
-    txType: 0
-    nonce: number
-    gasPrice: number
-    gasLimit: number
-    destination: string
-    amount: EBN
-    data: Uint8Array
-    v: number
-    r: string
-    s: string
-}
-
-interface AccessItem {
-    addr: string
-    slots: string[]
-}
-
-interface Tx2930 {
-    txType: 1
-    chainId: string
-    nonce: number
-    gasPrice: number
-    gasLimit: number
-    destination: string
-    amount: EBN
-    data: Uint8Array
-    accessList: AccessItem[]
-    signatureYParity: boolean
-    signatureR: string
-    signatureS: string
-}
-
-interface Tx1559 {
-    txType: 2
-    chainId: string
-    nonce: number
-    maxPriorityFeePerGas: number
-    maxFeePerGas: number
-    gasLimit: number
-    destination: string
-    amount: EBN
-    data: Uint8Array
-    accessList: AccessItem[]
-    signatureYParity: boolean
-    signatureR: string
-    signatureS: string
-}
-
-type TxObj = TxLegacy | Tx2930 | Tx1559
+import { UnsignedTransaction } from "ethers"
 
 describe("LibTxList", function () {
     let rlpWriter: any
     let libTxList: any
+    let signer0: any
 
     before(async function () {
         rlpWriter = await (
@@ -64,122 +14,23 @@ describe("LibTxList", function () {
         libTxList = await (
             await ethers.getContractFactory("LibTxList")
         ).deploy()
+
+        signer0 = (await ethers.getSigners())[0]
     })
 
-    function randomBytes32() {
-        return ethers.utils.hexlify(ethers.utils.randomBytes(32))
-    }
-
-    async function rlpEncodeTxLegacy(txLegacy: TxLegacy) {
-        const txLegacyEncoded = []
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.nonce))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.gasPrice))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.gasLimit))
-        txLegacyEncoded.push(await rlpWriter.writeAddress(txLegacy.destination))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.amount))
-        txLegacyEncoded.push(await rlpWriter.writeBytes(txLegacy.data))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.v))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.r))
-        txLegacyEncoded.push(await rlpWriter.writeUint(txLegacy.s))
-
-        // console.log('txLegacyEncoded: ', txLegacyEncoded);
-        const txLegacyBytes = await rlpWriter.writeList(txLegacyEncoded)
-        return txLegacyBytes
-    }
-
-    async function rlpEncodeAccessList(accessList: AccessItem[]) {
-        const bytesArr = []
-        for (const item of accessList) {
-            const itemEncoded = []
-            const slotsEncoded = []
-            itemEncoded.push(await rlpWriter.writeAddress(item.addr))
-
-            for (const slot of item.slots) {
-                slotsEncoded.push(await rlpWriter.writeUint(slot))
-            }
-            itemEncoded.push(await rlpWriter.writeList(slotsEncoded))
-            bytesArr.push(await rlpWriter.writeList(itemEncoded))
-        }
-
-        const accessListBytes = await rlpWriter.writeList(bytesArr)
-        return accessListBytes
-    }
-
-    async function rlpEncodeTx2930(tx2930: Tx2930) {
-        const tx2930Encoded = []
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.chainId))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.nonce))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.gasPrice))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.gasLimit))
-        tx2930Encoded.push(await rlpWriter.writeAddress(tx2930.destination))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.amount))
-        tx2930Encoded.push(await rlpWriter.writeBytes(tx2930.data))
-        const accessListBytes = await rlpEncodeAccessList(tx2930.accessList)
-        tx2930Encoded.push(await rlpWriter.writeBytes(accessListBytes))
-        tx2930Encoded.push(await rlpWriter.writeBool(tx2930.signatureYParity))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.signatureR))
-        tx2930Encoded.push(await rlpWriter.writeUint(tx2930.signatureS))
-
-        const tx2930Bytes = await rlpWriter.writeList(tx2930Encoded)
-
-        const wrappedBytes = await rlpWriter.writeList([
-            await rlpWriter.writeUint(tx2930.txType),
-            tx2930Bytes,
-        ])
-        return wrappedBytes
-    }
-
-    async function rlpEncodeTx1559(tx1559: Tx1559) {
-        const tx1559Encoded = []
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.chainId))
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.nonce))
-        tx1559Encoded.push(
-            await rlpWriter.writeUint(tx1559.maxPriorityFeePerGas)
-        )
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.maxFeePerGas))
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.gasLimit))
-        tx1559Encoded.push(await rlpWriter.writeAddress(tx1559.destination))
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.amount))
-        tx1559Encoded.push(await rlpWriter.writeBytes(tx1559.data))
-        const accessListBytes = await rlpEncodeAccessList(tx1559.accessList)
-        tx1559Encoded.push(await rlpWriter.writeBytes(accessListBytes))
-        tx1559Encoded.push(await rlpWriter.writeBool(tx1559.signatureYParity))
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.signatureR))
-        tx1559Encoded.push(await rlpWriter.writeUint(tx1559.signatureS))
-
-        const tx1559Bytes = await rlpWriter.writeList(tx1559Encoded)
-
-        const wrappedBytes = await rlpWriter.writeList([
-            await rlpWriter.writeUint(tx1559.txType),
-            tx1559Bytes,
-        ])
-        return wrappedBytes
-    }
-
-    async function rlpEncodeTxList(txList: TxObj[]) {
-        const bytesArr = []
-
+    async function rlpEncodeTxList(txList: string[]) {
+        const rlpEncodedBytes = []
         for (const tx of txList) {
-            let bs: string = ""
-            if (tx.txType === 0) {
-                bs = await rlpEncodeTxLegacy(tx)
-            } else if (tx.txType === 1) {
-                bs = await rlpEncodeTx2930(tx)
-            } else if (tx.txType === 2) {
-                bs = await rlpEncodeTx1559(tx)
-            } else {
-                throw new Error("unsupported tx type:" + typeof tx)
-            }
-
-            bytesArr.push(bs)
+            const txRlp = await rlpWriter.writeBytes(tx)
+            rlpEncodedBytes.push(txRlp)
         }
-        const txListBytes = await rlpWriter.writeList(bytesArr)
+        const txListBytes = await rlpWriter.writeList(rlpEncodedBytes)
         return txListBytes
     }
 
     describe("decodeTxList", function () {
         it("should revert if tx list is empty", async function () {
-            const txList: TxObj[] = []
+            const txList: string[] = []
             const txListBytes = await rlpEncodeTxList(txList)
             await expect(
                 libTxList.callStatic.decodeTxList(txListBytes)
@@ -195,20 +46,26 @@ describe("LibTxList", function () {
             ).to.be.revertedWith("Invalid RLP")
         })
 
-        it("should be able to decode txList with single legacy transaction", async function () {
-            const txLegacy: TxLegacy = {
-                txType: 0,
+        it("should be able to decode txList with legacy transaction", async function () {
+            const txLegacy: UnsignedTransaction = {
                 nonce: 1,
                 gasPrice: 11e9,
                 gasLimit: 123456,
-                destination: ethers.Wallet.createRandom().address,
-                amount: ethers.utils.parseEther("1.23"),
+                to: ethers.Wallet.createRandom().address,
+                value: ethers.utils.parseEther("1.23"),
                 data: ethers.utils.randomBytes(10),
-                v: 1,
-                r: randomBytes32(),
-                s: randomBytes32(),
             }
-            const txListBytes = await rlpEncodeTxList([txLegacy])
+
+            const signature = await signer0.signMessage("abc123")
+            // console.log('signature: ', signature)
+
+            const txLegacyBytes = ethers.utils.serializeTransaction(
+                txLegacy,
+                signature
+            )
+            console.log("txLegacyBytes: ", txLegacyBytes)
+            const txListBytes = await rlpEncodeTxList([txLegacyBytes])
+            console.log("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxList.callStatic.decodeTxList(
                 txListBytes
@@ -219,44 +76,119 @@ describe("LibTxList", function () {
             expect(decodedTx1.gasLimit.toNumber()).to.equal(txLegacy.gasLimit)
         })
 
-        it("should be able to decode txList with multiple legacy transaction", async function () {
-            const txLegacy1: TxLegacy = {
-                txType: 0,
-                nonce: 1,
+        it("should be able to decode txList with 2930 transaction", async function () {
+            const tx2930: UnsignedTransaction = {
+                type: 1,
+                chainId: 12345,
+                nonce: 123,
                 gasPrice: 11e9,
-                gasLimit: 123456,
-                destination: ethers.Wallet.createRandom().address,
-                amount: ethers.utils.parseEther("1.23"),
-                data: ethers.utils.randomBytes(10),
-                v: 1,
-                r: randomBytes32(),
-                s: randomBytes32(),
+                gasLimit: 123,
+                to: ethers.Wallet.createRandom().address,
+                value: ethers.utils.parseEther("10.23"),
+                accessList: [],
+                data: ethers.utils.randomBytes(20),
             }
 
-            const txLegacy2: TxLegacy = {
-                txType: 0,
-                nonce: 2,
-                gasPrice: 11e9,
-                gasLimit: 456789,
-                destination: ethers.Wallet.createRandom().address,
-                amount: ethers.utils.parseEther("23.123"),
-                data: ethers.utils.randomBytes(10),
-                v: 2,
-                r: randomBytes32(),
-                s: randomBytes32(),
-            }
+            const signature = await signer0.signMessage(tx2930.data?.toString())
+            console.log("signature: ", signature)
 
-            const txListBytes = await rlpEncodeTxList([txLegacy1, txLegacy2])
+            const txBytes = ethers.utils.serializeTransaction(tx2930, signature)
+            console.log("txBytes: ", txBytes)
+            const txListBytes = await rlpEncodeTxList([txBytes])
+            console.log("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxList.callStatic.decodeTxList(
                 txListBytes
             )
-            // console.log('decoded: ', decodedTxList)
-            expect(decodedTxList.items.length).to.equal(2)
+            expect(decodedTxList.items.length).to.equal(1)
             const decodedTx1 = decodedTxList.items[0]
-            const decodedTx2 = decodedTxList.items[1]
-            expect(decodedTx1.gasLimit.toNumber()).to.equal(txLegacy1.gasLimit)
-            expect(decodedTx2.gasLimit.toNumber()).to.equal(txLegacy2.gasLimit)
+            expect(decodedTx1.gasLimit.toNumber()).to.equal(tx2930.gasLimit)
         })
+
+        it("should be able to decode txList with 1559 transaction", async function () {
+            const tx1559: UnsignedTransaction = {
+                type: 2,
+                chainId: 12345,
+                nonce: 123,
+                maxPriorityFeePerGas: 2e9,
+                maxFeePerGas: 22e9,
+                gasLimit: 1234567,
+                to: ethers.Wallet.createRandom().address,
+                value: ethers.utils.parseEther("10.123"),
+                accessList: [],
+                data: ethers.utils.randomBytes(20),
+            }
+
+            const signature = await signer0.signMessage(tx1559.data?.toString())
+            console.log("signature: ", signature)
+
+            const txBytes = ethers.utils.serializeTransaction(tx1559, signature)
+            console.log("txBytes: ", txBytes)
+            const txListBytes = await rlpEncodeTxList([txBytes])
+            console.log("txListBytes: ", txListBytes)
+
+            const decodedTxList = await libTxList.callStatic.decodeTxList(
+                txListBytes
+            )
+            expect(decodedTxList.items.length).to.equal(1)
+            const decodedTx1 = decodedTxList.items[0]
+            expect(decodedTx1.gasLimit.toNumber()).to.equal(tx1559.gasLimit)
+        })
+    })
+
+    it("should be able to decode txList with multiple types", async function () {
+        const signature = await signer0.signMessage("123456abcdef")
+        const txLegacy: UnsignedTransaction = {
+            nonce: 1,
+            gasPrice: 11e9,
+            gasLimit: 123456,
+            to: ethers.Wallet.createRandom().address,
+            value: ethers.utils.parseEther("1.23"),
+            data: ethers.utils.randomBytes(10),
+        }
+
+        const tx2930: UnsignedTransaction = {
+            type: 1,
+            chainId: 12345,
+            nonce: 123,
+            gasPrice: 11e9,
+            gasLimit: 123,
+            to: ethers.Wallet.createRandom().address,
+            value: ethers.utils.parseEther("10.23"),
+            accessList: [],
+            data: ethers.utils.randomBytes(20),
+        }
+
+        const tx1559: UnsignedTransaction = {
+            type: 2,
+            chainId: 12345,
+            nonce: 123,
+            maxPriorityFeePerGas: 2e9,
+            maxFeePerGas: 22e9,
+            gasLimit: 1234567,
+            to: ethers.Wallet.createRandom().address,
+            value: ethers.utils.parseEther("10.123"),
+            accessList: [],
+            data: ethers.utils.randomBytes(20),
+        }
+
+        const txObjArr = [txLegacy, tx2930, tx1559]
+        const txRawBytesArr = []
+        for (const txObj of txObjArr) {
+            const txBytes = ethers.utils.serializeTransaction(txObj, signature)
+            txRawBytesArr.push(txBytes)
+        }
+        const txListBytes = await rlpEncodeTxList(txRawBytesArr)
+
+        const decodedTxList = await libTxList.callStatic.decodeTxList(
+            txListBytes
+        )
+        // console.log('decodedT: ', decodedTxList)
+        expect(decodedTxList.items.length).to.equal(txObjArr.length)
+        for (let i = 0; i < txObjArr.length; i++) {
+            const txObj = txObjArr[i]
+            const decodedTx = decodedTxList.items[i]
+            expect(decodedTx.gasLimit.toNumber()).to.equal(txObj.gasLimit)
+        }
     })
 })
