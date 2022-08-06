@@ -37,7 +37,11 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return resolve("tai_token");
     }
 
-    function pay(address recipient, uint256 amount)
+    function gasLimitBase() public pure override returns (uint128) {
+        return 1000000;
+    }
+
+    function _payFee(address recipient, uint256 amount)
         internal
         override
         returns (bool success)
@@ -48,7 +52,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return true;
     }
 
-    function charge(address recipient, uint256 amount)
+    function _chargeFee(address recipient, uint256 amount)
         internal
         override
         returns (bool success)

@@ -12,23 +12,21 @@ pragma solidity ^0.8.9;
 interface IProtoBroker {
     function chargeProposer(
         uint256 blockId,
-        uint64 numUnprovenBlocks,
         address proposer,
-        uint128 gasLimit
+        uint128 gasLimit,
+        uint64 numUnprovenBlocks
     ) external returns (uint128 gasFeeReceived);
 
     function payProver(
         uint256 blockId,
-        uint256 uncleId,
         address prover,
-        uint128 gasFeeReceived,
+        uint256 uncleId,
         uint64 proposedAt,
-        uint64 provenAt
+        uint64 provenAt,
+        uint128 gasFeeReceived
     ) external returns (uint128 gasFeePaid);
 
-    function feeToken() external view returns (address);
-
-    function estimateGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
+    function getProposerGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         external
         view
         returns (uint128 gasFee);

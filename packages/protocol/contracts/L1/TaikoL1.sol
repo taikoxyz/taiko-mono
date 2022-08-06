@@ -184,9 +184,9 @@ contract TaikoL1 is EssentialContract {
         uint128 gasFeeReceived = IProtoBroker(resolve("proto_broker"))
             .chargeProposer(
                 nextPendingId,
-                numUnprovenBlocks,
                 msg.sender,
-                context.gasLimit
+                context.gasLimit,
+                numUnprovenBlocks
             );
 
         _savePendingBlock(
@@ -418,11 +418,11 @@ contract TaikoL1 is EssentialContract {
 
             IProtoBroker(resolve("proto_broker")).payProver(
                 id,
-                fc.evidences.length,
                 evidence.prover,
-                blk.gasFeeReceived,
+                fc.evidences.length,
                 evidence.provenAt,
-                evidence.proposedAt
+                evidence.proposedAt,
+                blk.gasFeeReceived
             );
         }
 

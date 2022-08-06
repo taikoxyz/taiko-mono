@@ -20,6 +20,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     uint64 internal _avgNumUnprovenBlocks;
     uint64 internal _avgProvingDelay;
+    uint128 public suggestedGasPrice;
 
     uint256[49] private __gap;
 
@@ -34,9 +35,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     function chargeProposer(
         uint256 blockId,
-        uint64 numUnprovenBlocks,
         address proposer,
-        uint128 gasLimit
+        uint128 gasLimit,
+        uint64 numUnprovenBlocks
     )
         public
         virtual
@@ -46,9 +47,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     {
         gasFeeReceived = ProtoBrokerBase.chargeProposer(
             blockId,
-            numUnprovenBlocks,
             proposer,
-            gasLimit
+            gasLimit,
+            numUnprovenBlocks
         );
 
         _avgNumUnprovenBlocks = _calcAverage(
@@ -60,19 +61,19 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     function payProver(
         uint256 blockId,
-        uint256 uncleId,
         address prover,
-        uint128 gasFeeReceived,
+        uint256 uncleId,
         uint64 proposedAt,
-        uint64 provenAt
+        uint64 provenAt,
+        uint128 gasFeeReceived
     ) public virtual override returns (uint128 gasFeePaid) {
         gasFeePaid = ProtoBrokerBase.payProver(
             blockId,
-            uncleId,
             prover,
-            gasFeeReceived,
+            uncleId,
             proposedAt,
-            provenAt
+            provenAt,
+            gasFeeReceived
         );
 
         if (uncleId == 0) {
@@ -91,14 +92,18 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint128 __suggestedGasPrice,
-        uint256 _unsettledProverFeeThreshold
-    ) internal virtual override {
-        ProtoBrokerBase._init(
-            _addressManager,
-            __suggestedGasPrice,
-            _unsettledProverFeeThreshold
-        );
+        uint256 _unsettledProverFeeThreshold,
+        uint128 _suggestedGasPrice
+    ) internal virtual {
+        ProtoBrokerBase._init(_addressManager, _unsettledProverFeeThreshold);
+
+        suggestedGasPrice = _suggestedGasPrice;
+    }
+
+    function _getProposerGasPrice(
+        uint64 /*numUnprovenBlocks*/
+    ) public view virtual override returns (uint128) {
+        return suggestedGasPrice;
     }
 
     function _calculateGasFeePaid(uint128 gasFeeReceived, uint64 provingDelay)

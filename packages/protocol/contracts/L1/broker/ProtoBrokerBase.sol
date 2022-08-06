@@ -21,33 +21,34 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     event FeeCharged(
         uint256 indexed blockId,
         address indexed account,
-        uint128 amount
+        uint256 amount
     );
     event FeePaid(
         uint256 indexed blockId,
         address indexed account,
-        uint128 amount
+        uint256 amount,
+        uint256 uncleId
     );
 
     function chargeProposer(
         uint256 blockId,
-        uint64 numUnprovenBlocks,
         address proposer,
-        uint128 gasLimit
+        uint128 gasLimit,
+        uint64 numUnprovenBlocks
     ) public virtual override returns (uint128 gasFeeReceived) {
-        gasFeeReceived = estimateGasFee(gasLimit, numUnprovenBlocks);
+        gasFeeReceived = getProposerGasFee(gasLimit, numUnprovenBlocks);
 
-        require(charge(proposer, gasFeeReceived), "failed to charge");
+        require(_chargeFee(proposer, gasFeeReceived), "failed to charge");
         emit FeeCharged(blockId, proposer, gasFeeReceived);
     }
 
     function payProver(
         uint256 blockId,
-        uint256 uncleId,
         address prover,
-        uint128 gasFeeReceived,
+        uint256 uncleId,
         uint64 proposedAt,
-        uint64 provenAt
+        uint64 provenAt,
+        uint128 gasFeeReceived
     ) public virtual override returns (uint128 gasFeePaid) {
         gasFeePaid = _calculateGasFeePaid(
             gasFeeReceived,
@@ -59,46 +60,40 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         }
 
         if (gasFeePaid > 0) {
-            if (!pay(prover, gasFeePaid)) {
+            if (!_payFee(prover, gasFeePaid)) {
                 unsettledProverFee += gasFeePaid;
             }
 
             if (unsettledProverFee > unsettledProverFeeThreshold) {
-                if (pay(resolve("dao_vault"), unsettledProverFee - 1)) {
+                if (_payFee(resolve("dao_vault"), unsettledProverFee - 1)) {
                     unsettledProverFee = 1;
                 }
             }
         }
 
-        emit FeePaid(blockId, prover, gasFeePaid);
+        emit FeePaid(blockId, prover, gasFeePaid, uncleId);
     }
 
-    function _calclateGasPrice(
-        uint64 /*numUnprovenBlocks*/
-    ) internal view virtual returns (uint128) {
-        return _suggestedGasPrice;
-    }
-
-    function estimateGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
+    function getProposerGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         public
         view
         virtual
         override
         returns (uint128)
     {
-        uint128 gasPrice = _calclateGasPrice(numUnprovenBlocks);
+        uint128 gasPrice = _getProposerGasPrice(numUnprovenBlocks);
         return _calculateGasFee(gasPrice, gasLimit);
     }
+
+    function gasLimitBase() public pure virtual returns (uint128);
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint128 __suggestedGasPrice,
         uint256 _unsettledProverFeeThreshold
     ) internal virtual {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
-        _suggestedGasPrice = __suggestedGasPrice;
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
@@ -109,7 +104,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         return gasFeeReceived;
     }
 
-    function pay(
+    function _payFee(
         address, /*recipient*/
         uint256 /*amount*/
     )
@@ -119,7 +114,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             bool /*success*/
         );
 
-    function charge(
+    function _chargeFee(
         address, /*recipient*/
         uint256 /*amount*/
     )
@@ -128,16 +123,16 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         returns (
             bool /*success*/
         );
+
+    function _getProposerGasPrice(
+        uint64 /*numUnprovenBlocks*/
+    ) public view virtual returns (uint128);
 
     function _calculateGasFee(uint128 gasPrice, uint128 gasLimit)
-        internal
+        private
         pure
         returns (uint128)
     {
-        return gasPrice * (gasLimit + _gasLimitBase());
-    }
-
-    function _gasLimitBase() internal pure virtual returns (uint128) {
-        return 1000000;
+        return gasPrice * (gasLimit + gasLimitBase());
     }
 }
