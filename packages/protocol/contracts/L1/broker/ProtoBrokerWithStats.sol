@@ -25,19 +25,6 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
 
     uint256[49] private __gap;
 
-    /// @dev Initializer to be called after being deployed behind a proxy.
-    function _init(
-        address _addressManager,
-        uint128 _gasPriceNow,
-        uint256 _unsettledProverFeeThreshold
-    ) internal virtual override {
-        ProtoBrokerBase._init(
-            _addressManager,
-            _gasPriceNow,
-            _unsettledProverFeeThreshold
-        );
-    }
-
     function getStats()
         public
         view
@@ -54,6 +41,19 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
             _avgProvingDelayWithUncles /
             NANO_PER_SECOND;
         avgFinalizationDelay = avgFinalizationDelay / NANO_PER_SECOND;
+    }
+
+    /// @dev Initializer to be called after being deployed behind a proxy.
+    function _init(
+        address _addressManager,
+        uint128 _gasPriceNow,
+        uint256 _unsettledProverFeeThreshold
+    ) internal virtual override {
+        ProtoBrokerBase._init(
+            _addressManager,
+            _gasPriceNow,
+            _unsettledProverFeeThreshold
+        );
     }
 
     function calculateActualFee(

@@ -10,14 +10,6 @@ pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
 interface IProtoBroker {
-    function gasLimitBase() external view returns (uint128);
-
-    function currentGasPrice() external view returns (uint128);
-
-    function feeToken() external view returns (address);
-
-    function estimateFee(uint128 gasLimit) external view returns (uint128);
-
     function chargeProposer(
         uint256 blockId,
         uint256 numPendingBlocks,
@@ -35,4 +27,12 @@ interface IProtoBroker {
         uint64 proposedAt,
         uint64 provenAt
     ) external;
+
+    function gasLimitBase() external view returns (uint128);
+
+    function currentGasPrice() external view returns (uint128);
+
+    function feeToken() external view returns (address);
+
+    function estimateFee(uint128 gasLimit) external view returns (uint128);
 }

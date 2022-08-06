@@ -29,36 +29,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128 amount
     );
 
-    /// @dev Initializer to be called after being deployed behind a proxy.
-    function _init(
-        address _addressManager,
-        uint128 _gasPriceNow,
-        uint256 _unsettledProverFeeThreshold
-    ) internal virtual {
-        require(_unsettledProverFeeThreshold > 0, "threshold too small");
-        EssentialContract._init(_addressManager);
-        gasPriceNow = _gasPriceNow;
-        unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
-    }
-
-    function gasLimitBase() public view virtual override returns (uint128) {
-        return 1000000;
-    }
-
-    function currentGasPrice() public view virtual override returns (uint128) {
-        return gasPriceNow;
-    }
-
-    function estimateFee(uint128 gasLimit)
-        public
-        view
-        virtual
-        override
-        returns (uint128)
-    {
-        return gasPriceNow * (gasLimit + gasLimitBase());
-    }
-
     function chargeProposer(
         uint256 blockId,
         uint256 numPendingBlocks,
@@ -125,6 +95,36 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             proposedAt,
             provenAt
         );
+    }
+
+    function gasLimitBase() public view virtual override returns (uint128) {
+        return 1000000;
+    }
+
+    function currentGasPrice() public view virtual override returns (uint128) {
+        return gasPriceNow;
+    }
+
+    function estimateFee(uint128 gasLimit)
+        public
+        view
+        virtual
+        override
+        returns (uint128)
+    {
+        return gasPriceNow * (gasLimit + gasLimitBase());
+    }
+
+    /// @dev Initializer to be called after being deployed behind a proxy.
+    function _init(
+        address _addressManager,
+        uint128 _gasPriceNow,
+        uint256 _unsettledProverFeeThreshold
+    ) internal virtual {
+        require(_unsettledProverFeeThreshold > 0, "threshold too small");
+        EssentialContract._init(_addressManager);
+        gasPriceNow = _gasPriceNow;
+        unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
     function calculateActualFee(
