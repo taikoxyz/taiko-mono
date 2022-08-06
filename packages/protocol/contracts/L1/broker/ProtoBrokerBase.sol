@@ -18,12 +18,12 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     uint256[48] private __gap;
 
-    event ProposerCharged(
+    event FeeReceived(
         uint256 indexed blockId,
         address indexed account,
         uint256 amount
     );
-    event ProverPaid(
+    event FeePaid(
         uint256 indexed blockId,
         address indexed account,
         uint256 amount,
@@ -39,7 +39,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         proposerFee = getProposerFee(gasLimit, numUnprovenBlocks);
 
         require(_chargeFee(proposer, proposerFee), "failed to charge");
-        emit ProposerCharged(blockId, proposer, proposerFee);
+        emit FeeReceived(blockId, proposer, proposerFee);
     }
 
     function payProver(
@@ -78,7 +78,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             }
         }
 
-        emit ProverPaid(blockId, prover, proverFee, uncleId);
+        emit FeePaid(blockId, prover, proverFee, uncleId);
     }
 
     function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
