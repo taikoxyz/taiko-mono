@@ -18,9 +18,14 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
-    uint256 public constant STAT_AVERAGING_FACTOR = 2048;
-    uint256 internal constant TARGET_FEE_ROI = 1000000;
-    uint64 internal constant NANO_PER_SECOND = 1E9;
+    // TODO(daniel): do simulation to find values for these constants.
+    uint64 public constant FEE_PREMIUM_BLOCK_THRESHOLD = 256;
+    uint64 public constant FEE_ADJUSTMENT_FACTOR = 32;
+    uint64 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
+    uint64 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
+    uint64 public constant FEE_BIPS = 500; // 5%
+
+    uint64 internal constant MILI_PER_SECOND = 1E3;
 
     uint64 internal _avgNumUnprovenBlocks;
     uint64 internal _avgProvingDelay;
@@ -74,18 +79,16 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         if (uncleId == 0) {
             _avgProvingDelay = _calcAverage(
                 _avgProvingDelay,
-                (provenAt - proposedAt) * NANO_PER_SECOND,
-                512
+                (provenAt - proposedAt) * MILI_PER_SECOND,
+                PROVING_DELAY_AVERAGING_FACTOR
             ).toUint64();
-
-            uint256 roiMeasured = (proposerFee * TARGET_FEE_ROI) / proverFee;
 
             _suggestedGasPrice = Lib1559Math
                 .adjustTarget(
                     _suggestedGasPrice,
-                    roiMeasured,
-                    TARGET_FEE_ROI,
-                    16
+                    (proposerFee * 1000000) / proverFee,
+                    1000000,
+                    FEE_ADJUSTMENT_FACTOR
                 )
                 .toUint128();
         }
@@ -96,8 +99,8 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         view
         returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
     {
-        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / NANO_PER_SECOND;
-        avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
+        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / MILI_PER_SECOND;
+        avgProvingDelay = _avgProvingDelay / MILI_PER_SECOND;
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -118,9 +121,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         returns (uint128)
     {
         uint64 threshold = _avgProvingDelay * 2;
-        uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
+        uint64 provingDelayNano = provingDelay * MILI_PER_SECOND;
 
-        uint128 gasFeeAfterTax = (proposerFee * 95) / 100;
+        uint128 gasFeeAfterTax = (proposerFee * (10000 - FEE_BIPS)) / 10000;
 
         if (provingDelayNano < threshold) {
             return gasFeeAfterTax;
@@ -141,15 +144,15 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         override
         returns (uint128)
     {
-        uint64 threshold = _avgNumUnprovenBlocks > 64
+        uint64 threshold = _avgNumUnprovenBlocks > FEE_PREMIUM_BLOCK_THRESHOLD
             ? _avgNumUnprovenBlocks
-            : 64;
+            : FEE_PREMIUM_BLOCK_THRESHOLD;
 
         if (numUnprovenBlocks <= threshold) {
             return suggestedGasPrice;
         } else {
             uint256 premium = (10000 * numUnprovenBlocks) / (2 * threshold);
-            premium = premium.min(40000);
+            premium = premium.min(FEE_PREMIUM_MAX_MUTIPLIER * 10000);
             return (suggestedGasPrice * uint128(premium)) / 10000;
         }
     }
