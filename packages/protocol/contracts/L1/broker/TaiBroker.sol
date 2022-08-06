@@ -20,7 +20,7 @@ contract TaiBroker is StatsBasedBroker {
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
-        AbstractBroker._init(
+        StatsBasedBroker._init(
             _addressManager,
             _gasPriceNow,
             _unsettledProverFeeThreshold

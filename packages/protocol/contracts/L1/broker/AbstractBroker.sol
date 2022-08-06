@@ -32,7 +32,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         address _addressManager,
         uint128 _gasPriceNow,
         uint256 _unsettledProverFeeThreshold
-    ) internal {
+    ) internal virtual {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
         gasPriceNow = _gasPriceNow;
@@ -126,41 +126,51 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     }
 
     function calculateActualFee(
-        uint256 blockId,
-        uint256 uncleId,
-        address prover,
+        uint256, /*blockId*/
+        uint256, /*uncleId*/
+        address, /*prover*/
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
-        uint64 provingDelay
+        uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
         return gasPriceAtProposal * (gasLimit + gasLimitBase());
     }
 
     function postChargeProposer(
-        uint256 blockId,
-        uint256 numPendingBlocks,
-        uint256 numUnprovenBlocks,
-        address proposer,
-        uint128 gasLimit
+        uint256, /*blockId*/
+        uint256, /*numPendingBlocks*/
+        uint256, /*numUnprovenBlocks*/
+        address, /*proposer*/
+        uint128 /*gasLimit*/
     ) internal virtual {}
 
     function postPayProver(
-        uint256 blockId,
-        uint256 uncleId,
-        address prover,
-        uint128 gasPriceAtProposal,
-        uint128 gasLimit,
-        uint64 proposedAt,
-        uint64 provenAt
+        uint256, /*blockId*/
+        uint256, /*uncleId*/
+        address, /*prover*/
+        uint128, /*gasPriceAtProposal*/
+        uint128, /*gasLimit*/
+        uint64, /*proposedAt*/
+        uint64 /*provenAt*/
     ) internal virtual {}
 
-    function pay(address recipient, uint256 amount)
+    function pay(
+        address, /*recipient*/
+        uint256 /*amount*/
+    )
         internal
         virtual
-        returns (bool success);
+        returns (
+            bool /*success*/
+        );
 
-    function charge(address recipient, uint256 amount)
+    function charge(
+        address, /*recipient*/
+        uint256 /*amount*/
+    )
         internal
         virtual
-        returns (bool success);
+        returns (
+            bool /*success*/
+        );
 }

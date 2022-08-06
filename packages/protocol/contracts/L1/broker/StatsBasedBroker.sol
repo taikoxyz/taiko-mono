@@ -21,12 +21,25 @@ abstract contract StatsBasedBroker is AbstractBroker {
     uint64 public avgProvingDelayWithUncles;
     uint64 public avgFinalizationDelay;
 
+    /// @dev Initializer to be called after being deployed behind a proxy.
+    function _init(
+        address _addressManager,
+        uint128 _gasPriceNow,
+        uint256 _unsettledProverFeeThreshold
+    ) internal virtual override {
+        AbstractBroker._init(
+            _addressManager,
+            _gasPriceNow,
+            _unsettledProverFeeThreshold
+        );
+    }
+
     function postChargeProposer(
-        uint256 blockId,
+        uint256, /*blockId*/
         uint256 numPendingBlocks,
-        uint256 numUnprovenBlocks,
-        address proposer,
-        uint128 gasLimit
+        uint256, /*numUnprovenBlocks*/
+        address, /*proposer*/
+        uint128 /*gasLimit*/
     ) internal virtual override {
         // Update stats first.
         avgPendingSize = uint64(
@@ -35,11 +48,11 @@ abstract contract StatsBasedBroker is AbstractBroker {
     }
 
     function postPayProver(
-        uint256 blockId,
+        uint256, /*blockId*/
         uint256 uncleId,
-        address prover,
-        uint128 gasPriceAtProposal,
-        uint128 gasLimit,
+        address, /*prover*/
+        uint128, /*gasPriceAtProposal*/
+        uint128, /*gasLimit*/
         uint64 proposedAt,
         uint64 provenAt
     ) internal virtual override {
