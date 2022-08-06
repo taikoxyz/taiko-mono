@@ -10,13 +10,13 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "./AbstractProtoBroker.sol";
+import "./ProtoBrokerBase.sol";
 
-abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
+abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
     using SafeCastUpgradeable for uint256;
 
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
-    uint64 public constant NANO_PER_SECOND = 1E9;
+    uint64 internal constant NANO_PER_SECOND = 1E9;
 
     uint64 internal _avgPendingSize;
     uint64 internal _avgProvingDelay;
@@ -31,7 +31,7 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
         uint128 _gasPriceNow,
         uint256 _unsettledProverFeeThreshold
     ) internal virtual override {
-        AbstractProtoBroker._init(
+        ProtoBrokerBase._init(
             _addressManager,
             _gasPriceNow,
             _unsettledProverFeeThreshold

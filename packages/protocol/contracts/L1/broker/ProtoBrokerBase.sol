@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../../common/EssentialContract.sol";
 import "./IProtoBroker.sol";
 
-abstract contract AbstractProtoBroker is IProtoBroker, EssentialContract {
+abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     uint256 public unsettledProverFeeThreshold;
     uint256 public unsettledProverFee;
     uint128 internal gasPriceNow;
