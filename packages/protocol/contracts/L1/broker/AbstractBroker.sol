@@ -57,19 +57,26 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         uint256 blockId,
         address proposer,
         uint128 gasLimit
-    ) external virtual override onlyFromNamed("taiko_l1") {
+    )
+        external
+        virtual
+        override
+        onlyFromNamed("taiko_l1")
+        returns (uint128 gasPrice)
+    {
         uint128 fee = estimateFee(gasLimit);
+        gasPrice = gasPriceNow;
         require(charge(proposer, fee), "failed to charge");
         emit FeeTransacted(blockId, proposer, fee, false);
     }
 
     function payProver(
         uint256 blockId,
+        uint256 uncleId,
         address prover,
         uint128 gasPrice,
         uint128 gasLimit,
-        uint64 provingDelay,
-        uint256 uncleId
+        uint64 provingDelay
     ) external virtual override onlyFromNamed("taiko_l1") {
         uint128 prepaid = gasPrice * (gasLimit + gasLimitBase());
         uint128 fee;

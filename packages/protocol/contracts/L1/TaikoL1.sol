@@ -203,18 +203,20 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        IBroker broker = IBroker(resolve("broker"));
+        uint128 gasPrice = IBroker(resolve("broker")).chargeProposer(
+            nextPendingId,
+            msg.sender,
+            context.gasLimit
+        );
+
         _savePendingBlock(
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
-                gasPrice: broker.currentGasPrice(),
+                gasPrice: gasPrice,
                 gasLimit: context.gasLimit
             })
         );
-
-        // Check fees
-        broker.chargeProposer(nextPendingId, msg.sender, context.gasLimit);
 
         emit BlockProposed(nextPendingId++, context);
 
@@ -438,12 +440,12 @@ contract TaikoL1 is EssentialContract {
             Evidence memory evidence = fc.evidences[i];
 
             IBroker(resolve("broker")).payProver(
-                i,
+                id,
+                fc.evidences.length,
                 evidence.prover,
                 blk.gasPrice,
                 blk.gasLimit,
-                evidence.provenAt - evidence.proposedAt,
-                fc.evidences.length
+                evidence.provenAt - evidence.proposedAt
             );
 
             // Update stats

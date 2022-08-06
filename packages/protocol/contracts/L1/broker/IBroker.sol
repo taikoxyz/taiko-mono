@@ -22,14 +22,14 @@ interface IBroker {
         uint256 blockId,
         address proposer,
         uint128 gasLimit
-    ) external;
+    ) external returns (uint128 gasPrice);
 
     function payProver(
         uint256 blockId,
+        uint256 uncleId,
         address prover,
         uint128 gasPrice,
         uint128 gasLimit,
-        uint64 provingDelay,
-        uint256 uncleId
+        uint64 provingDelay
     ) external;
 }
