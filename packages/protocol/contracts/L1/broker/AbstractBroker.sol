@@ -8,21 +8,13 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import "../common/EssentialContract.sol";
-import "../libs/LibMath.sol";
-import "../thirdparty/ERC20Upgradeable.sol";
+import "../../common/EssentialContract.sol";
 import "./IBroker.sol";
 
 abstract contract AbstractBroker is IBroker, EssentialContract {
-    using SafeCastUpgradeable for uint256;
-
-    uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
-    uint256 public constant ETH_TRANSFER_GAS_LIMIT = 25000;
-    uint256 unsettledProverFeeThreshold;
-    uint256 unsettledProverFee;
-    uint256 gasPriceNow;
+    uint256 public unsettledProverFeeThreshold;
+    uint256 public unsettledProverFee;
+    uint256 internal gasPriceNow;
 
     event FeeTransacted(
         uint256 indexed blockId,
@@ -43,24 +35,29 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
-    function currentGasPrice() public view override returns (uint256) {
+    function gasLimitBase() public view virtual override returns (uint256) {
+        return 1000000;
+    }
+
+    function currentGasPrice() public view virtual override returns (uint256) {
         return gasPriceNow;
     }
 
     function estimateFee(uint256 gasLimit)
         public
         view
+        virtual
         override
         returns (uint256)
     {
-        return gasPriceNow * (gasLimit + BLOCK_GAS_LIMIT_EXTRA);
+        return gasPriceNow * (gasLimit + gasLimitBase());
     }
 
     function chargeProposer(
         uint256 blockId,
         address proposer,
         uint256 gasLimit
-    ) external override onlyFromNamed("taiko") {
+    ) external virtual override onlyFromNamed("taiko_l1") {
         uint256 fee = estimateFee(gasLimit);
         require(charge(proposer, fee), "failed to charge");
         emit FeeTransacted(blockId, proposer, fee, false);
@@ -73,8 +70,8 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         uint256 gasLimit,
         uint256 provingDelay,
         uint256 uncleId
-    ) external override onlyFromNamed("taiko") {
-        uint256 prepaid = gasPrice * (gasLimit + BLOCK_GAS_LIMIT_EXTRA);
+    ) external virtual override onlyFromNamed("taiko_l1") {
+        uint256 prepaid = gasPrice * (gasLimit + gasLimitBase());
         uint256 fee;
 
         if (fee > 0) {

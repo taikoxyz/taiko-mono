@@ -20,7 +20,7 @@ import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
 import "../libs/LibZKP.sol";
-import "./IBroker.sol";
+import "./broker/IBroker.sol";
 
 struct BlockContext {
     uint256 id;
@@ -184,7 +184,6 @@ contract TaikoL1 is EssentialContract {
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
         taiToken.mint(resolve("dao_vault"), _amountMintToDAO);
-
         taiToken.mint(resolve("team_vault"), _amountMintToTeam);
     }
 
