@@ -55,6 +55,18 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         proverFee /= uint128(uncleId + 1);
 
         if (proverFee > 0) {
+            address daoVault = resolve("dao_reserve");
+            if (uncleId == 0 && proverFee > proposerFee) {
+                uint128 mintAmount = proverFee - proposerFee;
+                if (!_payFee(daoVault, mintAmount)) {
+                    unsettledProverFee += mintAmount;
+                }
+            } else {
+                if (!_payFee(daoVault, proverFee)) {
+                    unsettledProverFee += proverFee;
+                }
+            }
+
             if (!_payFee(prover, proverFee)) {
                 unsettledProverFee += proverFee;
             }

@@ -148,9 +148,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         if (numUnprovenBlocks <= threshold) {
             return suggestedGasPrice;
         } else {
-            uint256 premeium = (10000 * numUnprovenBlocks) / (2 * threshold);
-            premeium = premeium.min(20000);
-            return (suggestedGasPrice * uint128(premeium)) / 10000;
+            uint256 premium = (10000 * numUnprovenBlocks) / (2 * threshold);
+            premium = premium.min(40000);
+            return (suggestedGasPrice * uint128(premium)) / 10000;
         }
     }
 
