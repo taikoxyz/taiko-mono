@@ -43,9 +43,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         virtual
         override
         onlyFromNamed("taiko_l1")
-        returns (uint128 gasFeeReceived)
+        returns (uint128 proposerFee)
     {
-        gasFeeReceived = ProtoBrokerBase.chargeProposer(
+        proposerFee = ProtoBrokerBase.chargeProposer(
             blockId,
             proposer,
             gasLimit,
@@ -65,15 +65,15 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint256 uncleId,
         uint64 proposedAt,
         uint64 provenAt,
-        uint128 gasFeeReceived
-    ) public virtual override returns (uint128 gasFeePaid) {
-        gasFeePaid = ProtoBrokerBase.payProver(
+        uint128 proposerFee
+    ) public virtual override returns (uint128 proverFee) {
+        proverFee = ProtoBrokerBase.payProver(
             blockId,
             prover,
             uncleId,
             proposedAt,
             provenAt,
-            gasFeeReceived
+            proposerFee
         );
 
         if (uncleId == 0) {
@@ -83,7 +83,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
                 512
             ).toUint64();
 
-            // uint256 ratio = (gasFeeReceived * 1000000) / gasFeePaid;
+            // uint256 ratio = (proposerFee * 1000000) / proverFee;
 
             // TODO: use 1559 to adjust _suggestedGasPrice.
         }
@@ -106,14 +106,16 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         return suggestedGasPrice;
     }
 
-    function _calculateActualProverFee(
-        uint128 gasFeeReceived,
-        uint64 provingDelay
-    ) internal virtual override returns (uint128) {
+    function _calculateActualProverFee(uint128 proposerFee, uint64 provingDelay)
+        internal
+        virtual
+        override
+        returns (uint128)
+    {
         uint64 threshold = _avgProvingDelay * 2;
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 
-        uint128 gasFeeAfterTax = (gasFeeReceived * 95) / 100;
+        uint128 gasFeeAfterTax = (proposerFee * 95) / 100;
 
         if (provingDelayNano < threshold) {
             return gasFeeAfterTax;

@@ -15,7 +15,7 @@ interface IProtoBroker {
         address proposer,
         uint128 gasLimit,
         uint64 numUnprovenBlocks
-    ) external returns (uint128 gasFeeReceived);
+    ) external returns (uint128 proposerFee);
 
     function payProver(
         uint256 blockId,
@@ -23,8 +23,8 @@ interface IProtoBroker {
         uint256 uncleId,
         uint64 proposedAt,
         uint64 provenAt,
-        uint128 gasFeeReceived
-    ) external returns (uint128 gasFeePaid);
+        uint128 proposerFee
+    ) external returns (uint128 proverFee);
 
     function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         external

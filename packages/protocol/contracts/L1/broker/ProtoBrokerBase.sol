@@ -35,11 +35,11 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         address proposer,
         uint128 gasLimit,
         uint64 numUnprovenBlocks
-    ) public virtual override returns (uint128 gasFeeReceived) {
-        gasFeeReceived = getProposerFee(gasLimit, numUnprovenBlocks);
+    ) public virtual override returns (uint128 proposerFee) {
+        proposerFee = getProposerFee(gasLimit, numUnprovenBlocks);
 
-        require(_chargeFee(proposer, gasFeeReceived), "failed to charge");
-        emit FeeCharged(blockId, proposer, gasFeeReceived);
+        require(_chargeFee(proposer, proposerFee), "failed to charge");
+        emit FeeCharged(blockId, proposer, proposerFee);
     }
 
     function payProver(
@@ -48,18 +48,18 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint256 uncleId,
         uint64 proposedAt,
         uint64 provenAt,
-        uint128 gasFeeReceived
-    ) public virtual override returns (uint128 gasFeePaid) {
-        gasFeePaid = _calculateActualProverFee(
-            gasFeeReceived,
+        uint128 proposerFee
+    ) public virtual override returns (uint128 proverFee) {
+        proverFee = _calculateActualProverFee(
+            proposerFee,
             provenAt - proposedAt
         );
 
-        gasFeePaid /= uint128(uncleId + 1);
+        proverFee /= uint128(uncleId + 1);
 
-        if (gasFeePaid > 0) {
-            if (!_payFee(prover, gasFeePaid)) {
-                unsettledProverFee += gasFeePaid;
+        if (proverFee > 0) {
+            if (!_payFee(prover, proverFee)) {
+                unsettledProverFee += proverFee;
             }
 
             if (unsettledProverFee > unsettledProverFeeThreshold) {
@@ -69,7 +69,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             }
         }
 
-        emit FeePaid(blockId, prover, gasFeePaid, uncleId);
+        emit FeePaid(blockId, prover, proverFee, uncleId);
     }
 
     function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
@@ -96,10 +96,10 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     }
 
     function _calculateActualProverFee(
-        uint128 gasFeeReceived,
+        uint128 proposerFee,
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
-        return gasFeeReceived;
+        return proposerFee;
     }
 
     function _payFee(
