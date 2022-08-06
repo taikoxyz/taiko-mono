@@ -57,23 +57,22 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     }
 
     function calculateActualGasPrice(
-        uint256, /*blockId*/
-        uint256, /*uncleId*/
         uint128 gasPriceAtProposal,
-        uint128, /*gasLimit*/
         uint64 provingDelay
     ) internal virtual override returns (uint128) {
         uint64 threshold = _avgProvingDelay * 2;
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 
+        uint128 gasPriceAtProposalAfterTax = (gasPriceAtProposal * 95) / 100;
+
         if (provingDelayNano < threshold) {
-            return gasPriceAtProposal;
+            return gasPriceAtProposalAfterTax;
         }
 
-        uint256 fee = (uint256(gasPriceAtProposal) *
+        uint256 fee = (uint256(gasPriceAtProposalAfterTax) *
             (provingDelayNano - threshold)) /
             _avgProvingDelay +
-            gasPriceAtProposal;
+            gasPriceAtProposalAfterTax;
 
         return fee.toUint128();
     }
@@ -86,7 +85,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint128 /*gasLimit*/
     ) internal virtual override {
         // Update stats first.
-        _avgPendingSize = _calcAverage(
+        _avgPendingSize = _calcAverageTime(
             _avgPendingSize,
             uint64(numPendingBlocks)
         );
@@ -103,12 +102,12 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint128 actualGasPrice
     ) internal virtual override {
         if (uncleId == 0) {
-            _avgFinalizationDelay = _calcAverage(
+            _avgFinalizationDelay = _calcAverageTime(
                 _avgFinalizationDelay,
                 uint64(block.timestamp - proposedAt)
             );
 
-            _avgProvingDelay = _calcAverage(
+            _avgProvingDelay = _calcAverageTime(
                 _avgProvingDelay,
                 provenAt - proposedAt
             );
@@ -116,13 +115,13 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             gasPriceNow = (gasPriceNow * 15 + actualGasPrice) / 16;
         }
 
-        _avgProvingDelayWithUncles = _calcAverage(
+        _avgProvingDelayWithUncles = _calcAverageTime(
             _avgProvingDelayWithUncles,
             provenAt - proposedAt
         );
     }
 
-    function _calcAverage(uint64 avg, uint64 current)
+    function _calcAverageTime(uint64 avg, uint64 current)
         private
         pure
         returns (uint64)

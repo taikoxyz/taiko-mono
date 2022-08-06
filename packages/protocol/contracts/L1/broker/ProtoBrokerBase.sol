@@ -66,10 +66,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint64 provenAt
     ) external virtual override onlyFromNamed("taiko_l1") {
         uint128 actualGasPrice = calculateActualGasPrice(
-            blockId,
-            uncleId,
             gasPriceAtProposal,
-            gasLimit,
             provenAt - proposedAt
         );
 
@@ -135,10 +132,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     }
 
     function calculateActualGasPrice(
-        uint256, /*blockId*/
-        uint256, /*uncleId*/
         uint128 gasPriceAtProposal,
-        uint128, /*gasLimit*/
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
         return gasPriceAtProposal;
