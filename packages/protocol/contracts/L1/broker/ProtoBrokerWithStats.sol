@@ -58,13 +58,33 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
 
     function calculateActualFee(
         uint256, /*blockId*/
-        uint256, /*uncleId*/
-        address, /*prover*/
+        uint256 uncleId,
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
-        uint64 /*provingDelay*/
+        uint64 provingDelay
     ) internal virtual override returns (uint128) {
-        // TODO:
+        //      uint64 internal _avgPendingSize;
+        // uint64 internal _avgProvingDelay;
+        // uint64 internal _avgProvingDelayWithUncles;
+        // uint64 internal _avgFinalizationDelay;
+
+        uint128 prepaid = gasPriceAtProposal * (gasLimit + gasLimitBase());
+        for (uint256 i = 0; i < uncleId; i++) {
+            prepaid = prepaid >> 1;
+        }
+
+        uint64 threshold = _avgProvingDelay * 2;
+
+        uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
+
+        if (provingDelayNano < threshold) {
+            return prepaid;
+        }
+
+        return
+            prepaid +
+            ((provingDelayNano - threshold) * prepaid) /
+            _avgProvingDelay;
     }
 
     function postChargeProposer(

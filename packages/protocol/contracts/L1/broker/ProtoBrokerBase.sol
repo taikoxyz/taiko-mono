@@ -68,7 +68,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128 fee = calculateActualFee(
             blockId,
             uncleId,
-            prover,
             gasPriceAtProposal,
             gasLimit,
             provenAt - proposedAt
@@ -130,7 +129,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     function calculateActualFee(
         uint256, /*blockId*/
         uint256 uncleId,
-        address, /*prover*/
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
         uint64 /*provingDelay*/
