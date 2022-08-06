@@ -31,8 +31,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function chargeProposer(
         uint256 blockId,
-        uint256 numPendingBlocks,
-        uint256 numUnprovenBlocks,
+        uint64 numPendingBlocks,
+        uint64 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
     )
@@ -140,8 +140,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function postChargeProposer(
         uint256, /*blockId*/
-        uint256, /*numPendingBlocks*/
-        uint256, /*numUnprovenBlocks*/
+        uint64, /*numPendingBlocks*/
+        uint64, /*numUnprovenBlocks*/
         address, /*proposer*/
         uint128 /*gasLimit*/
     ) internal virtual {}

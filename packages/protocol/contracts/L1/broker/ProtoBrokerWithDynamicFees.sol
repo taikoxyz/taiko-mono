@@ -18,29 +18,18 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
     uint64 internal constant NANO_PER_SECOND = 1E9;
 
-    uint64 internal _avgPendingSize;
+    uint64 internal _avgNumUnprovenBlocks;
     uint64 internal _avgProvingDelay;
-    uint64 internal _avgProvingDelayWithUncles;
-    uint64 internal _avgFinalizationDelay;
 
     uint256[49] private __gap;
 
     function getStats()
         public
         view
-        returns (
-            uint64 avgPendingSize,
-            uint64 avgProvingDelay,
-            uint64 avgProvingDelayWithUncles,
-            uint64 avgFinalizationDelay
-        )
+        returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
     {
-        avgPendingSize = _avgPendingSize / NANO_PER_SECOND;
+        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / NANO_PER_SECOND;
         avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
-        avgProvingDelayWithUncles =
-            _avgProvingDelayWithUncles /
-            NANO_PER_SECOND;
-        avgFinalizationDelay = avgFinalizationDelay / NANO_PER_SECOND;
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -79,16 +68,17 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     function postChargeProposer(
         uint256, /*blockId*/
-        uint256 numPendingBlocks,
-        uint256, /*numUnprovenBlocks*/
+        uint64, /* numPendingBlocks*/
+        uint64 numUnprovenBlocks,
         address, /*proposer*/
         uint128 /*gasLimit*/
     ) internal virtual override {
         // Update stats first.
-        _avgPendingSize = _calcAverageTime(
-            _avgPendingSize,
-            uint64(numPendingBlocks)
-        );
+        _avgNumUnprovenBlocks = _calcAverage(
+            _avgNumUnprovenBlocks,
+            numUnprovenBlocks,
+            512
+        ).toUint64();
     }
 
     function postPayProver(
@@ -101,38 +91,25 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint64 provenAt,
         uint128 actualGasPrice
     ) internal virtual override {
-        if (uncleId == 0) {
-            _avgFinalizationDelay = _calcAverageTime(
-                _avgFinalizationDelay,
-                uint64(block.timestamp - proposedAt)
-            );
+        if (uncleId != 0) return;
 
-            _avgProvingDelay = _calcAverageTime(
-                _avgProvingDelay,
-                provenAt - proposedAt
-            );
+        _avgProvingDelay = _calcAverage(
+            _avgProvingDelay,
+            (provenAt - proposedAt) * NANO_PER_SECOND,
+            512
+        ).toUint64();
 
-            gasPriceNow = (gasPriceNow * 15 + actualGasPrice) / 16;
-        }
-
-        _avgProvingDelayWithUncles = _calcAverageTime(
-            _avgProvingDelayWithUncles,
-            provenAt - proposedAt
-        );
+        gasPriceNow = _calcAverage(gasPriceNow, actualGasPrice, 512).toUint128();
     }
 
-    function _calcAverageTime(uint64 avg, uint64 current)
-        private
-        pure
-        returns (uint64)
-    {
+    function _calcAverage(
+        uint256 avg,
+        uint256 current,
+        uint256 factor
+    ) private pure returns (uint256) {
         if (current == 0) return avg;
         if (avg == 0) return current;
 
-        uint256 _avg = ((STAT_AVERAGING_FACTOR - 1) *
-            avg +
-            current *
-            NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return _avg.toUint64();
+        return ((factor - 1) * avg + current) / factor;
     }
 }

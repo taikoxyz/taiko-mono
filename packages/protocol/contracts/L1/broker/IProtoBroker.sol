@@ -12,8 +12,8 @@ pragma solidity ^0.8.9;
 interface IProtoBroker {
     function chargeProposer(
         uint256 blockId,
-        uint256 numPendingBlocks,
-        uint256 numUnprovenBlocks,
+        uint64 numPendingBlocks,
+        uint64 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
     ) external returns (uint128 gasPrice);
