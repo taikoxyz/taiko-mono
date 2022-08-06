@@ -32,20 +32,76 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
     }
 
+    function chargeProposer(
+        uint256 blockId,
+        uint64 numUnprovenBlocks,
+        address proposer,
+        uint128 gasLimit
+    )
+        public
+        virtual
+        override
+        onlyFromNamed("taiko_l1")
+        returns (uint128 gasFeeReceived)
+    {
+        gasFeeReceived = ProtoBrokerBase.chargeProposer(
+            blockId,
+            numUnprovenBlocks,
+            proposer,
+            gasLimit
+        );
+
+        _avgNumUnprovenBlocks = _calcAverage(
+            _avgNumUnprovenBlocks,
+            numUnprovenBlocks,
+            512
+        ).toUint64();
+    }
+
+    function payProver(
+        uint256 blockId,
+        uint256 uncleId,
+        address prover,
+        uint128 gasFeeReceived,
+        uint64 proposedAt,
+        uint64 provenAt
+    ) public virtual override returns (uint128 gasFeePaid) {
+        gasFeePaid = ProtoBrokerBase.payProver(
+            blockId,
+            uncleId,
+            prover,
+            gasFeeReceived,
+            proposedAt,
+            provenAt
+        );
+
+        if (uncleId == 0) {
+            _avgProvingDelay = _calcAverage(
+                _avgProvingDelay,
+                (provenAt - proposedAt) * NANO_PER_SECOND,
+                512
+            ).toUint64();
+
+            // uint256 ratio = (gasFeeReceived * 1000000) / gasFeePaid;
+
+            // TODO: use 1559 to adjust _suggestedGasPrice.
+        }
+    }
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint128 _gasPriceNow,
+        uint128 __suggestedGasPrice,
         uint256 _unsettledProverFeeThreshold
     ) internal virtual override {
         ProtoBrokerBase._init(
             _addressManager,
-            _gasPriceNow,
+            __suggestedGasPrice,
             _unsettledProverFeeThreshold
         );
     }
 
-    function calculateActualGasPrice(uint128 askPrice, uint64 provingDelay)
+    function _calculateGasFeePaid(uint128 gasFeeReceived, uint64 provingDelay)
         internal
         virtual
         override
@@ -54,51 +110,18 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint64 threshold = _avgProvingDelay * 2;
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 
-        uint128 askPriceAfterTax = (askPrice * 95) / 100;
+        uint128 gasFeeAfterTax = (gasFeeReceived * 95) / 100;
 
         if (provingDelayNano < threshold) {
-            return askPriceAfterTax;
+            return gasFeeAfterTax;
         }
 
-        uint256 fee = (uint256(askPriceAfterTax) *
+        uint256 fee = (uint256(gasFeeAfterTax) *
             (provingDelayNano - threshold)) /
             _avgProvingDelay +
-            askPriceAfterTax;
+            gasFeeAfterTax;
 
         return fee.toUint128();
-    }
-
-    function postChargeProposer(
-        uint64, /* numPendingBlocks*/
-        uint64 numUnprovenBlocks,
-        uint128 /*gasLimit*/
-    ) internal virtual override {
-        _avgNumUnprovenBlocks = _calcAverage(
-            _avgNumUnprovenBlocks,
-            numUnprovenBlocks,
-            512
-        ).toUint64();
-    }
-
-    function postPayProver(
-        uint256 uncleId,
-        uint128 askPrice,
-        uint128 bidPrice,
-        uint64 proposedAt,
-        uint64 provenAt
-    ) internal virtual override {
-        if (uncleId != 0) return;
-
-        _avgProvingDelay = _calcAverage(
-            _avgProvingDelay,
-            (provenAt - proposedAt) * NANO_PER_SECOND,
-            512
-        ).toUint64();
-
-        uint256 ratio = (bidPrice * 1000000) / askPrice;
-
-        // TODO: use 1559 to adjust gasPriceNow.
-        gasPriceNow = _calcAverage(gasPriceNow, bidPrice, 512).toUint128();
     }
 
     function _calcAverage(

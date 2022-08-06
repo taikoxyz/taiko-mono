@@ -14,7 +14,7 @@ import "./IProtoBroker.sol";
 abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     uint256 public unsettledProverFeeThreshold;
     uint256 public unsettledProverFee;
-    uint128 internal gasPriceNow;
+    uint128 internal _suggestedGasPrice;
 
     uint256[47] private __gap;
 
@@ -31,49 +31,36 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function chargeProposer(
         uint256 blockId,
-        uint64 numPendingBlocks,
         uint64 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
-    )
-        external
-        virtual
-        override
-        onlyFromNamed("taiko_l1")
-        returns (uint128 askPrice)
-    {
-        askPrice = getGasPrice();
-        uint128 gasFee = _calculateFee(askPrice, gasLimit);
+    ) public virtual override returns (uint128 gasFeeReceived) {
+        gasFeeReceived = estimateGasFee(gasLimit, numUnprovenBlocks);
 
-        require(charge(proposer, gasFee), "failed to charge");
-        emit FeeCharged(blockId, proposer, gasFee);
-
-        postChargeProposer(numPendingBlocks, numUnprovenBlocks, gasLimit);
+        require(charge(proposer, gasFeeReceived), "failed to charge");
+        emit FeeCharged(blockId, proposer, gasFeeReceived);
     }
 
     function payProver(
         uint256 blockId,
         uint256 uncleId,
         address prover,
-        uint128 askPrice,
-        uint128 gasLimit,
+        uint128 gasFeeReceived,
         uint64 proposedAt,
         uint64 provenAt
-    ) external virtual override onlyFromNamed("taiko_l1") {
-        uint128 bidPrice = calculateActualGasPrice(
-            askPrice,
+    ) public virtual override returns (uint128 gasFeePaid) {
+        gasFeePaid = _calculateGasFeePaid(
+            gasFeeReceived,
             provenAt - proposedAt
         );
 
-        uint128 fee = _calculateFee(bidPrice, gasLimit);
-
         for (uint256 i = 0; i < uncleId; i++) {
-            fee /= 2;
+            gasFeePaid /= 2;
         }
 
-        if (fee > 0) {
-            if (!pay(prover, fee)) {
-                unsettledProverFee += fee;
+        if (gasFeePaid > 0) {
+            if (!pay(prover, gasFeePaid)) {
+                unsettledProverFee += gasFeePaid;
             }
 
             if (unsettledProverFee > unsettledProverFeeThreshold) {
@@ -83,60 +70,44 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             }
         }
 
-        emit FeePaid(blockId, prover, fee);
-        postPayProver(uncleId, askPrice, bidPrice, proposedAt, provenAt);
+        emit FeePaid(blockId, prover, gasFeePaid);
     }
 
-    function getGasPrice() public view virtual override returns (uint128) {
-        return gasPriceNow;
+    function _calclateGasPrice(
+        uint64 /*numUnprovenBlocks*/
+    ) internal view virtual returns (uint128) {
+        return _suggestedGasPrice;
     }
 
-    function estimateGasFee(uint128 gasLimit)
+    function estimateGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         public
         view
         virtual
         override
         returns (uint128)
     {
-        return _calculateFee(getGasPrice(), gasLimit);
-    }
-
-    function gasLimitBase() public pure virtual override returns (uint128) {
-        return 1000000;
+        uint128 gasPrice = _calclateGasPrice(numUnprovenBlocks);
+        return _calculateGasFee(gasPrice, gasLimit);
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint128 _gasPriceNow,
+        uint128 __suggestedGasPrice,
         uint256 _unsettledProverFeeThreshold
     ) internal virtual {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
-        gasPriceNow = _gasPriceNow;
+        _suggestedGasPrice = __suggestedGasPrice;
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
-    function calculateActualGasPrice(
-        uint128 askPrice,
+    function _calculateGasFeePaid(
+        uint128 gasFeeReceived,
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {
-        return askPrice;
+        return gasFeeReceived;
     }
-
-    function postChargeProposer(
-        uint64, /*numPendingBlocks*/
-        uint64, /*numUnprovenBlocks*/
-        uint128 /*gasLimit*/
-    ) internal virtual {}
-
-    function postPayProver(
-        uint256, /*uncleId*/
-        uint128, /*askPrice*/
-        uint128, /*bidPrice*/
-        uint64, /*proposedAt*/
-        uint64 /*provenAt*/
-    ) internal virtual {}
 
     function pay(
         address, /*recipient*/
@@ -158,11 +129,15 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             bool /*success*/
         );
 
-    function _calculateFee(uint128 gasPrice, uint128 gasLimit)
+    function _calculateGasFee(uint128 gasPrice, uint128 gasLimit)
         internal
         pure
         returns (uint128)
     {
-        return gasPrice * (gasLimit + gasLimitBase());
+        return gasPrice * (gasLimit + _gasLimitBase());
+    }
+
+    function _gasLimitBase() internal pure virtual returns (uint128) {
+        return 1000000;
     }
 }

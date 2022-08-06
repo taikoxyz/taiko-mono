@@ -32,8 +32,7 @@ struct BlockContext {
 
 struct PendingBlock {
     bytes32 contextHash;
-    uint128 askPrice;
-    uint128 gasLimit;
+    uint128 gasFeeReceived;
     uint8 everProven;
 }
 
@@ -182,20 +181,19 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        uint128 gasPrice = IProtoBroker(resolve("proto_broker")).chargeProposer(
-            nextPendingId,
-            nextPendingId - lastFinalizedId - 1,
-            numUnprovenBlocks,
-            msg.sender,
-            context.gasLimit
-        );
+        uint128 gasFeeReceived = IProtoBroker(resolve("proto_broker"))
+            .chargeProposer(
+                nextPendingId,
+                numUnprovenBlocks,
+                msg.sender,
+                context.gasLimit
+            );
 
         _savePendingBlock(
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
-                askPrice: gasPrice,
-                gasLimit: context.gasLimit,
+                gasFeeReceived: gasFeeReceived,
                 everProven: 1 // 0 and 1 means not proven ever
             })
         );
@@ -422,8 +420,7 @@ contract TaikoL1 is EssentialContract {
                 id,
                 fc.evidences.length,
                 evidence.prover,
-                blk.askPrice,
-                blk.gasLimit,
+                blk.gasFeeReceived,
                 evidence.provenAt,
                 evidence.proposedAt
             );
