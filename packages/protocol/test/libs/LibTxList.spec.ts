@@ -1,3 +1,4 @@
+import * as log from "../../tasks/log"
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import { UnsignedTransaction } from "ethers"
@@ -57,20 +58,20 @@ describe("LibTxList", function () {
             }
 
             const signature = await signer0.signMessage("abc123")
-            // console.log('signature: ', signature)
+            // log.debug('signature: ', signature)
 
             const txLegacyBytes = ethers.utils.serializeTransaction(
                 txLegacy,
                 signature
             )
-            console.log("txLegacyBytes: ", txLegacyBytes)
+            log.debug("txLegacyBytes: ", txLegacyBytes)
             const txListBytes = await rlpEncodeTxList([txLegacyBytes])
-            console.log("txListBytes: ", txListBytes)
+            log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxList.callStatic.decodeTxList(
                 txListBytes
             )
-            // console.log('decodedT: ', decodedTxList)
+            // log.debug('decodedT: ', decodedTxList)
             expect(decodedTxList.items.length).to.equal(1)
             const decodedTx1 = decodedTxList.items[0]
             expect(decodedTx1.gasLimit.toNumber()).to.equal(txLegacy.gasLimit)
@@ -90,12 +91,12 @@ describe("LibTxList", function () {
             }
 
             const signature = await signer0.signMessage(tx2930.data?.toString())
-            console.log("signature: ", signature)
+            log.debug("signature: ", signature)
 
             const txBytes = ethers.utils.serializeTransaction(tx2930, signature)
-            console.log("txBytes: ", txBytes)
+            log.debug("txBytes: ", txBytes)
             const txListBytes = await rlpEncodeTxList([txBytes])
-            console.log("txListBytes: ", txListBytes)
+            log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxList.callStatic.decodeTxList(
                 txListBytes
@@ -120,12 +121,12 @@ describe("LibTxList", function () {
             }
 
             const signature = await signer0.signMessage(tx1559.data?.toString())
-            console.log("signature: ", signature)
+            log.debug("signature: ", signature)
 
             const txBytes = ethers.utils.serializeTransaction(tx1559, signature)
-            console.log("txBytes: ", txBytes)
+            log.debug("txBytes: ", txBytes)
             const txListBytes = await rlpEncodeTxList([txBytes])
-            console.log("txListBytes: ", txListBytes)
+            log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxList.callStatic.decodeTxList(
                 txListBytes
@@ -183,7 +184,7 @@ describe("LibTxList", function () {
         const decodedTxList = await libTxList.callStatic.decodeTxList(
             txListBytes
         )
-        // console.log('decodedT: ', decodedTxList)
+        // log.debug('decodedT: ', decodedTxList)
         expect(decodedTxList.items.length).to.equal(txObjArr.length)
         for (let i = 0; i < txObjArr.length; i++) {
             const txObj = txObjArr[i]
