@@ -20,6 +20,7 @@ import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxList.sol";
 import "../libs/LibZKP.sol";
+import "./IBroker.sol";
 
 struct BlockContext {
     uint256 id;
@@ -31,19 +32,16 @@ struct BlockContext {
     bytes32 txListHash;
     bytes32 mixHash;
     bytes extraData;
-    uint128 feeReserve;
 }
 
 struct PendingBlock {
     bytes32 contextHash;
-    address proposer;
+    uint128 gasPrice;
+    uint128 gasLimit;
 }
 
 struct Evidence {
     address prover;
-    uint128 proverFee;
-    uint128 feeRebate;
-    uint128 reward;
     uint64 proposedAt;
     uint64 provenAt;
 }
@@ -97,12 +95,10 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant DAO_REWARD_RATIO = 100; // 100%
     uint256 public constant MIN_BLOCK_REWARD_BASE = 2E18; // 2 TAI
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
-    uint256 public constant PROVER_FEE_RESERVE_MULTIPLIER = 4; // 4X
     uint256 public constant MAX_BLOCK_REWARD_MULTIPLIER = 64; // 64X
-    uint256 public constant BLOCK_GAS_LIMIT_EXTRA = 1000000; // TODO
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
-    uint256 public constant ETH_TRANSFER_GAS_LIMIT = 25000;
+
     uint64 public constant MAX_UTILIZATION_FEE_RATIO = 500; // 500%
     uint64 public constant NANO_PER_SECOND = 1E9;
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
@@ -131,8 +127,7 @@ contract TaikoL1 is EssentialContract {
 
     // The following two variables are automiatically adjusted based on
     // the latest finalized blocks.
-    uint128 public proverGasPrice; // TODO: auto-adjustable
-    uint128 public avgProverReward;
+    uint128 public gasPrice; // TODO: auto-adjustable
 
     uint256[43] private __gap;
 
@@ -140,12 +135,6 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event ProverPaid(
-        address indexed prover,
-        uint256 id,
-        uint256 proverFee,
-        uint256 reward
-    );
     event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProven(
@@ -178,13 +167,13 @@ contract TaikoL1 is EssentialContract {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint128 _proverGasPrice,
+        uint128 _gasPrice,
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
         EssentialContract._init(_addressManager);
 
-        proverGasPrice = _proverGasPrice;
+        gasPrice = _gasPrice;
 
         finalizedBlocks[0] = _genesisBlockHash;
         nextPendingId = 1;
@@ -231,18 +220,22 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        // Check fees
-        context.feeReserve = uint128(
-            (PROVER_FEE_RESERVE_MULTIPLIER *
-                proverGasPrice *
-                (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA)).max(
-                    type(uint128).max
-                )
+        _savePendingBlock(
+            nextPendingId,
+            PendingBlock({
+                contextHash: _hashContext(context),
+                gasPrice: gasPrice,
+                gasLimit: context.gasLimit
+            })
         );
 
-        _chargeProposer(context.feeReserve);
+        // Check fees
+        IBroker(resolve("broker")).enterDeal(
+            msg.sender,
+            gasPrice,
+            context.gasLimit
+        );
 
-        _savePendingBlock(nextPendingId, _hashContext(context));
         emit BlockProposed(nextPendingId++, context);
 
         // Update stats first.
@@ -365,7 +358,6 @@ contract TaikoL1 is EssentialContract {
     function finalizeBlocks() public {
         uint64 id = lastFinalizedId + 1;
         uint256 processed = 0;
-        uint256 totalReward = 0;
 
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
             ForkChoice storage fc = forkChoices[id][
@@ -374,11 +366,11 @@ contract TaikoL1 is EssentialContract {
 
             if (fc.blockHash != 0) {
                 finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
-                totalReward += _finalizeBlock(id, fc);
+                _finalizeBlock(id, fc);
             } else {
                 fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
                 if (fc.blockHash != 0) {
-                    totalReward += _finalizeBlock(id, fc);
+                    _finalizeBlock(id, fc);
                 } else {
                     break;
                 }
@@ -388,8 +380,6 @@ contract TaikoL1 is EssentialContract {
             id += 1;
             processed += 1;
         }
-
-        _mintDaoReward(totalReward);
     }
 
     function validateContext(BlockContext memory context) public view {
@@ -397,8 +387,7 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.txListHash == 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0 &&
-                context.feeReserve == 0,
+                context.proposedAt == 0,
             "nonzero placeholder fields"
         );
 
@@ -432,7 +421,7 @@ contract TaikoL1 is EssentialContract {
             uint256 /*basisPoints*/
         )
     {
-        // TODO(daniel): optimize the math. Maybe also include `proverGasPrice` in the
+        // TODO(daniel): optimize the math. Maybe also include `gasPrice` in the
         // calculation.
         uint256 numPendingBlocks = nextPendingId - lastFinalizedId;
 
@@ -444,17 +433,6 @@ contract TaikoL1 is EssentialContract {
         return
             (MAX_UTILIZATION_FEE_RATIO * 100 * (numPendingBlocks - threshold)) /
             (MAX_PENDING_BLOCKS - threshold);
-    }
-
-    function getBlockTaiReward(uint256 provingDelay)
-        public
-        view
-        returns (uint128)
-    {
-        uint256 base = MIN_BLOCK_REWARD_BASE.max(avgProverReward);
-        uint256 reward = (base * provingDelay * provingDelay) /
-            (_stats.avgProvingDelay * _stats.avgProvingDelay);
-        return reward.min(base * MAX_BLOCK_REWARD_MULTIPLIER).toUint128();
     }
 
     /**********************
@@ -485,48 +463,28 @@ contract TaikoL1 is EssentialContract {
 
         Evidence memory evidence = Evidence({
             prover: msg.sender,
-            proverFee: 0,
-            feeRebate: 0,
-            reward: 0,
             proposedAt: context.proposedAt,
             provenAt: uint64(block.timestamp)
         });
-
-        if (fc.evidences.length == 0) {
-            // Only the first prover get the proverFee
-            evidence.proverFee = uint128(
-                (proverGasPrice * (context.gasLimit + BLOCK_GAS_LIMIT_EXTRA))
-                    .min(context.feeReserve)
-            );
-
-            evidence.feeRebate = context.feeReserve - evidence.proverFee;
-            evidence.reward = getBlockTaiReward(
-                evidence.provenAt - evidence.proposedAt
-            );
-        } else {
-            // Uncle proof reward is now based on the first proof submitted,
-            // which avoid provers waiting for larger block rewards.
-            evidence.reward =
-                fc.evidences[0].reward /
-                uint128(fc.evidences.length + 2);
-        }
 
         fc.evidences.push(evidence);
 
         emit BlockProven(context.id, parentHash, blockHash, evidence);
     }
 
-    function _finalizeBlock(uint64 id, ForkChoice storage fc)
-        private
-        returns (uint256 totalReward)
-    {
+    function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
+        PendingBlock storage blk = _getPendingBlock(id);
+
         for (uint256 i = 0; i < fc.evidences.length; i++) {
             Evidence memory evidence = fc.evidences[i];
 
-            // Pay prover fee and block reward
-            _payProver(i, evidence);
-
-            totalReward += evidence.reward;
+            IBroker(resolve("broker")).payProver(
+                evidence.prover,
+                blk.gasPrice,
+                blk.gasLimit,
+                evidence.provenAt - evidence.proposedAt,
+                fc.evidences.length
+            );
 
             // Update stats
             if (i == 0) {
@@ -543,14 +501,6 @@ contract TaikoL1 is EssentialContract {
                         _stats.avgProvingDelay,
                         evidence.provenAt - evidence.proposedAt,
                         type(uint64).max
-                    )
-                );
-
-                avgProverReward = uint128(
-                    _calcAverage(
-                        avgProverReward,
-                        evidence.reward,
-                        type(uint128).max
                     )
                 );
             }
@@ -571,84 +521,8 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _chargeProposer(uint256 proverFee) private {
-        uint256 utilizationFee = (proverFee * getUtilizationFeeBips()) / 10000;
-        uint256 totalFees = proverFee + utilizationFee;
-
-        require(msg.value >= totalFees, "insufficient fee");
-
-        // Refund
-        if (msg.value > totalFees) {
-            payable(msg.sender).transfer(msg.value - totalFees);
-        }
-        if (utilizationFee > 0) {
-            payable(resolve("dao_vault")).transfer(utilizationFee);
-        }
-    }
-
-    function _payProver(uint256 id, Evidence memory evidence) private {
-        address proposer = _getPendingBlock(id).proposer;
-
-        bool success;
-        if (evidence.proverFee > 0) {
-            (success, ) = evidence.prover.call{
-                gas: ETH_TRANSFER_GAS_LIMIT,
-                value: evidence.proverFee
-            }("");
-            if (!success) {
-                unsettledProverFee += evidence.proverFee;
-            }
-        }
-
-        if (evidence.feeRebate > 0) {
-            (success, ) = proposer.call{
-                gas: ETH_TRANSFER_GAS_LIMIT,
-                value: evidence.feeRebate
-            }("");
-            if (!success) {
-                unsettledProverFee += evidence.feeRebate;
-            }
-        }
-
-        if (unsettledProverFee > 1) {
-            (success, ) = resolve("dao_vault").call{
-                value: unsettledProverFee - 1
-            }("");
-            if (success) {
-                unsettledProverFee = 1;
-            }
-        }
-
-        if (evidence.reward > 0) {
-            IMintableERC20(resolve("tai_token")).mint(
-                evidence.prover,
-                evidence.reward
-            );
-        }
-
-        emit ProverPaid(
-            evidence.prover,
-            id,
-            evidence.proverFee,
-            evidence.reward
-        );
-    }
-
-    function _mintDaoReward(uint256 totalReward) private {
-        uint256 daoReward = (totalReward * DAO_REWARD_RATIO) / 100;
-        if (daoReward == 0) return;
-
-        IMintableERC20(resolve("tai_token")).mint(
-            resolve("dao_vault"),
-            daoReward
-        );
-    }
-
-    function _savePendingBlock(uint256 id, bytes32 contextHash) private {
-        pendingBlocks[id % MAX_PENDING_BLOCKS] = PendingBlock({
-            contextHash: contextHash,
-            proposer: msg.sender
-        });
+    function _savePendingBlock(uint256 id, PendingBlock memory blk) private {
+        pendingBlocks[id % MAX_PENDING_BLOCKS] = blk;
     }
 
     function _getPendingBlock(uint256 id)
