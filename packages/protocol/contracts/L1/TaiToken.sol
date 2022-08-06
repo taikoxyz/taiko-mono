@@ -31,6 +31,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      * Events            *
      *********************/
     event Mint(address account, uint256 amount);
+    event Burn(address account, uint256 amount);
 
     /*********************
      * External Functions*
@@ -74,10 +75,25 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function mint(address account, uint256 amount)
         public
-        onlyFromNamed("taiko_l1")
+        onlyFromNamed("proto_broker")
     {
         require(account != address(0), "TAI: invalid address");
         _mint(account, amount);
         emit Mint(account, amount);
+    }
+
+    /**
+     * @dev Burn tokens from the given address's balance. This will decrease
+     *      the circulating supply.
+     * @param account The address to burn the tokens from.
+     * @param amount The amount of tokens to burn.
+     */
+    function burn(address account, uint256 amount)
+        public
+        onlyFromNamed("proto_broker")
+    {
+        require(account != address(0), "TAI: invalid address");
+        _burn(account, amount);
+        emit Burn(account, amount);
     }
 }
