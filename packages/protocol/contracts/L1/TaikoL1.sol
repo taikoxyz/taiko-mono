@@ -51,14 +51,6 @@ struct ForkChoice {
     Evidence[] evidences;
 }
 
-// all stat time units are nanosecond
-struct Stats {
-    uint64 avgPendingSize;
-    uint64 avgProvingDelay;
-    uint64 avgProvingDelayWithUncles;
-    uint64 avgFinalizationDelay;
-}
-
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
 //                  will always be zeros, and this will be checked by zkEVM.
@@ -115,8 +107,6 @@ contract TaikoL1 is EssentialContract {
 
     // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
-
-    Stats private _stats; // 1 slot
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
@@ -205,6 +195,8 @@ contract TaikoL1 is EssentialContract {
 
         uint128 gasPrice = IBroker(resolve("broker")).chargeProposer(
             nextPendingId,
+            nextPendingId - lastFinalizedId - 1,
+            0, // TODO:
             msg.sender,
             context.gasLimit
         );
@@ -219,15 +211,6 @@ contract TaikoL1 is EssentialContract {
         );
 
         emit BlockProposed(nextPendingId++, context);
-
-        // Update stats first.
-        _stats.avgPendingSize = uint64(
-            _calcAverage(
-                _stats.avgPendingSize,
-                nextPendingId - lastFinalizedId - 1,
-                type(uint64).max
-            )
-        );
     }
 
     function proveBlock(
@@ -388,14 +371,6 @@ contract TaikoL1 is EssentialContract {
         require(context.extraData.length <= 32, "extraData too large");
     }
 
-    function getStats() public view returns (Stats memory stats) {
-        stats = _stats;
-        stats.avgPendingSize /= NANO_PER_SECOND;
-        stats.avgProvingDelay /= NANO_PER_SECOND;
-        stats.avgProvingDelayWithUncles /= NANO_PER_SECOND;
-        stats.avgFinalizationDelay /= NANO_PER_SECOND;
-    }
-
     /**********************
      * Private Functions  *
      **********************/
@@ -445,34 +420,8 @@ contract TaikoL1 is EssentialContract {
                 evidence.prover,
                 blk.gasPrice,
                 blk.gasLimit,
-                evidence.provenAt - evidence.proposedAt
-            );
-
-            // Update stats
-            if (i == 0) {
-                _stats.avgFinalizationDelay = uint64(
-                    _calcAverage(
-                        _stats.avgFinalizationDelay,
-                        uint64(block.timestamp - evidence.proposedAt),
-                        type(uint64).max
-                    )
-                );
-
-                _stats.avgProvingDelay = uint64(
-                    _calcAverage(
-                        _stats.avgProvingDelay,
-                        evidence.provenAt - evidence.proposedAt,
-                        type(uint64).max
-                    )
-                );
-            }
-
-            _stats.avgProvingDelayWithUncles = uint64(
-                _calcAverage(
-                    _stats.avgProvingDelayWithUncles,
-                    evidence.provenAt - evidence.proposedAt,
-                    type(uint128).max
-                )
+                evidence.provenAt,
+                evidence.proposedAt
             );
         }
 

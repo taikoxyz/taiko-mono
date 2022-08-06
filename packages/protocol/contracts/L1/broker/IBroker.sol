@@ -20,6 +20,8 @@ interface IBroker {
 
     function chargeProposer(
         uint256 blockId,
+        uint256 numPendingBlocks,
+        uint256 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
     ) external returns (uint128 gasPrice);
@@ -30,6 +32,7 @@ interface IBroker {
         address prover,
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
-        uint64 provingDelay
+        uint64 proposedAt,
+        uint64 provenAt
     ) external;
 }

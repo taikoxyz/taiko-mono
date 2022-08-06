@@ -55,6 +55,8 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
 
     function chargeProposer(
         uint256 blockId,
+        uint256 numPendingBlocks,
+        uint256 numUnprovenBlocks,
         address proposer,
         uint128 gasLimit
     )
@@ -68,6 +70,14 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         gasPrice = gasPriceNow;
         require(charge(proposer, fee), "failed to charge");
         emit FeeTransacted(blockId, proposer, fee, false);
+
+        postChargeProposer(
+            blockId,
+            numPendingBlocks,
+            numUnprovenBlocks,
+            proposer,
+            gasLimit
+        );
     }
 
     function payProver(
@@ -76,7 +86,8 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         address prover,
         uint128 gasPriceAtProposal,
         uint128 gasLimit,
-        uint64 provingDelay
+        uint64 proposedAt,
+        uint64 provenAt
     ) external virtual override onlyFromNamed("taiko_l1") {
         uint128 fee = calculateActualFee(
             blockId,
@@ -84,7 +95,7 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
             prover,
             gasPriceAtProposal,
             gasLimit,
-            provingDelay
+            provenAt - proposedAt
         );
         if (fee > 0) {
             if (!pay(prover, fee)) {
@@ -99,6 +110,15 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         }
 
         emit FeeTransacted(blockId, prover, fee, false);
+        postPayProver(
+            blockId,
+            uncleId,
+            prover,
+            gasPriceAtProposal,
+            gasLimit,
+            proposedAt,
+            provenAt
+        );
     }
 
     function calculateActualFee(
@@ -111,6 +131,24 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
     ) internal virtual returns (uint128) {
         return gasPriceAtProposal * (gasLimit + gasLimitBase());
     }
+
+    function postChargeProposer(
+        uint256 blockId,
+        uint256 numPendingBlocks,
+        uint256 numUnprovenBlocks,
+        address proposer,
+        uint128 gasLimit
+    ) internal virtual {}
+
+    function postPayProver(
+        uint256 blockId,
+        uint256 uncleId,
+        address prover,
+        uint128 gasPriceAtProposal,
+        uint128 gasLimit,
+        uint64 proposedAt,
+        uint64 provenAt
+    ) internal virtual {}
 
     function pay(address recipient, uint256 amount)
         internal
