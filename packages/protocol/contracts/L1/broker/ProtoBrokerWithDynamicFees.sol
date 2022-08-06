@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "./ProtoBrokerBase.sol";
 
-abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
+abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     using SafeCastUpgradeable for uint256;
 
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
@@ -100,9 +100,8 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
         uint128, /*gasLimit*/
         uint64 proposedAt,
         uint64 provenAt,
-        uint128 /*actualGasPrice*/
+        uint128 actualGasPrice
     ) internal virtual override {
-        // Update stats
         if (uncleId == 0) {
             _avgFinalizationDelay = _calcAverage(
                 _avgFinalizationDelay,
@@ -113,6 +112,8 @@ abstract contract ProtoBrokerWithStats is ProtoBrokerBase {
                 _avgProvingDelay,
                 provenAt - proposedAt
             );
+
+            gasPriceNow = (gasPriceNow * 15 + actualGasPrice) / 16;
         }
 
         _avgProvingDelayWithUncles = _calcAverage(

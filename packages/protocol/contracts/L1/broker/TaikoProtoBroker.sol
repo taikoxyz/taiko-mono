@@ -9,9 +9,9 @@
 pragma solidity ^0.8.9;
 
 import "../../common/IMintableERC20.sol";
-import "./ProtoBrokerWithStats.sol";
+import "./ProtoBrokerWithDynamicFees.sol";
 
-contract TaikoProtoBroker is ProtoBrokerWithStats {
+contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
     uint256[50] private __gap;
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -22,7 +22,7 @@ contract TaikoProtoBroker is ProtoBrokerWithStats {
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
-        ProtoBrokerWithStats._init(
+        ProtoBrokerWithDynamicFees._init(
             _addressManager,
             _gasPriceNow,
             _unsettledProverFeeThreshold
