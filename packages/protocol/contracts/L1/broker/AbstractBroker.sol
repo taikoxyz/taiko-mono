@@ -74,22 +74,27 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         uint256 blockId,
         uint256 uncleId,
         address prover,
-        uint128 gasPrice,
+        uint128 gasPriceAtProposal,
         uint128 gasLimit,
         uint64 provingDelay
     ) external virtual override onlyFromNamed("taiko_l1") {
-        uint128 prepaid = gasPrice * (gasLimit + gasLimitBase());
-        uint128 fee;
-
+        uint128 fee = calculateActualFee(
+            blockId,
+            uncleId,
+            prover,
+            gasPriceAtProposal,
+            gasLimit,
+            provingDelay
+        );
         if (fee > 0) {
             if (!pay(prover, fee)) {
                 unsettledProverFee += fee;
             }
-        }
 
-        if (unsettledProverFee > unsettledProverFeeThreshold) {
-            if (pay(resolve("dao_vault"), unsettledProverFee - 1)) {
-                unsettledProverFee = 1;
+            if (unsettledProverFee > unsettledProverFeeThreshold) {
+                if (pay(resolve("dao_vault"), unsettledProverFee - 1)) {
+                    unsettledProverFee = 1;
+                }
             }
         }
 
@@ -105,9 +110,13 @@ abstract contract AbstractBroker is IBroker, EssentialContract {
         internal
         virtual
         returns (bool success);
-}
 
-// IMintableERC20(resolve("tai_token")).mint(
-//     resolve("dao_vault"),
-//     daoReward
-// );
+    function calculateActualFee(
+        uint256 blockId,
+        uint256 uncleId,
+        address prover,
+        uint128 gasPriceAtProposal,
+        uint128 gasLimit,
+        uint64 provingDelay
+    ) internal virtual returns (uint128);
+}
