@@ -96,12 +96,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         return proposerFee;
     }
 
-    function _getProposerGasPrice(
-        uint64 /*numUnprovenBlocks*/
-    ) internal view virtual returns (uint128);
-
-    function _gasLimitBase() internal pure virtual returns (uint128);
-
     function _payFee(
         address, /*recipient*/
         uint256 /*amount*/
@@ -121,6 +115,12 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         returns (
             bool /*success*/
         );
+
+    function _getProposerGasPrice(
+        uint64 /*numUnprovenBlocks*/
+    ) internal view virtual returns (uint128);
+
+    function _gasLimitBase() internal pure virtual returns (uint128);
 
     function _calculateFee(uint128 gasPrice, uint128 gasLimit)
         private

@@ -28,15 +28,6 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     uint256[49] private __gap;
 
-    function getStats()
-        public
-        view
-        returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
-    {
-        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / NANO_PER_SECOND;
-        avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
-    }
-
     function chargeProposer(
         uint256 blockId,
         address proposer,
@@ -98,6 +89,15 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
                 )
                 .toUint128();
         }
+    }
+
+    function getStats()
+        public
+        view
+        returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
+    {
+        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / NANO_PER_SECOND;
+        avgProvingDelay = _avgProvingDelay / NANO_PER_SECOND;
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
