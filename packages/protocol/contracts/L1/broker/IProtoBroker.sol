@@ -8,20 +8,26 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+/// @author dantaik <dan@taiko.xyz>
+interface IProtoBroker {
+    function chargeProposer(
+        uint256 blockId,
+        address proposer,
+        uint128 gasLimit,
+        uint64 numUnprovenBlocks
+    ) external returns (uint128 proposerFee);
 
-// TODO: implement this contract
-contract KeyManager is OwnableUpgradeable {
-    function init() external initializer {
-        OwnableUpgradeable.__Ownable_init();
-    }
+    function payProver(
+        uint256 blockId,
+        address prover,
+        uint256 uncleId,
+        uint64 proposedAt,
+        uint64 provenAt,
+        uint128 proposerFee
+    ) external returns (uint128 proverFee);
 
-    function setKey(string calldata name, bytes calldata key)
+    function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         external
-        onlyOwner
-    {
-        // TODO: implement and emit event
-    }
-
-    function getKey(string memory name) public view returns (bytes memory) {}
+        view
+        returns (uint128 gasFee);
 }
