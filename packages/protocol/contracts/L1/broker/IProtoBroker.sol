@@ -26,7 +26,7 @@ interface IProtoBroker {
         uint128 gasFeeReceived
     ) external returns (uint128 gasFeePaid);
 
-    function getProposerGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
+    function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         external
         view
         returns (uint128 gasFee);

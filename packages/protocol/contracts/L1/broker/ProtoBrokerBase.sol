@@ -12,11 +12,11 @@ import "../../common/EssentialContract.sol";
 import "./IProtoBroker.sol";
 
 abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
-    uint256 public unsettledProverFeeThreshold;
-    uint256 public unsettledProverFee;
+    uint128 public unsettledProverFeeThreshold;
+    uint128 public unsettledProverFee;
     uint128 internal _suggestedGasPrice;
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     event FeeCharged(
         uint256 indexed blockId,
@@ -36,7 +36,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128 gasLimit,
         uint64 numUnprovenBlocks
     ) public virtual override returns (uint128 gasFeeReceived) {
-        gasFeeReceived = getProposerGasFee(gasLimit, numUnprovenBlocks);
+        gasFeeReceived = getProposerFee(gasLimit, numUnprovenBlocks);
 
         require(_chargeFee(proposer, gasFeeReceived), "failed to charge");
         emit FeeCharged(blockId, proposer, gasFeeReceived);
@@ -50,14 +50,12 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint64 provenAt,
         uint128 gasFeeReceived
     ) public virtual override returns (uint128 gasFeePaid) {
-        gasFeePaid = _calculateGasFeePaid(
+        gasFeePaid = _calculateActualProverFee(
             gasFeeReceived,
             provenAt - proposedAt
         );
 
-        for (uint256 i = 0; i < uncleId; i++) {
-            gasFeePaid /= 2;
-        }
+        gasFeePaid /= uint128(uncleId + 1);
 
         if (gasFeePaid > 0) {
             if (!_payFee(prover, gasFeePaid)) {
@@ -74,7 +72,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         emit FeePaid(blockId, prover, gasFeePaid, uncleId);
     }
 
-    function getProposerGasFee(uint128 gasLimit, uint64 numUnprovenBlocks)
+    function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         public
         view
         virtual
@@ -90,14 +88,14 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint256 _unsettledProverFeeThreshold
+        uint128 _unsettledProverFeeThreshold
     ) internal virtual {
         require(_unsettledProverFeeThreshold > 0, "threshold too small");
         EssentialContract._init(_addressManager);
         unsettledProverFeeThreshold = _unsettledProverFeeThreshold;
     }
 
-    function _calculateGasFeePaid(
+    function _calculateActualProverFee(
         uint128 gasFeeReceived,
         uint64 /*provingDelay*/
     ) internal virtual returns (uint128) {

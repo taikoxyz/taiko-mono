@@ -92,7 +92,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint256 _unsettledProverFeeThreshold,
+        uint128 _unsettledProverFeeThreshold,
         uint128 _suggestedGasPrice
     ) internal virtual {
         ProtoBrokerBase._init(_addressManager, _unsettledProverFeeThreshold);
@@ -106,12 +106,10 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         return suggestedGasPrice;
     }
 
-    function _calculateGasFeePaid(uint128 gasFeeReceived, uint64 provingDelay)
-        internal
-        virtual
-        override
-        returns (uint128)
-    {
+    function _calculateActualProverFee(
+        uint128 gasFeeReceived,
+        uint64 provingDelay
+    ) internal virtual override returns (uint128) {
         uint64 threshold = _avgProvingDelay * 2;
         uint64 provingDelayNano = provingDelay * NANO_PER_SECOND;
 

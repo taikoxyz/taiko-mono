@@ -18,7 +18,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
     function init(
         address _addressManager,
         uint128 _gasPriceNow,
-        uint256 _unsettledProverFeeThreshold,
+        uint128 _unsettledProverFeeThreshold,
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
@@ -33,7 +33,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         taiToken.mint(resolve("team_vault"), _amountMintToTeam);
     }
 
-    function feeToken() public view override returns (address) {
+    function feeToken() public view returns (address) {
         return resolve("tai_token");
     }
 
