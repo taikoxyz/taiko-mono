@@ -230,9 +230,9 @@ contract TaikoL1 is EssentialContract {
         );
 
         // Check fees
-        IBroker(resolve("broker")).enterDeal(
+        IBroker(resolve("broker")).chargeProposer(
+            nextPendingId,
             msg.sender,
-            gasPrice,
             context.gasLimit
         );
 
@@ -479,6 +479,7 @@ contract TaikoL1 is EssentialContract {
             Evidence memory evidence = fc.evidences[i];
 
             IBroker(resolve("broker")).payProver(
+                i,
                 evidence.prover,
                 blk.gasPrice,
                 blk.gasLimit,
