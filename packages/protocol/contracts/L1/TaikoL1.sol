@@ -102,7 +102,7 @@ contract TaikoL1 is EssentialContract {
     uint64 public nextPendingId;
     uint64 public numUnprovenBlocks;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Events             *
