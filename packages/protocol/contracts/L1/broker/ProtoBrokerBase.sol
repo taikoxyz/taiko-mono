@@ -98,7 +98,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function _getProposerGasPrice(
         uint64 /*numUnprovenBlocks*/
-    ) public view virtual returns (uint128);
+    ) internal view virtual returns (uint128);
 
     function _gasLimitBase() internal pure virtual returns (uint128);
 

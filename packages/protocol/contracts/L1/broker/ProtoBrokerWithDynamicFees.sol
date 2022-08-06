@@ -10,12 +10,16 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../libs/LibMath.sol";
+import "../../libs/Lib1559Math.sol";
 import "./ProtoBrokerBase.sol";
 
 abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     using SafeCastUpgradeable for uint256;
+    using LibMath for uint256;
 
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
+    uint256 internal constant TARGET_FEE_ROI = 1000000;
     uint64 internal constant NANO_PER_SECOND = 1E9;
 
     uint64 internal _avgNumUnprovenBlocks;
@@ -83,9 +87,16 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
                 512
             ).toUint64();
 
-            // uint256 ratio = (proposerFee * 1000000) / proverFee;
+            uint256 roiMeasured = (proposerFee * TARGET_FEE_ROI) / proverFee;
 
-            // TODO: use 1559 to adjust _suggestedGasPrice.
+            _suggestedGasPrice = Lib1559Math
+                .adjustTarget(
+                    _suggestedGasPrice,
+                    roiMeasured,
+                    TARGET_FEE_ROI,
+                    16
+                )
+                .toUint128();
         }
     }
 
@@ -123,11 +134,24 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         return fee.toUint128();
     }
 
-    function _getProposerGasPrice(
-        uint64 /*numUnprovenBlocks*/
-    ) public view virtual override returns (uint128) {
-        //TODO: _avgNumUnprovenBlocks
-        return suggestedGasPrice;
+    function _getProposerGasPrice(uint64 numUnprovenBlocks)
+        internal
+        view
+        virtual
+        override
+        returns (uint128)
+    {
+        uint64 threshold = _avgNumUnprovenBlocks > 64
+            ? _avgNumUnprovenBlocks
+            : 64;
+
+        if (numUnprovenBlocks <= threshold) {
+            return suggestedGasPrice;
+        } else {
+            uint256 premeium = (10000 * numUnprovenBlocks) / (2 * threshold);
+            premeium = premeium.min(20000);
+            return (suggestedGasPrice * uint128(premeium)) / 10000;
+        }
     }
 
     function _calcAverage(
