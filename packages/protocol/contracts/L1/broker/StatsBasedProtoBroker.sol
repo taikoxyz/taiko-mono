@@ -8,11 +8,15 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../../libs/LibMath.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
+// import "../../libs/LibMath.sol";
 import "./AbstractProtoBroker.sol";
 
 abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
-    using LibMath for uint256;
+    using SafeCastUpgradeable for uint256;
+    // using LibMath for uint256;
+
     uint256 public constant STAT_AVERAGING_FACTOR = 2048;
     uint64 public constant NANO_PER_SECOND = 1E9;
 
@@ -20,6 +24,8 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
     uint64 public avgProvingDelay;
     uint64 public avgProvingDelayWithUncles;
     uint64 public avgFinalizationDelay;
+
+    uint256[49] private __gap;
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
@@ -42,9 +48,7 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
         uint128 /*gasLimit*/
     ) internal virtual override {
         // Update stats first.
-        avgPendingSize = uint64(
-            _calcAverage(avgPendingSize, numPendingBlocks, type(uint64).max)
-        );
+        avgPendingSize = _calcAverage(avgPendingSize, uint64(numPendingBlocks));
     }
 
     function postPayProver(
@@ -58,37 +62,28 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
     ) internal virtual override {
         // Update stats
         if (uncleId == 0) {
-            avgFinalizationDelay = uint64(
-                _calcAverage(
-                    avgFinalizationDelay,
-                    uint64(block.timestamp - proposedAt),
-                    type(uint64).max
-                )
+            avgFinalizationDelay = _calcAverage(
+                avgFinalizationDelay,
+                uint64(block.timestamp - proposedAt)
             );
 
-            avgProvingDelay = uint64(
-                _calcAverage(
-                    avgProvingDelay,
-                    provenAt - proposedAt,
-                    type(uint64).max
-                )
+            avgProvingDelay = _calcAverage(
+                avgProvingDelay,
+                provenAt - proposedAt
             );
         }
 
-        avgProvingDelayWithUncles = uint64(
-            _calcAverage(
-                avgProvingDelayWithUncles,
-                provenAt - proposedAt,
-                type(uint128).max
-            )
+        avgProvingDelayWithUncles = _calcAverage(
+            avgProvingDelayWithUncles,
+            provenAt - proposedAt
         );
     }
 
-    function _calcAverage(
-        uint256 avg,
-        uint256 current,
-        uint256 max
-    ) private pure returns (uint256) {
+    function _calcAverage(uint64 avg, uint64 current)
+        private
+        pure
+        returns (uint64)
+    {
         if (current == 0) return avg;
         if (avg == 0) return current;
 
@@ -96,6 +91,6 @@ abstract contract StatsBasedProtoBroker is AbstractProtoBroker {
             avg +
             current *
             NANO_PER_SECOND) / STAT_AVERAGING_FACTOR;
-        return _avg.min(max);
+        return _avg.toUint64();
     }
 }

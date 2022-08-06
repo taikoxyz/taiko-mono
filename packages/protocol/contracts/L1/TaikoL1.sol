@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-// import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
@@ -102,7 +100,7 @@ contract TaikoL1 is EssentialContract {
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
 
-    uint256[43] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *

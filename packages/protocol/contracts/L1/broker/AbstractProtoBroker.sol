@@ -16,6 +16,8 @@ abstract contract AbstractProtoBroker is IProtoBroker, EssentialContract {
     uint256 public unsettledProverFee;
     uint128 internal gasPriceNow;
 
+    uint256[47] private __gap;
+
     event FeeCharged(
         uint256 indexed blockId,
         address indexed account,

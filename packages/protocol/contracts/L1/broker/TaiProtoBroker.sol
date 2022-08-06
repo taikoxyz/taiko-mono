@@ -12,6 +12,8 @@ import "../../common/IMintableERC20.sol";
 import "./StatsBasedProtoBroker.sol";
 
 contract TaiProtoBroker is StatsBasedProtoBroker {
+    uint256[50] private __gap;
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(
         address _addressManager,
