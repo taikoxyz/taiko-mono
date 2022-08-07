@@ -18,14 +18,14 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
     function init(
         address _addressManager,
         uint128 _gasPriceNow,
-        uint128 _unsettledProverFeeThreshold,
+        uint128 _amountToMintToDAOThreshold,
         uint256 _amountMintToDAO,
         uint256 _amountMintToTeam
     ) external initializer {
         ProtoBrokerWithDynamicFees._init(
             _addressManager,
             _gasPriceNow,
-            _unsettledProverFeeThreshold
+            _amountToMintToDAOThreshold
         );
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
@@ -37,7 +37,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return resolve("tai_token");
     }
 
-    function _payFee(address recipient, uint256 amount)
+    function payFee(address recipient, uint256 amount)
         internal
         override
         returns (bool success)
@@ -48,7 +48,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return true;
     }
 
-    function _chargeFee(address recipient, uint256 amount)
+    function chargeFee(address recipient, uint256 amount)
         internal
         override
         returns (bool success)
@@ -59,7 +59,7 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         return true;
     }
 
-    function _gasLimitBase() internal pure override returns (uint128) {
+    function getGasLimitBase() internal pure override returns (uint128) {
         return 1000000;
     }
 }

@@ -36,15 +36,11 @@ struct PendingBlock {
     uint8 everProven;
 }
 
-struct Evidence {
-    address prover;
-    uint64 proposedAt;
-    uint64 provenAt;
-}
-
 struct ForkChoice {
     bytes32 blockHash;
-    Evidence[] evidences;
+    uint64 proposedAt;
+    uint64 provenAt;
+    address[] provers;
 }
 
 /// @dev We have the following design assumptions:
@@ -113,7 +109,9 @@ contract TaikoL1 is EssentialContract {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        Evidence evidence
+        uint64 proposedAt,
+        uint64 provenAt,
+        address prover
     );
 
     event BlockFinalized(
@@ -155,7 +153,7 @@ contract TaikoL1 is EssentialContract {
     ///        be zeros, and their actual values will be provisioned by Ethereum.
     ///        - txListHash
     ///        - mixHash
-    ///        - timestamp
+    ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
@@ -198,6 +196,8 @@ contract TaikoL1 is EssentialContract {
             })
         );
 
+        numUnprovenBlocks += 1;
+
         emit BlockProposed(nextPendingId++, context);
     }
 
@@ -209,6 +209,13 @@ contract TaikoL1 is EssentialContract {
     ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
+
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
+            context,
+            header.parentHash,
+            blockHash
+        );
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
@@ -236,15 +243,6 @@ contract TaikoL1 is EssentialContract {
             proofVal,
             proofs[1]
         );
-
-        numUnprovenBlocks += 1;
-
-        _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
-            context,
-            header.parentHash,
-            blockHash
-        );
     }
 
     function proveBlockInvalid(
@@ -269,6 +267,13 @@ contract TaikoL1 is EssentialContract {
             "parent mismatch"
         );
 
+        _proveBlock(
+            MAX_PROOFS_PER_BLOCK,
+            context,
+            SKIP_OVER_BLOCK_HASH,
+            SKIP_OVER_BLOCK_HASH
+        );
+
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             throwAwayHeader.parentHash,
@@ -277,22 +282,15 @@ contract TaikoL1 is EssentialContract {
             proofs[0]
         );
 
-        (bytes32 key, bytes32 value) = LibStorageProof
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(context.txListHash);
 
         LibMerkleProof.verify(
             throwAwayHeader.stateRoot,
             resolve("taiko_l2"),
-            key,
-            value,
+            proofKey,
+            proofVal,
             proofs[1]
-        );
-
-        _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
-            context,
-            SKIP_OVER_BLOCK_HASH,
-            SKIP_OVER_BLOCK_HASH
         );
     }
 
@@ -380,25 +378,27 @@ contract TaikoL1 is EssentialContract {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
+            fc.proposedAt = context.proposedAt;
+            fc.provenAt = uint64(block.timestamp);
         } else {
-            require(fc.blockHash == blockHash, "conflicting proof");
-            require(fc.evidences.length < maxNumProofs, "too many proofs");
+            require(
+                fc.blockHash == blockHash &&
+                    fc.proposedAt == context.proposedAt,
+                "conflicting proof"
+            );
+            require(fc.provers.length < maxNumProofs, "too many proofs");
 
-            for (uint256 i = 0; i < fc.evidences.length; i++) {
-                require(
-                    fc.evidences[i].prover != msg.sender,
-                    "duplicate proof"
-                );
+            // No uncle proof can take more than 1.5x time the first proof did.
+            uint256 delay = fc.provenAt - fc.proposedAt;
+            uint256 deadline = fc.provenAt + delay / 2;
+            require(block.timestamp <= deadline, "too late");
+
+            for (uint256 i = 0; i < fc.provers.length; i++) {
+                require(fc.provers[i] != msg.sender, "duplicate prover");
             }
         }
 
-        Evidence memory evidence = Evidence({
-            prover: msg.sender,
-            proposedAt: context.proposedAt,
-            provenAt: uint64(block.timestamp)
-        });
-
-        fc.evidences.push(evidence);
+        fc.provers.push(msg.sender);
 
         PendingBlock storage blk = _getPendingBlock(context.id);
         if (blk.everProven != 2) {
@@ -407,24 +407,24 @@ contract TaikoL1 is EssentialContract {
             numUnprovenBlocks -= 1;
         }
 
-        emit BlockProven(context.id, parentHash, blockHash, evidence);
+        emit BlockProven(
+            context.id,
+            parentHash,
+            blockHash,
+            fc.proposedAt,
+            fc.provenAt,
+            msg.sender
+        );
     }
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
-        PendingBlock storage blk = _getPendingBlock(id);
-
-        for (uint256 i = 0; i < fc.evidences.length; i++) {
-            Evidence memory evidence = fc.evidences[i];
-
-            IProtoBroker(resolve("proto_broker")).payProver(
-                id,
-                evidence.prover,
-                fc.evidences.length,
-                evidence.provenAt,
-                evidence.proposedAt,
-                blk.proposerFee
-            );
-        }
+        IProtoBroker(resolve("proto_broker")).payProvers(
+            id,
+            fc.provenAt,
+            fc.proposedAt,
+            _getPendingBlock(id).proposerFee,
+            fc.provers
+        );
 
         emit BlockFinalized(
             id,
