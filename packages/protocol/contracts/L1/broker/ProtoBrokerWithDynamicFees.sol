@@ -152,7 +152,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         } else {
             uint256 premium = (10000 * numUnprovenBlocks) / (2 * threshold);
             premium = premium.min(FEE_PREMIUM_MAX_MUTIPLIER * 10000);
-            return (suggestedGasPrice * uint128(premium)) / 10000;
+            return (suggestedGasPrice * premium) / 10000;
         }
     }
 
