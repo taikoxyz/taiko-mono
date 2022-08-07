@@ -147,9 +147,9 @@ async function generateContractConfigs(
     chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
-        LibTxList: require(path.join(
+        LibTxListValidator: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibTxList.sol/LibTxList.json"
+            "./libs/LibTxListValidator.sol/LibTxListValidator.json"
         )),
         TaikoL2: require(path.join(
             ARTIFACTS_PATH,
@@ -163,8 +163,8 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode
 
         if (contractName === "TaikoL2") {
-            if (!addressMap.LibTxList) {
-                throw new Error("LibTxList's address not initialized")
+            if (!addressMap.LibTxListValidator) {
+                throw new Error("LibTxListValidator's address not initialized")
             }
 
             bytecode = linkTaikoL2Bytecode(bytecode, addressMap)
@@ -183,9 +183,10 @@ async function generateContractConfigs(
     console.log(addressMap)
 
     return {
-        LibTxList: {
-            address: addressMap.LibTxList,
-            deployedBytecode: contractArtifacts.LibTxList.deployedBytecode,
+        LibTxListValidator: {
+            address: addressMap.LibTxListValidator,
+            deployedBytecode:
+                contractArtifacts.LibTxListValidator.deployedBytecode,
             variables: {},
         },
         TaikoL2: {
@@ -205,11 +206,11 @@ function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
     if (Object.keys(refs).length !== 1) {
-        throw new Error("link reference not only LibTxList")
+        throw new Error("link reference not only LibTxListValidator")
     }
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTxList,
+        [Object.keys(refs)[0]]: addressMap.LibTxListValidator,
     })
 
     if (linkedBytecode.includes("$__")) {
