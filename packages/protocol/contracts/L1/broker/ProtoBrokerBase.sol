@@ -8,10 +8,13 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../../common/EssentialContract.sol";
 import "./IProtoBroker.sol";
 
 abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
+    using SafeCastUpgradeable for uint256;
     /**********************
      * State Variables    *
      **********************/
@@ -41,9 +44,9 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     function chargeProposer(
         uint256 blockId,
         address proposer,
-        uint128 gasLimit,
-        uint64 numUnprovenBlocks
-    ) public virtual override returns (uint128 proposerFee) {
+        uint256 gasLimit,
+        uint256 numUnprovenBlocks
+    ) public virtual override returns (uint256 proposerFee) {
         proposerFee = getProposerFee(gasLimit, numUnprovenBlocks);
 
         require(chargeFee(proposer, proposerFee), "failed to charge");
@@ -52,12 +55,12 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
     function payProvers(
         uint256 blockId,
-        uint64 proposedAt,
-        uint64 provenAt,
-        uint128 proposerFee,
+        uint256 proposedAt,
+        uint256 provenAt,
+        uint256 proposerFee,
         address[] memory provers
-    ) public virtual override returns (uint128 totalProverFee) {
-        uint128[] memory proverFees;
+    ) public virtual override returns (uint256 totalProverFee) {
+        uint256[] memory proverFees;
         (proverFees, totalProverFee) = calculateProverFees(
             proposerFee,
             provenAt - proposedAt,
@@ -66,17 +69,17 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
         for (uint256 i = 0; i < proverFees.length; i++) {
             address prover = provers[i];
-            uint128 proverFee = proverFees[i];
+            uint256 proverFee = proverFees[i];
             if (proverFee == 0) break;
 
             if (!payFee(prover, proverFee)) {
-                amountToMintToDAO += proverFee;
+                amountToMintToDAO += proverFee.toUint128();
             }
 
             emit FeePaid(blockId, prover, proverFee, i);
         }
 
-        amountToMintToDAO += totalProverFee;
+        amountToMintToDAO += totalProverFee.toUint128();
 
         if (
             amountToMintToDAO > amountToMintToDAOThreshold &&
@@ -86,13 +89,13 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         }
     }
 
-    function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
+    function getProposerFee(uint256 gasLimit, uint256 numUnprovenBlocks)
         public
         view
         override
-        returns (uint128)
+        returns (uint256)
     {
-        uint128 gasPrice = getProposerGasPrice(numUnprovenBlocks);
+        uint256 gasPrice = getProposerGasPrice(numUnprovenBlocks);
         return gasPrice * (gasLimit + getGasLimitBase());
     }
 
@@ -111,10 +114,10 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
     }
 
     function calculateProverFees(
-        uint128 proposerFee,
-        uint64, /*provingDelay*/
+        uint256 proposerFee,
+        uint256, /*provingDelay*/
         address[] memory provers
-    ) internal virtual returns (uint128[] memory fees, uint128 totalFees);
+    ) internal virtual returns (uint256[] memory fees, uint256 totalFees);
 
     function payFee(
         address, /*recipient*/
@@ -137,8 +140,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         );
 
     function getProposerGasPrice(
-        uint64 /*numUnprovenBlocks*/
-    ) internal view virtual returns (uint128);
+        uint256 /*numUnprovenBlocks*/
+    ) internal view virtual returns (uint256);
 
-    function getGasLimitBase() internal pure virtual returns (uint128);
+    function getGasLimitBase() internal pure virtual returns (uint256);
 }
