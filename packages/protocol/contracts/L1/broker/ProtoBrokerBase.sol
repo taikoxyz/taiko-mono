@@ -72,14 +72,13 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             uint256 proverFee = proverFees[i];
             if (proverFee == 0) break;
 
-            if (!payFee(prover, proverFee)) {
-                amountToMintToDAO += proverFee.toUint128();
-            }
-
+            payFee(prover, proverFee);
             emit FeePaid(blockId, prover, proverFee, i);
         }
 
-        amountToMintToDAO += totalProverFee.toUint128();
+        if (totalProverFee > proposerFee) {
+            amountToMintToDAO += (totalProverFee - proposerFee).toUint128();
+        }
 
         if (
             amountToMintToDAO > amountToMintToDAOThreshold &&
