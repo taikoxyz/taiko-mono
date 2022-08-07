@@ -57,7 +57,8 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128 proposerFee,
         address[] memory provers
     ) public virtual override returns (uint128 totalProverFee) {
-        uint128[] memory proverFees = calculateProverFees(
+        uint128[] memory proverFees;
+        (proverFees, totalProverFee) = calculateProverFees(
             proposerFee,
             provenAt - proposedAt,
             provers
@@ -73,8 +74,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
             }
 
             emit FeePaid(blockId, prover, proverFee, i);
-
-            totalProverFee += proverFee;
         }
 
         amountToMintToDAO += totalProverFee;
@@ -115,7 +114,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint128 proposerFee,
         uint64, /*provingDelay*/
         address[] memory provers
-    ) internal virtual returns (uint128[] memory fees);
+    ) internal virtual returns (uint128[] memory fees, uint128 totalFees);
 
     function payFee(
         address, /*recipient*/

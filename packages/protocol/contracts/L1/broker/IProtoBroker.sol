@@ -23,7 +23,7 @@ interface IProtoBroker {
         uint64 provenAt,
         uint128 proposerFee,
         address[] memory provers
-    ) external returns (uint128 totalProverFee);
+    ) external returns (uint128 totalProverFees);
 
     function getProposerFee(uint128 gasLimit, uint64 numUnprovenBlocks)
         external

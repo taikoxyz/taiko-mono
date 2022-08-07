@@ -127,12 +127,23 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         uint128 proposerFee,
         uint64 provingDelay,
         address[] memory provers
-    ) internal virtual override returns (uint128[] memory proverFees) {
-        uint128 baseFee = _getProverBaseFee(proposerFee, provingDelay);
-        proverFees = new uint128[](provers.length);
+    )
+        internal
+        virtual
+        override
+        returns (uint128[] memory proverFees, uint128 totalFees)
+    {
+        uint256 size = provers.length;
+        require(size > 0 && size <= 10, "invalid provers");
 
-        for (uint128 i = 0; i < provers.length; i++) {
-            proverFees[i] = baseFee / (i + 1);
+        proverFees = new uint128[](size);
+        totalFees = _calculateProverFee(proposerFee, provingDelay);
+
+        uint128 tenPctg = totalFees / 10;
+
+        proverFees[0] = tenPctg * uint128(11 - size);
+        for (uint256 i = 1; i < size; i++) {
+            proverFees[i] = tenPctg;
         }
     }
 
@@ -159,7 +170,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     /**********************
      * Private Functions  *
      **********************/
-    function _getProverBaseFee(uint128 proposerFee, uint64 provingDelay)
+    function _calculateProverFee(uint128 proposerFee, uint64 provingDelay)
         private
         view
         returns (uint128)
