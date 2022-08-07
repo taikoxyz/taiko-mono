@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../libs/LibMath.sol";
 import "../../libs/Lib1559Math.sol";
 import "./ProtoBrokerBase.sol";
@@ -23,11 +21,11 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
      **********************/
 
     // TODO(daniel): do simulation to find values for these constants.
-    uint64 public constant FEE_PREMIUM_BLOCK_THRESHOLD = 256;
-    uint64 public constant FEE_ADJUSTMENT_FACTOR = 32;
-    uint64 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
-    uint64 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
-    uint64 public constant FEE_BIPS = 1000; // 10%
+    uint256 public constant FEE_PREMIUM_BLOCK_THRESHOLD = 256;
+    uint256 public constant FEE_ADJUSTMENT_FACTOR = 32;
+    uint256 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
+    uint256 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
+    uint256 public constant FEE_BIPS = 750; // 7.5%
     uint64 internal constant MILIS_PER_SECOND = 1E3;
 
     /**********************
@@ -45,14 +43,14 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     function chargeProposer(
         uint256 blockId,
         address proposer,
-        uint128 gasLimit,
-        uint64 numUnprovenBlocks
+        uint256 gasLimit,
+        uint256 numUnprovenBlocks
     )
         public
         virtual
         override
         onlyFromNamed("taiko_l1")
-        returns (uint128 proposerFee)
+        returns (uint256 proposerFee)
     {
         proposerFee = ProtoBrokerBase.chargeProposer(
             blockId,
@@ -61,7 +59,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             numUnprovenBlocks
         );
 
-        _avgNumUnprovenBlocks = _calcAverage(
+        _avgNumUnprovenBlocks = _updateAverage(
             _avgNumUnprovenBlocks,
             numUnprovenBlocks,
             512
@@ -70,11 +68,11 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
 
     function payProvers(
         uint256 blockId,
-        uint64 proposedAt,
-        uint64 provenAt,
-        uint128 proposerFee,
+        uint256 proposedAt,
+        uint256 provenAt,
+        uint256 proposerFee,
         address[] memory provers
-    ) public virtual override returns (uint128 totalProverFee) {
+    ) public virtual override returns (uint256 totalProverFee) {
         totalProverFee = ProtoBrokerBase.payProvers(
             blockId,
             proposedAt,
@@ -83,7 +81,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             provers
         );
 
-        _avgProvingDelay = _calcAverage(
+        _avgProvingDelay = _updateAverage(
             _avgProvingDelay,
             (provenAt - proposedAt) * MILIS_PER_SECOND,
             PROVING_DELAY_AVERAGING_FACTOR
@@ -102,7 +100,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     function getStats()
         public
         view
-        returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
+        returns (uint256 avgNumUnprovenBlocks, uint256 avgProvingDelay)
     {
         avgNumUnprovenBlocks = _avgNumUnprovenBlocks / MILIS_PER_SECOND;
         avgProvingDelay = _avgProvingDelay / MILIS_PER_SECOND;
@@ -124,26 +122,37 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     }
 
     function calculateProverFees(
-        uint128 proposerFee,
-        uint64 provingDelay,
+        uint256 proposerFee,
+        uint256 provingDelay,
         address[] memory provers
-    ) internal virtual override returns (uint128[] memory proverFees) {
-        uint128 baseFee = _getProverBaseFee(proposerFee, provingDelay);
-        proverFees = new uint128[](provers.length);
+    )
+        internal
+        virtual
+        override
+        returns (uint256[] memory proverFees, uint256 totalFees)
+    {
+        uint256 size = provers.length;
+        require(size > 0 && size <= 10, "invalid provers");
 
-        for (uint128 i = 0; i < provers.length; i++) {
-            proverFees[i] = baseFee / (i + 1);
+        proverFees = new uint256[](size);
+        totalFees = _calculateProverFee(proposerFee, provingDelay);
+
+        uint256 tenPctg = totalFees / 10;
+
+        proverFees[0] = tenPctg * (11 - size);
+        for (uint256 i = 1; i < size; i++) {
+            proverFees[i] = tenPctg;
         }
     }
 
-    function getProposerGasPrice(uint64 numUnprovenBlocks)
+    function getProposerGasPrice(uint256 numUnprovenBlocks)
         internal
         view
         virtual
         override
-        returns (uint128)
+        returns (uint256)
     {
-        uint64 threshold = _avgNumUnprovenBlocks > FEE_PREMIUM_BLOCK_THRESHOLD
+        uint256 threshold = _avgNumUnprovenBlocks > FEE_PREMIUM_BLOCK_THRESHOLD
             ? _avgNumUnprovenBlocks
             : FEE_PREMIUM_BLOCK_THRESHOLD;
 
@@ -159,15 +168,15 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     /**********************
      * Private Functions  *
      **********************/
-    function _getProverBaseFee(uint128 proposerFee, uint64 provingDelay)
+    function _calculateProverFee(uint256 proposerFee, uint256 provingDelay)
         private
         view
-        returns (uint128)
+        returns (uint256)
     {
         // start to paying additional rewards above 125% of average proving delay
-        uint64 threshold = (_avgProvingDelay * 125) / 10;
-        uint64 provingDelayNano = provingDelay * MILIS_PER_SECOND;
-        uint128 feeBaseline = (proposerFee * (10000 - FEE_BIPS)) / 10000;
+        uint256 threshold = (_avgProvingDelay * 125) / 10;
+        uint256 provingDelayNano = provingDelay * MILIS_PER_SECOND;
+        uint256 feeBaseline = (proposerFee * (10000 - FEE_BIPS)) / 10000;
 
         if (provingDelayNano < threshold) {
             return feeBaseline;
@@ -177,10 +186,10 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             _avgProvingDelay +
             feeBaseline;
 
-        return fee.toUint128();
+        return fee;
     }
 
-    function _calcAverage(
+    function _updateAverage(
         uint256 avg,
         uint256 current,
         uint256 factor
