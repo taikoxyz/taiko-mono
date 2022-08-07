@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
@@ -64,6 +66,7 @@ struct ForkChoice {
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
 /// shall be deployed infront of it.
 contract TaikoL1 is EssentialContract {
+    using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxList for bytes;
     /**********************
@@ -179,7 +182,7 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        uint128 proposerFee = IProtoBroker(resolve("proto_broker"))
+        uint256 proposerFee = IProtoBroker(resolve("proto_broker"))
             .chargeProposer(
                 nextPendingId,
                 msg.sender,
@@ -191,7 +194,7 @@ contract TaikoL1 is EssentialContract {
             nextPendingId,
             PendingBlock({
                 contextHash: _hashContext(context),
-                proposerFee: proposerFee,
+                proposerFee: proposerFee.toUint128(),
                 everProven: 1 // 0 and 1 means not proven ever
             })
         );
