@@ -60,6 +60,6 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
     }
 
     function getGasLimitBase() internal pure override returns (uint256) {
-        return 1000000;
+        return 1_000_000;
     }
 }

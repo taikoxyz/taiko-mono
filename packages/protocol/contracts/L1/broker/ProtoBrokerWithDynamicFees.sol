@@ -90,8 +90,8 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         suggestedGasPrice = Lib1559Math
             .adjustTargetReverse(
                 suggestedGasPrice,
-                (proposerFee * 1000000) / totalProverFee,
-                1000000,
+                (proposerFee * 1_000_000) / totalProverFee,
+                1_000_000,
                 FEE_ADJUSTMENT_FACTOR
             )
             .toUint128();
@@ -159,9 +159,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         if (numUnprovenBlocks <= threshold) {
             return suggestedGasPrice;
         } else {
-            uint256 premium = (10000 * numUnprovenBlocks) / (2 * threshold);
-            premium = premium.min(FEE_PREMIUM_MAX_MUTIPLIER * 10000);
-            return (suggestedGasPrice * premium) / 10000;
+            uint256 premium = (10_000 * numUnprovenBlocks) / (2 * threshold);
+            premium = premium.min(FEE_PREMIUM_MAX_MUTIPLIER * 10_000);
+            return (suggestedGasPrice * premium) / 10_000;
         }
     }
 
@@ -176,7 +176,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         // start to paying additional rewards above 150% of average proving delay
         uint256 t = (_avgProvingDelay * 150) / 100; // threshold
         uint256 x = provingDelay * MILIS_PER_SECOND;
-        uint256 b = (proposerFee * (10000 - FEE_BIPS)) / 10000; // feeBaseline
+        uint256 b = (proposerFee * (10_000 - FEE_BIPS)) / 10_000; // feeBaseline
         return x > t ? (b * (x - t)) / t + b : b;
     }
 
