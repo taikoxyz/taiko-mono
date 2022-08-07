@@ -25,7 +25,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     uint256 public constant FEE_ADJUSTMENT_FACTOR = 32;
     uint256 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
     uint256 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
-    uint256 public constant FEE_BIPS = 750; // 7.5%
+    uint256 public constant FEE_BIPS = 500; // 5%
     uint64 internal constant MILIS_PER_SECOND = 1E3;
 
     /**********************
@@ -135,7 +135,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         require(size > 0 && size <= 10, "invalid provers");
 
         proverFees = new uint256[](size);
-        totalFees = _calculateProverFee(proposerFee, provingDelay);
+        totalFees = _calcTotalProverFee(proposerFee, provingDelay);
 
         uint256 tenPctg = totalFees / 10;
 
@@ -152,9 +152,9 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         override
         returns (uint256)
     {
-        uint256 threshold = _avgNumUnprovenBlocks > FEE_PREMIUM_BLOCK_THRESHOLD
-            ? _avgNumUnprovenBlocks
-            : FEE_PREMIUM_BLOCK_THRESHOLD;
+        uint256 threshold = FEE_PREMIUM_BLOCK_THRESHOLD.max(
+            _avgNumUnprovenBlocks
+        );
 
         if (numUnprovenBlocks <= threshold) {
             return suggestedGasPrice;
@@ -168,25 +168,16 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     /**********************
      * Private Functions  *
      **********************/
-    function _calculateProverFee(uint256 proposerFee, uint256 provingDelay)
+    function _calcTotalProverFee(uint256 proposerFee, uint256 provingDelay)
         private
         view
         returns (uint256)
     {
-        // start to paying additional rewards above 125% of average proving delay
-        uint256 threshold = (_avgProvingDelay * 125) / 100;
-        uint256 provingDelayNano = provingDelay * MILIS_PER_SECOND;
-        uint256 feeBaseline = (proposerFee * (10000 - FEE_BIPS)) / 10000;
-
-        if (provingDelayNano < threshold) {
-            return feeBaseline;
-        }
-
-        uint256 fee = (feeBaseline * (provingDelayNano - threshold)) /
-            _avgProvingDelay +
-            feeBaseline;
-
-        return fee;
+        // start to paying additional rewards above 150% of average proving delay
+        uint256 t = (_avgProvingDelay * 150) / 100; // threshold
+        uint256 x = provingDelay * MILIS_PER_SECOND;
+        uint256 b = (proposerFee * (10000 - FEE_BIPS)) / 10000; // feeBaseline
+        return x > t ? (b * (x - t)) / t + b : b;
     }
 
     function _updateAverage(
