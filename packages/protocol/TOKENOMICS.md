@@ -16,7 +16,7 @@ $$A_i = {63 A_{i-1} + D_i \over 64}$$
 - $\hat{F_i}$: The discouted proposer fee for the *i*-th block, $\hat{F_i} = 0.95F_i$
 - $g_i$: The gas price after the *i*-th block is finalized.
 
-We have:
+We have (1559-style):
 
 $$ g_i = {{g_{i-1} (31 R_{i-1} + F_{i-1})} \over {32 R_{i-1}}} $$
 
