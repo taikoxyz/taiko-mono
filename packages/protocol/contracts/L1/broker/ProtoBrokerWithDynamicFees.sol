@@ -18,21 +18,30 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     using SafeCastUpgradeable for uint256;
     using LibMath for uint256;
 
+    /**********************
+     * Constants          *
+     **********************/
+
     // TODO(daniel): do simulation to find values for these constants.
     uint64 public constant FEE_PREMIUM_BLOCK_THRESHOLD = 256;
     uint64 public constant FEE_ADJUSTMENT_FACTOR = 32;
     uint64 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
     uint64 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
-    uint64 public constant FEE_BIPS = 500; // 5%
+    uint64 public constant FEE_BIPS = 1000; // 10%
+    uint64 internal constant MILIS_PER_SECOND = 1E3;
 
-    uint64 internal constant MILI_PER_SECOND = 1E3;
+    /**********************
+     * State Variables    *
+     **********************/
 
     uint64 internal _avgNumUnprovenBlocks;
     uint64 internal _avgProvingDelay;
     uint128 public suggestedGasPrice;
-
     uint256[49] private __gap;
 
+    /**********************
+     * Public Functions   *
+     **********************/
     function chargeProposer(
         uint256 blockId,
         address proposer,
@@ -59,39 +68,35 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         ).toUint64();
     }
 
-    function payProver(
+    function payProvers(
         uint256 blockId,
-        address prover,
-        uint256 uncleId,
         uint64 proposedAt,
         uint64 provenAt,
-        uint128 proposerFee
-    ) public virtual override returns (uint128 proverFee) {
-        proverFee = ProtoBrokerBase.payProver(
+        uint128 proposerFee,
+        address[] memory provers
+    ) public virtual override returns (uint128 totalProverFee) {
+        totalProverFee = ProtoBrokerBase.payProvers(
             blockId,
-            prover,
-            uncleId,
             proposedAt,
             provenAt,
-            proposerFee
+            proposerFee,
+            provers
         );
 
-        if (uncleId == 0) {
-            _avgProvingDelay = _calcAverage(
-                _avgProvingDelay,
-                (provenAt - proposedAt) * MILI_PER_SECOND,
-                PROVING_DELAY_AVERAGING_FACTOR
-            ).toUint64();
+        _avgProvingDelay = _calcAverage(
+            _avgProvingDelay,
+            (provenAt - proposedAt) * MILIS_PER_SECOND,
+            PROVING_DELAY_AVERAGING_FACTOR
+        ).toUint64();
 
-            _suggestedGasPrice = Lib1559Math
-                .adjustTarget(
-                    _suggestedGasPrice,
-                    (proposerFee * 1000000) / proverFee,
-                    1000000,
-                    FEE_ADJUSTMENT_FACTOR
-                )
-                .toUint128();
-        }
+        suggestedGasPrice = Lib1559Math
+            .adjustTargetReverse(
+                suggestedGasPrice,
+                (proposerFee * 1000000) / totalProverFee,
+                1000000,
+                FEE_ADJUSTMENT_FACTOR
+            )
+            .toUint128();
     }
 
     function getStats()
@@ -99,45 +104,39 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         view
         returns (uint64 avgNumUnprovenBlocks, uint64 avgProvingDelay)
     {
-        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / MILI_PER_SECOND;
-        avgProvingDelay = _avgProvingDelay / MILI_PER_SECOND;
+        avgNumUnprovenBlocks = _avgNumUnprovenBlocks / MILIS_PER_SECOND;
+        avgProvingDelay = _avgProvingDelay / MILIS_PER_SECOND;
     }
+
+    /**********************
+     * Internal Functions *
+     **********************/
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function _init(
         address _addressManager,
-        uint128 _unsettledProverFeeThreshold,
+        uint128 _amountToMintToDAOThreshold,
         uint128 _suggestedGasPrice
     ) internal virtual {
-        ProtoBrokerBase._init(_addressManager, _unsettledProverFeeThreshold);
+        ProtoBrokerBase._init(_addressManager, _amountToMintToDAOThreshold);
 
         suggestedGasPrice = _suggestedGasPrice;
     }
 
-    function _getProverFee(uint128 proposerFee, uint64 provingDelay)
-        internal
-        virtual
-        override
-        returns (uint128)
-    {
-        uint64 threshold = _avgProvingDelay * 2;
-        uint64 provingDelayNano = provingDelay * MILI_PER_SECOND;
+    function calculateProverFees(
+        uint128 proposerFee,
+        uint64 provingDelay,
+        address[] memory provers
+    ) internal virtual override returns (uint128[] memory proverFees) {
+        uint128 baseFee = _getProverBaseFee(proposerFee, provingDelay);
+        proverFees = new uint128[](provers.length);
 
-        uint128 gasFeeAfterTax = (proposerFee * (10000 - FEE_BIPS)) / 10000;
-
-        if (provingDelayNano < threshold) {
-            return gasFeeAfterTax;
+        for (uint128 i = 0; i < provers.length; i++) {
+            proverFees[i] = baseFee / (i + 1);
         }
-
-        uint256 fee = (uint256(gasFeeAfterTax) *
-            (provingDelayNano - threshold)) /
-            _avgProvingDelay +
-            gasFeeAfterTax;
-
-        return fee.toUint128();
     }
 
-    function _getProposerGasPrice(uint64 numUnprovenBlocks)
+    function getProposerGasPrice(uint64 numUnprovenBlocks)
         internal
         view
         virtual
@@ -155,6 +154,30 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             premium = premium.min(FEE_PREMIUM_MAX_MUTIPLIER * 10000);
             return (suggestedGasPrice * uint128(premium)) / 10000;
         }
+    }
+
+    /**********************
+     * Private Functions  *
+     **********************/
+    function _getProverBaseFee(uint128 proposerFee, uint64 provingDelay)
+        private
+        view
+        returns (uint128)
+    {
+        // start to paying additional rewards above 125% of average proving delay
+        uint64 threshold = (_avgProvingDelay * 125) / 10;
+        uint64 provingDelayNano = provingDelay * MILIS_PER_SECOND;
+        uint128 feeBaseline = (proposerFee * (10000 - FEE_BIPS)) / 10000;
+
+        if (provingDelayNano < threshold) {
+            return feeBaseline;
+        }
+
+        uint256 fee = (uint256(feeBaseline) * (provingDelayNano - threshold)) /
+            _avgProvingDelay +
+            feeBaseline;
+
+        return fee.toUint128();
     }
 
     function _calcAverage(
