@@ -36,6 +36,10 @@ $$F_i = \hat{g_{i-1}} (B+L_i) $$
     - else $R_i(t)=       {t \over A_{i-1}} \hat{F_i}    $
 
 
+<img width="865" alt="Screenshot 2022-08-07 at 22 44 45" src="https://user-images.githubusercontent.com/99078276/183296568-0de10279-daab-46ad-8b68-57e7e9714b18.png">
+
+
+
 Currently we allow up to 5 proofs per block. If the first proof was submitted with delay $D^1$, all the other *uncle proofs* must be submitted within a time window of $D^1 \over 2$.
 
 Each uncle proof will earn a return of $R \over 10$, all the rest goes to the first prover. This means the first prover will get 60%-100% of the prover fee.
