@@ -95,8 +95,9 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         override
         returns (uint256)
     {
-        uint256 gasPrice = getProposerGasPrice(numUnprovenBlocks);
-        return gasPrice * (gasLimit + getGasLimitBase());
+        return
+            getProposerGasPrice(numUnprovenBlocks) *
+            (gasLimit + getGasLimitBase());
     }
 
     /**********************

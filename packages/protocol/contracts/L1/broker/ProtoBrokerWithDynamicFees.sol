@@ -173,8 +173,8 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         view
         returns (uint256)
     {
-        // start to paying additional rewards above 125% of average proving delay
-        uint256 threshold = (_avgProvingDelay * 125) / 10;
+        // start to paying additional rewards above 150% of average proving delay
+        uint256 threshold = (_avgProvingDelay * 150) / 100;
         uint256 provingDelayNano = provingDelay * MILIS_PER_SECOND;
         uint256 feeBaseline = (proposerFee * (10000 - FEE_BIPS)) / 10000;
 
@@ -182,7 +182,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
             return feeBaseline;
         }
 
-        uint256 fee = (uint256(feeBaseline) * (provingDelayNano - threshold)) /
+        uint256 fee = (feeBaseline * (provingDelayNano - threshold)) /
             _avgProvingDelay +
             feeBaseline;
 
