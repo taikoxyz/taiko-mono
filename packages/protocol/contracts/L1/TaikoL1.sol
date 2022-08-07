@@ -381,12 +381,16 @@ contract TaikoL1 is EssentialContract {
             fc.proposedAt = context.proposedAt;
             fc.provenAt = uint64(block.timestamp);
         } else {
-            require(fc.blockHash == blockHash, "conflicting proof");
+            require(
+                fc.blockHash == blockHash &&
+                    fc.proposedAt == context.proposedAt,
+                "conflicting proof"
+            );
             require(fc.provers.length < maxNumProofs, "too many proofs");
 
-            // No uncle proof can take more than 1.25x time the first proof did.
+            // No uncle proof can take more than 1.5x time the first proof did.
             uint256 delay = fc.provenAt - fc.proposedAt;
-            uint256 deadline = fc.provenAt + delay / 4;
+            uint256 deadline = fc.provenAt + delay / 2;
             require(block.timestamp <= deadline, "too late");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
@@ -414,13 +418,11 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
-        PendingBlock storage blk = _getPendingBlock(id);
-
         IProtoBroker(resolve("proto_broker")).payProvers(
             id,
             fc.provenAt,
             fc.proposedAt,
-            blk.proposerFee,
+            _getPendingBlock(id).proposerFee,
             fc.provers
         );
 
