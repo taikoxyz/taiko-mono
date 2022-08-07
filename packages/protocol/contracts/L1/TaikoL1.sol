@@ -153,7 +153,7 @@ contract TaikoL1 is EssentialContract {
     ///        be zeros, and their actual values will be provisioned by Ethereum.
     ///        - txListHash
     ///        - mixHash
-    ///        - timestamp
+    ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
@@ -376,7 +376,11 @@ contract TaikoL1 is EssentialContract {
     ) private {
         ForkChoice storage fc = forkChoices[context.id][parentHash];
 
-        if (fc.blockHash != 0) {
+        if (fc.blockHash == 0) {
+            fc.blockHash = blockHash;
+            fc.proposedAt = context.proposedAt;
+            fc.provenAt = uint64(block.timestamp);
+        } else {
             require(fc.blockHash == blockHash, "conflicting proof");
             require(fc.provers.length < maxNumProofs, "too many proofs");
 
@@ -388,10 +392,6 @@ contract TaikoL1 is EssentialContract {
             for (uint256 i = 0; i < fc.provers.length; i++) {
                 require(fc.provers[i] != msg.sender, "duplicate prover");
             }
-        } else {
-            fc.blockHash = blockHash;
-            fc.proposedAt = context.proposedAt;
-            fc.provenAt = uint64(block.timestamp);
         }
 
         fc.provers.push(msg.sender);
