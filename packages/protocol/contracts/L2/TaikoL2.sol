@@ -9,9 +9,11 @@
 pragma solidity ^0.8.9;
 
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxList.sol";
+import "../libs/LibTxListValidator.sol";
 
 contract TaikoL2 {
+    using LibTxListValidator for bytes;
+
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
 
@@ -51,7 +53,7 @@ contract TaikoL2 {
     }
 
     function verifyBlockInvalid(bytes calldata txList) external {
-        require(!LibTxListValidator.isTxListValid(txList), "txList is valid");
+        require(!txList.isTxListValid(), "txList is valid");
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(keccak256(txList));

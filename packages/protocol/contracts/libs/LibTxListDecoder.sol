@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "./LibConstants.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
@@ -68,11 +67,7 @@ struct TxList {
     Tx[] items;
 }
 
-library LibTxList {
-    function hashTxList(bytes calldata encoded) public pure returns (bytes32) {
-        return keccak256(encoded);
-    }
-
+library LibTxListDecoder {
     function decodeTxList(bytes calldata encoded)
         public
         pure
@@ -91,8 +86,16 @@ library LibTxList {
         txList = TxList(_txList);
     }
 
+    function hashTxList(bytes calldata encoded)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(encoded);
+    }
+
     function decodeTx(bytes memory txBytes)
-        public
+        internal
         pure
         returns (uint8 txType, uint256 gasLimit)
     {
@@ -129,7 +132,7 @@ library LibTxList {
     }
 
     function decodeLegacyTx(Lib_RLPReader.RLPItem[] memory body)
-        public
+        internal
         pure
         returns (TransactionLegacy memory txLegacy)
     {
@@ -147,7 +150,7 @@ library LibTxList {
     }
 
     function decodeTx2930(Lib_RLPReader.RLPItem[] memory body)
-        public
+        internal
         pure
         returns (Transaction2930 memory tx2930)
     {
@@ -167,7 +170,7 @@ library LibTxList {
     }
 
     function decodeTx1559(Lib_RLPReader.RLPItem[] memory body)
-        public
+        internal
         pure
         returns (Transaction1559 memory tx1559)
     {
@@ -188,7 +191,7 @@ library LibTxList {
     }
 
     function decodeAccessList(Lib_RLPReader.RLPItem[] memory accessListRLP)
-        public
+        internal
         pure
         returns (AccessItem[] memory accessList)
     {
@@ -217,23 +220,6 @@ library LibTxList {
         Tx[] memory items = txList.items;
         for (uint256 i = 0; i < items.length; i++) {
             sum += items[i].gasLimit;
-        }
-    }
-}
-
-library LibTxListValidator {
-    function isTxListValid(bytes calldata encoded)
-        internal
-        pure
-        returns (bool)
-    {
-        try LibTxList.decodeTxList(encoded) returns (TxList memory txList) {
-            return
-                txList.items.length <= LibConstants.MAX_TAIKO_BLOCK_NUM_TXS &&
-                LibTxList.sumGasLimit(txList) <=
-                LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT;
-        } catch (bytes memory) {
-            return false;
         }
     }
 }
