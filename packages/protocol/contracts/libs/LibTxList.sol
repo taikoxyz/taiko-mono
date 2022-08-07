@@ -9,8 +9,8 @@
 pragma solidity ^0.8.9;
 
 import "./LibConstants.sol";
-import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
+import "../thirdparty/Lib_RLPReader.sol";
 
 struct TransactionLegacy {
     uint256 nonce;
