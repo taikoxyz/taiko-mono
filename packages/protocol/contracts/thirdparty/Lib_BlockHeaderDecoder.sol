@@ -8,16 +8,18 @@ pragma solidity ^0.8.9;
 library Lib_BlockHeaderDecoder {
     /// @notice This method extracts [stateRoot, timestamp] of a block header.
     /// @param blockHeader RLP encoded block header
-    /// @param blockHash The expected block hash
+    /// @param expectedBlockHash The expected block hash
+    /// @param postEIP1559 True to check the block has 16 fields, other check the block has 15 fields.
     /// @return _stateRoot The state root
     /// @return _timestamp The timestamp.
-  function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash)
+  function decodeBlockHeader (bytes calldata blockHeader, bytes32 expectedBlockHash, bool postEIP1559)
     public
     pure
     returns (
         bytes32 _stateRoot,
         uint256 _timestamp
     ) {
+      uint256 numFields = postEIP1559? 16:15;
     assembly {
       // TODO: use templating techniques and DRY code (with PatriciaValidator).
 
@@ -179,12 +181,12 @@ library Lib_BlockHeaderDecoder {
       if iszero( eq(calldataPtr, add(blockHeader.offset, blockHeader.length)) ) {
         revertWith('BOUNDS')
       }
-      if iszero( eq(hash, blockHash) ) {
+      if iszero( eq(hash, expectedBlockHash) ) {
         revertWith('HASH')
       }
       
       // Depends on if EIP1559 is enabled, check the item size to be 15 or 16.
-      if iszero( eq(nItems, 15) ) {
+      if iszero( eq(nItems, numFields) ) {
         revertWith('ITEMS')
       }
 
