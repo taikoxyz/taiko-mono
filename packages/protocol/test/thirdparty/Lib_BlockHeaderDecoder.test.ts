@@ -157,4 +157,12 @@ describe("Lib_BlockHeaderDecoder", async function () {
         expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot)
         expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
     })
+    it.only('Testing provider.send("eth_getBlockByNumber", [ blockNumber ])', async function () {
+        const provider = await new ethers.providers.JsonRpcProvider(
+            hre.network.hardhat
+        )
+        const blockNumber = Math.floor(Math.random() * 5000)
+        const block = await provider.send("eth_getBlockByNumber", [blockNumber])
+        console.log(block)
+    })
 })
