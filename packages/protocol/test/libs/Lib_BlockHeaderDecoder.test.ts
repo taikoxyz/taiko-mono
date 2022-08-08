@@ -9,6 +9,7 @@ const Web3 = require("web3")
 hre.web3 = new Web3(provider)
 const web3 = hre.web3
 
+// TODO: test 1559-enabled block headers.
 describe("Lib_BlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
     let blockHeaderDecoder: any
@@ -85,7 +86,8 @@ describe("Lib_BlockHeaderDecoder", async function () {
         const [_stateRoot, _timeStamp] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
-                keccak256(encodedBlockHeader)
+                keccak256(encodedBlockHeader),
+                false
             )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
@@ -121,7 +123,8 @@ describe("Lib_BlockHeaderDecoder", async function () {
         const [_stateRoot, _timeStamp] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
-                keccak256(encodedBlockHeader)
+                keccak256(encodedBlockHeader),
+                false
             )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
