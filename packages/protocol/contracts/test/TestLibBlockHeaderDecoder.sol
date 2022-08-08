@@ -14,7 +14,7 @@ contract TestLibBlockHeaderDecoder {
     function decodeBlockHeader(bytes calldata blockHeader, bytes32 blockHash)
         public
         pure
-        returns (bytes32 _stateRoot, uint256 _timestamp)
+        returns (bytes32 _stateRoot, uint256 _timestamp, bytes32 _transactionsRoot, bytes32 _receiptsRoot)
     {
         return Lib_BlockHeaderDecoder.decodeBlockHeader(blockHeader, blockHash);
     }
