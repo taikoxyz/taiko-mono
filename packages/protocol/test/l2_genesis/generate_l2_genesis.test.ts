@@ -1,5 +1,5 @@
-const hre = require("hardhat")
-const { expect } = require("chai")
+import { expect } from "chai"
+import * as hre from "hardhat"
 
 const ethers = hre.ethers
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip
@@ -87,18 +87,20 @@ action("Generate L2 Genesis", function () {
     })
 
     describe("contracts can be called normally", function () {
-        it("LibTxList", async function () {
-            const LibTxListAlloc = getContractAlloc("LibTxList")
+        it("LibTxListValidator", async function () {
+            const LibTxListValidatorAlloc =
+                getContractAlloc("LibTxListValidator")
 
-            const LibTxList = new hre.ethers.Contract(
-                LibTxListAlloc.address,
-                require("../../artifacts/contracts/libs/LibTxList.sol/LibTxList.json").abi,
+            const LibTxListValidator = new hre.ethers.Contract(
+                LibTxListValidatorAlloc.address,
+                require("../../artifacts/contracts/libs/LibTxListValidator.sol/LibTxListValidator.json").abi,
                 signer
             )
 
-            const txListHash = await LibTxList.hashTxList([])
+            const gasLimit =
+                await LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT()
 
-            expect(txListHash.length).to.be.equal(2 + 32 * 2)
+            expect(gasLimit.gt(ethers.BigNumber.from(0))).to.be.equal(true)
         })
 
         it("TaikoL2", async function () {
