@@ -13,10 +13,10 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
-import "../libs/LibConstants.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxList.sol";
+import "../libs/LibTxListDecoder.sol";
+import "../libs/LibTxListValidator.sol";
 import "../libs/LibZKP.sol";
 import "./broker/IProtoBroker.sol";
 
@@ -68,7 +68,8 @@ struct ForkChoice {
 contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
-    using LibTxList for bytes;
+    using LibTxListDecoder for bytes;
+    using LibTxListValidator for bytes;
     /**********************
      * Constants   *
      **********************/
@@ -302,7 +303,7 @@ contract TaikoL1 is EssentialContract {
         bytes calldata txList
     ) external nonReentrant whenBlockIsPending(context) {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
-        require(!LibTxListValidator.isTxListValid(txList), "txList decoded");
+        require(!txList.isTxListValid(), "txList is valid");
 
         _proveBlock(
             1, // no uncles
@@ -361,7 +362,7 @@ contract TaikoL1 is EssentialContract {
 
         require(context.beneficiary != address(0), "null beneficiary");
         require(
-            context.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
             "invalid gasLimit"
         );
         require(context.extraData.length <= 32, "extraData too large");
@@ -461,8 +462,9 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.parentHash != 0 &&
-                header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.parentHash != 0x0 &&
+                header.gasLimit <=
+                LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,
