@@ -33,7 +33,7 @@ $$F_i = \hat{g_{i-1}} (B+L_i) $$
 - $R_i(t)$: The prover fee for the *i*-th block if the block is proven with a delay of $t$.
 
     - if $t <= A_{i-1}$ then $R_i(t)=\hat{F_i}$
-    - else $R_i(t)=     ({1 \over 2}  + {t \over A_{i-1}})\hat{F_i}  $
+    - else $R_i(t)=   max( 100 * \hat{F_i},   ({1 \over 2}  + {t \over A_{i-1}})\hat{F_i} ) $
 
 
 
