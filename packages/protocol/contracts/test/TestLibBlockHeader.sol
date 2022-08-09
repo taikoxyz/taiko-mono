@@ -18,7 +18,7 @@ contract TestLibBlockHeader {
     {
         return LibBlockHeader.hashBlockHeader(header);
     }
-    
+
     function rlpBlockHeader(BlockHeader calldata header)
         public
         pure

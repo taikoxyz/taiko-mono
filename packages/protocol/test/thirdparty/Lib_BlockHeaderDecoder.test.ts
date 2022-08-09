@@ -4,10 +4,6 @@ import { keccak256 } from "ethers/lib/utils"
 const hre = require("hardhat")
 const ethers = hre.ethers
 const EBN = ethers.BigNumber
-const Web3 = require("web3")
-hre.Web3 = Web3
-hre.web3 = new Web3(hre.network.provider)
-const web3 = hre.web3
 
 describe("Lib_BlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
@@ -69,7 +65,8 @@ describe("Lib_BlockHeaderDecoder", async function () {
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
-                keccak256(encodedBlockHeader)
+                keccak256(encodedBlockHeader),
+                false
             )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
@@ -78,38 +75,40 @@ describe("Lib_BlockHeaderDecoder", async function () {
         expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
     })
 
-    it("Same as above, using latest blockHeader using hardhat-web3", async function () {
-        const blockHeader = await web3.eth.getBlock("latest")
-
-        const logsBloom = blockHeader.logsBloom.toString().substring(2)
-        const testBlockHeader = {
-            parentHash: blockHeader.parentHash,
-            ommersHash: blockHeader.sha3Uncles,
-            beneficiary: blockHeader.miner,
-            stateRoot: blockHeader.stateRoot,
-            transactionsRoot: blockHeader.transactionsRoot,
-            receiptsRoot: blockHeader.receiptsRoot,
+    it("Same as above, using latest blockHeader", async function () {
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            "latest",
+            false,
+        ])
+        const logsBloom = block.logsBloom.toString().substring(2)
+        const blockHeader = {
+            parentHash: block.parentHash,
+            ommersHash: block.sha3Uncles,
+            beneficiary: block.miner,
+            stateRoot: block.stateRoot,
+            transactionsRoot: block.transactionsRoot,
+            receiptsRoot: block.receiptsRoot,
             logsBloom: logsBloom
                 .match(/.{1,64}/g)!
                 .map((s: string) => "0x" + s),
-            difficulty: EBN.from(blockHeader.difficulty),
-            height: EBN.from(blockHeader.number),
-            gasLimit: EBN.from(blockHeader.gasLimit),
-            gasUsed: EBN.from(blockHeader.gasUsed),
-            timestamp: EBN.from(blockHeader.timestamp),
-            extraData: blockHeader.extraData,
-            mixHash: blockHeader.mixHash,
-            nonce: EBN.from(blockHeader.nonce),
+            difficulty: block.difficulty,
+            height: block.number,
+            gasLimit: block.gasLimit,
+            gasUsed: block.gasUsed,
+            timestamp: block.timestamp,
+            extraData: block.extraData,
+            mixHash: block.mixHash,
+            nonce: block.nonce,
         }
-
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
-            testBlockHeader
+            blockHeader
         )
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
-                keccak256(encodedBlockHeader)
+                keccak256(encodedBlockHeader),
+                false
             )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
@@ -118,51 +117,45 @@ describe("Lib_BlockHeaderDecoder", async function () {
         expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
     })
 
-    it("Same as above, using earliest blockHeader using hardhat-web3", async function () {
-        const blockHeader = await web3.eth.getBlock("earliest")
-
-        const logsBloom = blockHeader.logsBloom.toString().substring(2)
-        const testBlockHeader = {
-            parentHash: blockHeader.parentHash,
-            ommersHash: blockHeader.sha3Uncles,
-            beneficiary: blockHeader.miner,
-            stateRoot: blockHeader.stateRoot,
-            transactionsRoot: blockHeader.transactionsRoot,
-            receiptsRoot: blockHeader.receiptsRoot,
+    it("Same as above, using earliest blockHeader", async function () {
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            "earliest",
+            false,
+        ])
+        const logsBloom = block.logsBloom.toString().substring(2)
+        const blockHeader = {
+            parentHash: block.parentHash,
+            ommersHash: block.sha3Uncles,
+            beneficiary: block.miner,
+            stateRoot: block.stateRoot,
+            transactionsRoot: block.transactionsRoot,
+            receiptsRoot: block.receiptsRoot,
             logsBloom: logsBloom
                 .match(/.{1,64}/g)!
                 .map((s: string) => "0x" + s),
-            difficulty: EBN.from(blockHeader.difficulty),
-            height: EBN.from(blockHeader.number),
-            gasLimit: EBN.from(blockHeader.gasLimit),
-            gasUsed: EBN.from(blockHeader.gasUsed),
-            timestamp: EBN.from(blockHeader.timestamp),
-            extraData: blockHeader.extraData,
-            mixHash: blockHeader.mixHash,
-            nonce: EBN.from(blockHeader.nonce),
+            difficulty: block.difficulty,
+            height: block.number,
+            gasLimit: block.gasLimit,
+            gasUsed: block.gasUsed,
+            timestamp: block.timestamp,
+            extraData: block.extraData,
+            mixHash: block.mixHash,
+            nonce: block.nonce,
         }
-
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
-            testBlockHeader
+            blockHeader
         )
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
-                keccak256(encodedBlockHeader)
+                keccak256(encodedBlockHeader),
+                false
             )
 
         expect(_stateRoot).to.equal(blockHeader.stateRoot)
         expect(_timeStamp).to.equal(blockHeader.timestamp)
         expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot)
         expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
-    })
-    it.only('Testing provider.send("eth_getBlockByNumber", [ blockNumber ])', async function () {
-        const provider = await new ethers.providers.JsonRpcProvider(
-            hre.network.hardhat
-        )
-        const blockNumber = Math.floor(Math.random() * 5000)
-        const block = await provider.send("eth_getBlockByNumber", [blockNumber])
-        console.log(block)
     })
 })

@@ -13,7 +13,7 @@ library Lib_BlockHeaderDecoder {
     /// @return _timestamp The timestamp.
     /// @return _transactionsRoot The transactionsRoot
     /// @return _receiptsRoot The receiptsRoot
-  function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash)
+  function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash, bool postEIP1559)
     public
     pure
     returns (
@@ -22,6 +22,7 @@ library Lib_BlockHeaderDecoder {
         bytes32 _transactionsRoot,
         bytes32 _receiptsRoot
     ) {
+    uint256 numFields = postEIP1559? 16:15;
     assembly {
       // TODO: use templating techniques and DRY code (with PatriciaValidator).
 
@@ -188,7 +189,7 @@ library Lib_BlockHeaderDecoder {
       }
       
       // Depends on if EIP1559 is enabled, check the item size to be 15 or 16.
-      if iszero( eq(nItems, 15) ) {
+      if iszero( eq(nItems, numFields) ) {
         revertWith('ITEMS')
       }
 
