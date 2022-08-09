@@ -9,8 +9,9 @@ library Lib_BlockHeaderDecoder {
     /// @notice This method extracts [stateRoot, timestamp] of a block header.
     /// @param blockHeader RLP encoded block header
     /// @param blockHash The expected block hash
+    /// @param postEIP1559 True to check header to have 16 fields, 15 otherwise
     /// @return _stateRoot The state root
-    /// @return _timestamp The timestamp.
+    /// @return _timestamp The timestamp
     /// @return _transactionsRoot The transactionsRoot
     /// @return _receiptsRoot The receiptsRoot
   function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash, bool postEIP1559)
