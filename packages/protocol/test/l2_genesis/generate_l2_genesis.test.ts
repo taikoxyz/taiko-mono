@@ -143,7 +143,10 @@ action("Generate L2 Genesis", function () {
             )
 
             await expect(
-                TaikoL2.creditEther(hre.ethers.constants.AddressZero, 1024)
+                TaikoL2.creditEther(
+                    hre.ethers.Wallet.createRandom().address,
+                    1024
+                )
             ).to.emit(TaikoL2, "EtherCredited")
         })
     })
