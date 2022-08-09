@@ -52,6 +52,14 @@ describe("TaikoL2", function () {
             await expect(taikoL2.creditEther(taikoL2.address, "1000")).to
                 .reverted
         })
+
+        it('should revert if not from named "eth_depositor"', async function () {
+            const randWallet = await ethers.Wallet.createRandom().address
+            await expect(
+                taikoL2.connect(randWallet).creditEther(randWallet, "1000")
+            ).to.reverted
+        })
+
         it("should emit EtherCredited when crediting Ether to recipient and balance of reciever should be ether credited", async function () {
             const recieverWallet = await ethers.Wallet.createRandom().address
             const amount = "10000"
@@ -72,12 +80,14 @@ describe("TaikoL2", function () {
                 "invalid anchor"
             )
         })
+
         it("should revert since anchorHash == 0x0", async function () {
             const zeroHash = ethers.constants.HashZero
             await expect(taikoL2.anchor(10, zeroHash)).to.be.revertedWith(
                 "invalid anchor"
             )
         })
+
         it("should not revert, and should emit an Anchored event", async function () {
             const randomHash = randomBytes32()
             await expect(taikoL2.anchor(1, randomHash)).to.emit(
