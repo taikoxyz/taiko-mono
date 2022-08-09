@@ -137,16 +137,14 @@ action("Generate L2 Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            const tx = await TaikoL2.anchor(anchorHeight, anchorHash)
+            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
+                TaikoL2,
+                "Anchored"
+            )
 
-            const { events } = await tx.wait()
-
-            const anchoredEvent = events.filter(
-                ({ event }: any) => event === "Anchored"
-            )[0]
-
-            expect(anchoredEvent.args[0]).to.be.equal(anchorHeight)
-            expect(anchoredEvent.args[1]).to.be.equal(anchorHash)
+            await expect(
+                TaikoL2.creditEther(hre.ethers.constants.AddressZero, 1024)
+            ).to.emit(TaikoL2, "EtherCredited")
         })
     })
 
