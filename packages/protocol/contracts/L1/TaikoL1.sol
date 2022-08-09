@@ -20,31 +20,6 @@ import "../libs/LibTxListValidator.sol";
 import "../libs/LibZKP.sol";
 import "./broker/IProtoBroker.sol";
 
-struct BlockContext {
-    uint256 id;
-    uint256 anchorHeight;
-    bytes32 anchorHash;
-    address beneficiary;
-    uint64 gasLimit;
-    uint64 proposedAt;
-    bytes32 txListHash;
-    bytes32 mixHash;
-    bytes extraData;
-}
-
-struct PendingBlock {
-    bytes32 contextHash;
-    uint128 proposerFee;
-    uint8 everProven;
-}
-
-struct ForkChoice {
-    bytes32 blockHash;
-    uint64 proposedAt;
-    uint64 provenAt;
-    address[] provers;
-}
-
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
 //                  will always be zeros, and this will be checked by zkEVM.
@@ -70,8 +45,43 @@ contract TaikoL1 is EssentialContract {
     using LibBlockHeader for BlockHeader;
     using LibTxListDecoder for bytes;
     using LibTxListValidator for bytes;
+
     /**********************
-     * Constants   *
+     * Structs            *
+     **********************/
+    enum EverProven {
+        _NO, //=0
+        NO, //=1
+        YES //=2
+    }
+
+    struct PendingBlock {
+        bytes32 contextHash;
+        uint128 proposerFee;
+        uint8 everProven;
+    }
+
+    struct BlockContext {
+        uint256 id;
+        uint256 anchorHeight;
+        bytes32 anchorHash;
+        address beneficiary;
+        uint64 gasLimit;
+        uint64 proposedAt;
+        bytes32 txListHash;
+        bytes32 mixHash;
+        bytes extraData;
+    }
+
+    struct ForkChoice {
+        bytes32 blockHash;
+        uint64 proposedAt;
+        uint64 provenAt;
+        address[] provers;
+    }
+
+    /**********************
+     * Constants          *
      **********************/
 
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
@@ -196,7 +206,7 @@ contract TaikoL1 is EssentialContract {
             PendingBlock({
                 contextHash: _hashContext(context),
                 proposerFee: proposerFee.toUint128(),
-                everProven: 1 // 0 and 1 means not proven ever
+                everProven: uint8(EverProven.NO)
             })
         );
 
@@ -405,9 +415,8 @@ contract TaikoL1 is EssentialContract {
         fc.provers.push(msg.sender);
 
         PendingBlock storage blk = _getPendingBlock(context.id);
-        if (blk.everProven != 2) {
-            // special value 2 means this block is proven at least once.
-            blk.everProven = 2;
+        if (blk.everProven != uint8(EverProven.YES)) {
+            blk.everProven = uint8(EverProven.YES);
             numUnprovenBlocks -= 1;
         }
 
