@@ -32,12 +32,13 @@ $$F_i = \hat{g_{i-1}} (B+L_i) $$
 
 - $R_i(t)$: The prover fee for the *i*-th block if the block is proven with a delay of $t$.
 
-    - if $t <= 1.5A_{i-1}$ then $R_i(t)=\hat{F_i}$
-    - else $R_i(t)=       {t \over A_{i-1}} \hat{F_i}    $
+    - if $t <= A_{i-1}$ then $R_i(t)=\hat{F_i}$
+    - else $R_i(t)=     ({1 \over 2}  + {t \over A_{i-1}})\hat{F_i}  $
 
 
-<img width="865" alt="Screenshot 2022-08-07 at 22 44 45" src="https://user-images.githubusercontent.com/99078276/183296568-0de10279-daab-46ad-8b68-57e7e9714b18.png">
 
+
+<img width="80%" alt="Screenshot 2022-08-09 at 19 29 51" src="https://user-images.githubusercontent.com/99078276/183636828-1e61f975-8b9d-4fe3-b014-90f90e25a283.png">
 
 
 Currently we allow up to 5 proofs per block. If the first proof was submitted with delay $D^1$, all the other *uncle proofs* must be submitted within a time window of $D^1 \over 2$.
