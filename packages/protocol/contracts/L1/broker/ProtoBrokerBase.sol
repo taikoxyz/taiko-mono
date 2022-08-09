@@ -82,7 +82,7 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
         if (
             amountToMintToDAO > amountToMintToDAOThreshold &&
-            !payFee(resolve("dao_reserve"), amountToMintToDAO - 1)
+            payFee(resolve("dao_reserve"), amountToMintToDAO - 1)
         ) {
             amountToMintToDAO = 1;
         }
