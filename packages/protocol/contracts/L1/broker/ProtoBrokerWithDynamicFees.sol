@@ -25,6 +25,7 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
     uint256 public constant FEE_ADJUSTMENT_FACTOR = 32;
     uint256 public constant PROVING_DELAY_AVERAGING_FACTOR = 64;
     uint256 public constant FEE_PREMIUM_MAX_MUTIPLIER = 4;
+    uint256 public constant FEE_TOTAL_MAX_MULTIPLIER = 100;
     uint256 public constant FEE_BIPS = 500; // 5%
     uint64 internal constant MILIS_PER_SECOND = 1E3;
 
@@ -173,11 +174,11 @@ abstract contract ProtoBrokerWithDynamicFees is ProtoBrokerBase {
         view
         returns (uint256)
     {
-        // start to paying additional rewards above 150% of average proving delay
-        uint256 t = (_avgProvingDelay * 150) / 100; // threshold
-        uint256 x = provingDelay * MILIS_PER_SECOND;
-        uint256 b = (proposerFee * (10_000 - FEE_BIPS)) / 10_000; // feeBaseline
-        return x > t ? (b * (x - t)) / t + b : b;
+        uint256 a = _avgProvingDelay; // threshold
+        uint256 t = provingDelay * MILIS_PER_SECOND;
+        uint256 f = (proposerFee * (10_000 - FEE_BIPS)) / 10_000; // feeBaseline
+        return
+            t > a ? ((f * t) / a + f / 2).min(FEE_TOTAL_MAX_MULTIPLIER * f) : f;
     }
 
     function _updateAverage(
