@@ -87,6 +87,26 @@ action("Generate L2 Genesis", function () {
     })
 
     describe("contracts can be called normally", function () {
+        it("AddressManager", async function () {
+            const addressManagerAlloc = getContractAlloc("AddressManager")
+
+            const addressManager = new hre.ethers.Contract(
+                addressManagerAlloc.address,
+                require("../../artifacts/contracts/thirdparty/AddressManager.sol/AddressManager.json").abi,
+                provider
+            )
+
+            const owner = await addressManager.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            const ethDepositor = await addressManager.getAddress(
+                "eth_depositor"
+            )
+
+            expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+        })
+
         it("LibTxListValidator", async function () {
             const LibTxListValidatorAlloc =
                 getContractAlloc("LibTxListValidator")
