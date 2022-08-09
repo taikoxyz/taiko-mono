@@ -19,11 +19,13 @@ const config = require(path.isAbsolute(process.argv[2])
     : path.join(process.cwd(), process.argv[2]))
 
 const contractOwner = config.contractOwner
+const ethDepositor = config.ethDepositor
 const chainId = config.chainId
 const premintEthAccounts = config.premintEthAccounts
 
 if (
     !ethers.utils.isAddress(contractOwner) ||
+    !ethers.utils.isAddress(ethDepositor) ||
     !Number.isInteger(chainId) ||
     !Array.isArray(premintEthAccounts) ||
     !premintEthAccounts.every((premintEthAccount) => {
@@ -147,6 +149,10 @@ async function generateContractConfigs(
     chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
+        AddressManager: require(path.join(
+            ARTIFACTS_PATH,
+            "./thirdparty/AddressManager.sol/AddressManager.json"
+        )),
         LibTxListValidator: require(path.join(
             ARTIFACTS_PATH,
             "./libs/LibTxListValidator.sol/LibTxListValidator.json"
@@ -183,6 +189,25 @@ async function generateContractConfigs(
     console.log(addressMap)
 
     return {
+        AddressManager: {
+            address: addressMap.AddressManager,
+            deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressManager
+                addresses: {
+                    // keccak256(abi.encodePacked(_name))
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        ["eth_depositor"]
+                    )}`]: config.ethDepositor,
+                },
+            },
+        },
         LibTxListValidator: {
             address: addressMap.LibTxListValidator,
             deployedBytecode:
@@ -195,7 +220,17 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2.deployedBytecode,
                 addressMap
             ),
-            variables: {},
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+            },
         },
     }
 }
