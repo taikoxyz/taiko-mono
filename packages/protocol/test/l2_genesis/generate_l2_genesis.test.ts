@@ -1,5 +1,5 @@
-const hre = require("hardhat")
-const { expect } = require("chai")
+import { expect } from "chai"
+import * as hre from "hardhat"
 
 const ethers = hre.ethers
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip
@@ -87,18 +87,40 @@ action("Generate L2 Genesis", function () {
     })
 
     describe("contracts can be called normally", function () {
-        it("LibTxList", async function () {
-            const LibTxListAlloc = getContractAlloc("LibTxList")
+        it("AddressManager", async function () {
+            const addressManagerAlloc = getContractAlloc("AddressManager")
 
-            const LibTxList = new hre.ethers.Contract(
-                LibTxListAlloc.address,
-                require("../../artifacts/contracts/libs/LibTxList.sol/LibTxList.json").abi,
+            const addressManager = new hre.ethers.Contract(
+                addressManagerAlloc.address,
+                require("../../artifacts/contracts/thirdparty/AddressManager.sol/AddressManager.json").abi,
+                provider
+            )
+
+            const owner = await addressManager.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            const ethDepositor = await addressManager.getAddress(
+                "eth_depositor"
+            )
+
+            expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+        })
+
+        it("LibTxListValidator", async function () {
+            const LibTxListValidatorAlloc =
+                getContractAlloc("LibTxListValidator")
+
+            const LibTxListValidator = new hre.ethers.Contract(
+                LibTxListValidatorAlloc.address,
+                require("../../artifacts/contracts/libs/LibTxListValidator.sol/LibTxListValidator.json").abi,
                 signer
             )
 
-            const txListHash = await LibTxList.hashTxList([])
+            const gasLimit =
+                await LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT()
 
-            expect(txListHash.length).to.be.equal(2 + 32 * 2)
+            expect(gasLimit.gt(ethers.BigNumber.from(0))).to.be.equal(true)
         })
 
         it("TaikoL2", async function () {
@@ -115,16 +137,14 @@ action("Generate L2 Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            const tx = await TaikoL2.anchor(anchorHeight, anchorHash)
+            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
+                TaikoL2,
+                "Anchored"
+            )
 
-            const { events } = await tx.wait()
-
-            const anchoredEvent = events.filter(
-                ({ event }: any) => event === "Anchored"
-            )[0]
-
-            expect(anchoredEvent.args[0]).to.be.equal(anchorHeight)
-            expect(anchoredEvent.args[1]).to.be.equal(anchorHash)
+            await expect(
+                TaikoL2.creditEther(hre.ethers.constants.AddressZero, 1024)
+            ).to.emit(TaikoL2, "EtherCredited")
         })
     })
 

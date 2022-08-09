@@ -8,8 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../libs/LibTxListValidator.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
-import "../libs/LibConstants.sol";
 
 struct BlockHeader {
     bytes32 parentHash;
@@ -69,7 +69,7 @@ library LibBlockHeader {
         return
             header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= LibConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
             header.nonce == 0;
