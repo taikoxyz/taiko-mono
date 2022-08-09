@@ -1,3 +1,6 @@
 node_modules/
+contracts/aux/tokens/ERC20Upgradeable.sol
+contracts/test/TestLib_RLPReader.sol
+contracts/test/TestLib_RLPWriter.sol
 contracts/libs/Lib1559Math.sol
 contracts/thirdparty/

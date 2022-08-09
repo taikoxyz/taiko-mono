@@ -9,15 +9,21 @@ library Lib_BlockHeaderDecoder {
     /// @notice This method extracts [stateRoot, timestamp] of a block header.
     /// @param blockHeader RLP encoded block header
     /// @param blockHash The expected block hash
+    /// @param postEIP1559 True to check header to have 16 fields, 15 otherwise
     /// @return _stateRoot The state root
-    /// @return _timestamp The timestamp.
-  function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash)
+    /// @return _timestamp The timestamp
+    /// @return _transactionsRoot The transactionsRoot
+    /// @return _receiptsRoot The receiptsRoot
+  function decodeBlockHeader (bytes calldata blockHeader, bytes32 blockHash, bool postEIP1559)
     public
     pure
     returns (
         bytes32 _stateRoot,
-        uint256 _timestamp
+        uint256 _timestamp,
+        bytes32 _transactionsRoot,
+        bytes32 _receiptsRoot
     ) {
+    uint256 numFields = postEIP1559? 16:15;
     assembly {
       // TODO: use templating techniques and DRY code (with PatriciaValidator).
 
@@ -182,7 +188,9 @@ library Lib_BlockHeaderDecoder {
       if iszero( eq(hash, blockHash) ) {
         revertWith('HASH')
       }
-      if iszero( eq(nItems, 16) ) {
+      
+      // Depends on if EIP1559 is enabled, check the item size to be 15 or 16.
+      if iszero( eq(nItems, numFields) ) {
         revertWith('ITEMS')
       }
 
@@ -194,6 +202,15 @@ library Lib_BlockHeaderDecoder {
       // at position 3 should be the stateRoot
       _stateRoot, len := loadValue(add(memStart, mul(32, 3)))
       // sstore(originStateRoot.slot, value)
+
+      // at position 4 should be transactionsRoot
+      _transactionsRoot, len := loadValue(add(memStart, mul(32, 4)))
+      // sstore(originTransactionsRoot.slot, value)
+
+      // at position 5 should be receiptsRoot
+      _receiptsRoot, len := loadValue(add(memStart, mul(32, 5)))
+      // sstore(originReceiptsRoot.slot, value)
+
     }
   }
 }

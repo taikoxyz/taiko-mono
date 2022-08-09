@@ -19,11 +19,13 @@ const config = require(path.isAbsolute(process.argv[2])
     : path.join(process.cwd(), process.argv[2]))
 
 const contractOwner = config.contractOwner
+const ethDepositor = config.ethDepositor
 const chainId = config.chainId
 const premintEthAccounts = config.premintEthAccounts
 
 if (
     !ethers.utils.isAddress(contractOwner) ||
+    !ethers.utils.isAddress(ethDepositor) ||
     !Number.isInteger(chainId) ||
     !Array.isArray(premintEthAccounts) ||
     !premintEthAccounts.every((premintEthAccount) => {
@@ -147,9 +149,13 @@ async function generateContractConfigs(
     chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
-        LibTxList: require(path.join(
+        AddressManager: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibTxList.sol/LibTxList.json"
+            "./thirdparty/AddressManager.sol/AddressManager.json"
+        )),
+        LibTxListValidator: require(path.join(
+            ARTIFACTS_PATH,
+            "./libs/LibTxListValidator.sol/LibTxListValidator.json"
         )),
         TaikoL2: require(path.join(
             ARTIFACTS_PATH,
@@ -163,8 +169,8 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode
 
         if (contractName === "TaikoL2") {
-            if (!addressMap.LibTxList) {
-                throw new Error("LibTxList's address not initialized")
+            if (!addressMap.LibTxListValidator) {
+                throw new Error("LibTxListValidator's address not initialized")
             }
 
             bytecode = linkTaikoL2Bytecode(bytecode, addressMap)
@@ -183,9 +189,29 @@ async function generateContractConfigs(
     console.log(addressMap)
 
     return {
-        LibTxList: {
-            address: addressMap.LibTxList,
-            deployedBytecode: contractArtifacts.LibTxList.deployedBytecode,
+        AddressManager: {
+            address: addressMap.AddressManager,
+            deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressManager
+                addresses: {
+                    // keccak256(abi.encodePacked(_name))
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        ["eth_depositor"]
+                    )}`]: config.ethDepositor,
+                },
+            },
+        },
+        LibTxListValidator: {
+            address: addressMap.LibTxListValidator,
+            deployedBytecode:
+                contractArtifacts.LibTxListValidator.deployedBytecode,
             variables: {},
         },
         TaikoL2: {
@@ -194,7 +220,17 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoL2.deployedBytecode,
                 addressMap
             ),
-            variables: {},
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+            },
         },
     }
 }
@@ -205,11 +241,11 @@ function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
     if (Object.keys(refs).length !== 1) {
-        throw new Error("link reference not only LibTxList")
+        throw new Error("link reference not only LibTxListValidator")
     }
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTxList,
+        [Object.keys(refs)[0]]: addressMap.LibTxListValidator,
     })
 
     if (linkedBytecode.includes("$__")) {

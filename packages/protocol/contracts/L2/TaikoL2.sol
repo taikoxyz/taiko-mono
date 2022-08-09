@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxList.sol";
+import "../libs/LibTxListValidator.sol";
 
 contract TaikoL2 is EssentialContract {
     /**********************
@@ -69,7 +69,10 @@ contract TaikoL2 is EssentialContract {
         nonReentrant
         onlyFromNamed("eth_depositor")
     {
-        require(recipient != address(this), "L2:invalid address");
+        require(
+            recipient != address(0) && recipient != address(this),
+            "L2:invalid address"
+        );
         payable(recipient).transfer(amount);
         emit EtherCredited(recipient, amount);
     }
