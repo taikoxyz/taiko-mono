@@ -6,8 +6,8 @@ import "@typechain/hardhat"
 import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
 import { HardhatUserConfig, task } from "hardhat/config"
-import "solidity-coverage"
 import "./tasks/deploy_L1"
+import "solidity-coverage"
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
