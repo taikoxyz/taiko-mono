@@ -54,7 +54,7 @@ describe("TaikoL2", function () {
         })
 
         it('should revert if not from named "eth_depositor"', async function () {
-            const randWallet = await ethers.Wallet.createRandom().address
+            const randWallet = ethers.Wallet.createRandom().address
             await expect(
                 taikoL2.connect(randWallet).creditEther(randWallet, "1000")
             ).to.reverted
