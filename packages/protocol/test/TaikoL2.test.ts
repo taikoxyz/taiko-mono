@@ -61,7 +61,7 @@ describe("TaikoL2", function () {
         })
 
         it("should emit EtherCredited when crediting Ether to recipient and balance of reciever should be ether credited", async function () {
-            const recieverWallet = await ethers.Wallet.createRandom().address
+            const recieverWallet = ethers.Wallet.createRandom().address
             const amount = "10000"
             expect(await taikoL2.creditEther(recieverWallet, amount)).to.emit(
                 taikoL2,
