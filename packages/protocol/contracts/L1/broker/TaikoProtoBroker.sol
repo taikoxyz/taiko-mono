@@ -24,8 +24,8 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
     ) external initializer {
         ProtoBrokerWithDynamicFees._init(
             _addressManager,
-            _gasPriceNow,
-            _amountToMintToDAOThreshold
+            _amountToMintToDAOThreshold,
+            _gasPriceNow
         );
 
         IMintableERC20 taiToken = IMintableERC20(resolve("tai_token"));
