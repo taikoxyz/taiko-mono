@@ -66,7 +66,6 @@ task("deploy_L1")
     })
 
 export async function deployContracts(hre: any) {
-    // const ethers = hre.ethers
     const network = hre.network.name
     const { chainId } = await hre.ethers.provider.getNetwork()
     const deployer = await utils.getDeployer(hre)
