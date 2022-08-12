@@ -68,9 +68,9 @@
         "prettier-plugin-solidity": "^1.0.0-beta.19",
         "solhint": "^3.3.7",
         "solidity-coverage": "^0.7.21",
-        "ts-node": "^10.5.0",
+        "ts-node": "~10.7.0",
         "typechain": "^5.2.0",
-        "typescript": "^4.5.5"
+        "typescript": "~4.6.4"
     },
     "dependencies": {
         "@gnosis.pm/zodiac": "^1.0.7",
