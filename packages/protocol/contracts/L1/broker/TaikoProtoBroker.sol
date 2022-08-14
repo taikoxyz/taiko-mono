@@ -33,12 +33,8 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
         taiToken.mint(resolve("team_vault"), _amountMintToTeam);
     }
 
-    function feeToken() public view returns (address) {
-        return resolve("tai_token");
-    }
-
     function payFee(address recipient, uint256 amount)
-        internal
+        public
         override
         returns (bool success)
     {
@@ -46,6 +42,10 @@ contract TaikoProtoBroker is ProtoBrokerWithDynamicFees {
             IMintableERC20(feeToken()).mint(recipient, amount);
         }
         return true;
+    }
+
+    function feeToken() public view returns (address) {
+        return resolve("tai_token");
     }
 
     function chargeFee(address recipient, uint256 amount)

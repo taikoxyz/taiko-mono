@@ -47,18 +47,25 @@ contract TaikoL1 is EssentialContract {
     using LibTxListValidator for bytes;
 
     /**********************
+     * Enums              *
+     **********************/
+
+    enum PendingBlockStatus {
+        __UNDEFINED, // = 0
+        PROPOSED, // = 1
+        REVEALED, // = 2
+        PROVEN // = 3
+    }
+
+    /**********************
      * Structs            *
      **********************/
-    enum EverProven {
-        _NO, //=0
-        NO, //=1
-        YES //=2
-    }
 
     struct PendingBlock {
         bytes32 contextHash;
         uint128 proposerFee;
-        uint8 everProven;
+        uint64 proposedAt;
+        uint8 status;
     }
 
     struct BlockContext {
@@ -85,10 +92,11 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_PENDING_BLOCKS = 2048;
+    uint256 public constant MAX_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
+    uint256 public constant TXLIST_REVEAL_WINDOW = 120; // 120 seconds
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
@@ -117,7 +125,13 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockProposed(uint256 indexed id, BlockContext context);
+    event BlockProposed(
+        uint256 indexed id,
+        BlockContext context,
+        bool revealed
+    );
+
+    event BlockRevealed(uint256 indexed id);
 
     event BlockProven(
         uint256 indexed id,
@@ -138,8 +152,14 @@ contract TaikoL1 is EssentialContract {
      * Modifiers          *
      **********************/
 
-    modifier whenBlockIsPending(BlockContext calldata context) {
-        _checkContextPending(context);
+    modifier whenBlockProvable(BlockContext calldata context) {
+        _checkBlockProvable(context);
+        _;
+        finalizeBlocks();
+    }
+
+    modifier whenBlockPublishable(BlockContext calldata context) {
+        _checkBlockUnrevealed(context);
         _;
         finalizeBlocks();
     }
@@ -168,7 +188,8 @@ contract TaikoL1 is EssentialContract {
     ///        - txListHash
     ///        - mixHash
     ///        - proposedAt
-    /// @param txList A list of transactions in this block, encoded with RLP.
+    /// @param txList A list of transactions in this block, encoded with RLP, or its
+    ///        hash if the length is 32 bytes.
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
@@ -178,16 +199,24 @@ contract TaikoL1 is EssentialContract {
         // Try to finalize blocks first to make room
         finalizeBlocks();
 
-        require(txList.length > 0, "empty txList");
+        require(txList.length >= 32, "invalid txList");
         require(
-            nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
+            nextPendingId <= lastFinalizedId + MAX_BLOCKS,
             "too many pending blocks"
         );
         validateContext(context);
 
         context.id = nextPendingId;
         context.proposedAt = uint64(block.timestamp);
-        context.txListHash = txList.hashTxList();
+
+        PendingBlockStatus status;
+        if (txList.length == 32) {
+            status = PendingBlockStatus.PROPOSED;
+            context.txListHash = bytes32(txList);
+        } else {
+            status = PendingBlockStatus.REVEALED;
+            context.txListHash = txList.hashTxList();
+        }
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -206,13 +235,29 @@ contract TaikoL1 is EssentialContract {
             PendingBlock({
                 contextHash: _hashContext(context),
                 proposerFee: proposerFee.toUint128(),
-                everProven: uint8(EverProven.NO)
+                proposedAt: context.proposedAt,
+                status: uint8(status)
             })
         );
 
         numUnprovenBlocks += 1;
 
-        emit BlockProposed(nextPendingId++, context);
+        emit BlockProposed(
+            nextPendingId++,
+            context,
+            status == PendingBlockStatus.REVEALED
+        );
+    }
+
+    function reviewBlock(BlockContext calldata context, bytes calldata txList)
+        external
+        nonReentrant
+        whenBlockPublishable(context)
+    {
+        require(context.txListHash == txList.hashTxList(), "invalid blockHash");
+        PendingBlock storage blk = _getPendingBlock(context.id);
+        blk.status = uint8(PendingBlockStatus.REVEALED);
+        emit BlockRevealed(context.id);
     }
 
     function proveBlock(
@@ -220,7 +265,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context) {
+    ) external nonReentrant whenBlockProvable(context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -264,7 +309,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context) {
+    ) external nonReentrant whenBlockProvable(context) {
         require(
             throwAwayHeader.isPartiallyValidForTaiko(),
             "throwAwayHeader invalid"
@@ -311,7 +356,7 @@ contract TaikoL1 is EssentialContract {
     function verifyBlockInvalid(
         BlockContext calldata context,
         bytes calldata txList
-    ) external nonReentrant whenBlockIsPending(context) {
+    ) external nonReentrant whenBlockProvable(context) {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!txList.isTxListValid(), "txList is valid");
 
@@ -332,19 +377,28 @@ contract TaikoL1 is EssentialContract {
         uint256 processed = 0;
 
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
-            ForkChoice storage fc = forkChoices[id][
-                finalizedBlocks[lastFinalizedHeight]
-            ];
+            PendingBlock storage blk = _getPendingBlock(id);
 
-            if (fc.blockHash != 0) {
-                finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
-                _finalizeBlock(id, fc);
+            if (
+                blk.status == uint8(PendingBlockStatus.PROPOSED) &&
+                block.timestamp > blk.proposedAt + TXLIST_REVEAL_WINDOW
+            ) {
+                _finalizeBlock1(id, blk.proposerFee);
             } else {
-                fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
+                ForkChoice storage fc = forkChoices[id][
+                    finalizedBlocks[lastFinalizedHeight]
+                ];
+
                 if (fc.blockHash != 0) {
+                    finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
                     _finalizeBlock(id, fc);
                 } else {
-                    break;
+                    fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
+                    if (fc.blockHash != 0) {
+                        _finalizeBlock(id, fc);
+                    } else {
+                        break;
+                    }
                 }
             }
 
@@ -415,8 +469,8 @@ contract TaikoL1 is EssentialContract {
         fc.provers.push(msg.sender);
 
         PendingBlock storage blk = _getPendingBlock(context.id);
-        if (blk.everProven != uint8(EverProven.YES)) {
-            blk.everProven = uint8(EverProven.YES);
+        if (blk.status == uint8(PendingBlockStatus.REVEALED)) {
+            blk.status = uint8(PendingBlockStatus.PROVEN);
             numUnprovenBlocks -= 1;
         }
 
@@ -427,6 +481,16 @@ contract TaikoL1 is EssentialContract {
             fc.proposedAt,
             fc.provenAt,
             msg.sender
+        );
+    }
+
+    function _finalizeBlock1(uint64 id, uint256 fee) private {
+        IProtoBroker(resolve("proto_broker")).payFee(resolve("dao_vault"), fee);
+
+        emit BlockFinalized(
+            id,
+            lastFinalizedHeight,
+            finalizedBlocks[lastFinalizedHeight]
         );
     }
 
@@ -447,7 +511,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _savePendingBlock(uint256 id, PendingBlock memory blk) private {
-        pendingBlocks[id % MAX_PENDING_BLOCKS] = blk;
+        pendingBlocks[id % MAX_BLOCKS] = blk;
     }
 
     function _getPendingBlock(uint256 id)
@@ -455,18 +519,38 @@ contract TaikoL1 is EssentialContract {
         view
         returns (PendingBlock storage)
     {
-        return pendingBlocks[id % MAX_PENDING_BLOCKS];
+        return pendingBlocks[id % MAX_BLOCKS];
     }
 
-    function _checkContextPending(BlockContext calldata context) private view {
+    function _checkBlockProvable(BlockContext calldata context) private view {
+        PendingBlock storage blk = _checkBlockPending(context);
+        require(
+            blk.status == uint8(PendingBlockStatus.REVEALED) ||
+                blk.status == uint8(PendingBlockStatus.PROVEN),
+            "not approvable"
+        );
+    }
+
+    function _checkBlockUnrevealed(BlockContext calldata context) private view {
+        PendingBlock storage blk = _checkBlockPending(context);
+        require(blk.status == uint8(PendingBlockStatus.PROPOSED), "revealed");
+        require(
+            block.timestamp <= blk.proposedAt + TXLIST_REVEAL_WINDOW,
+            "too late"
+        );
+    }
+
+    function _checkBlockPending(BlockContext calldata context)
+        private
+        view
+        returns (PendingBlock storage blk)
+    {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
             "invalid id"
         );
-        require(
-            _getPendingBlock(context.id).contextHash == _hashContext(context),
-            "context mismatch"
-        );
+        blk = _getPendingBlock(context.id);
+        require(blk.contextHash == _hashContext(context), "context mismatch");
     }
 
     function _validateHeader(BlockHeader calldata header) private pure {

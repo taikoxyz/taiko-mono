@@ -25,6 +25,10 @@ interface IProtoBroker {
         address[] memory provers
     ) external returns (uint256 totalProverFees);
 
+    function payFee(address recipient, uint256 amount)
+        external
+        returns (bool success);
+
     function getProposerFee(uint256 gasLimit, uint256 numUnprovenBlocks)
         external
         view

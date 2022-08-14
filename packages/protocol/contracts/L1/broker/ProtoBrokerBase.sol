@@ -82,11 +82,17 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
 
         if (
             amountToMintToDAO > amountToMintToDAOThreshold &&
-            payFee(resolve("dao_reserve"), amountToMintToDAO - 1)
+            payFee(resolve("dao_vault"), amountToMintToDAO - 1)
         ) {
             amountToMintToDAO = 1;
         }
     }
+
+    function payFee(address recipient, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool success);
 
     function getProposerFee(uint256 gasLimit, uint256 numUnprovenBlocks)
         public
@@ -118,16 +124,6 @@ abstract contract ProtoBrokerBase is IProtoBroker, EssentialContract {
         uint256, /*provingDelay*/
         address[] memory provers
     ) internal virtual returns (uint256[] memory fees, uint256 totalFees);
-
-    function payFee(
-        address, /*recipient*/
-        uint256 /*amount*/
-    )
-        internal
-        virtual
-        returns (
-            bool /*success*/
-        );
 
     function chargeFee(
         address, /*recipient*/
