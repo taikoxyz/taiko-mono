@@ -147,13 +147,13 @@ contract TaikoL1 is EssentialContract {
     /**********************
      * Modifiers          *
      **********************/
-    modifier whenBlockIsProposed(BlockContext calldata context) {
+    modifier ifBlockIsProposed(BlockContext calldata context) {
         _checkBlockIsProposed(context);
         _;
         finalizeBlocks();
     }
 
-    modifier whenBlockIsProvable(BlockContext calldata context) {
+    modifier ifBlockIsProvable(BlockContext calldata context) {
         _checkBlockIsProvable(context);
         _;
         finalizeBlocks();
@@ -250,7 +250,7 @@ contract TaikoL1 is EssentialContract {
     function revealTxList(BlockContext calldata context, bytes calldata txList)
         external
         nonReentrant
-        whenBlockIsProposed(context)
+        ifBlockIsProposed(context)
     {
         require(
             txList.length > 0 && context.txListHash == txList.hashTxList(),
@@ -267,7 +267,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsProvable(context) {
+    ) external nonReentrant ifBlockIsProvable(context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -311,7 +311,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsProvable(context) {
+    ) external nonReentrant ifBlockIsProvable(context) {
         require(
             throwAwayHeader.isPartiallyValidForTaiko(),
             "L1:throwAwayHeader invalid"
@@ -358,7 +358,7 @@ contract TaikoL1 is EssentialContract {
     function verifyBlockInvalid(
         BlockContext calldata context,
         bytes calldata txList
-    ) external nonReentrant whenBlockIsProvable(context) {
+    ) external nonReentrant ifBlockIsProvable(context) {
         require(
             txList.hashTxList() == context.txListHash,
             "L1:txList mismatch"
