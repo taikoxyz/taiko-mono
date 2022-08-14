@@ -152,14 +152,14 @@ contract TaikoL1 is EssentialContract {
      * Modifiers          *
      **********************/
 
-    modifier whenBlockProvable(BlockContext calldata context) {
-        _checkBlockProvable(context);
+    modifier whenBlockIsProvable(BlockContext calldata context) {
+        _checkBlockIsProvable(context);
         _;
         finalizeBlocks();
     }
 
-    modifier whenBlockPublishable(BlockContext calldata context) {
-        _checkBlockUnrevealed(context);
+    modifier whenBlockIsProposed(BlockContext calldata context) {
+        _checkBlockIsProposed(context);
         _;
         finalizeBlocks();
     }
@@ -252,7 +252,7 @@ contract TaikoL1 is EssentialContract {
     function reviewBlock(BlockContext calldata context, bytes calldata txList)
         external
         nonReentrant
-        whenBlockPublishable(context)
+        whenBlockIsProposed(context)
     {
         require(context.txListHash == txList.hashTxList(), "invalid blockHash");
         PendingBlock storage blk = _getPendingBlock(context.id);
@@ -265,7 +265,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata header,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockProvable(context) {
+    ) external nonReentrant whenBlockIsProvable(context) {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
@@ -309,7 +309,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockProvable(context) {
+    ) external nonReentrant whenBlockIsProvable(context) {
         require(
             throwAwayHeader.isPartiallyValidForTaiko(),
             "throwAwayHeader invalid"
@@ -356,7 +356,7 @@ contract TaikoL1 is EssentialContract {
     function verifyBlockInvalid(
         BlockContext calldata context,
         bytes calldata txList
-    ) external nonReentrant whenBlockProvable(context) {
+    ) external nonReentrant whenBlockIsProvable(context) {
         require(txList.hashTxList() == context.txListHash, "txList mismatch");
         require(!txList.isTxListValid(), "txList is valid");
 
@@ -522,7 +522,7 @@ contract TaikoL1 is EssentialContract {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
-    function _checkBlockProvable(BlockContext calldata context) private view {
+    function _checkBlockIsProvable(BlockContext calldata context) private view {
         PendingBlock storage blk = _checkBlockPending(context);
         require(
             blk.status == uint8(PendingBlockStatus.REVEALED) ||
@@ -531,7 +531,7 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _checkBlockUnrevealed(BlockContext calldata context) private view {
+    function _checkBlockIsProposed(BlockContext calldata context) private view {
         PendingBlock storage blk = _checkBlockPending(context);
         require(blk.status == uint8(PendingBlockStatus.PROPOSED), "revealed");
         require(
