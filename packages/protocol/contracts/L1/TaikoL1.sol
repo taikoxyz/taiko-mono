@@ -381,30 +381,34 @@ contract TaikoL1 is EssentialContract {
         uint64 id = lastFinalizedId + 1;
         uint256 processed = 0;
 
+        IProtoBroker broker = IProtoBroker(resolve("proto_broker"));
+
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
             PendingBlock storage blk = _getPendingBlock(id);
 
-            if (
-                blk.status == uint8(PendingBlockStatus.PROPOSED) &&
-                block.timestamp > blk.proposedAt + TXLIST_REVEAL_WINDOW
-            ) {
-                _finalizeBlock1(id, blk.proposerFee);
-            } else {
+            if (blk.status == uint8(PendingBlockStatus.PROVEN)) {
                 ForkChoice storage fc = forkChoices[id][
                     finalizedBlocks[lastFinalizedHeight]
                 ];
 
                 if (fc.blockHash != 0) {
                     finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
-                    _finalizeBlock(id, fc);
+                    _finalizeProvenBlock(broker, id, fc);
                 } else {
                     fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
                     if (fc.blockHash != 0) {
-                        _finalizeBlock(id, fc);
+                        _finalizeProvenBlock(broker, id, fc);
                     } else {
                         break;
                     }
                 }
+            } else if (
+                blk.status == uint8(PendingBlockStatus.PROPOSED) &&
+                block.timestamp > blk.proposedAt + TXLIST_REVEAL_WINDOW
+            ) {
+                _finalizeExpiredBlock(broker, id, blk.proposerFee);
+            } else {
+                break;
             }
 
             lastFinalizedId += 1;
@@ -489,8 +493,12 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _finalizeBlock1(uint64 id, uint256 fee) private {
-        IProtoBroker(resolve("proto_broker")).payFee(resolve("dao_vault"), fee);
+    function _finalizeExpiredBlock(
+        IProtoBroker broker,
+        uint64 id,
+        uint256 proverFee
+    ) private {
+        broker.payFee(resolve("dao_vault"), proverFee);
 
         emit BlockFinalized(
             id,
@@ -499,8 +507,12 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
-        IProtoBroker(resolve("proto_broker")).payProvers(
+    function _finalizeProvenBlock(
+        IProtoBroker broker,
+        uint64 id,
+        ForkChoice storage fc
+    ) private {
+        broker.payProvers(
             id,
             fc.provenAt,
             fc.proposedAt,
