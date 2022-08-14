@@ -150,6 +150,7 @@ contract TaikoL1 is EssentialContract {
     modifier whenBlockIsProposed(BlockContext calldata context) {
         _checkBlockIsProposed(context);
         _;
+        finalizeBlocks();
     }
 
     modifier whenBlockIsProvable(BlockContext calldata context) {
