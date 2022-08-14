@@ -92,7 +92,7 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     uint256 public constant MAX_ANCHOR_HEIGHT_DIFF = 128;
-    uint256 public constant MAX_BLOCKS = 2048;
+    uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
@@ -201,7 +201,7 @@ contract TaikoL1 is EssentialContract {
 
         require(txList.length >= 32, "invalid txList");
         require(
-            nextPendingId <= lastFinalizedId + MAX_BLOCKS,
+            nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
             "too many pending blocks"
         );
         validateContext(context);
@@ -511,7 +511,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _savePendingBlock(uint256 id, PendingBlock memory blk) private {
-        pendingBlocks[id % MAX_BLOCKS] = blk;
+        pendingBlocks[id % MAX_PENDING_BLOCKS] = blk;
     }
 
     function _getPendingBlock(uint256 id)
@@ -519,7 +519,7 @@ contract TaikoL1 is EssentialContract {
         view
         returns (PendingBlock storage)
     {
-        return pendingBlocks[id % MAX_BLOCKS];
+        return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
     function _checkBlockProvable(BlockContext calldata context) private view {
