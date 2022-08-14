@@ -540,7 +540,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _checkBlockIsProvable(BlockContext calldata context) private view {
-        PendingBlock storage blk = _checkBlockPending(context);
+        PendingBlock storage blk = _checkBlockIsPending(context);
         require(
             blk.status == uint8(PendingBlockStatus.REVEALED) ||
                 blk.status == uint8(PendingBlockStatus.PROVEN),
@@ -549,7 +549,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _checkBlockIsProposed(BlockContext calldata context) private view {
-        PendingBlock storage blk = _checkBlockPending(context);
+        PendingBlock storage blk = _checkBlockIsPending(context);
         require(blk.status == uint8(PendingBlockStatus.PROPOSED), "revealed");
         require(
             block.timestamp <= blk.proposedAt + TXLIST_REVEAL_WINDOW,
@@ -557,7 +557,7 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _checkBlockPending(BlockContext calldata context)
+    function _checkBlockIsPending(BlockContext calldata context)
         private
         view
         returns (PendingBlock storage blk)
