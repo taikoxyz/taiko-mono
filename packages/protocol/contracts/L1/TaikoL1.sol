@@ -125,11 +125,7 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockProposed(
-        uint256 indexed id,
-        BlockContext context,
-        bool txListRevealed
-    );
+    event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockRevealed(uint256 indexed id);
 
@@ -238,11 +234,13 @@ contract TaikoL1 is EssentialContract {
 
         numUnprovenBlocks += 1;
 
-        emit BlockProposed(
-            nextPendingId++,
-            context,
-            status == PendingBlockStatus.REVEALED
-        );
+        emit BlockProposed(nextPendingId, context);
+
+        if (status == PendingBlockStatus.REVEALED) {
+            emit BlockRevealed(nextPendingId);
+        }
+
+        nextPendingId++;
     }
 
     /// @notice Reveal a Taiko L2 block's txList.
