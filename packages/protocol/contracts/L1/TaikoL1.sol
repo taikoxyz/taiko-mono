@@ -247,7 +247,7 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function reviewBlock(BlockContext calldata context, bytes calldata txList)
+    function revealBlock(BlockContext calldata context, bytes calldata txList)
         external
         nonReentrant
         whenBlockIsProposed(context)
