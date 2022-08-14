@@ -247,14 +247,21 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function revealBlock(BlockContext calldata context, bytes calldata txList)
+    /// @notice Reveal a Taiko L2 block's txList.
+    /// @param context The block's context.
+    /// @param txList A list of transactions in this block, encoded with RLP.
+    function revealTxList(BlockContext calldata context, bytes calldata txList)
         external
         nonReentrant
         whenBlockIsProposed(context)
     {
-        require(context.txListHash == txList.hashTxList(), "invalid blockHash");
-        PendingBlock storage blk = _getPendingBlock(context.id);
-        blk.status = uint8(PendingBlockStatus.REVEALED);
+        require(
+            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            "invalid blockHash"
+        );
+        _getPendingBlock(context.id).status = uint8(
+            PendingBlockStatus.REVEALED
+        );
         emit BlockRevealed(context.id);
     }
 
