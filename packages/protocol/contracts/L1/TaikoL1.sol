@@ -128,7 +128,7 @@ contract TaikoL1 is EssentialContract {
     event BlockProposed(
         uint256 indexed id,
         BlockContext context,
-        bool revealed
+        bool txListRevealed
     );
 
     event BlockRevealed(uint256 indexed id);
