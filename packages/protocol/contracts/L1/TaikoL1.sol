@@ -186,8 +186,7 @@ contract TaikoL1 is EssentialContract {
     ///        - txListHash
     ///        - mixHash
     ///        - proposedAt
-    /// @param txList A list of transactions in this block, encoded with RLP, or its
-    ///        hash if the length is 32 bytes.
+    /// @param txList A list of transactions in this block, encoded with RLP.
     ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
@@ -197,7 +196,6 @@ contract TaikoL1 is EssentialContract {
         // Try to finalize blocks first to make room
         finalizeBlocks();
 
-        require(txList.length >= 32, "invalid txList");
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
             "too many pending blocks"
@@ -207,13 +205,13 @@ contract TaikoL1 is EssentialContract {
         context.id = nextPendingId;
         context.proposedAt = uint64(block.timestamp);
 
-        PendingBlockStatus status;
-        if (txList.length == 32) {
-            status = PendingBlockStatus.PROPOSED;
-            context.txListHash = bytes32(txList);
-        } else {
+        PendingBlockStatus status = PendingBlockStatus.PROPOSED;
+        if (txList.length != 0) {
             status = PendingBlockStatus.REVEALED;
-            context.txListHash = txList.hashTxList();
+            require(
+                context.txListHash == txList.hashTxList(),
+                "txList mismatch"
+            );
         }
 
         // if multiple L2 blocks included in the same L1 block,
@@ -420,9 +418,9 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
-                context.txListHash == 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0,
+                context.proposedAt == 0 &&
+                context.txListHash != 0,
             "nonzero placeholder fields"
         );
 
