@@ -254,7 +254,7 @@ contract TaikoL1 is EssentialContract {
     /// @notice Reveal a Taiko L2 block's txList.
     /// @param context The block's context.
     /// @param sigList A list of transaction signatures in this block, encoded with RLP.
-    function revealTxList(BlockContext calldata context, bytes calldata sigList)
+    function revealBlock(BlockContext calldata context, bytes calldata sigList)
         external
         nonReentrant
         ifBlockIsProposed(context)
