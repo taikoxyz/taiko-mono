@@ -76,6 +76,7 @@ contract TaikoL1 is EssentialContract {
         uint64 gasLimit;
         uint64 proposedAt;
         bytes32 txListHash;
+        bytes32 sigListHash;
         bytes32 mixHash;
         bytes extraData;
     }
@@ -183,13 +184,19 @@ contract TaikoL1 is EssentialContract {
     ///        - txListHash
     ///        - mixHash
     ///        - proposedAt
-    /// @param txList A list of transactions in this block, encoded with RLP.
+    /// @param txList A list of transactions in this block, including their msg.sender
+    ///        addresses, encoded with RLP.
+    /// @param sigList A list of transaction signatures in this block, encoded with RLP.
     ///
-    function proposeBlock(BlockContext memory context, bytes calldata txList)
-        external
-        payable
-        nonReentrant
-    {
+    function proposeBlock(
+        BlockContext memory context,
+        bytes calldata txList,
+        bytes calldata sigList
+    ) external payable nonReentrant {
+        require(
+            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            "L1:invalid txList"
+        );
         // Try to finalize blocks first to make room
         finalizeBlocks();
 
@@ -203,11 +210,11 @@ contract TaikoL1 is EssentialContract {
         context.proposedAt = uint64(block.timestamp);
 
         PendingBlockStatus status = PendingBlockStatus.PROPOSED;
-        if (txList.length != 0) {
+        if (sigList.length != 0) {
             status = PendingBlockStatus.REVEALED;
             require(
-                context.txListHash == txList.hashTxList(),
-                "L1:txList mismatch"
+                context.sigListHash == sigList.hashTxList(), // TODO: hashSigList
+                "L1:sigList mismatch"
             );
         }
 
@@ -246,15 +253,15 @@ contract TaikoL1 is EssentialContract {
 
     /// @notice Reveal a Taiko L2 block's txList.
     /// @param context The block's context.
-    /// @param txList A list of transactions in this block, encoded with RLP.
-    function revealTxList(BlockContext calldata context, bytes calldata txList)
+    /// @param sigList A list of transaction signatures in this block, encoded with RLP.
+    function revealTxList(BlockContext calldata context, bytes calldata sigList)
         external
         nonReentrant
         ifBlockIsProposed(context)
     {
         require(
-            txList.length > 0 && context.txListHash == txList.hashTxList(),
-            "L1:invalid blockHash"
+            sigList.length > 0 && context.sigListHash == sigList.hashTxList(),
+            "L1:invalid sigList"
         );
         _getPendingBlock(context.id).status = uint8(
             PendingBlockStatus.REVEALED
@@ -282,7 +289,11 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             header.parentHash,
             blockHash,
-            _computePublicInputHash(msg.sender, context.txListHash),
+            _computePublicInputHash(
+                msg.sender,
+                context.txListHash,
+                context.sigListHash
+            ),
             proofs[0]
         );
 
@@ -308,6 +319,7 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
+        bytes32 throwAwaySigListHash,
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
         bytes[2] calldata proofs
@@ -339,7 +351,11 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
-            _computePublicInputHash(msg.sender, throwAwayTxListHash),
+            _computePublicInputHash(
+                msg.sender,
+                throwAwayTxListHash,
+                throwAwaySigListHash
+            ),
             proofs[0]
         );
 
@@ -422,7 +438,8 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
-                context.txListHash != 0,
+                context.txListHash != 0 &&
+                context.sigListHash != 0,
             "L1:nonzero placeholder fields"
         );
 
@@ -614,11 +631,11 @@ contract TaikoL1 is EssentialContract {
     // We currently assume the public input has at least
     // two parts: msg.sender, and txListHash.
     // TODO(daniel): figure it out.
-    function _computePublicInputHash(address prover, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(prover, txListHash));
+    function _computePublicInputHash(
+        address prover,
+        bytes32 txListHash,
+        bytes32 sigListHash
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(prover, txListHash, sigListHash));
     }
 }
