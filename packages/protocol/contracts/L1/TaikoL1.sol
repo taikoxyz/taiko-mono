@@ -187,7 +187,7 @@ contract TaikoL1 is EssentialContract {
     /// @param txList A list of transactions in this block, including their msg.sender
     ///        addresses, encoded with RLP.
     /// @param sigList A list of transaction signatures in this block, encoded with RLP.
-    ///
+
     function proposeBlock(
         BlockContext memory context,
         bytes calldata txList,
@@ -216,6 +216,8 @@ contract TaikoL1 is EssentialContract {
                 context.sigListHash == sigList.hashTxList(), // TODO: hashSigList
                 "L1:sigList mismatch"
             );
+        } else {
+            // TODO: if sigList is missing, require a larger refundable fee deposit.
         }
 
         // if multiple L2 blocks included in the same L1 block,
@@ -251,7 +253,7 @@ contract TaikoL1 is EssentialContract {
         nextPendingId++;
     }
 
-    /// @notice Reveal a Taiko L2 block's txList.
+    /// @notice Reveal a Taiko L2 block's signatures.
     /// @param context The block's context.
     /// @param sigList A list of transaction signatures in this block, encoded with RLP.
     function revealBlock(BlockContext calldata context, bytes calldata sigList)
