@@ -94,6 +94,14 @@ library LibTxListDecoder {
         return keccak256(encoded);
     }
 
+    function hashSigList(bytes calldata encoded)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(encoded);
+    }
+
     function decodeTx(bytes memory txBytes)
         internal
         pure

@@ -213,7 +213,7 @@ contract TaikoL1 is EssentialContract {
         if (sigList.length != 0) {
             status = PendingBlockStatus.REVEALED;
             require(
-                context.sigListHash == sigList.hashTxList(), // TODO: hashSigList
+                context.sigListHash == sigList.hashSigList(),
                 "L1:sigList mismatch"
             );
         } else {
@@ -262,7 +262,7 @@ contract TaikoL1 is EssentialContract {
         ifBlockIsProposed(context)
     {
         require(
-            sigList.length > 0 && context.sigListHash == sigList.hashTxList(),
+            sigList.length > 0 && context.sigListHash == sigList.hashSigList(),
             "L1:invalid sigList"
         );
         _getPendingBlock(context.id).status = uint8(
