@@ -325,7 +325,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlockInvalid(
-        bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
+        bytes32 throwAwayTxListHash,
         bytes32 throwAwaySigListHash,
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
