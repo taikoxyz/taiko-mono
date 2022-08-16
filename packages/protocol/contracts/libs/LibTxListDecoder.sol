@@ -21,6 +21,7 @@ struct TransactionLegacy {
     uint8 v;
     uint256 r;
     uint256 s;
+    address sender;
 }
 
 struct Transaction2930 {
@@ -35,6 +36,7 @@ struct Transaction2930 {
     uint8 signatureYParity;
     uint256 signatureR;
     uint256 signatureS;
+    address sender;
 }
 
 struct Transaction1559 {
@@ -50,6 +52,7 @@ struct Transaction1559 {
     uint8 signatureYParity;
     uint256 signatureR;
     uint256 signatureS;
+    address sender;
 }
 
 struct AccessItem {
