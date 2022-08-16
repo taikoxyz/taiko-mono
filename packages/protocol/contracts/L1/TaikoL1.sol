@@ -89,6 +89,8 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
+    uint256 public constant PROPOSING_DELAY_MIN = 36 seconds;
+    uint256 public constant PROPOSING_DELAY_MAX = 10 minutes;
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
@@ -147,8 +149,8 @@ contract TaikoL1 is EssentialContract {
         uint256 commitTime = commits[keccak256(abi.encode(context))];
         require(context.maxL1GasPrice >= tx.gasprice, "gas price too high");
         require(
-            block.timestamp >= commitTime + 1 minutes &&
-                block.timestamp <= commitTime + 5 minutes,
+            block.timestamp >= commitTime + PROPOSING_DELAY_MIN &&
+                block.timestamp <= commitTime + PROPOSING_DELAY_MAX,
             "bad timing"
         );
         _;
