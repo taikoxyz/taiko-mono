@@ -198,12 +198,14 @@ contract TaikoL1 is EssentialContract {
         nonReentrant
         whenBlockIsCommitted(context)
     {
-        require(txList.length > 0, "empty txList");
+        require(
+            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            "invalid txList"
+        );
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
             "too many pending blocks"
         );
-        require(context.txListHash == txList.hashTxList(), "txList mismatch");
 
         context.id = nextPendingId;
         context.proposedAt = uint64(block.timestamp);
