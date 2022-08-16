@@ -97,7 +97,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
-    uint256 public constant TXLIST_REVEAL_WINDOW = 120; // 120 seconds
+    uint256 public constant BLOCK_REVEAL_TIMEOUT = 120; // 120 seconds
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
@@ -422,7 +422,7 @@ contract TaikoL1 is EssentialContract {
                 }
             } else if (
                 blk.status == uint8(PendingBlockStatus.PROPOSED) &&
-                block.timestamp > blk.proposedAt + TXLIST_REVEAL_WINDOW
+                block.timestamp > blk.proposedAt + BLOCK_REVEAL_TIMEOUT
             ) {
                 _finalizeExpiredBlock(broker, id, blk.proposerFee);
             } else {
@@ -574,7 +574,7 @@ contract TaikoL1 is EssentialContract {
             "L1:revealed"
         );
         require(
-            block.timestamp <= blk.proposedAt + TXLIST_REVEAL_WINDOW,
+            block.timestamp <= blk.proposedAt + BLOCK_REVEAL_TIMEOUT,
             "L1:too late"
         );
     }
