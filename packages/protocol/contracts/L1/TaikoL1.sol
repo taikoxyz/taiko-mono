@@ -91,7 +91,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant PROPOSING_DELAY_MIN = 36 seconds;
     uint256 public constant PROPOSING_DELAY_MAX = 10 minutes;
-    uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
+    uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
@@ -246,7 +246,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 blockHash = header.hashBlockHeader();
 
         _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
+            MAX_PROOFS_PER_FORK_CHOICE,
             context,
             header.parentHash,
             blockHash
@@ -303,7 +303,7 @@ contract TaikoL1 is EssentialContract {
         );
 
         _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
+            MAX_PROOFS_PER_FORK_CHOICE,
             context,
             SKIP_OVER_BLOCK_HASH,
             SKIP_OVER_BLOCK_HASH
@@ -380,7 +380,7 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
-        uint256 maxNumProofs,
+        uint256 maxNumProofsPerForkChoice,
         BlockContext memory context,
         bytes32 parentHash,
         bytes32 blockHash
@@ -397,7 +397,10 @@ contract TaikoL1 is EssentialContract {
                     fc.proposedAt == context.proposedAt,
                 "conflicting proof"
             );
-            require(fc.provers.length < maxNumProofs, "too many proofs");
+            require(
+                fc.provers.length < maxNumProofsPerForkChoice,
+                "too many proofs"
+            );
 
             // No uncle proof can take more than 1.5x time the first proof did.
             uint256 delay = fc.provenAt - fc.proposedAt;
