@@ -68,7 +68,7 @@ struct TxList {
 }
 
 library LibTxListDecoder {
-    // TODO: support sigList
+    // TODO(kongliang): support sigList
     // throw if the number of items in the two array differ.
     function decodeTxList(
         bytes calldata txListEncoded,
