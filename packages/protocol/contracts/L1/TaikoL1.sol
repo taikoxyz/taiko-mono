@@ -50,7 +50,6 @@ contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxListDecoder for bytes;
-    using LibTxListValidator for bytes;
 
     /**********************
      * Enums              *
@@ -381,13 +380,17 @@ contract TaikoL1 is EssentialContract {
 
     function verifyBlockInvalid(
         BlockContext calldata context,
-        bytes calldata txList
+        bytes calldata txList,
+        bytes calldata sigList
     ) external nonReentrant ifBlockIsProvable(context) {
         require(
             txList.hashTxList() == context.txListHash,
             "L1:txList mismatch"
         );
-        require(!txList.isTxListValid(), "L1:txList is valid");
+        require(
+            !LibTxListValidator.isTxListValid(txList, sigList),
+            "L1:txList is valid"
+        );
 
         _proveBlock(
             1, // no uncles

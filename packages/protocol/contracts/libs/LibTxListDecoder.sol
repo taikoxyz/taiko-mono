@@ -68,12 +68,15 @@ struct TxList {
 }
 
 library LibTxListDecoder {
-    function decodeTxList(bytes calldata encoded)
-        public
-        pure
-        returns (TxList memory txList)
-    {
-        Lib_RLPReader.RLPItem[] memory txs = Lib_RLPReader.readList(encoded);
+    // TODO: support sigList
+    // throw if the number of items in the two array differ.
+    function decodeTxList(
+        bytes calldata txListEncoded,
+        bytes calldata sigListEncoded
+    ) public pure returns (TxList memory txList) {
+        Lib_RLPReader.RLPItem[] memory txs = Lib_RLPReader.readList(
+            txListEncoded
+        );
         require(txs.length > 0, "empty txList");
 
         Tx[] memory _txList = new Tx[](txs.length);

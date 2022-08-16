@@ -97,9 +97,11 @@ contract TaikoL2 is EssentialContract {
         }
     }
 
-    function verifyBlockInvalid(bytes calldata txList) external {
+    function verifyBlockInvalid(bytes calldata txList, bytes calldata sigList)
+        external
+    {
         require(
-            !LibTxListValidator.isTxListValid(txList),
+            !LibTxListValidator.isTxListValid(txList, sigList),
             "L2:txList is valid"
         );
 
