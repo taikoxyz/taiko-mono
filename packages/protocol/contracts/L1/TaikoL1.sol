@@ -36,6 +36,12 @@ import "./broker/IProtoBroker.sol";
 ///                 ZKP that's only valid if he transacts with this address. This is
 ///                 critical to ensure the ZKP will not be stolen by others
 ///
+/// - Assumption 6: Block data can be split into two parts, a txList that is a RLP-encoded
+///                 list of transactions without signature fields but with a 'sender' field;
+///                 a sigList that is a RLP-encoded list of signature fields. The prover shall
+///                 be able to handle the situation where txList and sigList has different length.
+///                 In such case, zero-padding shall apply to the shorter list.
+///
 /// This contract shall be deployed as the initial implementation of a
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
