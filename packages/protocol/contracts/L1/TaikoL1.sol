@@ -71,7 +71,6 @@ contract TaikoL1 is EssentialContract {
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
-        uint256 maxL1GasPrice;
     }
 
     struct ForkChoice {
@@ -147,7 +146,6 @@ contract TaikoL1 is EssentialContract {
     modifier whenBlockIsCommitted(BlockContext memory context) {
         _validateContext(context);
         uint256 commitTime = commits[keccak256(abi.encode(context))];
-        require(context.maxL1GasPrice >= tx.gasprice, "gas price too high");
         require(
             block.timestamp >= commitTime + PROPOSING_DELAY_MIN &&
                 block.timestamp <= commitTime + PROPOSING_DELAY_MAX,
@@ -463,8 +461,7 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.txListHash != 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0 &&
-                context.maxL1GasPrice > 0,
+                context.proposedAt == 0,
             "nonzero placeholder fields"
         );
 
