@@ -71,6 +71,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
+        uint256 maxL1GasPrice;
     }
 
     struct ForkChoice {
@@ -144,6 +145,7 @@ contract TaikoL1 is EssentialContract {
     modifier whenBlockIsCommitted(BlockContext memory context) {
         _validateContext(context);
         uint256 commitTime = commits[keccak256(abi.encode(context))];
+        require(context.maxL1GasPrice >= tx.gasprice, "gas price too high");
         require(
             block.timestamp >= commitTime + 1 minutes &&
                 block.timestamp <= commitTime + 5 minutes,
@@ -190,7 +192,6 @@ contract TaikoL1 is EssentialContract {
     ///        - mixHash
     ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
-    ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
         payable
@@ -457,7 +458,8 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.txListHash != 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0,
+                context.proposedAt == 0 &&
+                context.maxL1GasPrice > 0,
             "nonzero placeholder fields"
         );
 
