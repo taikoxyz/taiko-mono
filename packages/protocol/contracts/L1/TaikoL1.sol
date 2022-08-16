@@ -105,18 +105,21 @@ contract TaikoL1 is EssentialContract {
     // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
+    mapping(bytes32 => uint256) public blockCommits;
+
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
     uint64 public numUnprovenBlocks;
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     /**********************
      * Events             *
      **********************/
 
+    event BlockCommitted(BlockContext context, uint256 commitTime);
     event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProven(
@@ -137,6 +140,18 @@ contract TaikoL1 is EssentialContract {
     /**********************
      * Modifiers          *
      **********************/
+
+    modifier whenBlockIsCommitted(BlockContext memory context) {
+        _validateContext(context);
+        uint256 commitTime = blockCommits[keccak256(abi.encode(context))];
+        require(
+            block.timestamp >= commitTime + 1 minutes &&
+                block.timestamp <= commitTime + 5 minutes,
+            "bad timing"
+        );
+        _;
+        finalizeBlocks();
+    }
 
     modifier whenBlockIsPending(BlockContext calldata context) {
         _checkContextPending(context);
@@ -161,6 +176,12 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
+    function commitBlock(BlockContext calldata context) external {
+        _validateContext(context);
+        blockCommits[keccak256(abi.encode(context))] = block.timestamp;
+        emit BlockCommitted(context, block.timestamp);
+    }
+
     /// @notice Propose a Taiko L2 block.
     /// @param context The context that the actual L2 block header must satisfy.
     ///        Note the following fields in the provided context object must
@@ -174,20 +195,17 @@ contract TaikoL1 is EssentialContract {
         external
         payable
         nonReentrant
+        whenBlockIsCommitted(context)
     {
-        // Try to finalize blocks first to make room
-        finalizeBlocks();
-
         require(txList.length > 0, "empty txList");
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
             "too many pending blocks"
         );
-        validateContext(context);
+        require(context.txListHash == txList.hashTxList(), "txList mismatch");
 
         context.id = nextPendingId;
         context.proposedAt = uint64(block.timestamp);
-        context.txListHash = txList.hashTxList();
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -354,30 +372,6 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function validateContext(BlockContext memory context) public view {
-        require(
-            context.id == 0 &&
-                context.txListHash == 0 &&
-                context.mixHash == 0 &&
-                context.proposedAt == 0,
-            "nonzero placeholder fields"
-        );
-
-        require(
-            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
-                context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0,
-            "invalid anchor"
-        );
-
-        require(context.beneficiary != address(0), "null beneficiary");
-        require(
-            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
-            "invalid gasLimit"
-        );
-        require(context.extraData.length <= 32, "extraData too large");
-    }
-
     /**********************
      * Private Functions  *
      **********************/
@@ -456,6 +450,30 @@ contract TaikoL1 is EssentialContract {
         returns (PendingBlock storage)
     {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
+    }
+
+    function _validateContext(BlockContext memory context) private view {
+        require(
+            context.id == 0 &&
+                context.txListHash != 0 &&
+                context.mixHash == 0 &&
+                context.proposedAt == 0,
+            "nonzero placeholder fields"
+        );
+
+        require(
+            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
+                context.anchorHash == blockhash(context.anchorHeight) &&
+                context.anchorHash != 0,
+            "invalid anchor"
+        );
+
+        require(context.beneficiary != address(0), "null beneficiary");
+        require(
+            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            "invalid gasLimit"
+        );
+        require(context.extraData.length <= 32, "extraData too large");
     }
 
     function _checkContextPending(BlockContext calldata context) private view {
