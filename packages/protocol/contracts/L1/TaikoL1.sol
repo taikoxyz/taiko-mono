@@ -36,12 +36,6 @@ import "./broker/IProtoBroker.sol";
 ///                 ZKP that's only valid if he transacts with this address. This is
 ///                 critical to ensure the ZKP will not be stolen by others
 ///
-/// - Assumption 6: Block data can be split into two parts, a txList that is a RLP-encoded
-///                 list of transactions without signature fields but with a 'sender' field;
-///                 a sigList that is a RLP-encoded list of signature fields. The prover shall
-///                 be able to handle the situation where txList and sigList has different length.
-///                 In such case, zero-padding shall apply to the shorter list.
-///
 /// This contract shall be deployed as the initial implementation of a
 /// https://docs.openzeppelin.com/contracts/4.x/api/proxy#UpgradeableBeacon contract,
 /// then a https://docs.openzeppelin.com/contracts/4.x/api/proxy#BeaconProxy contract
@@ -82,7 +76,7 @@ contract TaikoL1 is EssentialContract {
         uint64 gasLimit;
         uint64 proposedAt;
         bytes32 txListHash;
-        bytes32 sigListHash;
+        bytes32 secretHash;
         bytes32 mixHash;
         bytes extraData;
     }
@@ -134,7 +128,7 @@ contract TaikoL1 is EssentialContract {
 
     event BlockProposed(uint256 indexed id, BlockContext context);
 
-    event BlockRevealed(uint256 indexed id);
+    event BlockRevealed(uint256 indexed id, bytes32 secret);
 
     event BlockProven(
         uint256 indexed id,
@@ -192,12 +186,12 @@ contract TaikoL1 is EssentialContract {
     ///        - proposedAt
     /// @param txList A list of transactions in this block, including their msg.sender
     ///        addresses, encoded with RLP.
-    /// @param sigList A list of transaction signatures in this block, encoded with RLP.
-
+    /// @param secret A 32-byte secret to 'encrypto'  the r and s fields of transaction
+    ///        signatures.
     function proposeBlock(
         BlockContext memory context,
         bytes calldata txList,
-        bytes calldata sigList
+        bytes32 secret
     ) external payable nonReentrant {
         require(
             txList.length > 0 && context.txListHash == txList.hashTxList(),
@@ -216,11 +210,11 @@ contract TaikoL1 is EssentialContract {
         context.proposedAt = uint64(block.timestamp);
 
         PendingBlockStatus status = PendingBlockStatus.PROPOSED;
-        if (sigList.length != 0) {
+        if (secret != 0) {
             status = PendingBlockStatus.REVEALED;
             require(
-                context.sigListHash == sigList.hashSigList(),
-                "L1:sigList mismatch"
+                context.secretHash == keccak256(abi.encode("SECRET", secret)),
+                "L1:secret mismatch"
             );
         } else {
             // TODO: if sigList is missing, require a larger refundable fee deposit.
@@ -252,8 +246,8 @@ contract TaikoL1 is EssentialContract {
 
         emit BlockProposed(nextPendingId, context);
 
-        if (status == PendingBlockStatus.REVEALED) {
-            emit BlockRevealed(nextPendingId);
+        if (secret != 0) {
+            emit BlockRevealed(nextPendingId, secret);
         }
 
         nextPendingId++;
@@ -261,20 +255,22 @@ contract TaikoL1 is EssentialContract {
 
     /// @notice Reveal a Taiko L2 block's signatures.
     /// @param context The block's context.
-    /// @param sigList A list of transaction signatures in this block, encoded with RLP.
-    function revealBlock(BlockContext calldata context, bytes calldata sigList)
+    /// @param secret A 32-byte secret to 'encrypto'  the r and s fields of transaction
+    ///        signatures.
+    function revealBlock(BlockContext calldata context, bytes32 secret)
         external
         nonReentrant
         ifBlockIsProposed(context)
     {
         require(
-            sigList.length > 0 && context.sigListHash == sigList.hashSigList(),
-            "L1:invalid sigList"
+            secret != 0 &&
+                context.secretHash == keccak256(abi.encode("SECRET", secret)),
+            "L1:secret sigList"
         );
         _getPendingBlock(context.id).status = uint8(
             PendingBlockStatus.REVEALED
         );
-        emit BlockRevealed(context.id);
+        emit BlockRevealed(context.id, secret);
     }
 
     function proveBlock(
@@ -300,7 +296,7 @@ contract TaikoL1 is EssentialContract {
             _computePublicInputHash(
                 msg.sender,
                 context.txListHash,
-                context.sigListHash
+                context.secretHash
             ),
             proofs[0]
         );
@@ -447,7 +443,7 @@ contract TaikoL1 is EssentialContract {
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
                 context.txListHash != 0 &&
-                context.sigListHash != 0,
+                context.secretHash != 0,
             "L1:nonzero placeholder fields"
         );
 
@@ -641,8 +637,8 @@ contract TaikoL1 is EssentialContract {
     function _computePublicInputHash(
         address prover,
         bytes32 txListHash,
-        bytes32 sigListHash
+        bytes32 secretHash
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(prover, txListHash, sigListHash));
+        return keccak256(abi.encodePacked(prover, txListHash, secretHash));
     }
 }
