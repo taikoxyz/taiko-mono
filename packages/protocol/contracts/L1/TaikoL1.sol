@@ -384,7 +384,8 @@ contract TaikoL1 is EssentialContract {
         bytes calldata sigList
     ) external nonReentrant ifBlockIsProvable(context) {
         require(
-            txList.hashTxList() == context.txListHash,
+            txList.hashTxList() == context.txListHash &&
+                sigList.hashSigList() == context.sigListHash,
             "L1:txList mismatch"
         );
         require(
