@@ -105,7 +105,7 @@ contract TaikoL1 is EssentialContract {
     // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
-    mapping(bytes32 => uint256) public blockCommits;
+    mapping(bytes32 => uint256) public commits;
 
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
@@ -143,7 +143,7 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsCommitted(BlockContext memory context) {
         _validateContext(context);
-        uint256 commitTime = blockCommits[keccak256(abi.encode(context))];
+        uint256 commitTime = commits[keccak256(abi.encode(context))];
         require(
             block.timestamp >= commitTime + 1 minutes &&
                 block.timestamp <= commitTime + 5 minutes,
@@ -178,7 +178,7 @@ contract TaikoL1 is EssentialContract {
 
     function commitBlock(BlockContext calldata context) external {
         _validateContext(context);
-        blockCommits[keccak256(abi.encode(context))] = block.timestamp;
+        commits[keccak256(abi.encode(context))] = block.timestamp;
         emit BlockCommitted(context, block.timestamp);
     }
 
