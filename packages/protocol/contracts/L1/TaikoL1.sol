@@ -256,7 +256,7 @@ contract TaikoL1 is EssentialContract {
     /// @notice Reveal a Taiko L2 block's signatures.
     /// @param context The block's context.
     /// @param sigList A list of transaction signatures in this block, encoded with RLP.
-    function revealBlock(BlockContext calldata context, bytes calldata txList)
+    function revealBlock(BlockContext calldata context, bytes calldata sigList)
         external
         nonReentrant
         ifBlockIsProposed(context)
@@ -631,8 +631,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     // We currently assume the public input has at least
-    // two parts: msg.sender, and txListHash.
-    // TODO(daniel): figure it out.
+    // three parts: msg.sender, txListHash, and sigListHash.
     function _computePublicInputHash(
         address prover,
         bytes32 txListHash,
