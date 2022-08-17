@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
     uint256 public constant PROPOSING_DELAY_MIN = 36 seconds;
-    uint256 public constant PROPOSING_DELAY_MAX = 10 minutes;
+    uint256 public constant PROPOSING_DELAY_MAX = 30 minutes;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
