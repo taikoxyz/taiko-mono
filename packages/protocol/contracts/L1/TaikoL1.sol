@@ -88,7 +88,9 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
-    uint256 public constant MAX_PROOFS_PER_BLOCK = 5;
+    uint256 public constant PROPOSING_DELAY_MIN = 1 minutes;
+    uint256 public constant PROPOSING_DELAY_MAX = 30 minutes;
+    uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
     bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
@@ -105,17 +107,25 @@ contract TaikoL1 is EssentialContract {
     // block id => parent hash => fork choice
     mapping(uint256 => mapping(bytes32 => ForkChoice)) public forkChoices;
 
+    mapping(bytes32 => uint256) public commits;
+
     uint64 public genesisHeight;
     uint64 public lastFinalizedHeight;
     uint64 public lastFinalizedId;
     uint64 public nextPendingId;
     uint64 public numUnprovenBlocks;
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     /**********************
      * Events             *
      **********************/
+
+    event BlockCommitted(
+        address indexed sender,
+        bytes32 hash,
+        uint256 commitTime
+    );
 
     event BlockProposed(uint256 indexed id, BlockContext context);
 
@@ -137,6 +147,15 @@ contract TaikoL1 is EssentialContract {
     /**********************
      * Modifiers          *
      **********************/
+
+    modifier whenBlockIsCommitted(BlockContext memory context) {
+        validateContext(context);
+        bytes32 hash = keccak256(abi.encode(context));
+        require(isCommitValid(hash), "L1:invalid commit");
+        delete commits[hash];
+        _;
+        finalizeBlocks();
+    }
 
     modifier whenBlockIsPending(BlockContext calldata context) {
         _checkContextPending(context);
@@ -161,6 +180,17 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
+    function commitBlock(bytes32 hash) external {
+        require(hash != 0, "L1:zero hash");
+        require(
+            commits[hash] == 0 ||
+                block.timestamp > commits[hash] + PROPOSING_DELAY_MAX,
+            "L1:already committed"
+        );
+        commits[hash] = block.timestamp;
+        emit BlockCommitted(msg.sender, hash, block.timestamp);
+    }
+
     /// @notice Propose a Taiko L2 block.
     /// @param context The context that the actual L2 block header must satisfy.
     ///        Note the following fields in the provided context object must
@@ -169,25 +199,23 @@ contract TaikoL1 is EssentialContract {
     ///        - mixHash
     ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
-    ///
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
         payable
         nonReentrant
+        whenBlockIsCommitted(context)
     {
-        // Try to finalize blocks first to make room
-        finalizeBlocks();
-
-        require(txList.length > 0, "empty txList");
+        require(
+            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            "L1:invalid txList"
+        );
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
-            "too many pending blocks"
+            "L1:too many pending blocks"
         );
-        validateContext(context);
 
         context.id = nextPendingId;
         context.proposedAt = uint64(block.timestamp);
-        context.txListHash = txList.hashTxList();
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -225,7 +253,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 blockHash = header.hashBlockHeader();
 
         _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
+            MAX_PROOFS_PER_FORK_CHOICE,
             context,
             header.parentHash,
             blockHash
@@ -267,22 +295,22 @@ contract TaikoL1 is EssentialContract {
     ) external nonReentrant whenBlockIsPending(context) {
         require(
             throwAwayHeader.isPartiallyValidForTaiko(),
-            "throwAwayHeader invalid"
+            "L1:throwAwayHeader invalid"
         );
 
         require(
             lastFinalizedHeight <=
                 throwAwayHeader.height + MAX_THROW_AWAY_PARENT_DIFF,
-            "parent too old"
+            "L1:parent too old"
         );
         require(
             throwAwayHeader.parentHash ==
                 finalizedBlocks[throwAwayHeader.height - 1],
-            "parent mismatch"
+            "L1:parent mismatch"
         );
 
         _proveBlock(
-            MAX_PROOFS_PER_BLOCK,
+            MAX_PROOFS_PER_FORK_CHOICE,
             context,
             SKIP_OVER_BLOCK_HASH,
             SKIP_OVER_BLOCK_HASH
@@ -312,8 +340,11 @@ contract TaikoL1 is EssentialContract {
         BlockContext calldata context,
         bytes calldata txList
     ) external nonReentrant whenBlockIsPending(context) {
-        require(txList.hashTxList() == context.txListHash, "txList mismatch");
-        require(!txList.isTxListValid(), "txList is valid");
+        require(
+            txList.hashTxList() == context.txListHash,
+            "L1:txList mismatch"
+        );
+        require(!txList.isTxListValid(), "L1:valid txList");
 
         _proveBlock(
             1, // no uncles
@@ -357,25 +388,37 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
-                context.txListHash == 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0,
-            "nonzero placeholder fields"
+                context.proposedAt == 0 &&
+                context.beneficiary != address(0) &&
+                context.txListHash != 0,
+            "L1:nonzero placeholder fields"
         );
 
         require(
             block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
                 context.anchorHash == blockhash(context.anchorHeight) &&
                 context.anchorHash != 0,
-            "invalid anchor"
+            "L1:invalid anchor"
         );
 
-        require(context.beneficiary != address(0), "null beneficiary");
         require(
             context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
-            "invalid gasLimit"
+            "L1:invalid gasLimit"
         );
-        require(context.extraData.length <= 32, "extraData too large");
+        require(context.extraData.length <= 32, "L1:extraData too large");
+    }
+
+    function isCommitValid(bytes32 hash) public view returns (bool) {
+        return
+            hash != 0 &&
+            commits[hash] != 0 &&
+            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
+    }
+
+    function isTxListValid(bytes calldata txList) public pure returns (bool) {
+        return LibTxListValidator.isTxListValid(txList);
     }
 
     /**********************
@@ -383,7 +426,7 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
-        uint256 maxNumProofs,
+        uint256 maxNumProofsPerForkChoice,
         BlockContext memory context,
         bytes32 parentHash,
         bytes32 blockHash
@@ -398,17 +441,20 @@ contract TaikoL1 is EssentialContract {
             require(
                 fc.blockHash == blockHash &&
                     fc.proposedAt == context.proposedAt,
-                "conflicting proof"
+                "L1:conflicting proof"
             );
-            require(fc.provers.length < maxNumProofs, "too many proofs");
+            require(
+                fc.provers.length < maxNumProofsPerForkChoice,
+                "L1:too many proofs"
+            );
 
             // No uncle proof can take more than 1.5x time the first proof did.
             uint256 delay = fc.provenAt - fc.proposedAt;
             uint256 deadline = fc.provenAt + delay / 2;
-            require(block.timestamp <= deadline, "too late");
+            require(block.timestamp <= deadline, "L1:too late");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
-                require(fc.provers[i] != msg.sender, "duplicate prover");
+                require(fc.provers[i] != msg.sender, "L1:duplicate prover");
             }
         }
 
@@ -461,11 +507,11 @@ contract TaikoL1 is EssentialContract {
     function _checkContextPending(BlockContext calldata context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
-            "invalid id"
+            "L1:invalid id"
         );
         require(
             _getPendingBlock(context.id).contextHash == _hashContext(context),
-            "context mismatch"
+            "L1:context mismatch"
         );
     }
 
@@ -477,7 +523,7 @@ contract TaikoL1 is EssentialContract {
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,
-            "header mismatch"
+            "L1:header mismatch"
         );
     }
 
@@ -492,7 +538,7 @@ contract TaikoL1 is EssentialContract {
                 header.extraData.length == context.extraData.length &&
                 keccak256(header.extraData) == keccak256(context.extraData) &&
                 header.mixHash == context.mixHash,
-            "header mismatch"
+            "L1:header mismatch"
         );
     }
 
