@@ -363,30 +363,6 @@ contract TaikoL1 is EssentialContract {
      * Public Functions   *
      **********************/
 
-    function validateContext(BlockContext memory context) private view {
-        require(
-            context.id == 0 &&
-                context.mixHash == 0 &&
-                context.proposedAt == 0 &&
-                context.beneficiary != address(0) &&
-                context.txListHash != 0,
-            "L1:nonzero placeholder fields"
-        );
-
-        require(
-            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
-                context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0,
-            "L1:invalid anchor"
-        );
-
-        require(
-            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
-            "L1:invalid gasLimit"
-        );
-        require(context.extraData.length <= 32, "L1:extraData too large");
-    }
-
     function finalizeBlocks() public {
         uint64 id = lastFinalizedId + 1;
         uint256 processed = 0;
@@ -412,6 +388,30 @@ contract TaikoL1 is EssentialContract {
             id += 1;
             processed += 1;
         }
+    }
+
+    function validateContext(BlockContext memory context) private view {
+        require(
+            context.id == 0 &&
+                context.mixHash == 0 &&
+                context.proposedAt == 0 &&
+                context.beneficiary != address(0) &&
+                context.txListHash != 0,
+            "L1:nonzero placeholder fields"
+        );
+
+        require(
+            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
+                context.anchorHash == blockhash(context.anchorHeight) &&
+                context.anchorHash != 0,
+            "L1:invalid anchor"
+        );
+
+        require(
+            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            "L1:invalid gasLimit"
+        );
+        require(context.extraData.length <= 32, "L1:extraData too large");
     }
 
     function isTxListValid(bytes calldata txList) public pure returns (bool) {
