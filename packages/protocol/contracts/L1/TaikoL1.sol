@@ -180,7 +180,12 @@ contract TaikoL1 is EssentialContract {
     }
 
     function commitBlock(bytes32 hash) external {
-        require(hash != 0 && commits[hash] == 0, "L1:invalid hash");
+        require(hash != 0, "L1:zero hash");
+        require(
+            commits[hash] == 0 ||
+                block.timestamp > commits[hash] + PROPOSING_DELAY_MAX,
+            "L1:already committed"
+        );
         commits[hash] = block.timestamp;
         emit BlockCommitted(hash, block.timestamp);
     }
