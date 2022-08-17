@@ -121,7 +121,7 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockCommitted(BlockContext context, uint256 commitTime);
+    event BlockCommitted(bytes32 hash, uint256 commitTime);
     event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProven(
@@ -145,12 +145,13 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsCommitted(BlockContext memory context) {
         _validateContext(context);
-        uint256 commitTime = commits[keccak256(abi.encode(context))];
+        bytes32 hash = keccak256(abi.encode(context));
         require(
-            block.timestamp >= commitTime + PROPOSING_DELAY_MIN &&
-                block.timestamp <= commitTime + PROPOSING_DELAY_MAX,
+            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+                block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX,
             "L1:bad timing"
         );
+        delete commits[hash];
         _;
         finalizeBlocks();
     }
@@ -178,10 +179,10 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
-    function commitBlock(BlockContext calldata context) external {
-        _validateContext(context);
-        commits[keccak256(abi.encode(context))] = block.timestamp;
-        emit BlockCommitted(context, block.timestamp);
+    function commitBlock(bytes32 hash) external {
+        require(hash != 0 && commits[hash] == 0, "L1:invalid hash");
+        commits[hash] = block.timestamp;
+        emit BlockCommitted(hash, block.timestamp);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -464,9 +465,10 @@ contract TaikoL1 is EssentialContract {
     function _validateContext(BlockContext memory context) private view {
         require(
             context.id == 0 &&
-                context.txListHash != 0 &&
                 context.mixHash == 0 &&
-                context.proposedAt == 0,
+                context.proposedAt == 0 &&
+                context.beneficiary != address(0) &&
+                context.txListHash != 0,
             "L1:nonzero placeholder fields"
         );
 
@@ -477,7 +479,6 @@ contract TaikoL1 is EssentialContract {
             "L1:invalid anchor"
         );
 
-        require(context.beneficiary != address(0), "L1:null beneficiary");
         require(
             context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
             "L1:invalid gasLimit"
