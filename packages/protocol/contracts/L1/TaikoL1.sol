@@ -151,12 +151,7 @@ contract TaikoL1 is EssentialContract {
     modifier whenBlockIsCommitted(BlockContext memory context) {
         validateContext(context);
         bytes32 hash = keccak256(abi.encode(context));
-        require(
-            commits[hash] != 0 &&
-                block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
-                block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX,
-            "L1:bad timing"
-        );
+        require(isCommitValid(hash), "L1:invalid commit");
         delete commits[hash];
         _;
         finalizeBlocks();
@@ -390,7 +385,7 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function validateContext(BlockContext memory context) private view {
+    function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
                 context.mixHash == 0 &&
@@ -412,6 +407,14 @@ contract TaikoL1 is EssentialContract {
             "L1:invalid gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
+    }
+
+    function isCommitValid(bytes32 hash) public view returns (bool) {
+        return
+            hash != 0 &&
+            commits[hash] != 0 &&
+            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
     }
 
     function isTxListValid(bytes calldata txList) public pure returns (bool) {
