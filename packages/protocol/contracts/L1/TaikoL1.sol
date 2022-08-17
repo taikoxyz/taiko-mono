@@ -151,7 +151,8 @@ contract TaikoL1 is EssentialContract {
         _validateContext(context);
         bytes32 hash = keccak256(abi.encode(context));
         require(
-            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+            commits[hash] != 0 &&
+                block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
                 block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX,
             "L1:bad timing"
         );
