@@ -18,7 +18,8 @@ import "../libs/LibStorageProof.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibTxListValidator.sol";
 import "../libs/LibZKP.sol";
-import "./broker/IProtoBroker.sol";
+
+// import "./broker/IProtoBroker.sol";
 
 /// @dev We have the following design assumptions:
 /// - Assumption 1: the `difficulty` and `nonce` fields in Taiko block header
@@ -221,13 +222,14 @@ contract TaikoL1 is EssentialContract {
         // their block.mixHash fields for randomness will be the same.
         context.mixHash = bytes32(block.difficulty);
 
-        uint256 proposerFee = IProtoBroker(resolve("proto_broker"))
-            .chargeProposer(
-                nextPendingId,
-                msg.sender,
-                context.gasLimit,
-                numUnprovenBlocks
-            );
+        uint256 proposerFee = 0;
+        // IProtoBroker(resolve("proto_broker"))
+        //     .chargeProposer(
+        //         nextPendingId,
+        //         msg.sender,
+        //         context.gasLimit,
+        //         numUnprovenBlocks
+        //     );
 
         _savePendingBlock(
             nextPendingId,
@@ -477,13 +479,13 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
-        IProtoBroker(resolve("proto_broker")).payProvers(
-            id,
-            fc.provenAt,
-            fc.proposedAt,
-            _getPendingBlock(id).proposerFee,
-            fc.provers
-        );
+        // IProtoBroker(resolve("proto_broker")).payProvers(
+        //     id,
+        //     fc.provenAt,
+        //     fc.proposedAt,
+        //     _getPendingBlock(id).proposerFee,
+        //     fc.provers
+        // );
 
         emit BlockFinalized(
             id,
