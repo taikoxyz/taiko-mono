@@ -121,7 +121,11 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockCommitted(bytes32 hash, uint256 commitTime);
+    event BlockCommitted(
+        address indexed sender,
+        bytes32 hash,
+        uint256 commitTime
+    );
     event BlockProposed(uint256 indexed id, BlockContext context);
 
     event BlockProven(
@@ -187,7 +191,7 @@ contract TaikoL1 is EssentialContract {
             "L1:already committed"
         );
         commits[hash] = block.timestamp;
-        emit BlockCommitted(hash, block.timestamp);
+        emit BlockCommitted(msg.sender, hash, block.timestamp);
     }
 
     /// @notice Propose a Taiko L2 block.
