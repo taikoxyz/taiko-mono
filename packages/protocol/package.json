@@ -11,7 +11,8 @@
         "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
         "test": "npx hardhat test",
         "generate:genesis": "ts-node ./utils/generate_l2_genesis.ts",
-        "test:genesis": "./test/l2_genesis/test_entrypoint.sh"
+        "test:genesis": "./test/l2_genesis/test_entrypoint.sh",
+        "deploy:local": "npx hardhat run --network localhost tasks/deploy_L1.ts"
     },
     "lint-staged": {
         "*.sol": "yarn lint:sol",

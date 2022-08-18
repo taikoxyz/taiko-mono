@@ -26,14 +26,18 @@ jobs:
       with:
         node-version: '16.15'
 
-    - name: 1:Rollup - Unit Tests
+    - name: protocol - Unit Tests
       working-directory: ./packages/protocol
       run: yarn && yarn clean && yarn test && yarn export:abi
 
-    - name: 1:Rollup - Generate L2 Genesis
+    - name: protocol - Generate L2 Genesis
       working-directory: ./packages/protocol
       run: yarn test:genesis
 
-    - name: 1:Rollup - Export ABIs
+    - name: protocol - Export ABIs
       working-directory: ./packages/protocol
       run: yarn export:abi
+
+    - name: protocol - Deploy L1 Contracts
+      working-directory: ./packages/protocol
+      run: LOG_LEVEL=debug npx hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --confirmations 1
