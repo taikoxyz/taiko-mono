@@ -19,10 +19,5 @@ npx hardhat help
 To deploy TaikoL1 on the hardhat network, run
 
 ```
-LOG_LEVEL=debug npx hardhat deploy_L1 \
-    --network hardhat \
-    --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 \
-    --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 \
-    --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 \
-    --confirmations 1
+yarn deploy:hardhat
 ```
