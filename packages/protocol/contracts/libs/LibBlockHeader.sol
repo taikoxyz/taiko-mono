@@ -67,7 +67,7 @@ library LibBlockHeader {
         returns (bool)
     {
         return
-            header.parentHash != 0x0 &&
+            header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
             header.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
             header.extraData.length <= 32 &&

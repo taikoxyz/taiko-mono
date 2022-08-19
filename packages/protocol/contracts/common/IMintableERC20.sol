@@ -8,20 +8,10 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
-// TODO: implement this contract
-contract KeyManager is OwnableUpgradeable {
-    function init() external initializer {
-        OwnableUpgradeable.__Ownable_init();
-    }
+interface IMintableERC20 is IERC20Upgradeable {
+    function mint(address account, uint256 amount) external;
 
-    function setKey(string calldata name, bytes calldata key)
-        external
-        onlyOwner
-    {
-        // TODO: implement and emit event
-    }
-
-    function getKey(string memory name) public view returns (bytes memory) {}
+    function burn(address account, uint256 amount) external;
 }

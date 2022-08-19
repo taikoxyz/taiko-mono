@@ -87,6 +87,26 @@ action("Generate L2 Genesis", function () {
     })
 
     describe("contracts can be called normally", function () {
+        it("AddressManager", async function () {
+            const addressManagerAlloc = getContractAlloc("AddressManager")
+
+            const addressManager = new hre.ethers.Contract(
+                addressManagerAlloc.address,
+                require("../../artifacts/contracts/thirdparty/AddressManager.sol/AddressManager.json").abi,
+                provider
+            )
+
+            const owner = await addressManager.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            const ethDepositor = await addressManager.getAddress(
+                "eth_depositor"
+            )
+
+            expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+        })
+
         it("LibTxListValidator", async function () {
             const LibTxListValidatorAlloc =
                 getContractAlloc("LibTxListValidator")
@@ -117,16 +137,17 @@ action("Generate L2 Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            const tx = await TaikoL2.anchor(anchorHeight, anchorHash)
+            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
+                TaikoL2,
+                "Anchored"
+            )
 
-            const { events } = await tx.wait()
-
-            const anchoredEvent = events.filter(
-                ({ event }: any) => event === "Anchored"
-            )[0]
-
-            expect(anchoredEvent.args[0]).to.be.equal(anchorHeight)
-            expect(anchoredEvent.args[1]).to.be.equal(anchorHash)
+            await expect(
+                TaikoL2.creditEther(
+                    hre.ethers.Wallet.createRandom().address,
+                    1024
+                )
+            ).to.emit(TaikoL2, "EtherCredited")
         })
     })
 

@@ -13,3 +13,11 @@ npx hardhat node
 node scripts/sample-script.js
 npx hardhat help
 ```
+
+## Deployment
+
+To deploy TaikoL1 on the hardhat network, run
+
+```
+yarn deploy:hardhat
+```
