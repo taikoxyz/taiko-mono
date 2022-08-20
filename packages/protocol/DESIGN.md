@@ -16,7 +16,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 > Question(Brecht): do we need $X_i$ or only its hash in ZKP computation?
 
-4. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Not that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
+4. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
 5. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verify the ZKP's validity.
 
 Therefore, we have:
