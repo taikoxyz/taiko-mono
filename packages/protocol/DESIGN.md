@@ -8,20 +8,20 @@ What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Dif
 
 In this and the next section, when we mention ZKP, we always refer to the aggregated proof for verification on L1.
 
-To compute a ZKP for a L2 block $B_i$, the following data will be used as inputs:
+To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
 1. The parent block hash $h_{i-1}$
 1. This block's hash $h_i$
 1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup a rollup. We also refer it as the _txList_.
 
-> Question(brecht): do we need $X_i$ or only its hash in ZKP computaton?
+> Question(Brecht): do we need $X_i$ or only its hash in ZKP computation?
 
 4. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Not that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
-5. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verifiy the ZKP's validity.
+5. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verify the ZKP's validity.
 
 Therefore, we have:
 
-$$ p*i^a = \mathbb{Z}(h*{i-1}, h_i, X_i, T_i, a) $$
+$$ p_i^a = \mathbb{Z}(h*{i-1}, h_i, X_i, T_i, a) $$
 
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
 
@@ -31,7 +31,7 @@ Verification of ZKP on L1 through solidity contract requires the following input
 
 1. The parent block hash $h_{i-1}$
 1. This block's hash $h_i$
-1. The keccak256 hash of $X_i$, or $\mathbb{H}(X_i)$. When proto-danksharding is enabled, it will become $X_i$'s KZG commitment.
+1. The keccak256 hash of $X_i$, or $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment.
 1. The current `msg.sender`, treated as the prover address $a$.
 
 The following will be the verification function:
@@ -43,7 +43,7 @@ where
 -   $\mathbb{V}$ is the ZKP verification function implemented in solidity
 -   $K$ is zkEVM's verification key.
 -   $\mathbb{H}(\mathbb{H}(X_i), a)$ is considered the _public input_.
-    > Question(brecht): is the above statement correct at all?
+    > Question(Brecht): is the above statement correct at all?
 
 ### About txList
 
@@ -93,15 +93,15 @@ Once the txList is validated, a L2 block can be generated, but the block may pot
 
 A _qualified transaction_ is one that:
 
--   Its 'msg.sender' has enough Ether to pay the minimal transaction fee.
+-   Its `msg.sender` has enough Ether to pay the minimal transaction fee.
 -   The transaction's nonce matches the current nonce in the L2 state.
 
 > Question(David Cai): anything else?
 
-Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 worldstate, the L1 rollup contract treats qualfied and unqualified transactions equallly. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
+Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
 
 ### Handing of Unqualified Transactions on L2
 
-If a Taiko node proposes blocks, it will have to "execute" unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
+If a Taiko node proposes blocks, it will have to *execute* unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
 
 Non-proposing Taiko nodes may skip over all unqualified transactions and only run those qualified transactions.
