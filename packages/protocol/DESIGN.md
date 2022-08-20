@@ -12,7 +12,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 1. The parent block hash $h_{i-1}$
 1. This block's hash $h_i$
-1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup a rollup. We also refer it as the _txList_.
+1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
 
 > Question(Brecht): do we need $X_i$ or only its hash in ZKP computation?
 
