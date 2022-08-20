@@ -85,16 +85,21 @@ function decodeTxList(bytes calldata encodedTxList)
 
 The above code verifies a txList is valid if and only if:
 
--   It can be RLP-decoded into a list of L2 transactions without error.
--   The total number of transactions is no more than a given threshold.
--   The sum of all transaction gas limit is no more than a given threshold.
+1. The txList is well-formed RLP, with no additional trailing bytes;
+2. The total number of transactions is no more than a given threshold;
+3. The sum of all transaction gas limit is no more than a given threshold;
+4. Each transaction is well-formed RLP, with no additional trailing bytes;
+5. Each transaction's signature is valid; and
+    > Daniel: seems to be missing
+6. Each transaction's the gas limit is no smaller than the intrinsic gas.
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
 
 A _qualified transaction_ is one that:
 
--   Its `msg.sender` has enough Ether to pay the minimal transaction fee.
--   The transaction's nonce matches the current nonce in the L2 state.
+-   Its nonce is valid (equivalent to the sender account's current nonce);
+-   Its sender account has no contract code deployed and;
+-   Its sender account balance contains at least the cost required in up-front payment.
 
 > Question(David Cai): anything else?
 
