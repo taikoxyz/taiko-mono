@@ -21,7 +21,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 Therefore, we have:
 
-$$ p_i^a = \mathbb{Z}(h*{i-1}, h_i, X_i, T_i, a) $$
+$$ p_i^a = \mathbb{Z}(h\*{i-1}, h_i, X_i, T_i, a) $$
 
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
 
@@ -102,6 +102,6 @@ Because checking if a transaction is indeed qualified can only be done by the Ta
 
 ### Handing of Unqualified Transactions on L2
 
-If a Taiko node proposes blocks, it will have to *execute* unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
+If a Taiko node proposes blocks, it will have to _execute_ unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
 
 Non-proposing Taiko nodes may skip over all unqualified transactions and only run those qualified transactions.
