@@ -13,7 +13,7 @@ To compute a ZKP for a L2 block $B_i$, the following data will be used as inputs
 
 1. The parent block hash $h_{i-1}$
 1. This block's hash $h_i$
-1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup a rollup. In our code, we refer it as the `txList`.
+1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup a rollup. We also refer it as the *txList*.
 
 > Question(brecht): do we need $X_i$ or only its hash in ZKP computaton?
 
@@ -43,3 +43,71 @@ where
 - $K$ is zkEVM's verification key.
 - $\mathbb{H}(\mathbb{H}(X_i), a)$ is considered the *public input*.
 > Question(brecht): is the above statement correct at all?
+
+
+
+### About txList
+
+We assume valid ZKPs (with different prover addresses) can be generated for a txList as long as the following function returns true:
+
+```solidity
+    function isTxListValid(bytes calldata encodedTxList)
+        internal
+        pure
+        returns (bool)
+    {
+        try decodeTxList(encodedTxList) returns (
+            TxList memory txList
+        ) {
+            return
+                txList.items.length <= MAX_TAIKO_BLOCK_NUM_TXS &&
+                LibTxListDecoder.sumGasLimit(txList) <=
+                MAX_TAIKO_BLOCK_GAS_LIMIT;
+        } catch (bytes memory) {
+            return false;
+        }
+    }
+    function decodeTxList(bytes calldata encodedTxList)
+        public
+        pure
+        returns (TxList memory txList)
+    {
+        Lib_RLPReader.RLPItem[] memory txs = Lib_RLPReader.readList(encodedTxList);
+        require(txs.length > 0, "empty txList");
+
+        Tx[] memory _txList = new Tx[](txs.length);
+        for (uint256 i = 0; i < txs.length; i++) {
+            bytes memory txBytes = Lib_RLPReader.readBytes(txs[i]);
+            (uint8 txType, uint256 gasLimit) = decodeTx(txBytes);
+            _txList[i] = Tx(txType, gasLimit, txBytes);
+        }
+        txList = TxList(_txList);
+    }
+```
+
+The above code verifies a txList is valid if and only if:
+
+- It can be RLP-decoded into a list of L2 transactions without error.
+- The total number of transactions is no more than a given threshold.
+- The sum of all transaction gas limit is no more than a given threshold.
+
+Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be *unqualified*. 
+
+A *qualified transaction* is one that:
+- Its 'msg.sender' has enough Ether to pay the minimal transaction fee.
+- The transaction's nonce matches the current nonce in the L2 state.
+
+> Question(David Cai): anything else?
+
+Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 worldstate, the L1 rollup contract treats qualfied and unqualified transactions equallly. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
+
+### Handing of  Unqualified Transactions on L2
+If a Taiko node proposes blocks, it will have to "execute" unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
+
+Non-proposing Taiko nodes may skip over all unqualified transactions and only run those qualified transactions.
+
+
+
+
+
+
