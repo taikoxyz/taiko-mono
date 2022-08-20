@@ -26,7 +26,7 @@ $$ p_i^a = \mathbb{Z}(h\_{i-1}, h_i, T_i, X_i, a) $$
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
 
 
-❓Brecht: shall it be $p_i^a = \mathbb{Z}(h\_{i-1}, h_i, T_i, \mathbb{H}(X_i, a))$ instead?
+❓Brecht: shall it be $p_i^a = \mathbb{Z}(h\_{i-1}, h_i, T_i, \mathbb{H}(\mathbb{H}(X_i), a))$ instead?
 
 ### Verification of ZKPs
 
