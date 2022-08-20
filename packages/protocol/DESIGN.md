@@ -101,8 +101,6 @@ A _qualified transaction_ is one that:
 -   Its sender account has no contract code deployed and;
 -   Its sender account balance contains at least the cost required in up-front payment.
 
-> Question(David Cai): anything else?
-
 Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
 
 ### Handing of Unqualified Transactions on L2
