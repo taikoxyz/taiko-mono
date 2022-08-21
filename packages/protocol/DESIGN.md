@@ -10,44 +10,35 @@ In this and the next section, when we mention ZKP, we always refer to the aggreg
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
-1. The parent block hash $h_{i-1}$
+1. The latest 256 block hashes $h_{i-256}...h_{i-1}$;
 1. This block's hash $h_i$
 1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
-
-❓ Brecht: do we need $X_i$ or only its hash in ZKP computation?
-
-4. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
-5. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verify the ZKP's validity.
+1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
+1. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verify the ZKP's validity.
 
 Therefore, we have:
 
-$$ p_i^a = \mathbb{Z}(h\_{i-1}, h_i, T_i, X_i, a) $$
+$$ p_i^a = \mathbb{Z}(h\_{i-256}...h\_{i-1}, h_i, T_i, X_i, a) $$
 
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
-
-
-❓Brecht: shall it be $p_i^a = \mathbb{Z}(h\_{i-1}, h_i, T_i, \mathbb{H}(\mathbb{H}(X_i), a))$ instead?
 
 ### Verification of ZKPs
 
 Verification of ZKP on L1 through solidity contract requires the following inputs:
 
-1. The parent block hash $h_{i-1}$
-1. This block's hash $h_i$
-1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment.
+1. The parent block hash $h_{i-1}$;
+1. This block's hash $h_i$;
+1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment;
 1. The current `msg.sender`, treated as the prover address $a$.
 
 The following will be the verification function:
 
-$$ \mathbb{V}(K, h\_{i-1}, h_i, \mathbb{H}(\mathbb{H}(X_i), a)) $$
+$$ \mathbb{V}\_k(h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
 
 where
 
 -   $\mathbb{V}$ is the ZKP verification function implemented in solidity
--   $K$ is zkEVM's verification key.
--   $\mathbb{H}(\mathbb{H}(X_i), a)$ is considered the _public input_.
-
-❓Brecht: is the above statement correct at all?
+-   $k$ is zkEVM's verification key.
 
 ### About txList
 
