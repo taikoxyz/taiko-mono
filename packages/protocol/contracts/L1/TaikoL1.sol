@@ -71,7 +71,7 @@ contract TaikoL1 is EssentialContract {
         uint64 proposedAt;
         bytes32 txListHash;
         bytes32 mixHash;
-        bytes32 ancestorsHash;
+        bytes32 ancestorAggregatedHash;
         bytes extraData;
     }
 
@@ -263,9 +263,9 @@ contract TaikoL1 is EssentialContract {
         );
 
         require(
-            context.ancestorsHash ==
-                LibStorageProof.computeAncestorsHash(ancestorHashes),
-            "L1:ancestorsHash mismatch"
+            context.ancestorAggregatedHash ==
+                LibStorageProof.aggregateAncestorHashs(ancestorHashes),
+            "L1:ancestorAggregatedHash"
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -273,7 +273,7 @@ contract TaikoL1 is EssentialContract {
                 header.height,
                 context.anchorHeight,
                 context.anchorHash,
-                context.ancestorsHash
+                context.ancestorAggregatedHash
             );
 
         LibMerkleProof.verify(
@@ -326,15 +326,15 @@ contract TaikoL1 is EssentialContract {
         );
 
         require(
-            context.ancestorsHash ==
+            context.ancestorAggregatedHash ==
                 keccak256(abi.encodePacked(ancestorHashes)),
-            "L1:ancestorsHash mismatch"
+            "L1:ancestorAggregatedHash"
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(
                 context.txListHash,
-                context.ancestorsHash
+                context.ancestorAggregatedHash
             );
 
         LibMerkleProof.verify(
@@ -410,7 +410,7 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
-                context.ancestorsHash != 0 &&
+                context.ancestorAggregatedHash != 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"

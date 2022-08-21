@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 library LibStorageProof {
-    function computeAncestorsHash(bytes32[256] memory ancestorHashes)
+    function aggregateAncestorHashs(bytes32[256] memory ancestorHashes)
         public
         pure
         returns (bytes32)
@@ -21,19 +21,19 @@ library LibStorageProof {
         uint256 height,
         uint256 anchorHeight,
         bytes32 anchorHash,
-        bytes32 ancestorsHash
+        bytes32 ancestorAggregatedHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
         value = keccak256(
-            abi.encodePacked(anchorHeight, anchorHash, ancestorsHash)
+            abi.encodePacked(anchorHeight, anchorHash, ancestorAggregatedHash)
         );
     }
 
     function computeInvalidTxListProofKV(
         bytes32 txListHash,
-        bytes32 ancestorsHash
+        bytes32 ancestorAggregatedHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
-        value = keccak256(abi.encodePacked(txListHash, ancestorsHash));
+        value = keccak256(abi.encodePacked(txListHash, ancestorAggregatedHash));
     }
 }
