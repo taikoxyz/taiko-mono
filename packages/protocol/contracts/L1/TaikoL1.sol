@@ -71,6 +71,7 @@ contract TaikoL1 is EssentialContract {
         uint64 proposedAt;
         bytes32 txListHash;
         bytes32 mixHash;
+        bytes32 ancestorsHash;
         bytes extraData;
     }
 
@@ -246,9 +247,9 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlock(
-        bool anchored,
         BlockHeader calldata header,
         BlockContext calldata context,
+        bytes32[256] calldata ancestorHashes,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
@@ -261,24 +262,19 @@ contract TaikoL1 is EssentialContract {
             blockHash
         );
 
-        LibZKP.verify(
-            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            header.parentHash,
-            blockHash,
-            _computePublicInputHash(msg.sender, context.txListHash),
-            proofs[0]
+        require(
+            context.ancestorsHash ==
+                LibStorageProof.computeAncestorsHash(ancestorHashes),
+            "L1:ancestorsHash mismatch"
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 header.height,
                 context.anchorHeight,
-                context.anchorHash
+                context.anchorHash,
+                context.ancestorsHash
             );
-
-        if (!anchored) {
-            proofVal = 0;
-        }
 
         LibMerkleProof.verify(
             header.stateRoot,
@@ -287,12 +283,23 @@ contract TaikoL1 is EssentialContract {
             proofVal,
             proofs[1]
         );
+
+        LibZKP.verify(
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
+            ancestorHashes,
+            header.parentHash,
+            blockHash,
+            context.txListHash,
+            msg.sender,
+            proofs[0]
+        );
     }
 
     function proveBlockInvalid(
         bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
         BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
+        bytes32[256] calldata ancestorHashes,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
         require(
@@ -318,16 +325,17 @@ contract TaikoL1 is EssentialContract {
             SKIP_OVER_BLOCK_HASH
         );
 
-        LibZKP.verify(
-            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            throwAwayHeader.parentHash,
-            throwAwayHeader.hashBlockHeader(),
-            _computePublicInputHash(msg.sender, throwAwayTxListHash),
-            proofs[0]
+        require(
+            context.ancestorsHash ==
+                keccak256(abi.encodePacked(ancestorHashes)),
+            "L1:ancestorsHash mismatch"
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(context.txListHash);
+            .computeInvalidTxListProofKV(
+                context.txListHash,
+                context.ancestorsHash
+            );
 
         LibMerkleProof.verify(
             throwAwayHeader.stateRoot,
@@ -335,6 +343,16 @@ contract TaikoL1 is EssentialContract {
             proofKey,
             proofVal,
             proofs[1]
+        );
+
+        LibZKP.verify(
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
+            ancestorHashes,
+            throwAwayHeader.parentHash,
+            throwAwayHeader.hashBlockHeader(),
+            throwAwayTxListHash,
+            msg.sender,
+            proofs[0]
         );
     }
 
@@ -392,6 +410,7 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
+                context.ancestorsHash != 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"
@@ -550,16 +569,5 @@ contract TaikoL1 is EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
-    }
-
-    // We currently assume the public input has at least
-    // two parts: msg.sender, and txListHash.
-    // TODO(daniel): figure it out.
-    function _computePublicInputHash(address prover, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(prover, txListHash));
     }
 }
