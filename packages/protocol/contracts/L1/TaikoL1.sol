@@ -255,17 +255,22 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(header, context);
         bytes32 blockHash = header.hashBlockHeader();
 
-        _proveBlock(
-            MAX_PROOFS_PER_FORK_CHOICE,
-            context,
-            header.parentHash,
-            blockHash
+        require(
+            header.parentHash == ancestorHashes[0],
+            "L1:ancestorHashes[0] mismatch"
         );
 
         require(
             context.ancestorAggregatedHash ==
                 LibStorageProof.aggregateAncestorHashs(ancestorHashes),
             "L1:ancestorAggregatedHash"
+        );
+
+        _proveBlock(
+            MAX_PROOFS_PER_FORK_CHOICE,
+            context,
+            header.parentHash,
+            blockHash
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -287,7 +292,6 @@ contract TaikoL1 is EssentialContract {
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             ancestorHashes,
-            header.parentHash,
             blockHash,
             context.txListHash,
             msg.sender,
@@ -318,17 +322,22 @@ contract TaikoL1 is EssentialContract {
             "L1:parent mismatch"
         );
 
+        require(
+            throwAwayHeader.parentHash == ancestorHashes[0],
+            "L1:ancestorHashes[0] mismatch"
+        );
+
+        require(
+            context.ancestorAggregatedHash ==
+                LibStorageProof.aggregateAncestorHashs(ancestorHashes),
+            "L1:ancestorAggregatedHash"
+        );
+
         _proveBlock(
             MAX_PROOFS_PER_FORK_CHOICE,
             context,
             SKIP_OVER_BLOCK_HASH,
             SKIP_OVER_BLOCK_HASH
-        );
-
-        require(
-            context.ancestorAggregatedHash ==
-                keccak256(abi.encodePacked(ancestorHashes)),
-            "L1:ancestorAggregatedHash"
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -348,7 +357,6 @@ contract TaikoL1 is EssentialContract {
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             ancestorHashes,
-            throwAwayHeader.parentHash,
             throwAwayHeader.hashBlockHeader(),
             throwAwayTxListHash,
             msg.sender,
