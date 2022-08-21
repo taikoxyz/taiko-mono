@@ -84,7 +84,7 @@ The above code verifies a txList is valid if and only if:
 2. The total number of transactions is no more than a given threshold;
 3. The sum of all transaction gas limit is no more than a given threshold;
 4. Each transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
-5. Each transaction's signature is valid (rule#2 in Ethereum yellow paper); and (❓Daniel: seems to be missing)
+5. Each transaction's signature is valid (rule#2 in Ethereum yellow paper);
 6. Each transaction's the gas limit is no smaller than the intrinsic gas (rule#5 in Ethereum yellow paper).
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
