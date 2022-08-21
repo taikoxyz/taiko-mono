@@ -87,7 +87,7 @@ contract TaikoL2 is EssentialContract {
         anchorHashes[anchorHeight] = anchorHash;
 
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes()
+            getAncestorHashes(block.number)
         );
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
@@ -117,7 +117,7 @@ contract TaikoL2 is EssentialContract {
         );
 
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes()
+            getAncestorHashes(block.number)
         );
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
@@ -129,14 +129,14 @@ contract TaikoL2 is EssentialContract {
         emit BlockInvalidated(msg.sender, ancestorAggHash);
     }
 
-    function getAncestorHashes()
+    function getAncestorHashes(uint256 blockNumber)
         public
         view
         returns (bytes32[256] memory ancestorHashes)
     {
         for (uint256 i = 0; i < 256; i++) {
-            if (block.number > i) {
-                ancestorHashes[i] = blockhash(block.number - i - 1);
+            if (blockNumber > i) {
+                ancestorHashes[i] = blockhash(blockNumber - i - 1);
             }
         }
     }
