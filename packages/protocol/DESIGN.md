@@ -33,12 +33,12 @@ Verification of ZKP on L1 through solidity contract requires the following input
 
 The following will be the verification function:
 
-$$ \mathbb{V}\_k(h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
+$$ \mathbb{V}\_K(h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
 
 where
 
 -   $\mathbb{V}$ is the ZKP verification function implemented in solidity
--   $k$ is zkEVM's verification key.
+-   $K$ is zkEVM's verification key.
 
 ### About txList
 
