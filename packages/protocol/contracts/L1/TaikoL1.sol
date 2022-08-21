@@ -253,12 +253,7 @@ contract TaikoL1 is EssentialContract {
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
-        bytes32 blockHash = header.hashBlockHeader();
-
-        require(
-            header.parentHash == ancestorHashes[0],
-            "L1:ancestorHashes[0] mismatch"
-        );
+        bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
 
         require(
             context.ancestorAggregatedHash ==
@@ -269,7 +264,7 @@ contract TaikoL1 is EssentialContract {
         _proveBlock(
             MAX_PROOFS_PER_FORK_CHOICE,
             context,
-            header.parentHash,
+            ancestorHashes[0],
             blockHash
         );
 
@@ -317,14 +312,8 @@ contract TaikoL1 is EssentialContract {
             "L1:parent too old"
         );
         require(
-            throwAwayHeader.parentHash ==
-                finalizedBlocks[throwAwayHeader.height - 1],
+            ancestorHashes[0] == finalizedBlocks[throwAwayHeader.height - 1],
             "L1:parent mismatch"
-        );
-
-        require(
-            throwAwayHeader.parentHash == ancestorHashes[0],
-            "L1:ancestorHashes[0] mismatch"
         );
 
         require(
@@ -357,7 +346,7 @@ contract TaikoL1 is EssentialContract {
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             ancestorHashes,
-            throwAwayHeader.hashBlockHeader(),
+            throwAwayHeader.hashBlockHeader(ancestorHashes[0]),
             throwAwayTxListHash,
             msg.sender,
             proofs[0]
@@ -546,9 +535,7 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.parentHash != 0x0 &&
-                header.gasLimit <=
-                LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,

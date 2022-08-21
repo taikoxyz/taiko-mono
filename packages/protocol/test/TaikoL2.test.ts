@@ -23,9 +23,14 @@ describe("TaikoL2", function () {
             await ethers.getContractFactory("LibTxListDecoder")
         ).deploy()
 
+        const storageProofLib = await (
+            await ethers.getContractFactory("LibStorageProof")
+        ).deploy()
+
         const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
             libraries: {
                 LibTxListDecoder: txListLib.address,
+                LibStorageProof: storageProofLib.address,
             },
         })
         taikoL2 = await taikoL2Factory.deploy()
