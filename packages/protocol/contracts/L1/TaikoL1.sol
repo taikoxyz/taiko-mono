@@ -247,8 +247,8 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlock(
-        BlockHeader calldata header,
         BlockContext calldata context,
+        BlockHeader calldata header,
         bytes32[256] calldata ancestorHashes,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
@@ -295,10 +295,10 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlockInvalid(
-        bytes32 throwAwayTxListHash, // hash of a txList that contains a verifyBlockInvalid tx on L2.
-        BlockHeader calldata throwAwayHeader,
         BlockContext calldata context,
+        BlockHeader calldata throwAwayHeader,
         bytes32[256] calldata ancestorHashes,
+        bytes32 throwAwayTxListHash,
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
         require(
