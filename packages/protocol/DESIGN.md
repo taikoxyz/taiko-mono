@@ -26,14 +26,14 @@ where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\ma
 
 Verification of ZKP on L1 through solidity contract requires the following inputs:
 
-1. The parent block hash $h_{i-1}$;
+1. The latest 256 block hashes $h_{i-256}, ..., h_{i-1}$;
 1. This block's hash $h_i$;
 1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment, and;
 1. The current `msg.sender`, treated as the prover address $a$.
 
 The following will be the verification function:
 
-$$ \mathbb{V}\_K(h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
+$$ \mathbb{V}\_K(h\_{i-256}, ..., h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
 
 where
 
