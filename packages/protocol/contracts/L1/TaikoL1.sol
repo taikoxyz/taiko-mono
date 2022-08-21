@@ -71,7 +71,7 @@ contract TaikoL1 is EssentialContract {
         uint64 proposedAt;
         bytes32 txListHash;
         bytes32 mixHash;
-        bytes32 ancestorAggregatedHash;
+        bytes32 ancestorAggHash;
         bytes extraData;
     }
 
@@ -256,9 +256,9 @@ contract TaikoL1 is EssentialContract {
         bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
 
         require(
-            context.ancestorAggregatedHash ==
+            context.ancestorAggHash ==
                 LibStorageProof.aggregateAncestorHashs(ancestorHashes),
-            "L1:ancestorAggregatedHash"
+            "L1:ancestorAggHash"
         );
 
         _proveBlock(
@@ -273,7 +273,7 @@ contract TaikoL1 is EssentialContract {
                 header.height,
                 context.anchorHeight,
                 context.anchorHash,
-                context.ancestorAggregatedHash
+                context.ancestorAggHash
             );
 
         LibMerkleProof.verify(
@@ -317,9 +317,9 @@ contract TaikoL1 is EssentialContract {
         );
 
         require(
-            context.ancestorAggregatedHash ==
+            context.ancestorAggHash ==
                 LibStorageProof.aggregateAncestorHashs(ancestorHashes),
-            "L1:ancestorAggregatedHash"
+            "L1:ancestorAggHash"
         );
 
         _proveBlock(
@@ -332,7 +332,7 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(
                 context.txListHash,
-                context.ancestorAggregatedHash
+                context.ancestorAggHash
             );
 
         LibMerkleProof.verify(
@@ -407,7 +407,7 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
-                context.ancestorAggregatedHash != 0 &&
+                context.ancestorAggHash != 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"

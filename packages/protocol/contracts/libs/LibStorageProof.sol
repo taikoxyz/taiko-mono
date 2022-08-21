@@ -21,19 +21,19 @@ library LibStorageProof {
         uint256 height,
         uint256 anchorHeight,
         bytes32 anchorHash,
-        bytes32 ancestorAggregatedHash
+        bytes32 ancestorAggHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
         value = keccak256(
-            abi.encodePacked(anchorHeight, anchorHash, ancestorAggregatedHash)
+            abi.encodePacked(anchorHeight, anchorHash, ancestorAggHash)
         );
     }
 
     function computeInvalidTxListProofKV(
         bytes32 txListHash,
-        bytes32 ancestorAggregatedHash
+        bytes32 ancestorAggHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
-        value = keccak256(abi.encodePacked(txListHash, ancestorAggregatedHash));
+        value = keccak256(abi.encodePacked(txListHash, ancestorAggHash));
     }
 }

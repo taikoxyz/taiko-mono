@@ -31,12 +31,12 @@ contract TaikoL2 is EssentialContract {
     event Anchored(
         uint256 anchorHeight,
         bytes32 anchorHash,
-        bytes32 ancestorAggregatedHash,
+        bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
     );
 
-    event BlockInvalidated(address invalidator, bytes32 ancestorAggregatedHash);
+    event BlockInvalidated(address invalidator, bytes32 ancestorAggHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -86,7 +86,7 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
-        bytes32 ancestorAggregatedHash = LibStorageProof.aggregateAncestorHashs(
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
             getAncestorHashes()
         );
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -94,7 +94,7 @@ contract TaikoL2 is EssentialContract {
                 block.number,
                 anchorHeight,
                 anchorHash,
-                ancestorAggregatedHash
+                ancestorAggHash
             );
 
         assembly {
@@ -104,7 +104,7 @@ contract TaikoL2 is EssentialContract {
         emit Anchored(
             anchorHeight,
             anchorHash,
-            ancestorAggregatedHash,
+            ancestorAggHash,
             proofKey,
             proofVal
         );
@@ -116,20 +116,17 @@ contract TaikoL2 is EssentialContract {
             "L2:txList is valid"
         );
 
-        bytes32 ancestorAggregatedHash = LibStorageProof.aggregateAncestorHashs(
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
             getAncestorHashes()
         );
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(
-                keccak256(txList),
-                ancestorAggregatedHash
-            );
+            .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
 
         assembly {
             sstore(proofKey, proofVal)
         }
 
-        emit BlockInvalidated(msg.sender, ancestorAggregatedHash);
+        emit BlockInvalidated(msg.sender, ancestorAggHash);
     }
 
     function getAncestorHashes()
