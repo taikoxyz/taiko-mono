@@ -92,17 +92,17 @@ The above code verifies a txList is valid if and only if:
 1. The txList is well-formed RLP, with no additional trailing bytes;
 2. The total number of transactions is no more than a given threshold;
 3. The sum of all transaction gas limit is no more than a given threshold;
-4. Each transaction is well-formed RLP, with no additional trailing bytes;
-5. Each transaction's signature is valid; and (❓Daniel: seems to be missing)
-6. Each transaction's the gas limit is no smaller than the intrinsic gas.
+4. Each transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
+5. Each transaction's signature is valid (rule#2 in Ethereum yellow paper); and (❓Daniel: seems to be missing)
+6. Each transaction's the gas limit is no smaller than the intrinsic gas (rule#5 in Ethereum yellow paper).
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
 
 A _qualified transaction_ is one that:
 
--   Its nonce is valid (equivalent to the sender account's current nonce);
--   Its sender account has no contract code deployed and;
--   Its sender account balance contains at least the cost required in up-front payment.
+-   Its nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
+-   Its sender account has no contract code deployed and (rule#4 in Ethereum yellow paper);
+-   Its sender account balance contains at least the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
 Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
 
