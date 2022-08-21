@@ -10,15 +10,15 @@ In this and the next section, when we mention ZKP, we always refer to the aggreg
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
-1. The latest 256 block hashes $h_{i-256}...h_{i-1}$;
-1. This block's hash $h_i$
+1. The latest 256 block hashes $h_{i-256}, ..., h_{i-1}$;
+1. This block's hash $h_i$;
 1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
-1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later.
+1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later, and;
 1. A prover selected address $a$ only which can transact the `proveBlock` transaction for this block, though anyone else can verify the ZKP's validity.
 
 Therefore, we have:
 
-$$ p_i^a = \mathbb{Z}(h\_{i-256}...h\_{i-1}, h_i, T_i, X_i, a) $$
+$$ p_i^a = \mathbb{Z}(h\_{i-256}, ..., h\_{i-1}, h_i, T_i, X_i, a) $$
 
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
 
@@ -28,7 +28,7 @@ Verification of ZKP on L1 through solidity contract requires the following input
 
 1. The parent block hash $h_{i-1}$;
 1. This block's hash $h_i$;
-1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment;
+1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment, and;
 1. The current `msg.sender`, treated as the prover address $a$.
 
 The following will be the verification function:
@@ -84,7 +84,7 @@ The above code verifies a txList is valid if and only if:
 2. The total number of transactions is no more than a given threshold;
 3. The sum of all transaction gas limit is no more than a given threshold;
 4. Each transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
-5. Each transaction's signature is valid (rule#2 in Ethereum yellow paper);
+5. Each transaction's signature is valid (rule#2 in Ethereum yellow paper), and;
 6. Each transaction's the gas limit is no smaller than the intrinsic gas (rule#5 in Ethereum yellow paper).
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
@@ -92,7 +92,7 @@ Once the txList is validated, a L2 block can be generated, but the block may pot
 A _qualified transaction_ is one that:
 
 -   Its nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
--   Its sender account has no contract code deployed and (rule#4 in Ethereum yellow paper);
+-   Its sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
 -   Its sender account balance contains at least the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
 Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
