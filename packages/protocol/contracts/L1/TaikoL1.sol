@@ -253,6 +253,7 @@ contract TaikoL1 is EssentialContract {
         bytes[2] calldata proofs
     ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
+
         bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
 
         require(
@@ -281,7 +282,7 @@ contract TaikoL1 is EssentialContract {
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            proofs[1]
+            proofs[0]
         );
 
         LibZKP.verify(
@@ -290,7 +291,7 @@ contract TaikoL1 is EssentialContract {
             blockHash,
             context.txListHash,
             msg.sender,
-            proofs[0]
+            proofs[1]
         );
     }
 
@@ -340,7 +341,7 @@ contract TaikoL1 is EssentialContract {
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            proofs[1]
+            proofs[0]
         );
 
         LibZKP.verify(
@@ -349,7 +350,7 @@ contract TaikoL1 is EssentialContract {
             throwAwayHeader.hashBlockHeader(ancestorHashes[0]),
             throwAwayTxListHash,
             msg.sender,
-            proofs[0]
+            proofs[1]
         );
     }
 
