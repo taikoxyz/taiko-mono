@@ -111,19 +111,19 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function proveTxListInvalid(
-        bytes calldata encoded,
-        uint256 txIdx,
-        LibInvalidTxListProver.Reason reason,
-        LibMerkleProof.Account calldata account,
-        bytes calldata mkproof
-    ) public view returns (LibInvalidTxListProver.Reason) {
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
-        );
+    // function proveTxListInvalid(
+    //     bytes calldata encoded,
+    //     uint256 txIdx,
+    //     LibInvalidTxListProver.Reason reason,
+    //     LibMerkleProof.Account calldata account,
+    //     bytes calldata mkproof
+    // ) public view returns (LibInvalidTxListProver.Reason) {
+    //     bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+    //         getAncestorHashes(block.number)
+    //     );
 
-        // return LibInvalidTxListProver.proveTxListInvalid(encoded, txIdx, reason, account, parentStateRoot, mkproof);
-    }
+    //     // return LibInvalidTxListProver.proveTxListInvalid(encoded, txIdx, reason, account, parentStateRoot, mkproof);
+    // }
 
     function getAncestorHashes(uint256 blockNumber)
         public

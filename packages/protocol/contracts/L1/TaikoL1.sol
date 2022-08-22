@@ -209,11 +209,10 @@ contract TaikoL1 is EssentialContract {
      * External Functions *
      **********************/
 
-    function init(
-        address _addressManager,
-        bytes32 _stateRoot,
-        bytes32 _genesisBlockHash
-    ) external initializer {
+    function init(address _addressManager, bytes32 _genesisBlockHash)
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
 
         finalizedBlocks[0] = _genesisBlockHash;
@@ -447,7 +446,10 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _finalizeBlock(uint64 id, ForkChoice storage fc) private {
+    function _finalizeBlock(
+        uint64 id,
+        ForkChoice storage /*fc*/
+    ) private {
         // IProtoBroker(resolve("proto_broker")).payProvers(
         //     id,
         //     fc.provenAt,

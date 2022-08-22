@@ -38,8 +38,7 @@ library LibInvalidTxListProver {
         uint256 txIdx,
         Reason reason,
         LibMerkleProof.Account calldata account,
-        bytes calldata mkproof,
-        bytes32 parentStateRoot
+        bytes calldata mkproof
     ) public view returns (Reason) {
         try LibTxListDecoder.decodeTxList(encoded) returns (
             LibTxListDecoder.TxList memory txList
