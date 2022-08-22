@@ -22,7 +22,6 @@ contract TaikoL2 is EssentialContract {
 
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
-    bytes32 public parentStateRoot;
 
     uint256[48] private __gap;
 
@@ -81,11 +80,10 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
-    function anchor(
-        uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 parentStateRoot
-    ) external onlyWhenNotAnchored {
+    function anchor(uint256 anchorHeight, bytes32 anchorHash)
+        external
+        onlyWhenNotAnchored
+    {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
@@ -95,7 +93,6 @@ contract TaikoL2 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 block.number,
-                parentStateRoot,
                 anchorHeight,
                 anchorHash,
                 ancestorAggHash
@@ -121,6 +118,10 @@ contract TaikoL2 is EssentialContract {
         LibMerkleProof.Account calldata account,
         bytes calldata mkproof
     ) public view returns (LibInvalidTxListProver.Reason) {
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+            getAncestorHashes(block.number)
+        );
+
         // return LibInvalidTxListProver.proveTxListInvalid(encoded, txIdx, reason, account, parentStateRoot, mkproof);
     }
 

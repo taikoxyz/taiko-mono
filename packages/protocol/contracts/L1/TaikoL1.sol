@@ -195,7 +195,6 @@ contract TaikoL1 is EssentialContract {
         );
 
         _proveBlock(
-            MAX_PROOFS_PER_FORK_CHOICE,
             input.context,
             input.ancestorHashes[0],
             blockHashOverride == 0 ? blockHash : blockHashOverride
@@ -294,7 +293,6 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 input.header.height,
-                input.header.stateRoot,
                 input.context.anchorHeight,
                 input.context.anchorHash,
                 input.context.ancestorAggHash
@@ -398,7 +396,6 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
-        uint256 maxNumProofsPerForkChoice,
         BlockContext memory context,
         bytes32 parentHash,
         bytes32 blockHash
@@ -416,7 +413,7 @@ contract TaikoL1 is EssentialContract {
                 "L1:conflicting proof"
             );
             require(
-                fc.provers.length < maxNumProofsPerForkChoice,
+                fc.provers.length < MAX_PROOFS_PER_FORK_CHOICE,
                 "L1:too many proofs"
             );
 
