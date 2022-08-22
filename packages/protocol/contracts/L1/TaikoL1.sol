@@ -199,7 +199,9 @@ contract TaikoL1 is EssentialContract {
             input.ancestorHashes[0],
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
+
         _;
+
         finalizeBlocks();
     }
 
