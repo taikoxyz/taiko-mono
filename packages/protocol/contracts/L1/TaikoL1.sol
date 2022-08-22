@@ -167,12 +167,12 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsPending(
         ProvingInput calldata input,
-        BlockContext calldata contextToProve,
+        BlockContext calldata target,
         bytes32 blockHashOverride
     ) {
-        require(contextToProve.id == input.context.id, "not same height");
+        require(target.id == input.context.id, "not same height");
 
-        _checkContextPending(contextToProve);
+        _checkContextPending(target);
         _validateHeaderForContext(input.header, input.context);
 
         bytes32 blockHash = input.header.hashBlockHeader(
@@ -310,8 +310,8 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlockInvalid(
-        BlockContext calldata target,
-        ProvingInput calldata input
+        ProvingInput calldata input,
+        BlockContext calldata target
     )
         external
         nonReentrant
