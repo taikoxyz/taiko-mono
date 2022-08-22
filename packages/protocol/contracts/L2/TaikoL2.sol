@@ -134,10 +134,8 @@ contract TaikoL2 is EssentialContract {
         view
         returns (bytes32[256] memory ancestorHashes)
     {
-        for (uint256 i = 0; i < 256; i++) {
-            if (blockNumber > i) {
-                ancestorHashes[i] = blockhash(blockNumber - i - 1);
-            }
+        for (uint256 i = 0; i < 256 && i < blockNumber; i++) {
+            ancestorHashes[i] = blockhash(blockNumber - i - 1);
         }
     }
 }
