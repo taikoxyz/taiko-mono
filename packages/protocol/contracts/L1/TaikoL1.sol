@@ -354,24 +354,6 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function verifyBlockInvalid(
-        BlockContext calldata context,
-        bytes calldata txList
-    ) external nonReentrant whenBlockIsPending(context) {
-        require(
-            txList.hashTxList() == context.txListHash,
-            "L1:txList mismatch"
-        );
-        require(!txList.isTxListValid(), "L1:valid txList");
-
-        _proveBlock(
-            1, // no uncles
-            context,
-            SKIP_OVER_BLOCK_HASH,
-            SKIP_OVER_BLOCK_HASH
-        );
-    }
-
     /**********************
      * Public Functions   *
      **********************/
