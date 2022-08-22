@@ -10,6 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
+import "../libs/LibMerkleProof.sol";
 
 /// @dev The following rules are used for validating a txList:
 ///
@@ -32,19 +33,13 @@ library LibInvalidTxListProver {
         GASLIMIT_TOO_SMALL
     }
 
-    struct Account {
-        uint256 nonce;
-        uint256 balance;
-        bytes32 storageRoot;
-        bytes32 codeHash;
-    }
-
     function proveTxListInvalid(
         bytes calldata encoded,
         uint256 txIdx,
         Reason reason,
-        Account calldata account,
-        bytes calldata proof
+        LibMerkleProof.Account calldata account,
+        bytes calldata mkproof,
+        bytes32 parentStateRoot
     ) public view returns (Reason) {
         try LibTxListDecoder.decodeTxList(encoded) returns (
             LibTxListDecoder.TxList memory txList
@@ -63,6 +58,13 @@ library LibInvalidTxListProver {
 
             require(txIdx < txList.items.length, "invalid txIdx");
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
+
+            //   LibMerkleProof.verifyAccount(
+            //     parentStateRoot
+            //     _tx.sender
+            //     account,
+            //     mkproof
+            // );
 
             if (reason == Reason.INVALID_NONCE) {
                 // require(tx.nonce != account.nonce, "nonce indeed valid");

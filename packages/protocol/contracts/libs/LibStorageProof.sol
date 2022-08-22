@@ -19,13 +19,19 @@ library LibStorageProof {
 
     function computeAnchorProofKV(
         uint256 height,
+        bytes32 parentStateRoot,
         uint256 anchorHeight,
         bytes32 anchorHash,
         bytes32 ancestorAggHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
         value = keccak256(
-            abi.encodePacked(anchorHeight, anchorHash, ancestorAggHash)
+            abi.encodePacked(
+                parentStateRoot,
+                anchorHeight,
+                anchorHash,
+                ancestorAggHash
+            )
         );
     }
 

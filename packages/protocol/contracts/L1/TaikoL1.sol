@@ -158,8 +158,8 @@ contract TaikoL1 is EssentialContract {
         finalizeBlocks();
     }
 
-    modifier whenBlockIsPending(BlockContext calldata context) {
-        _checkContextPending(context);
+    modifier whenBlockIsPending(BlockContext calldata context, bool strict) {
+        _checkContextPending(context, strict);
         _;
         finalizeBlocks();
     }
@@ -168,10 +168,11 @@ contract TaikoL1 is EssentialContract {
      * External Functions *
      **********************/
 
-    function init(address _addressManager, bytes32 _genesisBlockHash)
-        external
-        initializer
-    {
+    function init(
+        address _addressManager,
+        bytes32 _stateRoot,
+        bytes32 _genesisBlockHash
+    ) external initializer {
         EssentialContract._init(_addressManager);
 
         finalizedBlocks[0] = _genesisBlockHash;
@@ -250,7 +251,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata header,
         bytes32[256] calldata ancestorHashes,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context) {
+    ) external nonReentrant whenBlockIsPending(context, true) {
         _validateHeaderForContext(header, context);
 
         bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
@@ -271,12 +272,13 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 header.height,
+                header.stateRoot,
                 context.anchorHeight,
                 context.anchorHash,
                 context.ancestorAggHash
             );
 
-        LibMerkleProof.verify(
+        LibMerkleProof.verifyStorage(
             header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
@@ -295,26 +297,14 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlockInvalid(
-        BlockContext calldata context,
-        BlockHeader calldata throwAwayHeader,
+        BlockContext calldata context, // a throw-away block
+        BlockHeader calldata header, // the throw-away block header
         bytes32[256] calldata ancestorHashes,
-        bytes32 throwAwayTxListHash,
-        bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context) {
-        require(
-            throwAwayHeader.isPartiallyValidForTaiko(),
-            "L1:throwAwayHeader invalid"
-        );
+        bytes[3] calldata proofs
+    ) external nonReentrant whenBlockIsPending(context, false) {
+        _validateHeaderForContext(header, context);
 
-        require(
-            lastFinalizedHeight <=
-                throwAwayHeader.height + MAX_THROW_AWAY_PARENT_DIFF,
-            "L1:parent too old"
-        );
-        require(
-            ancestorHashes[0] == finalizedBlocks[throwAwayHeader.height - 1],
-            "L1:parent mismatch"
-        );
+        bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
 
         require(
             context.ancestorAggHash ==
@@ -325,8 +315,8 @@ contract TaikoL1 is EssentialContract {
         _proveBlock(
             MAX_PROOFS_PER_FORK_CHOICE,
             context,
-            SKIP_OVER_BLOCK_HASH,
-            SKIP_OVER_BLOCK_HASH
+            ancestorHashes[0],
+            blockHash
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -335,8 +325,8 @@ contract TaikoL1 is EssentialContract {
                 context.ancestorAggHash
             );
 
-        LibMerkleProof.verify(
-            throwAwayHeader.stateRoot,
+        LibMerkleProof.verifyStorage(
+            header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
             proofVal,
@@ -346,8 +336,8 @@ contract TaikoL1 is EssentialContract {
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             ancestorHashes,
-            throwAwayHeader.hashBlockHeader(ancestorHashes[0]),
-            throwAwayTxListHash,
+            blockHash,
+            context.txListHash,
             msg.sender,
             proofs[1]
         );
@@ -500,13 +490,18 @@ contract TaikoL1 is EssentialContract {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
-    function _checkContextPending(BlockContext calldata context) private view {
+    function _checkContextPending(BlockContext calldata context, bool strict)
+        private
+        view
+    {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
             "L1:invalid id"
         );
         require(
-            _getPendingBlock(context.id).contextHash == _hashContext(context),
+            !strict ||
+                _getPendingBlock(context.id).contextHash ==
+                _hashContext(context),
             "L1:context mismatch"
         );
     }

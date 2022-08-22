@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
+import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "./LibInvalidTxListProver.sol";
 
@@ -21,6 +22,7 @@ contract TaikoL2 is EssentialContract {
 
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
+    bytes32 public parentStateRoot;
 
     uint256[48] private __gap;
 
@@ -79,10 +81,11 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
-    function anchor(uint256 anchorHeight, bytes32 anchorHash)
-        external
-        onlyWhenNotAnchored
-    {
+    function anchor(
+        uint256 anchorHeight,
+        bytes32 anchorHash,
+        bytes32 parentStateRoot
+    ) external onlyWhenNotAnchored {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
@@ -92,6 +95,7 @@ contract TaikoL2 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 block.number,
+                parentStateRoot,
                 anchorHeight,
                 anchorHash,
                 ancestorAggHash
@@ -110,24 +114,15 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    // function verifyBlockInvalid(bytes calldata txList) external {
-    //     require(
-    //         !LibTxListValidator.proveBlockInvalid(txList),
-    //         "L2:txList is valid"
-    //     );
-
-    //     bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-    //         getAncestorHashes(block.number)
-    //     );
-    //     (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-    //         .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
-
-    //     assembly {
-    //         sstore(proofKey, proofVal)
-    //     }
-
-    //     emit BlockInvalidated(msg.sender, ancestorAggHash);
-    // }
+    function proveTxListInvalid(
+        bytes calldata encoded,
+        uint256 txIdx,
+        LibInvalidTxListProver.Reason reason,
+        LibMerkleProof.Account calldata account,
+        bytes calldata mkproof
+    ) public view returns (LibInvalidTxListProver.Reason) {
+        // return LibInvalidTxListProver.proveTxListInvalid(encoded, txIdx, reason, account, parentStateRoot, mkproof);
+    }
 
     function getAncestorHashes(uint256 blockNumber)
         public
