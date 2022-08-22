@@ -92,7 +92,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant PROPOSING_DELAY_MIN = 1 minutes;
     uint256 public constant PROPOSING_DELAY_MAX = 30 minutes;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
-    bytes32 public constant SKIP_OVER_BLOCK_HASH = bytes32(uint256(1));
+    bytes32 public constant DEAD_END = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     /**********************
@@ -158,8 +158,8 @@ contract TaikoL1 is EssentialContract {
         finalizeBlocks();
     }
 
-    modifier whenBlockIsPending(BlockContext calldata context, bool strict) {
-        _checkContextPending(context, strict);
+    modifier whenBlockIsPending(BlockContext calldata context) {
+        _checkContextPending(context);
         _;
         finalizeBlocks();
     }
@@ -251,7 +251,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader calldata header,
         bytes32[256] calldata ancestorHashes,
         bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context, true) {
+    ) external nonReentrant whenBlockIsPending(context) {
         _validateHeaderForContext(header, context);
 
         bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
@@ -297,11 +297,14 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlockInvalid(
-        BlockContext calldata context, // a throw-away block
+        BlockContext calldata origin,
+        BlockContext calldata context, // the throw-away block context
         BlockHeader calldata header, // the throw-away block header
         bytes32[256] calldata ancestorHashes,
-        bytes[3] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context, false) {
+        bytes[2] calldata proofs
+    ) external nonReentrant whenBlockIsPending(origin) {
+        require(origin.id == context.id, "not same height");
+
         _validateHeaderForContext(header, context);
 
         bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
@@ -316,12 +319,12 @@ contract TaikoL1 is EssentialContract {
             MAX_PROOFS_PER_FORK_CHOICE,
             context,
             ancestorHashes[0],
-            blockHash
+            DEAD_END
         );
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidTxListProofKV(
-                context.txListHash,
+                origin.txListHash,
                 context.ancestorAggHash
             );
 
@@ -356,16 +359,13 @@ contract TaikoL1 is EssentialContract {
                 finalizedBlocks[lastFinalizedHeight]
             ];
 
-            if (fc.blockHash != 0) {
+            if (fc.blockHash == DEAD_END) {
+                _finalizeBlock(id, fc);
+            } else if (fc.blockHash != 0) {
                 finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
                 _finalizeBlock(id, fc);
             } else {
-                fc = forkChoices[id][SKIP_OVER_BLOCK_HASH];
-                if (fc.blockHash != 0) {
-                    _finalizeBlock(id, fc);
-                } else {
-                    break;
-                }
+                break;
             }
 
             lastFinalizedId += 1;
@@ -490,18 +490,13 @@ contract TaikoL1 is EssentialContract {
         return pendingBlocks[id % MAX_PENDING_BLOCKS];
     }
 
-    function _checkContextPending(BlockContext calldata context, bool strict)
-        private
-        view
-    {
+    function _checkContextPending(BlockContext calldata context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
             "L1:invalid id"
         );
         require(
-            !strict ||
-                _getPendingBlock(context.id).contextHash ==
-                _hashContext(context),
+            _getPendingBlock(context.id).contextHash == _hashContext(context),
             "L1:context mismatch"
         );
     }

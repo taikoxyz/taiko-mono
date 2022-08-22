@@ -60,4 +60,17 @@ library LibBlockHeader {
         bytes memory rlpHeader = Lib_RLPWriter.writeList(list);
         return keccak256(rlpHeader);
     }
+
+    function isPartiallyValidForTaiko(BlockHeader calldata header)
+        internal
+        pure
+        returns (bool)
+    {
+        return
+            header.ommersHash == EMPTY_OMMERS_HASH &&
+            header.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.extraData.length <= 32 &&
+            header.difficulty == 0 &&
+            header.nonce == 0;
+    }
 }
