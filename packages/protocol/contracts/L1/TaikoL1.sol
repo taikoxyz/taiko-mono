@@ -15,6 +15,8 @@ import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
+import "../libs/LibTaikoConstants.sol";
+import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
 
 // import "./broker/IProtoBroker.sol";
@@ -43,7 +45,6 @@ contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxListDecoder for bytes;
-    using LibTxListValidator for bytes;
 
     /**********************
      * Structs            *
@@ -402,7 +403,7 @@ contract TaikoL1 is EssentialContract {
         );
 
         require(
-            context.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            context.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
             "L1:invalid gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
@@ -512,7 +513,7 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.gasLimit <= LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,

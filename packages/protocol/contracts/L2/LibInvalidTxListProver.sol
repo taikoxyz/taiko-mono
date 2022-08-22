@@ -8,7 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "./LibTxListDecoder.sol";
+import "../libs/LibTaikoConstants.sol";
+import "../libs/LibTxListDecoder.sol";
 
 /// @dev The following rules are used for validating a txList:
 ///
@@ -20,10 +21,7 @@ import "./LibTxListDecoder.sol";
 /// 6. Each transaction's the gas limit is no smaller than the intrinsic gas (rule#5 in Ethereum yellow paper).
 ///
 /// TODO(Roger): work on 5 and 6.
-library LibTxListValidator {
-    uint256 public constant MAX_TAIKO_BLOCK_GAS_LIMIT = 5000000;
-    uint256 public constant MAX_TAIKO_BLOCK_NUM_TXS = 20;
-
+library LibInvalidTxListProver {
     enum Reason {
         NOT_DECODABLE,
         TOO_MANY_TXS,
@@ -51,11 +49,14 @@ library LibTxListValidator {
         try LibTxListDecoder.decodeTxList(encoded) returns (
             LibTxListDecoder.TxList memory txList
         ) {
-            if (txList.items.length > MAX_TAIKO_BLOCK_NUM_TXS) {
+            if (
+                txList.items.length > LibTaikoConstants.MAX_TAIKO_BLOCK_NUM_TXS
+            ) {
                 return Reason.TOO_MANY_TXS;
             }
             if (
-                LibTxListDecoder.sumGasLimit(txList) > MAX_TAIKO_BLOCK_GAS_LIMIT
+                LibTxListDecoder.sumGasLimit(txList) >
+                LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_EXCEEDED;
             }
