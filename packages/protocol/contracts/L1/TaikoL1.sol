@@ -15,8 +15,6 @@ import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxListDecoder.sol";
-import "../libs/LibTxListValidator.sol";
 import "../libs/LibZKP.sol";
 
 // import "./broker/IProtoBroker.sol";
@@ -416,10 +414,6 @@ contract TaikoL1 is EssentialContract {
             commits[hash] != 0 &&
             block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
             block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
-    }
-
-    function isTxListValid(bytes calldata txList) public pure returns (bool) {
-        return LibTxListValidator.isTxListValid(txList);
     }
 
     /**********************

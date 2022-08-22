@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxListValidator.sol";
+import "./LibTxListValidator.sol";
 
 contract TaikoL2 is EssentialContract {
     /**********************
@@ -110,24 +110,24 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function verifyBlockInvalid(bytes calldata txList) external {
-        require(
-            !LibTxListValidator.isTxListValid(txList),
-            "L2:txList is valid"
-        );
+    // function verifyBlockInvalid(bytes calldata txList) external {
+    //     require(
+    //         !LibTxListValidator.proveBlockInvalid(txList),
+    //         "L2:txList is valid"
+    //     );
 
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
-        );
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
+    //     bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+    //         getAncestorHashes(block.number)
+    //     );
+    //     (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+    //         .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
 
-        assembly {
-            sstore(proofKey, proofVal)
-        }
+    //     assembly {
+    //         sstore(proofKey, proofVal)
+    //     }
 
-        emit BlockInvalidated(msg.sender, ancestorAggHash);
-    }
+    //     emit BlockInvalidated(msg.sender, ancestorAggHash);
+    // }
 
     function getAncestorHashes(uint256 blockNumber)
         public
