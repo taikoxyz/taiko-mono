@@ -81,6 +81,13 @@ contract TaikoL1 is EssentialContract {
         address[] provers;
     }
 
+    struct ProvingInput {
+        BlockContext context;
+        BlockHeader header;
+        bytes32[256] ancestorHashes;
+        bytes[2] proofs;
+    }
+
     /**********************
      * Constants          *
      **********************/
@@ -92,7 +99,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant PROPOSING_DELAY_MIN = 1 minutes;
     uint256 public constant PROPOSING_DELAY_MAX = 30 minutes;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
-    bytes32 public constant DEAD_END = bytes32(uint256(1));
+    bytes32 public constant INVALID_BLOCK_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     /**********************
@@ -158,8 +165,41 @@ contract TaikoL1 is EssentialContract {
         finalizeBlocks();
     }
 
-    modifier whenBlockIsPending(BlockContext calldata context) {
-        _checkContextPending(context);
+    modifier whenBlockIsPending(
+        ProvingInput calldata input,
+        BlockContext calldata contextToProve,
+        bytes32 blockHashOverride
+    ) {
+        require(contextToProve.id == input.context.id, "not same height");
+
+        _checkContextPending(contextToProve);
+        _validateHeaderForContext(input.header, input.context);
+
+        bytes32 blockHash = input.header.hashBlockHeader(
+            input.ancestorHashes[0]
+        );
+
+        require(
+            input.context.ancestorAggHash ==
+                LibStorageProof.aggregateAncestorHashs(input.ancestorHashes),
+            "L1:ancestorAggHash"
+        );
+
+        LibZKP.verify(
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
+            input.ancestorHashes,
+            blockHash,
+            input.context.txListHash,
+            msg.sender,
+            input.proofs[0]
+        );
+
+        _proveBlock(
+            MAX_PROOFS_PER_FORK_CHOICE,
+            input.context,
+            input.ancestorHashes[0],
+            blockHashOverride == 0 ? blockHash : blockHashOverride
+        );
         _;
         finalizeBlocks();
     }
@@ -246,103 +286,50 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(
-        BlockContext calldata context,
-        BlockHeader calldata header,
-        bytes32[256] calldata ancestorHashes,
-        bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(context) {
-        _validateHeaderForContext(header, context);
-
-        bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
-
-        require(
-            context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(ancestorHashes),
-            "L1:ancestorAggHash"
-        );
-
-        _proveBlock(
-            MAX_PROOFS_PER_FORK_CHOICE,
-            context,
-            ancestorHashes[0],
-            blockHash
-        );
-
+    function proveBlock(ProvingInput calldata input)
+        external
+        nonReentrant
+        whenBlockIsPending(input, input.context, 0)
+    {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
-                header.height,
-                header.stateRoot,
-                context.anchorHeight,
-                context.anchorHash,
-                context.ancestorAggHash
+                input.header.height,
+                input.header.stateRoot,
+                input.context.anchorHeight,
+                input.context.anchorHash,
+                input.context.ancestorAggHash
             );
 
         LibMerkleProof.verifyStorage(
-            header.stateRoot,
+            input.header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            proofs[0]
-        );
-
-        LibZKP.verify(
-            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            ancestorHashes,
-            blockHash,
-            context.txListHash,
-            msg.sender,
-            proofs[1]
+            input.proofs[1]
         );
     }
 
     function proveBlockInvalid(
-        BlockContext calldata origin,
-        BlockContext calldata context, // the throw-away block context
-        BlockHeader calldata header, // the throw-away block header
-        bytes32[256] calldata ancestorHashes,
-        bytes[2] calldata proofs
-    ) external nonReentrant whenBlockIsPending(origin) {
-        require(origin.id == context.id, "not same height");
-
-        _validateHeaderForContext(header, context);
-
-        bytes32 blockHash = header.hashBlockHeader(ancestorHashes[0]);
-
-        require(
-            context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(ancestorHashes),
-            "L1:ancestorAggHash"
-        );
-
-        _proveBlock(
-            MAX_PROOFS_PER_FORK_CHOICE,
-            context,
-            ancestorHashes[0],
-            DEAD_END
-        );
-
+        BlockContext calldata target,
+        ProvingInput calldata input
+    )
+        external
+        nonReentrant
+        whenBlockIsPending(input, target, INVALID_BLOCK_HASH)
+    {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(
-                origin.txListHash,
-                context.ancestorAggHash
+            .computeInvalidBlockProofKV(
+                input.header.height,
+                input.context.ancestorAggHash,
+                target.txListHash
             );
 
         LibMerkleProof.verifyStorage(
-            header.stateRoot,
+            input.header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            proofs[0]
-        );
-
-        LibZKP.verify(
-            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            ancestorHashes,
-            blockHash,
-            context.txListHash,
-            msg.sender,
-            proofs[1]
+            input.proofs[1]
         );
     }
 
@@ -355,11 +342,10 @@ contract TaikoL1 is EssentialContract {
         uint256 processed = 0;
 
         while (id < nextPendingId && processed <= MAX_FINALIZATION_PER_TX) {
-            ForkChoice storage fc = forkChoices[id][
-                finalizedBlocks[lastFinalizedHeight]
-            ];
+            bytes32 lastFinalizedHash = finalizedBlocks[lastFinalizedHeight];
+            ForkChoice storage fc = forkChoices[id][lastFinalizedHash];
 
-            if (fc.blockHash == DEAD_END) {
+            if (fc.blockHash == INVALID_BLOCK_HASH) {
                 _finalizeBlock(id, fc);
             } else if (fc.blockHash != 0) {
                 finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;

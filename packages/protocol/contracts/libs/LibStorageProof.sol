@@ -35,11 +35,14 @@ library LibStorageProof {
         );
     }
 
-    function computeInvalidTxListProofKV(
-        bytes32 txListHash,
-        bytes32 ancestorAggHash
+    function computeInvalidBlockProofKV(
+        uint256 height,
+        bytes32 ancestorAggHash,
+        bytes32 txListHash
     ) internal pure returns (bytes32 key, bytes32 value) {
-        key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
+        key = keccak256(
+            abi.encodePacked("INVALID_BLOCK_KEY", height, txListHash)
+        );
         value = keccak256(abi.encodePacked(txListHash, ancestorAggHash));
     }
 }
