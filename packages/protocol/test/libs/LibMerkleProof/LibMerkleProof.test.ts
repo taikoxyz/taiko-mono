@@ -1,21 +1,40 @@
 import { expect } from "chai"
 import { Contract } from "ethers"
-import { ethers } from "hardhat"
 // eslint-disable-next-line node/no-extraneous-import
 import * as rlp from "rlp"
-import * as utils from "../../tasks/utils"
+import * as utils from "../../../tasks/utils"
 const hre = require("hardhat")
 
-describe.skip("LibMerkleProof", function () {
+const action = process.env.TEST_LIB_MERKLE_PROOF ? describe : describe.skip
+
+action("LibMerkleProof", function () {
     let libTrieProof: Contract
     let taikoL2: Contract
     let libStorageProof: Contract
 
     before(async () => {
-        hre.args = { confirmations: 1 }
-        if (hre.network.name === "hardhat") {
-            throw new Error(`hardhat: eth_getProof - Method not supported`)
+        const provider = new hre.ethers.providers.JsonRpcProvider(
+            "http://localhost:18545"
+        )
+
+        let retry = 0
+
+        while (true) {
+            try {
+                const network = await provider.getNetwork()
+                if (network.chainId) break
+            } catch (_) {}
+
+            if (++retry > 10) {
+                throw new Error("test ethereum node initializing timeout")
+            }
+
+            await sleep(1000)
         }
+
+        console.log("test ethereum node initialized")
+
+        hre.args = { confirmations: 1 }
 
         const addressManager = await utils.deployContract(hre, "AddressManager")
         await utils.waitTx(hre, await addressManager.init())
@@ -33,9 +52,9 @@ describe.skip("LibMerkleProof", function () {
         })
     })
 
-    it("should verify a merkle proof of non-zero value", async function () {
+    it("should verify inclusion proof", async function () {
         const anchorHeight = Math.floor(Math.random() * 1024)
-        const anchorHash = ethers.utils.randomBytes(32)
+        const anchorHash = hre.ethers.utils.randomBytes(32)
 
         const anchorReceipt = await utils.waitTx(
             hre,
@@ -50,13 +69,19 @@ describe.skip("LibMerkleProof", function () {
             anchorHash
         )
 
-        expect(anchorKV[0].length).not.to.be.equal(ethers.constants.HashZero)
-        expect(anchorKV[1].length).not.to.be.equal(ethers.constants.HashZero)
+        expect(anchorKV[0].length).not.to.be.equal(
+            hre.ethers.constants.HashZero
+        )
+        expect(anchorKV[1].length).not.to.be.equal(
+            hre.ethers.constants.HashZero
+        )
 
         const proof = await hre.ethers.provider.send("eth_getProof", [
             taikoL2.address,
             [anchorKV[0]],
-            hre.ethers.utils.hexlify(anchorReceipt.blockNumber),
+            hre.ethers.utils.hexValue(
+                hre.ethers.utils.hexlify(anchorReceipt.blockNumber)
+            ),
         ])
 
         expect(proof.storageProof[0].key).to.be.equal(anchorKV[0])
@@ -72,7 +97,9 @@ describe.skip("LibMerkleProof", function () {
         )
 
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
-            hre.ethers.utils.hexlify(anchorReceipt.blockNumber),
+            hre.ethers.utils.hexValue(
+                hre.ethers.utils.hexlify(anchorReceipt.blockNumber)
+            ),
             false,
         ])
 
@@ -88,7 +115,7 @@ describe.skip("LibMerkleProof", function () {
         let verifyFailed = false
 
         try {
-            const invalidProofValue = ethers.utils.randomBytes(32)
+            const invalidProofValue = hre.ethers.utils.randomBytes(32)
 
             await libTrieProof.callStatic.verify(
                 block.stateRoot,
@@ -104,22 +131,22 @@ describe.skip("LibMerkleProof", function () {
         expect(verifyFailed).to.be.equal(true)
     })
 
-    it("should verify a merkle proof of zero value", async function () {
+    it("should verify exclusion proof", async function () {
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
             "latest",
             false,
         ])
 
-        const key = ethers.utils.hexlify(ethers.utils.randomBytes(32))
-        const value = ethers.constants.HashZero
-
-        console.log({ key, value })
+        const key = hre.ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
+        const value = hre.ethers.constants.HashZero
 
         const proof = await hre.ethers.provider.send("eth_getProof", [
             taikoL2.address,
             [key],
             block.number,
         ])
+
+        console.log({ proof })
 
         expect(proof.storageProof[0].key).to.be.equal(key)
         expect(proof.storageProof[0].value).to.be.equal("0x0")
@@ -142,3 +169,9 @@ describe.skip("LibMerkleProof", function () {
         )
     })
 })
+
+function sleep(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms)
+    })
+}
