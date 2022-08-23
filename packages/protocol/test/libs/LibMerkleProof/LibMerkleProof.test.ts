@@ -137,16 +137,17 @@ action("LibMerkleProof", function () {
             false,
         ])
 
-        const key = hre.ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
-        const value = hre.ethers.constants.HashZero
+        const randomKey = hre.ethers.utils.hexlify(
+            hre.ethers.utils.randomBytes(32)
+        )
 
         const proof = await hre.ethers.provider.send("eth_getProof", [
             taikoL2.address,
-            [key],
+            [randomKey],
             block.number,
         ])
 
-        expect(proof.storageProof[0].key).to.be.equal(key)
+        expect(proof.storageProof[0].key).to.be.equal(randomKey)
         expect(proof.storageProof[0].value).to.be.equal("0x0")
 
         const coder = new hre.ethers.utils.AbiCoder()
@@ -161,8 +162,8 @@ action("LibMerkleProof", function () {
         await libTrieProof.callStatic.verify(
             block.stateRoot,
             taikoL2.address,
-            key,
-            value,
+            randomKey,
+            hre.ethers.constants.HashZero,
             mkproof
         )
     })
