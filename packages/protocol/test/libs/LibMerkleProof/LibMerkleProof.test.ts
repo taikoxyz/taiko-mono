@@ -146,8 +146,6 @@ action("LibMerkleProof", function () {
             block.number,
         ])
 
-        console.log({ proof })
-
         expect(proof.storageProof[0].key).to.be.equal(key)
         expect(proof.storageProof[0].value).to.be.equal("0x0")
 

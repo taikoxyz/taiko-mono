@@ -18,6 +18,8 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
+
 # Start a test ethereum node
 docker run -d \
   --name $TEST_NODE_CONTAINER_NAME \
@@ -33,7 +35,7 @@ docker run -d \
   ethereum/client-go:latest \
   --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
-trap "docker rm --force $TEST_NODE_CONTAINER_NAME && docker rm --force $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME" EXIT INT KILL ERR
+trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME" EXIT INT KILL ERR
 
 TEST_LIB_MERKLE_PROOF=true \
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
