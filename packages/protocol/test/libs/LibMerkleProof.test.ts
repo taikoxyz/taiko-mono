@@ -6,7 +6,7 @@ import * as rlp from "rlp"
 import * as utils from "../../tasks/utils"
 const hre = require("hardhat")
 
-describe.only("LibMerkleProof", function () {
+describe.skip("LibMerkleProof", function () {
     let libTrieProof: Contract
     let taikoL2: Contract
     let libStorageProof: Contract
@@ -102,5 +102,43 @@ describe.only("LibMerkleProof", function () {
         }
 
         expect(verifyFailed).to.be.equal(true)
+    })
+
+    it("should verify a merkle proof of zero value", async function () {
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            "latest",
+            false,
+        ])
+
+        const key = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+        const value = ethers.constants.HashZero
+
+        console.log({ key, value })
+
+        const proof = await hre.ethers.provider.send("eth_getProof", [
+            taikoL2.address,
+            [key],
+            block.number,
+        ])
+
+        expect(proof.storageProof[0].key).to.be.equal(key)
+        expect(proof.storageProof[0].value).to.be.equal("0x0")
+
+        const coder = new hre.ethers.utils.AbiCoder()
+        const mkproof = coder.encode(
+            ["bytes", "bytes"],
+            [
+                `0x` + rlp.encode(proof.accountProof).toString("hex"),
+                `0x` + rlp.encode(proof.storageProof[0].proof).toString("hex"),
+            ]
+        )
+
+        await libTrieProof.callStatic.verify(
+            block.stateRoot,
+            taikoL2.address,
+            key,
+            value,
+            mkproof
+        )
     })
 })

@@ -30,9 +30,28 @@ library Lib_SecureMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _verified) {
+    ) internal view returns (bool _verified) {
         bytes memory key = _getSecureKey(_key);
         return Lib_MerkleTrie.verifyInclusionProof(key, _value, _proof, _root);
+    }
+
+    /**
+     * @notice Verifies a proof that a given key is *not* present in
+     * the Merkle trie.
+     * @param _key Key of the node to search for, as a hex string.
+     * @param _proof Merkle trie inclusion proof for the node *nearest* the
+     * target node.
+     * @param _root Known root of the Merkle trie. Used to verify that the
+     * included proof is correctly constructed.
+     * @return _verified `true` if the key is not present in the trie, `false` otherwise.
+     */
+    function verifyExclusionProof(
+        bytes memory _key,
+        bytes memory _proof,
+        bytes32 _root
+    ) internal pure returns (bool _verified) {
+        bytes memory key = _getSecureKey(_key);
+        return Lib_MerkleTrie.verifyExclusionProof(key, _proof, _root);
     }
 
     /**
