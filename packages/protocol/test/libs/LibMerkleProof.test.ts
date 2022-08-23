@@ -1,13 +1,15 @@
 import { expect } from "chai"
 import { Contract } from "ethers"
+import { ethers } from "hardhat"
 // eslint-disable-next-line node/no-extraneous-import
 import * as rlp from "rlp"
 import * as utils from "../../tasks/utils"
 const hre = require("hardhat")
 
-describe.skip("LibMerkleProof", function () {
+describe.only("LibMerkleProof", function () {
     let libTrieProof: Contract
-    let syncHashStore: Contract
+    let taikoL2: Contract
+    let libStorageProof: Contract
 
     before(async () => {
         hre.args = { confirmations: 1 }
@@ -15,80 +17,90 @@ describe.skip("LibMerkleProof", function () {
             throw new Error(`hardhat: eth_getProof - Method not supported`)
         }
 
-        const deployer = await utils.getDeployer(hre)
-
         const addressManager = await utils.deployContract(hre, "AddressManager")
         await utils.waitTx(hre, await addressManager.init())
-        await utils.waitTx(
+
+        libStorageProof = await utils.deployContract(hre, "TestLibStorageProof")
+
+        const libTxListDecoder = await utils.deployContract(
             hre,
-            await addressManager.setAddress("rollup", deployer)
+            "LibTxListDecoder"
         )
 
         libTrieProof = await utils.deployContract(hre, "LibMerkleProof")
-        syncHashStore = await utils.deployContract(hre, "L2SyncHashStore", {}, [
-            addressManager.address,
-        ])
+        taikoL2 = await utils.deployContract(hre, "TaikoL2", {
+            LibTxListDecoder: libTxListDecoder.address,
+        })
     })
 
-    for (let index = 0; index < 10; index++) {
-        const SYNC_HASH_KEY = hre.ethers.utils.id(`TAIKO.SYNC_HASH_KEY`)
-        const syncHash = hre.ethers.utils.id(`random value ${index}`)
+    it("should verify a merkle proof of non-zero value", async function () {
+        const anchorHeight = Math.floor(Math.random() * 1024)
+        const anchorHash = ethers.utils.randomBytes(32)
 
-        it(`verify testCases[${index}]: ${syncHash}`, async function () {
-            const setReceipt = await utils.waitTx(
-                hre,
-                await syncHashStore.set(syncHash)
-            )
+        const anchorReceipt = await utils.waitTx(
+            hre,
+            await taikoL2.anchor(anchorHeight, anchorHash)
+        )
 
-            const block = await hre.ethers.provider.send(
-                "eth_getBlockByNumber",
-                [hre.ethers.utils.hexlify(setReceipt.blockNumber), false]
-            )
+        expect(anchorReceipt.status).to.be.equal(1)
 
-            const proof = await hre.ethers.provider.send("eth_getProof", [
-                syncHashStore.address,
-                [SYNC_HASH_KEY],
-                hre.ethers.utils.hexlify(setReceipt.blockNumber),
-            ])
+        const anchorKV = await libStorageProof.computeAnchorProofKV(
+            anchorReceipt.blockNumber,
+            anchorHeight,
+            anchorHash
+        )
 
-            const coder = new hre.ethers.utils.AbiCoder()
-            const mkproof = coder.encode(
-                ["bytes", "bytes"],
-                [
-                    `0x` + rlp.encode(proof.accountProof).toString("hex"),
-                    `0x` +
-                        rlp.encode(proof.storageProof[0].proof).toString("hex"),
-                ]
-            )
+        expect(anchorKV[0].length).not.to.be.equal(ethers.constants.HashZero)
+        expect(anchorKV[1].length).not.to.be.equal(ethers.constants.HashZero)
+
+        const proof = await hre.ethers.provider.send("eth_getProof", [
+            taikoL2.address,
+            [anchorKV[0]],
+            hre.ethers.utils.hexlify(anchorReceipt.blockNumber),
+        ])
+
+        expect(proof.storageProof[0].key).to.be.equal(anchorKV[0])
+        expect(proof.storageProof[0].value).to.be.equal(anchorKV[1])
+
+        const coder = new hre.ethers.utils.AbiCoder()
+        const mkproof = coder.encode(
+            ["bytes", "bytes"],
+            [
+                `0x` + rlp.encode(proof.accountProof).toString("hex"),
+                `0x` + rlp.encode(proof.storageProof[0].proof).toString("hex"),
+            ]
+        )
+
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            hre.ethers.utils.hexlify(anchorReceipt.blockNumber),
+            false,
+        ])
+
+        await libTrieProof.callStatic.verify(
+            block.stateRoot,
+            taikoL2.address,
+            anchorKV[0],
+            anchorKV[1],
+            mkproof
+        )
+
+        // test verify revert with invalid value
+        let verifyFailed = false
+
+        try {
+            const invalidProofValue = ethers.utils.randomBytes(32)
 
             await libTrieProof.callStatic.verify(
                 block.stateRoot,
-                syncHashStore.address,
-                SYNC_HASH_KEY,
-                syncHash,
+                taikoL2.address,
+                anchorKV[0],
+                invalidProofValue,
                 mkproof
             )
+        } catch (err) {
+            verifyFailed = true
+        }
 
-            // test verify revert with invalid value
-            let verifyFailed = false
-
-            try {
-                const invalidSyncHash = hre.ethers.utils.id(
-                    `random value ${Math.random()}`
-                )
-
-                await libTrieProof.callStatic.verify(
-                    block.stateRoot,
-                    syncHashStore.address,
-                    SYNC_HASH_KEY,
-                    invalidSyncHash,
-                    mkproof
-                )
-            } catch (err) {
-                verifyFailed = true
-            }
-
-            expect(verifyFailed).to.be.equal(true)
-        })
-    }
+        expect(verifyFailed).to.be.equal(true)
+    })
 })
