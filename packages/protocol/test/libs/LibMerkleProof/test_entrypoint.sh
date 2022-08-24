@@ -29,7 +29,7 @@ docker run -d \
 
 sleep 5
 
-# Import ETHs from the pre-allocated developer account to a test account
+# Import ETHs from the pre-allocated developer account to the test account
 docker run -d \
   --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
   --add-host host.docker.internal:host-gateway \

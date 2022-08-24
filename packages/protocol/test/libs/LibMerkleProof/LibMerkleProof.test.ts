@@ -52,7 +52,7 @@ action("LibMerkleProof", function () {
         })
     })
 
-    it("should verify inclusion proof", async function () {
+    it("should verify inclusion proofs", async function () {
         const anchorHeight = Math.floor(Math.random() * 1024)
         const anchorHash = hre.ethers.utils.randomBytes(32)
 
@@ -131,7 +131,7 @@ action("LibMerkleProof", function () {
         expect(verifyFailed).to.be.equal(true)
     })
 
-    it("should verify exclusion proof", async function () {
+    it("should verify exclusion proofs", async function () {
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
             "latest",
             false,
