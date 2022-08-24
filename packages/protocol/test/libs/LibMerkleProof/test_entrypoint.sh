@@ -32,6 +32,7 @@ sleep 5
 # Import ETHs from the pre-allocated developer account to a test account
 docker run -d \
   --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
+  --add-host host.docker.internal:host-gateway \
   ethereum/client-go:latest \
   --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
