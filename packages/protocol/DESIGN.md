@@ -89,7 +89,7 @@ The above code verifies a txList is valid if and only if:
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
 
-A _qualified transaction_ is one that:
+A _qualified transaction_ satisfies the following conditions:
 
 -   Its nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
 -   Its sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
