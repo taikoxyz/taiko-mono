@@ -18,7 +18,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 Therefore, we have:
 
-$$ p_i^a = \mathbb{Z}(h\_{i-256}, ..., h\_{i-1}, h_i, T_i, X_i, a) $$
+$$p_i^a = \mathbb{Z}(h\_{i-256}, ..., h\_{i-1}, h_i, T_i, X_i, a)$$
 
 where $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
 
@@ -33,7 +33,7 @@ Verification of ZKP on L1 through solidity contract requires the following input
 
 The following will be the verification function:
 
-$$ \mathbb{V}\_K(h\_{i-256}, ..., h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
+$$\mathbb{V}\_K(h\_{i-256}, ..., h\_{i-1}, h_i, \mathbb{H}(X_i), a)$$
 
 where
 
