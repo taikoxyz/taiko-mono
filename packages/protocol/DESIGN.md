@@ -52,7 +52,6 @@ A _txList_ is valid if and only if:
 1. The txList is well-formed RLP, with no additional trailing bytes;
 2. The total number of transactions is no more than a given threshold;
 3. The sum of all transaction gas limit is no more than a given threshold;
-4. Each and every transaction in the txList is valid.
 
 A transaction is _valid_ if and only if:
 1. The transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
@@ -63,14 +62,14 @@ A transaction is _qualified_ if and only if:
 
 4. The transaction is valid;
 5. The transaction's nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
-6. The transaction's sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
+6. The transaction's sender account has no contract code deployed (rule#4 in Ethereum yellow paper) and;
 7. The transaction's sender account balance contains _at least_ the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
-**Only qualified transactions can make into the L2 block to change the world state**, all other transactions will be dropped. Int the worst-case scenario, all transactions in the txList are valid but unqualfied, then this txList will yield an empty but valid L2 block.
+### Design Options
 
+We have two options for validating txList:
 
-### Handing of Unqualified Transactions on L2
+- Option 1: requiring the txList is valid, and all transactions in a txList must be qualified; otherwise, the txList produces an empty block.
+- Option 2: requiring the txList is valid, and all transactions in a txList must be valid. Qualfied transactions will make into the L2 block; and unqualfied transactions are dropped. The txList produces an empty block on if there is zero qualfied transactions.
 
-If a Taiko node proposes blocks, it will have to _execute_ unqualified transactions to produce trace logs for ZKP computation. Such execution will, however, not change any state variable or block header field values.
-
-Non-proposing Taiko nodes may skip over all unqualified transactions and only run those qualified transactions.
+Option 1 has the drawback that one unqualiifed transaction will disqualfied the entire block, therefore, we choose option 2 to maximize the number of transactions that will become part of L2 blocks.
