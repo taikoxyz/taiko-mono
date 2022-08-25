@@ -2,7 +2,7 @@
 
 ## Assumptions of zkEVM Proofs
 
-What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we now adopt a new set of ZKP assumptions outlined in this section.
+What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
 ### Computation of ZKPs
 
