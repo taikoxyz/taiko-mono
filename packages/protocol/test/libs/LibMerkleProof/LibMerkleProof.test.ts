@@ -39,7 +39,15 @@ action("LibMerkleProof", function () {
         const addressManager = await utils.deployContract(hre, "AddressManager")
         await utils.waitTx(hre, await addressManager.init())
 
-        libStorageProof = await utils.deployContract(hre, "TestLibStorageProof")
+        libStorageProof = await utils.deployContract(
+            hre,
+            "TestLibStorageProof",
+            {
+                LibStorageProof: (
+                    await utils.deployContract(hre, "LibStorageProof")
+                ).address,
+            }
+        )
 
         const libTxListDecoder = await utils.deployContract(
             hre,
@@ -49,6 +57,7 @@ action("LibMerkleProof", function () {
         libTrieProof = await utils.deployContract(hre, "LibMerkleProof")
         taikoL2 = await utils.deployContract(hre, "TaikoL2", {
             LibTxListDecoder: libTxListDecoder.address,
+            LibStorageProof: libStorageProof.address,
         })
     })
 
@@ -63,10 +72,15 @@ action("LibMerkleProof", function () {
 
         expect(anchorReceipt.status).to.be.equal(1)
 
+        const ancestorHashes = await taikoL2.getAncestorHashes(
+            anchorReceipt.blockNumber
+        )
+
         const anchorKV = await libStorageProof.computeAnchorProofKV(
             anchorReceipt.blockNumber,
             anchorHeight,
-            anchorHash
+            anchorHash,
+            await libStorageProof.aggregateAncestorHashs(ancestorHashes)
         )
 
         expect(anchorKV[0].length).not.to.be.equal(
@@ -111,61 +125,15 @@ action("LibMerkleProof", function () {
             mkproof
         )
 
-        // test verify revert with invalid value
-        let verifyFailed = false
-
-        try {
-            const invalidProofValue = hre.ethers.utils.randomBytes(32)
-
-            await libTrieProof.callStatic.verify(
+        await expect(
+            libTrieProof.callStatic.verify(
                 block.stateRoot,
                 taikoL2.address,
                 anchorKV[0],
-                invalidProofValue,
+                hre.ethers.utils.randomBytes(32),
                 mkproof
             )
-        } catch (err) {
-            verifyFailed = true
-        }
-
-        expect(verifyFailed).to.be.equal(true)
-    })
-
-    it("should verify exclusion proofs", async function () {
-        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
-            "latest",
-            false,
-        ])
-
-        const randomKey = hre.ethers.utils.hexlify(
-            hre.ethers.utils.randomBytes(32)
-        )
-
-        const proof = await hre.ethers.provider.send("eth_getProof", [
-            taikoL2.address,
-            [randomKey],
-            block.number,
-        ])
-
-        expect(proof.storageProof[0].key).to.be.equal(randomKey)
-        expect(proof.storageProof[0].value).to.be.equal("0x0")
-
-        const coder = new hre.ethers.utils.AbiCoder()
-        const mkproof = coder.encode(
-            ["bytes", "bytes"],
-            [
-                `0x` + rlp.encode(proof.accountProof).toString("hex"),
-                `0x` + rlp.encode(proof.storageProof[0].proof).toString("hex"),
-            ]
-        )
-
-        await libTrieProof.callStatic.verify(
-            block.stateRoot,
-            taikoL2.address,
-            randomKey,
-            hre.ethers.constants.HashZero,
-            mkproof
-        )
+        ).to.be.reverted
     })
 })
 

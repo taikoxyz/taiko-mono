@@ -61,21 +61,13 @@ library LibMerkleProof {
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );
 
-        bool verified = false;
-        if (value == 0x0) {
-            verified = Lib_SecureMerkleTrie.verifyExclusionProof(
-                abi.encodePacked(key),
-                storageProof,
-                storageRoot
-            );
-        } else {
-            verified = Lib_SecureMerkleTrie.verifyInclusionProof(
-                abi.encodePacked(key),
-                Lib_RLPWriter.writeBytes32(value),
-                storageProof,
-                storageRoot
-            );
-        }
+        bool verified = Lib_SecureMerkleTrie.verifyInclusionProof(
+            abi.encodePacked(key),
+            Lib_RLPWriter.writeBytes32(value),
+            storageProof,
+            storageRoot
+        );
+
         require(verified, "LTP:invalid storage proof");
     }
 }
