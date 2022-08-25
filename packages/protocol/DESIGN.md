@@ -95,7 +95,7 @@ A _qualified transaction_ satisfies the following conditions:
 -   It's sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
 -   It's sender account balance contains _at least_ the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
-Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
+Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case that all transactions in the txList are unqualfied, the L2 node will yield an empty but valid block. Hence zkEVM shall generate a valid proof regardless.
 
 ### Handing of Unqualified Transactions on L2
 
