@@ -11,10 +11,13 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
+import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxListValidator.sol";
+import "../libs/LibTxListDecoder.sol";
+import "./LibInvalidTxList.sol";
 
 contract TaikoL2 is EssentialContract {
+    using LibTxListDecoder for bytes;
     /**********************
      * State Variables    *
      **********************/
@@ -31,6 +34,14 @@ contract TaikoL2 is EssentialContract {
     event Anchored(
         uint256 anchorHeight,
         bytes32 anchorHash,
+        bytes32 ancestorAggHash,
+        bytes32 proofKey,
+        bytes32 proofVal
+    );
+
+    event InvalidTxList(
+        bytes32 txListHash,
+        LibInvalidTxList.Reason reason,
         bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
@@ -110,23 +121,43 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function verifyBlockInvalid(bytes calldata txList) external {
+    function verifyTxListInvalid(
+        bytes calldata txList,
+        LibInvalidTxList.Reason hint,
+        uint256 txIdx
+    ) external {
+        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid(
+            txList,
+            hint,
+            txIdx
+        );
         require(
-            !LibTxListValidator.isTxListValid(txList),
-            "L2:txList is valid"
+            reason != LibInvalidTxList.Reason.OK,
+            "L2:failed to invalidate txList"
         );
 
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
             getAncestorHashes(block.number)
         );
+        bytes32 txListHash = txList.hashTxList();
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(keccak256(txList), ancestorAggHash);
+            .computeInvalidBlockProofKV(
+                block.number,
+                ancestorAggHash,
+                txListHash
+            );
 
         assembly {
             sstore(proofKey, proofVal)
         }
 
-        emit BlockInvalidated(msg.sender, ancestorAggHash);
+        emit InvalidTxList(
+            txListHash,
+            reason,
+            ancestorAggHash,
+            proofKey,
+            proofVal
+        );
     }
 
     function getAncestorHashes(uint256 blockNumber)
