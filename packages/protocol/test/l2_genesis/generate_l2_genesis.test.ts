@@ -40,7 +40,7 @@ action("Generate L2 Genesis", function () {
             await sleep(1000)
         }
 
-        console.log("geth initialized")
+        console.log("geth initialized ")
     })
 
     it("contracts should be deployed", async function () {
