@@ -52,7 +52,6 @@ A _txList_ is valid if and only if:
 1. The txList is well-formed RLP, with no additional trailing bytes;
 2. The total number of transactions is no more than a given threshold;
 3. The sum of all transaction gas limit is no more than a given threshold and;
-4. Each and every transaction is valid.
 
 A transaction is _valid_ if and only if:
 1. The transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
@@ -70,10 +69,13 @@ A transaction is _qualified_ if and only if:
 
 We have two options for validating txList:
 
-- Option 1: requiring the txList is valid, and all transactions in a txList must be qualified; otherwise, the txList produces an empty block.
-- Option 2: requiring the txList is valid, and all transactions in a txList must be valid. Qualfied transactions will make into the L2 block; and unqualfied transactions are dropped. The txList produces an empty block on if there is zero qualfied transactions.
+- Option 1: 
+  - If the txList is invalid or at least one of its transactions is unqualified, no L2 block will be produced;
+  - Otherwise, a L2 block with all these qualified transactions will be produced.
+- Option 2:
+  - If the txList is invalid or at least one of its transactions is invalid, no L2 block will be produced;
+  - Otherwise, a L2 block with qualified transactions will be produced(all unquanlifed transactions dropped). The worst-case scenario is that an empty block is produced.
 
-Option 1 has the drawback that one unqualiifed transaction will disqualfied the entire block, therefore, we choose option 2 to maximize the number of transactions that will become part of L2 blocks.
 
 ### False Proving a txList
 If a txList is invalid, the prover knows the reason.  The prover now can create a temporary L2 block that includes a `verifyTxListInvalid` transaction with the txList and the reason as the transaction inputs. The `verifyTxListInvalid` transaction, once verifies the txList is invalid, will store `true` to a specific storage slot that the txList maps to. The prover will then be able to generate a normal ZKP to prove this temporary block is valid, then he can provide a merkle proof to verify the value of the specific storage slot is also `true`. This will indirectly prove the txList is invalid, thus its corresponding L2 block is invalid.
