@@ -2,11 +2,11 @@
 
 ## Assumptions of zkEVM Proofs
 
-What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we now adopt a new set of ZKP assumptions outlined in this section.
+What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
 ### Computation of ZKPs
 
-In this and the next section, when we mention ZKP, we always refer to the aggregated proof for verification on L1.
+In the following sections, when we mention ZKP we are always referring to the aggregated proof for verification on L1.
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
@@ -89,13 +89,13 @@ The above code verifies a txList is valid if and only if:
 
 Once the txList is validated, a L2 block can be generated, but the block may potential be empty. This is because some transactions in the txList may be _unqualified_.
 
-A _qualified transaction_ is one that:
+A _qualified transaction_ satisfies the following conditions:
 
--   Its nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
--   Its sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
--   Its sender account balance contains at least the cost required in up-front payment (rule#6 in Ethereum yellow paper).
+-   It's nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
+-   It's sender account has no contract code deployed and (rule#4 in Ethereum yellow paper), and;
+-   It's sender account balance contains _at least_ the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
-Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case of all transactions in the txList are unqualfied, the L2 node will yield a empty but valid block. zkEVM shall generate a valid proof regardless.
+Because checking if a transaction is indeed qualified can only be done by the Taiko L2 node using its knowledge of the L2 world-state, the L1 rollup contract treats qualified and unqualified transactions equally. In the case that all transactions in the txList are unqualfied, the L2 node will yield an empty but valid block. Hence zkEVM shall generate a valid proof regardless.
 
 ### Handing of Unqualified Transactions on L2
 
