@@ -13,9 +13,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
-import "./LibInvalidTxListProver.sol";
+import "../libs/LibTxListDecoder.sol";
+import "./LibInvalidTxList.sol";
 
 contract TaikoL2 is EssentialContract {
+    using LibTxListDecoder for bytes;
     /**********************
      * State Variables    *
      **********************/
@@ -32,6 +34,14 @@ contract TaikoL2 is EssentialContract {
     event Anchored(
         uint256 anchorHeight,
         bytes32 anchorHash,
+        bytes32 ancestorAggHash,
+        bytes32 proofKey,
+        bytes32 proofVal
+    );
+
+    event InvalidTxList(
+        bytes32 txListHash,
+        LibInvalidTxList.Reason reason,
         bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
@@ -111,19 +121,44 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    // function proveTxListInvalid(
-    //     bytes calldata encoded,
-    //     uint256 txIdx,
-    //     LibInvalidTxListProver.Reason reason,
-    //     LibMerkleProof.Account calldata account,
-    //     bytes calldata mkproof
-    // ) public view returns (LibInvalidTxListProver.Reason) {
-    //     bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-    //         getAncestorHashes(block.number)
-    //     );
+    function verifyTxListInvalid(
+        bytes calldata txList,
+        LibInvalidTxList.Reason hint,
+        uint256 txIdx
+    ) external {
+        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid(
+            txList,
+            hint,
+            txIdx
+        );
+        require(
+            reason != LibInvalidTxList.Reason.OK,
+            "L2:failed to invalidate txList"
+        );
 
-    //     // return LibInvalidTxListProver.proveTxListInvalid(encoded, txIdx, reason, account, parentStateRoot, mkproof);
-    // }
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+            getAncestorHashes(block.number)
+        );
+        bytes32 txListHash = encoded.hashTxList();
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeInvalidBlockProofKV(
+                block.number,
+                ancestorAggHash,
+                txListHash
+            );
+
+        assembly {
+            sstore(proofKey, proofVal)
+        }
+
+        emit InvalidTxList(
+            txListHash,
+            reason,
+            ancestorAggHash,
+            proofKey,
+            proofVal
+        );
+    }
 
     function getAncestorHashes(uint256 blockNumber)
         public

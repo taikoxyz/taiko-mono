@@ -15,14 +15,6 @@ import "../thirdparty/Lib_SecureMerkleTrie.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibMerkleProof {
     /*********************
-     * Constants         *
-     *********************/
-
-    // The consensus format representing account is RLP encoded in the following order:
-    // nonce, balance, storageHash, codeHash.
-    uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
-
-    /*********************
      * Structs           *
      *********************/
 
@@ -32,6 +24,14 @@ library LibMerkleProof {
         bytes32 storageRoot;
         bytes32 codeHash;
     }
+
+    /*********************
+     * Constants         *
+     *********************/
+
+    // The consensus format representing account is RLP encoded in the following order:
+    // nonce, balance, storageHash, codeHash.
+    uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     /*********************
      * Public Functions  *
