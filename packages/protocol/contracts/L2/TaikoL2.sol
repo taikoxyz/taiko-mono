@@ -139,7 +139,7 @@ contract TaikoL2 is EssentialContract {
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
             getAncestorHashes(block.number)
         );
-        bytes32 txListHash = encoded.hashTxList();
+        bytes32 txListHash = txList.hashTxList();
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
                 block.number,
