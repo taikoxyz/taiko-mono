@@ -6,7 +6,7 @@ What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Dif
 
 ### Computation of ZKPs
 
-In this and the next section, when we mention ZKP, we always refer to the aggregated proof for verification on L1.
+In the following sections, when we mention ZKP we are always referring to the aggregated proof for verification on L1.
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
