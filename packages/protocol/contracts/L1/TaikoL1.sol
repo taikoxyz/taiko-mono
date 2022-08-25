@@ -155,49 +155,6 @@ contract TaikoL1 is EssentialContract {
         finalizeBlocks();
     }
 
-    modifier whenBlockIsPending(
-        ProvingInput calldata input,
-        BlockContext calldata target,
-        bytes32 blockHashOverride
-    ) {
-        require(target.id == input.context.id, "not same height");
-
-        _checkContextPending(target);
-        _validateHeaderForContext(input.header, input.context);
-
-        bytes32 blockHash = input.header.hashBlockHeader(
-            input.ancestorHashes[0]
-        );
-
-        require(
-            input.context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(input.ancestorHashes),
-            "L1:ancestorAggHash"
-        );
-
-        address prover = input.prover == address(0) ? msg.sender : input.prover;
-
-        LibZKP.verify(
-            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            input.ancestorHashes,
-            blockHash,
-            input.context.txListHash,
-            prover,
-            input.proofs[0]
-        );
-
-        _proveBlock(
-            prover,
-            input.context,
-            input.ancestorHashes[0],
-            blockHashOverride == 0 ? blockHash : blockHashOverride
-        );
-
-        _;
-
-        finalizeBlocks();
-    }
-
     /**********************
      * External Functions *
      **********************/
@@ -279,11 +236,9 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(ProvingInput calldata input)
-        external
-        nonReentrant
-        whenBlockIsPending(input, input.context, 0)
-    {
+    function proveBlock(ProvingInput calldata input) external nonReentrant {
+        _proveBlock(input, input.context, 0);
+
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 input.header.height,
@@ -299,16 +254,16 @@ contract TaikoL1 is EssentialContract {
             proofVal,
             input.proofs[1]
         );
+
+        finalizeBlocks();
     }
 
     function proveBlockInvalid(
         ProvingInput calldata input,
         BlockContext calldata target
-    )
-        external
-        nonReentrant
-        whenBlockIsPending(input, target, INVALID_BLOCK_HASH)
-    {
+    ) external nonReentrant {
+        _proveBlock(input, target, INVALID_BLOCK_HASH);
+
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
                 input.header.height,
@@ -323,6 +278,8 @@ contract TaikoL1 is EssentialContract {
             proofVal,
             input.proofs[1]
         );
+
+        finalizeBlocks();
     }
 
     /**********************
@@ -390,6 +347,45 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
+        ProvingInput calldata input,
+        BlockContext calldata target,
+        bytes32 blockHashOverride
+    ) private {
+        require(target.id == input.context.id, "not same height");
+
+        _checkContextPending(target);
+        _validateHeaderForContext(input.header, input.context);
+
+        bytes32 blockHash = input.header.hashBlockHeader(
+            input.ancestorHashes[0]
+        );
+
+        require(
+            input.context.ancestorAggHash ==
+                LibStorageProof.aggregateAncestorHashs(input.ancestorHashes),
+            "L1:ancestorAggHash"
+        );
+
+        address prover = input.prover == address(0) ? msg.sender : input.prover;
+
+        LibZKP.verify(
+            ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
+            input.ancestorHashes,
+            blockHash,
+            input.context.txListHash,
+            prover,
+            input.proofs[0]
+        );
+
+        _markBlockProven(
+            prover,
+            input.context,
+            input.ancestorHashes[0],
+            blockHashOverride == 0 ? blockHash : blockHashOverride
+        );
+    }
+
+    function _markBlockProven(
         address prover,
         BlockContext memory context,
         bytes32 parentHash,
