@@ -71,6 +71,7 @@ contract TaikoL1 is EssentialContract {
     struct ProvingInput {
         BlockContext context;
         BlockHeader header;
+        address prover;
         bytes32[256] ancestorHashes;
         bytes[2] proofs;
     }
@@ -174,16 +175,19 @@ contract TaikoL1 is EssentialContract {
             "L1:ancestorAggHash"
         );
 
+        address prover = input.prover == address(0) ? msg.sender : input.prover;
+
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             input.ancestorHashes,
             blockHash,
             input.context.txListHash,
-            msg.sender,
+            prover,
             input.proofs[0]
         );
 
         _proveBlock(
+            prover,
             input.context,
             input.ancestorHashes[0],
             blockHashOverride == 0 ? blockHash : blockHashOverride
@@ -386,6 +390,7 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
+        address prover,
         BlockContext memory context,
         bytes32 parentHash,
         bytes32 blockHash
@@ -413,11 +418,11 @@ contract TaikoL1 is EssentialContract {
             require(block.timestamp <= deadline, "L1:too late");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
-                require(fc.provers[i] != msg.sender, "L1:duplicate prover");
+                require(fc.provers[i] != prover, "L1:duplicate prover");
             }
         }
 
-        fc.provers.push(msg.sender);
+        fc.provers.push(prover);
 
         PendingBlock storage blk = _getPendingBlock(context.id);
         if (blk.everProven != uint8(EverProven.YES)) {
@@ -431,7 +436,7 @@ contract TaikoL1 is EssentialContract {
             blockHash,
             fc.proposedAt,
             fc.provenAt,
-            msg.sender
+            prover
         );
     }
 
