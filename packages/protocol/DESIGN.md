@@ -75,7 +75,9 @@ We have two options for validating txList:
 
 Option 1 has the drawback that one unqualiifed transaction will disqualfied the entire block, therefore, we choose option 2 to maximize the number of transactions that will become part of L2 blocks.
 
-### False Proving txList
-If a txList is invalid, the prover knows the cause. Then the prover can create a L2 block which include a `verifyTxListInvalid` transaction with the txList and the cause as input. `verifyTxListInvalid` transaction, once verifies the txList is invalid, will store `true` to a specific storage slot that the txList maps to. The prover then genrates a normal ZKP to prove this block is valid, then provide a merkle proof to verify the value of the specific storage slot is `true`. This will then indirectly prove the txList is invalid, thus its corresponding L2 block is invalid.
+### False Proving a txList
+If a txList is invalid, the prover knows the reason.  The prover now can create a temporary L2 block that includes a `verifyTxListInvalid` transaction with the txList and the reason as the transaction inputs. The `verifyTxListInvalid` transaction, once verifies the txList is invalid, will store `true` to a specific storage slot that the txList maps to. The prover will then be able to generate a normal ZKP to prove this temporary block is valid, then he can provide a merkle proof to verify the value of the specific storage slot is also `true`. This will indirectly prove the txList is invalid, thus its corresponding L2 block is invalid.
 
-Note the L2 block that enclose the `verifyTxListInvalid` is not part of the L2 chain, thus we call it the throw-away block.
+Note that the temporary L2 block is NOT the block in question that will be proven to be invalid, the temporary block is not part of the L2 chain and will be throw away.
+
+The tempoary block can use any recent L2 block as its parent, beause the `verifyTxListInvalid`  transacton works regardless of the L2's world state.
