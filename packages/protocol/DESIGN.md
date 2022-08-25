@@ -22,7 +22,8 @@ Therefore, we have:
 $$ p_i^a = \mathbb{Z} (h_{i-256}, ..., h_{i-1}, h_i, T_i, X_i, a) $$
 
 where
-- $p_i^a$ is the ZKP for this block with $a$ as the prover address, and $\mathbb{Z}$ is the zkEVM proof generation function.
+- $p_i^a$ is the ZKP for this block with $a$ as the prover address, and;
+- $\mathbb{Z}$ is the zkEVM proof generation function.
 
 
 
