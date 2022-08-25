@@ -13,28 +13,10 @@ action("LibMerkleProof", function () {
     let libStorageProof: Contract
 
     before(async () => {
-        const provider = new hre.ethers.providers.JsonRpcProvider(
-            "http://localhost:18545"
-        )
-
-        let retry = 0
-
-        while (true) {
-            try {
-                const network = await provider.getNetwork()
-                if (network.chainId) break
-            } catch (_) {}
-
-            if (++retry > 10) {
-                throw new Error("test ethereum node initializing timeout")
-            }
-
-            await sleep(1000)
-        }
-
-        console.log("test ethereum node initialized")
-
         hre.args = { confirmations: 1 }
+        if (hre.network.name === "hardhat") {
+            throw new Error(`hardhat: eth_getProof - Method not supported`)
+        }
 
         const addressManager = await utils.deployContract(hre, "AddressManager")
         await utils.waitTx(hre, await addressManager.init())
@@ -136,9 +118,3 @@ action("LibMerkleProof", function () {
         ).to.be.reverted
     })
 })
-
-function sleep(ms: number) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms)
-    })
-}
