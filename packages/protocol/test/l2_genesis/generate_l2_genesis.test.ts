@@ -107,20 +107,35 @@ action("Generate L2 Genesis", function () {
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
         })
 
-        it("LibTxListValidator", async function () {
-            const LibTxListValidatorAlloc =
-                getContractAlloc("LibTxListValidator")
+        it("LibStorageProof", async function () {
+            const LibStorageProofAlloc = getContractAlloc("LibStorageProof")
 
-            const LibTxListValidator = new hre.ethers.Contract(
-                LibTxListValidatorAlloc.address,
-                require("../../artifacts/contracts/libs/LibTxListValidator.sol/LibTxListValidator.json").abi,
+            const LibStorageProof = new hre.ethers.Contract(
+                LibStorageProofAlloc.address,
+                require("../../artifacts/contracts/libs/LibStorageProof.sol/LibStorageProof.json").abi,
                 signer
             )
 
-            const gasLimit =
-                await LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT()
+            const ancestorAggHash =
+                await LibStorageProof.aggregateAncestorHashs(
+                    new Array(256).fill(ethers.utils.randomBytes(32))
+                )
 
-            expect(gasLimit.gt(ethers.BigNumber.from(0))).to.be.equal(true)
+            expect(ancestorAggHash).to.be.not.equal(ethers.constants.HashZero)
+        })
+
+        it("LibTxListDecoder", async function () {
+            const LibTxListDecoderAlloc = getContractAlloc("LibTxListDecoder")
+
+            const LibTxListDecoder = new hre.ethers.Contract(
+                LibTxListDecoderAlloc.address,
+                require("../../artifacts/contracts/libs/LibTxListDecoder.sol/LibTxListDecoder.json").abi,
+                signer
+            )
+
+            await expect(
+                LibTxListDecoder.decodeTxList(ethers.utils.RLP.encode([]))
+            ).to.be.revertedWith("empty txList")
         })
 
         it("TaikoL2", async function () {
