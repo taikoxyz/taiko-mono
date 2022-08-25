@@ -197,7 +197,7 @@ contract TaikoL1 is EssentialContract {
     /// @param context The context that the actual L2 block header must satisfy.
     ///        Note the following fields in the provided context object must
     ///        be zeros, and their actual values will be provisioned by Ethereum.
-    ///        - txListHash
+    ///        - id
     ///        - mixHash
     ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
