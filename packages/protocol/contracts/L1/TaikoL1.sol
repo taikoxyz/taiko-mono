@@ -244,9 +244,9 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 input.header.height,
+                input.context.ancestorAggHash,
                 input.context.anchorHeight,
-                input.context.anchorHash,
-                input.context.ancestorAggHash
+                input.context.anchorHash
             );
 
         LibMerkleProof.verifyStorage(

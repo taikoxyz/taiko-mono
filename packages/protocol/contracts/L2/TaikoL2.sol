@@ -103,9 +103,9 @@ contract TaikoL2 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 block.number,
+                ancestorAggHash,
                 anchorHeight,
-                anchorHash,
-                ancestorAggHash
+                anchorHash
             );
 
         assembly {
