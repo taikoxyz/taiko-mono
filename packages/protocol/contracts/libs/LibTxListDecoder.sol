@@ -11,63 +11,63 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
-struct TransactionLegacy {
-    uint256 nonce;
-    uint256 gasPrice;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    uint8 v;
-    uint256 r;
-    uint256 s;
-}
-
-struct Transaction2930 {
-    uint256 chainId;
-    uint256 nonce;
-    uint256 gasPrice;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    AccessItem[] accessList;
-    uint8 signatureYParity;
-    uint256 signatureR;
-    uint256 signatureS;
-}
-
-struct Transaction1559 {
-    uint256 chainId;
-    uint256 nonce;
-    uint256 maxPriorityFeePerGas;
-    uint256 maxFeePerGas;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    AccessItem[] accessList;
-    uint8 signatureYParity;
-    uint256 signatureR;
-    uint256 signatureS;
-}
-
-struct AccessItem {
-    address addr;
-    bytes32[] slots;
-}
-
-struct Tx {
-    uint8 txType;
-    uint256 gasLimit;
-    bytes txData;
-}
-
-struct TxList {
-    Tx[] items;
-}
-
 library LibTxListDecoder {
+    struct TransactionLegacy {
+        uint256 nonce;
+        uint256 gasPrice;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        uint8 v;
+        uint256 r;
+        uint256 s;
+    }
+
+    struct Transaction2930 {
+        uint256 chainId;
+        uint256 nonce;
+        uint256 gasPrice;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        AccessItem[] accessList;
+        uint8 signatureYParity;
+        uint256 signatureR;
+        uint256 signatureS;
+    }
+
+    struct Transaction1559 {
+        uint256 chainId;
+        uint256 nonce;
+        uint256 maxPriorityFeePerGas;
+        uint256 maxFeePerGas;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        AccessItem[] accessList;
+        uint8 signatureYParity;
+        uint256 signatureR;
+        uint256 signatureS;
+    }
+
+    struct AccessItem {
+        address addr;
+        bytes32[] slots;
+    }
+
+    struct Tx {
+        uint8 txType;
+        uint256 gasLimit;
+        bytes txData;
+    }
+
+    struct TxList {
+        Tx[] items;
+    }
+
     function decodeTxList(bytes calldata encoded)
         public
         pure

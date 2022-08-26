@@ -34,7 +34,7 @@ library LibMerkleProof {
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding state proof and storage proof.
      */
-    function verify(
+    function verifyStorage(
         bytes32 stateRoot,
         address addr,
         bytes32 key,

@@ -11,10 +11,12 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
+import "../libs/LibInvalidTxList.sol";
 import "../libs/LibStorageProof.sol";
-import "../libs/LibTxListValidator.sol";
+import "../libs/LibTxListDecoder.sol";
 
 contract TaikoL2 is EssentialContract {
+    using LibTxListDecoder for bytes;
     /**********************
      * State Variables    *
      **********************/
@@ -31,10 +33,20 @@ contract TaikoL2 is EssentialContract {
     event Anchored(
         uint256 anchorHeight,
         bytes32 anchorHash,
+        bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
     );
 
+    event InvalidTxList(
+        bytes32 txListHash,
+        LibInvalidTxList.Reason reason,
+        bytes32 ancestorAggHash,
+        bytes32 proofKey,
+        bytes32 proofVal
+    );
+
+    event BlockInvalidated(address invalidator, bytes32 ancestorAggHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -82,32 +94,78 @@ contract TaikoL2 is EssentialContract {
         onlyWhenNotAnchored
     {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
+        anchorHashes[anchorHeight] = anchorHash;
 
-        if (anchorHashes[anchorHeight] == 0) {
-            anchorHashes[anchorHeight] = anchorHash;
-
-            (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-                .computeAnchorProofKV(block.number, anchorHeight, anchorHash);
-
-            assembly {
-                sstore(proofKey, proofVal)
-            }
-
-            emit Anchored(anchorHeight, anchorHash, proofKey, proofVal);
-        }
-    }
-
-    function verifyBlockInvalid(bytes calldata txList) external {
-        require(
-            !LibTxListValidator.isTxListValid(txList),
-            "L2:txList is valid"
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+            getAncestorHashes(block.number)
         );
-
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidTxListProofKV(keccak256(txList));
+            .computeAnchorProofKV(
+                block.number,
+                ancestorAggHash,
+                anchorHeight,
+                anchorHash
+            );
 
         assembly {
             sstore(proofKey, proofVal)
+        }
+
+        emit Anchored(
+            anchorHeight,
+            anchorHash,
+            ancestorAggHash,
+            proofKey,
+            proofVal
+        );
+    }
+
+    function verifyTxListInvalid(
+        bytes calldata txList,
+        LibInvalidTxList.Reason hint,
+        uint256 txIdx
+    ) external {
+        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid(
+            txList,
+            hint,
+            txIdx
+        );
+        require(
+            reason != LibInvalidTxList.Reason.OK,
+            "L2:failed to invalidate txList"
+        );
+
+        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
+            getAncestorHashes(block.number)
+        );
+        bytes32 txListHash = txList.hashTxList();
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeInvalidBlockProofKV(
+                block.number,
+                ancestorAggHash,
+                txListHash
+            );
+
+        assembly {
+            sstore(proofKey, proofVal)
+        }
+
+        emit InvalidTxList(
+            txListHash,
+            reason,
+            ancestorAggHash,
+            proofKey,
+            proofVal
+        );
+    }
+
+    function getAncestorHashes(uint256 blockNumber)
+        public
+        view
+        returns (bytes32[256] memory ancestorHashes)
+    {
+        for (uint256 i = 0; i < 256 && i < blockNumber; i++) {
+            ancestorHashes[i] = blockhash(blockNumber - i - 1);
         }
     }
 }

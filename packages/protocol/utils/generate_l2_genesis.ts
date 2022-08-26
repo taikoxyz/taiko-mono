@@ -153,9 +153,13 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./thirdparty/AddressManager.sol/AddressManager.json"
         )),
-        LibTxListValidator: require(path.join(
+        LibStorageProof: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibTxListValidator.sol/LibTxListValidator.json"
+            "./libs/LibStorageProof.sol/LibStorageProof.json"
+        )),
+        LibTxListDecoder: require(path.join(
+            ARTIFACTS_PATH,
+            "./libs/LibTxListDecoder.sol/LibTxListDecoder.json"
         )),
         TaikoL2: require(path.join(
             ARTIFACTS_PATH,
@@ -169,8 +173,10 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode
 
         if (contractName === "TaikoL2") {
-            if (!addressMap.LibTxListValidator) {
-                throw new Error("LibTxListValidator's address not initialized")
+            if (!addressMap.LibStorageProof || !addressMap.LibTxListDecoder) {
+                throw new Error(
+                    "LibStorageProof or LibTxListDecoder not initialized"
+                )
             }
 
             bytecode = linkTaikoL2Bytecode(bytecode, addressMap)
@@ -208,10 +214,16 @@ async function generateContractConfigs(
                 },
             },
         },
-        LibTxListValidator: {
-            address: addressMap.LibTxListValidator,
+        LibStorageProof: {
+            address: addressMap.LibStorageProof,
             deployedBytecode:
-                contractArtifacts.LibTxListValidator.deployedBytecode,
+                contractArtifacts.LibStorageProof.deployedBytecode,
+            variables: {},
+        },
+        LibTxListDecoder: {
+            address: addressMap.LibTxListDecoder,
+            deployedBytecode:
+                contractArtifacts.LibTxListDecoder.deployedBytecode,
             variables: {},
         },
         TaikoL2: {
@@ -240,12 +252,17 @@ async function generateContractConfigs(
 function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
-    if (Object.keys(refs).length !== 1) {
-        throw new Error("link reference not only LibTxListValidator")
+    if (Object.keys(refs).length !== 2) {
+        throw new Error(
+            `wrong link references amount, expected: 2, get: ${
+                Object.keys(refs).length
+            }`
+        )
     }
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTxListValidator,
+        [Object.keys(refs)[0]]: addressMap.LibStorageProof,
+        [Object.keys(refs)[1]]: addressMap.LibTxListDecoder,
     })
 
     if (linkedBytecode.includes("$__")) {
