@@ -11,10 +11,9 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
-import "../libs/LibMerkleProof.sol";
+import "../libs/LibInvalidTxList.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTxListDecoder.sol";
-import "./LibInvalidTxList.sol";
 
 contract TaikoL2 is EssentialContract {
     using LibTxListDecoder for bytes;
