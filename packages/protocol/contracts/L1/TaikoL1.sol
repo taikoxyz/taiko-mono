@@ -146,9 +146,7 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsCommitted(BlockContext memory context) {
         validateContext(context);
-        bytes32 hash = keccak256(
-            abi.encodePacked(msg.sender, context.txListHash)
-        );
+        bytes32 hash = _hashCommit(msg.sender, context.txListHash);
         require(isCommitValid(hash), "L1:invalid commit");
         delete commits[hash];
         _;
@@ -172,15 +170,19 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
-    function commitBlock(bytes32 hash) external {
-        require(hash != 0, "L1:zero hash");
+    function commitBlock(address proposer, bytes32 txListHash) external {
+        require(proposer != address(0), "L1:zero proposer");
+        require(txListHash != 0, "L1:zero txListHash");
+
+        bytes32 hash = _hashCommit(proposer, txListHash);
+
         require(
             commits[hash] == 0 ||
                 block.timestamp > commits[hash] + PROPOSING_DELAY_MAX,
             "L1:already committed"
         );
         commits[hash] = block.timestamp;
-        emit BlockCommitted(msg.sender, hash, block.timestamp);
+        emit BlockCommitted(proposer, hash, block.timestamp);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -351,7 +353,8 @@ contract TaikoL1 is EssentialContract {
         BlockContext calldata target,
         bytes32 blockHashOverride
     ) private {
-        require(target.id == input.context.id, "not same height");
+        require(input.context.id == target.id, "L1:not same height");
+        require(input.prover != address(0), "L1:invalid prover");
 
         _checkContextPending(target);
         _validateHeaderForContext(input.header, input.context);
@@ -366,19 +369,17 @@ contract TaikoL1 is EssentialContract {
             "L1:ancestorAggHash"
         );
 
-        address prover = input.prover == address(0) ? msg.sender : input.prover;
-
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             input.ancestorHashes,
             blockHash,
             input.context.txListHash,
-            prover,
+            input.prover,
             input.proofs[0]
         );
 
         _markBlockProven(
-            prover,
+            input.prover,
             input.context,
             input.ancestorHashes[0],
             blockHashOverride == 0 ? blockHash : blockHashOverride
@@ -509,5 +510,13 @@ contract TaikoL1 is EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
+    }
+
+    function _hashCommit(address proposer, bytes32 txListHash)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(proposer, txListHash));
     }
 }
