@@ -8,7 +8,7 @@ const hre = require("hardhat")
 const action = process.env.TEST_LIB_MERKLE_PROOF ? describe : describe.skip
 
 action("LibMerkleProof", function () {
-    let libTrieProof: Contract
+    let libMerkleProof: Contract
     let taikoL2: Contract
     let libStorageProof: Contract
 
@@ -36,7 +36,7 @@ action("LibMerkleProof", function () {
             "LibTxListDecoder"
         )
 
-        libTrieProof = await utils.deployContract(hre, "LibMerkleProof")
+        libMerkleProof = await utils.deployContract(hre, "LibMerkleProof")
         taikoL2 = await utils.deployContract(hre, "TaikoL2", {
             LibTxListDecoder: libTxListDecoder.address,
             LibStorageProof: libStorageProof.address,
@@ -99,7 +99,7 @@ action("LibMerkleProof", function () {
             false,
         ])
 
-        await libTrieProof.callStatic.verify(
+        await libMerkleProof.callStatic.verifyStorage(
             block.stateRoot,
             taikoL2.address,
             anchorKV[0],
@@ -108,7 +108,7 @@ action("LibMerkleProof", function () {
         )
 
         await expect(
-            libTrieProof.callStatic.verify(
+            libMerkleProof.callStatic.verifyStorage(
                 block.stateRoot,
                 taikoL2.address,
                 anchorKV[0],
