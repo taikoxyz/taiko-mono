@@ -15,6 +15,17 @@ import "../thirdparty/Lib_SecureMerkleTrie.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibMerkleProof {
     /*********************
+     * Structs           *
+     *********************/
+
+    struct Account {
+        uint256 nonce;
+        uint256 balance;
+        bytes32 storageRoot;
+        bytes32 codeHash;
+    }
+
+    /*********************
      * Constants         *
      *********************/
 
@@ -30,11 +41,27 @@ library LibMerkleProof {
      * @notice Verifies that the value of a slot `key` in the storage tree of `addr` is `value`
      * @param stateRoot The merkle root of state tree.
      * @param addr The contract address.
+     * @param account The account
+     * @param mkproof The proof obtained by encoding state proof and storage proof.
+     */
+    function verifyAccount(
+        bytes32 stateRoot,
+        address addr,
+        Account calldata account,
+        bytes calldata mkproof
+    ) public pure {
+        // TODO
+    }
+
+    /**
+     * @notice Verifies that the value of a slot `key` in the storage tree of `addr` is `value`
+     * @param stateRoot The merkle root of state tree.
+     * @param addr The contract address.
      * @param key The slot in the contract.
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding state proof and storage proof.
      */
-    function verify(
+    function verifyStorage(
         bytes32 stateRoot,
         address addr,
         bytes32 key,
