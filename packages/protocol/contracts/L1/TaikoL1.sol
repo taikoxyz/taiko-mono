@@ -16,6 +16,7 @@ import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibStorageProof.sol";
 import "../libs/LibTaikoConstants.sol";
+import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
 
 // import "./broker/IProtoBroker.sol";
@@ -30,6 +31,7 @@ import "../libs/LibZKP.sol";
 contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
+    using LibTxListDecoder for bytes;
 
     /**********************
      * Structs            *
