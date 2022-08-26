@@ -60,9 +60,9 @@ action("LibMerkleProof", function () {
 
         const anchorKV = await libStorageProof.computeAnchorProofKV(
             anchorReceipt.blockNumber,
+            await libStorageProof.aggregateAncestorHashs(ancestorHashes),
             anchorHeight,
-            anchorHash,
-            await libStorageProof.aggregateAncestorHashs(ancestorHashes)
+            anchorHash
         )
 
         expect(anchorKV[0].length).not.to.be.equal(

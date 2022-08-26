@@ -21,27 +21,29 @@ contract TestLibStorageProof {
 
     function computeAnchorProofKV(
         uint256 height,
+        bytes32 ancestorAggHash,
         uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 ancestorAggHash
+        bytes32 anchorHash
     ) public pure returns (bytes32 key, bytes32 value) {
         return
             LibStorageProof.computeAnchorProofKV(
                 height,
+                ancestorAggHash,
                 anchorHeight,
-                anchorHash,
-                ancestorAggHash
+                anchorHash
             );
     }
 
     function computeInvalidTxListProofKV(
-        bytes32 txListHash,
-        bytes32 ancestorAggHash
+        uint256 height,
+        bytes32 ancestorAggHash,
+        bytes32 txListHash
     ) public pure returns (bytes32 key, bytes32 value) {
         return
-            LibStorageProof.computeInvalidTxListProofKV(
-                txListHash,
-                ancestorAggHash
+            LibStorageProof.computeInvalidBlockProofKV(
+                height,
+                ancestorAggHash,
+                txListHash
             );
     }
 }
