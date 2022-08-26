@@ -40,22 +40,20 @@ library LibInvalidTxList {
         Reason hint,
         uint256 txIdx
     ) internal pure returns (Reason) {
-        if (encoded.length > LibTaikoConstants.MAX_TX_LIST_DATA_SIZE) {
+        if (encoded.length > LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES) {
             return Reason.BINARY_TOO_LARGE;
         }
 
         try LibTxListDecoder.decodeTxList(encoded) returns (
             LibTxListDecoder.TxList memory txList
         ) {
-            if (
-                txList.items.length > LibTaikoConstants.MAX_TAIKO_BLOCK_NUM_TXS
-            ) {
+            if (txList.items.length > LibTaikoConstants.TAIKO_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
             if (
                 LibTxListDecoder.sumGasLimit(txList) >
-                LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT
+                LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
@@ -64,14 +62,15 @@ library LibInvalidTxList {
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
 
             if (hint == Reason.TX_INVALID_SIG) {
-                // TODO:
-                // require(....)
+                // TODO(daniel/roger): verify the signature is indeed invalid; otherwise, throw.
                 return Reason.TX_INVALID_SIG;
             }
 
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
-                // TODO:
-                // require(....)
+                require(
+                    _tx.gasLimit >= LibTaikoConstants.TAIKO_TX_MIN_GAS_LIMIT,
+                    "bad hint"
+                );
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;
             }
 

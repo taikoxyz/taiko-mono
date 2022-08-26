@@ -68,7 +68,7 @@ library LibBlockHeader {
     {
         return
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.gasLimit <= LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
             header.nonce == 0;

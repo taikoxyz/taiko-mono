@@ -330,7 +330,7 @@ contract TaikoL1 is EssentialContract {
         );
 
         require(
-            context.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT,
+            context.gasLimit <= LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
             "L1:invalid gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
@@ -481,7 +481,7 @@ contract TaikoL1 is EssentialContract {
 
     function _validateHeader(BlockHeader calldata header) private pure {
         require(
-            header.gasLimit <= LibTaikoConstants.MAX_TAIKO_BLOCK_GAS_LIMIT &&
+            header.gasLimit <= LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,
