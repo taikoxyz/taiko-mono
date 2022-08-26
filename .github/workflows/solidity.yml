@@ -41,3 +41,4 @@ jobs:
     - name: protocol - Deploy L1 Contracts
       working-directory: ./packages/protocol
       run: yarn deploy:hardhat
+      
