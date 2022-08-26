@@ -87,7 +87,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant PROPOSING_DELAY_MIN = 1 minutes;
     uint256 public constant PROPOSING_DELAY_MAX = 30 minutes;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
-    bytes32 public constant INVALID_BLOCK_HASH = bytes32(uint256(1));
+    bytes32 public constant INVALID_BLOCK_DEADEND_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
 
     /**********************
@@ -264,7 +264,7 @@ contract TaikoL1 is EssentialContract {
         ProvingInput calldata input,
         BlockContext calldata target
     ) external nonReentrant {
-        _proveBlock(input, target, INVALID_BLOCK_HASH);
+        _proveBlock(input, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
@@ -296,7 +296,7 @@ contract TaikoL1 is EssentialContract {
             bytes32 lastFinalizedHash = finalizedBlocks[lastFinalizedHeight];
             ForkChoice storage fc = forkChoices[id][lastFinalizedHash];
 
-            if (fc.blockHash == INVALID_BLOCK_HASH) {
+            if (fc.blockHash == INVALID_BLOCK_DEADEND_HASH) {
                 _finalizeBlock(id, fc);
             } else if (fc.blockHash != 0) {
                 finalizedBlocks[++lastFinalizedHeight] = fc.blockHash;
