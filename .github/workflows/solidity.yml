@@ -2,42 +2,41 @@ name: Solidity
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'packages/protocol/**'
+      - "packages/protocol/**"
 
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'packages/protocol/**'
+      - "packages/protocol/**"
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Cancel Previous Runs
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
 
-    - uses: actions/checkout@v3
-    - uses: actions/setup-node@v3
-      with:
-        node-version: '16.15'
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16.15"
 
-    - name: protocol - Unit Tests
-      working-directory: ./packages/protocol
-      run: yarn && yarn clean && yarn test && yarn export:abi
+      - name: protocol - Unit Tests
+        working-directory: ./packages/protocol
+        run: yarn && yarn clean && yarn test && yarn export:abi && yarn test:libMerkleProof
 
-    - name: protocol - Generate L2 Genesis
-      working-directory: ./packages/protocol
-      run: yarn test:genesis
+      - name: protocol - Generate L2 Genesis
+        working-directory: ./packages/protocol
+        run: yarn test:genesis
 
-    - name: protocol - Export ABIs
-      working-directory: ./packages/protocol
-      run: yarn export:abi
+      - name: protocol - Export ABIs
+        working-directory: ./packages/protocol
+        run: yarn export:abi
 
-    - name: protocol - Deploy L1 Contracts
-      working-directory: ./packages/protocol
-      run: yarn deploy:hardhat
+      - name: protocol - Deploy L1 Contracts
+        working-directory: ./packages/protocol
+        run: yarn deploy:hardhat
