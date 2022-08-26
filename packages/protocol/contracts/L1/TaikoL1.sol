@@ -68,7 +68,7 @@ contract TaikoL1 is EssentialContract {
         address[] provers;
     }
 
-    struct ProvingInput {
+    struct Evidence {
         BlockContext context;
         BlockHeader header;
         address prover;
@@ -238,47 +238,47 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(ProvingInput calldata input) external nonReentrant {
-        _proveBlock(input, input.context, 0);
+    function proveBlock(Evidence calldata evidence) external nonReentrant {
+        _proveBlock(evidence, evidence.context, 0);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
-                input.header.height,
-                input.context.ancestorAggHash,
-                input.context.anchorHeight,
-                input.context.anchorHash
+                evidence.header.height,
+                evidence.context.ancestorAggHash,
+                evidence.context.anchorHeight,
+                evidence.context.anchorHash
             );
 
         LibMerkleProof.verifyStorage(
-            input.header.stateRoot,
+            evidence.header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            input.proofs[1]
+            evidence.proofs[1]
         );
 
         finalizeBlocks();
     }
 
     function proveBlockInvalid(
-        ProvingInput calldata input,
+        Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
-        _proveBlock(input, target, INVALID_BLOCK_DEADEND_HASH);
+        _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
-                input.header.height,
-                input.context.ancestorAggHash,
+                evidence.header.height,
+                evidence.context.ancestorAggHash,
                 target.txListHash
             );
 
         LibMerkleProof.verifyStorage(
-            input.header.stateRoot,
+            evidence.header.stateRoot,
             resolve("taiko_l2"),
             proofKey,
             proofVal,
-            input.proofs[1]
+            evidence.proofs[1]
         );
 
         finalizeBlocks();
@@ -349,39 +349,39 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
-        ProvingInput calldata input,
+        Evidence calldata evidence,
         BlockContext calldata target,
         bytes32 blockHashOverride
     ) private {
-        require(input.context.id == target.id, "L1:not same height");
-        require(input.prover != address(0), "L1:invalid prover");
+        require(evidence.context.id == target.id, "L1:not same height");
+        require(evidence.prover != address(0), "L1:invalid prover");
 
         _checkContextPending(target);
-        _validateHeaderForContext(input.header, input.context);
+        _validateHeaderForContext(evidence.header, evidence.context);
 
-        bytes32 blockHash = input.header.hashBlockHeader(
-            input.ancestorHashes[0]
+        bytes32 blockHash = evidence.header.hashBlockHeader(
+            evidence.ancestorHashes[0]
         );
 
         require(
-            input.context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(input.ancestorHashes),
+            evidence.context.ancestorAggHash ==
+                LibStorageProof.aggregateAncestorHashs(evidence.ancestorHashes),
             "L1:ancestorAggHash"
         );
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            input.ancestorHashes,
+            evidence.ancestorHashes,
             blockHash,
-            input.context.txListHash,
-            input.prover,
-            input.proofs[0]
+            evidence.context.txListHash,
+            evidence.prover,
+            evidence.proofs[0]
         );
 
         _markBlockProven(
-            input.prover,
-            input.context,
-            input.ancestorHashes[0],
+            evidence.prover,
+            evidence.context,
+            evidence.ancestorHashes[0],
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
     }
