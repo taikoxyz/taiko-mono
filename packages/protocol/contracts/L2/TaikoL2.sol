@@ -31,17 +31,21 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     event Anchored(
+        uint256 indexed id,
+        bytes32 parentHash,
+        bytes32 ancestorAggHash,
         uint256 anchorHeight,
         bytes32 anchorHash,
-        bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
     );
 
     event InvalidTxList(
+        uint256 indexed id,
+        bytes32 parentHash,
+        bytes32 ancestorAggHash,
         bytes32 txListHash,
         LibInvalidTxList.Reason reason,
-        bytes32 ancestorAggHash,
         bytes32 proofKey,
         bytes32 proofVal
     );
@@ -96,12 +100,14 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
+        bytes32[256] memory ancestorHashes = getAncestorHashes(block.number);
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
+            ancestorHashes
         );
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 block.number,
+                ancestorHashes[0],
                 ancestorAggHash,
                 anchorHeight,
                 anchorHash
@@ -112,9 +118,11 @@ contract TaikoL2 is EssentialContract {
         }
 
         emit Anchored(
+            block.number,
+            ancestorHashes[0],
+            ancestorAggHash,
             anchorHeight,
             anchorHash,
-            ancestorAggHash,
             proofKey,
             proofVal
         );
@@ -135,13 +143,15 @@ contract TaikoL2 is EssentialContract {
             "L2:failed to invalidate txList"
         );
 
+        bytes32[256] memory ancestorHashes = getAncestorHashes(block.number);
         bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
+            ancestorHashes
         );
         bytes32 txListHash = txList.hashTxList();
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
                 block.number,
+                ancestorHashes[0],
                 ancestorAggHash,
                 txListHash
             );
@@ -151,9 +161,11 @@ contract TaikoL2 is EssentialContract {
         }
 
         emit InvalidTxList(
+            block.number,
+            ancestorHashes[0],
+            ancestorAggHash,
             txListHash,
             reason,
-            ancestorAggHash,
             proofKey,
             proofVal
         );

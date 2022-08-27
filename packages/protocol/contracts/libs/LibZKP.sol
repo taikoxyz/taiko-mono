@@ -15,9 +15,9 @@ library LibZKP {
 
     function verify(
         bytes memory verificationKey,
-        bytes32[256] calldata ancestorHashes,
-        bytes32 blkhash,
+        bytes32 blockHash,
         bytes32 txListHash,
+        bytes32 ancestorAggHash,
         address prover,
         bytes calldata zkproof
     ) public pure {

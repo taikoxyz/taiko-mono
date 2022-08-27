@@ -57,7 +57,6 @@ contract TaikoL1 is EssentialContract {
         uint64 proposedAt;
         bytes32 txListHash;
         bytes32 mixHash;
-        bytes32 ancestorAggHash;
         bytes extraData;
     }
 
@@ -72,7 +71,8 @@ contract TaikoL1 is EssentialContract {
         BlockContext context;
         BlockHeader header;
         address prover;
-        bytes32[256] ancestorHashes;
+        bytes32 parentHash;
+        bytes32 ancestorAggHash;
         bytes[2] proofs;
     }
 
@@ -247,7 +247,8 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 evidence.header.height,
-                evidence.context.ancestorAggHash,
+                evidence.parentHash,
+                evidence.ancestorAggHash,
                 evidence.context.anchorHeight,
                 evidence.context.anchorHash
             );
@@ -272,7 +273,8 @@ contract TaikoL1 is EssentialContract {
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeInvalidBlockProofKV(
                 evidence.header.height,
-                evidence.context.ancestorAggHash,
+                evidence.parentHash,
+                evidence.ancestorAggHash,
                 target.txListHash
             );
 
@@ -319,7 +321,6 @@ contract TaikoL1 is EssentialContract {
             context.id == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
-                context.ancestorAggHash != 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"
@@ -363,20 +364,14 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(evidence.header, evidence.context);
 
         bytes32 blockHash = evidence.header.hashBlockHeader(
-            evidence.ancestorHashes[0]
-        );
-
-        require(
-            evidence.context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(evidence.ancestorHashes),
-            "L1:ancestorAggHash"
+            evidence.parentHash
         );
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            evidence.ancestorHashes,
             blockHash,
             evidence.context.txListHash,
+            evidence.ancestorAggHash,
             evidence.prover,
             evidence.proofs[0]
         );
@@ -384,7 +379,7 @@ contract TaikoL1 is EssentialContract {
         _markBlockProven(
             evidence.prover,
             evidence.context,
-            evidence.ancestorHashes[0],
+            evidence.parentHash,
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
     }

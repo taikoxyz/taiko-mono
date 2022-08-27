@@ -19,24 +19,36 @@ library LibStorageProof {
 
     function computeAnchorProofKV(
         uint256 height,
+        bytes32 parentHash,
         bytes32 ancestorAggHash,
         uint256 anchorHeight,
         bytes32 anchorHash
     ) internal pure returns (bytes32 key, bytes32 value) {
-        key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
-        value = keccak256(
-            abi.encodePacked(anchorHeight, anchorHash, ancestorAggHash)
+        key = keccak256(
+            abi.encodePacked(
+                "STORAGE_PROOF_KEY",
+                height,
+                parentHash,
+                ancestorAggHash
+            )
         );
+        value = keccak256(abi.encodePacked(anchorHeight, anchorHash));
     }
 
     function computeInvalidBlockProofKV(
         uint256 height,
+        bytes32 parentHash,
         bytes32 ancestorAggHash,
         bytes32 txListHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(
-            abi.encodePacked("INVALID_BLOCK_KEY", height, txListHash)
+            abi.encodePacked(
+                "STORAGE_PROOF_KEY",
+                height,
+                parentHash,
+                ancestorAggHash
+            )
         );
-        value = keccak256(abi.encodePacked(txListHash, ancestorAggHash));
+        value = txListHash;
     }
 }
