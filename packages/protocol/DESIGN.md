@@ -36,7 +36,7 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 
 Hence we have:
 
-$$ \mathbb{V}\_K(\mathbb{H}(A), h_{i-1}, h_i, \mathbb{H}(X_i), a) $$
+$$ \mathbb{V}\_K(\mathbb{H}(A), h_i, \mathbb{H}(X_i), a) $$
 
 where
 
