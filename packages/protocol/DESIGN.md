@@ -41,8 +41,8 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 1. $p_i^a$ is the ZKP with $a$ as the prover address;
 1. The fee receipient address $a$;
 1. This block's hash $h_i$;
-1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment, and;
-1. The hash of ancestor hashes: $\mathbb{H}(A_i)$;
+1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$ (or $X_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
+1. The hash of ancestor hashes: $\mathbb{H}(A_i)$ (or $A_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)).
 
 Hence we have:
 
