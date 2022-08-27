@@ -18,7 +18,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 Hence we have:
 
-$$ p_i^a = \mathbb{Z} (h_i, A_i, T_i, X_i, a) $$
+$$ p_i^a = \mathbb{Z} (h_i, T_i, X_i, A_i, a) $$
 
 where
 
@@ -36,7 +36,7 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 
 Hence we have:
 
-$$ \mathbb{V}\_K(h_i, \mathbb{H}(A_i), \mathbb{H}(X_i), a) $$
+$$ \mathbb{V}\_K(p_i^a, h_i, \mathbb{H}(X_i), \mathbb{H}(A_i), a) $$
 
 where
 
