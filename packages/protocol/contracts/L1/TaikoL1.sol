@@ -367,9 +367,9 @@ contract TaikoL1 is EssentialContract {
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             evidence.proofs[0],
             blockHash,
+            evidence.prover,
             evidence.context.txListHash,
-            evidence.ancestorAggHash,
-            evidence.prover
+            evidence.ancestorAggHash
         );
 
         _markBlockProven(

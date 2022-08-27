@@ -17,9 +17,9 @@ library LibZKP {
         bytes memory verificationKey,
         bytes calldata zkproof,
         bytes32 blockHash,
+        address prover,
         bytes32 txListHash,
-        bytes32 ancestorAggHash,
-        address prover
+        bytes32 ancestorAggHash
     ) public pure {
         // TODO
     }
