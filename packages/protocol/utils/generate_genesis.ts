@@ -125,14 +125,14 @@ async function generateL2Genesis(
 
     const allocSavedPath = path.join(
         __dirname,
-        "../deployments/l2_genesis_alloc.json"
+        "../deployments/genesis_alloc.json"
     )
 
     fs.writeFileSync(allocSavedPath, JSON.stringify(alloc, null, 2))
 
     const layoutSavedPath = path.join(
         __dirname,
-        "../deployments/l2_genesis_storage_layout.json"
+        "../deployments/genesis_storage_layout.json"
     )
 
     fs.writeFileSync(layoutSavedPath, JSON.stringify(storageLayouts, null, 2))

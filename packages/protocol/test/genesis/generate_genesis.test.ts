@@ -8,7 +8,7 @@ action("Generate L2 Genesis", function () {
     let alloc: any = null
 
     if (process.env.TEST_L2_GENESIS) {
-        alloc = require("../../deployments/l2_genesis_alloc.json")
+        alloc = require("../../deployments/genesis_alloc.json")
     }
 
     const provider = new hre.ethers.providers.JsonRpcProvider(
