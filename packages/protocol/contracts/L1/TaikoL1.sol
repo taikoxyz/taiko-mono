@@ -72,7 +72,7 @@ contract TaikoL1 is EssentialContract {
         BlockContext context;
         BlockHeader header;
         address prover;
-        bytes32[256] ancestorHashes;
+        bytes32 parentHash;
         bytes[2] proofs;
     }
 
@@ -368,18 +368,12 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(evidence.header, evidence.context);
 
         bytes32 blockHash = evidence.header.hashBlockHeader(
-            evidence.ancestorHashes[0]
-        );
-
-        require(
-            evidence.context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(evidence.ancestorHashes),
-            "L1:ancestorAggHash"
+            evidence.parentHash
         );
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            evidence.ancestorHashes,
+            evidence.context.ancestorAggHash,
             blockHash,
             evidence.context.txListHash,
             evidence.prover,
@@ -387,16 +381,16 @@ contract TaikoL1 is EssentialContract {
         );
 
         _markBlockProven(
-            evidence.prover,
             evidence.context,
-            evidence.ancestorHashes[0],
+            evidence.prover,
+            evidence.parentHash,
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
     }
 
     function _markBlockProven(
-        address prover,
         BlockContext memory context,
+        address prover,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
