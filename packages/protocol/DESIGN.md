@@ -10,15 +10,15 @@ In the following sections, when we mention ZKP we are always referring to the ag
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
-1. The latest 256 block hashes $h_{i-256}, ..., h_{i-1}$;
-1. This block's hash $h_i$;
-1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
-1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later, and;
-1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity.
+1. The latest 256 block hashes, e.g, the ancestor hashes: $A_i = h_{i-256}, ..., h_{i-1}$;
+3. This block's hash $h_i$;
+4. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
+5. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include information related to _unqualified L2 transactions_ which we will talk about later, and;
+6. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity.
 
 Hence we have:
 
-$$ p*i^a = \mathbb{Z} (h*{i-256}, ..., h\_{i-1}, h_i, T_i, X_i, a) $$
+$$ p_i^a = \mathbb{Z} (h_i, A_i, T_i, X_i, a) $$
 
 where
 
@@ -29,14 +29,14 @@ where
 
 Verification of a ZKP on L1 through solidity contract requires the following inputs:
 
-1. The latest 256 block hashes $h_{i-256}, ..., h_{i-1}$;
+1. The hash of ancestor hashes: $\mathbb{H}(A_i)$
 1. This block's hash $h_i$;
 1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$. When [Proto-Danksharding](https://www.eip4844.com/) is enabled, it will become $X_i$'s KZG commitment, and;
 1. The fee receipient address $a$.
 
 Hence we have:
 
-$$ \mathbb{V}\_K(h\_{i-256}, ..., h\_{i-1}, h_i, \mathbb{H}(X_i), a) $$
+$$ \mathbb{V}\_K(h_i, \mathbb{H}(A_i), \mathbb{H}(X_i), a) $$
 
 where
 
