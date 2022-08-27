@@ -17,7 +17,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
-### Computation of ZKPs
+### ZKP Computation
 
 In the following sections, when we mention ZKP we are always referring to the aggregated proof for verification on L1.
 
@@ -47,7 +47,7 @@ where
 
 2. shall for the hash function , shall we use kkeccak256 or Poseidon hash?
 
-### Verification of ZKPs
+### ZKP Verification
 
 Verification of a ZKP on L1 through solidity contract requires the following inputs:
 
