@@ -70,6 +70,6 @@ docker compose -f $TESTNET_CONFIG up -d
 echo ""
 echo "Start testing..."
 
-TEST_L2_GENESIS=true npx hardhat test --grep "Generate L2 Genesis"
+TEST_L2_GENESIS=true npx hardhat test --grep "Generate Genesis"
 
 docker compose -f $TESTNET_CONFIG down

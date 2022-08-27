@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { Contract } from "ethers"
 // eslint-disable-next-line node/no-extraneous-import
 import * as rlp from "rlp"
-import * as utils from "../../../tasks/utils"
+import * as utils from "../../tasks/utils"
 const hre = require("hardhat")
 
 const action = process.env.TEST_LIB_MERKLE_PROOF ? describe : describe.skip

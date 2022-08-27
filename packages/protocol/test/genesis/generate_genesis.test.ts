@@ -4,7 +4,7 @@ import * as hre from "hardhat"
 const ethers = hre.ethers
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip
 
-action("Generate L2 Genesis", function () {
+action("Generate Genesis", function () {
     let alloc: any = null
 
     if (process.env.TEST_L2_GENESIS) {
