@@ -200,7 +200,10 @@ contract TaikoL1 is EssentialContract {
         whenBlockIsCommitted(context)
     {
         require(
-            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            txList.length > 0 &&
+                encoded.length <=
+                LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
+                context.txListHash == txList.hashTxList(),
             "L1:invalid txList"
         );
         require(
