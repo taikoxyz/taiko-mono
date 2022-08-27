@@ -4,19 +4,6 @@
 
 What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
-### Computation of ZKPs
-
-In the following sections, when we mention ZKP we are always referring to the aggregated proof for verification on L1.
-
-To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
-
-1. This block's hash $h_i$;
-1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;# DESIGN
-
-## Assumptions of zkEVM Proofs
-
-What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
-
 ### ZKP Computation
 
 In the following sections, when we mention ZKP we are always referring to the aggregated proof for verification on L1.
