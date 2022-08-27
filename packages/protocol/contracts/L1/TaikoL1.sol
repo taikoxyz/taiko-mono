@@ -146,7 +146,7 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsCommitted(BlockContext memory context) {
         validateContext(context);
-        bytes32 hash = hashCommit(context.beneficiary, context.txListHash);
+        bytes32 hash = _hashCommit(msg.sender, context.txListHash);
         require(isCommitValid(hash), "L1:invalid commit");
         delete commits[hash];
         _;
@@ -170,8 +170,11 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
-    function commitBlock(bytes32 hash) external {
-        require(hash != 0, "L1:zero hash");
+    function commitBlock(address proposer, bytes32 txListHash) external {
+        require(proposer != address(0), "L1:zero proposer");
+        require(txListHash != 0, "L1:zero txListHash");
+
+        bytes32 hash = _hashCommit(proposer, txListHash);
 
         require(
             commits[hash] == 0 ||
@@ -179,7 +182,7 @@ contract TaikoL1 is EssentialContract {
             "L1:already committed"
         );
         commits[hash] = block.timestamp;
-        emit BlockCommitted(msg.sender, hash, block.timestamp);
+        emit BlockCommitted(proposer, hash, block.timestamp);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -197,10 +200,7 @@ contract TaikoL1 is EssentialContract {
         whenBlockIsCommitted(context)
     {
         require(
-            txList.length > 0 &&
-                txList.length >
-                LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
-                context.txListHash == txList.hashTxList(),
+            txList.length > 0 && context.txListHash == txList.hashTxList(),
             "L1:invalid txList"
         );
         require(
@@ -342,14 +342,6 @@ contract TaikoL1 is EssentialContract {
             commits[hash] != 0 &&
             block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
             block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
-    }
-
-    function hashCommit(address beneficiary, bytes32 txListHash)
-        public
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 
     /**********************
@@ -518,5 +510,13 @@ contract TaikoL1 is EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
+    }
+
+    function _hashCommit(address proposer, bytes32 txListHash)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(proposer, txListHash));
     }
 }
