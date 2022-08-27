@@ -374,9 +374,9 @@ contract TaikoL1 is EssentialContract {
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            evidence.context.ancestorAggHash,
             blockHash,
             evidence.context.txListHash,
+            evidence.context.ancestorAggHash,
             evidence.prover,
             evidence.proofs[0]
         );
