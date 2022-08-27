@@ -182,7 +182,7 @@ A transaction is qualified if and only if:
 We have two options for validating txList:
 
 -   Option 1:
-    -   If the txList is invalid or at least one of its transactions is invalid/unqualified, no L2 block will be produced;
+    -   If the txList is invalid or at least one of its transactions is unqualified, no L2 block will be produced;
     -   Otherwise, a L2 block with all transactions will be produced.
 -   Option 2:
     -   If the txList is invalid or at least one of its transactions is invalid, no L2 block will be produced;
