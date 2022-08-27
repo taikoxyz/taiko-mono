@@ -190,17 +190,18 @@ contract TaikoL1 is EssentialContract {
     ///        - mixHash
     ///        - proposedAt
     /// @param txList A list of transactions in this block, encoded with RLP.
+    /// @param ancestorHashes The block's 256 ancestor hashes.
     function proposeBlock(
         BlockContext memory context,
         bytes calldata txList,
-        bytes calldata anchorHashes
+        bytes calldata ancestorHashes
     ) external payable nonReentrant whenBlockIsCommitted(context) {
         require(
             txList.length > 0 &&
                 txList.length >
                 LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
                 context.txListHash == txList.hashTxList() &&
-                context.ancestorAggHash == _hashAncestorHashes(anchorHashes),
+                context.ancestorAggHash == _hashAncestorHashes(ancestorHashes),
             "L1:invalid txList"
         );
         require(
