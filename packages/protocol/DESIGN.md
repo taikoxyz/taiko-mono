@@ -12,13 +12,13 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 1. This block's hash $h_i$;
 1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
-1. a RPL-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_.
-1. The latest 256 block hashes, e.g, the ancestor hashes: $A_i = h_{i-256}, ..., h_{i-1}$, and;
+1. A RLP-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_;
+1. Optionally a RLP-encoded L2 transaction $z_i$, referred as _one extra transaction_ prepared by the prover. $z_i$, if exists, is the last tx in the block, and;
 1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include data related to _unqualified L2 transactions_ which we will talk about later
 
 Hence we have:
 
-$$ p_i^a = \mathbb{Z} (h_i, a, X_i, A_i, T_i) $$
+$$ p_i^a = \mathbb{Z} (h_i, a, X_i, z_i, T_i) $$
 
 where
 
@@ -32,12 +32,12 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 1. $p_i^a$ is the ZKP with $a$ as the prover address;
 1. The fee receipient address $a$;
 1. This block's hash $h_i$;
-1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$ (or $X_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
-1. The hash of ancestor hashes: $\mathbb{H}(A_i)$ (or $A_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)).
+1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$ (or $X_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
+1. The keccak256 hash of $z_i$, e.g., $\mathbb{H}(z_i)$ (or $z_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
 
 Hence we have:
 
-$$ \mathbb{V}\_K(p_i^a, h_i, a, \mathbb{H}(X_i), \mathbb{H}(A_i)) $$
+$$ \mathbb{V}\_K(p_i^a, h_i, a, \mathbb{H}(X_i), \mathbb{H}(z_i)) $$
 
 where
 
