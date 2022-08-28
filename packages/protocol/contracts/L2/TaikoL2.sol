@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
@@ -21,10 +22,11 @@ contract TaikoL2 is EssentialContract {
      * State Variables    *
      **********************/
 
+    mapping(uint256 => bytes32) public blockHashes;
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public lastAnchorHeight;
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     /**********************
      * Events             *
@@ -33,7 +35,6 @@ contract TaikoL2 is EssentialContract {
     event Anchored(
         uint256 indexed id,
         bytes32 parentHash,
-        bytes32 ancestorAggHash,
         uint256 anchorHeight,
         bytes32 anchorHash,
         bytes32 proofKey,
@@ -43,14 +44,13 @@ contract TaikoL2 is EssentialContract {
     event InvalidTxList(
         uint256 indexed id,
         bytes32 parentHash,
-        bytes32 ancestorAggHash,
         bytes32 txListHash,
         LibInvalidTxList.Reason reason,
         bytes32 proofKey,
         bytes32 proofVal
     );
 
-    event BlockInvalidated(address invalidator, bytes32 ancestorAggHash);
+    event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -93,6 +93,8 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
+    /// @dev This transaciton must be the last transaction in a L2 block
+    /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
         onlyWhenNotAnchored
@@ -100,15 +102,13 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
-        bytes32[256] memory ancestorHashes = getAncestorHashes(block.number);
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            ancestorHashes
-        );
+        _verifyAncestorHashes();
+
+        bytes32 parentHash = blockhash(block.number - 1);
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
             .computeAnchorProofKV(
                 block.number,
-                ancestorHashes[0],
-                ancestorAggHash,
+                parentHash,
                 anchorHeight,
                 anchorHash
             );
@@ -119,8 +119,7 @@ contract TaikoL2 is EssentialContract {
 
         emit Anchored(
             block.number,
-            ancestorHashes[0],
-            ancestorAggHash,
+            parentHash,
             anchorHeight,
             anchorHash,
             proofKey,
@@ -143,18 +142,13 @@ contract TaikoL2 is EssentialContract {
             "L2:failed to invalidate txList"
         );
 
-        bytes32[256] memory ancestorHashes = getAncestorHashes(block.number);
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            ancestorHashes
-        );
+        _verifyAncestorHashes();
+
+        bytes32 parentHash = blockhash(block.number - 1);
         bytes32 txListHash = txList.hashTxList();
+
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
-                block.number,
-                ancestorHashes[0],
-                ancestorAggHash,
-                txListHash
-            );
+            .computeInvalidBlockProofKV(block.number, parentHash, txListHash);
 
         assembly {
             sstore(proofKey, proofVal)
@@ -162,8 +156,7 @@ contract TaikoL2 is EssentialContract {
 
         emit InvalidTxList(
             block.number,
-            ancestorHashes[0],
-            ancestorAggHash,
+            parentHash,
             txListHash,
             reason,
             proofKey,
@@ -171,13 +164,13 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function getAncestorHashes(uint256 blockNumber)
-        public
-        view
-        returns (bytes32[256] memory ancestorHashes)
-    {
-        for (uint256 i = 0; i < 256 && i < blockNumber; i++) {
-            ancestorHashes[i] = blockhash(blockNumber - i - 1);
+    function _verifyAncestorHashes() private {
+        // Check the latest 255 block hashes match the storage version.
+        for (uint256 i = 2; i <= 256 && block.number > i; i++) {
+            uint256 j = block.number - i;
+            require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
         }
+        // Store parent hash into storage tree.
+        blockHashes[block.number - 1] = blockhash(block.number - 1);
     }
 }

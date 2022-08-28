@@ -54,13 +54,8 @@ action("LibMerkleProof", function () {
 
         expect(anchorReceipt.status).to.be.equal(1)
 
-        const ancestorHashes = await taikoL2.getAncestorHashes(
-            anchorReceipt.blockNumber
-        )
-
         const anchorKV = await libStorageProof.computeAnchorProofKV(
             anchorReceipt.blockNumber,
-            await libStorageProof.aggregateAncestorHashs(ancestorHashes),
             anchorHeight,
             anchorHash
         )

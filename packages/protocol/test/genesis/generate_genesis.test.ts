@@ -107,23 +107,6 @@ action("Generate Genesis", function () {
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
         })
 
-        it("LibStorageProof", async function () {
-            const LibStorageProofAlloc = getContractAlloc("LibStorageProof")
-
-            const LibStorageProof = new hre.ethers.Contract(
-                LibStorageProofAlloc.address,
-                require("../../artifacts/contracts/libs/LibStorageProof.sol/LibStorageProof.json").abi,
-                signer
-            )
-
-            const ancestorAggHash =
-                await LibStorageProof.aggregateAncestorHashs(
-                    new Array(256).fill(ethers.utils.randomBytes(32))
-                )
-
-            expect(ancestorAggHash).to.be.not.equal(ethers.constants.HashZero)
-        })
-
         it("LibTxListDecoder", async function () {
             const LibTxListDecoderAlloc = getContractAlloc("LibTxListDecoder")
 

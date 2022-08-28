@@ -72,7 +72,6 @@ contract TaikoL1 is EssentialContract {
         BlockHeader header;
         address prover;
         bytes32 parentHash;
-        bytes32 ancestorAggHash;
         bytes[2] proofs;
     }
 
@@ -244,7 +243,6 @@ contract TaikoL1 is EssentialContract {
             .computeAnchorProofKV(
                 evidence.header.height,
                 evidence.parentHash,
-                evidence.ancestorAggHash,
                 evidence.context.anchorHeight,
                 evidence.context.anchorHash
             );
@@ -270,7 +268,6 @@ contract TaikoL1 is EssentialContract {
             .computeInvalidBlockProofKV(
                 evidence.header.height,
                 evidence.parentHash,
-                evidence.ancestorAggHash,
                 target.txListHash
             );
 
@@ -368,8 +365,7 @@ contract TaikoL1 is EssentialContract {
             evidence.proofs[0],
             blockHash,
             evidence.prover,
-            evidence.context.txListHash,
-            evidence.ancestorAggHash
+            evidence.context.txListHash
         );
 
         _markBlockProven(
