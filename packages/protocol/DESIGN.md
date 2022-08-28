@@ -25,15 +25,6 @@ where
 -   $\mathbb{Z}$ is the zkEVM proof generation function.
 -   $p_i^a$ is the ZKP for this block with $a$ as the prover address, and;
 
-**QUESTON for BRECHT**:
-
-1. Do we also need to provide both $\mathbb{H}(X_i)$ and $\mathbb{H}(A_i)$ to the prover as two additonal input so that prover can verify in circuits:
-
--   $\mathbb{H}(X_i) == hash(X_i)$
--   $\mathbb{H}(A_i) == hash(A_i)$
-
-2. shall for the hash function , shall we use kkeccak256 or Poseidon hash?
-
 ### ZKP Verification
 
 Verification of a ZKP on L1 through solidity contract requires the following inputs:
