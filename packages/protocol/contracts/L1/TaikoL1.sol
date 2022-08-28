@@ -70,6 +70,7 @@ contract TaikoL1 is EssentialContract {
     struct Evidence {
         BlockContext context;
         BlockHeader header;
+        bytes oneExtraTx;
         address prover;
         bytes32 parentHash;
         bytes[2] proofs;
@@ -360,12 +361,24 @@ contract TaikoL1 is EssentialContract {
             evidence.parentHash
         );
 
+        bytes32 oneExtraTxHash;
+        if (evidence.oneExtraTx.length != 0) {
+            // We don't need to check if this transactin is a `anchor` transaction
+            // on L1. We only care about the final proof. This mean this one extra
+            // tx can be another tx calling `anchor`.
+
+            // TODO(daniel wang): must decode it and validate this tx on L1.
+            // Pending on LibInvalidTxList.sol impl.
+            oneExtraTxHash = keccak256(evidence.oneExtraTx);
+        }
+
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             evidence.proofs[0],
             blockHash,
             evidence.prover,
-            evidence.context.txListHash
+            evidence.context.txListHash,
+            oneExtraTxHash
         );
 
         _markBlockProven(
