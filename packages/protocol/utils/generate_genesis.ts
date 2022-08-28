@@ -242,6 +242,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
+                _chainId: config.chainId,
             },
         },
     }

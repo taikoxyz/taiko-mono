@@ -24,9 +24,10 @@ contract TaikoL2 is EssentialContract {
 
     mapping(uint256 => bytes32) public blockHashes;
     mapping(uint256 => bytes32) public anchorHashes;
+    uint256 public chainId;
     uint256 public lastAnchorHeight;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *
@@ -76,8 +77,12 @@ contract TaikoL2 is EssentialContract {
         revert("L2:not allowed");
     }
 
-    function init(address _addressManager) external initializer {
+    function init(address _addressManager, uint256 _chainId)
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
+        chainId = _chainId;
     }
 
     function creditEther(address recipient, uint256 amount)
@@ -102,7 +107,7 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
-        _verifyAncestorHashes();
+        _checkGlobalVariables();
 
         bytes32 parentHash = blockhash(block.number - 1);
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -142,7 +147,7 @@ contract TaikoL2 is EssentialContract {
             "L2:failed to invalidate txList"
         );
 
-        _verifyAncestorHashes();
+        _checkGlobalVariables();
 
         bytes32 parentHash = blockhash(block.number - 1);
         bytes32 txListHash = txList.hashTxList();
@@ -164,12 +169,19 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function _verifyAncestorHashes() private {
+    function _checkGlobalVariables() private {
+        // Check chainid
+        require(block.chainid == chainId, "L2:invalid chain id");
+
+        // Check base fee
+        require(block.baseFee == 0, "L2:invalid base fee");
+
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
             uint256 j = block.number - i;
             require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
         }
+
         // Store parent hash into storage tree.
         blockHashes[block.number - 1] = blockhash(block.number - 1);
     }

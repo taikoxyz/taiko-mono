@@ -1,5 +1,9 @@
 # DESIGN
 
+## Anchor Transaction
+
+TODO
+
 ## Assumptions of zkEVM Proofs
 
 What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Different assumptions allow for different designs. As a matter of fact, our current protocol design is fundamentally different from the one we had in Q2 2022, simply because we adopted a new set of ZKP assumptions that will be outlined in this section.
@@ -10,7 +14,7 @@ In the following sections, when we mention ZKP we are always referring to the ag
 
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
-1. This block's hash $h_i$;
+1. This block's header $H_i$;
 1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
 1. A RLP-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_;
 1. A RLP-encoded transaction $z_i$, referred as _the anchor transaction_ prepared by the prover. $z_i$ is the last tx in the block, and;
@@ -18,7 +22,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 Hence we have:
 
-$$ p_i^a = \mathbb{Z} (h_i, a, X_i, z_i, T_i) $$
+$$ p_i^a = \mathbb{Z} (H_i, a, X_i, z_i, T_i) $$
 
 where
 
@@ -31,7 +35,7 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 
 1. $p_i^a$ is the ZKP with $a$ as the prover address;
 1. The fee receipient address $a$;
-1. This block's hash $h_i$;
+1. This block's hash $h_i = \mathbb{H}(H_i)$;
 1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$ (or $X_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
 1. The keccak256 hash of $z_i$, e.g., $\mathbb{H}(z_i)$ (or $z_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
 
@@ -86,3 +90,16 @@ If a txList is invalid, the prover knows the reason. The prover now can create a
 Note that the temporary L2 block that include the `verifyTxListInvalid` is NOT the block in question that will be proven to be invalid, the temporary block is not part of the L2 chain and will be throw away.
 
 The tempoary block can use any recent L2 block as its parent, beause the `verifyTxListInvalid` transacton is a _pure_ solidity function that works the same way regardless of the current L2's actual world state.
+
+### Verification of L2 Global Variable Value
+
+We further assume **zkEVM can verify global-variable opcodes' return values if these values are stored in the Patricia Trie or are part of the block header.** Therefore, we need special verificaton of the following global variables per L2 block by checking their values are either constant or match the values stored in the Patricia Trie inside the parent block's Anchor Transaction.
+
+-   `block.chainid`
+-   `block.baseFee`
+-   `block.hash`
+
+The `block.hash` opcode also demand another assumption on zkEVM that zkEVM will check its parameter's boundaries, e.g., `block.hash` shall:
+
+-   revert if `n >= block.number`, where `n` is the opcode's parameter, and;
+-   return zero if `n < block.number - 256`.
