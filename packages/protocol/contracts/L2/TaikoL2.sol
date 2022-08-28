@@ -166,7 +166,7 @@ contract TaikoL2 is EssentialContract {
 
     function _verifyAncestorHashes() private {
         // Check the latest 255 block hashes match the storage version.
-        for (uint256 i = 2; i <= 256 && block.number > i; i++) {
+        for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
             uint256 j = block.number - i;
             require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
         }
