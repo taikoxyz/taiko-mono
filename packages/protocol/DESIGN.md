@@ -98,8 +98,3 @@ We further assume **zkEVM can verify global-variable opcodes' return values if t
 -   `block.chainid`
 -   `block.baseFee`
 -   `block.hash`
-
-The `block.hash` opcode also demand another assumption on zkEVM that zkEVM will check its parameter's boundaries, e.g., `block.hash` shall:
-
--   revert if `n >= block.number`, where `n` is the opcode's parameter, and;
--   return zero if `n < block.number - 256`.
