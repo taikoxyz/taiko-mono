@@ -16,7 +16,7 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 1. This block's header $H_i$;
 1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
-1. A RLP-encoded transaction $r_i$, referred as _the anchor transaction_ prepared by the prover. $r_i$ is the _first_ tx in the block, its gas price must be zero; gas limit must be TAIKO_ANCHOR_TX_GAS_LIMIT, and msg value must be 0 (non-payable), and call data size must be `256*2+4` and all bytes must be non-zero;
+1. A RLP-encoded transaction $r_i$, referred as _the anchor transaction_ prepared by the prover. $r_i$ is the _first_ tx in the block, its gas price must be zero; gas limit must be TAIKO_ANCHOR_TX_GAS_LIMIT, msg value must be 0 (non-payable), call data size must be `256*2+4`, and all bytes must be non-zero;
 1. A RLP-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_, and;
 1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include data related to _unqualified L2 transactions_ which we will talk about later
 
