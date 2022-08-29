@@ -70,7 +70,6 @@ contract TaikoL1 is EssentialContract {
     struct Evidence {
         BlockContext context;
         BlockHeader header;
-        bytes anchorTx;
         address prover;
         bytes32 parentHash;
         bytes[2] proofs;
@@ -188,6 +187,8 @@ contract TaikoL1 is EssentialContract {
     ///        - id
     ///        - mixHash
     ///        - proposedAt
+    ///        - anchorHeight
+    ///        - anchorHash
     /// @param txList A list of transactions in this block, encoded with RLP.
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
@@ -208,6 +209,8 @@ contract TaikoL1 is EssentialContract {
         );
 
         context.id = nextPendingId;
+        context.anchorHeight = block.number - 1;
+        context.anchorHash = blockhash(block.number - 1);
         context.proposedAt = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
@@ -238,7 +241,6 @@ contract TaikoL1 is EssentialContract {
     }
 
     function proveBlock(Evidence calldata evidence) external nonReentrant {
-        require(evidence.anchorTx.length > 0, "L1:anchor tx requird");
         _proveBlock(evidence, evidence.context, 0);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -264,7 +266,6 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
-        require(evidence.anchorTx.length == 0, "L1:anchor tx not allowed");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
@@ -315,6 +316,8 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
+                context.anchorHeight == 0 &&
+                context.anchorHash == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
                 context.beneficiary != address(0) &&
@@ -363,24 +366,14 @@ contract TaikoL1 is EssentialContract {
             evidence.parentHash
         );
 
-        bytes32 anchorTxHash;
-        if (evidence.anchorTx.length != 0) {
-            // We don't need to check if this transactin is a `anchor` transaction
-            // on L1. We only care about the final proof. This mean this one extra
-            // tx can be another tx calling `anchor`.
-
-            // TODO(daniel wang): must decode it and validate this tx on L1.
-            // Pending on LibInvalidTxList.sol impl.
-            anchorTxHash = keccak256(evidence.anchorTx);
-        }
-
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
             evidence.proofs[0],
             blockHash,
             evidence.prover,
             evidence.context.txListHash,
-            anchorTxHash
+            target.anchorHeight,
+            target.anchorHash
         );
 
         _markBlockProven(

@@ -104,7 +104,6 @@ contract TaikoL2 is EssentialContract {
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
         _checkGlobalVariables();
@@ -174,7 +173,7 @@ contract TaikoL2 is EssentialContract {
         require(block.chainid == chainId, "L2:invalid chain id");
 
         // Check base fee
-        require(block.baseFee == 0, "L2:invalid base fee");
+        require(block.basefee == 0, "L2:invalid base fee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
