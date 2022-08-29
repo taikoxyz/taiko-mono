@@ -8,9 +8,13 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibMerkleProof.sol";
+import "../thirdparty/Lib_RLPReader.sol";
+import "../thirdparty/Lib_RLPWriter.sol";
 
 /// @dev A library to invalidate a txList using the following rules:
 ///
@@ -62,8 +66,7 @@ library LibInvalidTxList {
             require(txIdx < txList.items.length, "invalid txIdx");
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
 
-            if (hint == Reason.TX_INVALID_SIG) {
-                // TODO(daniel/roger): verify the signature is indeed invalid; otherwise, throw.
+            if (!verifySignature(_tx)) {
                 return Reason.TX_INVALID_SIG;
             }
 
@@ -79,5 +82,81 @@ library LibInvalidTxList {
         } catch (bytes memory) {
             return Reason.BINARY_NOT_DECODABLE;
         }
+    }
+
+    function verifySignature(LibTxListDecoder.Tx memory transaction)
+        internal
+        pure
+        returns (bool)
+    {
+        (bytes32 hash, uint8 v, bytes32 r, bytes32 s) = parseRecoverPayloads(
+            transaction
+        );
+
+        (, ECDSA.RecoverError error) = ECDSA.tryRecover(hash, v, r, s);
+
+        return error == ECDSA.RecoverError.NoError;
+    }
+
+    function parseRecoverPayloads(LibTxListDecoder.Tx memory transaction)
+        internal
+        pure
+        returns (
+            bytes32 hash,
+            uint8 v,
+            bytes32 r,
+            bytes32 s
+        )
+    {
+        Lib_RLPReader.RLPItem[] memory txRLPItems;
+        if (transaction.txType == 0) {
+            // Legacy transactions do not have the EIP-2718 type prefix.
+            txRLPItems = Lib_RLPReader.readList(transaction.txData);
+        } else {
+            txRLPItems = Lib_RLPReader.readList(
+                Lib_BytesUtils.slice(transaction.txData, 1)
+            );
+        }
+
+        // Signature related fields are always last three RLP items for all
+        // kinds of transactions.
+        // LegacyTransaction: rlp([nonce, gasPrice, gasLimit, to, value, data, v, r, s])
+        // EIP-2930 transaction: 0x01 || rlp([chainId, nonce, gasPrice, gasLimit, to, value, data, accessList, signatureYParity, signatureR, signatureS])
+        // EIP-1559 transaction: 0x02 || rlp([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gasLimit, to, value, data, accessList, signatureYParity, signatureR, signatureS])
+        bytes[] memory list = new bytes[](txRLPItems.length - 3);
+        for (uint256 i = 0; i < list.length; i++) {
+            // For Non-legacy transactions, accessList are always the
+            // fourth to last item.
+            if (transaction.txType != 0 && i == list.length - 1) {
+                list[i] = Lib_RLPReader.readRawBytes(txRLPItems[i]);
+                continue;
+            }
+
+            list[i] = Lib_RLPWriter.writeBytes(
+                Lib_RLPReader.readBytes(txRLPItems[i])
+            );
+        }
+
+        bytes memory rlpUnsignedTx = Lib_RLPWriter.writeList(list);
+
+        // Add the EIP-2718 type prefix for non-legacy transactions.
+        if (transaction.txType != 0) {
+            rlpUnsignedTx = bytes.concat(
+                bytes1(transaction.txType),
+                rlpUnsignedTx
+            );
+        }
+
+        v = uint8(Lib_RLPReader.readUint256(txRLPItems[txRLPItems.length - 3]));
+        r = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 2]);
+        s = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 1]);
+
+        // Non-legacy txs are defined to use 0 and 1 as their recovery
+        // id, add 27 to become equivalent to unprotected Homestead signatures.
+        if (transaction.txType != 0) {
+            v += 27;
+        }
+
+        hash = keccak256(rlpUnsignedTx);
     }
 }
