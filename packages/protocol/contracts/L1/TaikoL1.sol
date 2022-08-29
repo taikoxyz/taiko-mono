@@ -371,9 +371,9 @@ contract TaikoL1 is EssentialContract {
             evidence.proofs[0],
             blockHash,
             evidence.prover,
-            evidence.context.txListHash,
             evidence.context.anchorHeight,
-            evidence.context.anchorHash
+            evidence.context.anchorHash,
+            evidence.context.txListHash
         );
 
         _markBlockProven(
