@@ -32,7 +32,6 @@ library LibInvalidTxList {
         BINARY_NOT_DECODABLE,
         BLOCK_TOO_MANY_TXS,
         BLOCK_GAS_LIMIT_TOO_LARGE,
-        TX_INVALID_SENDER,
         TX_INVALID_SIG,
         TX_GAS_LIMIT_TOO_SMALL
     }
@@ -62,12 +61,6 @@ library LibInvalidTxList {
 
             require(txIdx < txList.items.length, "invalid txIdx");
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
-
-            if (hint == Reason.TX_INVALID_SENDER) {
-                // TODO(daniel/roger):
-                // require(tx.sender != LibTaikoConstants.GOLD_FINGER_ADDRESS);
-                return Reason.TX_INVALID_SENDER;
-            }
 
             if (hint == Reason.TX_INVALID_SIG) {
                 // TODO(daniel/roger): verify the signature is indeed invalid; otherwise, throw.
