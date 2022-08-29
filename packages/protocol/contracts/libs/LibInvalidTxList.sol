@@ -102,7 +102,9 @@ library LibInvalidTxList {
         internal
         pure
         returns (
+            // transaction hash (without singature values)
             bytes32 hash,
+            // transaction signature values
             uint8 v,
             bytes32 r,
             bytes32 s
@@ -118,14 +120,11 @@ library LibInvalidTxList {
             );
         }
 
-        // Signature related fields are always last three RLP items for all
-        // kinds of transactions.
-        // LegacyTransaction: rlp([nonce, gasPrice, gasLimit, to, value, data, v, r, s])
-        // EIP-2930 transaction: 0x01 || rlp([chainId, nonce, gasPrice, gasLimit, to, value, data, accessList, signatureYParity, signatureR, signatureS])
-        // EIP-1559 transaction: 0x02 || rlp([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gasLimit, to, value, data, accessList, signatureYParity, signatureR, signatureS])
+        // Signature values are always last three RLP items for all kinds of
+        // transactions.
         bytes[] memory list = new bytes[](txRLPItems.length - 3);
         for (uint256 i = 0; i < list.length; i++) {
-            // For Non-legacy transactions, accessList are always the
+            // For Non-legacy transactions, accessList is always the
             // fourth to last item.
             if (transaction.txType != 0 && i == list.length - 1) {
                 list[i] = Lib_RLPReader.readRawBytes(txRLPItems[i]);
@@ -137,13 +136,13 @@ library LibInvalidTxList {
             );
         }
 
-        bytes memory rlpUnsignedTx = Lib_RLPWriter.writeList(list);
+        bytes memory unsignedTxRlp = Lib_RLPWriter.writeList(list);
 
         // Add the EIP-2718 type prefix for non-legacy transactions.
         if (transaction.txType != 0) {
-            rlpUnsignedTx = bytes.concat(
+            unsignedTxRlp = bytes.concat(
                 bytes1(transaction.txType),
-                rlpUnsignedTx
+                unsignedTxRlp
             );
         }
 
@@ -152,11 +151,12 @@ library LibInvalidTxList {
         s = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 1]);
 
         // Non-legacy txs are defined to use 0 and 1 as their recovery
-        // id, add 27 to become equivalent to unprotected Homestead signatures.
+        // id, add 27 to become equivalent to raw Homestead signatures that
+        // used in ecrecover.
         if (transaction.txType != 0) {
             v += 27;
         }
 
-        hash = keccak256(rlpUnsignedTx);
+        hash = keccak256(unsignedTxRlp);
     }
 }
