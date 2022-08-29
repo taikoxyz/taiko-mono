@@ -93,7 +93,7 @@ The tempoary block can use any recent L2 block as its parent, beause the `verify
 
 ### Verification of L2 Global Variable Value
 
-We further assume **zkEVM can verify global-variable opcodes' return values if these values are stored in the Patricia Trie or are part of the block header.** Therefore, we need special verificaton of the following global variables per L2 block by checking their values are either constant or match the values stored in the Patricia Trie inside the parent block's Anchor Transaction.
+Certain EVM opcodes' return values are not read from storage Trie tree -- they are simply public inputs provided by the prover. For these opcodes, we need to verify their return values by comparing them with their in-storage versions. This is done per block in the L2's `anchor` transaction. These opcodes include:
 
 -   `block.chainid`
 -   `block.baseFee`
