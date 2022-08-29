@@ -130,14 +130,12 @@ describe("LibInvalidTxList", function () {
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }
 
-            const txData = changeSignatures(
+            const txData = changeSignature(
                 unsignedTx.type,
                 ethers.utils.arrayify(
                     ethers.utils.serializeTransaction(unsignedTx, signature)
                 ),
-                randomSignature.v,
-                randomSignature.r,
-                randomSignature.s
+                randomSignature
             )
 
             expect(
@@ -150,12 +148,10 @@ describe("LibInvalidTxList", function () {
         }
     })
 
-    async function changeSignatures(
+    async function changeSignature(
         type: any,
         encoded: Uint8Array,
-        v: number,
-        r: string,
-        s: string
+        signature: any
     ) {
         if (type !== 0) encoded = encoded.slice(1)
 
@@ -163,9 +159,9 @@ describe("LibInvalidTxList", function () {
 
         let result = await libRLPWriter.writeList(
             rlpItemsList.concat([
-                await libRLPWriter.writeUint(v),
-                await libRLPWriter.writeBytes(r),
-                await libRLPWriter.writeBytes(s),
+                await libRLPWriter.writeUint(signature.v),
+                await libRLPWriter.writeBytes(signature.r),
+                await libRLPWriter.writeBytes(signature.s),
             ])
         )
 
