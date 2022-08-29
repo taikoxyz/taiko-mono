@@ -14,6 +14,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibStorageProof.sol";
+import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
 contract TaikoL2 is EssentialContract {
@@ -59,6 +60,15 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
+    modifier onlyFromGoldFinger() {
+        require(
+            msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
+            "L2:not goldfinger"
+        );
+        require(tx.gasprice == 0, "L2:gas price not 0");
+        _;
+    }
+
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
@@ -102,9 +112,9 @@ contract TaikoL2 is EssentialContract {
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
+        onlyFromGoldFinger
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
         anchorHashes[anchorHeight] = anchorHash;
 
         _checkGlobalVariables();
@@ -174,7 +184,7 @@ contract TaikoL2 is EssentialContract {
         require(block.chainid == chainId, "L2:invalid chain id");
 
         // Check base fee
-        require(block.baseFee == 0, "L2:invalid base fee");
+        require(block.basefee == 0, "L2:invalid base fee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
