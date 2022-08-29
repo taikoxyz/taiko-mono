@@ -55,6 +55,7 @@ describe("LibInvalidTxList", function () {
     const testUnsignedTxs = [unsignedLegacyTx, unsigned2930Tx, unsigned1559Tx]
 
     const signingKey = new ethers.utils.SigningKey(ethers.utils.randomBytes(32))
+    const signerAddress = new ethers.Wallet(signingKey.privateKey).address
 
     before(async function () {
         libInvalidTxList = await (
@@ -113,7 +114,7 @@ describe("LibInvalidTxList", function () {
                         signature
                     ),
                 })
-            ).to.be.true
+            ).to.be.equal(signerAddress)
         }
     })
 
@@ -144,7 +145,7 @@ describe("LibInvalidTxList", function () {
                     gasLimit: unsignedTx.gasLimit,
                     txData,
                 })
-            ).to.be.false
+            ).to.be.equal(ethers.constants.AddressZero)
         }
     })
 

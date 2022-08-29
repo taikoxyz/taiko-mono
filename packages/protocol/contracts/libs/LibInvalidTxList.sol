@@ -66,7 +66,7 @@ library LibInvalidTxList {
             require(txIdx < txList.items.length, "invalid txIdx");
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
 
-            if (!verifySignature(_tx)) {
+            if (verifySignature(_tx) == address(0)) {
                 return Reason.TX_INVALID_SIG;
             }
 
@@ -87,15 +87,24 @@ library LibInvalidTxList {
     function verifySignature(LibTxListDecoder.Tx memory transaction)
         internal
         pure
-        returns (bool)
+        returns (address)
     {
         (bytes32 hash, uint8 v, bytes32 r, bytes32 s) = parseRecoverPayloads(
             transaction
         );
 
-        (, ECDSA.RecoverError error) = ECDSA.tryRecover(hash, v, r, s);
+        (address recoveredAddress, ECDSA.RecoverError error) = ECDSA.tryRecover(
+            hash,
+            v,
+            r,
+            s
+        );
 
-        return error == ECDSA.RecoverError.NoError;
+        if (error != ECDSA.RecoverError.NoError) {
+            return address(0);
+        }
+
+        return recoveredAddress;
     }
 
     function parseRecoverPayloads(LibTxListDecoder.Tx memory transaction)

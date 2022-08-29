@@ -27,7 +27,7 @@ contract TestLibInvalidTxList {
     function verifySignature(LibTxListDecoder.Tx memory transaction)
         public
         pure
-        returns (bool)
+        returns (address)
     {
         return LibInvalidTxList.verifySignature(transaction);
     }
