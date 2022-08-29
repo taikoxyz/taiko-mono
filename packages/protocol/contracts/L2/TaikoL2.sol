@@ -60,11 +60,14 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
-     modifier onlyFromGoldFinger() {
-        require(msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS, "L2:not goldfinger");
+    modifier onlyFromGoldFinger() {
+        require(
+            msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
+            "L2:not goldfinger"
+        );
         require(tx.gasprice == 0, "L2:gas price not 0");
         _;
-     }
+    }
 
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
