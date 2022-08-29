@@ -14,6 +14,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibStorageProof.sol";
+import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
 contract TaikoL2 is EssentialContract {
@@ -59,6 +60,12 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
+     modifier onlyFromGoldFinger() {
+        require(msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS, "L2:not goldfinger");
+        require(tx.gasprice == 0, "L2:gas price not 0");
+        _;
+     }
+
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
@@ -102,6 +109,7 @@ contract TaikoL2 is EssentialContract {
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
+        onlyFromGoldFinger
         onlyWhenNotAnchored
     {
         anchorHashes[anchorHeight] = anchorHash;
