@@ -60,15 +60,25 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
-    modifier onlyFromGoldFinger() {
+    modifier onlyFromGoldFingerAndValid() {
         require(
             msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
-            "L2:not goldfinger"
+            "L2:anchor tx not goldfinger"
         );
-        require(tx.gasprice == 0, "L2:gas price not 0");
+        require(tx.gasprice == 0, "L2:anchor tx gasprice non-0");
+
+        // TODO: verify if the math is correct using a similar transaction.
+        require(
+            gasleft() + (256 * 2 + 4) * 16 + 21000 ==
+                LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L2:anchor tx bad gas limit"
+        );
+        require(msg.data.length == 256 * 2 + 4, "L2:anchor tx bad data size");
+
+        // No need to check msg.value as the method is not payable.
+
         _;
     }
-
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
@@ -112,9 +122,10 @@ contract TaikoL2 is EssentialContract {
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
-        onlyFromGoldFinger
+        onlyFromGoldFingerAndValid
         onlyWhenNotAnchored
     {
+        require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
 
         _checkGlobalVariables();

@@ -16,7 +16,7 @@ library LibStorageProof {
         bytes32 anchorHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(
-            abi.encodePacked("STORAGE_PROOF_KEY", height, parentHash)
+            abi.encodePacked("STORAGE_PROOF_KEY1", height, parentHash)
         );
         value = keccak256(abi.encodePacked(anchorHeight, anchorHash));
     }
@@ -27,7 +27,7 @@ library LibStorageProof {
         bytes32 txListHash
     ) internal pure returns (bytes32 key, bytes32 value) {
         key = keccak256(
-            abi.encodePacked("STORAGE_PROOF_KEY", height, parentHash)
+            abi.encodePacked("STORAGE_PROOF_KEY2", height, parentHash)
         );
         value = txListHash;
     }

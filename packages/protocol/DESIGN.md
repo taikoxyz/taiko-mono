@@ -16,13 +16,13 @@ To compute a ZKP for a L2 block at height $i$, the following data will be used a
 
 1. This block's header $H_i$;
 1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
-1. A RLP-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_;
-1. A RLP-encoded transaction $z_i$, referred as _the anchor transaction_ prepared by the prover. $z_i$ is the last tx in the block, and;
+1. A RLP-encoded transaction $r_i$, referred as _the anchor transaction_ prepared by the prover. $r_i$ is the _first_ tx in the block, its gas price must be zero; gas limit must be TAIKO_ANCHOR_TX_GAS_LIMIT, and msg value must be 0 (non-payable), and call data size must be `256*2+4` and all bytes must be non-zero;
+1. A RLP-encoded list of L2 transactions $X_i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_, and;
 1. The trace logs $T_i$ produced by running all transactions in $X_i$ by a Taiko L2 node. Note that the trace logs also include data related to _unqualified L2 transactions_ which we will talk about later
 
 Hence we have:
 
-$$ p_i^a = \mathbb{Z} (H_i, a, X_i, z_i, T_i) $$
+$$ p_i^a = \mathbb{Z} (H_i, a, r_i, X_i, T_i) $$
 
 where
 
@@ -36,12 +36,12 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 1. $p_i^a$ is the ZKP with $a$ as the prover address;
 1. The fee receipient address $a$;
 1. This block's hash $h_i = \mathbb{H}(H_i)$;
+1. The keccak256 hash of $r_i$, e.g., $\mathbb{H}(r_i)$ (or $r_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
 1. The keccak256 hash of $X_i$, e.g., $\mathbb{H}(X_i)$ (or $X_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
-1. The keccak256 hash of $z_i$, e.g., $\mathbb{H}(z_i)$ (or $z_i$'s KZG commitment after [EIP4844](https://www.eip4844.com/)), and;
 
 Hence we have:
 
-$$ \mathbb{V}\_K(p_i^a, h_i, a, \mathbb{H}(X_i), \mathbb{H}(z_i)) $$
+$$ \mathbb{V}\_K(p_i^a, h_i, a, \mathbb{H}(r_i), \mathbb{H}(X_i)) $$
 
 where
 
@@ -55,7 +55,7 @@ A _txList_ is valid if and only if:
 1. The txList's lenght is no more than `TAIKO_BLOCK_MAX_TXLIST_BYTES`;
 2. The txList is well-formed RLP, with no additional trailing bytes;
 3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS` and;
-4. The sum of all transaction gas limit is no more than `TAIKO_BLOCK_MAX_GAS_LIMIT`.
+4. The sum of all transaction gas limit is no more than `TAIKO_BLOCK_MAX_GAS_LIMIT - TAIKO_ANCHOR_TX_GAS_LIMIT`.
 
 A transaction is valid if and only if:
 
