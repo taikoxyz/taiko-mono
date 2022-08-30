@@ -174,11 +174,9 @@ export async function deployContracts(hre: any) {
 async function deployBaseLibs(hre: any) {
     const libZKP = await utils.deployContract(hre, "LibZKP")
     const libMerkleProof = await utils.deployContract(hre, "LibMerkleProof")
-    const libFootprint = await utils.deployContract(hre, "LibFootprint")
 
     return {
         LibZKP: libZKP.address,
         LibMerkleProof: libMerkleProof.address,
-        LibFootprint: libFootprint.address,
     }
 }

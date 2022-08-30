@@ -14,7 +14,6 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
-import "../libs/LibFootprint.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
@@ -247,11 +246,13 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        bytes32 footprint = LibFootprint.computeAnchorFootprint(
-            evidence.header.height,
-            evidence.parentHash,
-            evidence.context.anchorHeight,
-            evidence.context.anchorHash
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
+                evidence.header.height,
+                evidence.parentHash,
+                evidence.context.anchorHeight,
+                evidence.context.anchorHash
+            )
         );
 
         address taikoL2Addr = resolve("taiko_l2");
@@ -294,10 +295,12 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        bytes32 footprint = LibFootprint.computeBlockInvalidationFootprint(
-            evidence.header.height,
-            evidence.parentHash,
-            target.txListHash
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
+                evidence.header.height,
+                evidence.parentHash,
+                target.txListHash
+            )
         );
 
         // Need to check this event is the 1st transaction in the block.

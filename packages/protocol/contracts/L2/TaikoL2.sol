@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibFootprint.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
@@ -111,10 +110,12 @@ contract TaikoL2 is EssentialContract {
         _checkGlobalVariables();
 
         emit TxListInvalided(
-            LibFootprint.computeBlockInvalidationFootprint(
-                block.number,
-                blockhash(block.number - 1),
-                txList.hashTxList()
+            keccak256(
+                abi.encodePacked(
+                    block.number,
+                    blockhash(block.number - 1),
+                    txList.hashTxList()
+                )
             )
         );
     }
