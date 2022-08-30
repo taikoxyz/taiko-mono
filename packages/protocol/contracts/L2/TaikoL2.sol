@@ -34,7 +34,7 @@ contract TaikoL2 is EssentialContract {
      * Events             *
      **********************/
 
-    event Footprint(bytes32 value);
+    event TxListInvalided(bytes32 value);
     event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
@@ -82,7 +82,7 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
-    /// @dev This transaciton must be the last transaction in a L2 block
+    /// @dev This transaciton must be the FIRST transaction in a L2 block
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
@@ -90,17 +90,7 @@ contract TaikoL2 is EssentialContract {
     {
         require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
-
         _checkGlobalVariables();
-
-        emit Footprint(
-            LibFootprint.computeAnchorFootprint(
-                block.number,
-                blockhash(block.number - 1),
-                anchorHeight,
-                anchorHash
-            )
-        );
     }
 
     function verifyTxListInvalid(
@@ -120,7 +110,7 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        emit Footprint(
+        emit TxListInvalided(
             LibFootprint.computeBlockInvalidationFootprint(
                 block.number,
                 blockhash(block.number - 1),
