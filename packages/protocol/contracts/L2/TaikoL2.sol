@@ -69,11 +69,11 @@ contract TaikoL2 is EssentialContract {
 
         // TODO: verify if the math is correct using a similar transaction.
         require(
-            gasleft() + (256 * 2 + 4) * 16 + 21000 ==
+            gasleft() + (32 * 2 + 4) * 16 + 21000 ==
                 LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L2:anchor tx bad gas limit"
         );
-        require(msg.data.length == 256 * 2 + 4, "L2:anchor tx bad data size");
+        require(msg.data.length == 32 * 2 + 4, "L2:anchor tx bad data size");
 
         // No need to check msg.value as the method is not payable.
 
