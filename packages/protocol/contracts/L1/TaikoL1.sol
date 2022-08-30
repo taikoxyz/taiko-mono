@@ -254,23 +254,29 @@ contract TaikoL1 is EssentialContract {
             evidence.context.anchorHash
         );
 
+        address taikoL2Addr = resolve("taiko_l2");
+
         // LibMerkleProof.verifyFootprint(
         //     evidence.header.receiptsRoot,
-        //     resolve("taiko_l2"),
+        //     taikoL2Addr,
         //     footprint,
         //     evidence.proofs[1]
         // );
 
-        (uint8 txType, uint256 gasLimit) = LibTxListDecoder.decodeTx(anchorTx);
-        require(txType == 0, "L1:invalid anchor type");
+        (uint8 txType, address txTo, uint256 txGasLimit) = LibTxListDecoder
+            .decodeTx(anchorTx);
+
+        require(txType == 0, "L1:anchor:invalid type");
+        require(txTo == taikoL2Addr, "L1:anchor:invalid to");
         require(
-            gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L1:invalid anchor gas limit"
+            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:anchor:bad gas limit"
         );
+        // TODO: more checks here.
 
         // LibMerkleProof.verifyTransaction(
         //     evidence.header.transactionsRoot,
-        //     resolve("taiko_l2"),
+        //     taikoL2Addr,
         //     anchorTx,
         //     anchorTxProof,
         //     evidence.proofs[2]
