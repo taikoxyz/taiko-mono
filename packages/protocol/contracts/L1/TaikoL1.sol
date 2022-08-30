@@ -256,6 +256,7 @@ contract TaikoL1 is EssentialContract {
 
         address taikoL2Addr = resolve("taiko_l2");
 
+        // Need to check this event is the 1st transaction in the block.
         // LibMerkleProof.verifyFootprint(
         //     evidence.header.receiptsRoot,
         //     taikoL2Addr,
@@ -274,6 +275,7 @@ contract TaikoL1 is EssentialContract {
         );
         // TODO: more checks here.
 
+        // Need to check this transaction is the 1st transaction in the block.
         // LibMerkleProof.verifyTransaction(
         //     evidence.header.transactionsRoot,
         //     taikoL2Addr,
@@ -298,6 +300,7 @@ contract TaikoL1 is EssentialContract {
             target.txListHash
         );
 
+        // Need to check this event is the 1st transaction in the block.
         // LibMerkleProof.verifyFootprint(
         //     evidence.header.receiptsRoot,
         //     resolve("taiko_l2"),
