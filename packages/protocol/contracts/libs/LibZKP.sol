@@ -18,9 +18,7 @@ library LibZKP {
         bytes calldata zkproof,
         bytes32 blockHash,
         address prover,
-        bytes32 txListHash,
-        uint256 anchorHeight,
-        bytes32 anchorHash
+        bytes32 txListHash
     ) public pure {
         // TODO
     }

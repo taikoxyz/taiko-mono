@@ -22,7 +22,7 @@ import "../thirdparty/Lib_RLPWriter.sol";
 /// 1. The txList's lenght is no more than `TAIKO_BLOCK_MAX_TXLIST_BYTES`;
 /// 2. The txList is well-formed RLP, with no additional trailing bytes;
 /// 3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS` and;
-/// 4. The sum of all transaction gas limit is no more than  `TAIKO_BLOCK_MAX_GAS_LIMIT`.
+/// 4. The sum of all transaction gas limit is no more than  `TAIKO_BLOCK_MAX_GAS_LIMIT - TAIKO_ANCHOR_TX_GAS_LIMIT`.
 ///
 /// A transaction is valid if and only if:
 /// 1. The transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
@@ -58,7 +58,8 @@ library LibInvalidTxList {
 
             if (
                 LibTxListDecoder.sumGasLimit(txList) >
-                LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT
+                LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT -
+                    LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
@@ -66,7 +67,11 @@ library LibInvalidTxList {
             require(txIdx < txList.items.length, "invalid txIdx");
             LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
 
-            if (verifySignature(_tx) == address(0)) {
+            if (hint == Reason.TX_INVALID_SIG) {
+                require(
+                    verifySignature(_tx) == address(0),
+                    "bad hint TX_INVALID_SIG"
+                );
                 return Reason.TX_INVALID_SIG;
             }
 

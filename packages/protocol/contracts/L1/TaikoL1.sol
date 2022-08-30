@@ -14,7 +14,6 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
-import "../libs/LibStorageProof.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
@@ -72,7 +71,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader header;
         address prover;
         bytes32 parentHash;
-        bytes[2] proofs;
+        bytes[] proofs;
     }
 
     /**********************
@@ -240,24 +239,51 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(Evidence calldata evidence) external nonReentrant {
+    function proveBlock(Evidence calldata evidence, bytes calldata anchorTx)
+        external
+        nonReentrant
+    {
+        require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
                 evidence.header.height,
                 evidence.parentHash,
                 evidence.context.anchorHeight,
                 evidence.context.anchorHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+            )
         );
+
+        address taikoL2Addr = resolve("taiko_l2");
+
+        // Need to check this event is the 1st transaction in the block.
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     taikoL2Addr,
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
+
+        (uint8 txType, address txTo, uint256 txGasLimit) = LibTxListDecoder
+            .decodeTx(anchorTx);
+
+        require(txType == 0, "L1:anchor:invalid type");
+        require(txTo == taikoL2Addr, "L1:anchor:invalid to");
+        require(
+            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:anchor:bad gas limit"
+        );
+        // TODO: more checks here.
+
+        // Need to check this transaction is the 1st transaction in the block.
+        // LibMerkleProof.verifyTransaction(
+        //     evidence.header.transactionsRoot,
+        //     taikoL2Addr,
+        //     anchorTx,
+        //     anchorTxProof,
+        //     evidence.proofs[2]
+        // );
 
         finalizeBlocks();
     }
@@ -266,22 +292,24 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
+        require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+            )
         );
+
+        // Need to check this event is the 1st transaction in the block.
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     resolve("taiko_l2"),
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
 
         finalizeBlocks();
     }
@@ -371,9 +399,7 @@ contract TaikoL1 is EssentialContract {
             evidence.proofs[0],
             blockHash,
             evidence.prover,
-            evidence.context.txListHash,
-            evidence.context.anchorHeight,
-            evidence.context.anchorHash
+            evidence.context.txListHash
         );
 
         _markBlockProven(

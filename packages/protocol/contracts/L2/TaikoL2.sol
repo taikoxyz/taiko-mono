@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibStorageProof.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
@@ -34,24 +33,7 @@ contract TaikoL2 is EssentialContract {
      * Events             *
      **********************/
 
-    event Anchored(
-        uint256 indexed id,
-        bytes32 parentHash,
-        uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
-    event InvalidTxList(
-        uint256 indexed id,
-        bytes32 parentHash,
-        bytes32 txListHash,
-        LibInvalidTxList.Reason reason,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
+    event TxListInvalided(bytes32 value);
     event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
@@ -59,15 +41,6 @@ contract TaikoL2 is EssentialContract {
     /**********************
      * Modifiers          *
      **********************/
-
-    modifier onlyFromGoldFinger() {
-        require(
-            msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
-            "L2:not goldfinger"
-        );
-        require(tx.gasprice == 0, "L2:gas price not 0");
-        _;
-    }
 
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
@@ -108,38 +81,15 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
-    /// @dev This transaciton must be the last transaction in a L2 block
+    /// @dev This transaciton must be the FIRST transaction in a L2 block
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
-        onlyFromGoldFinger
         onlyWhenNotAnchored
     {
+        require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
-
         _checkGlobalVariables();
-
-        bytes32 parentHash = blockhash(block.number - 1);
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
-                block.number,
-                parentHash,
-                anchorHeight,
-                anchorHash
-            );
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit Anchored(
-            block.number,
-            parentHash,
-            anchorHeight,
-            anchorHash,
-            proofKey,
-            proofVal
-        );
     }
 
     function verifyTxListInvalid(
@@ -159,23 +109,14 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        bytes32 txListHash = txList.hashTxList();
-
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(block.number, parentHash, txListHash);
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit InvalidTxList(
-            block.number,
-            parentHash,
-            txListHash,
-            reason,
-            proofKey,
-            proofVal
+        emit TxListInvalided(
+            keccak256(
+                abi.encodePacked(
+                    block.number,
+                    blockhash(block.number - 1),
+                    txList.hashTxList()
+                )
+            )
         );
     }
 
