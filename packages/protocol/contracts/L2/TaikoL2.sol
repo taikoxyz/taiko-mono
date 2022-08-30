@@ -65,17 +65,20 @@ contract TaikoL2 is EssentialContract {
             msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
             "L2:anchor tx not goldfinger"
         );
+        // No need to check msg.value as the method is nonpayable.
+        // require(msg.value == 0, "L2:anchor tx value non-0);
+
         require(tx.gasprice == 0, "L2:anchor tx gasprice non-0");
+        require(msg.data.length == 32 * 2 + 4, "L2:anchor tx size not 68");
 
         // TODO: verify if the math is correct using a similar transaction.
+        // The current impl is buggy: some bytes in the anchor's parameters
+        // will be 0s.
         require(
             gasleft() + (32 * 2 + 4) * 16 + 21000 ==
                 LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L2:anchor tx bad gas limit"
         );
-        require(msg.data.length == 32 * 2 + 4, "L2:anchor tx bad data size");
-
-        // No need to check msg.value as the method is not payable.
 
         _;
     }
