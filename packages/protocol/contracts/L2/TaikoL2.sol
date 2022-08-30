@@ -60,7 +60,7 @@ contract TaikoL2 is EssentialContract {
      * Modifiers          *
      **********************/
 
-    modifier onlyFromGoldFingerAndValid() {
+    modifier onlyWhenAnchorTxValid() {
         require(
             msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
             "L2:anchor tx not goldfinger"
@@ -82,6 +82,7 @@ contract TaikoL2 is EssentialContract {
 
         _;
     }
+
     modifier onlyWhenNotAnchored() {
         require(lastAnchorHeight < block.number, "L2:anchored already");
         lastAnchorHeight = block.number;
@@ -125,7 +126,7 @@ contract TaikoL2 is EssentialContract {
     /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
-        onlyFromGoldFingerAndValid
+        onlyWhenAnchorTxValid
         onlyWhenNotAnchored
     {
         require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
