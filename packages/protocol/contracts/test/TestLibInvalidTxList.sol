@@ -8,18 +8,27 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-library LibZKP {
-    /*********************
-     * Public Functions  *
-     *********************/
+import "../libs/LibInvalidTxList.sol";
 
-    function verify(
-        bytes memory verificationKey,
-        bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
-    ) public pure {
-        // TODO
+contract TestLibInvalidTxList {
+    function parseRecoverPayloads(LibTxListDecoder.Tx memory transaction)
+        public
+        pure
+        returns (
+            bytes32 hash,
+            uint8 v,
+            bytes32 r,
+            bytes32 s
+        )
+    {
+        return LibInvalidTxList.parseRecoverPayloads(transaction);
+    }
+
+    function verifySignature(LibTxListDecoder.Tx memory transaction)
+        public
+        pure
+        returns (address)
+    {
+        return LibInvalidTxList.verifySignature(transaction);
     }
 }

@@ -94,10 +94,15 @@ library LibTxListDecoder {
         return keccak256(encoded);
     }
 
+    // TODO: `to` is not supported.
     function decodeTx(bytes memory txBytes)
         internal
         pure
-        returns (uint8 txType, uint256 gasLimit)
+        returns (
+            uint8 txType,
+            address to,
+            uint256 gasLimit
+        )
     {
         assembly {
             txType := byte(0, mload(add(txBytes, 32)))

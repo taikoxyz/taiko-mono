@@ -14,7 +14,6 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
-import "../libs/LibStorageProof.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
@@ -57,7 +56,6 @@ contract TaikoL1 is EssentialContract {
         uint64 proposedAt;
         bytes32 txListHash;
         bytes32 mixHash;
-        bytes32 ancestorAggHash;
         bytes extraData;
     }
 
@@ -72,8 +70,8 @@ contract TaikoL1 is EssentialContract {
         BlockContext context;
         BlockHeader header;
         address prover;
-        bytes32[256] ancestorHashes;
-        bytes[2] proofs;
+        bytes32 parentHash;
+        bytes[] proofs;
     }
 
     /**********************
@@ -117,11 +115,7 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockCommitted(
-        address indexed sender,
-        bytes32 hash,
-        uint256 commitTime
-    );
+    event BlockCommitted(bytes32 hash, uint256 expireAt);
 
     event BlockProposed(uint256 indexed id, BlockContext context);
 
@@ -146,7 +140,10 @@ contract TaikoL1 is EssentialContract {
 
     modifier whenBlockIsCommitted(BlockContext memory context) {
         validateContext(context);
-        bytes32 hash = _hashCommit(msg.sender, context.txListHash);
+
+        bytes32 hash = keccak256(
+            abi.encodePacked(context.beneficiary, context.txListHash)
+        );
         require(isCommitValid(hash), "L1:invalid commit");
         delete commits[hash];
         _;
@@ -170,11 +167,8 @@ contract TaikoL1 is EssentialContract {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
-    function commitBlock(address proposer, bytes32 txListHash) external {
-        require(proposer != address(0), "L1:zero proposer");
-        require(txListHash != 0, "L1:zero txListHash");
-
-        bytes32 hash = _hashCommit(proposer, txListHash);
+    function commitBlock(bytes32 hash) external {
+        require(hash != 0, "L1:zero hash");
 
         require(
             commits[hash] == 0 ||
@@ -182,7 +176,7 @@ contract TaikoL1 is EssentialContract {
             "L1:already committed"
         );
         commits[hash] = block.timestamp;
-        emit BlockCommitted(proposer, hash, block.timestamp);
+        emit BlockCommitted(hash, block.timestamp + PROPOSING_DELAY_MAX);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -192,6 +186,8 @@ contract TaikoL1 is EssentialContract {
     ///        - id
     ///        - mixHash
     ///        - proposedAt
+    ///        - anchorHeight
+    ///        - anchorHash
     /// @param txList A list of transactions in this block, encoded with RLP.
     function proposeBlock(BlockContext memory context, bytes calldata txList)
         external
@@ -200,7 +196,10 @@ contract TaikoL1 is EssentialContract {
         whenBlockIsCommitted(context)
     {
         require(
-            txList.length > 0 && context.txListHash == txList.hashTxList(),
+            txList.length > 0 &&
+                txList.length <=
+                LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
+                context.txListHash == txList.hashTxList(),
             "L1:invalid txList"
         );
         require(
@@ -209,6 +208,8 @@ contract TaikoL1 is EssentialContract {
         );
 
         context.id = nextPendingId;
+        context.anchorHeight = block.number - 1;
+        context.anchorHash = blockhash(block.number - 1);
         context.proposedAt = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
@@ -238,24 +239,51 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(Evidence calldata evidence) external nonReentrant {
+    function proveBlock(Evidence calldata evidence, bytes calldata anchorTx)
+        external
+        nonReentrant
+    {
+        require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
                 evidence.header.height,
-                evidence.context.ancestorAggHash,
+                evidence.parentHash,
                 evidence.context.anchorHeight,
                 evidence.context.anchorHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+            )
         );
+
+        address taikoL2Addr = resolve("taiko_l2");
+
+        // Need to check this event is the 1st transaction in the block.
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     taikoL2Addr,
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
+
+        (uint8 txType, address txTo, uint256 txGasLimit) = LibTxListDecoder
+            .decodeTx(anchorTx);
+
+        require(txType == 0, "L1:anchor:invalid type");
+        require(txTo == taikoL2Addr, "L1:anchor:invalid to");
+        require(
+            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:anchor:bad gas limit"
+        );
+        // TODO: more checks here.
+
+        // Need to check this transaction is the 1st transaction in the block.
+        // LibMerkleProof.verifyTransaction(
+        //     evidence.header.transactionsRoot,
+        //     taikoL2Addr,
+        //     anchorTx,
+        //     anchorTxProof,
+        //     evidence.proofs[2]
+        // );
 
         finalizeBlocks();
     }
@@ -264,22 +292,24 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
+        require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
+        bytes32 footprint = keccak256(
+            abi.encodePacked(
                 evidence.header.height,
-                evidence.context.ancestorAggHash,
+                evidence.parentHash,
                 target.txListHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+            )
         );
+
+        // Need to check this event is the 1st transaction in the block.
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     resolve("taiko_l2"),
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
 
         finalizeBlocks();
     }
@@ -314,9 +344,10 @@ contract TaikoL1 is EssentialContract {
     function validateContext(BlockContext memory context) public view {
         require(
             context.id == 0 &&
+                context.anchorHeight == 0 &&
+                context.anchorHash == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
-                context.ancestorAggHash != 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"
@@ -360,28 +391,21 @@ contract TaikoL1 is EssentialContract {
         _validateHeaderForContext(evidence.header, evidence.context);
 
         bytes32 blockHash = evidence.header.hashBlockHeader(
-            evidence.ancestorHashes[0]
-        );
-
-        require(
-            evidence.context.ancestorAggHash ==
-                LibStorageProof.aggregateAncestorHashs(evidence.ancestorHashes),
-            "L1:ancestorAggHash"
+            evidence.parentHash
         );
 
         LibZKP.verify(
             ConfigManager(resolve("config_manager")).getValue(ZKP_VKEY),
-            evidence.ancestorHashes,
+            evidence.proofs[0],
             blockHash,
-            evidence.context.txListHash,
             evidence.prover,
-            evidence.proofs[0]
+            evidence.context.txListHash
         );
 
         _markBlockProven(
             evidence.prover,
             evidence.context,
-            evidence.ancestorHashes[0],
+            evidence.parentHash,
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
     }
@@ -510,13 +534,5 @@ contract TaikoL1 is EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(context));
-    }
-
-    function _hashCommit(address proposer, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(proposer, txListHash));
     }
 }

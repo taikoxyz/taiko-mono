@@ -8,11 +8,12 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibStorageProof.sol";
+import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
 contract TaikoL2 is EssentialContract {
@@ -21,32 +22,19 @@ contract TaikoL2 is EssentialContract {
      * State Variables    *
      **********************/
 
+    mapping(uint256 => bytes32) public blockHashes;
     mapping(uint256 => bytes32) public anchorHashes;
+    uint256 public chainId;
     uint256 public lastAnchorHeight;
 
-    uint256[48] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *
      **********************/
 
-    event Anchored(
-        uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 ancestorAggHash,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
-    event InvalidTxList(
-        bytes32 txListHash,
-        LibInvalidTxList.Reason reason,
-        bytes32 ancestorAggHash,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
-    event BlockInvalidated(address invalidator, bytes32 ancestorAggHash);
+    event TxListInvalided(bytes32 value);
+    event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -72,8 +60,12 @@ contract TaikoL2 is EssentialContract {
         revert("L2:not allowed");
     }
 
-    function init(address _addressManager) external initializer {
+    function init(address _addressManager, uint256 _chainId)
+        external
+        initializer
+    {
         EssentialContract._init(_addressManager);
+        chainId = _chainId;
     }
 
     function creditEther(address recipient, uint256 amount)
@@ -89,35 +81,15 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
+    /// @dev This transaciton must be the FIRST transaction in a L2 block
+    /// in addition to the txList.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:invalid anchor");
+        require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
-
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
-        );
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
-                block.number,
-                ancestorAggHash,
-                anchorHeight,
-                anchorHash
-            );
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit Anchored(
-            anchorHeight,
-            anchorHash,
-            ancestorAggHash,
-            proofKey,
-            proofVal
-        );
+        _checkGlobalVariables();
     }
 
     function verifyTxListInvalid(
@@ -135,37 +107,33 @@ contract TaikoL2 is EssentialContract {
             "L2:failed to invalidate txList"
         );
 
-        bytes32 ancestorAggHash = LibStorageProof.aggregateAncestorHashs(
-            getAncestorHashes(block.number)
-        );
-        bytes32 txListHash = txList.hashTxList();
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
-                block.number,
-                ancestorAggHash,
-                txListHash
-            );
+        _checkGlobalVariables();
 
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit InvalidTxList(
-            txListHash,
-            reason,
-            ancestorAggHash,
-            proofKey,
-            proofVal
+        emit TxListInvalided(
+            keccak256(
+                abi.encodePacked(
+                    block.number,
+                    blockhash(block.number - 1),
+                    txList.hashTxList()
+                )
+            )
         );
     }
 
-    function getAncestorHashes(uint256 blockNumber)
-        public
-        view
-        returns (bytes32[256] memory ancestorHashes)
-    {
-        for (uint256 i = 0; i < 256 && i < blockNumber; i++) {
-            ancestorHashes[i] = blockhash(blockNumber - i - 1);
+    function _checkGlobalVariables() private {
+        // Check chainid
+        require(block.chainid == chainId, "L2:invalid chain id");
+
+        // Check base fee
+        require(block.basefee == 0, "L2:invalid base fee");
+
+        // Check the latest 255 block hashes match the storage version.
+        for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
+            uint256 j = block.number - i;
+            require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
         }
+
+        // Store parent hash into storage tree.
+        blockHashes[block.number - 1] = blockhash(block.number - 1);
     }
 }

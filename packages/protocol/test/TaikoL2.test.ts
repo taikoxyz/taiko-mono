@@ -19,18 +19,13 @@ describe("TaikoL2", function () {
         await addressManager.init()
 
         // Deploying TaikoL2 Contract linked with LibTxListDecoder (throws error otherwise)
-        const txListLib = await (
+        const libTxListDecoder = await (
             await ethers.getContractFactory("LibTxListDecoder")
-        ).deploy()
-
-        const storageProofLib = await (
-            await ethers.getContractFactory("LibStorageProof")
         ).deploy()
 
         const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
             libraries: {
-                LibTxListDecoder: txListLib.address,
-                LibStorageProof: storageProofLib.address,
+                LibTxListDecoder: libTxListDecoder.address,
             },
         })
         taikoL2 = await taikoL2Factory.deploy()
@@ -93,11 +88,10 @@ describe("TaikoL2", function () {
             )
         })
 
-        it("should not revert, and should emit an Anchored event", async function () {
+        it("should revert since ancestor hashes not written", async function () {
             const randomHash = randomBytes32()
-            await expect(taikoL2.anchor(1, randomHash)).to.emit(
-                taikoL2,
-                "Anchored"
+            await expect(taikoL2.anchor(10, randomHash)).to.be.revertedWith(
+                "invalid ancestor hash"
             )
         })
     })
