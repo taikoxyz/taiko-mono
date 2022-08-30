@@ -61,6 +61,16 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenAnchorTxValid() {
+        // TODO: verify if the math is correct using a similar transaction.
+        // The current impl is buggy: some bytes in the anchor's parameters
+        // will be 0s. Another potential problem is the compiler optimzation
+        // may affect the actual gas used before this call.
+        require(
+            gasleft() + (32 * 2 + 4) * 16 + 21000 ==
+                LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L2:anchor tx bad gas limit"
+        );
+
         require(
             msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
             "L2:anchor tx not goldfinger"
@@ -70,15 +80,6 @@ contract TaikoL2 is EssentialContract {
 
         require(tx.gasprice == 0, "L2:anchor tx gasprice non-0");
         require(msg.data.length == 32 * 2 + 4, "L2:anchor tx size not 68");
-
-        // TODO: verify if the math is correct using a similar transaction.
-        // The current impl is buggy: some bytes in the anchor's parameters
-        // will be 0s.
-        require(
-            gasleft() + (32 * 2 + 4) * 16 + 21000 ==
-                LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L2:anchor tx bad gas limit"
-        );
 
         _;
     }
