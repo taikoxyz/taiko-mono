@@ -36,13 +36,11 @@ Verification of a ZKP on L1 through solidity contract requires the following inp
 1. $p^i_a$ is the ZKP with $a$ as the prover address;
 1. The fee receipient address $a$;
 1. This block's hash $h^i = \mathbb{H}(H^i)$;
-1. $r_{anchorheight}^i$ the L1 block height when this block is proposed;
-1. $r_{anchorhash}^i$ the L1 block hash when this block is proposed;
 1. The keccak256 hash of $X^i$, e.g., $\mathbb{H}(X^i)$ (or $X^i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
 
 Hence we have:
 
-$$ \mathbb{V}\_K(p^i*a, h^i, a, r*{anchorheight}^i, r\_{anchorhash}^i, \mathbb{H}(X^i)) $$
+$$ \mathbb{V}\_K(p^i_a, h^i, a, \mathbb{H}(X^i)) $$
 
 where
 
