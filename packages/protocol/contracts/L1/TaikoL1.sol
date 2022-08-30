@@ -14,7 +14,7 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
-import "../libs/LibStorageProof.sol";
+import "../libs/LibFootprint.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibZKP.sol";
@@ -72,7 +72,7 @@ contract TaikoL1 is EssentialContract {
         BlockHeader header;
         address prover;
         bytes32 parentHash;
-        bytes[2] proofs;
+        bytes[] proofs;
     }
 
     /**********************
@@ -240,24 +240,41 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(Evidence calldata evidence) external nonReentrant {
+    function proveBlock(Evidence calldata evidence, bytes calldata anchorTx)
+        external
+        nonReentrant
+    {
+        require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
-                evidence.header.height,
-                evidence.parentHash,
-                evidence.context.anchorHeight,
-                evidence.context.anchorHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+        bytes32 footprint = LibFootprint.computeAnchorFootprint(
+            evidence.header.height,
+            evidence.parentHash,
+            evidence.context.anchorHeight,
+            evidence.context.anchorHash
         );
+
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     resolve("taiko_l2"),
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
+
+        (uint8 txType, uint256 gasLimit) = LibTxListDecoder.decodeTx(anchorTx);
+        require(txType == 0, "L1:invalid anchor type");
+        require(
+            gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:invalid anchor gas limit"
+        );
+
+        // LibMerkleProof.verifyTransaction(
+        //     evidence.header.transactionsRoot,
+        //     resolve("taiko_l2"),
+        //     anchorTx,
+        //     anchorTxProof,
+        //     evidence.proofs[2]
+        // );
 
         finalizeBlocks();
     }
@@ -266,22 +283,21 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
+        require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
-                evidence.header.height,
-                evidence.parentHash,
-                target.txListHash
-            );
-
-        LibMerkleProof.verifyStorage(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+        bytes32 footprint = LibFootprint.computeBlockInvalidationFootprint(
+            evidence.header.height,
+            evidence.parentHash,
+            target.txListHash
         );
+
+        // LibMerkleProof.verifyFootprint(
+        //     evidence.header.receiptsRoot,
+        //     resolve("taiko_l2"),
+        //     footprint,
+        //     evidence.proofs[1]
+        // );
 
         finalizeBlocks();
     }

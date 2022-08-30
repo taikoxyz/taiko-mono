@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibStorageProof.sol";
+import "../libs/LibFootprint.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 
@@ -34,24 +34,7 @@ contract TaikoL2 is EssentialContract {
      * Events             *
      **********************/
 
-    event Anchored(
-        uint256 indexed id,
-        bytes32 parentHash,
-        uint256 anchorHeight,
-        bytes32 anchorHash,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
-    event InvalidTxList(
-        uint256 indexed id,
-        bytes32 parentHash,
-        bytes32 txListHash,
-        LibInvalidTxList.Reason reason,
-        bytes32 proofKey,
-        bytes32 proofVal
-    );
-
+    event Footprint(bytes32 value);
     event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
@@ -61,16 +44,6 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenAnchorTxValid() {
-        // TODO: verify if the math is correct using a similar transaction.
-        // The current impl is buggy: some bytes in the anchor's parameters
-        // will be 0s. Another potential problem is the compiler optimzation
-        // may affect the actual gas used before this call.
-        require(
-            gasleft() + (32 * 2 + 4) * 16 + 21000 ==
-                LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L2:anchor tx bad gas limit"
-        );
-
         require(
             msg.sender == LibTaikoConstants.GOLD_FINGER_ADDRESS,
             "L2:anchor tx not goldfinger"
@@ -135,26 +108,13 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeAnchorProofKV(
+        emit Footprint(
+            LibFootprint.computeAnchorFootprint(
                 block.number,
-                parentHash,
+                blockhash(block.number - 1),
                 anchorHeight,
                 anchorHash
-            );
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit Anchored(
-            block.number,
-            parentHash,
-            anchorHeight,
-            anchorHash,
-            proofKey,
-            proofVal
+            )
         );
     }
 
@@ -175,23 +135,12 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        bytes32 txListHash = txList.hashTxList();
-
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(block.number, parentHash, txListHash);
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit InvalidTxList(
-            block.number,
-            parentHash,
-            txListHash,
-            reason,
-            proofKey,
-            proofVal
+        emit Footprint(
+            LibFootprint.computeBlockInvalidationFootprint(
+                block.number,
+                blockhash(block.number - 1),
+                txList.hashTxList()
+            )
         );
     }
 

@@ -153,9 +153,9 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./thirdparty/AddressManager.sol/AddressManager.json"
         )),
-        LibStorageProof: require(path.join(
+        LibFootprint: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibStorageProof.sol/LibStorageProof.json"
+            "./libs/LibFootprint.sol/LibFootprint.json"
         )),
         LibTxListDecoder: require(path.join(
             ARTIFACTS_PATH,
@@ -173,9 +173,9 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode
 
         if (contractName === "TaikoL2") {
-            if (!addressMap.LibStorageProof || !addressMap.LibTxListDecoder) {
+            if (!addressMap.LibFootprint || !addressMap.LibTxListDecoder) {
                 throw new Error(
-                    "LibStorageProof or LibTxListDecoder not initialized"
+                    "LibFootprint or LibTxListDecoder not initialized"
                 )
             }
 
@@ -214,10 +214,9 @@ async function generateContractConfigs(
                 },
             },
         },
-        LibStorageProof: {
-            address: addressMap.LibStorageProof,
-            deployedBytecode:
-                contractArtifacts.LibStorageProof.deployedBytecode,
+        LibFootprint: {
+            address: addressMap.LibFootprint,
+            deployedBytecode: contractArtifacts.LibFootprint.deployedBytecode,
             variables: {},
         },
         LibTxListDecoder: {
@@ -262,7 +261,7 @@ function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     }
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibStorageProof,
+        [Object.keys(refs)[0]]: addressMap.LibFootprint,
         [Object.keys(refs)[1]]: addressMap.LibTxListDecoder,
     })
 
