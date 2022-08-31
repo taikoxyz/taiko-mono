@@ -109,15 +109,7 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        emit TxListInvalided(
-            keccak256(
-                abi.encodePacked(
-                    block.number,
-                    blockhash(block.number - 1),
-                    txList.hashTxList()
-                )
-            )
-        );
+        //ssstore
     }
 
     function _checkGlobalVariables() private {
@@ -125,7 +117,7 @@ contract TaikoL2 is EssentialContract {
         require(block.chainid == chainId, "L2:invalid chain id");
 
         // Check base fee
-        require(block.basefee == 0, "L2:invalid base fee");
+        // require(block.basefee == 0, "L2:invalid base fee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {

@@ -239,10 +239,11 @@ contract TaikoL1 is EssentialContract {
         emit BlockProposed(nextPendingId++, context);
     }
 
-    function proveBlock(Evidence calldata evidence, bytes calldata anchorTx)
-        external
-        nonReentrant
-    {
+    function proveBlock(
+        Evidence calldata evidence,
+        Tx calldata anchorTx,
+        Receipt anchorReceipt
+    ) external nonReentrant {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
@@ -351,13 +352,6 @@ contract TaikoL1 is EssentialContract {
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
             "L1:nonzero placeholder fields"
-        );
-
-        require(
-            block.number <= context.anchorHeight + MAX_ANCHOR_HEIGHT_DIFF &&
-                context.anchorHash == blockhash(context.anchorHeight) &&
-                context.anchorHash != 0,
-            "L1:invalid anchor"
         );
 
         require(
