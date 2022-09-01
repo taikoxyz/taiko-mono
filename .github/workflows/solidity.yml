@@ -7,7 +7,6 @@ on:
       - "packages/protocol/**"
 
   pull_request:
-    branches: [main]
     paths:
       - "packages/protocol/**"
 
