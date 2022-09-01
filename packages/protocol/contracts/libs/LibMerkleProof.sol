@@ -11,7 +11,6 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 import "../thirdparty/Lib_SecureMerkleTrie.sol";
-import "../thirdparty/Lib_MerkleTree.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibMerkleProof {
