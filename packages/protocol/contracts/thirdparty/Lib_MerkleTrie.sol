@@ -121,7 +121,7 @@ library Lib_MerkleTrie {
      * @param _totalLeaves The total number of leaves originally passed into.
      * @return Whether or not the merkle branch and leaf passes verification.
      */
-    function verify(
+    function verifyLeaf(
         bytes32 _root,
         bytes32 _leaf,
         uint256 _index,

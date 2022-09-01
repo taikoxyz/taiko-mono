@@ -71,7 +71,7 @@ describe("LibInvalidTxList", function () {
         ).deploy()
     })
 
-    it.skip("should parse the recover payloads correctly", async function () {
+    it("should parse the recover payloads correctly", async function () {
         for (const unsignedTx of testUnsignedTxs) {
             const expectedHash = ethers.utils.keccak256(
                 ethers.utils.serializeTransaction(unsignedTx)
@@ -100,7 +100,7 @@ describe("LibInvalidTxList", function () {
         }
     })
 
-    it.skip("should verify valid transaction signatures", async function () {
+    it("should verify valid transaction signatures", async function () {
         for (const unsignedTx of testUnsignedTxs) {
             const expectedHash = ethers.utils.keccak256(
                 ethers.utils.serializeTransaction(unsignedTx)
@@ -130,10 +130,7 @@ describe("LibInvalidTxList", function () {
             const signature = signingKey.signDigest(expectedHash)
 
             const randomSignature = {
-                v: Math.floor(
-                    Math.random() *
-                        ethers.BigNumber.from("2").pow(8).sub(1).toNumber()
-                ),
+                v: Math.floor(Math.random() * (Math.pow(2, 8) - 28)),
                 r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }

@@ -246,7 +246,7 @@ contract TaikoL1 is EssentialContract {
         bytes calldata encodedAnchorTx,
         bytes calldata encodedAnchorReceipt
     ) external nonReentrant {
-        require(evidence.proofs.length == 3, "L1:invalid proofs");
+        require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
         bytes32 footprint = keccak256(
@@ -260,18 +260,20 @@ contract TaikoL1 is EssentialContract {
 
         address taikoL2Addr = resolve("taiko_l2");
 
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(encodedAnchorReceipt);
+        // LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+        //     .decodeReceipt(encodedAnchorReceipt);
 
-        require(receipt.status == 1, "L1:anchorReceipt:invalid status");
+        require(
+            LibReceiptDecoder.decodeReceipt(encodedAnchorReceipt).status == 1,
+            "L1:anchorReceipt:invalid status"
+        );
 
-        // Need to check this event is the 1st transaction in the block.
-        // LibMerkleProof.verifyFootprint(
-        //     evidence.header.receiptsRoot,
-        //     taikoL2Addr,
-        //     footprint,
-        //     evidence.proofs[1]
-        // );
+        LibMerkleProof.verifyLeafWithIndex(
+            evidence.header.receiptsRoot,
+            encodedAnchorReceipt,
+            0,
+            evidence.proofs[0]
+        );
 
         (
             uint8 txType,
@@ -282,24 +284,21 @@ contract TaikoL1 is EssentialContract {
 
         require(txType == 0, "L1:anchor:invalid type");
         require(destination == taikoL2Addr, "L1:anchor:invalid to");
+        require(
+            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:anchor:bad gas limit"
+        );
         // TODO: use fixed data length
         require(
             data.length > 4 && bytes4(data) == TaikoL2.anchor.selector,
             "L1:anchor:invalid data"
         );
-        require(
-            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L1:anchor:bad gas limit"
-        );
-        // TODO: more checks here.
 
-        // Need to check this transaction is the 1st transaction in the block.
-        // LibMerkleProof.verifyTransaction(
+        // LibMerkleProof.verifyLeafWithIndex(
         //     evidence.header.transactionsRoot,
-        //     taikoL2Addr,
-        //     anchorTx,
-        //     anchorTxProof,
-        //     evidence.proofs[2]
+        //     encodedAnchorTx,
+        //     0,
+        //     evidence.proofs[1]
         // );
 
         finalizeBlocks();

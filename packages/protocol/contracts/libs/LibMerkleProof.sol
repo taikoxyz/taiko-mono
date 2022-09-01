@@ -70,4 +70,11 @@ library LibMerkleProof {
 
         require(verified, "LTP:invalid storage proof");
     }
+
+    function verifyLeafWithIndex(
+        bytes32 root,
+        bytes memory leaf,
+        uint256 index,
+        bytes calldata proof
+    ) public pure {}
 }
