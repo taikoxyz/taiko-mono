@@ -258,11 +258,6 @@ contract TaikoL1 is EssentialContract {
             )
         );
 
-        address taikoL2Addr = resolve("taiko_l2");
-
-        // LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-        //     .decodeReceipt(encodedAnchorReceipt);
-
         require(
             LibReceiptDecoder.decodeReceipt(encodedAnchorReceipt).status == 1,
             "L1:anchorReceipt:invalid status"
@@ -283,7 +278,7 @@ contract TaikoL1 is EssentialContract {
         ) = LibTxListDecoder.decodeTx(encodedAnchorTx);
 
         require(txType == 0, "L1:anchor:invalid type");
-        require(destination == taikoL2Addr, "L1:anchor:invalid to");
+        require(destination == resolve("taiko_l2"), "L1:anchor:invalid to");
         require(
             txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
@@ -294,12 +289,12 @@ contract TaikoL1 is EssentialContract {
             "L1:anchor:invalid data"
         );
 
-        // LibMerkleProof.verifyLeafWithIndex(
-        //     evidence.header.transactionsRoot,
-        //     encodedAnchorTx,
-        //     0,
-        //     evidence.proofs[1]
-        // );
+        LibMerkleProof.verifyLeafWithIndex(
+            evidence.header.transactionsRoot,
+            encodedAnchorTx,
+            0,
+            evidence.proofs[1]
+        );
 
         finalizeBlocks();
     }
