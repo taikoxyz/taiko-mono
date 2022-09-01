@@ -2,12 +2,16 @@ import { expect } from "chai"
 // eslint-disable-next-line import/no-named-default
 import { default as hre, ethers } from "hardhat"
 
-const action = process.env.TEST_LIB_MERKLE_PROOF ? describe : describe.skip
-
-action("LibReceiptDecoder", function () {
+describe("geth:LibReceiptDecoder", function () {
     let libReceiptDecoder: any
 
     before(async function () {
+        if (hre.network.name === "hardhat") {
+            throw new Error(
+                `hardhat: debug_getRawReceipts - Method not supported`
+            )
+        }
+
         const baseLibReceiptDecoder = await (
             await ethers.getContractFactory("LibReceiptDecoder")
         ).deploy()

@@ -28,7 +28,17 @@ docker run -d \
   --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
   --http.api debug,eth,net,web3,txpool,miner
 
-sleep 5
+# Wait till the test node fully started
+curl \
+    --fail \
+    --silent \
+    --retry-connrefused \
+    --retry 30 \
+    --retry-delay 1 \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","id":0,"method":"eth_chainId","params":[]}' \
+    http://localhost:18545 > /dev/null
 
 # Import ETHs from the pre-allocated developer account to the test account
 docker run -d \
@@ -39,6 +49,7 @@ docker run -d \
 
 trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME" EXIT INT KILL ERR
 
-TEST_LIB_MERKLE_PROOF=true \
+# Run the tests
+TEST_WITH_GETH_NODE=true \
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "LibMerkleProof|LibReceiptDecoder"
+  npx hardhat test --network l1_test --grep "^geth"

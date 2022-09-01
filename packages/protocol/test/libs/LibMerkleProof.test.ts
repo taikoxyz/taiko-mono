@@ -1,17 +1,13 @@
 import { expect } from "chai"
 import { Contract } from "ethers"
+import { ethers } from "hardhat"
 // eslint-disable-next-line node/no-extraneous-import
 import * as rlp from "rlp"
 import * as utils from "../../tasks/utils"
 const hre = require("hardhat")
 
-// TODO: fix tests
-const action = process.env.TEST_LIB_MERKLE_PROOF ? describe.skip : describe.skip
-
-action("LibMerkleProof", function () {
-    let libTrieProof: Contract
-    let taikoL2: Contract
-    let libStorageProof: Contract
+describe("geth:LibMerkleProof", function () {
+    let libMerkleProof: Contract
 
     before(async () => {
         hre.args = { confirmations: 1 }
@@ -19,59 +15,35 @@ action("LibMerkleProof", function () {
             throw new Error(`hardhat: eth_getProof - Method not supported`)
         }
 
-        const addressManager = await utils.deployContract(hre, "AddressManager")
-        await utils.waitTx(hre, await addressManager.init())
-
-        const libTxListDecoder = await utils.deployContract(
+        const baseLibMerkleProof = await utils.deployContract(
             hre,
-            "LibTxListDecoder"
+            "LibMerkleProof"
         )
 
-        libTrieProof = await utils.deployContract(hre, "LibMerkleProof")
-        taikoL2 = await utils.deployContract(hre, "TaikoL2", {
-            LibTxListDecoder: libTxListDecoder.address,
+        libMerkleProof = await utils.deployContract(hre, "TestLibMerkleProof", {
+            LibMerkleProof: baseLibMerkleProof.address,
         })
     })
 
     it("should verify inclusion proofs", async function () {
-        const anchorHeight = Math.floor(Math.random() * 1024)
-        const anchorHash = hre.ethers.utils.randomBytes(32)
+        const key = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
+        const value = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
 
-        const anchorReceipt = await utils.waitTx(
-            hre,
-            await taikoL2.anchor(anchorHeight, anchorHash)
-        )
+        const setStorageTx = await libMerkleProof.setStorage(key, value)
+        const setStorageReceipt = await setStorageTx.wait()
 
-        expect(anchorReceipt.status).to.be.equal(1)
-
-        const ancestorHashes = await taikoL2.getAncestorHashes(
-            anchorReceipt.blockNumber
-        )
-
-        const anchorKV = await libStorageProof.computeAnchorProofKV(
-            anchorReceipt.blockNumber,
-            anchorHeight,
-            anchorHash,
-            await libStorageProof.aggregateAncestorHashs(ancestorHashes)
-        )
-
-        expect(anchorKV[0].length).not.to.be.equal(
-            hre.ethers.constants.HashZero
-        )
-        expect(anchorKV[1].length).not.to.be.equal(
-            hre.ethers.constants.HashZero
-        )
+        expect(setStorageReceipt.status).to.be.equal(1)
 
         const proof = await hre.ethers.provider.send("eth_getProof", [
-            taikoL2.address,
-            [anchorKV[0]],
+            libMerkleProof.address,
+            [key],
             hre.ethers.utils.hexValue(
-                hre.ethers.utils.hexlify(anchorReceipt.blockNumber)
+                hre.ethers.utils.hexlify(setStorageReceipt.blockNumber)
             ),
         ])
 
-        expect(proof.storageProof[0].key).to.be.equal(anchorKV[0])
-        expect(proof.storageProof[0].value).to.be.equal(anchorKV[1])
+        expect(proof.storageProof[0].key).to.be.equal(key)
+        expect(proof.storageProof[0].value).to.be.equal(value)
 
         const coder = new hre.ethers.utils.AbiCoder()
         const mkproof = coder.encode(
@@ -84,24 +56,24 @@ action("LibMerkleProof", function () {
 
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
             hre.ethers.utils.hexValue(
-                hre.ethers.utils.hexlify(anchorReceipt.blockNumber)
+                hre.ethers.utils.hexlify(setStorageReceipt.blockNumber)
             ),
             false,
         ])
 
-        await libTrieProof.callStatic.verify(
+        await libMerkleProof.callStatic.verifyStorage(
             block.stateRoot,
-            taikoL2.address,
-            anchorKV[0],
-            anchorKV[1],
+            libMerkleProof.address,
+            key,
+            value,
             mkproof
         )
 
         await expect(
-            libTrieProof.callStatic.verify(
+            libMerkleProof.callStatic.verifyStorage(
                 block.stateRoot,
-                taikoL2.address,
-                anchorKV[0],
+                libMerkleProof.address,
+                key,
                 hre.ethers.utils.randomBytes(32),
                 mkproof
             )
