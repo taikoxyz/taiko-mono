@@ -255,7 +255,7 @@ contract TaikoL1 is EssentialContract {
 
         require(anchorReceipt.status == 1, "L1:anchorReceipt:invalid status");
 
-        LibMerkleProof.verifyLeafWithIndex(
+        LibMerkleProof.verifyFootprint(
             evidence.header.receiptsRoot,
             encodedAnchorReceipt,
             0,
@@ -281,7 +281,7 @@ contract TaikoL1 is EssentialContract {
             "L1:anchor:invalid data"
         );
 
-        LibMerkleProof.verifyLeafWithIndex(
+        LibMerkleProof.verifyFootprint(
             evidence.header.transactionsRoot,
             encodedAnchorTx,
             0,
