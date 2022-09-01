@@ -40,4 +40,4 @@ trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_
 
 TEST_LIB_MERKLE_PROOF=true \
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "LibMerkleProof"
+  npx hardhat test --network l1_test --grep "LibMerkleProof|LibReceiptDecoder"
