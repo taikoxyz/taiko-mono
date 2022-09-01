@@ -275,9 +275,9 @@ contract TaikoL1 is EssentialContract {
             txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
         );
-        // TODO: use fixed data length
         require(
-            data.length > 4 && bytes4(data) == TaikoL2.anchor.selector,
+            data.length == 4 + (32 * 2) &&
+                bytes4(data) == TaikoL2.anchor.selector,
             "L1:anchor:invalid data"
         );
 
@@ -343,6 +343,14 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
+    function isCommitValid(bytes32 hash) public view returns (bool) {
+        return
+            hash != 0 &&
+            commits[hash] != 0 &&
+            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
+    }
+
     function validateContext(BlockContext memory context) public pure {
         require(
             context.id == 0 &&
@@ -360,14 +368,6 @@ contract TaikoL1 is EssentialContract {
             "L1:invalid gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
-    }
-
-    function isCommitValid(bytes32 hash) public view returns (bool) {
-        return
-            hash != 0 &&
-            commits[hash] != 0 &&
-            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
-            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
     }
 
     /**********************

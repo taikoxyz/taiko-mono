@@ -174,11 +174,14 @@ export async function deployContracts(hre: any) {
 async function deployBaseLibs(hre: any) {
     const libZKP = await utils.deployContract(hre, "LibZKP")
     const libMerkleProof = await utils.deployContract(hre, "LibMerkleProof")
-    const libStorageProof = await utils.deployContract(hre, "LibStorageProof")
+    const libReceiptDecoder = await utils.deployContract(
+        hre,
+        "LibReceiptDecoder"
+    )
 
     return {
         LibZKP: libZKP.address,
         LibMerkleProof: libMerkleProof.address,
-        LibStorageProof: libStorageProof.address,
+        LibReceiptDecoder: libReceiptDecoder.address,
     }
 }
