@@ -16,6 +16,7 @@ import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
+import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
 
 // import "./broker/IProtoBroker.sol";
@@ -241,8 +242,8 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlock(
         Evidence calldata evidence,
-        Tx calldata anchorTx,
-        Receipt anchorReceipt
+        bytes calldata encodedAnchorTx,
+        bytes calldata encodedAnchorReceipt
     ) external nonReentrant {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
@@ -258,6 +259,11 @@ contract TaikoL1 is EssentialContract {
 
         address taikoL2Addr = resolve("taiko_l2");
 
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(encodedAnchorReceipt);
+
+        require(receipt.status == 1, "L1:anchorReceipt:invalid status");
+
         // Need to check this event is the 1st transaction in the block.
         // LibMerkleProof.verifyFootprint(
         //     evidence.header.receiptsRoot,
@@ -266,11 +272,14 @@ contract TaikoL1 is EssentialContract {
         //     evidence.proofs[1]
         // );
 
-        (uint8 txType, address txTo, uint256 txGasLimit) = LibTxListDecoder
-            .decodeTx(anchorTx);
+        (
+            uint8 txType,
+            address destination,
+            uint256 txGasLimit
+        ) = LibTxListDecoder.decodeTx(encodedAnchorTx);
 
         require(txType == 0, "L1:anchor:invalid type");
-        require(txTo == taikoL2Addr, "L1:anchor:invalid to");
+        require(destination == taikoL2Addr, "L1:anchor:invalid to");
         require(
             txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
