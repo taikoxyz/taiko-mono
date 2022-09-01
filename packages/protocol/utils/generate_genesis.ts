@@ -230,7 +230,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                _chainId: config.chainId,
+                chainId: config.chainId,
             },
         },
     }
@@ -241,9 +241,9 @@ async function generateContractConfigs(
 function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
-    if (Object.keys(refs).length !== 2) {
+    if (Object.keys(refs).length !== 1) {
         throw new Error(
-            `wrong link references amount, expected: 2, get: ${
+            `wrong link references amount, expected: 1, get: ${
                 Object.keys(refs).length
             }`
         )

@@ -135,10 +135,11 @@ action("Generate Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
-                TaikoL2,
-                "Anchored"
-            )
+            expect(await TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+
+            await expect(
+                TaikoL2.anchor(anchorHeight, anchorHash)
+            ).not.to.reverted
 
             await expect(
                 TaikoL2.creditEther(
