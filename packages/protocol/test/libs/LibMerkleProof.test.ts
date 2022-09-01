@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { Contract } from "ethers"
 import { ethers } from "hardhat"
+import { BaseTrie as Trie } from "merkle-patricia-tree"
 // eslint-disable-next-line node/no-extraneous-import
 import * as rlp from "rlp"
 import * as utils from "../../tasks/utils"
@@ -61,13 +62,15 @@ describe("geth:LibMerkleProof", function () {
             false,
         ])
 
-        await libMerkleProof.callStatic.verifyStorage(
-            block.stateRoot,
-            libMerkleProof.address,
-            key,
-            value,
-            mkproof
-        )
+        await expect(
+            libMerkleProof.callStatic.verifyStorage(
+                block.stateRoot,
+                libMerkleProof.address,
+                key,
+                value,
+                mkproof
+            )
+        ).not.to.be.reverted
 
         await expect(
             libMerkleProof.callStatic.verifyStorage(
@@ -78,5 +81,40 @@ describe("geth:LibMerkleProof", function () {
                 mkproof
             )
         ).to.be.reverted
+    })
+
+    it("should verify footprints", async function () {
+        const tx = await libMerkleProof.setStorage(
+            ethers.utils.hexlify(hre.ethers.utils.randomBytes(32)),
+            ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
+        )
+        await tx.wait()
+
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            hre.ethers.utils.hexValue(hre.ethers.utils.hexlify(tx.blockNumber)),
+            false,
+        ])
+
+        const [encodedReceipt] = await hre.ethers.provider.send(
+            "debug_getRawReceipts",
+            [tx.blockHash]
+        )
+
+        const tree = new Trie()
+
+        await tree.put(rlp.encode(0), encodedReceipt)
+
+        expect(ethers.utils.hexlify(tree.root)).to.be.equal(block.receiptsRoot)
+
+        const proof = await Trie.createProof(tree, rlp.encode(0))
+
+        await expect(
+            libMerkleProof.callStatic.verifyFootprint(
+                block.receiptsRoot,
+                encodedReceipt,
+                0,
+                rlp.encode(proof)
+            )
+        ).not.to.be.reverted
     })
 })

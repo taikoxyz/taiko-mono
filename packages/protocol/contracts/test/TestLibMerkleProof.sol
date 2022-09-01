@@ -22,6 +22,15 @@ contract TestLibMerkleProof {
             LibMerkleProof.verifyStorage(stateRoot, addr, key, value, mkproof);
     }
 
+    function verifyFootprint(
+        bytes32 root,
+        bytes memory footprint,
+        uint256 index,
+        bytes calldata proof
+    ) public pure {
+        return LibMerkleProof.verifyFootprint(root, footprint, index, proof);
+    }
+
     function setStorage(bytes32 key, bytes32 value) public {
         assembly {
             sstore(key, value)

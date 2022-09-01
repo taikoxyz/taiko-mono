@@ -78,17 +78,11 @@ library LibMerkleProof {
         uint256 index,
         bytes calldata proof
     ) public pure {
-        (bytes32[] memory siblings, uint256 total) = abi.decode(
+        bool verified = Lib_MerkleTrie.verifyInclusionProof(
+            abi.encodePacked(Lib_RLPWriter.writeUint(index)),
+            footprint,
             proof,
-            (bytes32[], uint256)
-        );
-
-        bool verified = Lib_MerkleTree.verify(
-            root,
-            keccak256(footprint),
-            index,
-            siblings,
-            total
+            root
         );
 
         require(verified, "LTP:invalid footprint proof");
