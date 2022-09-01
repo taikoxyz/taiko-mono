@@ -83,6 +83,8 @@ describe("LibInvalidTxList", function () {
             const [hash, v, r, s] = await libInvalidTxList.parseRecoverPayloads(
                 {
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData: ethers.utils.serializeTransaction(
                         unsignedTx,
@@ -108,6 +110,8 @@ describe("LibInvalidTxList", function () {
             expect(
                 await libInvalidTxList.verifySignature({
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData: ethers.utils.serializeTransaction(
                         unsignedTx,
@@ -142,6 +146,8 @@ describe("LibInvalidTxList", function () {
             expect(
                 await libInvalidTxList.verifySignature({
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData,
                 })
