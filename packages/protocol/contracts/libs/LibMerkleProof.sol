@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 import "../thirdparty/Lib_SecureMerkleTrie.sol";
+import "../thirdparty/Lib_MerkleTree.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibMerkleProof {
@@ -71,10 +72,25 @@ library LibMerkleProof {
         require(verified, "LTP:invalid storage proof");
     }
 
-    function verifyLeafWithIndex(
+    function verifyFootprint(
         bytes32 root,
-        bytes memory leaf,
+        bytes memory footprint,
         uint256 index,
         bytes calldata proof
-    ) public pure {}
+    ) public pure {
+        (bytes32[] memory siblings, uint256 total) = abi.decode(
+            proof,
+            (bytes32[], uint256)
+        );
+
+        bool verified = Lib_MerkleTree.verify(
+            root,
+            keccak256(footprint),
+            index,
+            siblings,
+            total
+        );
+
+        require(verified, "LTP:invalid footprint proof");
+    }
 }
