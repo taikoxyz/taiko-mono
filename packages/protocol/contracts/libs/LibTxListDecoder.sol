@@ -61,6 +61,7 @@ library LibTxListDecoder {
     struct Tx {
         uint8 txType;
         address destination;
+        bytes data;
         uint256 gasLimit;
         bytes txData;
     }
@@ -80,10 +81,13 @@ library LibTxListDecoder {
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
             bytes memory txBytes = Lib_RLPReader.readBytes(txs[i]);
-            (uint8 txType, address destination, uint256 gasLimit) = decodeTx(
-                txBytes
-            );
-            _txList[i] = Tx(txType, destination, gasLimit, txBytes);
+            (
+                uint8 txType,
+                address destination,
+                bytes memory data,
+                uint256 gasLimit
+            ) = decodeTx(txBytes);
+            _txList[i] = Tx(txType, destination, data, gasLimit, txBytes);
         }
 
         txList = TxList(_txList);
@@ -104,6 +108,7 @@ library LibTxListDecoder {
         returns (
             uint8 txType,
             address destination,
+            bytes memory data,
             uint256 gasLimit
         )
     {
@@ -121,6 +126,7 @@ library LibTxListDecoder {
             TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
             gasLimit = txLegacy.gasLimit;
             destination = txLegacy.destination;
+            data = txLegacy.data;
         } else if (txType <= 0x7f) {
             Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
                 Lib_BytesUtils.slice(txBytes, 1)
@@ -130,10 +136,12 @@ library LibTxListDecoder {
                 Transaction2930 memory tx2930 = decodeTx2930(txBody);
                 gasLimit = tx2930.gasLimit;
                 destination = tx2930.destination;
+                data = tx2930.data;
             } else if (txType == 2) {
                 Transaction1559 memory tx1559 = decodeTx1559(txBody);
                 gasLimit = tx1559.gasLimit;
                 destination = tx1559.destination;
+                data = tx1559.data;
             } else {
                 revert("invalid txType");
             }

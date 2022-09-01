@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
+import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTaikoConstants.sol";
@@ -275,11 +276,17 @@ contract TaikoL1 is EssentialContract {
         (
             uint8 txType,
             address destination,
+            bytes memory data,
             uint256 txGasLimit
         ) = LibTxListDecoder.decodeTx(encodedAnchorTx);
 
         require(txType == 0, "L1:anchor:invalid type");
         require(destination == taikoL2Addr, "L1:anchor:invalid to");
+        // TODO: use fixed data length
+        require(
+            data.length > 4 && bytes4(data) == TaikoL2.anchor.selector,
+            "L1:anchor:invalid data"
+        );
         require(
             txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
