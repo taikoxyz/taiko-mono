@@ -30,10 +30,14 @@ library LibReceiptDecoder {
         pure
         returns (Receipt memory receipt)
     {
+        // Non-legacy transaction receipts should remove the type prefix at first.
         Lib_RLPReader.RLPItem[] memory rlpItems = Lib_RLPReader.readList(
-            encoded
+            encoded[0] >= 0x0 && encoded[0] <= 0x7f
+                ? Lib_BytesUtils.slice(encoded, 1)
+                : encoded
         );
-        require(rlpItems.length != 4, "invalid items length");
+
+        require(rlpItems.length == 4, "invalid items length");
 
         receipt.status = uint64(Lib_RLPReader.readUint256(rlpItems[0]));
         receipt.cumulativeGasUsed = uint64(
@@ -57,26 +61,33 @@ library LibReceiptDecoder {
     function decodeLogs(Lib_RLPReader.RLPItem[] memory logsRlp)
         internal
         pure
-        returns (Log[] memory logs)
+        returns (Log[] memory)
     {
+        Log[] memory logs = new Log[](logsRlp.length);
+
         for (uint256 i = 0; i < logsRlp.length; i++) {
             Lib_RLPReader.RLPItem[] memory rlpItems = Lib_RLPReader.readList(
                 logsRlp[i]
             );
-
             logs[i].contractAddress = Lib_RLPReader.readAddress(rlpItems[0]);
             logs[i].topics = decodeTopics(Lib_RLPReader.readList(rlpItems[1]));
             logs[i].data = Lib_RLPReader.readBytes(rlpItems[2]);
         }
+
+        return logs;
     }
 
     function decodeTopics(Lib_RLPReader.RLPItem[] memory topicsRlp)
         internal
         pure
-        returns (bytes32[] memory topics)
+        returns (bytes32[] memory)
     {
+        bytes32[] memory topics = new bytes32[](topicsRlp.length);
+
         for (uint256 i = 0; i < topicsRlp.length; i++) {
             topics[i] = Lib_RLPReader.readBytes32(topicsRlp[i]);
         }
+
+        return topics;
     }
 }

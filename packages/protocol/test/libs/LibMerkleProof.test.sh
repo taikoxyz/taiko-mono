@@ -25,7 +25,8 @@ docker run -d \
   --name $TEST_NODE_CONTAINER_NAME \
   -p 18545:8545 \
   ethereum/client-go:latest \
-  --dev --http --http.addr 0.0.0.0 --http.vhosts "*"
+  --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
+  --http.api debug,eth,net,web3,txpool,miner
 
 sleep 5
 
