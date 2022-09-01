@@ -15,6 +15,7 @@ import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
+import "../libs/LibStorageProof.sol";
 
 contract TaikoL2 is EssentialContract {
     using LibTxListDecoder for bytes;
@@ -109,7 +110,15 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        //ssstore
+        bytes32 parentHash = blockhash(block.number - 1);
+        bytes32 txListHash = txList.hashTxList();
+
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeInvalidBlockProofKV(block.number, parentHash, txListHash);
+
+        assembly {
+            sstore(proofKey, proofVal)
+        }
     }
 
     function _checkGlobalVariables() private {

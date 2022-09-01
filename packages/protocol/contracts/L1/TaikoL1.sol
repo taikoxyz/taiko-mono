@@ -19,6 +19,7 @@ import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxListDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
+import "../libs/LibStorageProof.sol";
 
 // import "./broker/IProtoBroker.sol";
 
@@ -249,19 +250,10 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        bytes32 footprint = keccak256(
-            abi.encodePacked(
-                evidence.header.height,
-                evidence.parentHash,
-                evidence.context.anchorHeight,
-                evidence.context.anchorHash
-            )
-        );
+        LibReceiptDecoder.Receipt memory anchorReceipt = LibReceiptDecoder
+            .decodeReceipt(encodedAnchorReceipt);
 
-        require(
-            LibReceiptDecoder.decodeReceipt(encodedAnchorReceipt).status == 1,
-            "L1:anchorReceipt:invalid status"
-        );
+        require(anchorReceipt.status == 1, "L1:anchorReceipt:invalid status");
 
         LibMerkleProof.verifyLeafWithIndex(
             evidence.header.receiptsRoot,
@@ -303,24 +295,23 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
-        require(evidence.proofs.length == 2, "L1:invalid proofs");
+        require(evidence.proofs.length == 1, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        bytes32 footprint = keccak256(
-            abi.encodePacked(
+        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
+            .computeInvalidBlockProofKV(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
-            )
-        );
+            );
 
-        // Need to check this event is the 1st transaction in the block.
-        // LibMerkleProof.verifyFootprint(
-        //     evidence.header.receiptsRoot,
-        //     resolve("taiko_l2"),
-        //     footprint,
-        //     evidence.proofs[1]
-        // );
+        LibMerkleProof.verifyStorage(
+            evidence.header.stateRoot,
+            resolve("taiko_l2"),
+            proofKey,
+            proofVal,
+            evidence.proofs[1]
+        );
 
         finalizeBlocks();
     }
@@ -352,7 +343,7 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function validateContext(BlockContext memory context) public view {
+    function validateContext(BlockContext memory context) public pure {
         require(
             context.id == 0 &&
                 context.anchorHeight == 0 &&
