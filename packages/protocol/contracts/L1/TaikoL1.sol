@@ -142,7 +142,7 @@ contract TaikoL1 is EssentialContract {
         validateContext(context);
 
         bytes32 hash = keccak256(
-            abi.encodePacked(context.beneficiary, context.txListHash)
+            abi.encode(context.beneficiary, context.txListHash)
         );
         require(isCommitValid(hash), "L1:invalid commit");
         delete commits[hash];
