@@ -18,7 +18,6 @@ import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
-import "../libs/LibTrieProof.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_MerkleTrie.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
@@ -36,6 +35,9 @@ contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
     using LibTxDecoder for bytes;
+
+    bytes32 public constant BLOCK_INVALIDATED_EVENT_SELECTOR =
+        keccak256("BlockInvalidated(bytes32)");
 
     /**********************
      * Structs            *
@@ -302,24 +304,38 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlockInvalid(
         Evidence calldata evidence,
-        BlockContext calldata target
+        BlockContext calldata target,
+        bytes calldata invalidateBlockReceipt
     ) external nonReentrant {
-        require(evidence.proofs.length == 2, "L1:invalid proofs");
+        require(evidence.proofs.length == 2, "L1:proof:size");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeBlockInvalidationProofKV(
-                evidence.header.height,
-                evidence.parentHash,
-                target.txListHash
-            );
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(invalidateBlockReceipt);
 
-        LibTrieProof.prove(
-            evidence.header.stateRoot,
-            resolve("taiko_l2"),
-            proofKey,
-            proofVal,
-            evidence.proofs[1]
+        require(receipt.status == 1, "L1:receipt:status");
+        require(receipt.logs.length == 1, "L1:receipt.logsize");
+        require(
+            receipt.logs[0].contractAddress == resolve("taiko_l2"),
+            "L1:receipt:addr"
+        );
+        require(receipt.logs[0].data.length == 0, "L1:receipt:data");
+
+        require(
+            receipt.logs[0].topics.length == 2 &&
+                receipt.logs[0].topics[0] == BLOCK_INVALIDATED_EVENT_SELECTOR &&
+                receipt.logs[0].topics[1] == target.txListHash,
+            "L1:receipt:topics"
+        );
+
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                invalidateBlockReceipt,
+                evidence.proofs[1],
+                evidence.header.receiptsRoot
+            ),
+            "L1:receipt:mkproof"
         );
 
         finalizeBlocks();

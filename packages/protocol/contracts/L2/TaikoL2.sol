@@ -15,10 +15,10 @@ import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxDecoder.sol";
-import "../libs/LibTrieProof.sol";
 
 contract TaikoL2 is EssentialContract {
     using LibTxDecoder for bytes;
+
     /**********************
      * State Variables    *
      **********************/
@@ -40,7 +40,7 @@ contract TaikoL2 is EssentialContract {
         uint256 anchorHeight,
         bytes32 anchorHash
     );
-    event BlockInvalidated(bytes32 txListHash);
+    event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -122,20 +122,7 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        bytes32 txListHash = txList.hashTxList();
-
-        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeBlockInvalidationProofKV(
-                block.number,
-                blockhash(block.number - 1),
-                txListHash
-            );
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit BlockInvalidated(txListHash);
+        emit BlockInvalidated(txList.hashTxList());
     }
 
     function _checkGlobalVariables() private {
