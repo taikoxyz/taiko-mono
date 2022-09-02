@@ -86,14 +86,6 @@ library LibTxDecoder {
         txList = TxList(_txList);
     }
 
-    function hashTxList(bytes calldata encoded)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(encoded);
-    }
-
     function decodeTx(bytes memory txBytes)
         public
         pure
@@ -139,6 +131,14 @@ library LibTxDecoder {
         } else {
             revert("invalid prefix");
         }
+    }
+
+    function hashTxList(bytes calldata encoded)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(encoded);
     }
 
     function decodeLegacyTx(Lib_RLPReader.RLPItem[] memory body)

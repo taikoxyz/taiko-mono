@@ -6,7 +6,7 @@ import * as rlp from "rlp"
 import * as utils from "../../tasks/utils"
 const hre = require("hardhat")
 
-describe("geth:LibTrieProof", function () {
+describe("integration:LibTrieProof", function () {
     let libTrieProof: Contract
 
     before(async () => {
