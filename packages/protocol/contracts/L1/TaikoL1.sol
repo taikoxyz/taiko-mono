@@ -328,6 +328,9 @@ contract TaikoL1 is EssentialContract {
             "L1:receipt:topics"
         );
 
+        // TODO(david): try this
+        // require(keccak256(invalidateBlockReceipt) == evidence.header.receiptsRoot, "L2:receipt:mismatch");
+
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
