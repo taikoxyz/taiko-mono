@@ -79,14 +79,14 @@ describe("TaikoL2", function () {
         it("should revert since anchorHeight == 0", async function () {
             const randomHash = randomBytes32()
             await expect(taikoL2.anchor(0, randomHash)).to.be.revertedWith(
-                "L2:0 anchor value"
+                "L2:anchor:values"
             )
         })
 
         it("should revert since anchorHash == 0x0", async function () {
             const zeroHash = ethers.constants.HashZero
             await expect(taikoL2.anchor(10, zeroHash)).to.be.revertedWith(
-                "L2:0 anchor value"
+                "L2:anchor:values"
             )
         })
 
