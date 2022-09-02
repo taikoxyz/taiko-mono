@@ -247,7 +247,7 @@ contract TaikoL1 is EssentialContract {
         bytes calldata encodedAnchorTx,
         bytes calldata encodedAnchorReceipt
     ) external nonReentrant {
-        require(evidence.proofs.length == 2, "L1:invalid proofs");
+        require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
         LibReceiptDecoder.Receipt memory anchorReceipt = LibReceiptDecoder
@@ -259,7 +259,7 @@ contract TaikoL1 is EssentialContract {
             evidence.header.receiptsRoot,
             encodedAnchorReceipt,
             0,
-            evidence.proofs[0]
+            evidence.proofs[1]
         );
 
         (
@@ -285,7 +285,7 @@ contract TaikoL1 is EssentialContract {
             evidence.header.transactionsRoot,
             encodedAnchorTx,
             0,
-            evidence.proofs[1]
+            evidence.proofs[2]
         );
 
         finalizeBlocks();
@@ -295,7 +295,7 @@ contract TaikoL1 is EssentialContract {
         Evidence calldata evidence,
         BlockContext calldata target
     ) external nonReentrant {
-        require(evidence.proofs.length == 1, "L1:invalid proofs");
+        require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
