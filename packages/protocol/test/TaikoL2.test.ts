@@ -18,18 +18,20 @@ describe("TaikoL2", function () {
         ).deploy()
         await addressManager.init()
 
-        // Deploying TaikoL2 Contract linked with LibTxListDecoder (throws error otherwise)
-        const libTxListDecoder = await (
-            await ethers.getContractFactory("LibTxListDecoder")
+        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
+        const libTxDecoder = await (
+            await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
         const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
             libraries: {
-                LibTxListDecoder: libTxListDecoder.address,
+                LibTxDecoder: libTxDecoder.address,
             },
         })
         taikoL2 = await taikoL2Factory.deploy()
-        await taikoL2.init(addressManager.address)
+
+        const { chainId } = await hre.ethers.provider.getNetwork()
+        await taikoL2.init(addressManager.address, chainId)
 
         signers = await ethers.getSigners()
         await addressManager.setAddress(
@@ -77,14 +79,14 @@ describe("TaikoL2", function () {
         it("should revert since anchorHeight == 0", async function () {
             const randomHash = randomBytes32()
             await expect(taikoL2.anchor(0, randomHash)).to.be.revertedWith(
-                "invalid anchor"
+                "L2:0 anchor value"
             )
         })
 
         it("should revert since anchorHash == 0x0", async function () {
             const zeroHash = ethers.constants.HashZero
             await expect(taikoL2.anchor(10, zeroHash)).to.be.revertedWith(
-                "invalid anchor"
+                "L2:0 anchor value"
             )
         })
 

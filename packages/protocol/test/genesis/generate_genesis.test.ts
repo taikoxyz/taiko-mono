@@ -107,17 +107,17 @@ action("Generate Genesis", function () {
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
         })
 
-        it("LibTxListDecoder", async function () {
-            const LibTxListDecoderAlloc = getContractAlloc("LibTxListDecoder")
+        it("LibTxDecoder", async function () {
+            const LibTxDecoderAlloc = getContractAlloc("LibTxDecoder")
 
-            const LibTxListDecoder = new hre.ethers.Contract(
-                LibTxListDecoderAlloc.address,
-                require("../../artifacts/contracts/libs/LibTxListDecoder.sol/LibTxListDecoder.json").abi,
+            const LibTxDecoder = new hre.ethers.Contract(
+                LibTxDecoderAlloc.address,
+                require("../../artifacts/contracts/libs/LibTxDecoder.sol/LibTxDecoder.json").abi,
                 signer
             )
 
             await expect(
-                LibTxListDecoder.decodeTxList(ethers.utils.RLP.encode([]))
+                LibTxDecoder.decodeTxList(ethers.utils.RLP.encode([]))
             ).to.be.revertedWith("empty txList")
         })
 
@@ -135,10 +135,11 @@ action("Generate Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
-                TaikoL2,
-                "Anchored"
-            )
+            expect(await TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+
+            await expect(
+                TaikoL2.anchor(anchorHeight, anchorHash)
+            ).not.to.reverted
 
             await expect(
                 TaikoL2.creditEther(

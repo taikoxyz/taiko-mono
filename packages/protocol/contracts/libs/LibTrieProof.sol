@@ -12,8 +12,7 @@ import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 import "../thirdparty/Lib_SecureMerkleTrie.sol";
 
-/// @author dantaik <dan@taiko.xyz>
-library LibMerkleProof {
+library LibTrieProof {
     /*********************
      * Constants         *
      *********************/
@@ -34,7 +33,7 @@ library LibMerkleProof {
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding state proof and storage proof.
      */
-    function verifyStorage(
+    function prove(
         bytes32 stateRoot,
         address addr,
         bytes32 key,
@@ -69,5 +68,16 @@ library LibMerkleProof {
         );
 
         require(verified, "LTP:invalid storage proof");
+    }
+
+    function computeBlockInvalidationProofKV(
+        uint256 height,
+        bytes32 parentHash,
+        bytes32 txListHash
+    ) internal pure returns (bytes32 key, bytes32 value) {
+        key = keccak256(
+            abi.encodePacked("STORAGE_PROOF_KEY", height, parentHash)
+        );
+        value = txListHash;
     }
 }

@@ -12,11 +12,16 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
+import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
-import "../libs/LibMerkleProof.sol";
 import "../libs/LibTaikoConstants.sol";
-import "../libs/LibTxListDecoder.sol";
+import "../libs/LibTxDecoder.sol";
+import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
+import "../libs/LibTrieProof.sol";
+import "../thirdparty/Lib_BytesUtils.sol";
+import "../thirdparty/Lib_MerkleTrie.sol";
+import "../thirdparty/Lib_RLPWriter.sol";
 
 // import "./broker/IProtoBroker.sol";
 
@@ -30,7 +35,7 @@ import "../libs/LibZKP.sol";
 contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
-    using LibTxListDecoder for bytes;
+    using LibTxDecoder for bytes;
 
     /**********************
      * Structs            *
@@ -241,50 +246,56 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlock(
         Evidence calldata evidence,
-        Tx calldata anchorTx,
-        Receipt anchorReceipt
+        bytes calldata anchorTx,
+        bytes calldata anchorReceipt
     ) external nonReentrant {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        bytes32 footprint = keccak256(
-            abi.encodePacked(
-                evidence.header.height,
-                evidence.parentHash,
-                evidence.context.anchorHeight,
-                evidence.context.anchorHash
-            )
-        );
+        LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
 
-        address taikoL2Addr = resolve("taiko_l2");
-
-        // Need to check this event is the 1st transaction in the block.
-        // LibMerkleProof.verifyFootprint(
-        //     evidence.header.receiptsRoot,
-        //     taikoL2Addr,
-        //     footprint,
-        //     evidence.proofs[1]
-        // );
-
-        (uint8 txType, address txTo, uint256 txGasLimit) = LibTxListDecoder
-            .decodeTx(anchorTx);
-
-        require(txType == 0, "L1:anchor:invalid type");
-        require(txTo == taikoL2Addr, "L1:anchor:invalid to");
+        require(_tx.txType == 0, "L1:anchor:invalid type");
+        require(_tx.destination == resolve("taiko_l2"), "L1:anchor:invalid to");
         require(
-            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            _tx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
         );
-        // TODO: more checks here.
+        require(
+            Lib_BytesUtils.equal(
+                _tx.data,
+                bytes.concat(
+                    TaikoL2.anchor.selector,
+                    bytes32(evidence.context.anchorHeight),
+                    evidence.context.anchorHash
+                )
+            ),
+            "L1:anchor:invalid data"
+        );
 
-        // Need to check this transaction is the 1st transaction in the block.
-        // LibMerkleProof.verifyTransaction(
-        //     evidence.header.transactionsRoot,
-        //     taikoL2Addr,
-        //     anchorTx,
-        //     anchorTxProof,
-        //     evidence.proofs[2]
-        // );
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorTx,
+                evidence.proofs[1],
+                evidence.header.transactionsRoot
+            ),
+            "L1:invalid tx mkproof"
+        );
+
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(anchorReceipt);
+
+        require(receipt.status == 1, "L1:receipt:invalid status");
+
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorReceipt,
+                evidence.proofs[2],
+                evidence.header.receiptsRoot
+            ),
+            "L1:invalid receipt mkproof"
+        );
 
         finalizeBlocks();
     }
@@ -296,21 +307,20 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        bytes32 footprint = keccak256(
-            abi.encodePacked(
+        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
+            .computeBlockInvalidationProofKV(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
-            )
-        );
+            );
 
-        // Need to check this event is the 1st transaction in the block.
-        // LibMerkleProof.verifyFootprint(
-        //     evidence.header.receiptsRoot,
-        //     resolve("taiko_l2"),
-        //     footprint,
-        //     evidence.proofs[1]
-        // );
+        LibTrieProof.prove(
+            evidence.header.stateRoot,
+            resolve("taiko_l2"),
+            proofKey,
+            proofVal,
+            evidence.proofs[1]
+        );
 
         finalizeBlocks();
     }
@@ -342,7 +352,15 @@ contract TaikoL1 is EssentialContract {
         }
     }
 
-    function validateContext(BlockContext memory context) public view {
+    function isCommitValid(bytes32 hash) public view returns (bool) {
+        return
+            hash != 0 &&
+            commits[hash] != 0 &&
+            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
+            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
+    }
+
+    function validateContext(BlockContext memory context) public pure {
         require(
             context.id == 0 &&
                 context.anchorHeight == 0 &&
@@ -359,14 +377,6 @@ contract TaikoL1 is EssentialContract {
             "L1:invalid gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
-    }
-
-    function isCommitValid(bytes32 hash) public view returns (bool) {
-        return
-            hash != 0 &&
-            commits[hash] != 0 &&
-            block.timestamp >= commits[hash] + PROPOSING_DELAY_MIN &&
-            block.timestamp <= commits[hash] + PROPOSING_DELAY_MAX;
     }
 
     /**********************

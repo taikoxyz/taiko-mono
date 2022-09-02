@@ -1,19 +1,19 @@
-import * as log from "../../tasks/log"
 import { expect } from "chai"
-import { ethers } from "hardhat"
 import { UnsignedTransaction } from "ethers"
+import { ethers } from "hardhat"
+import * as log from "../../tasks/log"
 
-describe("LibTxListDecoder", function () {
+describe("LibTxDecoder", function () {
     let rlpWriter: any
-    let libTxListDecoder: any
+    let libTxDecoder: any
     let signer0: any
 
     before(async function () {
         rlpWriter = await (
             await ethers.getContractFactory("TestLib_RLPWriter")
         ).deploy()
-        libTxListDecoder = await (
-            await ethers.getContractFactory("LibTxListDecoder")
+        libTxDecoder = await (
+            await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
         signer0 = (await ethers.getSigners())[0]
@@ -34,7 +34,7 @@ describe("LibTxListDecoder", function () {
             const txList: string[] = []
             const txListBytes = await rlpEncodeTxList(txList)
             await expect(
-                libTxListDecoder.callStatic.decodeTxList(txListBytes)
+                libTxDecoder.callStatic.decodeTxList(txListBytes)
             ).to.be.revertedWith("empty txList")
         })
 
@@ -43,7 +43,7 @@ describe("LibTxListDecoder", function () {
                 ethers.utils.randomBytes(73)
             )
             await expect(
-                libTxListDecoder.callStatic.decodeTxList(randomBytes)
+                libTxDecoder.callStatic.decodeTxList(randomBytes)
             ).to.be.revertedWith("Invalid RLP")
         })
 
@@ -68,8 +68,9 @@ describe("LibTxListDecoder", function () {
             const txListBytes = await rlpEncodeTxList([txLegacyBytes])
             log.debug("txListBytes: ", txListBytes)
 
-            const decodedTxList =
-                await libTxListDecoder.callStatic.decodeTxList(txListBytes)
+            const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                txListBytes
+            )
             // log.debug('decodedT: ', decodedTxList)
             expect(decodedTxList.items.length).to.equal(1)
             const decodedTx1 = decodedTxList.items[0]
@@ -97,8 +98,9 @@ describe("LibTxListDecoder", function () {
             const txListBytes = await rlpEncodeTxList([txBytes])
             log.debug("txListBytes: ", txListBytes)
 
-            const decodedTxList =
-                await libTxListDecoder.callStatic.decodeTxList(txListBytes)
+            const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                txListBytes
+            )
             expect(decodedTxList.items.length).to.equal(1)
             const decodedTx1 = decodedTxList.items[0]
             expect(decodedTx1.gasLimit.toNumber()).to.equal(tx2930.gasLimit)
@@ -126,8 +128,9 @@ describe("LibTxListDecoder", function () {
             const txListBytes = await rlpEncodeTxList([txBytes])
             log.debug("txListBytes: ", txListBytes)
 
-            const decodedTxList =
-                await libTxListDecoder.callStatic.decodeTxList(txListBytes)
+            const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                txListBytes
+            )
             expect(decodedTxList.items.length).to.equal(1)
             const decodedTx1 = decodedTxList.items[0]
             expect(decodedTx1.gasLimit.toNumber()).to.equal(tx1559.gasLimit)
@@ -178,7 +181,7 @@ describe("LibTxListDecoder", function () {
         }
         const txListBytes = await rlpEncodeTxList(txRawBytesArr)
 
-        const decodedTxList = await libTxListDecoder.callStatic.decodeTxList(
+        const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
             txListBytes
         )
         // log.debug('decodedT: ', decodedTxList)
