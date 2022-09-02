@@ -16,10 +16,11 @@ import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibMerkleProof.sol";
 import "../libs/LibTaikoConstants.sol";
-import "../libs/LibTxListDecoder.sol";
+import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
-import "../libs/LibStorageProof.sol";
+import "../libs/LibTrieProof.sol";
+import "../thirdparty/Lib_BytesUtils.sol";
 
 // import "./broker/IProtoBroker.sol";
 
@@ -33,7 +34,7 @@ import "../libs/LibStorageProof.sol";
 contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
     using LibBlockHeader for BlockHeader;
-    using LibTxListDecoder for bytes;
+    using LibTxDecoder for bytes;
 
     /**********************
      * Structs            *
@@ -250,42 +251,49 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
+        LibTxDecoder.Tx memory anchorTx = LibTxDecoder.decodeTx(
+            encodedAnchorTx
+        );
+
+        require(anchorTx.txType == 0, "L1:anchor:invalid type");
+        require(
+            anchorTx.destination == resolve("taiko_l2"),
+            "L1:anchor:invalid to"
+        );
+        require(
+            anchorTx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            "L1:anchor:bad gas limit"
+        );
+        require(
+            anchorTx.data.length == 4 + (32 * 2) &&
+                bytes4(anchorTx.data) == TaikoL2.anchor.selector &&
+                Lib_BytesUtils.equal(
+                    Lib_BytesUtils.slice(anchorTx.data, 4),
+                    bytes.concat(
+                        bytes32(evidence.context.anchorHeight),
+                        evidence.context.anchorHash
+                    )
+                ),
+            "L1:anchor:invalid data"
+        );
+
+        LibMerkleProof.prove(
+            evidence.header.transactionsRoot,
+            0,
+            encodedAnchorTx,
+            evidence.proofs[2]
+        );
+
         LibReceiptDecoder.Receipt memory anchorReceipt = LibReceiptDecoder
             .decodeReceipt(encodedAnchorReceipt);
 
         require(anchorReceipt.status == 1, "L1:anchorReceipt:invalid status");
 
-        LibMerkleProof.verifyFootprint(
+        LibMerkleProof.prove(
             evidence.header.receiptsRoot,
             0,
             encodedAnchorReceipt,
             evidence.proofs[1]
-        );
-
-        (
-            uint8 txType,
-            address destination,
-            bytes memory data,
-            uint256 txGasLimit
-        ) = LibTxListDecoder.decodeTx(encodedAnchorTx);
-
-        require(txType == 0, "L1:anchor:invalid type");
-        require(destination == resolve("taiko_l2"), "L1:anchor:invalid to");
-        require(
-            txGasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L1:anchor:bad gas limit"
-        );
-        require(
-            data.length == 4 + (32 * 2) &&
-                bytes4(data) == TaikoL2.anchor.selector,
-            "L1:anchor:invalid data"
-        );
-
-        LibMerkleProof.verifyFootprint(
-            evidence.header.transactionsRoot,
-            0,
-            encodedAnchorTx,
-            evidence.proofs[2]
         );
 
         finalizeBlocks();
@@ -298,14 +306,14 @@ contract TaikoL1 is EssentialContract {
         require(evidence.proofs.length == 2, "L1:invalid proofs");
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(
+        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
+            .computeInvalidBlockStorageKV(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
             );
 
-        LibMerkleProof.verifyStorage(
+        LibTrieProof.prove(
             evidence.header.stateRoot,
             resolve("taiko_l2"),
             proofKey,

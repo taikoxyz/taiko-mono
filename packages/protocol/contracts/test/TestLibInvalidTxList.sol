@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../libs/LibInvalidTxList.sol";
 
 contract TestLibInvalidTxList {
-    function parseRecoverPayloads(LibTxListDecoder.Tx memory transaction)
+    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
         public
         pure
         returns (
@@ -24,7 +24,7 @@ contract TestLibInvalidTxList {
         return LibInvalidTxList.parseRecoverPayloads(transaction);
     }
 
-    function verifySignature(LibTxListDecoder.Tx memory transaction)
+    function verifySignature(LibTxDecoder.Tx memory transaction)
         public
         pure
         returns (address)

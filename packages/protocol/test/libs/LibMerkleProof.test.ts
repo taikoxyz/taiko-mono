@@ -13,7 +13,9 @@ describe("geth:LibMerkleProof", function () {
     before(async () => {
         hre.args = { confirmations: 1 }
         if (hre.network.name === "hardhat") {
-            throw new Error(`hardhat: eth_getProof - Method not supported`)
+            throw new Error(
+                `hardhat: debug_getRawReceipts - Method not supported`
+            )
         }
 
         const baseLibMerkleProof = await utils.deployContract(
@@ -26,72 +28,12 @@ describe("geth:LibMerkleProof", function () {
         })
     })
 
-    it("should verify storage proofs", async function () {
-        const key = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
-        const value = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
+    it("should verify proofs of transactionsRoot/receiptsRoot", async function () {
+        const tx = await ethers.provider.getSigner().sendTransaction({
+            to: ethers.constants.AddressZero,
+            value: ethers.utils.parseEther("0"),
+        })
 
-        const setStorageTx = await libMerkleProof.setStorage(key, value)
-        const setStorageReceipt = await setStorageTx.wait()
-
-        expect(setStorageReceipt.status).to.be.equal(1)
-
-        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
-            "latest",
-            false,
-        ])
-
-        const proof = await hre.ethers.provider.send("eth_getProof", [
-            libMerkleProof.address,
-            [key],
-            "latest",
-        ])
-
-        expect(
-            ethers.utils.hexlify(proof.storageProof[0].key, {
-                hexPad: "left",
-            })
-        ).to.be.equal(key)
-        expect(
-            ethers.utils.hexlify(proof.storageProof[0].value, {
-                hexPad: "left",
-            })
-        ).to.be.equal(value)
-
-        const coder = new hre.ethers.utils.AbiCoder()
-        const mkproof = coder.encode(
-            ["bytes", "bytes"],
-            [
-                `0x` + rlp.encode(proof.accountProof).toString("hex"),
-                `0x` + rlp.encode(proof.storageProof[0].proof).toString("hex"),
-            ]
-        )
-
-        await expect(
-            libMerkleProof.verifyStorage(
-                block.stateRoot,
-                libMerkleProof.address,
-                key,
-                value,
-                mkproof
-            )
-        ).not.to.be.reverted
-
-        await expect(
-            libMerkleProof.verifyStorage(
-                block.stateRoot,
-                libMerkleProof.address,
-                key,
-                hre.ethers.utils.randomBytes(32),
-                mkproof
-            )
-        ).to.be.reverted
-    })
-
-    it("should verify footprints", async function () {
-        const tx = await libMerkleProof.setStorage(
-            ethers.utils.hexlify(hre.ethers.utils.randomBytes(32)),
-            ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
-        )
         await tx.wait()
 
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
@@ -116,7 +58,7 @@ describe("geth:LibMerkleProof", function () {
         const receiptProof = await Trie.createProof(receiptTree, rlp.encode(0))
 
         await expect(
-            libMerkleProof.verifyFootprint(
+            libMerkleProof.prove(
                 block.receiptsRoot,
                 0,
                 encodedReceipt,
@@ -125,7 +67,7 @@ describe("geth:LibMerkleProof", function () {
         ).not.to.be.reverted
 
         await expect(
-            libMerkleProof.verifyFootprint(
+            libMerkleProof.prove(
                 block.receiptsRoot,
                 Math.ceil(Math.random() * 1024),
                 encodedReceipt,
@@ -150,7 +92,7 @@ describe("geth:LibMerkleProof", function () {
         const txProof = await Trie.createProof(txTree, rlp.encode(0))
 
         await expect(
-            libMerkleProof.verifyFootprint(
+            libMerkleProof.prove(
                 block.transactionsRoot,
                 0,
                 encodedTx,
@@ -159,7 +101,7 @@ describe("geth:LibMerkleProof", function () {
         ).not.to.be.reverted
 
         await expect(
-            libMerkleProof.verifyFootprint(
+            libMerkleProof.prove(
                 block.transactionsRoot,
                 Math.ceil(Math.random() * 1024),
                 encodedTx,

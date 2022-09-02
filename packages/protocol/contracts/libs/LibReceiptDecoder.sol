@@ -26,7 +26,7 @@ library LibReceiptDecoder {
     }
 
     function decodeReceipt(bytes calldata encoded)
-        public
+        internal
         pure
         returns (Receipt memory receipt)
     {

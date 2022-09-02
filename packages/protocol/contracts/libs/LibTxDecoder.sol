@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
-library LibTxListDecoder {
+library LibTxDecoder {
     struct TransactionLegacy {
         uint256 nonce;
         uint256 gasPrice;
@@ -80,14 +80,7 @@ library LibTxListDecoder {
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
-            bytes memory txBytes = Lib_RLPReader.readBytes(txs[i]);
-            (
-                uint8 txType,
-                address destination,
-                bytes memory data,
-                uint256 gasLimit
-            ) = decodeTx(txBytes);
-            _txList[i] = Tx(txType, destination, data, gasLimit, txBytes);
+            _txList[i] = decodeTx(Lib_RLPReader.readBytes(txs[i]));
         }
 
         txList = TxList(_txList);
@@ -101,47 +94,45 @@ library LibTxListDecoder {
         return keccak256(encoded);
     }
 
-    // TODO: `to` is not supported.
     function decodeTx(bytes memory txBytes)
         internal
         pure
-        returns (
-            uint8 txType,
-            address destination,
-            bytes memory data,
-            uint256 gasLimit
-        )
+        returns (Tx memory _tx)
     {
+        uint8 txType;
         assembly {
             txType := byte(0, mload(add(txBytes, 32)))
         }
 
+        _tx.txData = txBytes;
+
         // @see https://eips.ethereum.org/EIPS/eip-2718#backwards-compatibility
         if (txType >= 0xc0 && txType <= 0xfe) {
             // Legacy tx:
-            txType = 0;
+            _tx.txType = 0;
             Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
                 txBytes
             );
             TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
-            gasLimit = txLegacy.gasLimit;
-            destination = txLegacy.destination;
-            data = txLegacy.data;
+            _tx.gasLimit = txLegacy.gasLimit;
+            _tx.destination = txLegacy.destination;
+            _tx.data = txLegacy.data;
         } else if (txType <= 0x7f) {
+            _tx.txType = txType;
             Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
                 Lib_BytesUtils.slice(txBytes, 1)
             );
 
             if (txType == 1) {
                 Transaction2930 memory tx2930 = decodeTx2930(txBody);
-                gasLimit = tx2930.gasLimit;
-                destination = tx2930.destination;
-                data = tx2930.data;
-            } else if (txType == 2) {
+                _tx.gasLimit = tx2930.gasLimit;
+                _tx.destination = tx2930.destination;
+                _tx.data = tx2930.data;
+            } else if (_tx.txType == 2) {
                 Transaction1559 memory tx1559 = decodeTx1559(txBody);
-                gasLimit = tx1559.gasLimit;
-                destination = tx1559.destination;
-                data = tx1559.data;
+                _tx.gasLimit = tx1559.gasLimit;
+                _tx.destination = tx1559.destination;
+                _tx.data = tx1559.data;
             } else {
                 revert("invalid txType");
             }

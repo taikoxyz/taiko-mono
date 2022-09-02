@@ -14,11 +14,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibTaikoConstants.sol";
-import "../libs/LibTxListDecoder.sol";
-import "../libs/LibStorageProof.sol";
+import "../libs/LibTxDecoder.sol";
+import "../libs/LibTrieProof.sol";
 
 contract TaikoL2 is EssentialContract {
-    using LibTxListDecoder for bytes;
+    using LibTxDecoder for bytes;
     /**********************
      * State Variables    *
      **********************/
@@ -34,6 +34,12 @@ contract TaikoL2 is EssentialContract {
      * Events             *
      **********************/
 
+    event Anchored(
+        uint256 indexed id,
+        bytes32 parentHash,
+        uint256 anchorHeight,
+        bytes32 anchorHash
+    );
     event TxListInvalided(bytes32 value);
     event BlockInvalidated(address invalidator);
     event EtherCredited(address recipient, uint256 amount);
@@ -91,6 +97,13 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
+
+        emit Anchored(
+            block.number,
+            blockHashes[block.number - 1],
+            anchorHeight,
+            anchorHash
+        );
     }
 
     function verifyTxListInvalid(
@@ -110,11 +123,12 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        bytes32 parentHash = blockhash(block.number - 1);
-        bytes32 txListHash = txList.hashTxList();
-
-        (bytes32 proofKey, bytes32 proofVal) = LibStorageProof
-            .computeInvalidBlockProofKV(block.number, parentHash, txListHash);
+        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
+            .computeInvalidBlockStorageKV(
+                block.number,
+                blockhash(block.number - 1),
+                txList.hashTxList()
+            );
 
         assembly {
             sstore(proofKey, proofVal)

@@ -18,14 +18,14 @@ describe("TaikoL2", function () {
         ).deploy()
         await addressManager.init()
 
-        // Deploying TaikoL2 Contract linked with LibTxListDecoder (throws error otherwise)
-        const libTxListDecoder = await (
-            await ethers.getContractFactory("LibTxListDecoder")
+        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
+        const libTxDecoder = await (
+            await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
         const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
             libraries: {
-                LibTxListDecoder: libTxListDecoder.address,
+                LibTxDecoder: libTxDecoder.address,
             },
         })
         taikoL2 = await taikoL2Factory.deploy()

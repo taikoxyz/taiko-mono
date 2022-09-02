@@ -8,15 +8,22 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-library LibStorageProof {
-    function computeInvalidBlockProofKV(
-        uint256 height,
-        bytes32 parentHash,
-        bytes32 txListHash
-    ) internal pure returns (bytes32 key, bytes32 value) {
-        key = keccak256(
-            abi.encodePacked("STORAGE_PROOF_KEY", height, parentHash)
-        );
-        value = txListHash;
+import "../libs/LibTrieProof.sol";
+
+contract TestLibTrieProof {
+    function setStorage(bytes32 key, bytes32 value) public {
+        assembly {
+            sstore(key, value)
+        }
+    }
+
+    function prove(
+        bytes32 stateRoot,
+        address addr,
+        bytes32 key,
+        bytes32 value,
+        bytes calldata mkproof
+    ) public pure {
+        return LibTrieProof.prove(stateRoot, addr, key, value, mkproof);
     }
 }

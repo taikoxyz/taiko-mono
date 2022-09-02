@@ -12,16 +12,8 @@ describe("geth:LibReceiptDecoder", function () {
             )
         }
 
-        const baseLibReceiptDecoder = await (
-            await ethers.getContractFactory("LibReceiptDecoder")
-        ).deploy()
-
         libReceiptDecoder = await (
-            await ethers.getContractFactory("TestLibReceiptDecoder", {
-                libraries: {
-                    LibReceiptDecoder: baseLibReceiptDecoder.address,
-                },
-            })
+            await ethers.getContractFactory("TestLibReceiptDecoder")
         ).deploy()
     })
 
