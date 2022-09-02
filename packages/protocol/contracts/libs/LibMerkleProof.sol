@@ -73,14 +73,14 @@ library LibMerkleProof {
 
     function verifyFootprint(
         bytes32 root,
-        bytes memory footprint,
         uint256 index,
-        bytes calldata proof
+        bytes memory value,
+        bytes calldata mkproof
     ) public pure {
         bool verified = Lib_MerkleTrie.verifyInclusionProof(
-            abi.encodePacked(Lib_RLPWriter.writeUint(index)),
-            footprint,
-            proof,
+            Lib_RLPWriter.writeUint(index),
+            value,
+            mkproof,
             root
         );
 

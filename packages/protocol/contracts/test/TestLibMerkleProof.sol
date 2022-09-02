@@ -24,11 +24,11 @@ contract TestLibMerkleProof {
 
     function verifyFootprint(
         bytes32 root,
-        bytes memory footprint,
         uint256 index,
+        bytes memory value,
         bytes calldata proof
     ) public pure {
-        return LibMerkleProof.verifyFootprint(root, footprint, index, proof);
+        return LibMerkleProof.verifyFootprint(root, index, value, proof);
     }
 
     function setStorage(bytes32 key, bytes32 value) public {

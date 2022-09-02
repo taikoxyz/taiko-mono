@@ -26,7 +26,7 @@ describe("geth:LibMerkleProof", function () {
         })
     })
 
-    it("should verify inclusion proofs", async function () {
+    it("should verify storage proofs", async function () {
         const key = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
         const value = ethers.utils.hexlify(hre.ethers.utils.randomBytes(32))
 
@@ -102,7 +102,7 @@ describe("geth:LibMerkleProof", function () {
         // receipts root
         const [encodedReceipt] = await hre.ethers.provider.send(
             "debug_getRawReceipts",
-            [tx.blockHash]
+            ["latest"]
         )
 
         const receiptTree = new Trie()
@@ -118,8 +118,8 @@ describe("geth:LibMerkleProof", function () {
         await expect(
             libMerkleProof.verifyFootprint(
                 block.receiptsRoot,
-                encodedReceipt,
                 0,
+                encodedReceipt,
                 rlp.encode(receiptProof)
             )
         ).not.to.be.reverted
@@ -127,8 +127,8 @@ describe("geth:LibMerkleProof", function () {
         await expect(
             libMerkleProof.verifyFootprint(
                 block.receiptsRoot,
-                encodedReceipt,
                 Math.ceil(Math.random() * 1024),
+                encodedReceipt,
                 rlp.encode(receiptProof)
             )
         ).to.be.reverted
@@ -152,8 +152,8 @@ describe("geth:LibMerkleProof", function () {
         await expect(
             libMerkleProof.verifyFootprint(
                 block.transactionsRoot,
-                encodedTx,
                 0,
+                encodedTx,
                 rlp.encode(txProof)
             )
         ).not.to.be.reverted
@@ -161,8 +161,8 @@ describe("geth:LibMerkleProof", function () {
         await expect(
             libMerkleProof.verifyFootprint(
                 block.transactionsRoot,
-                encodedTx,
                 Math.ceil(Math.random() * 1024),
+                encodedTx,
                 rlp.encode(txProof)
             )
         ).to.be.reverted

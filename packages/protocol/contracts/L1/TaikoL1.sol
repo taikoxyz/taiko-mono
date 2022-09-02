@@ -257,8 +257,8 @@ contract TaikoL1 is EssentialContract {
 
         LibMerkleProof.verifyFootprint(
             evidence.header.receiptsRoot,
-            encodedAnchorReceipt,
             0,
+            encodedAnchorReceipt,
             evidence.proofs[1]
         );
 
@@ -283,8 +283,8 @@ contract TaikoL1 is EssentialContract {
 
         LibMerkleProof.verifyFootprint(
             evidence.header.transactionsRoot,
-            encodedAnchorTx,
             0,
+            encodedAnchorTx,
             evidence.proofs[2]
         );
 
