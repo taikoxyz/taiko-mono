@@ -49,7 +49,7 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight < block.number, "L2:anchored already");
+        require(lastAnchorHeight < block.number, "L2:anchored");
         lastAnchorHeight = block.number;
         _;
     }
@@ -63,7 +63,7 @@ contract TaikoL2 is EssentialContract {
     }
 
     fallback() external payable {
-        revert("L2:not allowed");
+        revert("L2:prohibited");
     }
 
     function init(address _addressManager, uint256 _chainId)
@@ -81,7 +81,7 @@ contract TaikoL2 is EssentialContract {
     {
         require(
             recipient != address(0) && recipient != address(this),
-            "L2:invalid address"
+            "L2:recipient"
         );
         payable(recipient).transfer(amount);
         emit EtherCredited(recipient, amount);
@@ -93,7 +93,7 @@ contract TaikoL2 is EssentialContract {
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
+        require(anchorHeight != 0 && anchorHash != 0, "L2:anchor:values");
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
 
@@ -115,10 +115,7 @@ contract TaikoL2 is EssentialContract {
             hint,
             txIdx
         );
-        require(
-            reason != LibInvalidTxList.Reason.OK,
-            "L2:failed to invalidate txList"
-        );
+        require(reason != LibInvalidTxList.Reason.OK, "L2:failed");
 
         _checkGlobalVariables();
 
@@ -127,7 +124,7 @@ contract TaikoL2 is EssentialContract {
 
     function _checkGlobalVariables() private {
         // Check chainid
-        require(block.chainid == chainId, "L2:invalid chain id");
+        require(block.chainid == chainId, "L2:chainId");
 
         // Check base fee
         // require(block.basefee == 0, "L2:invalid base fee");
@@ -135,7 +132,7 @@ contract TaikoL2 is EssentialContract {
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
             uint256 j = block.number - i;
-            require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
+            require(blockHashes[j] == blockhash(j), "L2:ancestorHash");
         }
 
         // Store parent hash into storage tree.

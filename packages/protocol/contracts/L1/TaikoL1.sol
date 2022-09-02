@@ -151,7 +151,7 @@ contract TaikoL1 is EssentialContract {
         bytes32 hash = keccak256(
             abi.encodePacked(context.beneficiary, context.txListHash)
         );
-        require(isCommitValid(hash), "L1:invalid commit");
+        require(isCommitValid(hash), "L1:commit");
         delete commits[hash];
         _;
         finalizeBlocks();
@@ -175,12 +175,12 @@ contract TaikoL1 is EssentialContract {
     }
 
     function commitBlock(bytes32 hash) external {
-        require(hash != 0, "L1:zero hash");
+        require(hash != 0, "L1:hash");
 
         require(
             commits[hash] == 0 ||
                 block.timestamp > commits[hash] + PROPOSING_DELAY_MAX,
-            "L1:already committed"
+            "L1:committed"
         );
         commits[hash] = block.timestamp;
         emit BlockCommitted(hash, block.timestamp + PROPOSING_DELAY_MAX);
@@ -207,11 +207,11 @@ contract TaikoL1 is EssentialContract {
                 txList.length <=
                 LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
                 context.txListHash == txList.hashTxList(),
-            "L1:invalid txList"
+            "L1:txList"
         );
         require(
             nextPendingId <= lastFinalizedId + MAX_PENDING_BLOCKS,
-            "L1:too many pending blocks"
+            "L1:tooMany"
         );
 
         context.id = nextPendingId;
@@ -251,16 +251,16 @@ contract TaikoL1 is EssentialContract {
         bytes calldata anchorTx,
         bytes calldata anchorReceipt
     ) external nonReentrant {
-        require(evidence.proofs.length == 3, "L1:invalid proofs");
+        require(evidence.proofs.length == 3, "L1:proof:size");
         _proveBlock(evidence, evidence.context, 0);
 
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
 
-        require(_tx.txType == 0, "L1:anchor:invalid type");
-        require(_tx.destination == resolve("taiko_l2"), "L1:anchor:invalid to");
+        require(_tx.txType == 0, "L1:anchor:type");
+        require(_tx.destination == resolve("taiko_l2"), "L1:anchor:dest");
         require(
             _tx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
-            "L1:anchor:bad gas limit"
+            "L1:anchor:gasLimit"
         );
         require(
             Lib_BytesUtils.equal(
@@ -271,7 +271,7 @@ contract TaikoL1 is EssentialContract {
                     evidence.context.anchorHash
                 )
             ),
-            "L1:anchor:invalid data"
+            "L1:anchor:calldata"
         );
 
         require(
@@ -281,13 +281,13 @@ contract TaikoL1 is EssentialContract {
                 evidence.proofs[1],
                 evidence.header.transactionsRoot
             ),
-            "L1:invalid tx mkproof"
+            "L1:tx:proof"
         );
 
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(anchorReceipt);
 
-        require(receipt.status == 1, "L1:receipt:invalid status");
+        require(receipt.status == 1, "L1:receipt:status");
 
         require(
             Lib_MerkleTrie.verifyInclusionProof(
@@ -296,7 +296,7 @@ contract TaikoL1 is EssentialContract {
                 evidence.proofs[2],
                 evidence.header.receiptsRoot
             ),
-            "L1:invalid receipt mkproof"
+            "L1:receipt:proof"
         );
 
         finalizeBlocks();
@@ -314,7 +314,7 @@ contract TaikoL1 is EssentialContract {
             .decodeReceipt(invalidateBlockReceipt);
 
         require(receipt.status == 1, "L1:receipt:status");
-        require(receipt.logs.length == 1, "L1:receipt.logsize");
+        require(receipt.logs.length == 1, "L1:receipt:logsize");
         require(
             receipt.logs[0].contractAddress == resolve("taiko_l2"),
             "L1:receipt:addr"
@@ -335,7 +335,7 @@ contract TaikoL1 is EssentialContract {
                 evidence.proofs[1],
                 evidence.header.receiptsRoot
             ),
-            "L1:receipt:mkproof"
+            "L1:receipt:proof"
         );
 
         finalizeBlocks();
@@ -385,12 +385,12 @@ contract TaikoL1 is EssentialContract {
                 context.proposedAt == 0 &&
                 context.beneficiary != address(0) &&
                 context.txListHash != 0,
-            "L1:nonzero placeholder fields"
+            "L1:placeholder"
         );
 
         require(
             context.gasLimit <= LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            "L1:invalid gasLimit"
+            "L1:gasLimit"
         );
         require(context.extraData.length <= 32, "L1:extraData too large");
     }
@@ -404,8 +404,8 @@ contract TaikoL1 is EssentialContract {
         BlockContext calldata target,
         bytes32 blockHashOverride
     ) private {
-        require(evidence.context.id == target.id, "L1:not same height");
-        require(evidence.prover != address(0), "L1:invalid prover");
+        require(evidence.context.id == target.id, "L1:height");
+        require(evidence.prover != address(0), "L1:prover");
 
         _checkContextPending(target);
         _validateHeaderForContext(evidence.header, evidence.context);
@@ -446,20 +446,20 @@ contract TaikoL1 is EssentialContract {
             require(
                 fc.blockHash == blockHash &&
                     fc.proposedAt == context.proposedAt,
-                "L1:conflicting proof"
+                "L1:proof:conflicting"
             );
             require(
                 fc.provers.length < MAX_PROOFS_PER_FORK_CHOICE,
-                "L1:too many proofs"
+                "L1:proof:tooMany"
             );
 
             // No uncle proof can take more than 1.5x time the first proof did.
             uint256 delay = fc.provenAt - fc.proposedAt;
             uint256 deadline = fc.provenAt + delay / 2;
-            require(block.timestamp <= deadline, "L1:too late");
+            require(block.timestamp <= deadline, "L1:tooLate");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
-                require(fc.provers[i] != prover, "L1:duplicate prover");
+                require(fc.provers[i] != prover, "L1:prover:dup");
             }
         }
 
@@ -515,11 +515,11 @@ contract TaikoL1 is EssentialContract {
     function _checkContextPending(BlockContext calldata context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
-            "L1:invalid id"
+            "L1:ctx:id"
         );
         require(
             _getPendingBlock(context.id).contextHash == _hashContext(context),
-            "L1:context mismatch"
+            "L1:cxt:mismatch"
         );
     }
 
@@ -529,7 +529,7 @@ contract TaikoL1 is EssentialContract {
                 header.extraData.length <= 32 &&
                 header.difficulty == 0 &&
                 header.nonce == 0,
-            "L1:header mismatch"
+            "L1:header:mismatch"
         );
     }
 
@@ -544,7 +544,7 @@ contract TaikoL1 is EssentialContract {
                 header.extraData.length == context.extraData.length &&
                 keccak256(header.extraData) == keccak256(context.extraData) &&
                 header.mixHash == context.mixHash,
-            "L1:header mismatch"
+            "L1:ctx:mismatch"
         );
     }
 
