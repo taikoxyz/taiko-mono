@@ -135,7 +135,10 @@ library LibInvalidTxList {
 
         // Signature values are always last three RLP items for all kinds of
         // transactions.
-        bytes[] memory list = new bytes[](txRLPItems.length - 3);
+        bytes[] memory list = new bytes[](
+            transaction.txType == 0 ? txRLPItems.length : txRLPItems.length - 3
+        );
+
         for (uint256 i = 0; i < list.length; i++) {
             // For Non-legacy transactions, accessList is always the
             // fourth to last item.
@@ -147,6 +150,17 @@ library LibInvalidTxList {
             list[i] = Lib_RLPWriter.writeBytes(
                 Lib_RLPReader.readBytes(txRLPItems[i])
             );
+
+            // For legacy transactions, there are three more RLP items to
+            // encode defined in EIP-155.
+            if (transaction.txType == 0 && i == list.length - 4) {
+                list[i + 1] = Lib_RLPWriter.writeUint(
+                    LibTaikoConstants.TAIKO_CHAIN_ID
+                );
+                list[i + 2] = Lib_RLPWriter.writeUint64(0);
+                list[i + 3] = Lib_RLPWriter.writeUint64(0);
+                break;
+            }
         }
 
         bytes memory unsignedTxRlp = Lib_RLPWriter.writeList(list);
@@ -159,17 +173,28 @@ library LibInvalidTxList {
             );
         }
 
-        v = uint8(Lib_RLPReader.readUint256(txRLPItems[txRLPItems.length - 3]));
+        v = normalizeV(transaction.txType, txRLPItems[txRLPItems.length - 3]);
         r = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 2]);
         s = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 1]);
 
-        // Non-legacy txs are defined to use 0 and 1 as their recovery
-        // id, add 27 to become equivalent to raw Homestead signatures that
-        // used in ecrecover.
-        if (transaction.txType != 0) {
-            v += 27;
+        hash = keccak256(unsignedTxRlp);
+    }
+
+    // The signature value v used by `ecrecover(hash, v, r, s)` should either
+    // be 27 or 28, EIP-1559 / EIP-2930 txs are defined to use {0,1} as recovery
+    // id and EIP-155 txs use {0,1} + CHAIN_ID * 2 + 35, so normalize them
+    // at first.
+    function normalizeV(uint8 txType, Lib_RLPReader.RLPItem memory rlpItem)
+        internal
+        pure
+        returns (uint8)
+    {
+        uint256 v = Lib_RLPReader.readUint256(rlpItem);
+
+        if (txType == 0) {
+            v -= LibTaikoConstants.TAIKO_CHAIN_ID * 2 + 35;
         }
 
-        hash = keccak256(unsignedTxRlp);
+        return uint8(v) + 27;
     }
 }
