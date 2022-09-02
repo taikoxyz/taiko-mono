@@ -18,7 +18,7 @@ To run test cases on hardhat network:
 yarn test
 ```
 
-To run test cases that rley on a go-ethereum node:
+To run test cases that rely on a go-ethereum node:
 
 ```bash
 yarn test:geth
