@@ -40,8 +40,7 @@ contract TaikoL2 is EssentialContract {
         uint256 anchorHeight,
         bytes32 anchorHash
     );
-    event TxListInvalided(bytes32 value);
-    event BlockInvalidated(address invalidator);
+    event BlockInvalidated(bytes32 txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -106,7 +105,7 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function verifyTxListInvalid(
+    function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
         uint256 txIdx
@@ -123,16 +122,20 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
+        bytes32 txListHash = txList.hashTxList();
+
         (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeInvalidBlockStorageKV(
+            .computeBlockInvalidationProofKV(
                 block.number,
                 blockhash(block.number - 1),
-                txList.hashTxList()
+                txListHash
             );
 
         assembly {
             sstore(proofKey, proofVal)
         }
+
+        emit BlockInvalidated(txListHash);
     }
 
     function _checkGlobalVariables() private {

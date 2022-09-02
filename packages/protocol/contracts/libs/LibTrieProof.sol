@@ -70,7 +70,7 @@ library LibTrieProof {
         require(verified, "LTP:invalid storage proof");
     }
 
-    function computeInvalidBlockStorageKV(
+    function L(
         uint256 height,
         bytes32 parentHash,
         bytes32 txListHash

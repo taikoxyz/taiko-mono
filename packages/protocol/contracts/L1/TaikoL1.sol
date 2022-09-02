@@ -14,13 +14,15 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
-import "../libs/LibMerkleProof.sol";
+
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
 import "../libs/LibTrieProof.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
+import "../thirdparty/Lib_MerkleTrie.sol";
+import "../thirdparty/Lib_RLPWriter.sol";
 
 // import "./broker/IProtoBroker.sol";
 
@@ -245,30 +247,25 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlock(
         Evidence calldata evidence,
-        bytes calldata encodedAnchorTx,
-        bytes calldata encodedAnchorReceipt
+        bytes calldata anchorTx,
+        bytes calldata anchorReceipt
     ) external nonReentrant {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        LibTxDecoder.Tx memory anchorTx = LibTxDecoder.decodeTx(
-            encodedAnchorTx
-        );
+        LibTxDecoder.Tx memory tx = LibTxDecoder.decodeTx(anchorTx);
 
-        require(anchorTx.txType == 0, "L1:anchor:invalid type");
+        require(tx.txType == 0, "L1:anchor:invalid type");
+        require(tx.destination == resolve("taiko_l2"), "L1:anchor:invalid to");
         require(
-            anchorTx.destination == resolve("taiko_l2"),
-            "L1:anchor:invalid to"
-        );
-        require(
-            anchorTx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            tx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
         );
         require(
-            anchorTx.data.length == 4 + (32 * 2) &&
-                bytes4(anchorTx.data) == TaikoL2.anchor.selector &&
+            tx.data.length == 4 + (32 * 2) &&
+                bytes4(tx.data) == TaikoL2.anchor.selector &&
                 Lib_BytesUtils.equal(
-                    Lib_BytesUtils.slice(anchorTx.data, 4),
+                    Lib_BytesUtils.slice(tx.data, 4),
                     bytes.concat(
                         bytes32(evidence.context.anchorHeight),
                         evidence.context.anchorHash
@@ -277,23 +274,29 @@ contract TaikoL1 is EssentialContract {
             "L1:anchor:invalid data"
         );
 
-        LibMerkleProof.prove(
-            evidence.header.transactionsRoot,
-            0,
-            encodedAnchorTx,
-            evidence.proofs[2]
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorTx,
+                evidence.proofs[1],
+                evidence.header.transactionsRoot
+            ),
+            "L1:invalid tx mkproof"
         );
 
-        LibReceiptDecoder.Receipt memory anchorReceipt = LibReceiptDecoder
-            .decodeReceipt(encodedAnchorReceipt);
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(anchorReceipt);
 
-        require(anchorReceipt.status == 1, "L1:anchorReceipt:invalid status");
+        require(receipt.status == 1, "L1:receipt:invalid status");
 
-        LibMerkleProof.prove(
-            evidence.header.receiptsRoot,
-            0,
-            encodedAnchorReceipt,
-            evidence.proofs[1]
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorReceipt,
+                evidence.proofs[2],
+                evidence.header.receiptsRoot
+            ),
+            "L1:invalid receipt mkproof"
         );
 
         finalizeBlocks();
@@ -307,7 +310,7 @@ contract TaikoL1 is EssentialContract {
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeInvalidBlockStorageKV(
+            .computeBlockInvalidationProofKV(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
