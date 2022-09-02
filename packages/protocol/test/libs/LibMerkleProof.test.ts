@@ -43,8 +43,16 @@ describe("geth:LibMerkleProof", function () {
             ),
         ])
 
-        expect(proof.storageProof[0].key).to.be.equal(key)
-        expect(proof.storageProof[0].value).to.be.equal(value)
+        expect(
+            ethers.utils.hexlify(proof.storageProof[0].key, {
+                hexPad: "left",
+            })
+        ).to.be.equal(key)
+        expect(
+            ethers.utils.hexlify(proof.storageProof[0].value, {
+                hexPad: "left",
+            })
+        ).to.be.equal(value)
 
         const coder = new hre.ethers.utils.AbiCoder()
         const mkproof = coder.encode(
@@ -95,25 +103,53 @@ describe("geth:LibMerkleProof", function () {
             false,
         ])
 
+        // receipts root
         const [encodedReceipt] = await hre.ethers.provider.send(
             "debug_getRawReceipts",
             [tx.blockHash]
         )
 
-        const tree = new Trie()
+        const receiptTree = new Trie()
 
-        await tree.put(rlp.encode(0), encodedReceipt)
+        await receiptTree.put(rlp.encode(0), encodedReceipt)
 
-        expect(ethers.utils.hexlify(tree.root)).to.be.equal(block.receiptsRoot)
+        expect(ethers.utils.hexlify(receiptTree.root)).to.be.equal(
+            block.receiptsRoot
+        )
 
-        const proof = await Trie.createProof(tree, rlp.encode(0))
+        const receiptProof = await Trie.createProof(receiptTree, rlp.encode(0))
 
         await expect(
             libMerkleProof.callStatic.verifyFootprint(
                 block.receiptsRoot,
                 encodedReceipt,
                 0,
-                rlp.encode(proof)
+                rlp.encode(receiptProof)
+            )
+        ).not.to.be.reverted
+
+        // transactions root
+        const encodedTx = await hre.ethers.provider.send(
+            "eth_getRawTransactionByHash",
+            [tx.hash]
+        )
+
+        const txTree = new Trie()
+
+        await txTree.put(rlp.encode(0), encodedTx)
+
+        expect(ethers.utils.hexlify(txTree.root)).to.be.equal(
+            block.transactionsRoot
+        )
+
+        const txProof = await Trie.createProof(txTree, rlp.encode(0))
+
+        await expect(
+            libMerkleProof.callStatic.verifyFootprint(
+                block.transactionsRoot,
+                encodedTx,
+                0,
+                rlp.encode(txProof)
             )
         ).not.to.be.reverted
     })
