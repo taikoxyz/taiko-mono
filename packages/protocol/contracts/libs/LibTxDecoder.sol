@@ -95,7 +95,7 @@ library LibTxDecoder {
     }
 
     function decodeTx(bytes memory txBytes)
-        internal
+        public
         pure
         returns (Tx memory _tx)
     {

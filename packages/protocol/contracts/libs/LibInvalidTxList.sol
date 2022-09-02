@@ -12,7 +12,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxDecoder.sol";
-import "../libs/LibMerkleProof.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 

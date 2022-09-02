@@ -14,13 +14,14 @@ import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
-import "../libs/LibMerkleProof.sol";
 import "../libs/LibTaikoConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
 import "../libs/LibTrieProof.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
+import "../thirdparty/Lib_MerkleTrie.sol";
+import "../thirdparty/Lib_RLPWriter.sol";
 
 // import "./broker/IProtoBroker.sol";
 
@@ -245,55 +246,55 @@ contract TaikoL1 is EssentialContract {
 
     function proveBlock(
         Evidence calldata evidence,
-        bytes calldata encodedAnchorTx,
-        bytes calldata encodedAnchorReceipt
+        bytes calldata anchorTx,
+        bytes calldata anchorReceipt
     ) external nonReentrant {
         require(evidence.proofs.length == 3, "L1:invalid proofs");
         _proveBlock(evidence, evidence.context, 0);
 
-        LibTxDecoder.Tx memory anchorTx = LibTxDecoder.decodeTx(
-            encodedAnchorTx
-        );
+        LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
 
-        require(anchorTx.txType == 0, "L1:anchor:invalid type");
+        require(_tx.txType == 0, "L1:anchor:invalid type");
+        require(_tx.destination == resolve("taiko_l2"), "L1:anchor:invalid to");
         require(
-            anchorTx.destination == resolve("taiko_l2"),
-            "L1:anchor:invalid to"
-        );
-        require(
-            anchorTx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            _tx.gasLimit == LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:bad gas limit"
         );
         require(
-            anchorTx.data.length == 4 + (32 * 2) &&
-                Lib_BytesUtils.equal(
-                    anchorTx.data,
-                    bytes.concat(
-                        TaikoL2.anchor.selector,
-                        bytes32(evidence.context.anchorHeight),
-                        evidence.context.anchorHash
-                    )
-                ),
+            Lib_BytesUtils.equal(
+                _tx.data,
+                bytes.concat(
+                    TaikoL2.anchor.selector,
+                    bytes32(evidence.context.anchorHeight),
+                    evidence.context.anchorHash
+                )
+            ),
             "L1:anchor:invalid data"
         );
 
-        LibMerkleProof.prove(
-            evidence.header.transactionsRoot,
-            0,
-            encodedAnchorTx,
-            evidence.proofs[2]
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorTx,
+                evidence.proofs[1],
+                evidence.header.transactionsRoot
+            ),
+            "L1:invalid tx mkproof"
         );
 
-        LibReceiptDecoder.Receipt memory anchorReceipt = LibReceiptDecoder
-            .decodeReceipt(encodedAnchorReceipt);
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(anchorReceipt);
 
-        require(anchorReceipt.status == 1, "L1:anchorReceipt:invalid status");
+        require(receipt.status == 1, "L1:receipt:invalid status");
 
-        LibMerkleProof.prove(
-            evidence.header.receiptsRoot,
-            0,
-            encodedAnchorReceipt,
-            evidence.proofs[1]
+        require(
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeUint(0),
+                anchorReceipt,
+                evidence.proofs[2],
+                evidence.header.receiptsRoot
+            ),
+            "L1:invalid receipt mkproof"
         );
 
         finalizeBlocks();
@@ -307,7 +308,7 @@ contract TaikoL1 is EssentialContract {
         _proveBlock(evidence, target, INVALID_BLOCK_DEADEND_HASH);
 
         (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeInvalidBlockStorageKV(
+            .computeBlockInvalidationProofKV(
                 evidence.header.height,
                 evidence.parentHash,
                 target.txListHash
