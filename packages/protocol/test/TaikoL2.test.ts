@@ -93,7 +93,7 @@ describe("TaikoL2", function () {
         it("should revert since ancestor hashes not written", async function () {
             const randomHash = randomBytes32()
             await expect(taikoL2.anchor(10, randomHash)).to.be.revertedWith(
-                "invalid ancestor hash"
+                "L2:ancestorHash"
             )
         })
     })
