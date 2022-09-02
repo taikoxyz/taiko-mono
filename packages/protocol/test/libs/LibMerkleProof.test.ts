@@ -35,12 +35,15 @@ describe("geth:LibMerkleProof", function () {
 
         expect(setStorageReceipt.status).to.be.equal(1)
 
+        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
+            "latest",
+            false,
+        ])
+
         const proof = await hre.ethers.provider.send("eth_getProof", [
             libMerkleProof.address,
             [key],
-            hre.ethers.utils.hexValue(
-                hre.ethers.utils.hexlify(setStorageReceipt.blockNumber)
-            ),
+            "latest",
         ])
 
         expect(
@@ -63,15 +66,8 @@ describe("geth:LibMerkleProof", function () {
             ]
         )
 
-        const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
-            hre.ethers.utils.hexValue(
-                hre.ethers.utils.hexlify(setStorageReceipt.blockNumber)
-            ),
-            false,
-        ])
-
         await expect(
-            libMerkleProof.callStatic.verifyStorage(
+            libMerkleProof.verifyStorage(
                 block.stateRoot,
                 libMerkleProof.address,
                 key,
@@ -81,7 +77,7 @@ describe("geth:LibMerkleProof", function () {
         ).not.to.be.reverted
 
         await expect(
-            libMerkleProof.callStatic.verifyStorage(
+            libMerkleProof.verifyStorage(
                 block.stateRoot,
                 libMerkleProof.address,
                 key,
@@ -99,7 +95,7 @@ describe("geth:LibMerkleProof", function () {
         await tx.wait()
 
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
-            hre.ethers.utils.hexValue(hre.ethers.utils.hexlify(tx.blockNumber)),
+            "latest",
             false,
         ])
 
@@ -120,13 +116,22 @@ describe("geth:LibMerkleProof", function () {
         const receiptProof = await Trie.createProof(receiptTree, rlp.encode(0))
 
         await expect(
-            libMerkleProof.callStatic.verifyFootprint(
+            libMerkleProof.verifyFootprint(
                 block.receiptsRoot,
                 encodedReceipt,
                 0,
                 rlp.encode(receiptProof)
             )
         ).not.to.be.reverted
+
+        await expect(
+            libMerkleProof.verifyFootprint(
+                block.receiptsRoot,
+                encodedReceipt,
+                Math.ceil(Math.random() * 1024),
+                rlp.encode(receiptProof)
+            )
+        ).to.be.reverted
 
         // transactions root
         const encodedTx = await hre.ethers.provider.send(
@@ -145,12 +150,21 @@ describe("geth:LibMerkleProof", function () {
         const txProof = await Trie.createProof(txTree, rlp.encode(0))
 
         await expect(
-            libMerkleProof.callStatic.verifyFootprint(
+            libMerkleProof.verifyFootprint(
                 block.transactionsRoot,
                 encodedTx,
                 0,
                 rlp.encode(txProof)
             )
         ).not.to.be.reverted
+
+        await expect(
+            libMerkleProof.verifyFootprint(
+                block.transactionsRoot,
+                encodedTx,
+                Math.ceil(Math.random() * 1024),
+                rlp.encode(txProof)
+            )
+        ).to.be.reverted
     })
 })
