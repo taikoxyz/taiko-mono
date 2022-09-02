@@ -8,27 +8,22 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibInvalidTxList.sol";
+import "../libs/LibTrieProof.sol";
 
-contract TestLibInvalidTxList {
-    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
-        public
-        pure
-        returns (
-            bytes32 hash,
-            uint8 v,
-            bytes32 r,
-            bytes32 s
-        )
-    {
-        return LibInvalidTxList.parseRecoverPayloads(transaction);
+contract TestLibTrieProof {
+    function setStorage(bytes32 key, bytes32 value) public {
+        assembly {
+            sstore(key, value)
+        }
     }
 
-    function verifySignature(LibTxDecoder.Tx memory transaction)
-        public
-        pure
-        returns (address)
-    {
-        return LibInvalidTxList.verifySignature(transaction);
+    function prove(
+        bytes32 stateRoot,
+        address addr,
+        bytes32 key,
+        bytes32 value,
+        bytes calldata mkproof
+    ) public pure {
+        return LibTrieProof.prove(stateRoot, addr, key, value, mkproof);
     }
 }

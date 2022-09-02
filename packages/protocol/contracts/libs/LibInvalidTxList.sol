@@ -11,8 +11,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "../libs/LibTaikoConstants.sol";
-import "../libs/LibTxListDecoder.sol";
-import "../libs/LibMerkleProof.sol";
+import "../libs/LibTxDecoder.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 
@@ -49,15 +48,15 @@ library LibInvalidTxList {
             return Reason.BINARY_TOO_LARGE;
         }
 
-        try LibTxListDecoder.decodeTxList(encoded) returns (
-            LibTxListDecoder.TxList memory txList
+        try LibTxDecoder.decodeTxList(encoded) returns (
+            LibTxDecoder.TxList memory txList
         ) {
             if (txList.items.length > LibTaikoConstants.TAIKO_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
             if (
-                LibTxListDecoder.sumGasLimit(txList) >
+                LibTxDecoder.sumGasLimit(txList) >
                 LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT -
                     LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT
             ) {
@@ -65,7 +64,7 @@ library LibInvalidTxList {
             }
 
             require(txIdx < txList.items.length, "invalid txIdx");
-            LibTxListDecoder.Tx memory _tx = txList.items[txIdx];
+            LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
@@ -89,7 +88,7 @@ library LibInvalidTxList {
         }
     }
 
-    function verifySignature(LibTxListDecoder.Tx memory transaction)
+    function verifySignature(LibTxDecoder.Tx memory transaction)
         internal
         pure
         returns (address)
@@ -112,7 +111,7 @@ library LibInvalidTxList {
         return recoveredAddress;
     }
 
-    function parseRecoverPayloads(LibTxListDecoder.Tx memory transaction)
+    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
         internal
         pure
         returns (

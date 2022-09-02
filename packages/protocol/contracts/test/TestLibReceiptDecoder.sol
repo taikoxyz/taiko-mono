@@ -8,27 +8,20 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibInvalidTxList.sol";
+import "../libs/LibReceiptDecoder.sol";
 
-contract TestLibInvalidTxList {
-    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
-        public
-        pure
-        returns (
-            bytes32 hash,
-            uint8 v,
-            bytes32 r,
-            bytes32 s
-        )
-    {
-        return LibInvalidTxList.parseRecoverPayloads(transaction);
+contract TestLibReceiptDecoder {
+    event TestLibReceiptDecoderEvent(uint256 indexed a, bytes32 b);
+
+    function emitTestEvent(uint256 a, bytes32 b) public {
+        emit TestLibReceiptDecoderEvent(a, b);
     }
 
-    function verifySignature(LibTxDecoder.Tx memory transaction)
+    function decodeReceipt(bytes calldata encoded)
         public
         pure
-        returns (address)
+        returns (LibReceiptDecoder.Receipt memory receipt)
     {
-        return LibInvalidTxList.verifySignature(transaction);
+        return LibReceiptDecoder.decodeReceipt(encoded);
     }
 }

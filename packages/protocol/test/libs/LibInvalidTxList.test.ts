@@ -83,6 +83,8 @@ describe("LibInvalidTxList", function () {
             const [hash, v, r, s] = await libInvalidTxList.parseRecoverPayloads(
                 {
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData: ethers.utils.serializeTransaction(
                         unsignedTx,
@@ -108,6 +110,8 @@ describe("LibInvalidTxList", function () {
             expect(
                 await libInvalidTxList.verifySignature({
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData: ethers.utils.serializeTransaction(
                         unsignedTx,
@@ -126,12 +130,12 @@ describe("LibInvalidTxList", function () {
             const signature = signingKey.signDigest(expectedHash)
 
             const randomSignature = {
-                v: Math.floor(Math.random() * 1024),
+                v: Math.floor(Math.random() * (Math.pow(2, 8) - 28)),
                 r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }
 
-            const txData = changeSignature(
+            const txData = await changeSignature(
                 unsignedTx.type,
                 ethers.utils.arrayify(
                     ethers.utils.serializeTransaction(unsignedTx, signature)
@@ -142,6 +146,8 @@ describe("LibInvalidTxList", function () {
             expect(
                 await libInvalidTxList.verifySignature({
                     txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
                     txData,
                 })

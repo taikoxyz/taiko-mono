@@ -153,9 +153,9 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./thirdparty/AddressManager.sol/AddressManager.json"
         )),
-        LibTxListDecoder: require(path.join(
+        LibTxDecoder: require(path.join(
             ARTIFACTS_PATH,
-            "./libs/LibTxListDecoder.sol/LibTxListDecoder.json"
+            "./libs/LibTxDecoder.sol/LibTxDecoder.json"
         )),
         TaikoL2: require(path.join(
             ARTIFACTS_PATH,
@@ -169,8 +169,8 @@ async function generateContractConfigs(
         let bytecode = (artifact as any).bytecode
 
         if (contractName === "TaikoL2") {
-            if (!addressMap.LibTxListDecoder) {
-                throw new Error("LibTxListDecoder not initialized")
+            if (!addressMap.LibTxDecoder) {
+                throw new Error("LibTxDecoder not initialized")
             }
 
             bytecode = linkTaikoL2Bytecode(bytecode, addressMap)
@@ -208,10 +208,9 @@ async function generateContractConfigs(
                 },
             },
         },
-        LibTxListDecoder: {
-            address: addressMap.LibTxListDecoder,
-            deployedBytecode:
-                contractArtifacts.LibTxListDecoder.deployedBytecode,
+        LibTxDecoder: {
+            address: addressMap.LibTxDecoder,
+            deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
             variables: {},
         },
         TaikoL2: {
@@ -230,7 +229,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                _chainId: config.chainId,
+                chainId: config.chainId,
             },
         },
     }
@@ -241,16 +240,16 @@ async function generateContractConfigs(
 function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
-    if (Object.keys(refs).length !== 2) {
+    if (Object.keys(refs).length !== 1) {
         throw new Error(
-            `wrong link references amount, expected: 2, get: ${
+            `wrong link references amount, expected: 1, get: ${
                 Object.keys(refs).length
             }`
         )
     }
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTxListDecoder,
+        [Object.keys(refs)[0]]: addressMap.LibTxDecoder,
     })
 
     if (linkedBytecode.includes("$__")) {

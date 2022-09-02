@@ -14,10 +14,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibTaikoConstants.sol";
-import "../libs/LibTxListDecoder.sol";
+import "../libs/LibTxDecoder.sol";
+import "../libs/LibTrieProof.sol";
 
 contract TaikoL2 is EssentialContract {
-    using LibTxListDecoder for bytes;
+    using LibTxDecoder for bytes;
     /**********************
      * State Variables    *
      **********************/
@@ -33,8 +34,13 @@ contract TaikoL2 is EssentialContract {
      * Events             *
      **********************/
 
-    event TxListInvalided(bytes32 value);
-    event BlockInvalidated(address invalidator);
+    event Anchored(
+        uint256 indexed id,
+        bytes32 parentHash,
+        uint256 anchorHeight,
+        bytes32 anchorHash
+    );
+    event BlockInvalidated(bytes32 txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -90,9 +96,16 @@ contract TaikoL2 is EssentialContract {
         require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
+
+        emit Anchored(
+            block.number,
+            blockHashes[block.number - 1],
+            anchorHeight,
+            anchorHash
+        );
     }
 
-    function verifyTxListInvalid(
+    function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
         uint256 txIdx
@@ -109,7 +122,20 @@ contract TaikoL2 is EssentialContract {
 
         _checkGlobalVariables();
 
-        //ssstore
+        bytes32 txListHash = txList.hashTxList();
+
+        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
+            .computeBlockInvalidationProofKV(
+                block.number,
+                blockhash(block.number - 1),
+                txListHash
+            );
+
+        assembly {
+            sstore(proofKey, proofVal)
+        }
+
+        emit BlockInvalidated(txListHash);
     }
 
     function _checkGlobalVariables() private {
