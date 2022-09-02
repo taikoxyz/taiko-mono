@@ -266,10 +266,10 @@ contract TaikoL1 is EssentialContract {
         );
         require(
             anchorTx.data.length == 4 + (32 * 2) &&
-                bytes4(anchorTx.data) == TaikoL2.anchor.selector &&
                 Lib_BytesUtils.equal(
-                    Lib_BytesUtils.slice(anchorTx.data, 4),
+                    anchorTx.data,
                     bytes.concat(
+                        TaikoL2.anchor.selector,
                         bytes32(evidence.context.anchorHeight),
                         evidence.context.anchorHash
                     )
