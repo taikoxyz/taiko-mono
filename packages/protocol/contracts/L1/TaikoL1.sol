@@ -315,16 +315,15 @@ contract TaikoL1 is EssentialContract {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(receipt.logs.length == 1, "L1:receipt:logsize");
-        require(
-            receipt.logs[0].contractAddress == resolve("taiko_l2"),
-            "L1:receipt:addr"
-        );
-        require(receipt.logs[0].data.length == 0, "L1:receipt:data");
 
+        LibReceiptDecoder.Log memory log = receipt.logs[0];
+
+        require(log.contractAddress == resolve("taiko_l2"), "L1:receipt:addr");
+        require(log.data.length == 0, "L1:receipt:data");
         require(
-            receipt.logs[0].topics.length == 2 &&
-                receipt.logs[0].topics[0] == BLOCK_INVALIDATED_EVENT_SELECTOR &&
-                receipt.logs[0].topics[1] == target.txListHash,
+            log.topics.length == 2 &&
+                log.topics[0] == BLOCK_INVALIDATED_EVENT_SELECTOR &&
+                log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );
 
