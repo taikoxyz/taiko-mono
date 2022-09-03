@@ -119,7 +119,7 @@ contract TaikoL1 is EssentialContract {
      * Events             *
      **********************/
 
-    event BlockCommitted(bytes32 hash, uint256 expireAt);
+    event BlockCommitted(bytes32 hash, uint256 validSince);
 
     event BlockProposed(uint256 indexed id, BlockContext context);
 
