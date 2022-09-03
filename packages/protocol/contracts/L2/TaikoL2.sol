@@ -87,8 +87,14 @@ contract TaikoL2 is EssentialContract {
         emit EtherCredited(recipient, amount);
     }
 
-    /// @dev This transaciton must be the FIRST transaction in a L2 block
-    /// in addition to the txList.
+    /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
+    ///         bridging. This function will also check certain block-level global
+    ///         variables because they are not part of the Trie structure.
+    ///
+    ///         Note taht this transaciton shall be the first transaction in every L2 block.
+    ///
+    /// @param anchorHeight The latest L1 block height when this block was proposed.
+    /// @param anchorHash The latest L1 block hash when this block was proposed.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
         onlyWhenNotAnchored
@@ -105,6 +111,11 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
+    /// @param txList The L2 block's txList.
+    /// @param hint A hint for this method to invalidate the txList.
+    /// @param txIdx If the hint is for a specific transaction in txList, txIdx specifies
+    ///        which transaction to check.
     function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
@@ -115,7 +126,7 @@ contract TaikoL2 is EssentialContract {
             hint,
             txIdx
         );
-        require(reason != LibInvalidTxList.Reason.OK, "L2:failed");
+        require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         _checkGlobalVariables();
 
@@ -126,8 +137,8 @@ contract TaikoL2 is EssentialContract {
         // Check chainid
         require(block.chainid == chainId, "L2:chainId");
 
-        // Check base fee
-        // require(block.basefee == 0, "L2:invalid base fee");
+        // Check base fee (assuming 1559 disabled)
+        require(block.basefee == 0, "L2:baseFee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
