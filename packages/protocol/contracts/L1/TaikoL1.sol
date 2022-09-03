@@ -87,7 +87,7 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
-    uint256 public constant PROPOSING_DELAY_MIN = 2;
+    uint256 public constant PROPOSING_DELAY_MIN = 3;
     uint256 public constant PROPOSING_DELAY_MAX = 100;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
     bytes32 public constant INVALID_BLOCK_DEADEND_HASH = bytes32(uint256(1));
