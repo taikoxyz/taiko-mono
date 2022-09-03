@@ -18,8 +18,6 @@ describe("LibBlockHeader tests", function () {
             "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8"
         // block 0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8 on Ethereum mainnet
         const l2BlockHeader: any = {
-            parentHash:
-                "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb",
             ommersHash:
                 "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             beneficiary: "0xea674fdde714fd979de3edf0f56aa9716b898ec8",
@@ -44,8 +42,12 @@ describe("LibBlockHeader tests", function () {
             nonce: EBN.from("0x738b7e38476abe98"),
         }
 
+        const parentHash =
+            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb"
+
         const headerComputed = await libBlockHeader.hashBlockHeader(
-            l2BlockHeader
+            l2BlockHeader,
+            parentHash
         )
         log.debug("headerComputed:", headerComputed)
 
@@ -57,8 +59,8 @@ describe("LibBlockHeader tests", function () {
             "0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177"
         // block 0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177 on Rinkeby testnet
         // https://rinkeby.etherscan.io/block/0
+
         const blockHeader: any = {
-            parentHash: ethers.constants.HashZero,
             ommersHash:
                 "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             beneficiary: ethers.constants.AddressZero,
@@ -83,7 +85,11 @@ describe("LibBlockHeader tests", function () {
             nonce: EBN.from("0x0"),
         }
 
-        const headerComputed = await libBlockHeader.hashBlockHeader(blockHeader)
+        const parentHash = ethers.constants.HashZero
+        const headerComputed = await libBlockHeader.hashBlockHeader(
+            blockHeader,
+            parentHash
+        )
 
         expect(headerComputed).to.equal(blockHash)
     })
