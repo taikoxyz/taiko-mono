@@ -27,12 +27,13 @@ describe("integration:LibReceiptDecoder", function () {
 
     it("should decode RLP encoded transaction receipts", async function () {
         for (const txType of [0, 1, 2]) {
-            const { gasPrice } = await hre.ethers.provider.getFeeData()
+            const { maxFeePerGas } = await hre.ethers.provider.getFeeData()
 
             let txOptions = {}
 
-            if (txType === 0) txOptions = { gasPrice }
-            else if (txType === 1) txOptions = { gasPrice, accessList: [] }
+            if (txType === 0) txOptions = { gasPrice: maxFeePerGas }
+            else if (txType === 1)
+                txOptions = { gasPrice: maxFeePerGas, accessList: [] }
 
             const tx = await libReceiptDecoder.emitTestEvent(
                 ethers.BigNumber.from(ethers.utils.randomBytes(32)),
