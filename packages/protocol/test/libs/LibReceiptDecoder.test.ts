@@ -29,6 +29,8 @@ describe("integration:LibReceiptDecoder", function () {
         for (const txType of [0, 1, 2]) {
             const { maxFeePerGas } = await hre.ethers.provider.getFeeData()
 
+            console.log({ feeData: await hre.ethers.provider.getFeeData() })
+
             let txOptions = {}
 
             if (txType === 0) txOptions = { gasPrice: maxFeePerGas }
