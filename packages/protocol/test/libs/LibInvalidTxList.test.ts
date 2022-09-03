@@ -6,58 +6,18 @@ describe("LibInvalidTxList", function () {
     let libInvalidTxList: any
     let libRLPWriter: any
     let libRLPReader: any
-
-    const unsignedLegacyTx: UnsignedTransaction = {
-        type: 0,
-        nonce: Math.floor(Math.random() * 1024),
-        gasPrice: randomBigInt(),
-        gasLimit: randomBigInt(),
-        to: ethers.Wallet.createRandom().address,
-        value: randomBigInt(),
-        data: ethers.utils.randomBytes(32),
-    }
-
-    const unsigned2930Tx: UnsignedTransaction = {
-        type: 1,
-        chainId: Math.floor(Math.random() * 1024),
-        nonce: Math.floor(Math.random() * 1024),
-        gasPrice: randomBigInt(),
-        gasLimit: randomBigInt(),
-        to: ethers.Wallet.createRandom().address,
-        value: randomBigInt(),
-        accessList: [
-            [
-                ethers.Wallet.createRandom().address,
-                [ethers.utils.hexlify(ethers.utils.randomBytes(32))],
-            ],
-        ],
-        data: ethers.utils.randomBytes(32),
-    }
-
-    const unsigned1559Tx: UnsignedTransaction = {
-        type: 2,
-        chainId: Math.floor(Math.random() * 1024),
-        nonce: Math.floor(Math.random() * 1024),
-        maxPriorityFeePerGas: randomBigInt(),
-        maxFeePerGas: randomBigInt(),
-        gasLimit: randomBigInt(),
-        to: ethers.Wallet.createRandom().address,
-        value: randomBigInt(),
-        accessList: [
-            [
-                ethers.Wallet.createRandom().address,
-                [ethers.utils.hexlify(ethers.utils.randomBytes(32))],
-            ],
-        ],
-        data: ethers.utils.randomBytes(32),
-    }
-
-    const testUnsignedTxs = [unsignedLegacyTx, unsigned2930Tx, unsigned1559Tx]
+    let libTaikoConstants: any
+    let testUnsignedTxs: Array<UnsignedTransaction>
+    let chainId: any
 
     const signingKey = new ethers.utils.SigningKey(ethers.utils.randomBytes(32))
     const signerAddress = new ethers.Wallet(signingKey.privateKey).address
 
     before(async function () {
+        libTaikoConstants = await (
+            await ethers.getContractFactory("LibTaikoConstants")
+        ).deploy()
+
         libInvalidTxList = await (
             await ethers.getContractFactory("TestLibInvalidTxList")
         ).deploy()
@@ -69,6 +29,58 @@ describe("LibInvalidTxList", function () {
         libRLPWriter = await (
             await ethers.getContractFactory("TestLib_RLPWriter")
         ).deploy()
+
+        chainId = (await libTaikoConstants.TAIKO_CHAIN_ID()).toNumber()
+
+        const unsignedLegacyTx: UnsignedTransaction = {
+            type: 0,
+            // if chainId is defined, ether.js will automatically use EIP-155
+            // signature
+            chainId,
+            nonce: Math.floor(Math.random() * 1024),
+            gasPrice: randomBigInt(),
+            gasLimit: randomBigInt(),
+            to: ethers.Wallet.createRandom().address,
+            value: randomBigInt(),
+            data: ethers.utils.randomBytes(32),
+        }
+
+        const unsigned2930Tx: UnsignedTransaction = {
+            type: 1,
+            chainId,
+            nonce: Math.floor(Math.random() * 1024),
+            gasPrice: randomBigInt(),
+            gasLimit: randomBigInt(),
+            to: ethers.Wallet.createRandom().address,
+            value: randomBigInt(),
+            accessList: [
+                [
+                    ethers.Wallet.createRandom().address,
+                    [ethers.utils.hexlify(ethers.utils.randomBytes(32))],
+                ],
+            ],
+            data: ethers.utils.randomBytes(32),
+        }
+
+        const unsigned1559Tx: UnsignedTransaction = {
+            type: 2,
+            chainId,
+            nonce: Math.floor(Math.random() * 1024),
+            maxPriorityFeePerGas: randomBigInt(),
+            maxFeePerGas: randomBigInt(),
+            gasLimit: randomBigInt(),
+            to: ethers.Wallet.createRandom().address,
+            value: randomBigInt(),
+            accessList: [
+                [
+                    ethers.Wallet.createRandom().address,
+                    [ethers.utils.hexlify(ethers.utils.randomBytes(32))],
+                ],
+            ],
+            data: ethers.utils.randomBytes(32),
+        }
+
+        testUnsignedTxs = [unsignedLegacyTx, unsigned2930Tx, unsigned1559Tx]
     })
 
     it("should parse the recover payloads correctly", async function () {
@@ -129,8 +141,15 @@ describe("LibInvalidTxList", function () {
             )
             const signature = signingKey.signDigest(expectedHash)
 
+            const randomV =
+                unsignedTx.type === 0
+                    ? Math.floor(Math.random() * Math.pow(2, 7)) +
+                      2 * chainId +
+                      35
+                    : Math.floor(Math.random() * Math.pow(2, 7))
+
             const randomSignature = {
-                v: Math.floor(Math.random() * (Math.pow(2, 8) - 28)),
+                v: randomV,
                 r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }
