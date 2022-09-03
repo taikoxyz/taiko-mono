@@ -36,7 +36,7 @@ contract TaikoL1 is EssentialContract {
     using LibBlockHeader for BlockHeader;
     using LibTxDecoder for bytes;
 
-    bytes32 public constant BLOCK_INVALIDATED_EVENT_SELECTOR =
+    bytes32 private constant BLOCK_INVALIDATED_EVENT_SELECTOR =
         keccak256("BlockInvalidated(bytes32)");
 
     /**********************
