@@ -4,11 +4,11 @@ import * as hre from "hardhat"
 const ethers = hre.ethers
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip
 
-action("Generate L2 Genesis", function () {
+action("Generate Genesis", function () {
     let alloc: any = null
 
     if (process.env.TEST_L2_GENESIS) {
-        alloc = require("../../deployments/l2_genesis_alloc.json")
+        alloc = require("../../deployments/genesis_alloc.json")
     }
 
     const provider = new hre.ethers.providers.JsonRpcProvider(
@@ -107,20 +107,18 @@ action("Generate L2 Genesis", function () {
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
         })
 
-        it("LibTxListValidator", async function () {
-            const LibTxListValidatorAlloc =
-                getContractAlloc("LibTxListValidator")
+        it("LibTxDecoder", async function () {
+            const LibTxDecoderAlloc = getContractAlloc("LibTxDecoder")
 
-            const LibTxListValidator = new hre.ethers.Contract(
-                LibTxListValidatorAlloc.address,
-                require("../../artifacts/contracts/libs/LibTxListValidator.sol/LibTxListValidator.json").abi,
+            const LibTxDecoder = new hre.ethers.Contract(
+                LibTxDecoderAlloc.address,
+                require("../../artifacts/contracts/libs/LibTxDecoder.sol/LibTxDecoder.json").abi,
                 signer
             )
 
-            const gasLimit =
-                await LibTxListValidator.MAX_TAIKO_BLOCK_GAS_LIMIT()
-
-            expect(gasLimit.gt(ethers.BigNumber.from(0))).to.be.equal(true)
+            await expect(
+                LibTxDecoder.decodeTxList(ethers.utils.RLP.encode([]))
+            ).to.be.revertedWith("empty txList")
         })
 
         it("TaikoL2", async function () {
@@ -137,10 +135,11 @@ action("Generate L2 Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            await expect(TaikoL2.anchor(anchorHeight, anchorHash)).to.emit(
-                TaikoL2,
-                "Anchored"
-            )
+            expect(await TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+
+            await expect(
+                TaikoL2.anchor(anchorHeight, anchorHash)
+            ).not.to.reverted
 
             await expect(
                 TaikoL2.creditEther(
