@@ -137,8 +137,9 @@ contract TaikoL2 is EssentialContract {
         // Check chainid
         require(block.chainid == chainId, "L2:chainId");
 
-        // Check base fee (assuming 1559 disabled)
-        require(block.basefee == 0, "L2:baseFee");
+        // It turns out that if  EIP1559 is disabled, the basefee opcode
+        // won't be available.
+        // require(block.basefee == 0, "L2:baseFee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
