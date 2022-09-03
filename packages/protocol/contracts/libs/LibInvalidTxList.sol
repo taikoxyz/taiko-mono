@@ -168,7 +168,7 @@ library LibInvalidTxList {
             // encode defined in EIP-155.
             if (transaction.txType == 0 && i == list.length - 4) {
                 list[i + 1] = Lib_RLPWriter.writeUint(
-                    LibTaikoConstants.TAIKO_CHAIN_ID
+                    LibConstants.TAIKO_CHAIN_ID
                 );
                 list[i + 2] = Lib_RLPWriter.writeUint64(0);
                 list[i + 3] = Lib_RLPWriter.writeUint64(0);
@@ -205,7 +205,7 @@ library LibInvalidTxList {
         uint256 v = Lib_RLPReader.readUint256(rlpItem);
 
         if (txType == 0) {
-            v -= LibTaikoConstants.TAIKO_CHAIN_ID * 2 + 35;
+            v -= LibConstants.TAIKO_CHAIN_ID * 2 + 35;
         }
 
         return uint8(v) + 27;
