@@ -87,8 +87,8 @@ contract TaikoL1 is EssentialContract {
     uint256 public constant MAX_PENDING_BLOCKS = 2048;
     uint256 public constant MAX_THROW_AWAY_PARENT_DIFF = 1024;
     uint256 public constant MAX_FINALIZATION_PER_TX = 5;
-    uint256 public constant PROPOSING_DELAY_MIN = 3;
-    uint256 public constant PROPOSING_DELAY_MAX = 100;
+    uint256 public constant POST_COMMIT_DELAY_CONFIRMATIONS_MIN = 3;
+    uint256 public constant POST_COMMIT_DELAY_CONFIRMATIONS_MAX = 100;
     uint256 public constant MAX_PROOFS_PER_FORK_CHOICE = 5;
     bytes32 public constant INVALID_BLOCK_DEADEND_HASH = bytes32(uint256(1));
     string public constant ZKP_VKEY = "TAIKO_ZKP_VKEY";
@@ -175,13 +175,12 @@ contract TaikoL1 is EssentialContract {
     function commitBlock(bytes32 hash) external {
         require(hash != 0, "L1:zero hash");
 
-        require(
-            commits[hash] == 0 ||
-                block.timestamp > commits[hash] + PROPOSING_DELAY_MAX,
-            "L1:already committed"
+        require(commits[hash] == 0, "L1:already committed");
+        commits[hash] = block.number;
+        emit BlockCommitted(
+            hash,
+            block.number + POST_COMMIT_DELAY_CONFIRMATIONS
         );
-        commits[hash] = block.timestamp;
-        emit BlockCommitted(hash, block.timestamp + PROPOSING_DELAY_MAX);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -356,8 +355,7 @@ contract TaikoL1 is EssentialContract {
         return
             hash != 0 &&
             commits[hash] != 0 &&
-            block.number >= commits[hash] + PROPOSING_DELAY_MIN &&
-            block.number <= commits[hash] + PROPOSING_DELAY_MAX;
+            block.number >= commits[hash] + POST_COMMIT_DELAY_CONFIRMATIONS;
     }
 
     function validateContext(BlockContext memory context) public pure {
