@@ -13,12 +13,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibTaikoConstants.sol";
+import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
-import "../libs/LibTrieProof.sol";
 
 contract TaikoL2 is EssentialContract {
     using LibTxDecoder for bytes;
+
     /**********************
      * State Variables    *
      **********************/
@@ -40,7 +40,7 @@ contract TaikoL2 is EssentialContract {
         uint256 anchorHeight,
         bytes32 anchorHash
     );
-    event BlockInvalidated(bytes32 txListHash);
+    event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
 
@@ -49,7 +49,7 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight < block.number, "L2:anchored already");
+        require(lastAnchorHeight < block.number, "L2:anchored");
         lastAnchorHeight = block.number;
         _;
     }
@@ -63,7 +63,7 @@ contract TaikoL2 is EssentialContract {
     }
 
     fallback() external payable {
-        revert("L2:not allowed");
+        revert("L2:prohibited");
     }
 
     function init(address _addressManager, uint256 _chainId)
@@ -81,19 +81,25 @@ contract TaikoL2 is EssentialContract {
     {
         require(
             recipient != address(0) && recipient != address(this),
-            "L2:invalid address"
+            "L2:recipient"
         );
         payable(recipient).transfer(amount);
         emit EtherCredited(recipient, amount);
     }
 
-    /// @dev This transaciton must be the FIRST transaction in a L2 block
-    /// in addition to the txList.
+    /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
+    ///         bridging. This function will also check certain block-level global
+    ///         variables because they are not part of the Trie structure.
+    ///
+    ///         Note taht this transaciton shall be the first transaction in every L2 block.
+    ///
+    /// @param anchorHeight The latest L1 block height when this block was proposed.
+    /// @param anchorHash The latest L1 block hash when this block was proposed.
     function anchor(uint256 anchorHeight, bytes32 anchorHash)
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:0 anchor value");
+        require(anchorHeight != 0 && anchorHash != 0, "L2:anchor:values");
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
 
@@ -105,6 +111,11 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
+    /// @param txList The L2 block's txList.
+    /// @param hint A hint for this method to invalidate the txList.
+    /// @param txIdx If the hint is for a specific transaction in txList, txIdx specifies
+    ///        which transaction to check.
     function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
@@ -115,40 +126,25 @@ contract TaikoL2 is EssentialContract {
             hint,
             txIdx
         );
-        require(
-            reason != LibInvalidTxList.Reason.OK,
-            "L2:failed to invalidate txList"
-        );
+        require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         _checkGlobalVariables();
 
-        bytes32 txListHash = txList.hashTxList();
-
-        (bytes32 proofKey, bytes32 proofVal) = LibTrieProof
-            .computeBlockInvalidationProofKV(
-                block.number,
-                blockhash(block.number - 1),
-                txListHash
-            );
-
-        assembly {
-            sstore(proofKey, proofVal)
-        }
-
-        emit BlockInvalidated(txListHash);
+        emit BlockInvalidated(txList.hashTxList());
     }
 
     function _checkGlobalVariables() private {
         // Check chainid
-        require(block.chainid == chainId, "L2:invalid chain id");
+        require(block.chainid == chainId, "L2:chainId");
 
-        // Check base fee
-        // require(block.basefee == 0, "L2:invalid base fee");
+        // It turns out that if  EIP1559 is disabled, the basefee opcode
+        // won't be available.
+        // require(block.basefee == 0, "L2:baseFee");
 
         // Check the latest 255 block hashes match the storage version.
         for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
             uint256 j = block.number - i;
-            require(blockHashes[j] == blockhash(j), "L2:invalid ancestor hash");
+            require(blockHashes[j] == blockhash(j), "L2:ancestorHash");
         }
 
         // Store parent hash into storage tree.

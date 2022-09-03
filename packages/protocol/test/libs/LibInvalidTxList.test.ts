@@ -6,7 +6,7 @@ describe("LibInvalidTxList", function () {
     let libInvalidTxList: any
     let libRLPWriter: any
     let libRLPReader: any
-    let libTaikoConstants: any
+    let LibConstants: any
     let testUnsignedTxs: Array<UnsignedTransaction>
     let chainId: any
 
@@ -14,8 +14,8 @@ describe("LibInvalidTxList", function () {
     const signerAddress = new ethers.Wallet(signingKey.privateKey).address
 
     before(async function () {
-        libTaikoConstants = await (
-            await ethers.getContractFactory("LibTaikoConstants")
+        LibConstants = await (
+            await ethers.getContractFactory("LibConstants")
         ).deploy()
 
         libInvalidTxList = await (
@@ -30,7 +30,7 @@ describe("LibInvalidTxList", function () {
             await ethers.getContractFactory("TestLib_RLPWriter")
         ).deploy()
 
-        chainId = (await libTaikoConstants.TAIKO_CHAIN_ID()).toNumber()
+        chainId = (await LibConstants.TAIKO_CHAIN_ID()).toNumber()
 
         const unsignedLegacyTx: UnsignedTransaction = {
             type: 0,

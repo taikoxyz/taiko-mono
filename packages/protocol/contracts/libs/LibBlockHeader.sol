@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "../thirdparty/Lib_RLPWriter.sol";
-import "./LibTaikoConstants.sol";
+import "./LibConstants.sol";
 
 struct BlockHeader {
     bytes32 ommersHash;
@@ -68,7 +68,7 @@ library LibBlockHeader {
     {
         return
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
+            header.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
             header.nonce == 0;
