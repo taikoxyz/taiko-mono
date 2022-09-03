@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../libs/LibTaikoConstants.sol";
+import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
@@ -44,21 +44,21 @@ library LibInvalidTxList {
         Reason hint,
         uint256 txIdx
     ) internal pure returns (Reason) {
-        if (encoded.length > LibTaikoConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES) {
+        if (encoded.length > LibConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES) {
             return Reason.BINARY_TOO_LARGE;
         }
 
         try LibTxDecoder.decodeTxList(encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length > LibTaikoConstants.TAIKO_BLOCK_MAX_TXS) {
+            if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
             if (
                 LibTxDecoder.sumGasLimit(txList) >
-                LibTaikoConstants.TAIKO_BLOCK_MAX_GAS_LIMIT -
-                    LibTaikoConstants.TAIKO_ANCHOR_TX_GAS_LIMIT
+                LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT -
+                    LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
@@ -76,7 +76,7 @@ library LibInvalidTxList {
 
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
                 require(
-                    _tx.gasLimit >= LibTaikoConstants.TAIKO_TX_MIN_GAS_LIMIT,
+                    _tx.gasLimit >= LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
                     "bad hint"
                 );
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;

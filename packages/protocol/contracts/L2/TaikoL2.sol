@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../common/EssentialContract.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibTaikoConstants.sol";
+import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
 contract TaikoL2 is EssentialContract {
