@@ -141,8 +141,15 @@ describe("LibInvalidTxList", function () {
             )
             const signature = signingKey.signDigest(expectedHash)
 
+            const randomV =
+                unsignedTx.type === 0
+                    ? Math.floor(Math.random() * Math.pow(2, 7)) +
+                      2 * chainId +
+                      35
+                    : Math.floor(Math.random() * Math.pow(2, 7))
+
             const randomSignature = {
-                v: Math.floor(Math.random() * Math.pow(2, 7)) + 2 * chainId + 8,
+                v: randomV,
                 r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }

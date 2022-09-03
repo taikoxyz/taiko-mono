@@ -133,6 +133,19 @@ library LibInvalidTxList {
             );
         }
 
+        if (transaction.txType == 0) {
+            // Legacy transactions
+            require(txRLPItems.length == 9, "invalid rlp items");
+        } else if (transaction.txType == 1) {
+            // EIP-2930 transactions
+            require(txRLPItems.length == 11, "invalid rlp items");
+        } else if (transaction.txType == 2) {
+            // EIP-1559 transactions
+            require(txRLPItems.length == 12, "invalid rlp items");
+        } else {
+            revert("invalid txType");
+        }
+
         // Signature values are always last three RLP items for all kinds of
         // transactions.
         bytes[] memory list = new bytes[](
