@@ -99,9 +99,9 @@ Your introduction goes here! Simply start writing your document and use the Reco
 Once you're familiar with the editor, you can find various project settings in the Overleaf menu, accessed via the button in the very top left of the editor. To view tutorials, user guides, and further documentation, please visit our \href{https://www.overleaf.com/learn}{help library}, or head to our plans page to \href{https://www.overleaf.com/user/subscription/plans}{choose your plan}.
 
 \section{Rollup Contracts}
-Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2 respectively.
+The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2, respectively.
 
-\subsection{TaikoL1.} Deployed at address $\mathbf{r_{\mathrm{1}}}$ on Ethereum, this contract is used to propose, prove, and finalize blocks. TaikoL1 maintains the following rollup state variables:
+\subsection{TaikoL1} Deployed at address $\mathbf{r_{\mathrm{1}}}$ on Ethereum, this contract is used to propose, prove, and finalize blocks. TaikoL1  maintains the following rollup state variables:
 
 \begin{description}
 \item[nextBlockId] The ID for the next proposed block, formally $R_\mathrm{i}$.
@@ -114,10 +114,10 @@ Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2 res
 
 
 
-\subsection{TaikoL2.} Deployed at address $\mathbf{r_{\mathrm{2}}}$ on Taiko, this contracts offers two major functionalities:
+\subsection{TaikoL2} Deployed at address $\mathbf{r_{\mathrm{2}}}$ on Taiko, this contracts offers two major functionalities:
 \begin{itemize}
 \item Proving a proposed block is invalid on L2 through a valid but throwaway block.
-\item Achieving \textbf{anchoring}, an important concept in Taiko's design to ensure blocks are valid and crosss-layer data exchanges are done right.
+\item Achieving \textit{anchoring}, an important concept in Taiko's design to ensure blocks are valid and cross-layer data exchanges are done right.
 \end{itemize}
 
 \section{Blocks and Transactions}
@@ -125,7 +125,7 @@ Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2 res
 \subsection{Proposing Blocks}
 All Taiko blocks are proposed permissionlessly on Ethereum then converted to actual L2 blocks if they are proven to be valid, or ignored if they are proven to be invalid.
 
-\subsubsection{Proposed Block.} The proposed block in Taiko is the collection of information (known as the block \textit{context}), $C$, and a list of transactions, $L$,  (known as the block \textit{txList}). Formally, we can refer to a proposed block $\bar{B}$:
+\subsubsection{Proposed Block} The proposed block in Taiko is the collection of information (known as the block's \textit{context}), $C$, and a list of transactions, $L$,  (known as the block \textit{txList}). Formally, we can refer to a proposed block $\bar{B}$:
 
 \begin{equation}
 \bar{B} \equiv (\bar{B}_{\mathrm{C}}, \bar{B}_{\mathbf{L}})
@@ -149,10 +149,10 @@ All Taiko blocks are proposed permissionlessly on Ethereum then converted to act
 \end{description}
 
 \subsubsection{txList}
-The txList is a RLP-serialised list of proposed L2 transactions. In a future version, when  EIP-4844 is enabled, the content of txList will be no longer direct accessible from \textbf{TaikoL1} contract.
+The txList is a RLP-serialised list of proposed L2 transactions. In a future version, when  EIP-4844 is enabled, the content of txList will be no longer direct accessible from \textit{TaikoL1} contract.
 
 \subsubsection{Proposed Block Validity}
-The proposed block must pass a validity test before it is accepted by the \textbf{TaikoL1} contract.  We are able to define the proposed block validity function $V(\bar{B})$:
+The proposed block must pass a validity test before it is accepted by the \textit{TaikoL1} contract.  We are able to define the proposed block validity function $V(\bar{B})$:
 
 \begin{eqnarray}
 V(\bar{B}) & \equiv &   V(C,L)  \\
@@ -169,10 +169,11 @@ V(\bar{B}) & \equiv &   V(C,L)  \\
 \nonumber& & C_{\mathbf{h}} = \mathrm{BLOCKHASH}(C_{\mathbf{a}})   \quad \wedge \\
 \nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \ne 0  \quad \wedge \\
 \nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \le  \\
-\nonumber& &  \mathrm{NUMBER}   -  K_{\mathrm{commitdelay}}  \quad \wedge \\
+\nonumber& &  \mathrm{NUMBER}   -  K_{\mathrm{commitdelay}}
 \end{eqnarray}
 
-\subsubsection{Commit Hash}.
+where $\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})$ is called the block's \textit{commit hash}.
+\subsubsection{Commit Hash} The commit hash is the Keccak 256-bit hash of a proposed block's \textbf{beneficiary} and \textbf{txListHash}. The Taiko ZK-Rollup protocol requires that a block can be proposed only \small{$K_{\mathrm{commitdelay}}$} confirmations after its commit hash has been committed to  {\textit{TaikoL1}} \small{$K_{\mathrm{commitdelay}}$}, which is a measure against MEV attack (\cite{mevethfoundation}) as block txLists are unencrypted.
 
 \subsection{Anchoring}
 
@@ -184,10 +185,12 @@ V(\bar{B}) & \equiv &   V(C,L)  \\
 \subsection{Assumptions on zkEVM}
 hi hi hi
 
+
+\bibliographystyle{plainnat}
+\bibliography{whitepaper}
+
 \end{multicols}
 
-\bibliographystyle{alpha}
-\bibliography{whitepaper}
 
 \appendix
 
