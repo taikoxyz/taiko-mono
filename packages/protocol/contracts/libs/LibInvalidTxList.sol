@@ -34,6 +34,7 @@ library LibInvalidTxList {
         BINARY_TOO_LARGE,
         BINARY_NOT_DECODABLE,
         BLOCK_TOO_MANY_TXS,
+        BLOCK_EMPTY_BLOCKS,
         BLOCK_GAS_LIMIT_TOO_LARGE,
         TX_INVALID_SIG,
         TX_GAS_LIMIT_TOO_SMALL
@@ -51,14 +52,17 @@ library LibInvalidTxList {
         try LibTxDecoder.decodeTxList(encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS - 1) {
+            if (txList.items.length == 0) {
+                return BLOCK_EMPTY_BLOCKS;
+            }
+
+            if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
             if (
                 LibTxDecoder.sumGasLimit(txList) >
-                LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT -
-                    LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT
+                LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }

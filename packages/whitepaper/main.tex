@@ -196,7 +196,7 @@ Where $\hat{F}$ is called the \textit{txList Intrinsic Validity Function}.
 
 Function $\hat{F}(L)$ returns true if:
 \begin{itemize}
-\item The txList can be decoded into a list of (potentially empty) Taiko transactions $T$ without error:
+\item The txList can be decoded into a none-mpty list of Taiko transactions $T$ without error:
 
 \begin{equation}
 T  \equiv \texttt{RLP}'(L)
@@ -206,18 +206,21 @@ where  $\texttt{RLP}'$ is the RLP decode function, and;
 
 \item The total number of transactions is no larger than a protocol constant:
 \begin{equation}
-\lVert T \rVert \le (K_{\mathrm{blockmaxtxs}} - 1)
+\lVert T \rVert \le K_{\mathrm{blockmaxtxs}}
 \end{equation}
 
- (the reason for $-1$ is stated in \ref{sec:anchoring}), and;
  
 \item The sum of all transaction's gas limit is no larger than a protocol constant:
 
 \begin{equation}
-\sum_{j = 0}^{\lVert T \rVert - 1}(T[j]_g) \le (K_{\mathrm{blockmaxgas}} - K_{\mathrm{anchorgas}})
+\sum_{j = 0}^{\lVert T \rVert - 1}(T[j]_g) \le K_{\mathrm{blockmaxgas}}
 \end{equation}
 
-where $T_g$ represents a transaction's \textbf{gasLimit} (the reason for $- K_{\mathrm{anchorgas}}$ is also stated in \ref{sec:anchoring}).
+where $T_g$ represents a transaction's \textbf{gasLimit}.
+
+
+\item MORE
+
 
 
 \end{itemize}
