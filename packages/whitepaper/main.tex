@@ -147,7 +147,7 @@ All Taiko blocks are proposed permissionlessly on Ethereum then converted to act
 \item[anchorHash] The enclosing L1 block's parent block hash; formally $C_{\mathrm{h}}$.
 \end{description}
 
-\subsubsection{txList}
+\subsubsection{txList}\label{sec:txlist}
 The txList is a RLP-serialised list of proposed L2 transactions. When EIP-4844 is enabled, txLists will be published on L1 as blobs and become inaccessible from the TaikoL1 contract, thus we demand that TaikoL1 shall only access a txList to calculate its hash, as opposed to read bytes from it. Such a constrain allows our design outlined in this paper (and current implementations) to remain valid when blobs are used to further reduce data cost.
 
 
@@ -159,24 +159,24 @@ The proposed block must pass an \textit{intrinsic validity} test before it is ac
 We are able to define the intrinsic validity function $V(\bar{B})$:
 
 \begin{eqnarray}
-V(\bar{B}) & \equiv &   V(C,L)  \\
+V(\bar{B}[i]) & \equiv &   V(C,L)  \\
 \nonumber & \equiv &   R_\mathbf{i} \le R_\mathbf{f} + K_\mathrm{pendingblocks}   \quad \wedge \\
 \nonumber& & \lVert L \rVert > 0 \quad \wedge \\
 \nonumber & & \lVert L \rVert \le K_{\mathrm{blocktxlistbytelimit}} \quad \wedge \\
 \nonumber& & C_{\mathbf{c}} \ne 0   \quad \wedge \\
 \nonumber& & C_{\mathbf{i}} = R_\mathbf{i}   \quad \wedge \\
-\nonumber& & C_{\mathbf{s}} = \mathrm{TIMESTAMP}   \quad \wedge \\
-\nonumber& & C_{\mathbf{m}} = \mathrm{DIFFICULTY}   \quad \wedge \\
+\nonumber& & C_{\mathbf{s}} = \texttt{TIMESTAMP}   \quad \wedge \\
+\nonumber& & C_{\mathbf{m}} = \texttt{DIFFICULTY}   \quad \wedge \\
 \nonumber& & C_{\mathbf{t}} \ne 0   \quad \wedge \\
-\nonumber& & C_{\mathbf{t}} = \mathrm{KEC}(L)   \quad \wedge \\
-\nonumber& & C_{\mathbf{a}} = \mathrm{NUMBER} - 1   \quad \wedge \\
-\nonumber& & C_{\mathbf{h}} = \mathrm{BLOCKHASH}(C_{\mathbf{a}})   \quad \wedge \\
-\nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \ne 0  \quad \wedge \\
-\nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \le  \\
-\nonumber& &  \mathrm{NUMBER}   -  K_{\mathrm{commitdelay}}
+\nonumber& & C_{\mathbf{t}} = \texttt{KEC}(L)   \quad \wedge \\
+\nonumber& & C_{\mathbf{a}} = \texttt{NUMBER} - 1   \quad \wedge \\
+\nonumber& & C_{\mathbf{h}} = \texttt{BLOCKHASH}(C_{\mathbf{a}})   \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))] \ne 0  \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))] \le  \\
+\nonumber& &  \texttt{NUMBER}   -  K_{\mathrm{commitdelay}}
 \end{eqnarray}
 
-where $\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})$ is called the block's \textit{commit hash}.
+where $\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))$ is called the block's \textit{commit hash}.
 
 After passing the test, the proposed block appends itself to the end of $R_\mathrm{b}$, the pending block list; $R_\mathrm{i}$ will increment by one; and its commit hash is deleted.
 
@@ -184,6 +184,51 @@ After passing the test, the proposed block appends itself to the end of $R_\math
 \subsubsection{Commit Hash} The commit hash is the Keccak 256-bit hash of a proposed block's \textbf{beneficiary} and \textbf{txListHash}. The Taiko ZK-Rollup protocol requires that a block can be proposed only \small{$K_{\mathrm{commitdelay}}$} confirmations after its commit hash has been committed to  {TaikoL1}, which is a measure against MEV attack (\cite{mevethfoundation}) as block txLists are unencrypted.
 
 Thanks to its commit hash, a block can be proposed by an arbitrary address, i.e., $\mathbf{msg.sender}$ dose not matter.
+
+\subsection{Mapping Blocks} \label{sec:filtermap}
+Taiko L2 node software filters then maps pending proposed blocks to actual L2 blocks. The filter function $F$ is defined as:
+
+\begin{equation}
+F({\bar{B}[i]})  \equiv \hat{F}({L})
+\end{equation}
+
+Where $\hat{F}$ is called the \textit{txList Intrinsic Validity Function}.
+
+Function $\hat{F}(L)$ returns true if:
+\begin{itemize}
+\item The txList can be decoded into a list of (potentially empty) Taiko transactions $T$ without error:
+
+\begin{equation}
+T  \equiv \texttt{RLP}'(L)
+\end{equation}
+
+where  $\texttt{RLP}'$ is the RLP decode function, and;
+
+\item The total number of transactions is no larger than a protocol constant:
+\begin{equation}
+\lVert T \rVert \le (K_{\mathrm{blockmaxtxs}} - 1)
+\end{equation}
+
+ (the reason for $-1$ is stated in \ref{sec:anchoring}), and;
+ 
+\item The sum of all transaction's gas limit is no larger than a protocol constant:
+
+\begin{equation}
+\sum_{j = 0}^{\lVert T \rVert - 1}(T[j]_g) \le (K_{\mathrm{blockmaxgas}} - K_{\mathrm{anchorgas}})
+\end{equation}
+
+where $T_g$ represents a transaction's \textbf{gasLimit} (the reason for $- K_{\mathrm{anchorgas}}$ is also stated in \ref{sec:anchoring}).
+
+
+\end{itemize}
+
+It is critical to realize that the filter functions cannot be called on L1 as txLists are not accessible to Ethereum EVM on the byte-level, as explained in \ref{sec:txlist}, unless the same txLists are submitted again to L1 in the form of transaction calldata,which will be more expensive than blobs and should be avoided after EIP-4844.
+
+
+\begin{equation}
+F({\bar{B}[i]})  \equiv  \begin{cases} True & \text{if} \quad T_{\mathrm{t}} \neq \varnothing \\
+False & \text{otherwise}\end{cases}
+\end{equation}
 
 
 
@@ -197,7 +242,6 @@ Thanks to its commit hash, a block can be proposed by an arbitrary address, i.e.
 \subsubsection{Fork Choices} \label{sec:forkchoices}
 
 
-\subsection{Mapping Blocks} \label{sec:proving}
 
 
 \subsection{Anchoring} \label{sec:anchoring}
@@ -241,10 +285,10 @@ $K_{\mathrm{pendingblocks}}$ & 2048 & Nothing paid for operations of the set {\s
 $K_{\mathrm{perblockfinalization}}$ & 5 & Amount of gas to pay for a {\small JUMPDEST} operation. \\
 $K_{\mathrm{commitdelay}}$ & 4 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{base}}$}. \\
 $K_{\mathrm{perblockforks}}$ & 5 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{verylow}}$}. \\
-$K_{\mathrm{blockgaslimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{block}}$}. \\
+$K_{\mathrm{blockmaxgas}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{block}}$}. \\
 $K_{\mathrm{blockmaxtxs}}$ & 8 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{mid}}$}. \\
 $K_{\mathrm{blocktxlistbytelimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{high}}$}. \\
-$K_{\mathrm{anchorgaslimit}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{anchorgas}}$ & 100 & Cost of a warm account or storage access. \\
 $K_{\mathrm{goldfingeraddr}}$ & 100 & Cost of a warm account or storage access. \\
 $K_{\mathrm{goldfingerprivatekey}}$ & 100 & Cost of a warm account or storage access. \\
 $K_{\mathrm{deadendmark}}$ & 1 & Cost of a warm account or storage access. \\
