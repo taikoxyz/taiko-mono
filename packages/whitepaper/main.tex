@@ -98,93 +98,138 @@ Your introduction goes here! Simply start writing your document and use the Reco
 
 Once you're familiar with the editor, you can find various project settings in the Overleaf menu, accessed via the button in the very top left of the editor. To view tutorials, user guides, and further documentation, please visit our \href{https://www.overleaf.com/learn}{help library}, or head to our plans page to \href{https://www.overleaf.com/user/subscription/plans}{choose your plan}.
 
-\section{Some examples to get started}
+\section{Rollup Contracts}
+Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2 respectively.
 
-\subsection{How to create Sections and Subsections}
+\subsection{TaikoL1.} Deployed at address $\mathbf{r_{\mathrm{1}}}$ on Ethereum, this contract is used to propose, prove, and finalize blocks. TaikoL1 maintains the following rollup state variables:
 
-Simply use the section and subsection commands, as in this example document! With Overleaf, all the formatting and numbering is handled automatically according to the template you've chosen. If you're using Rich Text mode, you can also create new section and subsections via the buttons in the editor toolbar.
+\begin{description}
+\item[nextBlockId] The ID for the next proposed block, formally $R_\mathrm{i}$.
+\item[lastFinalizedBlockId] The ID of the last finalized block, formally $R_\mathrm{f}$.
+% \item [numUnprovenBlocks] The number of proposed blocks that have not been proven,  formally $R_\mathrm{n}$.
+\item [blockCommits] The mapping from proposed block \textbf{commit hashes} to their enclosed L1 blocks' block numbers, formally $R_\mathrm{c}$. If a block's hash is $h$, the commit hash number is $R_\mathrm{c}[h]$.
+\item [forkChoices] The mapping from proposed block IDs to their \textbf{Fork Choices} , formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork choices is discussed in detail in section \ref{sec:forkchoices}
+\end{description}
 
-\subsection{How to include Figures}
 
-First you have to upload the image file from your computer using the upload link in the file-tree menu. Then use the includegraphics command to include it in your document. Use the figure environment and the caption command to add a number and a caption to your figure. See the code for Figure \ref{fig:frog} in this section for an example.
 
-Note that your figure will automatically be placed in the most appropriate place for it, given the surrounding text and taking into account other figures or tables that may be close by. You can find out more about adding images to your documents in this help article on \href{https://www.overleaf.com/learn/how-to/Including_images_on_Overleaf}{including images on Overleaf}.
 
-\begin{figure}
-\centering
-\includegraphics[width=0.3\textwidth]{frog.jpg}
-\caption{\label{fig:frog}This frog was uploaded via the file-tree menu.}
-\end{figure}
-
-\subsection{How to add Tables}
-
-Use the table and tabular environments for basic tables --- see Table~\ref{tab:widgets}, for example. For more information, please see this help article on \href{https://www.overleaf.com/learn/latex/tables}{tables}. 
-
-\begin{table}
-\centering
-\begin{tabular}{l|r}
-Item & Quantity \\\hline
-Widgets & 42 \\
-Gadgets & 13
-\end{tabular}
-\caption{\label{tab:widgets}An example table.}
-\end{table}
-
-\subsection{How to add Comments and Track Changes}
-
-Comments can be added to your project by highlighting some text and clicking ``Add comment'' in the top right of the editor pane. To view existing comments, click on the Review menu in the toolbar above. To reply to a comment, click on the Reply button in the lower right corner of the comment. You can close the Review pane by clicking its name on the toolbar when you're done reviewing for the time being.
-
-Track changes are available on all our \href{https://www.overleaf.com/user/subscription/plans}{premium plans}, and can be toggled on or off using the option at the top of the Review pane. Track changes allow you to keep track of every change made to the document, along with the person making the change. 
-
-\subsection{How to add Lists}
-
-You can make lists with automatic numbering \dots
-
-\begin{enumerate}
-\item Like this,
-\item and like this.
-\end{enumerate}
-\dots or bullet points \dots
+\subsection{TaikoL2.} Deployed at address $\mathbf{r_{\mathrm{2}}}$ on Taiko, this contracts offers two major functionalities:
 \begin{itemize}
-\item Like this,
-\item and like this.
+\item Proving a proposed block is invalid on L2 through a valid but throwaway block.
+\item Achieving \textbf{anchoring}, an important concept in Taiko's design to ensure blocks are valid and crosss-layer data exchanges are done right.
 \end{itemize}
 
-\subsection{How to write Mathematics}
+\section{Blocks and Transactions}
 
-\LaTeX{} is great at typesetting mathematics. Let $X_1, X_2, \ldots, X_n$ be a sequence of independent and identically distributed random variables with $\text{E}[X_i] = \mu$ and $\text{Var}[X_i] = \sigma^2 < \infty$, and let
-\[S_n = \frac{X_1 + X_2 + \cdots + X_n}{n}
-      = \frac{1}{n}\sum_{i}^{n} X_i\]
-denote their mean. Then as $n$ approaches infinity, the random variables $\sqrt{n}(S_n - \mu)$ converge in distribution to a normal $\mathcal{N}(0, \sigma^2)$.
+\subsection{Proposing Blocks}
+All Taiko blocks are proposed permissionlessly on Ethereum then converted to actual L2 blocks if they are proven to be valid, or ignored if they are proven to be invalid.
+
+\subsubsection{Proposed Block.} The proposed block in Taiko is the collection of information (known as the block \textit{context}), $C$, and a list of transactions, $L$,  (known as the block \textit{txList}). Formally, we can refer to a proposed block $\bar{B}$:
+
+\begin{equation}
+\bar{B} \equiv (\bar{B}_{\mathrm{C}}, \bar{B}_{\mathbf{L}})
+\end{equation}
+
+\subsubsection{Block Context} The block context, $C$, is a tuple of 1000000 items comprising:
 
 
-\subsection{How to change the margins and paper size}
+  
+    
+\begin{description}
+\item[id] A scalar value equal to the number of already proposed blocks.The genesis block has a number of zero; formally $C_{\mathrm{i}}$.
+\item[beneficiary] The 160-bit address to which all fees collected from the corresponding L2 block be transferred; formally $C_{\mathrm{c}}$.
+\item[gasLimit] The total gas limit used by the corresponding L2 block; formally $C_{\mathrm{l}}$.
+\item[proposedAt] The timestamp when this block is proposed on L1; formally $C_{\mathrm{s}}$.
+\item[mixHash] The mixHash value to be used by the corresponding L2 block; formally $C_{\mathrm{m}}$.
+\item[extraData] The extraData value to be used by the corresponding L2 block;. This must be 32 bytes or fewer; formally $C_{\mathrm{x}}$.
+\item[txListHash] The Keccak 256-bit hash (or the KZG polynomial commitment when EIP-4844 is enabled) of this block's txList; formally $C_{\mathrm{t}}$. 
+\item[anchorHeight] The enclosing L1 block's parent block number; formally $C_{\mathrm{a}}$.
+\item[anchorHash] The enclosing L1 block's parent block hash; formally $C_{\mathrm{h}}$.
+\end{description}
 
-Usually the template you're using will have the page margins and paper size set correctly for that use-case. For example, if you're using a journal article template provided by the journal publisher, that template will be formatted according to their requirements. In these cases, it's best not to alter the margins directly.
+\subsubsection{txList}
+The txList is a RLP-serialised list of proposed L2 transactions. In a future version, when  EIP-4844 is enabled, the content of txList will be no longer direct accessible from \textbf{TaikoL1} contract.
 
-If however you're using a more general template, such as this one, and would like to alter the margins, a common way to do so is via the geometry package. You can find the geometry package loaded in the preamble at the top of this example file, and if you'd like to learn more about how to adjust the settings, please visit this help article on \href{https://www.overleaf.com/learn/latex/page_size_and_margins}{page size and margins}.
+\subsubsection{Proposed Block Validity}
+The proposed block must pass a validity test before it is accepted by the \textbf{TaikoL1} contract.  We are able to define the proposed block validity function $V(\bar{B})$:
 
-\subsection{How to change the document language and spell check settings}
+\begin{eqnarray}
+V(\bar{B}) & \equiv &   V(C,L)  \\
+\nonumber & \equiv &   R_\mathbf{i} \le R_\mathbf{f} + K_\mathrm{pendingblocks}   \quad \wedge \\
+\nonumber& & \lVert L \rVert > 0 \quad \wedge \\
+\nonumber & & \lVert L \rVert \le K_{\mathrm{blocktxlistbytelimit}} \quad \wedge \\
+\nonumber& & C_{\mathbf{c}} \ne 0   \quad \wedge \\
+\nonumber& & C_{\mathbf{i}} = R_\mathbf{i}   \quad \wedge \\
+\nonumber& & C_{\mathbf{s}} = \mathrm{TIMESTAMP}   \quad \wedge \\
+\nonumber& & C_{\mathbf{m}} = \mathrm{DIFFICULTY}   \quad \wedge \\
+\nonumber& & C_{\mathbf{t}} \ne 0   \quad \wedge \\
+\nonumber& & C_{\mathbf{t}} = \mathrm{KEC}(L)   \quad \wedge \\
+\nonumber& & C_{\mathbf{a}} = \mathrm{NUMBER} - 1   \quad \wedge \\
+\nonumber& & C_{\mathbf{h}} = \mathrm{BLOCKHASH}(C_{\mathbf{a}})   \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \ne 0  \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\mathrm{KEC}(C_{\mathbf{c}}, C_{\mathbf{t}})] \le  \\
+\nonumber& &  \mathrm{NUMBER}   -  K_{\mathrm{commitdelay}}  \quad \wedge \\
+\end{eqnarray}
 
-Overleaf supports many different languages, including multiple different languages within one document. 
+\subsubsection{Commit Hash}.
 
-To configure the document language, simply edit the option provided to the babel package in the preamble at the top of this example project. To learn more about the different options, please visit this help article on \href{https://www.overleaf.com/learn/latex/International_language_support}{international language support}.
+\subsection{Anchoring}
 
-To change the spell check language, simply open the Overleaf menu at the top left of the editor window, scroll down to the spell check setting, and adjust accordingly.
+\subsection{Proving Blocks} \label{sec:proving}.
+\subsubsection{Fork Choices}  \label{sec:forkchoices}.
 
-\subsection{How to add Citations and a References List}
 
-You can simply upload a \verb|.bib| file containing your BibTeX entries, created with a tool such as JabRef. You can then cite entries from it, like this: \cite{greenwade93}. Just remember to specify a bibliography style, as well as the filename of the \verb|.bib|. You can find a \href{https://www.overleaf.com/help/97-how-to-include-a-bibliography-using-bibtex}{video tutorial here} to learn more about BibTeX.
 
-If you have an \href{https://www.overleaf.com/user/subscription/plans}{upgraded account}, you can also import your Mendeley or Zotero library directly as a \verb|.bib| file, via the upload menu in the file-tree.
-
-\subsection{Good luck!}
-
-We hope you find Overleaf useful, and do take a look at our \href{https://www.overleaf.com/learn}{help library} for more tutorials and user guides! Please also let us know if you have any feedback using the Contact Us link at the bottom of the Overleaf menu --- or use the contact form at \url{https://www.overleaf.com/contact}.
+\subsection{Assumptions on zkEVM}
+hi hi hi
 
 \end{multicols}
 
 \bibliographystyle{alpha}
 \bibliography{whitepaper}
+
+\appendix
+
+\section{Terminology} \label{ch:Terminology}
+
+\begin{description}
+\item[External Actor] A person or other entity able to interface to an Ethereum node, but external to the world of Ethereum. It can interact with Ethereum through depositing signed Transactions and inspecting the blockchain and associated state. Has one (or more) intrinsic Accounts.
+
+\item[Address] A 160-bit code used for identifying Accounts.
+
+\item[Account] Accounts have an intrinsic balance and transaction count maintained as part of the Ethereum state. They also have some (possibly empty) EVM Code and a (possibly empty) Storage State associated with them. Though homogenous, it makes sense to distinguish between two practical types of account: those with empty associated EVM Code (thus the account balance is controlled, if at all, by some external entity) and those with non-empty associated EVM Code (thus the account represents an Autonomous Object). Each Account has a single Address that identifies it.
+
+\end{description}
+
+\section{Fee Schedule}\label{app:fees}
+
+\nopagebreak
+The fee schedule $G$ is a tuple of scalar values corresponding to the relative costs, in gas, of a number of abstract operations that a transaction may effect.
+
+\nopagebreak
+\begin{tabu}{l r l}
+\toprule
+Name & Value & Description \\
+\midrule
+$K_{\mathrm{chainid}}$ & 1337 & Nothing paid for operations of the set {\small $W_{\mathrm{zero}}$}. \\
+$K_{\mathrm{pendingblocks}}$ & 2048 & Nothing paid for operations of the set {\small $W_{\mathrm{zero}}$}. \\
+$K_{\mathrm{perblockfinalization}}$ & 5 & Amount of gas to pay for a {\small JUMPDEST} operation. \\
+$K_{\mathrm{commitdelay}}$ & 4 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{base}}$}. \\
+$K_{\mathrm{perblockforks}}$ & 5 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{verylow}}$}. \\
+$K_{\mathrm{blockgaslimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{block}}$}. \\
+$K_{\mathrm{blockmaxtxs}}$ & 8 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{mid}}$}. \\
+$K_{\mathrm{blocktxlistbytelimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{high}}$}. \\
+$K_{\mathrm{anchorgaslimit}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{goldfingeraddr}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{goldfingerprivatekey}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{deadendmark}}$ & 1 & Cost of a warm account or storage access. \\
+$K_{\mathrm{invalidblocklogtopic}}$ & 0x64b299ff...6ddea4a2 & keccak256("BlockInvalidated(bytes32)"). \\
+%extern u256 const c_{\mathrm{copyGas}};            ///< Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
+\bottomrule
+\end{tabu}
+
+
+
 
 \end{document}
