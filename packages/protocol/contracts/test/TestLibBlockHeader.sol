@@ -11,21 +11,22 @@ pragma solidity ^0.8.9;
 import "../libs/LibBlockHeader.sol";
 
 contract TestLibBlockHeader {
-    function hashBlockHeader(BlockHeader calldata header)
+    function hashBlockHeader(BlockHeader calldata header, bytes32 parentHash)
         public
         pure
         returns (bytes32)
     {
-        return LibBlockHeader.hashBlockHeader(header);
+        return LibBlockHeader.hashBlockHeader(header, parentHash);
     }
 
-    function rlpBlockHeader(BlockHeader calldata header)
+    function rlpBlockHeader(BlockHeader calldata header, bytes32 parentHash)
         public
         pure
         returns (bytes memory)
     {
+        // require(parentHash != 0, "invalid parentHash");
         bytes[] memory list = new bytes[](15);
-        list[0] = Lib_RLPWriter.writeHash(header.parentHash);
+        list[0] = Lib_RLPWriter.writeHash(parentHash);
         list[1] = Lib_RLPWriter.writeHash(header.ommersHash);
         list[2] = Lib_RLPWriter.writeAddress(header.beneficiary);
         list[3] = Lib_RLPWriter.writeHash(header.stateRoot);

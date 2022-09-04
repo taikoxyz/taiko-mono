@@ -11,63 +11,65 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
-struct TransactionLegacy {
-    uint256 nonce;
-    uint256 gasPrice;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    uint8 v;
-    uint256 r;
-    uint256 s;
-}
+library LibTxDecoder {
+    struct TransactionLegacy {
+        uint256 nonce;
+        uint256 gasPrice;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        uint8 v;
+        uint256 r;
+        uint256 s;
+    }
 
-struct Transaction2930 {
-    uint256 chainId;
-    uint256 nonce;
-    uint256 gasPrice;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    AccessItem[] accessList;
-    uint8 signatureYParity;
-    uint256 signatureR;
-    uint256 signatureS;
-}
+    struct Transaction2930 {
+        uint256 chainId;
+        uint256 nonce;
+        uint256 gasPrice;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        AccessItem[] accessList;
+        uint8 signatureYParity;
+        uint256 signatureR;
+        uint256 signatureS;
+    }
 
-struct Transaction1559 {
-    uint256 chainId;
-    uint256 nonce;
-    uint256 maxPriorityFeePerGas;
-    uint256 maxFeePerGas;
-    uint256 gasLimit;
-    address destination;
-    uint256 amount;
-    bytes data;
-    AccessItem[] accessList;
-    uint8 signatureYParity;
-    uint256 signatureR;
-    uint256 signatureS;
-}
+    struct Transaction1559 {
+        uint256 chainId;
+        uint256 nonce;
+        uint256 maxPriorityFeePerGas;
+        uint256 maxFeePerGas;
+        uint256 gasLimit;
+        address destination;
+        uint256 amount;
+        bytes data;
+        AccessItem[] accessList;
+        uint8 signatureYParity;
+        uint256 signatureR;
+        uint256 signatureS;
+    }
 
-struct AccessItem {
-    address addr;
-    bytes32[] slots;
-}
+    struct AccessItem {
+        address addr;
+        bytes32[] slots;
+    }
 
-struct Tx {
-    uint8 txType;
-    uint256 gasLimit;
-    bytes txData;
-}
+    struct Tx {
+        uint8 txType;
+        address destination;
+        bytes data;
+        uint256 gasLimit;
+        bytes txData;
+    }
 
-struct TxList {
-    Tx[] items;
-}
+    struct TxList {
+        Tx[] items;
+    }
 
-library LibTxListDecoder {
     function decodeTxList(bytes calldata encoded)
         public
         pure
@@ -78,12 +80,57 @@ library LibTxListDecoder {
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
-            bytes memory txBytes = Lib_RLPReader.readBytes(txs[i]);
-            (uint8 txType, uint256 gasLimit) = decodeTx(txBytes);
-            _txList[i] = Tx(txType, gasLimit, txBytes);
+            _txList[i] = decodeTx(Lib_RLPReader.readBytes(txs[i]));
         }
 
         txList = TxList(_txList);
+    }
+
+    function decodeTx(bytes memory txBytes)
+        public
+        pure
+        returns (Tx memory _tx)
+    {
+        uint8 txType;
+        assembly {
+            txType := byte(0, mload(add(txBytes, 32)))
+        }
+
+        _tx.txData = txBytes;
+
+        // @see https://eips.ethereum.org/EIPS/eip-2718#backwards-compatibility
+        if (txType >= 0xc0 && txType <= 0xfe) {
+            // Legacy tx:
+            _tx.txType = 0;
+            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
+                txBytes
+            );
+            TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
+            _tx.gasLimit = txLegacy.gasLimit;
+            _tx.destination = txLegacy.destination;
+            _tx.data = txLegacy.data;
+        } else if (txType <= 0x7f) {
+            _tx.txType = txType;
+            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
+                Lib_BytesUtils.slice(txBytes, 1)
+            );
+
+            if (txType == 1) {
+                Transaction2930 memory tx2930 = decodeTx2930(txBody);
+                _tx.gasLimit = tx2930.gasLimit;
+                _tx.destination = tx2930.destination;
+                _tx.data = tx2930.data;
+            } else if (_tx.txType == 2) {
+                Transaction1559 memory tx1559 = decodeTx1559(txBody);
+                _tx.gasLimit = tx1559.gasLimit;
+                _tx.destination = tx1559.destination;
+                _tx.data = tx1559.data;
+            } else {
+                revert("invalid txType");
+            }
+        } else {
+            revert("invalid prefix");
+        }
     }
 
     function hashTxList(bytes calldata encoded)
@@ -92,43 +139,6 @@ library LibTxListDecoder {
         returns (bytes32)
     {
         return keccak256(encoded);
-    }
-
-    function decodeTx(bytes memory txBytes)
-        internal
-        pure
-        returns (uint8 txType, uint256 gasLimit)
-    {
-        assembly {
-            txType := byte(0, mload(add(txBytes, 32)))
-        }
-
-        // @see https://eips.ethereum.org/EIPS/eip-2718#backwards-compatibility
-        if (txType >= 0xc0 && txType <= 0xfe) {
-            // Legacy tx:
-            txType = 0;
-            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
-                txBytes
-            );
-            TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
-            gasLimit = txLegacy.gasLimit;
-        } else if (txType <= 0x7f) {
-            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
-                Lib_BytesUtils.slice(txBytes, 1)
-            );
-
-            if (txType == 1) {
-                Transaction2930 memory tx2930 = decodeTx2930(txBody);
-                gasLimit = tx2930.gasLimit;
-            } else if (txType == 2) {
-                Transaction1559 memory tx1559 = decodeTx1559(txBody);
-                gasLimit = tx1559.gasLimit;
-            } else {
-                revert("invalid txType");
-            }
-        } else {
-            revert("invalid prefix");
-        }
     }
 
     function decodeLegacyTx(Lib_RLPReader.RLPItem[] memory body)
