@@ -51,7 +51,7 @@ library LibInvalidTxList {
         try LibTxDecoder.decodeTxList(encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS) {
+            if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS - 1) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
