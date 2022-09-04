@@ -8,22 +8,20 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-library LibStorageProof {
-    function computeAnchorProofKV(
-        uint256 height,
-        uint256 anchorHeight,
-        bytes32 anchorHash
-    ) internal pure returns (bytes32 key, bytes32 value) {
-        key = keccak256(abi.encodePacked("ANCHOR_KEY", height));
-        value = keccak256(abi.encodePacked(anchorHeight, anchorHash));
+import "../libs/LibReceiptDecoder.sol";
+
+contract TestLibReceiptDecoder {
+    event TestLibReceiptDecoderEvent(uint256 indexed a, bytes32 b);
+
+    function emitTestEvent(uint256 a, bytes32 b) public {
+        emit TestLibReceiptDecoderEvent(a, b);
     }
 
-    function computeInvalidTxListProofKV(bytes32 txListHash)
-        internal
+    function decodeReceipt(bytes calldata encoded)
+        public
         pure
-        returns (bytes32 key, bytes32 value)
+        returns (LibReceiptDecoder.Receipt memory receipt)
     {
-        key = keccak256(abi.encodePacked("TXLIST_KEY", txListHash));
-        value = txListHash;
+        return LibReceiptDecoder.decodeReceipt(encoded);
     }
 }

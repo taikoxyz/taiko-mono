@@ -14,7 +14,7 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-GENESIS_JSON=$(cd "$(dirname "$DIR/../../..")"; pwd)/deployments/l2_genesis.json
+GENESIS_JSON=$(cd "$(dirname "$DIR/../../..")"; pwd)/deployments/genesis.json
 TESTNET_CONFIG=$DIR/testnet/docker-compose.yml
 
 touch $GENESIS_JSON
@@ -47,7 +47,7 @@ echo '
   "alloc":
 ' > $GENESIS_JSON
 
-echo "Starting generate_l2_genesis tests..."
+echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
 yarn clean && yarn compile
@@ -56,7 +56,7 @@ yarn clean && yarn compile
 yarn run generate:genesis $DIR/test_config.json
 
 # generate complete genesis json
-cat $DIR/../../deployments/l2_genesis_alloc.json >> $GENESIS_JSON
+cat $DIR/../../deployments/genesis_alloc.json >> $GENESIS_JSON
 
 echo '}' >> $GENESIS_JSON
 
@@ -70,6 +70,6 @@ docker compose -f $TESTNET_CONFIG up -d
 echo ""
 echo "Start testing..."
 
-TEST_L2_GENESIS=true npx hardhat test --grep "Generate L2 Genesis"
+TEST_L2_GENESIS=true npx hardhat test --grep "Generate Genesis"
 
 docker compose -f $TESTNET_CONFIG down
