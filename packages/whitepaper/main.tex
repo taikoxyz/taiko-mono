@@ -224,11 +224,36 @@ where $T_g$ represents a transaction's \textbf{gasLimit} (the reason for $- K_{\
 
 It is critical to realize that the filter functions cannot be called on L1 as txLists are not accessible to Ethereum EVM on the byte-level, as explained in \ref{sec:txlist}, unless the same txLists are submitted again to L1 in the form of transaction calldata,which will be more expensive than blobs and should be avoided after EIP-4844.
 
+Each proposed block $\bar{B}$ that $F(\bar{B})$ returns $\texttt{True}$ maps to an actual Taiko L2 block $B$. A Taiko block $B$ has the following data as defined in Ethereum Yellow Paper:
 
+\begin{eqnarray}
+B_H & \equiv & (H_p, H_o, H_c, H_r, H_t, H_e, H_b, H_d, \\
+\nonumber & & H_i, H_l,H_g, H_s, H_x, H_m, H_n) \\
+B_U  & \equiv & [] \\
+B & \equiv & (B_H, B_T, B_U)
+\end{eqnarray}
+
+where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{ommersHash}, $H_c$ is the \textbf{beneficiary}, $H_r$ is the \textbf{stateRoot}, $H_t$ is the \textbf{transactionsRoot}, $H_e$ is the \textbf{receiptsRoot}, $H_b$ is the \textbf{logsBloom}, $H_d$ is the \textbf{difficulty}, $H_i$ is the block \textbf{number}, $H_l$ is the \textbf{gasLimit}, $H_g$ is the \textbf{gasUsed}, $H_s$ is the \textbf{timestamp}, $H_x$ is the \textbf{extraData}, $H_m$ is the \textbf{mixHash}, $H_n$ is the \textbf{nonce}; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but is always empty for Taiko because there is no Proof-of-Work.
+
+Transactions in Taiko also conform to the same Ethereum standard defined by the Ethereum Yellow Paper. But currently only type 0 (legacy) and type 1 transactions are supported as EIP-1559 is disabled on Taiko initially (but will be enabled in a future version).
+
+Now we can define the block mapping function $M$ as 
 \begin{equation}
-F({\bar{B}[i]})  \equiv  \begin{cases} True & \text{if} \quad T_{\mathrm{t}} \neq \varnothing \\
-False & \text{otherwise}\end{cases}
+B \equiv M(H'_p, \bar{B}, )  \equiv M(H'_p, C, L)
 \end{equation}
+
+where $H'_p$ is this block's parent hash known to the Taiko node, such that:
+
+\begin{eqnarray}
+& & H_p \equiv H'_p \quad \wedge \\
+\nonumber & & H_o \equiv  K_{\mathrm{ommershash}} \quad \wedge \\
+\nonumber& & H_c \equiv  C_c \quad \wedge \\
+\nonumber& & H_r \equiv  C_r \quad \wedge \\
+\end{eqnarray}
+
+
+
+
 
 
 
@@ -293,6 +318,7 @@ $K_{\mathrm{goldfingeraddr}}$ & 100 & Cost of a warm account or storage access. 
 $K_{\mathrm{goldfingerprivatekey}}$ & 100 & Cost of a warm account or storage access. \\
 $K_{\mathrm{deadendmark}}$ & 1 & Cost of a warm account or storage access. \\
 $K_{\mathrm{invalidblocklogtopic}}$ & 0x64b299ff...6ddea4a2 & keccak256("BlockInvalidated(bytes32)"). \\
+$K_{\mathrm{ommershash}}$ & 0x1dcc4de8...40d49347 & keccak256(RLP([]). \\
 %extern u256 const c_{\mathrm{copyGas}};            ///< Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
 \bottomrule
 \end{tabu}
