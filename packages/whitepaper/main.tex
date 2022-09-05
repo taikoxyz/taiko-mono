@@ -19,7 +19,7 @@
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{afterpage}
 \usepackage{tikz}
-\usepackage[bookmarks=true, unicode=true, pdftitle={Ethereum Yellow Paper: a formal specification of Ethereum, a programmable blockchain}, pdfauthor={Dr. Gavin Wood},pdfkeywords={Ethereum, Yellow Paper, blockchain, virtual machine, cryptography, decentralised, singleton, transaction, generalised},pdfborder={0 0 0.5 [1 3]}]{hyperref}
+\usepackage[bookmarks=true, unicode=true, pdftitle={Taiko: A TIER-1 ETHEREUM ZK-ROLLUP}, pdfauthor={Taiko Labs},pdfkeywords={Ethereum, White Paper, blockchain,EVM, zkEVM, ZK-Rollup, Layer 2},pdfborder={0 0 0.5 [1 3]}]{hyperref}
 %,pagebackref=true
 
 \usepackage{tabu} %requires array.
@@ -176,21 +176,19 @@ V(\bar{B}[i]) & \equiv &   V(C,L)  \\
 \nonumber& &  \texttt{NUMBER}   -  K_{\mathrm{commitdelay}}
 \end{eqnarray}
 
-where $\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))$ is called the block's \textit{commit hash}.
+Where $\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))$ is called the block's \textit{commit hash}.
 
 After passing the test, the proposed block appends itself to the end of $R_\mathrm{b}$, the pending block list; $R_\mathrm{i}$ will increment by one; and its commit hash is deleted.
 
 
-\subsubsection{Commit Hash} The commit hash is the Keccak 256-bit hash of a proposed block's \textbf{beneficiary} and \textbf{txListHash}. The Taiko ZK-Rollup protocol requires that a block can be proposed only \small{$K_{\mathrm{commitdelay}}$} confirmations after its commit hash has been committed to  {TaikoL1}, which is a measure against MEV attack (\cite{mevethfoundation}) as block txLists are unencrypted.
+\subsubsection{Commit Hash} The commit hash is the Keccak 256-bit hash of a proposed block's \textbf{beneficiary} and \textbf{txListHash}. The Taiko ZK-Rollup protocol requires that a block can be proposed only $K_{\mathrm{commitdelay}}$ confirmations after its commit hash has been committed to  {TaikoL1}, which is a measure against MEV attack \cite{mevethfoundation} as block txLists are unencrypted.
 
 Thanks to its commit hash, a block can be proposed by an arbitrary address, i.e., $\mathbf{msg.sender}$ dose not matter.
 
-\subsection{Blocks Filtering and Mapping } \label{sec:filtermap}
-Taiko L2 node software filters pending proposed blocks using the \textit{txList Intrinsic Validity Function} $F(L)$ on each block's txList. If $F(L)$ returns \texttt{False}, the proposed block is dropped and ignored; otherwise, the proposed block will map to an actual Taiko L2 block using a \textit{Block Mapping Function} $M(\hat{B})$.
+\subsection{Block Validation and Mapping } \label{sec:filtermap}
+Taiko L2 node software filters pending proposed blocks using the \textit{txList Intrinsic Validity Function} $V^l$ on each block's txList $L$. If $V^l(L)$ returns \texttt{False}, the proposed block is dropped and ignored; otherwise, the proposed block will map to an actual Taiko L2 block using a \textit{Block Mapping Function} $M(\hat{B})$.
 
-\subsubsection{Filtering}
-
-The txList Intrinsic Validity Function requires:
+\subsubsection{Validation} The txList Intrinsic Validity Function requires:
 
 \begin{itemize}
 \item The txList is RLP decodable into a list of transactions, and;
@@ -199,11 +197,11 @@ The txList Intrinsic Validity Function requires:
 \item Each and every transaction's signature is valid, i.e., it does not recover to the zero address.
 \end{itemize}
 
-Formally, $F(L)$ is defined as:
+Formally, $V^l(L)$ is defined as:
 
 
 \begin{eqnarray}
-F(L) & \equiv & \texttt{NOERR}(T \equiv \texttt{RLP}'(L))  \quad \wedge  \\
+V^l(L) & \equiv & \texttt{NOERR}(T \equiv \texttt{RLP}'(L))  \quad \wedge  \\
 \nonumber& & \lVert T \rVert \le K_{\mathrm{blockmaxtxs}} \quad \wedge \\
 \nonumber & & (\sum_{j = 0}^{\lVert T \rVert - 1}T[j]_g) \le K_{\mathrm{blockmaxgas}} \quad \wedge \\
 \nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (T[j]_g \ge K_{\mathrm{txmingas}})\quad \wedge \\
@@ -220,7 +218,7 @@ It is important to realize that the txList Intrinsic Validity Function cannot be
 
 \subsubsection{Mapping}
 
-Each proposed block that $F(\bar{B}_L)$ returns $\texttt{True}$ maps to an actual Taiko L2 block. Taiko blocks have the same structure as Ethereum blocks as defined in in the Yellow Paper:
+Each proposed block that $V^l(\bar{B}_L)$ returns $\texttt{True}$ maps to an actual Taiko L2 block. Taiko blocks have the same structure as Ethereum blocks as defined in in the Ethereum Yellow Paper \cite{ethyellowpaper}:
 
 \begin{eqnarray}
 B_H & \equiv & (H_p, H_o, H_c, H_r, H_t, H_e, H_b, H_d, \\
@@ -229,22 +227,22 @@ B_U  & \equiv & [] \\
 B & \equiv & (B_H, B_T, B_U)
 \end{eqnarray}
 
-where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{ommersHash}, $H_c$ is the \textbf{beneficiary}, $H_r$ is the \textbf{stateRoot}, $H_t$ is the \textbf{transactionsRoot}, $H_e$ is the \textbf{receiptsRoot}, $H_b$ is the \textbf{logsBloom}, $H_d$ is the \textbf{difficulty}, $H_i$ is the block \textbf{number}, $H_l$ is the \textbf{gasLimit}, $H_g$ is the \textbf{gasUsed}, $H_s$ is the \textbf{timestamp}, $H_x$ is the \textbf{extraData}, $H_m$ is the \textbf{mixHash}, $H_n$ is the \textbf{nonce}; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but is always empty for Taiko because there is no Proof-of-Work.
+Where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{ommersHash}, $H_c$ is the \textbf{beneficiary}, $H_r$ is the \textbf{stateRoot}, $H_t$ is the \textbf{transactionsRoot}, $H_e$ is the \textbf{receiptsRoot}, $H_b$ is the \textbf{logsBloom}, $H_d$ is the \textbf{difficulty}, $H_i$ is the block \textbf{number}, $H_l$ is the \textbf{gasLimit}, $H_g$ is the \textbf{gasUsed}, $H_s$ is the \textbf{timestamp}, $H_x$ is the \textbf{extraData}, $H_m$ is the \textbf{mixHash}, $H_n$ is the \textbf{nonce}; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but is always empty for Taiko because there is no Proof-of-Work.
 
 Transactions in Taiko also conform to the same Ethereum standard defined by the Ethereum Yellow Paper. But currently only type 0 (legacy) and type 1 transactions are supported as EIP-1559 is disabled on Taiko initially (but may be enabled in a future version).
 
 A proposed block can only be mapped to a Taiko block in a \textit{mapping context} which is the world state $\boldsymbol{\sigma}$:
 
-$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1...256], d, a)$$
+$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1..256], d, \boldsymbol{\theta}, i)$$
 
-where $\boldsymbol{\delta}$ is the trie, $h[1...256]$ are the most recent 256 ancestor block hashes; and $d$ is Taiko's chain ID, and $a$ is the anchor transaction.
+Where $\boldsymbol{\delta}$ is the trie, $h[1...256]$ are the most recent 256 ancestor block hashes; and $d$ is Taiko's chain ID, $\boldsymbol{\theta}$ is the anchor transaction, and $i$ is the block number.
 
 Now we can define the block mapping function $M$ as:
 
 \begin{eqnarray}
 B & \equiv & (H, T, U), \\
-\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1...256], {d}, a, \bar{B}, )  \\
-\nonumber & \equiv & M(\boldsymbol{\delta}, h[1...256], {d}, a, C, L)
+\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1..256], {d}, \boldsymbol{\theta}, \bar{B}, )  \\
+\nonumber & \equiv & M(\boldsymbol{\delta}, h[1..256], {d}, \boldsymbol{\theta}, C, L)
 \end{eqnarray}
 
 
@@ -252,15 +250,24 @@ such that:
 
 \begin{eqnarray}
 & & \texttt{CHAINID} \equiv {d} \quad \wedge \\
+& & \texttt{NUMBER} \equiv {i} \quad \wedge \\
+\nonumber& & U \equiv [] \quad \wedge \\
+\nonumber& & T \equiv \boldsymbol{\theta}::F(\texttt{RLP}'(L), V^t) \quad \wedge  \\
 \nonumber& & H_p \equiv h(1) \quad \wedge \\
 \nonumber& & H_o \equiv  K_{\mathrm{ommershash}} \quad \wedge \\
 \nonumber& & H_c \equiv  C_c \quad \wedge \\
-\nonumber& & H_r \equiv  C_r \quad \wedge \\
-\nonumber& & U \equiv [] \quad \wedge \\
-\nonumber& & T \equiv a::W(\texttt{RLP}'(L))
+\nonumber& & H_d \equiv  0 \quad \wedge \\
+\nonumber& & H_i \equiv  i \quad \wedge \\
+\nonumber& & H_l \equiv  C_l + K_{\mathrm{anchorgas}} \quad \wedge \\
+\nonumber& & H_s \equiv  C_s \quad \wedge \\
+\nonumber& & H_x \equiv  C_x \quad \wedge \\
+\nonumber& & H_m \equiv  C_m \quad \wedge \\
+\nonumber& & (H_r, H_t, H_e, H_l, H_g) \equiv  \Pi(\boldsymbol{\sigma}, (T_0, T_1, ...))
 \end{eqnarray}
 
-Where $::$ is the list concatenation operator; $W$ is the \textit{Transaction Contextual Filter Function}.
+Where $\Pi$ is the block transition function; $::$ is the list concatenation operator; $V^t$ is the \textit{transaction intrinsic validity test function} defined in the Transaction Execution section of the Ethereum Yellow Paper. Transactions in the txList that fail the test will be ignored thus won't make into the L2 block.
+
+
 
 
 
@@ -287,7 +294,7 @@ hi hi hi
 
 \newpage
 
-\bibliographystyle{plainnat}
+\bibliographystyle{abbrv}
 \bibliography{main}
 
 \end{multicols}

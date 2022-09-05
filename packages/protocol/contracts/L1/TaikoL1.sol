@@ -552,8 +552,10 @@ contract TaikoL1 is EssentialContract {
     ) private pure {
         require(
             header.beneficiary == context.beneficiary &&
+                header.difficulty == 0 &&
                 header.gasLimit ==
                 context.gasLimit + LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT &&
+                header.gasUsed > 0 &&
                 header.timestamp == context.proposedAt &&
                 header.extraData.length == context.extraData.length &&
                 keccak256(header.extraData) == keccak256(context.extraData) &&
