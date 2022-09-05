@@ -26,7 +26,7 @@ contract TaikoL2 is EssentialContract {
     mapping(uint256 => bytes32) public blockHashes;
     mapping(uint256 => bytes32) public anchorHashes;
     uint256 public chainId;
-    uint256 public lastAnchorHeight;
+    uint256 public blockNumber;
 
     uint256[46] private __gap;
 
@@ -49,8 +49,8 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight < block.number, "L2:anchored");
-        lastAnchorHeight = block.number;
+        require(blockNumber + 1 == block.number, "L2:anchored");
+        blockNumber = block.number;
         _;
     }
 
