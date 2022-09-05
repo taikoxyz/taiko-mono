@@ -34,7 +34,6 @@ library LibInvalidTxList {
         BINARY_TOO_LARGE,
         BINARY_NOT_DECODABLE,
         BLOCK_TOO_MANY_TXS,
-        BLOCK_NO_TXS,
         BLOCK_GAS_LIMIT_TOO_LARGE,
         TX_INVALID_SIG,
         TX_GAS_LIMIT_TOO_SMALL
@@ -52,10 +51,6 @@ library LibInvalidTxList {
         try LibTxDecoder.decodeTxList(encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length == 0) {
-                return Reason.BLOCK_NO_TXS;
-            }
-
             if (txList.items.length > LibConstants.TAIKO_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
