@@ -233,7 +233,7 @@ Transactions in Taiko also conform to the same Ethereum standard defined by the 
 
 A proposed block can only be mapped to a Taiko block in a \textit{mapping context} which is the world state $\boldsymbol{\sigma}$:
 
-$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1..256], d, \boldsymbol{\theta}, i)$$
+$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1..256], d, i, \boldsymbol{\theta})$$
 
 Where $\boldsymbol{\delta}$ is the trie, $h[1...256]$ are the most recent 256 ancestor block hashes; and $d$ is Taiko's chain ID, $\boldsymbol{\theta}$ is the anchor transaction, and $i$ is the block number.
 
@@ -241,33 +241,47 @@ Now we can define the block mapping function $M$ as:
 
 \begin{eqnarray}
 B & \equiv & (H, T, U), \\
-\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1..256], {d}, \boldsymbol{\theta}, \bar{B}, )  \\
-\nonumber & \equiv & M(\boldsymbol{\delta}, h[1..256], {d}, \boldsymbol{\theta}, C, L)
+\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1..256], {d}, i, \boldsymbol{\theta}, \bar{B}, )  \\
+\nonumber & \equiv & M(\boldsymbol{\delta}, h[1..256], {d}, i, \boldsymbol{\theta}, C, L)
 \end{eqnarray}
 
 
 such that:
 
 \begin{eqnarray}
-& & \texttt{CHAINID} \equiv {d} \quad \wedge \\
-& & \texttt{NUMBER} \equiv {i} \quad \wedge \\
-\nonumber& & U \equiv [] \quad \wedge \\
-\nonumber& & T \equiv \boldsymbol{\theta}::F(\texttt{RLP}'(L), V^t) \quad \wedge  \\
-\nonumber& & H_p \equiv h(1) \quad \wedge \\
-\nonumber& & H_o \equiv  K_{\mathrm{ommershash}} \quad \wedge \\
-\nonumber& & H_c \equiv  C_c \quad \wedge \\
-\nonumber& & H_d \equiv  0 \quad \wedge \\
-\nonumber& & H_i \equiv  i \quad \wedge \\
-\nonumber& & H_l \equiv  C_l + K_{\mathrm{anchorgas}} \quad \wedge \\
-\nonumber& & H_s \equiv  C_s \quad \wedge \\
-\nonumber& & H_x \equiv  C_x \quad \wedge \\
-\nonumber& & H_m \equiv  C_m \quad \wedge \\
-\nonumber& & (H_r, H_t, H_e, H_l, H_g) \equiv  \Pi(\boldsymbol{\sigma}, (T_0, T_1, ...))
+& & \texttt{CHAINID}  = \quad \wedge \\
+\nonumber& & \texttt{NUMBER} = {i} \quad \wedge \\
+\nonumber& & U = [] \quad \wedge \\
+\nonumber& & T =  \boldsymbol{\theta}::F(\texttt{RLP}'(L), V^t) \quad \wedge  \\
+\nonumber& & H_p =  h(1) \quad \wedge \\
+\nonumber& & H_o =   K_{\mathrm{ommershash}} \quad \wedge \\
+\nonumber& & H_c =   C_c \quad \wedge \\
+\nonumber& & H_d =   0 \quad \wedge \\
+\nonumber& & H_i =   i \quad \wedge \\
+\nonumber& & H_l =   C_l + K_{\mathrm{anchorgas}} \quad \wedge \\
+\nonumber& & H_s =   C_s \quad \wedge \\
+\nonumber& & H_x =   C_x \quad \wedge \\
+\nonumber& & H_m =   C_m \quad \wedge \\
+\nonumber& & (H_r, H_t, H_e, H_l, H_g) =   \Pi(\boldsymbol{\sigma}, (T_0, T_1, ...))
 \end{eqnarray}
 
 Where $\Pi$ is the block transition function; $::$ is the list concatenation operator; $V^t$ is the \textit{transaction intrinsic validity test function} defined in the Transaction Execution section of the Ethereum Yellow Paper. Transactions in the txList that fail the test will be ignored thus won't make into the L2 block.
 
 
+\subsection{Anchoring} \label{sec:anchoring}
+
+The anchor transaction will be the first transaction in a Taiko L2 block such that:
+
+\begin{eqnarray}
+& & \boldsymbol{\delta}_x = 0 \quad \wedge \\
+\nonumber& & \boldsymbol{\delta}_n = \boldsymbol{\delta}[K_{\mathrm{goldfingeraddr}}]_n + 1 \quad \wedge \\
+\nonumber& & \boldsymbol{\delta}_p = 0 \quad \wedge \\
+\nonumber& & \boldsymbol{\delta}_g = K_{\mathrm{anchorgas}} \quad \wedge \\
+\nonumber& & \boldsymbol{\delta}_t = K_{\mathrm{goldfingeraddr}} \quad \wedge  \\
+\nonumber& & \boldsymbol{\delta}_v = 0 \quad \wedge  \\
+\nonumber& & \boldsymbol{\delta}_d = K_{\mathrm{invalidateblockselector}}::C_a::C_h \quad \wedge  \\
+\nonumber& & (\boldsymbol{\delta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta})
+\end{eqnarray}
 
 
 
@@ -287,7 +301,7 @@ Where $\Pi$ is the block transition function; $::$ is the list concatenation ope
 
 
 
-\subsection{Anchoring} \label{sec:anchoring}
+
 
 \subsection{Assumptions on zkEVM}
 hi hi hi
@@ -337,6 +351,7 @@ $K_{\mathrm{goldfingeraddr}}$ & 100 & Cost of a warm account or storage access. 
 $K_{\mathrm{goldfingerprivatekey}}$ & 100 & Cost of a warm account or storage access. \\
 $K_{\mathrm{deadendmark}}$ & 1 & Cost of a warm account or storage access. \\
 $K_{\mathrm{invalidblocklogtopic}}$ & 0x64b299ff...6ddea4a2 & keccak256("BlockInvalidated(bytes32)"). \\
+$K_{\mathrm{invalidateblockselector}}$ & 0x64b299ff...6ddea4a2 & keccak256("invalidateBlock(bytes32,bytes32)"). \\
 $K_{\mathrm{ommershash}}$ & 0x1dcc4de8...40d49347 & keccak256(RLP([]). \\
 %extern u256 const c_{\mathrm{copyGas}};            ///< Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
 \bottomrule
