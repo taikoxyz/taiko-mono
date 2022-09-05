@@ -17,7 +17,7 @@ library LibConstants {
     uint256 public constant TAIKO_BLOCK_MAX_TXS = 20; // TODO
     uint256 public constant TAIKO_BLOCK_MAX_TXLIST_BYTES = 1000000; // TODO
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 10000; // TODO
-    uint256 public constant TAIKO_TX_ANCHOR_GAS_LIMIT = 200000; // TODO
+    uint256 public constant TAIKO_ANCHOR_TX_GAS_LIMIT = 200000; // TODO
     uint256 public constant TAIKO_CHAIN_ID = 1337; // TODO
 
     address public constant TAIKO_GOLDFINGER_ADDRESS =

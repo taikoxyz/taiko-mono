@@ -257,7 +257,7 @@ contract TaikoL1 is EssentialContract {
         require(_tx.txType == 0, "L1:anchor:type");
         require(_tx.destination == resolve("taiko_l2"), "L1:anchor:dest");
         require(
-            _tx.gasLimit == LibConstants.TAIKO_TX_ANCHOR_GAS_LIMIT,
+            _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
         require(
@@ -553,7 +553,7 @@ contract TaikoL1 is EssentialContract {
         require(
             header.beneficiary == context.beneficiary &&
                 header.gasLimit ==
-                context.gasLimit + LibConstants.TAIKO_TX_ANCHOR_GAS_LIMIT &&
+                context.gasLimit + LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT &&
                 header.timestamp == context.proposedAt &&
                 header.extraData.length == context.extraData.length &&
                 keccak256(header.extraData) == keccak256(context.extraData) &&
