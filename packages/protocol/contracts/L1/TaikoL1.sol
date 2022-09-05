@@ -258,8 +258,8 @@ contract TaikoL1 is EssentialContract {
         require(_tx.destination == resolve("taiko_l2"), "L1:anchor:dest");
         require(
             _tx.gasLimit ==
-                LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT +
-                    LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+                LibConstants.TAIKO_TX_ANCHOR_GAS_LIMIT +
+                    LibConstants.TAIKO_TX_ANCHOR_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
         require(
@@ -548,23 +548,14 @@ contract TaikoL1 is EssentialContract {
         );
     }
 
-    function _validateHeader(BlockHeader calldata header) private pure {
-        require(
-            header.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
-                header.extraData.length <= 32 &&
-                header.difficulty == 0 &&
-                header.nonce == 0,
-            "L1:header:mismatch"
-        );
-    }
-
     function _validateHeaderForContext(
         BlockHeader calldata header,
         BlockContext memory context
     ) private pure {
         require(
             header.beneficiary == context.beneficiary &&
-                header.gasLimit == context.gasLimit &&
+                header.gasLimit ==
+                context.gasLimit + LibConstants.TAIKO_TX_ANCHOR_GAS_LIMIT &&
                 header.timestamp == context.proposedAt &&
                 header.extraData.length == context.extraData.length &&
                 keccak256(header.extraData) == keccak256(context.extraData) &&
