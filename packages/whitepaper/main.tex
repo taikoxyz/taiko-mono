@@ -233,31 +233,34 @@ where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{ommersHash}
 
 Transactions in Taiko also conform to the same Ethereum standard defined by the Ethereum Yellow Paper. But currently only type 0 (legacy) and type 1 transactions are supported as EIP-1559 is disabled on Taiko initially (but may be enabled in a future version).
 
-A proposed block can only be mapped to a Taiko block in a \textit{mapping context}:
+A proposed block can only be mapped to a Taiko block in a \textit{mapping context} which is the world state $\boldsymbol{\sigma}$:
 
-$$(\boldsymbol{\sigma}, h[1...256], \texttt{d})$$
+$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1...256], d, a)$$
 
-where is $\boldsymbol{\sigma}$ is the current Taiko worldstate;  $h[1...256]$ are the most recent 256 ancestor block hashes; and $\texttt{d}$ is Taiko's chain ID.
+where $\boldsymbol{\delta}$ is the trie, $h[1...256]$ are the most recent 256 ancestor block hashes; and $d$ is Taiko's chain ID, and $a$ is the anchor transaction.
 
 Now we can define the block mapping function $M$ as:
 
 \begin{eqnarray}
 B & \equiv & (H, T, U), \\
-\nonumber & \equiv &  M(\boldsymbol{\sigma}, h[1...256], \texttt{d}, \bar{B}, )  \\
-\nonumber & \equiv & M(\boldsymbol{\sigma}, h[1...256], \texttt{d}, C, L)
+\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1...256], {d}, a, \bar{B}, )  \\
+\nonumber & \equiv & M(\boldsymbol{\delta}, h[1...256], {d}, a, C, L)
 \end{eqnarray}
 
 
 such that:
 
 \begin{eqnarray}
-& & \texttt{CHAINID} \equiv \texttt{d} \quad \wedge \\
-& & U \equiv [] \quad \wedge \\
-& & H_p \equiv h(1) \quad \wedge \\
-\nonumber & & H_o \equiv  K_{\mathrm{ommershash}} \quad \wedge \\
+& & \texttt{CHAINID} \equiv {d} \quad \wedge \\
+\nonumber& & H_p \equiv h(1) \quad \wedge \\
+\nonumber& & H_o \equiv  K_{\mathrm{ommershash}} \quad \wedge \\
 \nonumber& & H_c \equiv  C_c \quad \wedge \\
 \nonumber& & H_r \equiv  C_r \quad \wedge \\
+\nonumber& & U \equiv [] \quad \wedge \\
+\nonumber& & T \equiv a::W(\texttt{RLP}'(L))
 \end{eqnarray}
+
+Where $::$ is the list concatenation operator; $W$ is the \textit{Transaction Contextual Filter Function}.
 
 
 
