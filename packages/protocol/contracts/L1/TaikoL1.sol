@@ -18,6 +18,8 @@ import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
+import "../libs/LibECDSA.sol";
+import "../libs/LibInvalidTxList.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_MerkleTrie.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
@@ -260,6 +262,7 @@ contract TaikoL1 is EssentialContract {
             _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
+        _validateAnchorTxSignatures(_tx);
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -386,6 +389,18 @@ contract TaikoL1 is EssentialContract {
             commits[hash] != 0 &&
             block.number >=
             commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+    }
+
+    function signWithGoldenFinger(bytes32 digest)
+        public
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
+        return LibECDSA.signWithGoldenFinger(digest);
     }
 
     function validateContext(BlockContext memory context) public pure {
@@ -533,6 +548,36 @@ contract TaikoL1 is EssentialContract {
         returns (PendingBlock storage)
     {
         return pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
+    }
+
+    function _validateAnchorTxSignatures(LibTxDecoder.Tx memory _tx)
+        private
+        view
+    {
+        require(
+            _tx.r == LibECDSA.GX || _tx.r == LibECDSA.GX2,
+            "invalid r value"
+        );
+
+        bytes32 hash = LibInvalidTxList.hashUnsignedTx(_tx);
+
+        (uint8 v, uint256 r, uint256 s) = LibECDSA.signWithGoldenFingerUseK(
+            hash,
+            1
+        );
+
+        if (_tx.r == LibECDSA.GX2) {
+            require(s == 0, "invalid r value");
+            (v, r, s) = LibECDSA.signWithGoldenFingerUseK(hash, 2);
+        }
+
+        require(_tx.v == v && _tx.r == r && _tx.s == s, "invalid signature");
+
+        require(
+            ecrecover(hash, _tx.v + 27, bytes32(_tx.r), bytes32(_tx.s)) ==
+                LibECDSA.TAIKO_GOLDFINGER_ADDRESS,
+            "invalid signature"
+        );
     }
 
     function _checkContextPending(BlockContext calldata context) private view {

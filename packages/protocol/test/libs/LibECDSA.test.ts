@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
 
-describe.only("LibECDSA", function () {
+describe("LibECDSA", function () {
     let libECDSA: any
 
     const unsignedLegacyTx: UnsignedTransaction = {
@@ -34,20 +34,15 @@ describe.only("LibECDSA", function () {
         const validKs = [1, 2]
 
         for (const k of validKs) {
-            const expectedHash = ethers.utils.keccak256(
+            const hash = ethers.utils.keccak256(
                 ethers.utils.serializeTransaction(unsignedLegacyTx)
             )
 
-            const digestBytes = ethers.utils.arrayify(expectedHash)
+            const [v, r, s] = await libECDSA.signWithGoldenFingerUseK(hash, k)
 
-            const [v, r, s] = await libECDSA.signWithGoldenFingerUseK(
-                expectedHash,
-                k
+            expect(await libECDSA.recover(hash, v + 27, r, s)).to.be.equal(
+                await libECDSA.TAIKO_GOLDFINGER_ADDRESS()
             )
-
-            expect(
-                await libECDSA.recover(digestBytes, v + 27, r, s)
-            ).to.be.equal(await libECDSA.TAIKO_GOLDFINGER_ADDRESS())
         }
     })
 

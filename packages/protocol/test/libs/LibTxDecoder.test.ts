@@ -50,6 +50,7 @@ describe("LibTxDecoder", function () {
         it("can decode txList with legacy transaction", async function () {
             const txLegacy: UnsignedTransaction = {
                 nonce: 1,
+                chainId: 1337,
                 gasPrice: 11e9,
                 gasLimit: 123456,
                 to: ethers.Wallet.createRandom().address,
@@ -141,6 +142,7 @@ describe("LibTxDecoder", function () {
         const signature = await signer0.signMessage("123456abcdef")
         const txLegacy: UnsignedTransaction = {
             nonce: 1,
+            chainId: 1337,
             gasPrice: 11e9,
             gasLimit: 123456,
             to: ethers.Wallet.createRandom().address,

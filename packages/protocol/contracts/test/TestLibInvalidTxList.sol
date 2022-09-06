@@ -11,17 +11,12 @@ pragma solidity ^0.8.9;
 import "../libs/LibInvalidTxList.sol";
 
 contract TestLibInvalidTxList {
-    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
+    function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         public
         pure
-        returns (
-            bytes32 hash,
-            uint8 v,
-            bytes32 r,
-            bytes32 s
-        )
+        returns (bytes32 hash)
     {
-        return LibInvalidTxList.parseRecoverPayloads(transaction);
+        return LibInvalidTxList.hashUnsignedTx(transaction);
     }
 
     function verifySignature(LibTxDecoder.Tx memory transaction)

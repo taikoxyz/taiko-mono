@@ -93,15 +93,11 @@ library LibInvalidTxList {
         pure
         returns (address)
     {
-        (bytes32 hash, uint8 v, bytes32 r, bytes32 s) = parseRecoverPayloads(
-            transaction
-        );
-
         (address recoveredAddress, ECDSA.RecoverError error) = ECDSA.tryRecover(
-            hash,
-            v,
-            r,
-            s
+            hashUnsignedTx(transaction),
+            transaction.v + 27,
+            bytes32(transaction.r),
+            bytes32(transaction.s)
         );
 
         if (error != ECDSA.RecoverError.NoError) {
@@ -111,16 +107,12 @@ library LibInvalidTxList {
         return recoveredAddress;
     }
 
-    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
+    function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         internal
         pure
         returns (
             // transaction hash (without singature values)
-            bytes32 hash,
-            // transaction signature values
-            uint8 v,
-            bytes32 r,
-            bytes32 s
+            bytes32 hash
         )
     {
         Lib_RLPReader.RLPItem[] memory txRLPItems;
@@ -186,28 +178,6 @@ library LibInvalidTxList {
             );
         }
 
-        v = normalizeV(transaction.txType, txRLPItems[txRLPItems.length - 3]);
-        r = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 2]);
-        s = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 1]);
-
         hash = keccak256(unsignedTxRlp);
-    }
-
-    // The signature value v used by `ecrecover(hash, v, r, s)` should either
-    // be 27 or 28, EIP-1559 / EIP-2930 txs are defined to use {0,1} as recovery
-    // id and EIP-155 txs use {0,1} + CHAIN_ID * 2 + 35, so normalize them
-    // at first.
-    function normalizeV(uint8 txType, Lib_RLPReader.RLPItem memory rlpItem)
-        internal
-        pure
-        returns (uint8)
-    {
-        uint256 v = Lib_RLPReader.readUint256(rlpItem);
-
-        if (txType == 0) {
-            v -= LibConstants.TAIKO_CHAIN_ID * 2 + 35;
-        }
-
-        return uint8(v) + 27;
     }
 }

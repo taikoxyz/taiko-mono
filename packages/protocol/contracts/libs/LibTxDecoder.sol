@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../libs/LibConstants.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
@@ -63,6 +64,9 @@ library LibTxDecoder {
         address destination;
         bytes data;
         uint256 gasLimit;
+        uint8 v;
+        uint256 r;
+        uint256 s;
         bytes txData;
     }
 
@@ -108,6 +112,9 @@ library LibTxDecoder {
             TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
             _tx.gasLimit = txLegacy.gasLimit;
             _tx.destination = txLegacy.destination;
+            _tx.v = txLegacy.v;
+            _tx.r = txLegacy.r;
+            _tx.s = txLegacy.s;
             _tx.data = txLegacy.data;
         } else if (txType <= 0x7f) {
             _tx.txType = txType;
@@ -119,11 +126,17 @@ library LibTxDecoder {
                 Transaction2930 memory tx2930 = decodeTx2930(txBody);
                 _tx.gasLimit = tx2930.gasLimit;
                 _tx.destination = tx2930.destination;
+                _tx.v = tx2930.signatureYParity;
+                _tx.r = tx2930.signatureR;
+                _tx.s = tx2930.signatureS;
                 _tx.data = tx2930.data;
             } else if (_tx.txType == 2) {
                 Transaction1559 memory tx1559 = decodeTx1559(txBody);
                 _tx.gasLimit = tx1559.gasLimit;
                 _tx.destination = tx1559.destination;
+                _tx.v = tx1559.signatureYParity;
+                _tx.r = tx1559.signatureR;
+                _tx.s = tx1559.signatureS;
                 _tx.data = tx1559.data;
             } else {
                 revert("invalid txType");
@@ -154,7 +167,13 @@ library LibTxDecoder {
         txLegacy.destination = Lib_RLPReader.readAddress(body[3]);
         txLegacy.amount = Lib_RLPReader.readUint256(body[4]);
         txLegacy.data = Lib_RLPReader.readBytes(body[5]);
-        txLegacy.v = uint8(Lib_RLPReader.readUint256(body[6]));
+        // EIP-155 is enabled on L2
+        txLegacy.v = uint8(
+            Lib_RLPReader.readUint256(body[6]) -
+                LibConstants.TAIKO_CHAIN_ID *
+                2 +
+                35
+        );
         txLegacy.r = Lib_RLPReader.readUint256(body[7]);
         txLegacy.s = Lib_RLPReader.readUint256(body[8]);
     }

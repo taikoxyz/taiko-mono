@@ -83,32 +83,29 @@ describe("LibInvalidTxList", function () {
         testUnsignedTxs = [unsignedLegacyTx, unsigned2930Tx, unsigned1559Tx]
     })
 
-    it("should parse the recover payloads correctly", async function () {
+    it("should hash the unsigned tx payloads correctly", async function () {
         for (const unsignedTx of testUnsignedTxs) {
             const expectedHash = ethers.utils.keccak256(
                 ethers.utils.serializeTransaction(unsignedTx)
             )
 
             const signature = signingKey.signDigest(expectedHash)
-            const { v: expectedV, r: expectedR, s: expectedS } = signature
 
-            const [hash, v, r, s] = await libInvalidTxList.parseRecoverPayloads(
-                {
-                    txType: unsignedTx.type,
-                    destination: unsignedTx.to,
-                    data: unsignedTx.data,
-                    gasLimit: unsignedTx.gasLimit,
-                    txData: ethers.utils.serializeTransaction(
-                        unsignedTx,
-                        signature
-                    ),
-                }
-            )
+            const hash = await libInvalidTxList.hashUnsignedTx({
+                txType: unsignedTx.type,
+                destination: unsignedTx.to,
+                data: unsignedTx.data,
+                gasLimit: unsignedTx.gasLimit,
+                v: signature.v,
+                r: signature.r,
+                s: signature.s,
+                txData: ethers.utils.serializeTransaction(
+                    unsignedTx,
+                    signature
+                ),
+            })
 
             expect(hash).to.be.equal(expectedHash)
-            expect(v).to.be.equal(expectedV)
-            expect(r).to.be.equal(expectedR)
-            expect(s).to.be.equal(expectedS)
         }
     })
 
@@ -125,6 +122,9 @@ describe("LibInvalidTxList", function () {
                     destination: unsignedTx.to,
                     data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
+                    v: signature.v - 27,
+                    r: signature.r,
+                    s: signature.s,
                     txData: ethers.utils.serializeTransaction(
                         unsignedTx,
                         signature
@@ -141,15 +141,8 @@ describe("LibInvalidTxList", function () {
             )
             const signature = signingKey.signDigest(expectedHash)
 
-            const randomV =
-                unsignedTx.type === 0
-                    ? Math.floor(Math.random() * Math.pow(2, 7)) +
-                      2 * chainId +
-                      35
-                    : Math.floor(Math.random() * Math.pow(2, 7))
-
             const randomSignature = {
-                v: randomV,
+                v: Math.floor(Math.random() * Math.pow(2, 7)),
                 r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
             }
@@ -168,6 +161,9 @@ describe("LibInvalidTxList", function () {
                     destination: unsignedTx.to,
                     data: unsignedTx.data,
                     gasLimit: unsignedTx.gasLimit,
+                    v: randomSignature.v,
+                    r: randomSignature.r,
+                    s: randomSignature.s,
                     txData,
                 })
             ).to.be.equal(ethers.constants.AddressZero)
