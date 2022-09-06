@@ -13,12 +13,10 @@ import "../thirdparty/Lib_Uint512.sol";
 import "hardhat/console.sol";
 
 library LibECDSA {
-    // TODO: change to 0x0000777735367b36bC9B61C50022d9D0700dB4Ec
     address public constant TAIKO_GOLDFINGER_ADDRESS =
-        0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf;
-    // TODO: change to 0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38
+        0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant TAIKO_GOLDFINGURE_PRIVATEKEY =
-        0x0000000000000000000000000000000000000000000000000000000000000001;
+        0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
     uint256 public constant GX =
         0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
     uint256 public constant GY =
@@ -78,11 +76,11 @@ library LibECDSA {
             // define pointer
             let p := mload(0x40)
             // store data assembly-favouring ways
-            mstore(p, 0x20) // Length of Base
-            mstore(add(p, 0x20), 0x40) // Length of Exponent
+            mstore(p, 0x40) // Length of Base
+            mstore(add(p, 0x20), 0x20) // Length of Exponent
             mstore(add(p, 0x40), 0x20) // Length of Modulus
-            mstore(add(p, 0x60), baseLow) // BaseLow
-            mstore(add(p, 0x80), baseHigh) // BaseHigh
+            mstore(add(p, 0x60), baseHigh) // BaseHigh
+            mstore(add(p, 0x80), baseLow) // BaseLow
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 
