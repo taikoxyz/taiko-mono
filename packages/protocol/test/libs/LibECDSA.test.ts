@@ -1,10 +1,8 @@
-import { BN } from "bn.js"
 import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
-const { ec: EC } = require("elliptic")
 
-describe("LibECDSA", function () {
+describe.only("LibECDSA", function () {
     let libECDSA: any
 
     const unsignedLegacyTx: UnsignedTransaction = {
@@ -32,48 +30,25 @@ describe("LibECDSA", function () {
         ).deploy()
     })
 
-    it("should output correct signature values", async function () {
-        const expectedHash = ethers.utils.keccak256(
-            ethers.utils.serializeTransaction(unsignedLegacyTx)
-        )
-        const curve = new EC("secp256k1")
+    it("should calculate correct signature values", async function () {
+        const validKs = [1, 2]
 
-        const keyPair = curve.keyFromPrivate(
-            ethers.utils.arrayify(await libECDSA.TAIKO_GOLDFINGURE_PRIVATEKEY())
-        )
+        for (const k of validKs) {
+            const expectedHash = ethers.utils.keccak256(
+                ethers.utils.serializeTransaction(unsignedLegacyTx)
+            )
 
-        const digestBytes = ethers.utils.arrayify(expectedHash)
+            const digestBytes = ethers.utils.arrayify(expectedHash)
 
-        const signature = keyPair.sign(digestBytes, {
-            canonical: true,
-            k: () => new BN(1),
-        })
+            const [v, r, s] = await libECDSA.signWithGoldenFingerUseK(
+                expectedHash,
+                k
+            )
 
-        const {
-            recoveryParam: expectedV,
-            r: expectedR,
-            s: expectedS,
-        } = ethers.utils.splitSignature({
-            recoveryParam: signature.recoveryParam as any,
-            r: ethers.utils.hexZeroPad("0x" + signature.r.toString(16), 32),
-            s: ethers.utils.hexZeroPad("0x" + signature.s.toString(16), 32),
-        })
-
-        const [v, r, s] = await libECDSA.signWithGoldenFinger(expectedHash)
-
-        expect(v).to.be.equal(expectedV)
-        expect(r).to.be.equal(expectedR)
-        expect(s).to.be.equal(expectedS)
-
-        const recoveredAddress = ethers.utils.recoverAddress(digestBytes, {
-            recoveryParam: expectedV,
-            r: expectedR,
-            s: expectedS,
-        })
-
-        expect(recoveredAddress).to.be.equal(
-            await libECDSA.TAIKO_GOLDFINGER_ADDRESS()
-        )
+            expect(
+                await libECDSA.recover(digestBytes, v + 27, r, s)
+            ).to.be.equal(await libECDSA.TAIKO_GOLDFINGER_ADDRESS())
+        }
     })
 
     function randomBigInt() {

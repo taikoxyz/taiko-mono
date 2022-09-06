@@ -8,26 +8,38 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../thirdparty/Lib_EllipticCurve.sol";
 import "../thirdparty/Lib_Uint512.sol";
-import "hardhat/console.sol";
 
 library LibECDSA {
     address public constant TAIKO_GOLDFINGER_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant TAIKO_GOLDFINGURE_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
+
     uint256 public constant GX =
         0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
     uint256 public constant GY =
         0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
-    uint256 public constant K = 1;
+    uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
+        0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
+    uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
+        0x45b59254b0320fd853f3f38ac574999e91bd75fd5e6cab9c22c5e71fc6d276e4;
+
+    uint256 public constant GX2 =
+        0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5;
+    uint256 public constant GY2 =
+        0x1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a;
+    uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
+        0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
+    uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
+        0x71620584f61c57e688bbd3fd7a39a036e588d962c4c830f3dacbc15c917e02f2;
+    uint256 public constant K_2_INVM_N =
+        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
+
     uint256 public constant N =
         115792089237316195423570985008687907852837564279074904382605163141518161494337;
-    uint256 public constant P =
-        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
-    function signWithGoldenFinger(bytes memory digest)
+    function signWithGoldenFinger(bytes32 digest)
         internal
         view
         returns (
@@ -36,34 +48,57 @@ library LibECDSA {
             uint256 s
         )
     {
-        require(digest.length == 32, "invalid message digest");
+        (v, r, s) = signWithGoldenFingerUseK(digest, 1);
 
-        bytes32 z = bytes32(digest);
+        if (s == 0) {
+            (v, r, s) = signWithGoldenFingerUseK(digest, 2);
+        }
 
-        (uint256 x1, uint256 y1) = EllipticCurve.ecMul(K, GX, GY, 0, P);
+        require(s != 0, "invalid s value");
+    }
 
-        r = x1 % N;
+    function signWithGoldenFingerUseK(bytes32 digest, uint8 k)
+        internal
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
+        require(k == 1 || k == 2, "invalid k value");
 
-        require(r != 0, "invalid r value");
+        r = k == 1 ? GX : GX2;
 
-        (uint256 r0, uint256 r1) = Uint512.mul256x256(
-            r,
-            TAIKO_GOLDFINGURE_PRIVATEKEY
+        uint256 low256 = k == 1
+            ? GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW
+            : GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW;
+
+        uint256 high256 = k == 1
+            ? GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
+            : GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH;
+
+        (low256, high256) = Uint512.add512x512(
+            low256,
+            high256,
+            uint256(digest),
+            0
         );
 
-        (r0, r1) = Uint512.add512x512(r0, r1, uint256(z), 0);
-
-        s = expmod(r0, r1, 1, N);
-
-        y1 % 2 == 0 ? v = 0 : v = 1;
-        x1 == r ? v |= 0 : v |= 2;
+        if (k == 1) {
+            s = expmod(low256, high256, 1, N);
+        } else {
+            (low256, high256) = Uint512.mul256x256(
+                K_2_INVM_N,
+                expmod(low256, high256, 1, N)
+            );
+            s = expmod(low256, high256, 1, N);
+        }
 
         if (s > N >> 1) {
             s = N - s;
             v ^= 1;
         }
-
-        require(s != 0, "invalid s value");
     }
 
     function expmod(
@@ -80,7 +115,7 @@ library LibECDSA {
             mstore(add(p, 0x20), 0x20) // Length of Exponent
             mstore(add(p, 0x40), 0x20) // Length of Modulus
             mstore(add(p, 0x60), baseHigh) // BaseHigh
-            mstore(add(p, 0x80), baseLow) // BaseLow
+            mstore(add(p, 0x80), baseLow) // BaseHigh
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 
