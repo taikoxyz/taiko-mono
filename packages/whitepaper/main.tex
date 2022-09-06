@@ -270,19 +270,34 @@ Where $\Pi$ is the block transition function; $::$ is the list concatenation ope
 
 \subsection{Anchoring} \label{sec:anchoring}
 
-The anchor transaction will be the first transaction in a Taiko L2 block such that:
+The anchor transaction is always the first one in a Taiko L2 block to perform certain duties:
+
+\begin{itemize}
+\item Persisting the values of $i$, $d$, $h[1]$ -- the parent block hash -- to the trie for the next block to use.
+\item Comparing $i$, $d$, $h[2..256])$ with values persisted by previous blocks. The anchor transaction will throw if any comparison fails, which will make this block unprovable on L1.
+\item Inserting \textbf{anchorHeight} $C_a$ and \textbf{anchorHash} $C_h$ into a mapping structure on L2 as a key-value pair. These L1 block hashes can be used by bridges to validate cross-layer messages.
+\end{itemize}
+
+We can add additional duties to anchor transaction implementation to enrich Taiko's functionalities without requesting changes in the zkEVM subsystem.
+
+\subsubsection{Construction of Anchor Transactions} All anchor transactions are signed by a \textit{goldfinger} address with a revealed private-key. 
+
+Anchor transactions are constructed by Taiko L2 nodes as follows:
 
 \begin{eqnarray}
-& & \boldsymbol{\delta}_x = 0 \quad \wedge \\
-\nonumber& & \boldsymbol{\delta}_n = \boldsymbol{\delta}[K_{\mathrm{goldfingeraddr}}]_n + 1 \quad \wedge \\
-\nonumber& & \boldsymbol{\delta}_p = 0 \quad \wedge \\
-\nonumber& & \boldsymbol{\delta}_g = K_{\mathrm{anchorgas}} \quad \wedge \\
-\nonumber& & \boldsymbol{\delta}_t = K_{\mathrm{goldfingeraddr}} \quad \wedge  \\
-\nonumber& & \boldsymbol{\delta}_v = 0 \quad \wedge  \\
-\nonumber& & \boldsymbol{\delta}_d = K_{\mathrm{invalidateblockselector}}::C_a::C_h \quad \wedge  \\
-\nonumber& & (\boldsymbol{\delta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta})
+& & \boldsymbol{\theta}_x = 0 \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_n = \boldsymbol{\delta}[K_{\mathrm{goldfingeraddr}}]_n + 1 \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_p = 0 \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_g = K_{\mathrm{anchorgas}} \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_t = K_{\mathrm{goldfingeraddr}} \quad \wedge  \\
+\nonumber& & \boldsymbol{\theta}_v = 0 \quad \wedge  \\
+\nonumber& & \boldsymbol{\theta}_d = K_{\mathrm{invalidateblockselector}}::C_a::C_h \quad \wedge  \\
+\nonumber& & (\boldsymbol{\theta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta}, K_{\mathrm{goldfingerprivatekey}})
 \end{eqnarray}
 
+Where \texttt{K1ECDSA} is the ECDSA signing function with the internal variable $k$ chosen to be constant $1$, which ensures the transaction's signature only depends on the transaction itself and therefore is deterministic. 
+
+According to ECDSA's spec, when $k$ is $1$, $\boldsymbol{\theta}_r$ must equal $\mathrm{G_x}$, the value of the x-coordinate of the base point on the SECP-256k1 curve. The TaikoL1 contract verifies such assertion while proving this block.
 
 
 
@@ -306,7 +321,7 @@ The anchor transaction will be the first transaction in a Taiko L2 block such th
 \subsection{Assumptions on zkEVM}
 hi hi hi
 
-\newpage
+
 
 \bibliographystyle{abbrv}
 \bibliography{main}
