@@ -13,8 +13,10 @@ import "../thirdparty/Lib_Uint512.sol";
 import "hardhat/console.sol";
 
 library LibECDSA {
+    // TODO: change to 0x0000777735367b36bC9B61C50022d9D0700dB4Ec
     address public constant TAIKO_GOLDFINGER_ADDRESS =
         0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf;
+    // TODO: change to 0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38
     uint256 public constant TAIKO_GOLDFINGURE_PRIVATEKEY =
         0x0000000000000000000000000000000000000000000000000000000000000001;
     uint256 public constant GX =
