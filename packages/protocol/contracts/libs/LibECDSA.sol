@@ -37,6 +37,7 @@ library LibECDSA {
         )
     {
         require(digest.length == 32, "invalid message digest");
+
         bytes32 z = bytes32(digest);
 
         (uint256 x1, uint256 y1) = EllipticCurve.ecMul(K, GX, GY, 0, P);
@@ -66,8 +67,8 @@ library LibECDSA {
     }
 
     function expmod(
-        uint256 base1,
-        uint256 base2,
+        uint256 baseLow,
+        uint256 baseHigh,
         uint256 e,
         uint256 m
     ) internal view returns (uint256 o) {
@@ -78,8 +79,8 @@ library LibECDSA {
             mstore(p, 0x20) // Length of Base
             mstore(add(p, 0x20), 0x40) // Length of Exponent
             mstore(add(p, 0x40), 0x20) // Length of Modulus
-            mstore(add(p, 0x60), base1) // Base1
-            mstore(add(p, 0x80), base2) // Base2
+            mstore(add(p, 0x60), baseLow) // BaseLow
+            mstore(add(p, 0x80), baseHigh) // BaseHigh
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 
