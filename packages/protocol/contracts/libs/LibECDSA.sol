@@ -39,25 +39,7 @@ library LibECDSA {
     uint256 public constant N =
         115792089237316195423570985008687907852837564279074904382605163141518161494337;
 
-    function signWithGoldenFinger(bytes32 digest)
-        internal
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
-        (v, r, s) = signWithGoldenFingerUseK(digest, 1);
-
-        if (s == 0) {
-            (v, r, s) = signWithGoldenFingerUseK(digest, 2);
-        }
-
-        require(s != 0, "invalid s value");
-    }
-
-    function signWithGoldenFingerUseK(bytes32 digest, uint8 k)
+    function signWithGoldFingerUseK(bytes32 digest, uint8 k)
         internal
         view
         returns (
@@ -115,7 +97,7 @@ library LibECDSA {
             mstore(add(p, 0x20), 0x20) // Length of Exponent
             mstore(add(p, 0x40), 0x20) // Length of Modulus
             mstore(add(p, 0x60), baseHigh) // BaseHigh
-            mstore(add(p, 0x80), baseLow) // BaseHigh
+            mstore(add(p, 0x80), baseLow) // BaseLow
             mstore(add(p, 0xa0), e) // Exponent
             mstore(add(p, 0xc0), m) // Modulus
 

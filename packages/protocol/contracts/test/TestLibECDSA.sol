@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../libs/LibECDSA.sol";
 
 library TestLibECDSA {
-    function signWithGoldenFinger(bytes32 digest)
+    function signWithGoldFingerUseK(bytes32 digest, uint8 k)
         public
         view
         returns (
@@ -20,19 +20,7 @@ library TestLibECDSA {
             uint256 s
         )
     {
-        return LibECDSA.signWithGoldenFinger(digest);
-    }
-
-    function signWithGoldenFingerUseK(bytes32 digest, uint8 k)
-        public
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
-        return LibECDSA.signWithGoldenFingerUseK(digest, k);
+        return LibECDSA.signWithGoldFingerUseK(digest, k);
     }
 
     function recover(
