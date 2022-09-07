@@ -78,7 +78,7 @@ library V1Proving {
             Lib_BytesUtils.equal(
                 _tx.data,
                 bytes.concat(
-                    LibConstants.ANCHOR_TX_SELECTOR,
+                    LibConstants.V1_ANCHOR_TX_SELECTOR,
                     bytes32(evidence.context.anchorHeight),
                     evidence.context.anchorHash
                 )
@@ -154,7 +154,7 @@ library V1Proving {
         require(log.data.length == 0, "L1:receipt:data");
         require(
             log.topics.length == 2 &&
-                log.topics[0] == LibConstants.TAIKO_INVALIDATE_BLOCK_EVENT &&
+                log.topics[0] == LibConstants.V1_TAIKO_INVALIDATE_BLOCK_EVENT &&
                 log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );
