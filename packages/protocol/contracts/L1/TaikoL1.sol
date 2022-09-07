@@ -252,7 +252,7 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that
     ///       the anchor tranaction is always the first transaction in the block.
     ///
-    ///     - inputs[2] is he receipt of the anchor transacton.
+    ///     - inputs[2] is the receipt of the anchor transaction.
     function proveBlock(uint256 blockId, bytes[] calldata inputs)
         external
         nonReentrant
