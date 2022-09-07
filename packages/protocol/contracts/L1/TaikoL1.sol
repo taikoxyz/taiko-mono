@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
+import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
 import "./v1/LibFinalizing.sol";
 import "./v1/LibProposing.sol";
@@ -148,5 +149,17 @@ contract TaikoL1 is EssentialContract {
         )
     {
         return state.getStateVariables();
+    }
+
+    function signWithGoldFinger(bytes32 hash, uint8 k)
+        public
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
+        return LibAnchorSignature.signTransaction(hash, k);
     }
 }

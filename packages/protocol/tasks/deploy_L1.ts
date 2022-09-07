@@ -19,30 +19,6 @@ task("deploy_L1")
         ethers.constants.HashZero
     )
     .addOptionalParam(
-        "gasPriceNow",
-        "The initialization parameter `_gasPriceNow` of TaikoProtoBroker",
-        0,
-        types.int
-    )
-    .addOptionalParam(
-        "amountToMintToDAOThreshold",
-        "The initialization parameter `_amountToMintToDAOThreshold` of TaikoProtoBroker",
-        1,
-        types.int
-    )
-    .addOptionalParam(
-        "amountMintToDAO",
-        "The initialization parameter `_amountMintToDAO` of TaikoProtoBroker",
-        0,
-        types.int
-    )
-    .addOptionalParam(
-        "amountMintToTeam",
-        "The initialization parameter `_amountMintToTeam` of TaikoProtoBroker",
-        0,
-        types.int
-    )
-    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.DEFAULT_DEPLOY_CONFIRMATIONS,
@@ -73,11 +49,6 @@ export async function deployContracts(hre: any) {
     const teamVault = hre.args.teamVault
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
     const taikoL2Address = hre.args.taikoL2
-    // Initialization parameters of TaikoProtoBroker
-    const gasPriceNow = hre.args.gasPriceNow
-    const amountToMintToDAOThreshold = hre.args.amountToMintToDAOThreshold
-    const amountMintToDAO = hre.args.amountMintToDAO
-    const amountMintToTeam = hre.args.amountMintToTeam
 
     log.debug(`network: ${network}`)
     log.debug(`chainId: ${chainId}`)
@@ -85,10 +56,6 @@ export async function deployContracts(hre: any) {
     log.debug(`daoVault: ${daoVault}`)
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
     log.debug(`taikoL2Address: ${taikoL2Address}`)
-    log.debug(`gasPriceNow: ${gasPriceNow}`)
-    log.debug(`amountToMintToDAOThreshold: ${amountToMintToDAOThreshold}`)
-    log.debug(`amountMintToDAO: ${amountMintToDAO}`)
-    log.debug(`amountMintToTeam: ${amountMintToTeam}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
 
@@ -114,23 +81,6 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress("tai_token", TaiToken.address)
-    )
-
-    // Proto Broker
-    const ProtoBroker = await utils.deployContract(hre, "TaikoProtoBroker")
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress("proto_broker", ProtoBroker.address)
-    )
-    await utils.waitTx(
-        hre,
-        await ProtoBroker.init(
-            AddressManager.address,
-            gasPriceNow,
-            amountToMintToDAOThreshold,
-            amountMintToDAO,
-            amountMintToTeam
-        )
     )
 
     // Config manager
@@ -161,7 +111,6 @@ export async function deployContracts(hre: any) {
         contracts: Object.assign(
             { AddressManager: AddressManager.address },
             { TaiToken: TaiToken.address },
-            { ProtoBroker: ProtoBroker.address },
             { TaikoL1: taikoL1.address }
         ),
     }
@@ -178,10 +127,21 @@ async function deployBaseLibs(hre: any) {
         "LibReceiptDecoder"
     )
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
+    const libUint512 = await utils.deployContract(hre, "Uint512")
 
-    return {
+    const libFinalizing = await utils.deployContract(hre, "LibFinalizing")
+    const libProposing = await utils.deployContract(hre, "LibProposing")
+    const libProving = await utils.deployContract(hre, "LibProving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
+        Uint512: libUint512.address,
+    })
+
+    return {
+        LibFinalizing: libFinalizing.address,
+        LibProposing: libProposing.address,
+        LibProving: libProving.address,
+        Uint512: libUint512.address,
     }
 }
