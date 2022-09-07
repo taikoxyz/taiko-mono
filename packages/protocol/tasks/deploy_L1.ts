@@ -72,7 +72,7 @@ export async function deployContracts(hre: any) {
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("taiko_l2", taikoL2Address)
+        await AddressManager.setAddress("v1_taiko_l2", taikoL2Address)
     )
 
     // TaiToken

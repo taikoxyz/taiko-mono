@@ -66,7 +66,7 @@ library V1Proving {
 
         require(_tx.txType == 0, "L1:anchor:type");
         require(
-            _tx.destination == resolver.resolve("taiko_l2"),
+            _tx.destination == resolver.resolve("v1_taiko_l2"),
             "L1:anchor:dest"
         );
         require(
@@ -148,7 +148,7 @@ library V1Proving {
         LibReceiptDecoder.Log memory log = receipt.logs[0];
 
         require(
-            log.contractAddress == resolver.resolve("taiko_l2"),
+            log.contractAddress == resolver.resolve("v1_taiko_l2"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
