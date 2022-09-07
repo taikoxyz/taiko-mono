@@ -17,6 +17,7 @@ import "./v1/LibFinalize.sol";
 import "./v1/LibPropose.sol";
 import "./v1/LibProve.sol";
 
+
 contract TaikoL1 is EssentialContract {
     using LibData for LibData.State;
     using LibFinalize for LibData.State;
@@ -82,7 +83,7 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that
     ///       the anchor tranaction is always the first transaction in the block.
     ///
-    ///     - inputs[2] is he receipt of the anchor transacton.
+    ///     - inputs[2] is the receipt of the anchor transaction.
     function proveBlock(uint256 blockId, bytes[] calldata inputs)
         external
         nonReentrant
@@ -103,7 +104,7 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[1] The target block to be proven invalid.
     ///
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
-    ///       on L2. Note that the `invalidBlock` transaction is supported to
+    ///       on L2. Note that the `invalidBlock` transaction is supposed to
     ///       be the only transaction in the L2 block.
     function proveBlockInvalid(uint256 blockId, bytes[] calldata inputs)
         external
