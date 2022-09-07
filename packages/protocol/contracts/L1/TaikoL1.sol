@@ -52,7 +52,7 @@ contract TaikoL1 is EssentialContract {
     ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
     ///        - anchorHeight
-    ///        - context.anchorHash
+    ///        - anchorHash
     ///        - mixHash
     ///        - proposedAt
     ///
