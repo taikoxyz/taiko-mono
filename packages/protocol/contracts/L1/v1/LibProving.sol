@@ -24,7 +24,8 @@ import "../../thirdparty/Lib_MerkleTrie.sol";
 import "../../thirdparty/Lib_RLPWriter.sol";
 import "../LibData.sol";
 
-library LibProve {
+/// @author dantaik <dan@taiko.xyz>
+library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibData for LibData.State;
 

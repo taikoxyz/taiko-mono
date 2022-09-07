@@ -8,23 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-/**
- * @author dantaik <dan@taiko.xyz>
- * @notice This library offers two functions for EIP-1559-style math.
- *      See more at https://dankradfeist.de/ethereum/2022/03/16/exponential-eip1559.html
- */
-
-// import "../common/ConfigManager.sol";
-// import "../L2/TaikoL2.sol";
-// import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
 
-// import "../libs/LibTxDecoder.sol";
-// import "../libs/LibReceiptDecoder.sol";
-// import "../libs/LibZKP.sol";
-// import "../thirdparty/Lib_BytesUtils.sol";
-// import "../thirdparty/Lib_MerkleTrie.sol";
-// import "../thirdparty/Lib_RLPWriter.sol";
+/// @author dantaik <dan@taiko.xyz>
 library LibData {
     enum EverProven {
         _NO, //=0

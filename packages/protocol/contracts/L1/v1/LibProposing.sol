@@ -15,7 +15,8 @@ import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
 
-library LibPropose {
+/// @author dantaik <dan@taiko.xyz>
+library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;

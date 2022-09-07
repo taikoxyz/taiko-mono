@@ -12,7 +12,8 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../LibData.sol";
 
-library LibFinalize {
+/// @author dantaik <dan@taiko.xyz>
+library LibFinalizing {
     event BlockFinalized(
         uint256 indexed id,
         uint256 indexed height,

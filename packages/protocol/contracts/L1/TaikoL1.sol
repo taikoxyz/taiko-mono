@@ -13,15 +13,16 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "./LibData.sol";
-import "./v1/LibFinalize.sol";
-import "./v1/LibPropose.sol";
-import "./v1/LibProve.sol";
+import "./v1/LibFinalizing.sol";
+import "./v1/LibProposing.sol";
+import "./v1/LibProving.sol";
 
+/// @author dantaik <dan@taiko.xyz>
 contract TaikoL1 is EssentialContract {
     using LibData for LibData.State;
-    using LibFinalize for LibData.State;
-    using LibPropose for LibData.State;
-    using LibProve for LibData.State;
+    using LibFinalizing for LibData.State;
+    using LibProposing for LibData.State;
+    using LibProving for LibData.State;
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
 
