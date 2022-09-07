@@ -10,8 +10,8 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
+import "../common/EssentialContract.sol";
 import "./LibData.sol";
 import "./v1/LibFinalize.sol";
 import "./v1/LibPropose.sol";
