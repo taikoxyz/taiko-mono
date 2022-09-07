@@ -8,10 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
+import "../libs/LibTxUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 
@@ -67,7 +66,7 @@ library LibInvalidTxList {
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
-                    verifySignature(_tx) == address(0),
+                    LibTxUtils.recoverSender(_tx) == address(0),
                     "bad hint TX_INVALID_SIG"
                 );
                 return Reason.TX_INVALID_SIG;
@@ -85,128 +84,5 @@ library LibInvalidTxList {
         } catch (bytes memory) {
             return Reason.BINARY_NOT_DECODABLE;
         }
-    }
-
-    function verifySignature(LibTxDecoder.Tx memory transaction)
-        internal
-        pure
-        returns (address)
-    {
-        (bytes32 hash, uint8 v, bytes32 r, bytes32 s) = parseRecoverPayloads(
-            transaction
-        );
-
-        (address recoveredAddress, ECDSA.RecoverError error) = ECDSA.tryRecover(
-            hash,
-            v,
-            r,
-            s
-        );
-
-        if (error != ECDSA.RecoverError.NoError) {
-            return address(0);
-        }
-
-        return recoveredAddress;
-    }
-
-    function parseRecoverPayloads(LibTxDecoder.Tx memory transaction)
-        internal
-        pure
-        returns (
-            // transaction hash (without singature values)
-            bytes32 hash,
-            // transaction signature values
-            uint8 v,
-            bytes32 r,
-            bytes32 s
-        )
-    {
-        Lib_RLPReader.RLPItem[] memory txRLPItems;
-        if (transaction.txType == 0) {
-            // Legacy transactions do not have the EIP-2718 type prefix.
-            txRLPItems = Lib_RLPReader.readList(transaction.txData);
-        } else {
-            txRLPItems = Lib_RLPReader.readList(
-                Lib_BytesUtils.slice(transaction.txData, 1)
-            );
-        }
-
-        if (transaction.txType == 0) {
-            // Legacy transactions
-            require(txRLPItems.length == 9, "invalid rlp items");
-        } else if (transaction.txType == 1) {
-            // EIP-2930 transactions
-            require(txRLPItems.length == 11, "invalid rlp items");
-        } else if (transaction.txType == 2) {
-            // EIP-1559 transactions
-            require(txRLPItems.length == 12, "invalid rlp items");
-        } else {
-            revert("invalid txType");
-        }
-
-        // Signature values are always last three RLP items for all kinds of
-        // transactions.
-        bytes[] memory list = new bytes[](
-            transaction.txType == 0 ? txRLPItems.length : txRLPItems.length - 3
-        );
-
-        for (uint256 i = 0; i < list.length; i++) {
-            // For Non-legacy transactions, accessList is always the
-            // fourth to last item.
-            if (transaction.txType != 0 && i == list.length - 1) {
-                list[i] = Lib_RLPReader.readRawBytes(txRLPItems[i]);
-                continue;
-            }
-
-            list[i] = Lib_RLPWriter.writeBytes(
-                Lib_RLPReader.readBytes(txRLPItems[i])
-            );
-
-            // For legacy transactions, there are three more RLP items to
-            // encode defined in EIP-155.
-            if (transaction.txType == 0 && i == list.length - 4) {
-                list[i + 1] = Lib_RLPWriter.writeUint(
-                    LibConstants.TAIKO_CHAIN_ID
-                );
-                list[i + 2] = Lib_RLPWriter.writeUint64(0);
-                list[i + 3] = Lib_RLPWriter.writeUint64(0);
-                break;
-            }
-        }
-
-        bytes memory unsignedTxRlp = Lib_RLPWriter.writeList(list);
-
-        // Add the EIP-2718 type prefix for non-legacy transactions.
-        if (transaction.txType != 0) {
-            unsignedTxRlp = bytes.concat(
-                bytes1(transaction.txType),
-                unsignedTxRlp
-            );
-        }
-
-        v = normalizeV(transaction.txType, txRLPItems[txRLPItems.length - 3]);
-        r = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 2]);
-        s = Lib_RLPReader.readBytes32(txRLPItems[txRLPItems.length - 1]);
-
-        hash = keccak256(unsignedTxRlp);
-    }
-
-    // The signature value v used by `ecrecover(hash, v, r, s)` should either
-    // be 27 or 28, EIP-1559 / EIP-2930 txs are defined to use {0,1} as recovery
-    // id and EIP-155 txs use {0,1} + CHAIN_ID * 2 + 35, so normalize them
-    // at first.
-    function normalizeV(uint8 txType, Lib_RLPReader.RLPItem memory rlpItem)
-        internal
-        pure
-        returns (uint8)
-    {
-        uint256 v = Lib_RLPReader.readUint256(rlpItem);
-
-        if (txType == 0) {
-            v -= LibConstants.TAIKO_CHAIN_ID * 2 + 35;
-        }
-
-        return uint8(v) + 27;
     }
 }
