@@ -17,7 +17,7 @@ import "../libs/LibInvalidTxList.sol";
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
-contract TaikoL2 is AddressResolver, ReentrancyGuard {
+contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     using LibTxDecoder for bytes;
 
     /**********************
