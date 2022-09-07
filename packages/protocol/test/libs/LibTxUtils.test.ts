@@ -2,11 +2,11 @@ import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
 
-describe("LibTxUtility", function () {
-    let libTxUtility: any
+describe("LibTxUtils", function () {
+    let libTxUtils: any
     let libRLPWriter: any
     let libRLPReader: any
-    let LibConstants: any
+    let libConstants: any
     let testUnsignedTxs: Array<UnsignedTransaction>
     let chainId: any
 
@@ -14,12 +14,12 @@ describe("LibTxUtility", function () {
     const signerAddress = new ethers.Wallet(signingKey.privateKey).address
 
     before(async function () {
-        LibConstants = await (
+        libConstants = await (
             await ethers.getContractFactory("LibConstants")
         ).deploy()
 
-        libTxUtility = await (
-            await ethers.getContractFactory("TestLibTxUtility")
+        libTxUtils = await (
+            await ethers.getContractFactory("TestLibTxUtils")
         ).deploy()
 
         libRLPReader = await (
@@ -30,7 +30,7 @@ describe("LibTxUtility", function () {
             await ethers.getContractFactory("TestLib_RLPWriter")
         ).deploy()
 
-        chainId = (await LibConstants.TAIKO_CHAIN_ID()).toNumber()
+        chainId = (await libConstants.TAIKO_CHAIN_ID()).toNumber()
 
         const unsignedLegacyTx: UnsignedTransaction = {
             type: 0,
@@ -91,7 +91,7 @@ describe("LibTxUtility", function () {
 
             const signature = signingKey.signDigest(expectedHash)
 
-            const hash = await libTxUtility.hashUnsignedTx({
+            const hash = await libTxUtils.hashUnsignedTx({
                 txType: unsignedTx.type,
                 destination: unsignedTx.to,
                 data: unsignedTx.data,
@@ -117,7 +117,7 @@ describe("LibTxUtility", function () {
             const signature = signingKey.signDigest(expectedHash)
 
             expect(
-                await libTxUtility.recoverSender({
+                await libTxUtils.recoverSender({
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,
@@ -156,7 +156,7 @@ describe("LibTxUtility", function () {
             )
 
             expect(
-                await libTxUtility.recoverSender({
+                await libTxUtils.recoverSender({
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,

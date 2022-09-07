@@ -18,7 +18,8 @@ import "../libs/LibConstants.sol";
 import "../libs/LibECDSA.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibTxDecoder.sol";
-import "../libs/LibTxUtility.sol";
+import "../libs/LibTxUtils.sol";
+import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_MerkleTrie.sol";
@@ -561,7 +562,7 @@ contract TaikoL1 is EssentialContract {
 
         if (_tx.r == LibECDSA.GX2) {
             (, , uint256 s) = LibECDSA.signWithGoldFingerUseK(
-                LibTxUtility.hashUnsignedTx(_tx),
+                LibTxUtils.hashUnsignedTx(_tx),
                 1
             );
             require(s == 0, "invalid r value");

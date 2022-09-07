@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
-import "../libs/LibTxUtility.sol";
+import "../libs/LibTxUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 
@@ -67,7 +67,7 @@ library LibInvalidTxList {
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
-                    LibTxUtility.recoverSender(_tx) == address(0),
+                    LibTxUtils.recoverSender(_tx) == address(0),
                     "bad hint TX_INVALID_SIG"
                 );
                 return Reason.TX_INVALID_SIG;

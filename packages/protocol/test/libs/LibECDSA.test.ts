@@ -41,7 +41,7 @@ describe("LibECDSA", function () {
             const [v, r, s] = await libECDSA.signWithGoldFingerUseK(hash, k)
 
             expect(await libECDSA.recover(hash, v + 27, r, s)).to.be.equal(
-                await libECDSA.TAIKO_GOLDFINGER_ADDRESS()
+                await libECDSA.goldFingerAddress()
             )
         }
     })

@@ -8,15 +8,15 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibTxUtility.sol";
+import "../libs/LibTxUtils.sol";
 
-contract TestLibTxUtility {
+contract TestLibTxUtils {
     function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         public
         pure
         returns (bytes32 hash)
     {
-        return LibTxUtility.hashUnsignedTx(transaction);
+        return LibTxUtils.hashUnsignedTx(transaction);
     }
 
     function recoverSender(LibTxDecoder.Tx memory transaction)
@@ -24,6 +24,6 @@ contract TestLibTxUtility {
         pure
         returns (address)
     {
-        return LibTxUtility.recoverSender(transaction);
+        return LibTxUtils.recoverSender(transaction);
     }
 }

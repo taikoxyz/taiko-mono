@@ -32,27 +32,7 @@ library TestLibECDSA {
         return ecrecover(hash, v, r, s);
     }
 
-    function TAIKO_GOLDFINGER_ADDRESS() public pure returns (address) {
+    function goldFingerAddress() public pure returns (address) {
         return LibECDSA.TAIKO_GOLDFINGER_ADDRESS;
-    }
-
-    function TAIKO_GOLDFINGURE_PRIVATEKEY() public pure returns (uint256) {
-        return LibECDSA.TAIKO_GOLDFINGURE_PRIVATEKEY;
-    }
-
-    function GX() public pure returns (uint256) {
-        return LibECDSA.GX;
-    }
-
-    function GY() public pure returns (uint256) {
-        return LibECDSA.GY;
-    }
-
-    function GX2() public pure returns (uint256) {
-        return LibECDSA.GX2;
-    }
-
-    function GY2() public pure returns (uint256) {
-        return LibECDSA.GY2;
     }
 }
