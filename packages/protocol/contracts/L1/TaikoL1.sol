@@ -70,7 +70,7 @@ contract TaikoL1 is EssentialContract {
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction
     ///         merkel proof, and a receipt merkel proof.
-    /// @param id The id of the block to prove. This is also used to select
+    /// @param blockIndex The index of the block to prove. This is also used to select
     ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
@@ -81,17 +81,17 @@ contract TaikoL1 is EssentialContract {
     ///       the anchor tranaction is always the first transaction in the block.
     ///
     ///     - inputs[2] is the receipt of the anchor transaction.
-    function proveBlock(uint256 id, bytes[] calldata inputs)
+    function proveBlock(uint256 blockIndex, bytes[] calldata inputs)
         external
         nonReentrant
     {
-        state.proveBlock(AddressResolver(this), id, inputs);
+        state.proveBlock(AddressResolver(this), blockIndex, inputs);
         state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
     }
 
     /// @notice Prove a block is invalid with a zero-knowledge proof and
     ///         a receipt merkel proof
-    /// @param id The id of the block to prove. This is also used to select
+    /// @param blockIndex The index of the block to prove. This is also used to select
     ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
@@ -103,11 +103,11 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
     ///       on L2. Note that the `invalidBlock` transaction is supposed to
     ///       be the only transaction in the L2 block.
-    function proveBlockInvalid(uint256 id, bytes[] calldata inputs)
+    function proveBlockInvalid(uint256 blockIndex, bytes[] calldata inputs)
         external
         nonReentrant
     {
-        state.proveBlockInvalid(AddressResolver(this), id, inputs);
+        state.proveBlockInvalid(AddressResolver(this), blockIndex, inputs);
         state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
     }
 
