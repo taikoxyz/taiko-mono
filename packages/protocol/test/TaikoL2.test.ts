@@ -26,13 +26,14 @@ describe("V1TaikoL2", function () {
         const { chainId } = await hre.ethers.provider.getNetwork()
 
         const v1TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
-            _addressManager: addressManager.address,
-            _chainId: chainId,
             libraries: {
                 LibTxDecoder: libTxDecoder.address,
             },
         })
-        v1TaikoL2 = await v1TaikoL2Factory.deploy()
+        v1TaikoL2 = await v1TaikoL2Factory.deploy(
+            addressManager.address,
+            chainId
+        )
 
         signers = await ethers.getSigners()
         await addressManager.setAddress(
