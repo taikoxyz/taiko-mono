@@ -59,7 +59,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager, uint256 _chainId) {
+    constructor(address _addressManager, uint256 _chainId) initializer {
         AddressResolver._init(_addressManager);
         chainId = _chainId;
     }
