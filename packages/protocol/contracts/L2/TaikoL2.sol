@@ -49,7 +49,7 @@ contract TaikoL2 is EssentialContract {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight < block.number, "L2:anchored");
+        require(lastAnchorHeight + 1 == block.number, "L2:anchored");
         lastAnchorHeight = block.number;
         _;
     }
@@ -99,7 +99,6 @@ contract TaikoL2 is EssentialContract {
         external
         onlyWhenNotAnchored
     {
-        require(anchorHeight != 0 && anchorHash != 0, "L2:anchor:values");
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
 
