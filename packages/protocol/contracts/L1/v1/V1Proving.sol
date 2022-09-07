@@ -189,7 +189,7 @@ library V1Proving {
 
         LibZKP.verify(
             ConfigManager(resolver.resolve("config_manager")).getValue(
-                LibConstants.TAIKO_ZKP_VKEY
+                "zk_vkey"
             ),
             evidence.proofs[0],
             blockHash,
