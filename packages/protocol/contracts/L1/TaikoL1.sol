@@ -262,7 +262,7 @@ contract TaikoL1 is EssentialContract {
             _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
-        _validateAnchorTxSignatures(_tx);
+        _validateAnchorTxSignature(_tx);
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -550,7 +550,7 @@ contract TaikoL1 is EssentialContract {
         return pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
     }
 
-    function _validateAnchorTxSignatures(LibTxDecoder.Tx memory _tx)
+    function _validateAnchorTxSignature(LibTxDecoder.Tx memory _tx)
         private
         view
     {
