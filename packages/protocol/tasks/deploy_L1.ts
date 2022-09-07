@@ -129,9 +129,9 @@ async function deployBaseLibs(hre: any) {
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
     const libUint512 = await utils.deployContract(hre, "Uint512")
 
-    const libFinalizing = await utils.deployContract(hre, "LibFinalizing")
-    const libProposing = await utils.deployContract(hre, "LibProposing")
-    const libProving = await utils.deployContract(hre, "LibProving", {
+    const V1Finalizing = await utils.deployContract(hre, "V1Finalizing")
+    const V1Proposing = await utils.deployContract(hre, "V1Proposing")
+    const V1Proving = await utils.deployContract(hre, "V1Proving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
@@ -139,9 +139,9 @@ async function deployBaseLibs(hre: any) {
     })
 
     return {
-        LibFinalizing: libFinalizing.address,
-        LibProposing: libProposing.address,
-        LibProving: libProving.address,
+        V1Finalizing: V1Finalizing.address,
+        V1Proposing: V1Proposing.address,
+        V1Proving: V1Proving.address,
         Uint512: libUint512.address,
     }
 }

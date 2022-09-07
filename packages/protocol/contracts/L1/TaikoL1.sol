@@ -14,16 +14,13 @@ import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
-import "./v1/LibFinalizing.sol";
-import "./v1/LibProposing.sol";
-import "./v1/LibProving.sol";
+import "./v1/V1Finalizing.sol";
+import "./v1/V1Proposing.sol";
+import "./v1/V1Proving.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 contract TaikoL1 is EssentialContract {
     using LibData for LibData.State;
-    using LibFinalizing for LibData.State;
-    using LibProposing for LibData.State;
-    using LibProving for LibData.State;
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
 
@@ -35,7 +32,7 @@ contract TaikoL1 is EssentialContract {
         initializer
     {
         EssentialContract._init(_addressManager);
-        state.init(_genesisBlockHash);
+        V1Finalizing.init(state, _genesisBlockHash);
     }
 
     /// @notice Write a _commit hash_ so a few blocks later a L2 block can be proposed
@@ -43,7 +40,7 @@ contract TaikoL1 is EssentialContract {
     ///         equals to this commit hash.
     /// @param commitHash A commit hash calculated as: `calculateCommitHash(beneficiary, txListHash)`.
     function commitBlock(bytes32 commitHash) external {
-        state.commitBlock(commitHash);
+        V1Proposing.commitBlock(state, commitHash);
     }
 
     /// @notice Propose a Taiko L2 block.
@@ -64,8 +61,11 @@ contract TaikoL1 is EssentialContract {
     ///       the first transaction in the block, i.e., if there are n transactions
     ///       in `txList`, then then will be up to n+1 transactions in the L2 block.
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        state.proposeBlock(inputs);
-        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
+        V1Proposing.proposeBlock(state, inputs);
+        V1Finalizing.finalizeBlocks(
+            state,
+            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+        );
     }
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction
@@ -85,8 +85,11 @@ contract TaikoL1 is EssentialContract {
         external
         nonReentrant
     {
-        state.proveBlock(AddressResolver(this), blockIndex, inputs);
-        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
+        V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
+        V1Finalizing.finalizeBlocks(
+            state,
+            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+        );
     }
 
     /// @notice Prove a block is invalid with a zero-knowledge proof and
@@ -107,19 +110,27 @@ contract TaikoL1 is EssentialContract {
         external
         nonReentrant
     {
-        state.proveBlockInvalid(AddressResolver(this), blockIndex, inputs);
-        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
+        V1Proving.proveBlockInvalid(
+            state,
+            AddressResolver(this),
+            blockIndex,
+            inputs
+        );
+        V1Finalizing.finalizeBlocks(
+            state,
+            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+        );
     }
 
     /// @notice Finalize up to N blocks.
     /// @param maxBlocks Max number of blocks to finalize.
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        state.finalizeBlocks(maxBlocks);
+        V1Finalizing.finalizeBlocks(state, maxBlocks);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {
-        return state.isCommitValid(hash);
+        return V1Proposing.isCommitValid(state, hash);
     }
 
     function getPendingBlock(uint256 id)

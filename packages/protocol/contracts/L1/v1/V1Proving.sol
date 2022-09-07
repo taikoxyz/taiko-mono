@@ -25,7 +25,7 @@ import "../../thirdparty/Lib_RLPWriter.sol";
 import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library LibProving {
+library V1Proving {
     using LibBlockHeader for BlockHeader;
     using LibData for LibData.State;
 
