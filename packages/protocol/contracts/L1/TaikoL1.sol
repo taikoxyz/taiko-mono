@@ -62,11 +62,7 @@ contract TaikoL1 is EssentialContract {
     ///       Note in the corresponding L2 block, an _anchor transaction_ will be
     ///       the first transaction in the block, i.e., if there are n transactions
     ///       in `txList`, then then will be up to n+1 transactions in the L2 block.
-    function proposeBlock(bytes[] calldata inputs)
-        external
-        payable
-        nonReentrant
-    {
+    function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         state.proposeBlock(inputs);
         state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
     }
