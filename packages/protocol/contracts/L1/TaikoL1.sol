@@ -17,7 +17,6 @@ import "./v1/LibFinalize.sol";
 import "./v1/LibPropose.sol";
 import "./v1/LibProve.sol";
 
-
 contract TaikoL1 is EssentialContract {
     using LibData for LibData.State;
     using LibFinalize for LibData.State;
@@ -68,12 +67,12 @@ contract TaikoL1 is EssentialContract {
         nonReentrant
     {
         state.proposeBlock(inputs);
-        state.finalizeBlocks();
+        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
     }
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction
     ///         merkel proof, and a receipt merkel proof.
-    /// @param blockId The id of the block to prove. This is also used to select
+    /// @param id The id of the block to prove. This is also used to select
     ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
@@ -84,17 +83,17 @@ contract TaikoL1 is EssentialContract {
     ///       the anchor tranaction is always the first transaction in the block.
     ///
     ///     - inputs[2] is the receipt of the anchor transaction.
-    function proveBlock(uint256 blockId, bytes[] calldata inputs)
+    function proveBlock(uint256 id, bytes[] calldata inputs)
         external
         nonReentrant
     {
-        state.proveBlock(AddressResolver(this), blockId, inputs);
-        state.finalizeBlocks();
+        state.proveBlock(AddressResolver(this), id, inputs);
+        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
     }
 
     /// @notice Prove a block is invalid with a zero-knowledge proof and
     ///         a receipt merkel proof
-    /// @param blockId The id of the block to prove. This is also used to select
+    /// @param id The id of the block to prove. This is also used to select
     ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
@@ -106,15 +105,48 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
     ///       on L2. Note that the `invalidBlock` transaction is supposed to
     ///       be the only transaction in the L2 block.
-    function proveBlockInvalid(uint256 blockId, bytes[] calldata inputs)
+    function proveBlockInvalid(uint256 id, bytes[] calldata inputs)
         external
         nonReentrant
     {
-        state.proveBlockInvalid(AddressResolver(this), blockId, inputs);
-        state.finalizeBlocks();
+        state.proveBlockInvalid(AddressResolver(this), id, inputs);
+        state.finalizeBlocks(LibConstants.TAIKO_MAX_FINALIZATION_PER_TX);
+    }
+
+    /// @notice Finalize up to N blocks.
+    /// @param maxBlocks Max number of blocks to finalize.
+    function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
+        require(maxBlocks > 0, "L1:maxBlocks");
+        state.finalizeBlocks(maxBlocks);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {
         return state.isCommitValid(hash);
+    }
+
+    function getPendingBlock(uint256 id)
+        public
+        view
+        returns (LibData.PendingBlock memory)
+    {
+        return state.getPendingBlock(id);
+    }
+
+    function getFinalizedBlockHash(uint256 id) public view returns (bytes32) {
+        return state.getFinalizedBlockHash(id);
+    }
+
+    function getStateVariables()
+        public
+        view
+        returns (
+            uint64, /*genesisHeight*/
+            uint64, /*lastFinalizedHeight*/
+            uint64, /*lastFinalizedId*/
+            uint64, /*nextPendingId*/
+            uint64 /*numUnprovenBlocks*/
+        )
+    {
+        return state.getStateVariables();
     }
 }

@@ -88,6 +88,33 @@ library LibData {
         return s.pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
     }
 
+    function getFinalizedBlockHash(State storage s, uint256 id)
+        internal
+        view
+        returns (bytes32)
+    {
+        require(id <= s.lastFinalizedId, "L1:id");
+        return s.finalizedBlocks[id];
+    }
+
+    function getStateVariables(State storage s)
+        internal
+        view
+        returns (
+            uint64 genesisHeight,
+            uint64 lastFinalizedHeight,
+            uint64 lastFinalizedId,
+            uint64 nextPendingId,
+            uint64 numUnprovenBlocks
+        )
+    {
+        genesisHeight = s.genesisHeight;
+        lastFinalizedHeight = s.lastFinalizedHeight;
+        lastFinalizedId = s.lastFinalizedId;
+        nextPendingId = s.nextPendingId;
+        numUnprovenBlocks = s.numUnprovenBlocks;
+    }
+
     function hashContext(BlockContext memory context)
         internal
         pure

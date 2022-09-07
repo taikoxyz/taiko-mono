@@ -27,14 +27,11 @@ library LibFinalize {
         emit BlockFinalized(0, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(LibData.State storage s) public {
+    function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
         uint64 id = s.lastFinalizedId + 1;
         uint256 processed = 0;
 
-        while (
-            id < s.nextPendingId &&
-            processed <= LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
-        ) {
+        while (id < s.nextPendingId && processed <= maxBlocks) {
             bytes32 lastFinalizedHash = s.finalizedBlocks[
                 s.lastFinalizedHeight
             ];

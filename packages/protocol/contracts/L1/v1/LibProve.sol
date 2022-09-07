@@ -10,13 +10,14 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../common/AddressResolver.sol";
 import "../../common/ConfigManager.sol";
-import "../../L2/TaikoL2.sol";
 import "../../libs/LibAnchorSignature.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibConstants.sol";
-import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibReceiptDecoder.sol";
+import "../../libs/LibTxDecoder.sol";
+import "../../libs/LibTxUtils.sol";
 import "../../libs/LibZKP.sol";
 import "../../thirdparty/Lib_BytesUtils.sol";
 import "../../thirdparty/Lib_MerkleTrie.sol";
@@ -76,7 +77,7 @@ library LibProve {
             Lib_BytesUtils.equal(
                 _tx.data,
                 bytes.concat(
-                    TaikoL2.anchor.selector,
+                    LibConstants.ANCHOR_TX_SELECTOR,
                     bytes32(evidence.context.anchorHeight),
                     evidence.context.anchorHash
                 )
