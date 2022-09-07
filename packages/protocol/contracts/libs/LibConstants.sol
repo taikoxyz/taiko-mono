@@ -26,6 +26,7 @@ library LibConstants {
         bytes32(uint256(1));
 
     uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 200000; // TODO
+
     bytes4 public constant V1_ANCHOR_TX_SELECTOR =
         bytes4(keccak256(bytes("anchor(uint256,bytes32)")));
 
