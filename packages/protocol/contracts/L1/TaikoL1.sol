@@ -240,6 +240,8 @@ contract TaikoL1 is EssentialContract {
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction
     ///         merkel proof, and a receipt merkel proof.
+    /// @param blockId The id of the block to prove. This is also used to select
+    ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
     ///     - inputs[0] is an abi-encoded object with various information regarding
@@ -249,11 +251,16 @@ contract TaikoL1 is EssentialContract {
     ///       the anchor tranaction is always the first transaction in the block.
     ///
     ///     - inputs[2] is he receipt of the anchor transacton.
-    function proveBlock(bytes[] calldata inputs) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes[] calldata inputs)
+        external
+        nonReentrant
+    {
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
+
+        require(evidence.context.id == blockId, "L1:id");
 
         require(evidence.proofs.length == 3, "L1:proof:size");
         _proveBlock(evidence, evidence.context, 0);
@@ -308,6 +315,8 @@ contract TaikoL1 is EssentialContract {
 
     /// @notice Prove a block is invalid with a zero-knowledge proof and
     ///         a receipt merkel proof
+    /// @param blockId The id of the block to prove. This is also used to select
+    ///        the right implementation version.
     /// @param inputs A list of data input:
     ///
     ///     - inputs[0] An Evidence object with various information regarding
@@ -318,11 +327,16 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
     ///       on L2. Note that the `invalidBlock` transaction is supported to
     ///       be the only transaction in the L2 block.
-    function proveBlockInvalid(bytes[] calldata inputs) external nonReentrant {
+    function proveBlockInvalid(uint256 blockId, bytes[] calldata inputs)
+        external
+        nonReentrant
+    {
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         BlockContext memory target = abi.decode(inputs[1], (BlockContext));
         bytes calldata invalidateBlockReceipt = inputs[2];
+
+        require(evidence.context.id == blockId, "L1:id");
 
         require(evidence.proofs.length == 2, "L1:proof:size");
         _proveBlock(
