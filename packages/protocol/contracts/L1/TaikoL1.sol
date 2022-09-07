@@ -13,10 +13,12 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/ConfigManager.sol";
 import "../L2/TaikoL2.sol";
+import "../libs/LibAnchorSignature.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
-import "../libs/LibTxDecoder.sol";
 import "../libs/LibReceiptDecoder.sol";
+import "../libs/LibTxDecoder.sol";
+import "../libs/LibTxUtils.sol";
 import "../libs/LibZKP.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_MerkleTrie.sol";
@@ -260,6 +262,7 @@ contract TaikoL1 is EssentialContract {
             _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
+        _validateAnchorTxSignature(_tx);
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -386,6 +389,18 @@ contract TaikoL1 is EssentialContract {
             commits[hash] != 0 &&
             block.number >=
             commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+    }
+
+    function signWithGoldFinger(bytes32 hash, uint8 k)
+        public
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
+        return LibAnchorSignature.signTransaction(hash, k);
     }
 
     function validateContext(BlockContext memory context) public pure {
@@ -533,6 +548,24 @@ contract TaikoL1 is EssentialContract {
         returns (PendingBlock storage)
     {
         return pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
+    }
+
+    function _validateAnchorTxSignature(LibTxDecoder.Tx memory _tx)
+        private
+        view
+    {
+        require(
+            _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
+            "L1:sig:r"
+        );
+
+        if (_tx.r == LibAnchorSignature.GX2) {
+            (, , uint256 s) = LibAnchorSignature.signTransaction(
+                LibTxUtils.hashUnsignedTx(_tx),
+                1
+            );
+            require(s == 0, "L1:sig:s");
+        }
     }
 
     function _checkContextPending(BlockContext calldata context) private view {
