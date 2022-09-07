@@ -24,7 +24,7 @@ library LibProposing {
     event BlockCommitted(bytes32 hash, uint256 validSince);
     event BlockProposed(uint256 indexed id, LibData.BlockContext context);
 
-    function commitBlock(LibData.State storage s, bytes32 commitHash) internal {
+    function commitBlock(LibData.State storage s, bytes32 commitHash) public {
         require(commitHash != 0, "L1:hash");
         require(s.commits[commitHash] == 0, "L1:committed");
         s.commits[commitHash] = block.number;
