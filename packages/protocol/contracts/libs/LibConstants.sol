@@ -17,7 +17,7 @@ library LibConstants {
     uint256 public constant TAIKO_BLOCK_MAX_TXS = 20; // TODO
     uint256 public constant TAIKO_BLOCK_MAX_TXLIST_BYTES = 1000000; // TODO
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 10000; // TODO
-    uint256 public constant TAIKO_ANCHOR_TX_GAS_LIMIT = 200000; // TODO
+
     uint256 public constant TAIKO_CHAIN_ID = 1337; // TODO
 
     string public constant TAIKO_ZKP_VKEY = "TAIKO_TAIKO_ZKP_VKEY";
@@ -25,9 +25,10 @@ library LibConstants {
     bytes32 public constant TAIKO_INVALID_BLOCK_DEADEND_HASH =
         bytes32(uint256(1));
 
+    uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 200000; // TODO
     bytes4 public constant V1_ANCHOR_TX_SELECTOR =
         bytes4(keccak256(bytes("anchor(uint256,bytes32)")));
 
-    bytes32 public constant V1_TAIKO_INVALIDATE_BLOCK_EVENT =
+    bytes32 public constant V1_INVALIDATE_BLOCK_EVENT =
         keccak256("BlockInvalidated(bytes32)");
 }

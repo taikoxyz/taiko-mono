@@ -70,7 +70,7 @@ library V1Proving {
             "L1:anchor:dest"
         );
         require(
-            _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
+            _tx.gasLimit == LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
 
@@ -154,7 +154,7 @@ library V1Proving {
         require(log.data.length == 0, "L1:receipt:data");
         require(
             log.topics.length == 2 &&
-                log.topics[0] == LibConstants.V1_TAIKO_INVALIDATE_BLOCK_EVENT &&
+                log.topics[0] == LibConstants.V1_INVALIDATE_BLOCK_EVENT &&
                 log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );
@@ -300,7 +300,7 @@ library V1Proving {
             header.beneficiary == context.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
-                context.gasLimit + LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT &&
+                context.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
                 header.timestamp == context.proposedAt &&
                 header.extraData.length == context.extraData.length &&
