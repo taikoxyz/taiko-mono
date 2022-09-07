@@ -2,8 +2,8 @@ import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
 
-describe("LibInvalidTxList", function () {
-    let libInvalidTxList: any
+describe("LibTxUtility", function () {
+    let libTxUtility: any
     let libRLPWriter: any
     let libRLPReader: any
     let LibConstants: any
@@ -18,8 +18,8 @@ describe("LibInvalidTxList", function () {
             await ethers.getContractFactory("LibConstants")
         ).deploy()
 
-        libInvalidTxList = await (
-            await ethers.getContractFactory("TestLibInvalidTxList")
+        libTxUtility = await (
+            await ethers.getContractFactory("TestLibTxUtility")
         ).deploy()
 
         libRLPReader = await (
@@ -91,7 +91,7 @@ describe("LibInvalidTxList", function () {
 
             const signature = signingKey.signDigest(expectedHash)
 
-            const hash = await libInvalidTxList.hashUnsignedTx({
+            const hash = await libTxUtility.hashUnsignedTx({
                 txType: unsignedTx.type,
                 destination: unsignedTx.to,
                 data: unsignedTx.data,
@@ -117,7 +117,7 @@ describe("LibInvalidTxList", function () {
             const signature = signingKey.signDigest(expectedHash)
 
             expect(
-                await libInvalidTxList.verifySignature({
+                await libTxUtility.recoverSender({
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,
@@ -156,7 +156,7 @@ describe("LibInvalidTxList", function () {
             )
 
             expect(
-                await libInvalidTxList.verifySignature({
+                await libTxUtility.recoverSender({
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,

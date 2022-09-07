@@ -16,10 +16,10 @@ import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
+import "../libs/LibTxUtility.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibZKP.sol";
 import "../libs/LibECDSA.sol";
-import "../libs/LibInvalidTxList.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_MerkleTrie.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
@@ -554,21 +554,16 @@ contract TaikoL1 is EssentialContract {
         private
         view
     {
-        bytes32 hash = LibInvalidTxList.hashUnsignedTx(_tx);
-
-        require(
-            ecrecover(hash, _tx.v + 27, bytes32(_tx.r), bytes32(_tx.s)) ==
-                LibECDSA.TAIKO_GOLDFINGER_ADDRESS,
-            "invalid signature"
-        );
-
         require(
             _tx.r == LibECDSA.GX || _tx.r == LibECDSA.GX2,
             "invalid r value"
         );
 
         if (_tx.r == LibECDSA.GX2) {
-            (, , uint256 s) = LibECDSA.signWithGoldFingerUseK(hash, 1);
+            (, , uint256 s) = LibECDSA.signWithGoldFingerUseK(
+                LibTxUtility.hashUnsignedTx(_tx),
+                1
+            );
             require(s == 0, "invalid r value");
         }
     }

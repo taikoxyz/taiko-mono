@@ -8,22 +8,22 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibInvalidTxList.sol";
+import "../libs/LibTxUtility.sol";
 
-contract TestLibInvalidTxList {
+contract TestLibTxUtility {
     function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         public
         pure
         returns (bytes32 hash)
     {
-        return LibInvalidTxList.hashUnsignedTx(transaction);
+        return LibTxUtility.hashUnsignedTx(transaction);
     }
 
-    function verifySignature(LibTxDecoder.Tx memory transaction)
+    function recoverSender(LibTxDecoder.Tx memory transaction)
         public
         pure
         returns (address)
     {
-        return LibInvalidTxList.verifySignature(transaction);
+        return LibTxUtility.recoverSender(transaction);
     }
 }
