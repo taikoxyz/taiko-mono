@@ -45,9 +45,9 @@ library LibProposing {
         );
         bytes calldata txList = inputs[1];
 
-        validateContext(context);
+        _validateContext(context);
 
-        bytes32 commitHash = calculateCommitHash(
+        bytes32 commitHash = _calculateCommitHash(
             context.beneficiary,
             context.txListHash
         );
@@ -104,7 +104,10 @@ library LibProposing {
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
 
-    function validateContext(LibData.BlockContext memory context) public pure {
+    function _validateContext(LibData.BlockContext memory context)
+        private
+        pure
+    {
         require(
             context.id == 0 &&
                 context.anchorHeight == 0 &&
@@ -123,8 +126,8 @@ library LibProposing {
         require(context.extraData.length <= 32, "L1:extraData");
     }
 
-    function calculateCommitHash(address beneficiary, bytes32 txListHash)
-        public
+    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
+        private
         pure
         returns (bytes32)
     {
