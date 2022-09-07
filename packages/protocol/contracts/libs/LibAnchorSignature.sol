@@ -7,10 +7,9 @@
 // ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
-
 import "../thirdparty/Lib_Uint512.sol";
 
-library LibECDSA {
+library LibAnchorSignature {
     address public constant TAIKO_GOLDFINGER_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant TAIKO_GOLDFINGURE_PRIVATEKEY =
@@ -32,7 +31,7 @@ library LibECDSA {
     // (
     //     uint256 GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW,
     //     uint256 GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX, TAIKO_GOLDFINGURE_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX, LibConstants.TAIKO_GOLDFINGURE_PRIVATEKEY);
     uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
         0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
     uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
@@ -41,7 +40,7 @@ library LibECDSA {
     // (
     //     uint256 GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW,
     //     uint256 GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX2, TAIKO_GOLDFINGURE_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX2, LibConstants.TAIKO_GOLDFINGURE_PRIVATEKEY);
     uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
         0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
     uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
@@ -51,7 +50,7 @@ library LibECDSA {
     uint256 public constant K_2_INVM_N =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
-    function signWithGoldFingerUseK(bytes32 digest, uint8 k)
+    function signTransaction(bytes32 digest, uint8 k)
         internal
         view
         returns (

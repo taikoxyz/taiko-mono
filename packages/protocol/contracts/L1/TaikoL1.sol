@@ -15,7 +15,7 @@ import "../common/ConfigManager.sol";
 import "../L2/TaikoL2.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibConstants.sol";
-import "../libs/LibECDSA.sol";
+import "../libs/LibAnchorSignature.sol";
 import "../libs/LibReceiptDecoder.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibTxUtils.sol";
@@ -401,7 +401,7 @@ contract TaikoL1 is EssentialContract {
             uint256 s
         )
     {
-        return LibECDSA.signWithGoldFingerUseK(hash, k);
+        return LibAnchorSignature.signTransaction(hash, k);
     }
 
     function validateContext(BlockContext memory context) public pure {
@@ -556,16 +556,16 @@ contract TaikoL1 is EssentialContract {
         view
     {
         require(
-            _tx.r == LibECDSA.GX || _tx.r == LibECDSA.GX2,
-            "invalid r value"
+            _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
+            "L1:sig:r"
         );
 
-        if (_tx.r == LibECDSA.GX2) {
-            (, , uint256 s) = LibECDSA.signWithGoldFingerUseK(
+        if (_tx.r == LibAnchorSignature.GX2) {
+            (, , uint256 s) = LibAnchorSignature.signTransaction(
                 LibTxUtils.hashUnsignedTx(_tx),
                 1
             );
-            require(s == 0, "invalid r value");
+            require(s == 0, "L1:sig:s");
         }
     }
 

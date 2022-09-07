@@ -2,8 +2,8 @@ import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
 
-describe("LibECDSA", function () {
-    let libECDSA: any
+describe("LibAnchorSignature", function () {
+    let libAnchorSignature: any
 
     const unsignedLegacyTx: UnsignedTransaction = {
         type: 0,
@@ -21,8 +21,8 @@ describe("LibECDSA", function () {
             await ethers.getContractFactory("Uint512")
         ).deploy()
 
-        libECDSA = await (
-            await ethers.getContractFactory("TestLibECDSA", {
+        libAnchorSignature = await (
+            await ethers.getContractFactory("TestLibAnchorSignature", {
                 libraries: {
                     Uint512: libUint512.address,
                 },
@@ -38,11 +38,11 @@ describe("LibECDSA", function () {
                 ethers.utils.serializeTransaction(unsignedLegacyTx)
             )
 
-            const [v, r, s] = await libECDSA.signWithGoldFingerUseK(hash, k)
+            const [v, r, s] = await libAnchorSignature.signTransaction(hash, k)
 
-            expect(await libECDSA.recover(hash, v + 27, r, s)).to.be.equal(
-                await libECDSA.goldFingerAddress()
-            )
+            expect(
+                await libAnchorSignature.recover(hash, v + 27, r, s)
+            ).to.be.equal(await libAnchorSignature.goldFingerAddress())
         }
     })
 

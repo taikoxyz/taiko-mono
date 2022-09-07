@@ -8,10 +8,10 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibECDSA.sol";
+import "../libs/LibAnchorSignature.sol";
 
-library TestLibECDSA {
-    function signWithGoldFingerUseK(bytes32 digest, uint8 k)
+library TestLibAnchorSignature {
+    function signTransaction(bytes32 digest, uint8 k)
         public
         view
         returns (
@@ -20,7 +20,11 @@ library TestLibECDSA {
             uint256 s
         )
     {
-        return LibECDSA.signWithGoldFingerUseK(digest, k);
+        return LibAnchorSignature.signTransaction(digest, k);
+    }
+
+    function goldFingerAddress() public pure returns (address) {
+        return LibAnchorSignature.TAIKO_GOLDFINGER_ADDRESS;
     }
 
     function recover(
@@ -30,9 +34,5 @@ library TestLibECDSA {
         bytes32 s
     ) public pure returns (address) {
         return ecrecover(hash, v, r, s);
-    }
-
-    function goldFingerAddress() public pure returns (address) {
-        return LibECDSA.TAIKO_GOLDFINGER_ADDRESS;
     }
 }
