@@ -125,24 +125,6 @@ contract TaikoL1 is EssentialContract {
     );
 
     /**********************
-     * Modifiers          *
-     **********************/
-
-    modifier whenBlockIsCommitted(BlockContext memory context) {
-        validateContext(context);
-
-        bytes32 commitHash = calculateCommitHash(
-            context.beneficiary,
-            context.txListHash
-        );
-
-        require(isCommitValid(commitHash), "L1:commit");
-        delete commits[commitHash];
-        _;
-        finalizeBlocks();
-    }
-
-    /**********************
      * External Functions *
      **********************/
 
@@ -175,24 +157,41 @@ contract TaikoL1 is EssentialContract {
     }
 
     /// @notice Propose a Taiko L2 block.
-    /// @param context The context that the actual L2 block header must satisfy.
-    ///        Note the following fields in the provided context object must
-    ///        be zeros -- their actual values will be provisioned by Ethereum.
+    /// @param inputs A list of data input:
+    ///
+    ///     - inputs[0] is abi-encoded BlockContext that the actual L2 block header
+    ///       must satisfy.
+    ///       Note the following fields in the provided context object must
+    ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
     ///        - anchorHeight
     ///        - context.anchorHash
     ///        - mixHash
     ///        - proposedAt
-    /// @param txList A list of transactions in this block, encoded with RLP.
-    ///        Note in the corresponding L2 block, an _anchor transaction_ will be
-    ///        the first transaction in the block, i.e., if there are n transactions
-    ///        in `txList`, then then will be up to n+1 transactions in the L2 block.
-    function proposeBlock(BlockContext memory context, bytes calldata txList)
+    ///
+    ///     - inputs[1] is a list of transactions in this block, encoded with RLP.
+    ///       Note in the corresponding L2 block, an _anchor transaction_ will be
+    ///       the first transaction in the block, i.e., if there are n transactions
+    ///       in `txList`, then then will be up to n+1 transactions in the L2 block.
+    function proposeBlock(bytes[] calldata inputs)
         external
         payable
         nonReentrant
-        whenBlockIsCommitted(context)
     {
+        require(inputs.length == 2, "L1:inputs:size");
+        BlockContext memory context = abi.decode(inputs[0], (BlockContext));
+        bytes calldata txList = inputs[1];
+
+        validateContext(context);
+
+        bytes32 commitHash = calculateCommitHash(
+            context.beneficiary,
+            context.txListHash
+        );
+
+        require(isCommitValid(commitHash), "L1:commit");
+        delete commits[commitHash];
+
         require(
             txList.length > 0 &&
                 txList.length <= LibConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
@@ -235,20 +234,27 @@ contract TaikoL1 is EssentialContract {
         numUnprovenBlocks += 1;
 
         emit BlockProposed(nextPendingId++, context);
+
+        finalizeBlocks();
     }
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction
     ///         merkel proof, and a receipt merkel proof.
-    /// @param evidence An object with various information regarding the block to be
-    ///        proven and the actual proofs.
-    /// @param anchorTx The actual anchor transaction in this L2 block. Note that the
-    ///        anchor tranaction is always the first transaction in the block.
-    /// @param anchorReceipt The receipt of the anchor transacton.
-    function proveBlock(
-        Evidence calldata evidence,
-        bytes calldata anchorTx,
-        bytes calldata anchorReceipt
-    ) external nonReentrant {
+    /// @param inputs A list of data input:
+    ///
+    ///     - inputs[0] is an abi-encoded object with various information regarding
+    ///       the block to be proven and the actual proofs.
+    ///
+    ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that
+    ///       the anchor tranaction is always the first transaction in the block.
+    ///
+    ///     - inputs[2] is he receipt of the anchor transacton.
+    function proveBlock(bytes[] calldata inputs) external nonReentrant {
+        require(inputs.length == 3, "L1:inputs:size");
+        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        bytes calldata anchorTx = inputs[1];
+        bytes calldata anchorReceipt = inputs[2];
+
         require(evidence.proofs.length == 3, "L1:proof:size");
         _proveBlock(evidence, evidence.context, 0);
 
@@ -301,18 +307,23 @@ contract TaikoL1 is EssentialContract {
     }
 
     /// @notice Prove a block is invalid with a zero-knowledge proof and
-    ///         a receipt merkel proof.
-    /// @param evidence An object with various information regarding the block to be
-    ///        proven and the actual proofs.
-    /// @param target The target block to be proven invalid.
-    /// @param invalidateBlockReceipt The receipt for the `invalidBlock` transaction
-    ///        on L2. Note that the `invalidBlock` transaction is supported to be the
-    ///        only transaction in the L2 block.
-    function proveBlockInvalid(
-        Evidence calldata evidence,
-        BlockContext calldata target,
-        bytes calldata invalidateBlockReceipt
-    ) external nonReentrant {
+    ///         a receipt merkel proof
+    /// @param inputs A list of data input:
+    ///
+    ///     - inputs[0] An Evidence object with various information regarding
+    ///       the block to be proven and the actual proofs.
+    ///
+    ///     - inputs[1] The target block to be proven invalid.
+    ///
+    ///     - inputs[2] The receipt for the `invalidBlock` transaction
+    ///       on L2. Note that the `invalidBlock` transaction is supported to
+    ///       be the only transaction in the L2 block.
+    function proveBlockInvalid(bytes[] calldata inputs) external nonReentrant {
+        require(inputs.length == 3, "L1:inputs:size");
+        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        BlockContext memory target = abi.decode(inputs[1], (BlockContext));
+        bytes calldata invalidateBlockReceipt = inputs[2];
+
         require(evidence.proofs.length == 2, "L1:proof:size");
         _proveBlock(
             evidence,
@@ -420,8 +431,8 @@ contract TaikoL1 is EssentialContract {
      **********************/
 
     function _proveBlock(
-        Evidence calldata evidence,
-        BlockContext calldata target,
+        Evidence memory evidence,
+        BlockContext memory target,
         bytes32 blockHashOverride
     ) private {
         require(evidence.context.id == target.id, "L1:height");
@@ -535,7 +546,7 @@ contract TaikoL1 is EssentialContract {
         return pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
     }
 
-    function _checkContextPending(BlockContext calldata context) private view {
+    function _checkContextPending(BlockContext memory context) private view {
         require(
             context.id > lastFinalizedId && context.id < nextPendingId,
             "L1:ctx:id"
@@ -547,7 +558,7 @@ contract TaikoL1 is EssentialContract {
     }
 
     function _validateHeaderForContext(
-        BlockHeader calldata header,
+        BlockHeader memory header,
         BlockContext memory context
     ) private pure {
         require(
