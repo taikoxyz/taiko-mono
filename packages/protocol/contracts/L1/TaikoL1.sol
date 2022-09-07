@@ -245,8 +245,8 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[0] is an abi-encoded object with various information regarding
     ///       the block to be proven and the actual proofs.
     ///
-    ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that the
-    ///       anchor tranaction is always the first transaction in the block.
+    ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that
+    ///       the anchor tranaction is always the first transaction in the block.
     ///
     ///     - inputs[2] is he receipt of the anchor transacton.
     function proveBlock(bytes[] calldata inputs) external nonReentrant {
@@ -316,8 +316,8 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[1] The target block to be proven invalid.
     ///
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
-    ///       on L2. Note that the `invalidBlock` transaction is supported to be the
-    ///       only transaction in the L2 block.
+    ///       on L2. Note that the `invalidBlock` transaction is supported to
+    ///       be the only transaction in the L2 block.
     function proveBlockInvalid(bytes[] calldata inputs) external nonReentrant {
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
