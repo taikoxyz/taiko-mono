@@ -49,7 +49,7 @@ library LibProving {
     function proveBlock(
         LibData.State storage s,
         AddressResolver resolver,
-        uint256 blockId,
+        uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
         require(inputs.length == 3, "L1:inputs:size");
@@ -57,7 +57,7 @@ library LibProving {
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
-        require(evidence.context.id == blockId, "L1:id");
+        require(evidence.context.id == blockIndex, "L1:id");
 
         require(evidence.proofs.length == 3, "L1:proof:size");
         _proveBlock(s, resolver, evidence, evidence.context, 0);
@@ -117,7 +117,7 @@ library LibProving {
     function proveBlockInvalid(
         LibData.State storage s,
         AddressResolver resolver,
-        uint256 blockId,
+        uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
         require(inputs.length == 3, "L1:inputs:size");
@@ -128,7 +128,7 @@ library LibProving {
         );
         bytes calldata invalidateBlockReceipt = inputs[2];
 
-        require(evidence.context.id == blockId, "L1:id");
+        require(evidence.context.id == blockIndex, "L1:id");
 
         require(evidence.proofs.length == 2, "L1:proof:size");
         _proveBlock(
