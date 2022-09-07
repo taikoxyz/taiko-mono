@@ -328,7 +328,7 @@ contract TaikoL1 is EssentialContract {
     ///     - inputs[1] The target block to be proven invalid.
     ///
     ///     - inputs[2] The receipt for the `invalidBlock` transaction
-    ///       on L2. Note that the `invalidBlock` transaction is supported to
+    ///       on L2. Note that the `invalidBlock` transaction is supposed to
     ///       be the only transaction in the L2 block.
     function proveBlockInvalid(uint256 blockId, bytes[] calldata inputs)
         external
