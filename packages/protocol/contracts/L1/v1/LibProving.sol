@@ -244,10 +244,11 @@ library LibProving {
         fc.provers.push(prover);
 
         LibData.PendingBlock storage blk = s.getPendingBlock(context.id);
-        if (blk.everProven != uint8(LibData.EverProven.YES)) {
-            blk.everProven = uint8(LibData.EverProven.YES);
-            // s.numUnprovenBlocks -= 1;
-        }
+
+        // if (blk.everProven != uint8(LibData.EverProven.YES)) {
+        //     blk.everProven = uint8(LibData.EverProven.YES);
+        //     s.numUnprovenBlocks -= 1;
+        // }
 
         emit BlockProven(
             context.id,

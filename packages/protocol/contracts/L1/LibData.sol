@@ -55,7 +55,6 @@ library LibData {
         uint64 lastFinalizedHeight;
         uint64 lastFinalizedId;
         uint64 nextPendingId;
-        uint64 numUnprovenBlocks;
     }
 
     function savePendingBlock(
@@ -90,15 +89,13 @@ library LibData {
             uint64 genesisHeight,
             uint64 lastFinalizedHeight,
             uint64 lastFinalizedId,
-            uint64 nextPendingId,
-            uint64 numUnprovenBlocks
+            uint64 nextPendingId
         )
     {
         genesisHeight = s.genesisHeight;
         lastFinalizedHeight = s.lastFinalizedHeight;
         lastFinalizedId = s.lastFinalizedId;
         nextPendingId = s.nextPendingId;
-        numUnprovenBlocks = s.numUnprovenBlocks;
     }
 
     function hashContext(BlockContext memory context)

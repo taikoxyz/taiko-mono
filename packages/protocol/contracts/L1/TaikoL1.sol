@@ -27,7 +27,7 @@ contract TaikoL1 is EssentialContract {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[44] private __gap;
+    uint256[45] private __gap;
 
     function init(address _addressManager, bytes32 _genesisBlockHash)
         external
@@ -144,8 +144,7 @@ contract TaikoL1 is EssentialContract {
             uint64, /*genesisHeight*/
             uint64, /*lastFinalizedHeight*/
             uint64, /*lastFinalizedId*/
-            uint64, /*nextPendingId*/
-            uint64 /*numUnprovenBlocks*/
+            uint64 /*nextPendingId*/
         )
     {
         return state.getStateVariables();

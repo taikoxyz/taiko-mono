@@ -22,10 +22,9 @@ library LibProposing {
     using LibData for LibData.State;
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
-
     event BlockProposed(uint256 indexed id, LibData.BlockContext context);
 
-    function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+    function commitBlock(LibData.State storage s, bytes32 commitHash) internal {
         require(commitHash != 0, "L1:hash");
         require(s.commits[commitHash] == 0, "L1:committed");
         s.commits[commitHash] = block.number;
@@ -78,13 +77,6 @@ library LibProposing {
         context.mixHash = bytes32(block.difficulty);
 
         uint256 proposerFee = 0;
-        // IProtoBroker(resolve("proto_broker"))
-        //     .chargeProposer(
-        //         nextPendingId,
-        //         msg.sender,
-        //         context.gasLimit,
-        //         numUnprovenBlocks
-        //     );
 
         s.savePendingBlock(
             s.nextPendingId,
