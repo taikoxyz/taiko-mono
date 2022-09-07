@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../../common/ConfigManager.sol";
 import "../../L2/TaikoL2.sol";
+import "../../libs/LibAnchorSignature.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
@@ -70,6 +71,7 @@ library LibProve {
             _tx.gasLimit == LibConstants.TAIKO_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
+
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -81,6 +83,8 @@ library LibProve {
             ),
             "L1:anchor:calldata"
         );
+
+        _validateAnchorTxSignature(_tx);
 
         require(
             Lib_MerkleTrie.verifyInclusionProof(
@@ -251,6 +255,24 @@ library LibProve {
             fc.provenAt,
             prover
         );
+    }
+
+    function _validateAnchorTxSignature(LibTxDecoder.Tx memory _tx)
+        private
+        view
+    {
+        require(
+            _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
+            "L1:sig:r"
+        );
+
+        if (_tx.r == LibAnchorSignature.GX2) {
+            (, , uint256 s) = LibAnchorSignature.signTransaction(
+                LibTxUtils.hashUnsignedTx(_tx),
+                1
+            );
+            require(s == 0, "L1:sig:s");
+        }
     }
 
     function _checkContextPending(
