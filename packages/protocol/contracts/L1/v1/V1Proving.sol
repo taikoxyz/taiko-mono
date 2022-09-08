@@ -259,7 +259,7 @@ library V1Proving {
         // }
 
         emit BlockProven(
-            context.id,
+            target.id,
             parentHash,
             blockHash,
             fc.proposedAt,
