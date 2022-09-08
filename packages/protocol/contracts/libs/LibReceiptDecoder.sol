@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
+/// @author david <david@taiko.xyz>
 library LibReceiptDecoder {
     struct Receipt {
         uint64 status;
