@@ -10,6 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../LibData.sol";
 
+/// @author david <david@taiko.xyz>
 abstract contract V1Events {
     // The following events must match the definitions in other V1 libraries.
     event BlockFinalized(
