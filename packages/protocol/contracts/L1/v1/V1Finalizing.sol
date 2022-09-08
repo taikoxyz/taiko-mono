@@ -40,7 +40,7 @@ library V1Finalizing {
                 lastFinalizedHash
             ];
 
-            if (fc.blockHash == LibConstants.TAIKO_INVALID_BLOCK_DEADEND_HASH) {
+            if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
                 _finalizeBlock(s, id, fc);
             } else if (fc.blockHash != 0) {
                 s.finalizedBlocks[++s.lastFinalizedHeight] = fc.blockHash;

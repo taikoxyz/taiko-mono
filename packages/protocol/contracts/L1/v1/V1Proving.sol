@@ -136,7 +136,7 @@ library V1Proving {
             resolver,
             evidence,
             target,
-            LibConstants.TAIKO_INVALID_BLOCK_DEADEND_HASH
+            LibConstants.TAIKO_BLOCK_DEADEND_HASH
         );
 
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
@@ -154,7 +154,7 @@ library V1Proving {
         require(log.data.length == 0, "L1:receipt:data");
         require(
             log.topics.length == 2 &&
-                log.topics[0] == LibConstants.V1_INVALIDATE_BLOCK_EVENT &&
+                log.topics[0] == LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC &&
                 log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );

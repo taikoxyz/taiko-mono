@@ -51,7 +51,7 @@ where
 
 A _txList_ is valid if and only if:
 
-1. The txList's lenght is no more than `TAIKO_BLOCK_MAX_TXLIST_BYTES`;
+1. The txList's lenght is no more than `TAIKO_TXLIST_MAX_BYTES`;
 2. The txList is well-formed RLP, with no additional trailing bytes;
 3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS` and;
 4. The sum of all transaction gas limit is no more than `TAIKO_BLOCK_MAX_GAS_LIMIT`.

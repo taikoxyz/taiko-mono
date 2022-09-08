@@ -17,7 +17,7 @@ import "../thirdparty/Lib_RLPWriter.sol";
 /// @dev A library to invalidate a txList using the following rules:
 ///
 /// A txList is valid if and only if:
-/// 1. The txList's length is no more than `TAIKO_BLOCK_MAX_TXLIST_BYTES`;
+/// 1. The txList's length is no more than `TAIKO_TXLIST_MAX_BYTES`;
 /// 2. The txList is well-formed RLP, with no additional trailing bytes;
 /// 3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS` and;
 /// 4. The sum of all transaction gas limit is no more than  `TAIKO_BLOCK_MAX_GAS_LIMIT`.
@@ -43,7 +43,7 @@ library LibInvalidTxList {
         Reason hint,
         uint256 txIdx
     ) internal pure returns (Reason) {
-        if (encoded.length > LibConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES) {
+        if (encoded.length > LibConstants.TAIKO_TXLIST_MAX_BYTES) {
             return Reason.BINARY_TOO_LARGE;
         }
 
