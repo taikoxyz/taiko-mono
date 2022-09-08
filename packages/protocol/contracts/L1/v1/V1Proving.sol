@@ -64,7 +64,6 @@ library V1Proving {
 
         // Checking anchor tx is valid
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
-
         require(_tx.txType == 0, "L1:anchor:type");
         require(
             _tx.destination == resolver.resolve("v1_taiko_l2"),
@@ -75,7 +74,7 @@ library V1Proving {
             "L1:anchor:gasLimit"
         );
 
-        // Checking anchor tx signature is valid and deterministic
+        // Checking anchor tx's signature is valid and deterministic
         _validateAnchorTxSignature(_tx);
 
         // Checking anchor tx's calldata is valid
@@ -102,7 +101,7 @@ library V1Proving {
             "L1:tx:proof"
         );
 
-        // Checking anchor tx did not throw
+        // Checking anchor tx does not throw
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(anchorReceipt);
 
@@ -140,7 +139,8 @@ library V1Proving {
         require(evidence.context.id == blockIndex, "L1:id");
         require(evidence.proofs.length == 2, "L1:proof:size");
 
-        // Checking anchor tx receipt is valid
+        // Checking the 1st receipt is for an InvalidateBlock tx with
+        // a BlockInvalidated event
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
         require(receipt.status == 1, "L1:receipt:status");
@@ -159,7 +159,7 @@ library V1Proving {
             "L1:receipt:topics"
         );
 
-        // Checking anchor tx receipt included
+        // Checking the event is the first one in the throw-away block
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
