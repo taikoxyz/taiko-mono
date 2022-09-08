@@ -102,9 +102,9 @@ async function generateL2Genesis(
 
         // pre-mint ETHs for Bridge contract
         // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to TaikoL2 contract address.
+        // L2 bridge's balance to V1TaikoL2 contract address.
         alloc[contractConfig.address].balance =
-            contractName === "TaikoL2" ? bridgeBalance.toHexString() : "0x0"
+            contractName === "V1TaikoL2" ? bridgeBalance.toHexString() : "0x0"
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
@@ -157,9 +157,9 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./libs/LibTxDecoder.sol/LibTxDecoder.json"
         )),
-        TaikoL2: require(path.join(
+        V1TaikoL2: require(path.join(
             ARTIFACTS_PATH,
-            "./L2/TaikoL2.sol/TaikoL2.json"
+            "./L2/V1TaikoL2.sol/V1TaikoL2.json"
         )),
     }
 
@@ -168,12 +168,12 @@ async function generateContractConfigs(
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         let bytecode = (artifact as any).bytecode
 
-        if (contractName === "TaikoL2") {
+        if (contractName === "V1TaikoL2") {
             if (!addressMap.LibTxDecoder) {
                 throw new Error("LibTxDecoder not initialized")
             }
 
-            bytecode = linkTaikoL2Bytecode(bytecode, addressMap)
+            bytecode = linkV1TaikoL2Bytecode(bytecode, addressMap)
         }
 
         addressMap[contractName] = ethers.utils.getCreate2Address(
@@ -213,10 +213,10 @@ async function generateContractConfigs(
             deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
             variables: {},
         },
-        TaikoL2: {
-            address: addressMap.TaikoL2,
-            deployedBytecode: linkTaikoL2Bytecode(
-                contractArtifacts.TaikoL2.deployedBytecode,
+        V1TaikoL2: {
+            address: addressMap.V1TaikoL2,
+            deployedBytecode: linkV1TaikoL2Bytecode(
+                contractArtifacts.V1TaikoL2.deployedBytecode,
                 addressMap
             ),
             variables: {
@@ -225,8 +225,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
                 _status: 1, // _NOT_ENTERED
-                // OwnableUpgradeable
-                _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
                 chainId: config.chainId,
@@ -235,9 +233,9 @@ async function generateContractConfigs(
     }
 }
 
-// linkL2RollupBytecode tries to link TaikoL2 deployedBytecode to its library.
+// linkL2RollupBytecode tries to link V1TaikoL2 deployedBytecode to its library.
 // Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkTaikoL2Bytecode(byteCode: string, addressMap: any): string {
+function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
     if (Object.keys(refs).length !== 1) {

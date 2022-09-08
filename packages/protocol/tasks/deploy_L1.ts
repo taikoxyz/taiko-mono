@@ -9,8 +9,8 @@ task("deploy_L1")
     .addParam("daoVault", "The DAO vault address")
     .addParam("teamVault", "The team vault address")
     .addOptionalParam(
-        "taikoL2",
-        "The TaikoL2 address",
+        "v1TaikoL2",
+        "The V1TaikoL2 address",
         ethers.constants.AddressZero
     )
     .addOptionalParam(
@@ -48,14 +48,14 @@ export async function deployContracts(hre: any) {
     const daoVault = hre.args.daoVault
     const teamVault = hre.args.teamVault
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
-    const taikoL2Address = hre.args.taikoL2
+    const v1TaikoL2Address = hre.args.v1TaikoL2
 
     log.debug(`network: ${network}`)
     log.debug(`chainId: ${chainId}`)
     log.debug(`deployer: ${deployer}`)
     log.debug(`daoVault: ${daoVault}`)
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
-    log.debug(`taikoL2Address: ${taikoL2Address}`)
+    log.debug(`v1TaikoL2Address: ${v1TaikoL2Address}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
 
@@ -72,7 +72,7 @@ export async function deployContracts(hre: any) {
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("v1_taiko_l2", taikoL2Address)
+        await AddressManager.setAddress("v1_taiko_l2", v1TaikoL2Address)
     )
 
     // TaiToken
