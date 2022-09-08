@@ -14,12 +14,13 @@ import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
+import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract TaikoL1 is EssentialContract {
+contract TaikoL1 is EssentialContract, V1Events {
     using LibData for LibData.State;
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
