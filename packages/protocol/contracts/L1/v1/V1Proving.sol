@@ -52,17 +52,17 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
-        // Checking and decoding inputs
+        // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
-        // Checking evidence
+        // Check evidence
         require(evidence.context.id == blockIndex, "L1:id");
         require(evidence.proofs.length == 3, "L1:proof:size");
 
-        // Checking anchor tx is valid
+        // Check anchor tx is valid
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
         require(_tx.txType == 0, "L1:anchor:type");
         require(
@@ -74,10 +74,10 @@ library V1Proving {
             "L1:anchor:gasLimit"
         );
 
-        // Checking anchor tx's signature is valid and deterministic
+        // Check anchor tx's signature is valid and deterministic
         _validateAnchorTxSignature(_tx);
 
-        // Checking anchor tx's calldata is valid
+        // Check anchor tx's calldata is valid
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -90,7 +90,7 @@ library V1Proving {
             "L1:anchor:calldata"
         );
 
-        // Checking anchor tx is the 1st tx in the block
+        // Check anchor tx is the 1st tx in the block
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
@@ -101,7 +101,7 @@ library V1Proving {
             "L1:tx:proof"
         );
 
-        // Checking anchor tx does not throw
+        // Check anchor tx does not throw
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(anchorReceipt);
 
@@ -126,7 +126,7 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
-        // Checking and decoding inputs
+        // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         LibData.BlockContext memory target = abi.decode(
@@ -135,11 +135,11 @@ library V1Proving {
         );
         bytes calldata invalidateBlockReceipt = inputs[2];
 
-        // Checking evidence
+        // Check evidence
         require(evidence.context.id == blockIndex, "L1:id");
         require(evidence.proofs.length == 2, "L1:proof:size");
 
-        // Checking the 1st receipt is for an InvalidateBlock tx with
+        // Check the 1st receipt is for an InvalidateBlock tx with
         // a BlockInvalidated event
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
@@ -159,7 +159,7 @@ library V1Proving {
             "L1:receipt:topics"
         );
 
-        // Checking the event is the first one in the throw-away block
+        // Check the event is the first one in the throw-away block
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
