@@ -12,6 +12,7 @@ import "../libs/LibConstants.sol";
 import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 
+/// @author david <david@taiko.xyz>
 library LibTxDecoder {
     struct TransactionLegacy {
         uint256 nonce;
