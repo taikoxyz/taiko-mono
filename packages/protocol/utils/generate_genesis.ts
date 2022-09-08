@@ -225,8 +225,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // ReentrancyGuardUpgradeable
                 _status: 1, // _NOT_ENTERED
-                // OwnableUpgradeable
-                _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
                 chainId: config.chainId,
