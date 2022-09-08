@@ -10,13 +10,14 @@ pragma solidity ^0.8.9;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "../common/EssentialContract.sol";
+import "../common/AddressResolver.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
-contract TaikoL2 is EssentialContract {
+contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     using LibTxDecoder for bytes;
 
     /**********************
@@ -55,6 +56,15 @@ contract TaikoL2 is EssentialContract {
     }
 
     /**********************
+     * Constructor         *
+     **********************/
+
+    constructor(address _addressManager, uint256 _chainId) initializer {
+        AddressResolver._init(_addressManager);
+        chainId = _chainId;
+    }
+
+    /**********************
      * External Functions *
      **********************/
 
@@ -64,14 +74,6 @@ contract TaikoL2 is EssentialContract {
 
     fallback() external payable {
         revert("L2:prohibited");
-    }
-
-    function init(address _addressManager, uint256 _chainId)
-        external
-        initializer
-    {
-        EssentialContract._init(_addressManager);
-        chainId = _chainId;
     }
 
     function creditEther(address recipient, uint256 amount)

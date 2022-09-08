@@ -9,38 +9,14 @@ task("deploy_L1")
     .addParam("daoVault", "The DAO vault address")
     .addParam("teamVault", "The team vault address")
     .addOptionalParam(
-        "taikoL2",
-        "The TaikoL2 address",
+        "v1TaikoL2",
+        "The V1TaikoL2 address",
         ethers.constants.AddressZero
     )
     .addOptionalParam(
         "l2GenesisBlockHash",
         "L2 genesis block hash",
         ethers.constants.HashZero
-    )
-    .addOptionalParam(
-        "gasPriceNow",
-        "The initialization parameter `_gasPriceNow` of TaikoProtoBroker",
-        0,
-        types.int
-    )
-    .addOptionalParam(
-        "amountToMintToDAOThreshold",
-        "The initialization parameter `_amountToMintToDAOThreshold` of TaikoProtoBroker",
-        1,
-        types.int
-    )
-    .addOptionalParam(
-        "amountMintToDAO",
-        "The initialization parameter `_amountMintToDAO` of TaikoProtoBroker",
-        0,
-        types.int
-    )
-    .addOptionalParam(
-        "amountMintToTeam",
-        "The initialization parameter `_amountMintToTeam` of TaikoProtoBroker",
-        0,
-        types.int
     )
     .addOptionalParam(
         "confirmations",
@@ -72,23 +48,14 @@ export async function deployContracts(hre: any) {
     const daoVault = hre.args.daoVault
     const teamVault = hre.args.teamVault
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
-    const taikoL2Address = hre.args.taikoL2
-    // Initialization parameters of TaikoProtoBroker
-    const gasPriceNow = hre.args.gasPriceNow
-    const amountToMintToDAOThreshold = hre.args.amountToMintToDAOThreshold
-    const amountMintToDAO = hre.args.amountMintToDAO
-    const amountMintToTeam = hre.args.amountMintToTeam
+    const v1TaikoL2Address = hre.args.v1TaikoL2
 
     log.debug(`network: ${network}`)
     log.debug(`chainId: ${chainId}`)
     log.debug(`deployer: ${deployer}`)
     log.debug(`daoVault: ${daoVault}`)
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
-    log.debug(`taikoL2Address: ${taikoL2Address}`)
-    log.debug(`gasPriceNow: ${gasPriceNow}`)
-    log.debug(`amountToMintToDAOThreshold: ${amountToMintToDAOThreshold}`)
-    log.debug(`amountMintToDAO: ${amountMintToDAO}`)
-    log.debug(`amountMintToTeam: ${amountMintToTeam}`)
+    log.debug(`v1TaikoL2Address: ${v1TaikoL2Address}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
 
@@ -105,7 +72,7 @@ export async function deployContracts(hre: any) {
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("taiko_l2", taikoL2Address)
+        await AddressManager.setAddress("v1_taiko_l2", v1TaikoL2Address)
     )
 
     // TaiToken
@@ -114,23 +81,6 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress("tai_token", TaiToken.address)
-    )
-
-    // Proto Broker
-    const ProtoBroker = await utils.deployContract(hre, "TaikoProtoBroker")
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress("proto_broker", ProtoBroker.address)
-    )
-    await utils.waitTx(
-        hre,
-        await ProtoBroker.init(
-            AddressManager.address,
-            gasPriceNow,
-            amountToMintToDAOThreshold,
-            amountMintToDAO,
-            amountMintToTeam
-        )
     )
 
     // Config manager
@@ -161,7 +111,6 @@ export async function deployContracts(hre: any) {
         contracts: Object.assign(
             { AddressManager: AddressManager.address },
             { TaiToken: TaiToken.address },
-            { ProtoBroker: ProtoBroker.address },
             { TaikoL1: taikoL1.address }
         ),
     }
@@ -178,10 +127,21 @@ async function deployBaseLibs(hre: any) {
         "LibReceiptDecoder"
     )
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
+    const libUint512 = await utils.deployContract(hre, "Uint512")
 
-    return {
+    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing")
+    const v1Proposing = await utils.deployContract(hre, "V1Proposing")
+    const v1Proving = await utils.deployContract(hre, "V1Proving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
+        Uint512: libUint512.address,
+    })
+
+    return {
+        V1Finalizing: v1Finalizing.address,
+        V1Proposing: v1Proposing.address,
+        V1Proving: v1Proving.address,
+        Uint512: libUint512.address,
     }
 }
