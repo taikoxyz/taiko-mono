@@ -112,11 +112,10 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 
 
 
-
 \subsection{TaikoL2} Deployed at address $\mathbf{r_{\mathrm{2}}}$ on Taiko, this contracts offers two major functionalities:
 \begin{itemize}
 \item Proving a proposed block is invalid on L2 through a valid but throwaway block.
-\item Achieving \textit{anchoring}, an important concept in Taiko's design to ensure blocks are valid and cross-layer data exchanges are done right. Anchoring is discussed in section \ref{sec:anchoring}
+\item Achieving \textit{anchoring}, an important concept in Taiko's design to ensure blocks are valid and cross-layer data exchange are done right. Anchoring is discussed in section \ref{sec:anchoring}
 \end{itemize}
 
 \section{Blocks and Transactions}
@@ -160,9 +159,9 @@ We are able to define the intrinsic validity function $V(\bar{B})$:
 
 \begin{eqnarray}
 V(\bar{B}[i]) & \equiv &   V(C,L)  \\
-\nonumber & \equiv &   R_\mathbf{i} \le R_\mathbf{f} + K_\mathrm{pendingblocks}   \quad \wedge \\
+\nonumber & \equiv &   R_\mathbf{i} \le R_\mathbf{f} + K_\mathrm{MaxPendingBlocks}   \quad \wedge \\
 \nonumber& & \lVert L \rVert > 0 \quad \wedge \\
-\nonumber & & \lVert L \rVert \le K_{\mathrm{blocktxlistbytelimit}} \quad \wedge \\
+\nonumber & & \lVert L \rVert \le K_{\mathrm{TxListMaxBytes}} \quad \wedge \\
 \nonumber& & C_{\mathbf{c}} \ne 0   \quad \wedge \\
 \nonumber& & C_{\mathbf{i}} = R_\mathbf{i}   \quad \wedge \\
 \nonumber& & C_{\mathbf{s}} = \texttt{TIMESTAMP}   \quad \wedge \\
@@ -192,8 +191,8 @@ Taiko L2 node software filters pending proposed blocks using the \textit{txList 
 
 \begin{itemize}
 \item The txList is RLP decodable into a list of transactions, and;
-\item The number of transactions is no larger than  protocol constant $ K_{\mathrm{blockmaxtxs}}$, and;
-\item The sum of all transaction's gasLimit is no larger than protocol constant $K_{\mathrm{blockmaxgas}}$, and;
+\item The number of transactions is no larger than  protocol constant $ K_{\mathrm{BlockMaxTxs}}$, and;
+\item The sum of all transaction's gasLimit is no larger than protocol constant $K_{\mathrm{BlockMaxGasLimit}}$, and;
 \item Each and every transaction's signature is valid, i.e., it does not recover to the zero address.
 \end{itemize}
 
@@ -202,9 +201,9 @@ Formally, $V^l(L)$ is defined as:
 
 \begin{eqnarray}
 V^l(L) & \equiv & \texttt{NOERR}(T \equiv \texttt{RLP}'(L))  \quad \wedge  \\
-\nonumber& & \lVert T \rVert \le K_{\mathrm{blockmaxtxs}} \quad \wedge \\
-\nonumber & & (\sum_{j = 0}^{\lVert T \rVert - 1}T[j]_g) \le K_{\mathrm{blockmaxgas}} \quad \wedge \\
-\nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (T[j]_g \ge K_{\mathrm{txmingas}})\quad \wedge \\
+\nonumber& & \lVert T \rVert \le K_{\mathrm{BlockMaxTxs}} \quad \wedge \\
+\nonumber & & (\sum_{j = 0}^{\lVert T \rVert - 1}T[j]_g) \le K_{\mathrm{BlockMaxGasLimit}} \quad \wedge \\
+\nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (T[j]_g \ge K_{\mathrm{TxMinGasLimit}})\quad \wedge \\
 \nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (\texttt{NOERR}(\texttt{ECRECOVER}(T[j]) \ne 0) )
 \end{eqnarray}
 
@@ -227,7 +226,7 @@ B_U  & \equiv & [] \\
 B & \equiv & (B_H, B_T, B_U)
 \end{eqnarray}
 
-Where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{ommersHash}, $H_c$ is the \textbf{beneficiary}, $H_r$ is the \textbf{stateRoot}, $H_t$ is the \textbf{transactionsRoot}, $H_e$ is the \textbf{receiptsRoot}, $H_b$ is the \textbf{logsBloom}, $H_d$ is the \textbf{difficulty}, $H_i$ is the block \textbf{number}, $H_l$ is the \textbf{gasLimit}, $H_g$ is the \textbf{gasUsed}, $H_s$ is the \textbf{timestamp}, $H_x$ is the \textbf{extraData}, $H_m$ is the \textbf{mixHash}, $H_n$ is the \textbf{nonce}; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but is always empty for Taiko because there is no Proof-of-Work.
+Where $H_p$ is the block's \textbf{parentHash}, $H_o$ is the \textbf{EmptyOmersHash}, $H_c$ is the \textbf{beneficiary}, $H_r$ is the \textbf{stateRoot}, $H_t$ is the \textbf{transactionsRoot}, $H_e$ is the \textbf{receiptsRoot}, $H_b$ is the \textbf{logsBloom}, $H_d$ is the \textbf{difficulty}, $H_i$ is the block \textbf{number}, $H_l$ is the \textbf{gasLimit}, $H_g$ is the \textbf{gasUsed}, $H_s$ is the \textbf{timestamp}, $H_x$ is the \textbf{extraData}, $H_m$ is the \textbf{mixHash}, $H_n$ is the \textbf{nonce}; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but is always empty for Taiko because there is no Proof-of-Work.
 
 Transactions in Taiko also conform to the same Ethereum standard defined by the Ethereum Yellow Paper. But currently only type 0 (legacy) and type 1 transactions are supported as EIP-1559 is disabled on Taiko initially (but may be enabled in a future version).
 
@@ -254,11 +253,11 @@ such that:
 \nonumber& & U = [] \quad \wedge \\
 \nonumber& & T =  \boldsymbol{\theta}::F(\texttt{RLP}'(L), V^t) \quad \wedge  \\
 \nonumber& & H_p =  h(1) \quad \wedge \\
-\nonumber& & H_o =   K_{\mathrm{ommershash}} \quad \wedge \\
+\nonumber& & H_o =   K_{\mathrm{EmptyOmersHash}} \quad \wedge \\
 \nonumber& & H_c =   C_c \quad \wedge \\
 \nonumber& & H_d =   0 \quad \wedge \\
 \nonumber& & H_i =   i \quad \wedge \\
-\nonumber& & H_l =   C_l + K_{\mathrm{anchorgas}} \quad \wedge \\
+\nonumber& & H_l =   C_l + K_{\mathrm{AnchorGasLimit}} \quad \wedge \\
 \nonumber& & H_s =   C_s \quad \wedge \\
 \nonumber& & H_x =   C_x \quad \wedge \\
 \nonumber& & H_m =   C_m \quad \wedge \\
@@ -293,13 +292,13 @@ Anchor transactions are constructed by Taiko L2 nodes as follows:
 
 \begin{eqnarray}
 & & \boldsymbol{\theta}_x = 0 \quad \wedge \\
-\nonumber& & \boldsymbol{\theta}_n = \boldsymbol{\delta}[K_{\mathrm{goldfingeraddr}}]_n + 1 \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_n = \boldsymbol{\delta}[K_{\mathrm{GoldfingerAddress}}]_n + 1 \quad \wedge \\
 \nonumber& & \boldsymbol{\theta}_p = 0 \quad \wedge \\
-\nonumber& & \boldsymbol{\theta}_g = K_{\mathrm{anchorgas}} \quad \wedge \\
-\nonumber& & \boldsymbol{\theta}_t = K_{\mathrm{goldfingeraddr}} \quad \wedge  \\
+\nonumber& & \boldsymbol{\theta}_g = K_{\mathrm{AnchorGasLimit}} \quad \wedge \\
+\nonumber& & \boldsymbol{\theta}_t = K_{\mathrm{GoldfingerAddress}} \quad \wedge  \\
 \nonumber& & \boldsymbol{\theta}_v = 0 \quad \wedge  \\
-\nonumber& & \boldsymbol{\theta}_d = K_{\mathrm{invalidateblockselector}}::C_a::C_h \quad \wedge  \\
-\nonumber& & (\boldsymbol{\theta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta}, K_{\mathrm{goldfingerprivatekey}})
+\nonumber& & \boldsymbol{\theta}_d = K_{\mathrm{InvalidateBlockSelector}}::C_a::C_h \quad \wedge  \\
+\nonumber& & (\boldsymbol{\theta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta}, K_{\mathrm{GoldfingerPrivateKey}})
 \end{eqnarray}
 
 Where \texttt{K1ECDSA} is the ECDSA signing function with the internal variable $k$ set to $1$, which guarantees the transaction's signature to only depend on the transaction itself and therefore is deterministic.
@@ -347,32 +346,32 @@ hi hi hi
 
 \end{description}
 
-\section{Protocol Constant Values}\label{app:fees}
+\section{Protocol Constants}\label{sec:constants}
 
-\nopagebreak
-The fee schedule $G$ is a tuple of scalar values corresponding to the relative costs, in gas, of a number of abstract operations that a transaction may effect.
 
 \nopagebreak
 \begin{tabu}{l r l}
 \toprule
 Name & Value & Description \\
 \midrule
-$K_{\mathrm{chainid}}$ & 1337 & Nothing paid for operations of the set {\small $W_{\mathrm{zero}}$}. \\
-$K_{\mathrm{pendingblocks}}$ & 2048 & Nothing paid for operations of the set {\small $W_{\mathrm{zero}}$}. \\
-$K_{\mathrm{perblockfinalization}}$ & 5 & Amount of gas to pay for a {\small JUMPDEST} operation. \\
-$K_{\mathrm{commitdelay}}$ & 4 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{base}}$}. \\
-$K_{\mathrm{perblockforks}}$ & 5 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{verylow}}$}. \\
-$K_{\mathrm{blockmaxgas}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{block}}$}. \\
-$K_{\mathrm{blockmaxtxs}}$ & 8 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{mid}}$}. \\
-$K_{\mathrm{blocktxlistbytelimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{high}}$}. \\
-$K_{\mathrm{anchorgas}}$ & 100 & Cost of a warm account or storage access. \\
-$K_{\mathrm{txmingas}}$ & 100 & Cost of a warm account or storage access. \\
-$K_{\mathrm{goldfingeraddr}}$ & 100 & Cost of a warm account or storage access. \\
-$K_{\mathrm{goldfingerprivatekey}}$ & 100 & Cost of a warm account or storage access. \\
-$K_{\mathrm{deadendmark}}$ & 1 & Cost of a warm account or storage access. \\
-$K_{\mathrm{invalidblocklogtopic}}$ & 0x64b299ff...6ddea4a2 & keccak256("BlockInvalidated(bytes32)"). \\
-$K_{\mathrm{invalidateblockselector}}$ & 0x64b299ff...6ddea4a2 & keccak256("invalidateBlock(bytes32,bytes32)"). \\
-$K_{\mathrm{ommershash}}$ & 0x1dcc4de8...40d49347 & keccak256(RLP([]). \\
+$K_{\mathrm{ChainID}}$ & 1337 & Taiko's chain ID. \\
+$K_{\mathrm{MaxPendingBlocks}}$ & 2048 & The maximum number of pending blocks {\small $W_{\mathrm{zero}}$}. \\
+$K_{\mathrm{MaxFinalizationsPerBlock}}$ & 5 & The number of proven blocks that can be finalized when a new\\
+& & block is proposed or a pending block is proven. \\
+$K_{\mathrm{CommitDelay}}$ & 4 & The number of confirmations to wait for before a block can be\\
+& & proposed after its commit-hash was written on Ethereum.\\
+$K_{\mathrm{ProofsPerForkChoice}}$ & 5 & The maximum number of proofs per fork choice. \\
+$K_{\mathrm{BlockMaxGasLimit}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{block}}$}. \\
+$K_{\mathrm{BlockMaxTxs}}$ & 8 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{mid}}$}. \\
+$K_{\mathrm{TxListMaxBytes}}$ & 1000000 & Amount of gas to pay for operations of the set {\small $W_{\mathrm{high}}$}. \\
+$K_{\mathrm{AnchorGasLimit}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{TxMinGasLimit}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{GoldfingerAddress}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{GoldfingerPrivateKey}}$ & 100 & Cost of a warm account or storage access. \\
+$K_{\mathrm{DeadEndHash}}$ & 1 & Cost of a warm account or storage access. \\
+$K_{\mathrm{InvalidateBlockLogTopic}}$ & 0x64b299ff...6ddea4a2 & keccak256("BlockInvalidated(bytes32)"). \\
+$K_{\mathrm{InvalidateBlockSelector}}$ & 0x64b299ff...6ddea4a2 & keccak256("invalidateBlock(bytes32,bytes32)"). \\
+$K_{\mathrm{EmptyOmersHash}}$ & 0x1dcc4de8...40d49347 & keccak256(RLP([]). \\
 %extern u256 const c_{\mathrm{copyGas}};            ///< Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
 \bottomrule
 \end{tabu}
