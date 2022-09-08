@@ -52,16 +52,17 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
+        // Checking and decoding inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
+        // Checking evidence
         require(evidence.context.id == blockIndex, "L1:id");
-
         require(evidence.proofs.length == 3, "L1:proof:size");
-        _proveBlock(s, resolver, evidence, evidence.context, 0);
 
+        // Checking anchor tx is valid
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
 
         require(_tx.txType == 0, "L1:anchor:type");
@@ -74,6 +75,10 @@ library V1Proving {
             "L1:anchor:gasLimit"
         );
 
+        // Checking anchor tx signature is valid and deterministic
+        _validateAnchorTxSignature(_tx);
+
+        // Checking anchor tx's calldata is valid
         require(
             Lib_BytesUtils.equal(
                 _tx.data,
@@ -86,8 +91,7 @@ library V1Proving {
             "L1:anchor:calldata"
         );
 
-        _validateAnchorTxSignature(_tx);
-
+        // Checking anchor tx is the 1st tx in the block
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
@@ -98,11 +102,11 @@ library V1Proving {
             "L1:tx:proof"
         );
 
+        // Checking anchor tx did not throw
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(anchorReceipt);
 
         require(receipt.status == 1, "L1:receipt:status");
-
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
@@ -112,6 +116,9 @@ library V1Proving {
             ),
             "L1:receipt:proof"
         );
+
+        // ZK-prove block and mark block proven to be valid.
+        _proveBlock(s, resolver, evidence, evidence.context, 0);
     }
 
     function proveBlockInvalid(
@@ -120,6 +127,7 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
+        // Checking and decoding inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         LibData.BlockContext memory target = abi.decode(
@@ -128,25 +136,17 @@ library V1Proving {
         );
         bytes calldata invalidateBlockReceipt = inputs[2];
 
+        // Checking evidence
         require(evidence.context.id == blockIndex, "L1:id");
-
         require(evidence.proofs.length == 2, "L1:proof:size");
-        _proveBlock(
-            s,
-            resolver,
-            evidence,
-            target,
-            LibConstants.TAIKO_INVALID_BLOCK_DEADEND_HASH
-        );
 
+        // Checking anchor tx receipt is valid
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
-
         require(receipt.status == 1, "L1:receipt:status");
         require(receipt.logs.length == 1, "L1:receipt:logsize");
 
         LibReceiptDecoder.Log memory log = receipt.logs[0];
-
         require(
             log.contractAddress == resolver.resolve("v1_taiko_l2"),
             "L1:receipt:addr"
@@ -159,6 +159,7 @@ library V1Proving {
             "L1:receipt:topics"
         );
 
+        // Checking anchor tx receipt included
         require(
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeUint(0),
@@ -167,6 +168,15 @@ library V1Proving {
                 evidence.header.receiptsRoot
             ),
             "L1:receipt:proof"
+        );
+
+        // ZK-prove block and mark block proven as invalid.
+        _proveBlock(
+            s,
+            resolver,
+            evidence,
+            target,
+            LibConstants.TAIKO_INVALID_BLOCK_DEADEND_HASH
         );
     }
 
@@ -200,7 +210,7 @@ library V1Proving {
         _markBlockProven(
             s,
             evidence.prover,
-            evidence.context,
+            target,
             evidence.parentHash,
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
@@ -209,20 +219,19 @@ library V1Proving {
     function _markBlockProven(
         LibData.State storage s,
         address prover,
-        LibData.BlockContext memory context,
+        LibData.BlockContext memory target,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
-        LibData.ForkChoice storage fc = s.forkChoices[context.id][parentHash];
+        LibData.ForkChoice storage fc = s.forkChoices[target.id][parentHash];
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = context.proposedAt;
+            fc.proposedAt = target.proposedAt;
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash &&
-                    fc.proposedAt == context.proposedAt,
+                fc.blockHash == blockHash && fc.proposedAt == target.proposedAt,
                 "L1:proof:conflict"
             );
             require(
