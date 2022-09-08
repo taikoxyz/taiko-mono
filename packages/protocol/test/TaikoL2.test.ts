@@ -2,8 +2,8 @@ import { expect } from "chai"
 const hre = require("hardhat")
 const ethers = hre.ethers
 
-describe("TaikoL2", function () {
-    let taikoL2: any
+describe("V1TaikoL2", function () {
+    let v1TaikoL2: any
     let addressManager: any
     let signers: any
 
@@ -18,20 +18,22 @@ describe("TaikoL2", function () {
         ).deploy()
         await addressManager.init()
 
-        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
+        // Deploying V1TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
         const libTxDecoder = await (
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
-        const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
+        const { chainId } = await hre.ethers.provider.getNetwork()
+
+        const v1TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
             libraries: {
                 LibTxDecoder: libTxDecoder.address,
             },
         })
-        taikoL2 = await taikoL2Factory.deploy()
-
-        const { chainId } = await hre.ethers.provider.getNetwork()
-        await taikoL2.init(addressManager.address, chainId)
+        v1TaikoL2 = await v1TaikoL2Factory.deploy(
+            addressManager.address,
+            chainId
+        )
 
         signers = await ethers.getSigners()
         await addressManager.setAddress(
@@ -43,30 +45,30 @@ describe("TaikoL2", function () {
     it("should emit EtherReturned event when receiving ether", async function () {
         expect(
             await signers[0].sendTransaction({
-                to: taikoL2.address,
+                to: v1TaikoL2.address,
                 value: ethers.utils.parseEther("150.0"),
             })
-        ).to.emit(taikoL2, "EtherReturned")
+        ).to.emit(v1TaikoL2, "EtherReturned")
     })
 
     describe("creditEther()", async function () {
-        it("should throw if recipient address is taikoL2.address", async function () {
-            await expect(taikoL2.creditEther(taikoL2.address, "1000")).to
+        it("should throw if recipient address is v1TaikoL2.address", async function () {
+            await expect(v1TaikoL2.creditEther(v1TaikoL2.address, "1000")).to
                 .reverted
         })
 
         it('should revert if not from named "eth_depositor"', async function () {
             const randWallet = ethers.Wallet.createRandom().address
             await expect(
-                taikoL2.connect(randWallet).creditEther(randWallet, "1000")
+                v1TaikoL2.connect(randWallet).creditEther(randWallet, "1000")
             ).to.reverted
         })
 
         it("should emit EtherCredited when crediting Ether to recipient and balance of reciever should be ether credited", async function () {
             const recieverWallet = ethers.Wallet.createRandom().address
             const amount = "10000"
-            expect(await taikoL2.creditEther(recieverWallet, amount)).to.emit(
-                taikoL2,
+            expect(await v1TaikoL2.creditEther(recieverWallet, amount)).to.emit(
+                v1TaikoL2,
                 "EtherCredited"
             )
             expect(await ethers.provider.getBalance(recieverWallet)).to.equal(
@@ -76,24 +78,10 @@ describe("TaikoL2", function () {
     })
 
     describe("anchor()", async function () {
-        it("should revert since anchorHeight == 0", async function () {
-            const randomHash = randomBytes32()
-            await expect(taikoL2.anchor(0, randomHash)).to.be.revertedWith(
-                "L2:anchor:values"
-            )
-        })
-
-        it("should revert since anchorHash == 0x0", async function () {
-            const zeroHash = ethers.constants.HashZero
-            await expect(taikoL2.anchor(10, zeroHash)).to.be.revertedWith(
-                "L2:anchor:values"
-            )
-        })
-
         it("should revert since ancestor hashes not written", async function () {
             const randomHash = randomBytes32()
-            await expect(taikoL2.anchor(10, randomHash)).to.be.revertedWith(
-                "L2:ancestorHash"
+            await expect(v1TaikoL2.anchor(10, randomHash)).to.be.revertedWith(
+                "L2:anchored"
             )
         })
     })

@@ -78,8 +78,8 @@ action("Generate Genesis", function () {
         }
 
         // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to TaikoL2 contract address.
-        const bridgeAddress = getContractAlloc("TaikoL2").address
+        // L2 bridge's balance to V1TaikoL2 contract address.
+        const bridgeAddress = getContractAlloc("V1TaikoL2").address
 
         expect(await provider.getBalance(bridgeAddress)).to.be.equal(
             bridgeBalance.toHexString()
@@ -121,12 +121,12 @@ action("Generate Genesis", function () {
             ).to.be.revertedWith("empty txList")
         })
 
-        it("TaikoL2", async function () {
-            const TaikoL2Alloc = getContractAlloc("TaikoL2")
+        it("V1TaikoL2", async function () {
+            const V1TaikoL2Alloc = getContractAlloc("V1TaikoL2")
 
-            const TaikoL2 = new hre.ethers.Contract(
-                TaikoL2Alloc.address,
-                require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
+            const V1TaikoL2 = new hre.ethers.Contract(
+                V1TaikoL2Alloc.address,
+                require("../../artifacts/contracts/L2/V1TaikoL2.sol/V1TaikoL2.json").abi,
                 signer
             )
 
@@ -135,18 +135,18 @@ action("Generate Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            expect(await TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+            expect(await V1TaikoL2.chainId()).to.be.equal(testConfig.chainId)
 
             await expect(
-                TaikoL2.anchor(anchorHeight, anchorHash)
+                V1TaikoL2.anchor(anchorHeight, anchorHash)
             ).not.to.reverted
 
             await expect(
-                TaikoL2.creditEther(
+                V1TaikoL2.creditEther(
                     hre.ethers.Wallet.createRandom().address,
                     1024
                 )
-            ).to.emit(TaikoL2, "EtherCredited")
+            ).to.emit(V1TaikoL2, "EtherCredited")
         })
     })
 
