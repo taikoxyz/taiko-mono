@@ -317,7 +317,7 @@ Proving a block creates a Fork Choice which is an attestation that the block in 
 E \equiv (H_p, H_h, [(a_1, P^{zk}_1, P^{tx}_1),...])
 \end{equation}
 
-where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block after being mapped in L2, and $(a_n, P^{zk}_n, P^{tx}_n)$ are the n-th prover's address and the proofs. $P^{zk}$ is a zero-knowledge proof from zkEVM that proves the state transition from the parent hash is correct , and $P^{tx}$ is a merkle proof that proves the anchor transaction is valid and is the first transaction of the block in L2.
+where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block after being mapped in L2, and $(a_n, P^{zk}_n, P^{tx}_n)$ are the n-th prover's address and the proofs. $P^{zk}$ is a zero-knowledge proof (ZKP) from zkEVM that proves the state transition from the parent hash is correct , and $P^{tx}$ is a merkle proof that proves the anchor transaction is valid and is the first transaction of the block in L2.
 
 Taiko allows up to $K_{\mathrm{MaxProofsPerForkChoice}}$ provers per fork choice, but sets no limit on the number of fork choices.
 
@@ -347,13 +347,21 @@ Assuming the j-th block is the last finalized valid block. The i-th block (i > j
 If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as finalized, j is not updated; otherwise,  $j$ changes to $i$ so now the i-th block becomes the last finalized valid block. Obviously on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
 
 \subsection{Deterministic Blocks}
-To enable parallel zero-knowledge proof computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve deterministic block transitions.
+To enable parallel ZKP computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve deterministic block transitions.
 
 \subsection{Assumptions on zkEVM}
-hi hi hi
+
+What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Taiko's current protocol design is fundamentally different from the one we had in Q2 2022, mainly because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
 
+\subsubsection{ZKP Computation}
 
+$$ p^i_a = Z(H^i, a, r^i, X^i, T^i) $$
+
+
+\subsubsection{ZKP Verification}
+
+aaa
 
 \end{multicols}
 
