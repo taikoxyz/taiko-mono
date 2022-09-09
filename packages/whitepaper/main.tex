@@ -12,7 +12,6 @@
 \usepackage{array}
 \usepackage{verbatim}
 \usepackage{caption}
-\usepackage{natbib}
 \usepackage{float}
 \usepackage{pdflscape}
 \usepackage{mathtools}
@@ -65,21 +64,30 @@
 \newcommand{\thedate}{\today}
 %\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
 
-\title[TAIKO: A Tier-1 Ethereum ZK-Rollup\\ \smaller \textbf{{DRAFT \VersionNumber}}]{TAIKO: A Tier-1 Ethereum ZK-Rollup \\ \smaller \textbf{{DRAFT \VersionNumber, \thedate}}}
+\title[TAIKO: A Tier-1 Ethereum ZK-Rollup\\ \smaller
+\textbf{{DRAFT}}]{TAIKO: A Tier-1 Ethereum ZK-Rollup \\ \smaller \textbf{{DRAFT, \thedate}}}
+
+\makeatletter
+\renewcommand\AB@affilsepx{ --- \protect\Affilfont}
+\makeatother
 
 \author{
-  Daniel WANG\\
-  \texttt{dan@taiko.xyz}
-  \and
-  Brecht Devos\\
-  \texttt{brecht@taiko.xyz}
+  Daniel WANG \texttt{dan@taiko.xyz}
+  \and \\
+  Brecht Devos \texttt{brecht@taiko.xyz}
+   \and \\
+  Someone Else \texttt{youremail@taiko.xyz}
 }
+
 \begin{document}
 
 \pagecolor{pagecolor}
 
 \begin{abstract}
-TBD
+\color{brown}
+TODO: write abstract here
+\color{black}
+
 \end{abstract}
 
 \maketitle
@@ -90,11 +98,24 @@ TBD
 
 \section{Introduction}
 
-TBD
+\color{brown}
+TODO: summarize the current status of Ethereum scabality solutions and ZKRollups. Mentioning Loopring?
+
+\color{black}
 
 \subsection{Design Principles}
 
-TBD
+Taiko's ZK-Rolup design follows a few principles:
+
+\begin{enumerate}
+\item \textbf{Minimal.} The design shall be as simple as possible and focuses only on a barebone ZK-Rollup itself, not its upgradeability, governance, gas-optimization, nor tokenomics.
+\item  \textbf{Game theory free.} The design should just work without any assumptions that some parties abide the protocol rules only to avoid being slashed, i.e., there is no Proof-of-Stake of any sort.
+\item \textbf{Decentralized.} The design allows for a very high degree of decentralization in terms of block generation (proposing and proving).  There is no single party who can control transaction ordering or block generation. Being sufficiently decentralized also implies that the design shall also allow for slower Zero-Knowledge Proof (ZKP) computation so that parties with overwhelming computation power cannot take over the network. 
+\item \textbf{Permissionless.} It's free to join and leave the network without a permission granted from single party of any consortium e.g., super nodes.
+\item \textbf{Secure.} The design shall focus on the security aspect of a ZK-Rollup and shall compromise security for anything.
+\end{enumerate}
+
+
 
 \section{Rollup Contracts}
 The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2, respectively.
@@ -106,7 +127,7 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 \item[lastFinalizedBlockId] The ID of the last finalized block, formally $R_\mathrm{f}$.
 % \item [numUnprovenBlocks] The number of proposed blocks that have not been proven,  formally $R_\mathrm{n}$.
 \item [blockCommits] The mapping from proposed block \textit{commit hashes} to their enclosed L1 blocks' block numbers, formally $R_\mathrm{c}$. If a block's hash is $h$, the commit hash number is $R_\mathrm{c}[h]$.
-\item[forkChoices] The mapping from proposed block IDs to their \textit{Fork Choices} , formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork choices is discussed in detail in section \ref{sec:forkchoices}.
+\item[forkChoices] The mapping from proposed block IDs to their \textit{Fork Choices} , formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork choices is discussed in detail in section \ref{sec:proving}.
 \item[pendingBlocks] The list of pending (unproven) proposed blocks, formally $R_\mathrm{b}$.
 \end{description}
 
@@ -315,7 +336,7 @@ Proving a block creates a Fork Choice which is an attestation that the block in 
 E \equiv (H_p, H_h, [(a_1, P^{zk}_1, P^{tx}_1),...])
 \end{equation}
 
-where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block after being mapped in L2, and $(a_n, P^{zk}_n, P^{tx}_n)$ are the n-th prover's address and the proofs. $P^{zk}$ is a zero-knowledge proof (ZKP) from zkEVM that proves the state transition from the parent hash is correct , and $P^{tx}$ is a merkle proof that proves the anchor transaction is valid and is the first transaction of the block in L2.
+where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block after being mapped in L2, and $(a_n, P^{zk}_n, P^{tx}_n)$ are the n-th prover's address and the proofs. $P^{zk}$ is a ZKP from zkEVM that proves the state transition from the parent hash is correct , and $P^{tx}$ is a merkle proof that proves the anchor transaction is valid and is the first transaction of the block in L2.
 
 Taiko allows up to $K_{\mathrm{MaxProofsPerForkChoice}}$ provers per fork choice, but sets no limit on the number of fork choices.
 
@@ -386,7 +407,7 @@ aaa
 \toprule
 Name & Status \\
 \midrule
-EIP-606 -- Hardfork Meta: Homestead & \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad Enabled \\
+EIP-606 -- Hardfork Meta: Homestead & \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad  Enabled \\
 EIP-779 -- Hardfork Meta: DAO Fork & Disabled \\
 EIP-150 - Gas cost changes for IO-heavy operations & Enabled \\
 EIP-155 -- Simple replay attack protection &  Enabled \\
@@ -432,7 +453,7 @@ $K_{\mathrm{AnchorTxGasLimit}}$ & 100000 & Anchor transaction's fixed gas limit.
 
 \begin{tabu}{l l}
 \toprule
-Name &  \quad \quadValue \\
+Name &  \quad \quad Value \\
 \midrule
 $K_{\mathrm{AnchorTxSelector}}$ &  \quad \quad 0xa0ca \\
 $K_{\mathrm{GoldfingerAddress}}$ &  \quad \quad 0x0000777735367b36bC9B61C50022d9D0700dB4Ec  \\
