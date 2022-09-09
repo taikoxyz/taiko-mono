@@ -111,7 +111,7 @@ Taiko's ZK-Rolup design follows a few principles:
 \item \textbf{Secure.} The design shall focus on the security aspect of a ZK-Rollup and shall compromise security for anything.
 \end{enumerate}
 
-
+With these principles, our objective is to design and implement a fully Ethereum-equivalent (tier-1) ZK-Rollup described in Vitalik Buterin's \textit{The different types of ZK-EVMs} article at \url{https://vitalik.ca/general/2022/08/04/zkevm.html}. This literally means Taiko uses the same hashes, state trees, transaction trees, precompiles and  other in-consensus logic. However, we disable certain EIPs (as shown in Appendix \ref{sec:eips}) in our initial implementation but may enabled some of them later.
 
 \section{Rollup Contracts}
 The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2, respectively.
@@ -400,7 +400,7 @@ TODO(daniel)
 \end{description}
 
 
-\section{Ethereum Upgrades on Taiko}\label{sec:hardforks}
+\section{Ethereum Upgrades on Taiko}\label{sec:eips}
 
 \begin{tabu}{l r }
 \toprule
