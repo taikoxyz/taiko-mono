@@ -16,6 +16,7 @@ import "../thirdparty/Lib_BytesUtils.sol";
 import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 
+/// @author david <david@taiko.xyz>
 library LibTxUtils {
     function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         internal
