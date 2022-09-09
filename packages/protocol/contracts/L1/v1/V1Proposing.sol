@@ -57,7 +57,7 @@ library V1Proposing {
 
         require(
             txList.length > 0 &&
-                txList.length <= LibConstants.TAIKO_BLOCK_MAX_TXLIST_BYTES &&
+                txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
                 context.txListHash == txList.hashTxList(),
             "L1:txList"
         );
