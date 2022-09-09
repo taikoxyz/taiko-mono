@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../thirdparty/Lib_RLPWriter.sol";
 import "./LibConstants.sol";
 
+/// @author david <david@taiko.xyz>
 struct BlockHeader {
     bytes32 ommersHash;
     address beneficiary;

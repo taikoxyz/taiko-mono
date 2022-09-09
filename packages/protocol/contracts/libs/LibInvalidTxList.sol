@@ -15,6 +15,7 @@ import "../thirdparty/Lib_RLPReader.sol";
 import "../thirdparty/Lib_RLPWriter.sol";
 
 /// @dev A library to invalidate a txList using the following rules:
+/// @author david <david@taiko.xyz>
 ///
 /// A txList is valid if and only if:
 /// 1. The txList's length is no more than `TAIKO_TXLIST_MAX_BYTES`;
@@ -26,7 +27,6 @@ import "../thirdparty/Lib_RLPWriter.sol";
 /// 1. The transaction is well-formed RLP, with no additional trailing bytes (rule#1 in Ethereum yellow paper);
 /// 2. The transaction's signature is valid (rule#2 in Ethereum yellow paper), and;
 /// 3. The transaction's the gas limit is no smaller than the intrinsic gas `TAIKO_TX_MIN_GAS_LIMIT`(rule#5 in Ethereum yellow paper).
-///
 library LibInvalidTxList {
     enum Reason {
         OK,
