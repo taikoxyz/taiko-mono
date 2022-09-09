@@ -15,10 +15,10 @@ In the following sections, when we mention ZKP we are always referring to the ag
 To compute a ZKP for a L2 block at height $i$, the following data will be used as inputs:
 
 1. This block's header $H^i$;
-1. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
-1. A RLP-encoded transaction $r^i$, referred as _the anchor transaction_ prepared by the prover. $r^i$ is the _first_ tx in the block, its gas price must be zero; gas limit must be TAIKO*ANCHOR_TX_GAS_LIMIT, msg value must be 0 (non-payable), call data size must be `4+32*2` containing $r*{anchorheight}^i$ and $r_{anchorhash}^i$ as the two parameters;
-1. A RLP-encoded list of L2 transactions $X^i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_, and;
-1. The trace logs $T^i$ produced by running all transactions in $X^i$ by a Taiko L2 node. Note that the trace logs also include data related to _unqualified L2 transactions_ which we will talk about later
+2. A prover-selected address $a$ only which can transact the `proveBlock` transaction for this block using _this_ to-be generated ZKP, though anyone else can verify the ZKP's validity;
+3. A RLP-encoded transaction $r^i$, referred as _the anchor transaction_ prepared by the prover. $r^i$ is the _first_ tx in the block, its gas price must be zero; gas limit must be TAIKO*ANCHOR_TX_GAS_LIMIT, msg value must be 0 (non-payable), call data size must be `4+32*2` containing $r*{anchorheight}^i$ and $r_{anchorhash}^i$ as the two parameters;
+4. A RLP-encoded list of L2 transactions $X^i$. It is the data rolled up from L2 to L1 and what makes a rollup. We also refer it as the _txList_, and;
+5. The trace logs $T^i$ produced by running all transactions in $X^i$ by a Taiko L2 node. Note that the trace logs also include data related to _unqualified L2 transactions_ which we will talk about later
 
 Hence we have:
 
@@ -34,9 +34,9 @@ where
 Verification of a ZKP on L1 through solidity contract requires the following inputs:
 
 1. $p^i_a$ is the ZKP with $a$ as the prover address;
-1. The fee receipient address $a$;
-1. This block's hash $h^i = \mathbb{H}(H^i)$;
-1. The keccak256 hash of $X^i$, e.g., $\mathbb{H}(X^i)$ (or $X^i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
+2. The fee receipt address $a$;
+3. This block's hash $h^i = \mathbb{H}(H^i)$;
+4. The keccak256 hash of $X^i$, e.g., $\mathbb{H}(X^i)$ (or $X^i$'s KZG commitment after [EIP4844](https://www.eip4844.com/));
 
 Hence we have:
 
@@ -51,7 +51,7 @@ where
 
 A _txList_ is valid if and only if:
 
-1. The txList's lenght is no more than `TAIKO_TXLIST_MAX_BYTES`;
+1. The txList's length is no more than `TAIKO_TXLIST_MAX_BYTES`;
 2. The txList is well-formed RLP, with no additional trailing bytes;
 3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS` and;
 4. The sum of all transaction gas limit is no more than `TAIKO_BLOCK_MAX_GAS_LIMIT`.
@@ -64,10 +64,10 @@ A transaction is valid if and only if:
 
 A transaction is qualified if and only if:
 
-4. The transaction is valid;
-5. The transaction's nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
-6. The transaction's sender account has no contract code deployed (rule#4 in Ethereum yellow paper) and;
-7. The transaction's sender account balance contains _at least_ the cost required in up-front payment (rule#6 in Ethereum yellow paper).
+1. The transaction is valid;
+2. The transaction's nonce is valid, e.g., equivalent to the sender account's current nonce (rule#3 in Ethereum yellow paper);
+3. The transaction's sender account has no contract code deployed (rule#4 in Ethereum yellow paper) and;
+4. The transaction's sender account balance contains _at least_ the cost required in up-front payment (rule#6 in Ethereum yellow paper).
 
 ### Design Options
 
@@ -78,7 +78,7 @@ We have two options for validating txList:
     -   Otherwise, a L2 block with all transactions will be produced.
 -   Option 2:
     -   If the txList is invalid or at least one of its transactions is invalid, no L2 block will be produced;
-    -   Otherwise, a L2 block with qualified transactions will be produced(all valid but unquanlifed transactions dropped). The worst-case scenario is that an empty block is produced.
+    -   Otherwise, a L2 block with qualified transactions will be produced(all valid but unqualified transactions dropped). The worst-case scenario is that an empty block is produced.
 
 We choose option 2 to maximize the change that a transaction makes into the L2 chain.
 
@@ -88,7 +88,7 @@ If a txList is invalid, the prover knows the reason. The prover now can create a
 
 Note that the temporary L2 block that include the `verifyTxListInvalid` is NOT the block in question that will be proven to be invalid, the temporary block is not part of the L2 chain and will be throw away.
 
-The tempoary block can use any recent L2 block as its parent, beause the `verifyTxListInvalid` transacton is a _pure_ solidity function that works the same way regardless of the current L2's actual world state.
+The temporary block can use any recent L2 block as its parent, because the `verifyTxListInvalid` transaction is a _pure_ solidity function that works the same way regardless of the current L2's actual world state.
 
 ### Verification of L2 Global Variable Value
 
