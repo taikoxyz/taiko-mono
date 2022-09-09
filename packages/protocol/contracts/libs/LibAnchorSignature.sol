@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 import "../thirdparty/Lib_Uint512.sol";
 
+/// @author david <david@taiko.xyz>
 library LibAnchorSignature {
     address public constant TAIKO_GOLDFINGER_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;

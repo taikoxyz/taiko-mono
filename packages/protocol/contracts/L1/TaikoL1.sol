@@ -14,12 +14,13 @@ import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
+import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract TaikoL1 is EssentialContract {
+contract TaikoL1 is EssentialContract, V1Events {
     using LibData for LibData.State;
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
@@ -64,7 +65,7 @@ contract TaikoL1 is EssentialContract {
         V1Proposing.proposeBlock(state, inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -88,7 +89,7 @@ contract TaikoL1 is EssentialContract {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -118,7 +119,7 @@ contract TaikoL1 is EssentialContract {
         );
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
