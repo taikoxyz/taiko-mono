@@ -65,7 +65,7 @@ contract TaikoL1 is EssentialContract, V1Events {
         V1Proposing.proposeBlock(state, inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract, V1Events {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -119,7 +119,7 @@ contract TaikoL1 is EssentialContract, V1Events {
         );
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATION_PER_TX
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
 
