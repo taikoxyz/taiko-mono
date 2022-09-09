@@ -189,12 +189,12 @@ Taiko L2 node software filters pending proposed blocks using the \textit{txList 
 
 \subsubsection{Validation} The txList Intrinsic Validity Function requires:
 
-\begin{itemize}
+\begin{enumerate}
 \item The txList is RLP decodable into a list of transactions, and;
 \item The number of transactions is no larger than  protocol constant $ K_{\mathrm{BlockMaxTxs}}$, and;
 \item The sum of all transaction's gasLimit is no larger than protocol constant $K_{\mathrm{BlockMaxGasLimit}}$, and;
 \item Each and every transaction's signature is valid, i.e., it does not recover to the zero address.
-\end{itemize}
+\end{enumerate}
 
 Formally, $V^l(L)$ is defined as:
 
@@ -271,7 +271,7 @@ Where $\Pi$ is the block transition function; $::$ is the list concatenation ope
 
 The anchor transaction is always the first one in a Taiko L2 block to perform certain duties:
 
-\begin{itemize}
+\begin{enumerate}
 \item Persisting the values of $i$, $d$, $h[1]$ -- the parent block hash -- to the trie (for the next block to use), which enables $i$, $d$, $h[1]$ to be also covered by the zkEVM's storage proof.   With anchoring, the block mapping function $M$  can be simplified:
 
 \begin{eqnarray}
@@ -282,7 +282,7 @@ B & \equiv & (H, T, U), \\
 
 \item Comparing $i$, $d$, $h[2..256])$ with values persisted by previous blocks. The anchor transaction will throw if any comparison fails, which will make this block unprovable on L1.
 \item Inserting \textbf{anchorHeight} $C_a$ and \textbf{anchorHash} $C_h$ into a mapping structure on L2 as a key-value pair. These L1 block hashes can be used by bridges to validate cross-layer messages.
-\end{itemize}
+\end{enumerate}
 
 We can add additional duties to anchor transaction implementation to enrich Taiko's functionalities without requesting changes in Taiko's zkEVM subsystem.
 
@@ -325,10 +325,10 @@ Taiko allows up to $K_{\mathrm{MaxProofsPerForkChoice}}$ provers per fork choice
 
 If a block fails to pass the Intrinsic Validity Function $V^l$, the block can be proven invalid using a valid throw-away L2 block $\hat{B}$ whose first transaction is a TaikoL2 $invalidateBlock$ transaction with the target block's txList as the sole input. $invalidateBlock$ will emit an $BlockInvalidated$ event with the target block's txList hash as a topic. On L1, we simply needs to verify that:
 
-\begin{itemize}
+\begin{enumerate}
 \item The throw-away block is $\hat{B}$ valid.
 \item The first event emitted in the block is $BlockInvalidated$ event with the expected txList hash. 
-\end{itemize}
+\end{enumerate}
 
 The Fork Choice for an invalid block is:
 
@@ -344,7 +344,7 @@ It's very important to notice that throw-away blocks are not mapped to L2 and ar
 
 Assuming the j-th block is the last finalized valid block. The i-th block (i > j) can be finalized if 1) the (i-1)-th block has been finalized, and 2) the i-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the the j-th block's hash.
 
-If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as finalized, but we don't update j; otherwise, we also apply $j \equiv i$ to indicate the i-th block is the last finalized valid block. Obviously on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
+If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as finalized, j is not updated; otherwise,  $j$ changes to $i$ so now the i-th block becomes the last finalized valid block. Obviously on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
 
 \subsection{Block Certainty}
 To enable parallel zero-knowledge proof computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve block transition certainty.
@@ -365,17 +365,16 @@ hi hi hi
 \section{Terminology} \label{ch:Terminology}
 
 \begin{description}
-\item[External Actor] A person or other entity able to interface to an Ethereum node, but external to the world of Ethereum. It can interact with Ethereum through depositing signed Transactions and inspecting the blockchain and associated state. Has one (or more) intrinsic Accounts.
+\item[Anchor Transaction] The first transaction in every Taiko L2 block to perform data validation and cross-layer communication.
 
-\item[Address] A 160-bit code used for identifying Accounts.
+\item[Goldfinger Address] An address with revealed private-key to transact all anchor transactions.
 
-\item[Account] Accounts have an intrinsic balance and transaction count maintained as part of the Ethereum state. They also have some (possibly empty) EVM Code and a (possibly empty) Storage State associated with them. Though homogenous, it makes sense to distinguish between two practical types of account: those with empty associated EVM Code (thus the account balance is controlled, if at all, by some external entity) and those with non-empty associated EVM Code (thus the account represents an Autonomous Object). Each Account has a single Address that identifies it.
+\item[Fork Choice] A data structure to capture a block's proving result based on a prover-chosen parent block.
 
 \end{description}
 
 \section{Protocol Constants}\label{sec:constants1}
 
-\subsection{}
 \begin{tabu}{l r l}
 \toprule
 Name & Value & Description \\
@@ -396,8 +395,6 @@ $K_{\mathrm{TxMinGasLimit}}$ & 21000 & A transaction's minimum gas limit. \\
 $K_{\mathrm{AnchorTxGasLimit}}$ & 100000 & Anchor transaction's fixed gas limit. \\
 \bottomrule
 \end{tabu}
-
-\subsection{}
 
 \begin{tabu}{l l}
 \toprule
