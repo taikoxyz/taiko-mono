@@ -213,7 +213,7 @@ Where $\texttt{NOERR(S)}$ is a catch-error function that returns \texttt{False} 
 
 
 
-It is important to realize that the txList Intrinsic Validity Function cannot be called on L1 as txLists are not accessible to Ethereum EVM on the byte level, as explained in \ref{sec:txlist}, unless the same txLists are submitted again to L1 in the form of transaction calldata, which will be more expensive than blobs and should be avoided after EIP-4844.
+It is important to realize that the txList Intrinsic Validity Function cannot be called on L1 as txLists are not accessible to Ethereum EVM on the byte level, as explained in \ref{sec:txlist}, unless the same txLists are submitted again to L1 in the form of transaction calldata, which will be more expensive than blobs and should be avoided after EIP-4844\cite{eip4844}.
 
 \subsubsection{Mapping}
 
@@ -301,7 +301,7 @@ Anchor transactions are constructed by Taiko L2 nodes as follows:
 \nonumber& & (\boldsymbol{\theta}_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta}, K_{\mathrm{GoldfingerPrivateKey}})
 \end{eqnarray}
 
-Where \texttt{K1ECDSA} is the ECDSA signing function with the internal variable $k$ set to $1$, which guarantees the transaction's signature to only depend on the transaction itself and therefore is deterministic.
+Where \texttt{K1ECDSA} is the ECDSA\cite{ecdsa} signing function with the internal variable $k$ set to $1$, which guarantees the transaction's signature to only depend on the transaction itself and therefore is deterministic\cite{ecdsak}.
 
 According to ECDSA's spec, when $k$ is $1$, $\boldsymbol{\theta}_r$ must equal $\mathrm{G_x}$, the value of the x-coordinate of the base point on the SECP-256k1 curve. The TaikoL1 contract verifies this assertion.
 
@@ -346,19 +346,19 @@ Assuming the j-th block is the last finalized valid block. The i-th block (i > j
 
 If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as finalized, j is not updated; otherwise,  $j$ changes to $i$ so now the i-th block becomes the last finalized valid block. Obviously on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
 
-\subsection{Block Certainty}
-To enable parallel zero-knowledge proof computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve block transition certainty.
+\subsection{Deterministic Blocks}
+To enable parallel zero-knowledge proof computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve deterministic block transitions.
 
 \subsection{Assumptions on zkEVM}
 hi hi hi
 
 
 
-\bibliographystyle{abbrv}
-\bibliography{main}
 
 \end{multicols}
 
+\bibliographystyle{IEEEtran}
+\bibliography{main}
 
 \appendix
 
