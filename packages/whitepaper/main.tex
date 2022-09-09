@@ -121,7 +121,7 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 \section{Blocks and Transactions}
 
 \subsection{Proposing Blocks}
-All Taiko blocks are proposed permissionlessly on Ethereum then converted to actual L2 blocks if they are proven to be valid, or ignored if they are proven to be invalid.
+All Taiko blocks are proposed permissionlessly on Ethereum then converted to actual L2 blocks if they are proven valid, or ignored if they are proven invalid.
 
 \subsubsection{Proposed Block} The proposed block in Taiko is the collection of information (known as the block's \textit{context}), $C$, and a list of transactions, $L$,  (known as the block \textit{txList}). Formally, we can refer to a proposed block $\bar{B}$:
 
@@ -311,16 +311,43 @@ According to ECDSA's spec, when $k$ is $1$, $\boldsymbol{\theta}_r$ must equal $
 
 \subsection{Proving Blocks} \label{sec:proving}
 
+Proving a block creates a Fork Choice which is an attestation that the block in question transits a prover-selected parent block's corresponding world state to a new world state. A Fork Choice is a tuple of 3 elements:
 
+\begin{equation}
+E \equiv (H_p, H_h, [(a_1, P^{zk}_1, P^{tx}_1),...])
+\end{equation}
 
+where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block after being mapped in L2, and $(a_n, P^{zk}_n, P^{tx}_n)$ are the n-th prover's address and the proofs. $P^{zk}$ is a zero-knowledge proof from zkEVM that proves the state transition from the parent hash is correct , and $P^{tx}$ is a merkle proof that proves the anchor transaction is valid and is the first transaction of the block in L2.
 
+Taiko allows up to $K_{\mathrm{MaxProofsPerForkChoice}}$ provers per fork choice, but sets no limit on the number of fork choices.
 
-\subsubsection{Fork Choices} \label{sec:forkchoices}
+\subsubsection{Proving Invalid Blocks} \label{sec:provinginvaid}
 
+If a block fails to pass the Intrinsic Validity Function $V^l$, the block can be proven invalid using a valid throw-away L2 block $\hat{B}$ whose first transaction is a TaikoL2 $invalidateBlock$ transaction with the target block's txList as the sole input. $invalidateBlock$ will emit an $BlockInvalidated$ event with the target block's txList hash as a topic. On L1, we simply needs to verify that:
 
+\begin{itemize}
+\item The throw-away block is $\hat{B}$ valid.
+\item The first event emitted in the block is $BlockInvalidated$ event with the expected txList hash. 
+\end{itemize}
 
+The Fork Choice for an invalid block is:
 
+\begin{equation}
+E \equiv (H_p, H_h \equiv K_{\mathrm{BlockDeadEndHash}}, [(a_1, P^{zk}_1, P^{tx}_1),...])
+\end{equation}
 
+Where $K_{\mathrm{BlockDeadEndHash}}$ is a special value marking this Fork Choice is for an invalid block; $P^{zk}$ and  $P^{tx}$ prove the throw-away block is invalid, not the target proposed block.
+
+It's very important to notice that throw-away blocks are not mapped to L2 and are never part of the Taiko chain.
+
+\subsection{Finalizing Blocks}\label{sec:finalizing}
+
+Assuming the j-th block is the last finalized valid block. The i-th block (i > j) can be finalized if 1) the (i-1)-th block has been finalized, and 2) the i-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the the j-th block's hash.
+
+If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as finalized, but we don't update j; otherwise, we also apply $j \equiv i$ to indicate the i-th block is the last finalized valid block. Obviously on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
+
+\subsection{Block Certainty}
+To enable parallel zero-knowledge proof computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve block transition certainty.
 
 \subsection{Assumptions on zkEVM}
 hi hi hi
@@ -363,7 +390,7 @@ $K_{\mathrm{MaxProofsPerForkChoice}}$ & 5 & The maximum number of proofs per for
 $K_{\mathrm{BlockMaxGasLimit}}$ & 5000000 & A Taiko block's max gas limit besides $K_{\mathrm{AnchorTxGasLimit}}$.  \\
 $K_{\mathrm{BlockMaxTxs}}$ & 20 & The maximum number of transactions in a Taiko block besides the anchor\\
 & & transaction. \\
-$K_{\mathrm{BlockDeadEndHash}}$ & 0x1 & A special value to mark blocks proven to be invalid. \\
+$K_{\mathrm{BlockDeadEndHash}}$ & 0x1 & A special value to mark blocks proven invalid. \\
 $K_{\mathrm{TxListMaxBytes}}$ & 10240 & A txList's maximum number of bytes. \\
 $K_{\mathrm{TxMinGasLimit}}$ & 21000 & A transaction's minimum gas limit. \\
 $K_{\mathrm{AnchorTxGasLimit}}$ & 100000 & Anchor transaction's fixed gas limit. \\
