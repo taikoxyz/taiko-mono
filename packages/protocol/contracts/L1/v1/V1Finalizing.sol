@@ -14,11 +14,7 @@ import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
-    event BlockFinalized(
-        uint256 indexed id,
-        uint256 indexed height,
-        bytes32 blockHash
-    );
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
 
     event HeaderExchanged(
         uint256 indexed height,
@@ -31,7 +27,7 @@ library V1Finalizing {
         s.nextPendingId = 1;
         s.genesisHeight = uint64(block.number);
 
-        emit BlockFinalized(0, 0, _genesisBlockHash);
+        emit BlockFinalized(0, _genesisBlockHash);
         emit HeaderExchanged(block.number, 0, _genesisBlockHash);
     }
 
@@ -48,11 +44,11 @@ library V1Finalizing {
             LibData.ForkChoice storage fc = s.forkChoices[i][lastHash];
 
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
-                emit BlockFinalized(i, 0, 0);
+                emit BlockFinalized(i, 0);
             } else if (fc.blockHash != 0) {
                 lastHeight += 1;
                 lastHash = fc.blockHash;
-                emit BlockFinalized(i, lastHeight, lastHash);
+                emit BlockFinalized(i, lastHash);
             } else {
                 break;
             }
