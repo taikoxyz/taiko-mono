@@ -36,12 +36,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      * Events             *
      **********************/
 
-    event Anchored(
-        uint256 indexed id,
-        bytes32 parentHash,
-        uint256 anchorHeight,
-        bytes32 anchorHash
+    event HeaderExchanged(
+        uint256 indexed height,
+        uint256 indexed sourceBlockHeight,
+        bytes32 sourceBlockHash
     );
+
     event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
@@ -107,12 +107,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
         anchorHashes[anchorHeight] = anchorHash;
         _checkGlobalVariables();
 
-        emit Anchored(
-            block.number,
-            blockHashes[block.number - 1],
-            anchorHeight,
-            anchorHash
-        );
+        emit HeaderExchanged(block.number, anchorHeight, anchorHash);
     }
 
     /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
