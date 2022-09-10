@@ -23,27 +23,20 @@
 
 \usepackage{tabu} %requires array.
 
-%This should be the last package before \input{Version.tex}
 \PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
-% "hyperref loads the url package internally. Use \PassOptionsToPackage{hyphens}{url}\usepackage{hyperref} to pass the option to the url package when it is loaded by hyperref. This avoids any package option clashes." Source: <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment44478_3034>.
-% Note also this: "If the \PassOptionsToPackage{hyphens}{url} approach does not work, maybe it's "because you're trying to load the url package with a specific option, but it's being loaded by one of your packages before that with a different set of options. Try loading the url package earlier than the package that requires it. If it's loaded by the document class, try using \RequirePackage[hyphens]{url} before the document class." Source: <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment555944_3034>.
-% For more information on using the hyperref package, refer to e.g. https://en.wikibooks.org/w/index.php?title=LaTeX/Hyperlinks&stable=0#Hyperlink_and_Hypertarget.
+
 
 \makeatletter
  \newcommand{\linkdest}[1]{\Hy@raisedlink{\hypertarget{#1}{}}}
 \makeatother
 \usepackage{seqsplit}
 
-% For formatting
-%\usepackage{underscore}
-%\usepackage{lipsum} % to generate filler text for testing of document rendering
+
 \usepackage[english]{babel}
 \usepackage[autostyle]{csquotes}
 \MakeOuterQuote{"}
 
-\usepackage[final]{microtype} % https://tex.stackexchange.com/questions/75140/is-it-possible-to-make-latex-mark-overfull-boxes-in-the-output#comment382776_75142
-
-
+\usepackage[final]{microtype} % 
 % Default rendering options
 \definecolor{pagecolor}{rgb}{0.96,0.96,1}
 \def\VersionNumber{0.1.0}
@@ -95,11 +88,18 @@ TODO: write abstract here
 \section{Introduction}
 
 \color{brown}
+TODO: describe Ethereum scalability challanges?
+
+\color{black}
+
+\section{Previous Work}
+
+\color{brown}
 TODO: summarize the current status of Ethereum scabality solutions and ZKRollups. Mentioning Loopring?
 
 \color{black}
 
-\subsection{Design Principles}
+\section{Design Principles}
 
 Taiko's ZK-Rolup design follows a few principles:
 
@@ -109,6 +109,7 @@ Taiko's ZK-Rolup design follows a few principles:
 \item \textbf{Decentralized.} The design allows for a very high degree of decentralization in terms of block generation (proposing and proving).  There is no single party who can control transaction ordering or block generation. Being sufficiently decentralized also implies that the design shall also allow for slower Zero-Knowledge Proof (ZKP) computation so that parties with overwhelming computation power cannot take over the network. 
 \item \textbf{Permissionless.} It's free to join and leave the network without a permission granted from single party of any consortium e.g., super nodes.
 \item \textbf{Secure.} The design shall focus on the security aspect of a ZK-Rollup and shall compromise security for anything.
+\item \textbf{Real Ether as L2 fees.} We use Ether as L2 transaction fee tokens. 
 \end{enumerate}
 
 With these principles, our objective is to design and implement a fully Ethereum-equivalent (tier-1) ZK-Rollup described in Vitalik Buterin's \textit{The different types of ZK-EVMs} article at \url{https://vitalik.ca/general/2022/08/04/zkevm.html}. This literally means Taiko uses the same hashes, state trees, transaction trees, precompiles and  other in-consensus logic. However, we disable certain EIPs (as shown in Appendix \ref{sec:eips}) in our initial implementation but may enabled some of them later.
@@ -230,7 +231,7 @@ It is important to realize that the txList intrinsic validity function cannot be
 
 \subsubsection{Mapping}
 
-Each proposed block that both $V^b(\dot{B})$ and $V^l(\dot{B}_L)$ return $\texttt{True}$ maps to an actual Taiko L2 block. Taiko blocks have the same structure as Ethereum blocks as defined in in the Ethereum Yellow Paper \cite{ethyellowpaper}:
+Each proposed block that both $V^b(\dot{B})$ and $V^l(\dot{B}_L)$ return $\texttt{True}$ maps to an actual Taiko L2 block. Taiko blocks have the same structure as Ethereum blocks as defined in in the Ethereum Yellow Paper\cite{ethyellowpaper}:
 
 \begin{eqnarray}
 B_H & \equiv & (H_p, H_o, H_c, H_r, H_t, H_e, H_b, H_d, \\
@@ -361,12 +362,12 @@ If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the i-th block is marked as fin
 \subsection{Deterministic Blocks}
 To enable parallel ZKP computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve deterministic block transitions.
 
-\subsection{Assumptions on zkEVM}
+\section{Assumptions on zkEVM}
 
 What a ZKP can and cannot prove is critical to a zkRollup's protocol design. Taiko's current protocol design is fundamentally different from the one we had in Q2 2022, mainly because we adopted a new set of ZKP assumptions that will be outlined in this section.
 
 
-\subsubsection{ZKP Computation} The ZKP computation function $Z$ for address $a$ is defined as:
+\subsection{ZKP Computation} The ZKP computation function $Z$ for address $a$ is defined as:
 
 
 \begin{equation}
@@ -376,16 +377,26 @@ Where $H$ is the block header, $\theta$ is the anchor transaction, $L$ is the bl
 
 It is critical that the prover address $a$ is an input variable for the equation; otherwise, ZKPs can be stolen while their enclosing transactions are pending in Ethereum mempool.
 
-\subsubsection{ZKP Verification} To verify a ZKP $p^z$ generated by address $a$ for the $i$-th block, we have the verification function defined as:
+\subsection{ZKP Verification} To verify a ZKP $p^z$ generated by address $a$ for the $i$-th block, we have the verification function defined as:
 
 \begin{equation}
     V(p^z, a, h[i], \texttt{KEC}(L), \kappa)
 \end{equation}
 Where $h[i]$ is the block's hash, $\kappa$ is  zkEVM's verification key.
 
+\section{Cross-Chain Communication}
+Taiko enables third-parties to develop cross-chain bridges for handling cross-chain communication. The Taiko protocol only ensures some block headers are synchronized between Ethereum and Taiko so bridges can utilize Merkle proofs to verify the validity of cross-chain messages.
+
+On Ethereum, the \textit{TaikoL1} contracts persists the height and hash of the last block finalized in a batch; on Taiko, the \textit{TaikoL2} contract uses the anchor function to persist the height and hash of the Ethereum block where the current L2 block is finalized. These cross-chain exchanged block headers are available as solidity mapping objects for bridges to query.
+
+\subsection{Ether on L2}
+Taiko ensures L2 Ether and L1 Ether are always 1-to-1 convertible. $2^128$ Ether are minted to a special vault contract called \textit{EthVault} (and a few EOAs) in the genesis block. When a user deposits Ether form L1 to L2, the same amount of Ether will be transferred from \textit{EthVault} to the user on L2; when a user withdraw some Ether from L2 to L1, Ether on L2 must be transferred back to \textit{EthVault}. Compared to ERC20 tokens, Ether on L2 is never burnt.
+
+Some small amount of Ether are also minted to a few EOAs to boostrap the L2 network, otherwise; nobody will be able to transact.
+
 \end{multicols}
 
-\bibliographystyle{IEEEtran}
+\bibliographystyle{IEEEtfran}
 \bibliography{main}
 
 \appendix
@@ -395,10 +406,13 @@ Where $h[i]$ is the block's hash, $\kappa$ is  zkEVM's verification key.
 \begin{description}
 \item[Anchor Transaction] The first transaction in every Taiko L2 block to perform data validation and cross-chain communication.
 
-\item[Goldfinger Address] An address with revealed private-key to transact all anchor transactions.
 
 \item[Fork Choice] A data structure to capture a block's proving result based on a prover-chosen parent block.
 
+\item[Goldfinger Address] An address with revealed private-key to transact all anchor transactions.
+
+\item[zkEVM] The project initiated and led by 
+Privacy & Scaling Explorations (formerly known as AppliedZKP) that aims to define a validity snark proof for Ethereum transactions.
 \end{description}
 
 
