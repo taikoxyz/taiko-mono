@@ -65,7 +65,6 @@ library V1Finalizing {
             if (lastHeight > s.lastFinalizedHeight) {
                 s.lastFinalizedHeight = lastHeight;
                 s.finalizedBlocks[lastHeight] = lastHash;
-
                 emit HeaderExchanged(block.number, lastHeight, lastHash);
             }
         }
