@@ -19,6 +19,12 @@ abstract contract V1Events {
         bytes32 blockHash
     );
 
+    event HeaderExchanged(
+        uint256 indexed height,
+        uint256 indexed sourceBlockHeight,
+        bytes32 sourceBlockHash
+    );
+
     event BlockCommitted(bytes32 hash, uint256 validSince);
 
     event BlockProposed(uint256 indexed id, LibData.BlockContext context);
