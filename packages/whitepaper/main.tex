@@ -157,8 +157,8 @@ All Taiko blocks are proposed permissionlessly on Ethereum and then converted to
 \item[mixHash] The mixHash value to be used by the corresponding L2 block; formally $C_{\mathrm{m}}$.
 \item[extraData] The extraData value to be used by the corresponding L2 block. This must be 32 bytes or fewer; formally $C_{\mathrm{x}}$.
 \item[txListHash] The Keccak 256-bit hash (or the KZG polynomial commitment when EIP-4844 is enabled) of this block's txList; formally $C_{\mathrm{t}}$. 
-\item[anchorHeight] The enclosing L1 block's parent block number; formally $C_{\mathrm{a}}$.
-\item[anchorHash] The enclosing L1 block's parent block hash; formally $C_{\mathrm{h}}$.
+\item[latestL1Height] The enclosing L1 block's parent block number; formally $C_{\mathrm{a}}$.
+\item[latestL1Hash] The enclosing L1 block's parent block hash; formally $C_{\mathrm{h}}$.
 \end{description}
 
 \subsubsection{txList}\label{sec:txlist}
@@ -295,7 +295,7 @@ B & \equiv & (H, T, U), \\
 \end{eqnarray}
 
 \item Comparing $i$, $d$, $h[2..256])$ with values persisted by previous blocks. The anchor transaction will throw an exception if any comparison fails, which will make this block unprovable on L1.
-\item Inserting anchorHeight $C_a$ and anchorHash $C_h$ into a mapping structure on L2 as a key-value pair. These L1 block hashes can be used by bridges to validate cross-chain messages.
+\item Inserting latestL1Height $C_a$ and latestL1Hash $C_h$ into a mapping structure on L2 as a key-value pair. These L1 block hashes can be used by bridges to validate cross-chain messages.
 \end{enumerate}
 
 We can add additional duties to anchor transaction implementation to enrich Taiko's functionalities without requesting changes in Taiko's zkEVM subsystem.
