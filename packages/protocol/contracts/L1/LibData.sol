@@ -52,8 +52,8 @@ library LibData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
         uint64 genesisHeight;
-        uint64 lastFinalizedHeight;
-        uint64 lastFinalizedId;
+        uint64 latestFinalizedHeight;
+        uint64 latestFinalizedId;
         uint64 nextPendingId;
     }
 
@@ -78,7 +78,7 @@ library LibData {
         view
         returns (bytes32)
     {
-        require(number <= s.lastFinalizedHeight, "L1:id");
+        require(number <= s.latestFinalizedHeight, "L1:id");
         return s.l2Hashes[number];
     }
 
@@ -87,14 +87,14 @@ library LibData {
         view
         returns (
             uint64 genesisHeight,
-            uint64 lastFinalizedHeight,
-            uint64 lastFinalizedId,
+            uint64 latestFinalizedHeight,
+            uint64 latestFinalizedId,
             uint64 nextPendingId
         )
     {
         genesisHeight = s.genesisHeight;
-        lastFinalizedHeight = s.lastFinalizedHeight;
-        lastFinalizedId = s.lastFinalizedId;
+        latestFinalizedHeight = s.latestFinalizedHeight;
+        latestFinalizedId = s.latestFinalizedId;
         nextPendingId = s.nextPendingId;
     }
 

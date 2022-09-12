@@ -292,7 +292,7 @@ library V1Proving {
         LibData.BlockContext memory context
     ) private view {
         require(
-            context.id > s.lastFinalizedId && context.id < s.nextPendingId,
+            context.id > s.latestFinalizedId && context.id < s.nextPendingId,
             "L1:ctx:id"
         );
         require(

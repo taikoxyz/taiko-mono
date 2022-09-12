@@ -26,9 +26,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     mapping(uint256 => bytes32) public blockHashes;
-    mapping(uint256 => bytes32) public l1Hashes;
+    mapping(uint256 => bytes32) private l1Hashes;
     uint256 public chainId;
-    uint256 public lastAnchorHeight;
+    uint256 public latestL1Height;
 
     uint256[46] private __gap;
 
@@ -51,8 +51,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight + 1 == block.number, "L2:anchored");
-        lastAnchorHeight = block.number;
+        require(latestL1Height + 1 == block.number, "L2:anchored");
+        latestL1Height = block.number;
         _;
     }
 
@@ -130,6 +130,15 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
         _checkGlobalVariables();
 
         emit BlockInvalidated(txList.hashTxList());
+    }
+
+    /**********************
+     * Public Functions   *
+     **********************/
+
+    function getL1BlockHash(uint256 number) public view returns (bytes32) {
+        require(number <= latestL1Height, "L2:number");
+        return l1Hashes[number];
     }
 
     function _checkGlobalVariables() private {

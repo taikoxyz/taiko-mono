@@ -40,7 +40,7 @@ A Taiko block may have the following status on L1:
 - Proven - the block is proven with a valid ZKP but may still be dropped if one of its ancestors is invalidated.
 - Finalized - the block is proven and all its ancestors are also proven. Once a block is finalized, it is part of the canonical chain forever unless L1 • re-organizes out the finalization transaction. L2’s genesis block is immediately finalized, without a ZKP.
 
-On L1, we use a ring buffer to keep track of the last finalized block and up to $N$ pending blocks, therefore, the ring buffer has $N+1$ slots, and the block at height $H$ will be put in slot $H \% (N+1)$. We also allow the first $M (0 < M \eqslantless N)$ pending blocks to be proven in an arbitrary order.
+On L1, we use a ring buffer to keep track of the latest finalized block and up to $N$ pending blocks, therefore, the ring buffer has $N+1$ slots, and the block at height $H$ will be put in slot $H \% (N+1)$. We also allow the first $M (0 < M \eqslantless N)$ pending blocks to be proven in an arbitrary order.
 
 In the example below, the ring buffer is configured with $N = 100$ and $M=3$. The genesis block (block #0) is finalized, block 1 to 5 have been proposed and only block 2 is proven. Block 1 and 3 can be proven as they are in the proving zone but block 4 and 5 cannot.
 
@@ -48,7 +48,7 @@ In the example below, the ring buffer is configured with $N = 100$ and $M=3$. Th
 
 The benefit of using a ring buffer is that L1 storage slots will be reused after $N+1$ blocks are proposed so storage writes will be less expensive.
 
-In the following paragraphs, we flatten the ring buffer and always show the last finalized block as the first element in the block list. The above block states can then be illustrated as:
+In the following paragraphs, we flatten the ring buffer and always show the latest finalized block as the first element in the block list. The above block states can then be illustrated as:
 
 ![block selection.png](/b/DESIGN%20564281f59d274c258b7e9f871e817528/block_selection%201.png)
 
@@ -59,11 +59,11 @@ If block 3 is proven and block 1 is proven later, then block 1, 2, 3 will all ge
 Such a block finalization design has the following implications:
 
 - The transactions that prove Block 2 and 3 are cheaper as they do not handle block finalization-related state updates which are expensive. The transaction that proves block 1 is more expensive as it has to finalize not only block 1, but also all the consecutive proven blocks after block 1 up to $M$ blocks, in this example, block 2 and 3. This implication will encourage validators to prove their own blocks as soon as possible after they enter the proving zone to reduce their L1 cost.
-- Block finalization may advance the last finalized block by more than one, given that $M$ is greater than 1. This translates directly to a faster block finalization speed and thus higher L2 throughput. But $M$ cannot be too large, otherwise, the finalization transaction may require more gas than the L1 block gas limit.
+- Block finalization may advance the latest finalized block by more than one, given that $M$ is greater than 1. This translates directly to a faster block finalization speed and thus higher L2 throughput. But $M$ cannot be too large, otherwise, the finalization transaction may require more gas than the L1 block gas limit.
 
 ### Block Expiry
 
-Provable pending blocks will expire if they haven’t been proven within their corresponding expiry windows. We define block $i$’s expiry window as $w^i = max(t_p^i + T_p, t_f + T_f)$ where $t_p^i$ is the time this block is proposed, $t_f$ is the time the last finalized block was finalized, $T_p$ is a constant value based on the average time required for ZKP computation, and $T_f$ is set to be 10 minutes for now.
+Provable pending blocks will expire if they haven’t been proven within their corresponding expiry windows. We define block $i$’s expiry window as $w^i = max(t_p^i + T_p, t_f + T_f)$ where $t_p^i$ is the time this block is proposed, $t_f$ is the time the latest finalized block was finalized, $T_p$ is a constant value based on the average time required for ZKP computation, and $T_f$ is set to be 10 minutes for now.
 
 Expired blocks are still valid until they are reported —the network allows any address to report expired blocks. Once an expired block is reported it will be removed together with all blocks that follow it, regardless of whether those following blocks are proven. This means the validators of all subsequent blocks lost their transaction fees. To punish the validator of the expired block, a certain percentage of its staking will be slashed.
 
@@ -186,7 +186,7 @@ Signal fees are paid in Ether on both L1 and L2. Signal fees received on L1 will
 
 ### Sync Hash
 
-In order to support the aforementioned cross-chain data synchronization for each block, the block’s sequencer must write certain data to the L2 world state, including 1) the last known L1 block number, 2) the last known L1 block’s hash,3) the validator address that is authorized to transact the `proposeBlock` transaction on L2, and 4) the L1 and L2 signal roots. It’s likely that more data may also be added to this list.
+In order to support the aforementioned cross-chain data synchronization for each block, the block’s sequencer must write certain data to the L2 world state, including 1) the latest known L1 block number, 2) the latest known L1 block’s hash,3) the validator address that is authorized to transact the `proposeBlock` transaction on L2, and 4) the L1 and L2 signal roots. It’s likely that more data may also be added to this list.
 
 The L1 rollup contract can verify that the correct data are written correctly to the L2 world state, but it will require the `proposeBlock` transaction to provide all the values and their corresponding L2 Trie proofs. We simplify the verification by hashing all these values into a bytes32 called _sync hash._ On L1 we only need to verify the sync hash is written to the L2 world state, therefore, one single Trie proof suffices.
 

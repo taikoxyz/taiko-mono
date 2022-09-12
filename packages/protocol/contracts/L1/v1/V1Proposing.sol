@@ -63,7 +63,7 @@ library V1Proposing {
         );
         require(
             s.nextPendingId <=
-                s.lastFinalizedId + LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+                s.latestFinalizedId + LibConstants.TAIKO_MAX_PENDING_BLOCKS,
             "L1:tooMany"
         );
 
