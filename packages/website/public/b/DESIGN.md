@@ -71,7 +71,7 @@ If an expired block is proven before being reported, its status changes to prove
 
 ### Block Replacing
 
-A block is invalid if its data has no integrity. Invalid blocks can be identified by the Taiko node software by replaying the enclosed transactions on top of its parent’s world state and comparing the post-block state root. When an invalid block is identified, the L2 client will drop the block immediately and treat its valid parent as the latest known block. If the client has PoS mining enabled, it will produce a new (potentially empty) block to replace the invalid block with `replaceBlock` transaction on L1.
+A block is invalid if its data has no integrity. Invalid blocks can be identified by the Taiko node software by replaying the enclosed transactions on top of its parent’s world state and comparing the post-block state root. When an invalid block is identified, the L2 client will drop the block immediately and treat its valid parent as the last known block. If the client has PoS mining enabled, it will produce a new (potentially empty) block to replace the invalid block with `replaceBlock` transaction on L1.
 
 The diagram below shows that block 4’ has replaced block 4. Similar to expired block reporting logic, when a block is replaced, all its subsequent blocks are dropped as well. In the example below, block 5 will be deleted.
 
@@ -148,7 +148,7 @@ A fixed amount of TAI tokens will also be minted and sent to the DAO’s address
 
 ### Block Hash Availability
 
-Each L2 block shall bring the latest known L1 block’s number and hash to L2 and make them available for L2 DApps. The L1 block’s number must not be smaller than the one brought to L2 by the parent L2 block.
+Each L2 block shall bring the last known L1 block’s number and hash to L2 and make them available for L2 DApps. The L1 block’s number must not be smaller than the one brought to L2 by the parent L2 block.
 
 The latest finalized L2 block's block hash, block number, and state root are brought to L1 and made available for L1 DApps.
 
@@ -186,7 +186,7 @@ Signal fees are paid in Ether on both L1 and L2. Signal fees received on L1 will
 
 ### Sync Hash
 
-In order to support the aforementioned cross-chain data synchronization for each block, the block’s sequencer must write certain data to the L2 world state, including 1) the latest known L1 block number, 2) the latest known L1 block’s hash,3) the validator address that is authorized to transact the `proposeBlock` transaction on L2, and 4) the L1 and L2 signal roots. It’s likely that more data may also be added to this list.
+In order to support the aforementioned cross-chain data synchronization for each block, the block’s sequencer must write certain data to the L2 world state, including 1) the last known L1 block number, 2) the last known L1 block’s hash,3) the validator address that is authorized to transact the `proposeBlock` transaction on L2, and 4) the L1 and L2 signal roots. It’s likely that more data may also be added to this list.
 
 The L1 rollup contract can verify that the correct data are written correctly to the L2 world state, but it will require the `proposeBlock` transaction to provide all the values and their corresponding L2 Trie proofs. We simplify the verification by hashing all these values into a bytes32 called _sync hash._ On L1 we only need to verify the sync hash is written to the L2 world state, therefore, one single Trie proof suffices.
 
