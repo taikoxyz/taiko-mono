@@ -17,8 +17,8 @@ abstract contract V1Events {
 
     event HeaderExchanged(
         uint256 indexed height,
-        uint256 indexed sourceBlockHeight,
-        bytes32 sourceBlockHash
+        uint256 indexed latestSrcHeight,
+        bytes32 latestSrcHash
     );
 
     event BlockCommitted(bytes32 hash, uint256 validSince);

@@ -38,8 +38,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
 
     event HeaderExchanged(
         uint256 indexed height,
-        uint256 indexed sourceBlockHeight,
-        bytes32 sourceBlockHash
+        uint256 indexed latestSrcHeight,
+        bytes32 latestSrcHash
     );
 
     event BlockInvalidated(bytes32 indexed txListHash);
