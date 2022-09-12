@@ -142,8 +142,8 @@ contract TaikoL1 is EssentialContract, V1Events {
         return state.getPendingBlock(id);
     }
 
-    function getFinalizedBlockHash(uint256 id) public view returns (bytes32) {
-        return state.getFinalizedBlockHash(id);
+    function getL2BlockHash(uint256 id) public view returns (bytes32) {
+        return state.getL2BlockHash(id);
     }
 
     function getStateVariables()

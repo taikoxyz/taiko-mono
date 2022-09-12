@@ -26,7 +26,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     mapping(uint256 => bytes32) public blockHashes;
-    mapping(uint256 => bytes32) public latestL1Hashes;
+    mapping(uint256 => bytes32) public l1Hashes;
     uint256 public chainId;
     uint256 public lastAnchorHeight;
 
@@ -104,7 +104,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
         external
         onlyWhenNotAnchored
     {
-        latestL1Hashes[latestL1Height] = latestL1Hash;
+        l1Hashes[latestL1Height] = latestL1Hash;
         _checkGlobalVariables();
 
         emit HeaderExchanged(block.number, latestL1Height, latestL1Hash);

@@ -45,7 +45,7 @@ library LibData {
 
     struct State {
         // block id => block hash
-        mapping(uint256 => bytes32) finalizedBlocks;
+        mapping(uint256 => bytes32) l2Hashes;
         // block id => PendingBlock
         mapping(uint256 => PendingBlock) pendingBlocks;
         // block id => parent hash => fork choice
@@ -73,13 +73,13 @@ library LibData {
         return s.pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
     }
 
-    function getFinalizedBlockHash(State storage s, uint256 id)
+    function getL2BlockHash(State storage s, uint256 number)
         internal
         view
         returns (bytes32)
     {
-        require(id <= s.lastFinalizedId, "L1:id");
-        return s.finalizedBlocks[id];
+        require(number <= s.lastFinalizedHeight, "L1:id");
+        return s.l2Hashes[number];
     }
 
     function getStateVariables(State storage s)
