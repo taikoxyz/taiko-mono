@@ -18,8 +18,8 @@ library V1Finalizing {
 
     event HeaderExchanged(
         uint256 indexed height,
-        uint256 indexed latestSrcHeight,
-        bytes32 latestSrcHash
+        uint256 indexed srcHeight,
+        bytes32 srcHash
     );
 
     function init(LibData.State storage s, bytes32 _genesisBlockHash) public {

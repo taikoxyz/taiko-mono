@@ -68,8 +68,8 @@ library V1Proposing {
         );
 
         context.id = s.nextPendingId;
-        context.latestL1Height = block.number - 1;
-        context.latestL1Hash = blockhash(block.number - 1);
+        context.l1Height = block.number - 1;
+        context.l1Hash = blockhash(block.number - 1);
         context.proposedAt = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
@@ -110,8 +110,8 @@ library V1Proposing {
     {
         require(
             context.id == 0 &&
-                context.latestL1Height == 0 &&
-                context.latestL1Hash == 0 &&
+                context.l1Height == 0 &&
+                context.l1Hash == 0 &&
                 context.mixHash == 0 &&
                 context.proposedAt == 0 &&
                 context.beneficiary != address(0) &&

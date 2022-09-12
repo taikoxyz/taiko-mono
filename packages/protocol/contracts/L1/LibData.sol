@@ -20,8 +20,8 @@ library LibData {
 
     struct BlockContext {
         uint256 id;
-        uint256 latestL1Height;
-        bytes32 latestL1Hash;
+        uint256 l1Height;
+        bytes32 l1Hash;
         address beneficiary;
         uint64 gasLimit;
         uint64 proposedAt;

@@ -52,8 +52,8 @@ contract TaikoL1 is EssentialContract, V1Events {
     ///       Note the following fields in the provided context object must
     ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
-    ///        - latestL1Height
-    ///        - latestL1Hash
+    ///        - l1Height
+    ///        - l1Hash
     ///        - mixHash
     ///        - proposedAt
     ///
