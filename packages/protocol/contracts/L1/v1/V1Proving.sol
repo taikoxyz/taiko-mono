@@ -84,8 +84,8 @@ library V1Proving {
                 _tx.data,
                 bytes.concat(
                     LibConstants.V1_ANCHOR_TX_SELECTOR,
-                    bytes32(evidence.context.anchorHeight),
-                    evidence.context.anchorHash
+                    bytes32(evidence.context.latestL1Height),
+                    evidence.context.latestL1Hash
                 )
             ),
             "L1:anchor:calldata"

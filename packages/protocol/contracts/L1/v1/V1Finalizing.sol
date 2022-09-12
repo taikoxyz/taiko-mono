@@ -32,8 +32,8 @@ library V1Finalizing {
     }
 
     function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
-        uint64 lastHeight = s.lastFinalizedHeight;
-        bytes32 lastHash = s.finalizedBlocks[lastHeight];
+        uint64 latestL2Height = s.lastFinalizedHeight;
+        bytes32 latestL2Hash = s.finalizedBlocks[latestL2Height];
         uint64 processed = 0;
 
         for (
@@ -41,14 +41,14 @@ library V1Finalizing {
             i < s.nextPendingId && processed <= maxBlocks;
             i++
         ) {
-            LibData.ForkChoice storage fc = s.forkChoices[i][lastHash];
+            LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
 
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
                 emit BlockFinalized(i, 0);
             } else if (fc.blockHash != 0) {
-                lastHeight += 1;
-                lastHash = fc.blockHash;
-                emit BlockFinalized(i, lastHash);
+                latestL2Height += 1;
+                latestL2Hash = fc.blockHash;
+                emit BlockFinalized(i, latestL2Hash);
             } else {
                 break;
             }
@@ -58,10 +58,14 @@ library V1Finalizing {
         if (processed > 0) {
             s.lastFinalizedId += processed;
 
-            if (lastHeight > s.lastFinalizedHeight) {
-                s.lastFinalizedHeight = lastHeight;
-                s.finalizedBlocks[lastHeight] = lastHash;
-                emit HeaderExchanged(block.number, lastHeight, lastHash);
+            if (latestL2Height > s.lastFinalizedHeight) {
+                s.lastFinalizedHeight = latestL2Height;
+                s.finalizedBlocks[latestL2Height] = latestL2Hash;
+                emit HeaderExchanged(
+                    block.number,
+                    latestL2Height,
+                    latestL2Hash
+                );
             }
         }
     }

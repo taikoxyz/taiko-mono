@@ -26,7 +26,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     mapping(uint256 => bytes32) public blockHashes;
-    mapping(uint256 => bytes32) public anchorHashes;
+    mapping(uint256 => bytes32) public latestL1Hashes;
     uint256 public chainId;
     uint256 public lastAnchorHeight;
 
@@ -98,16 +98,16 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     ///
     ///         Note taht this transaciton shall be the first transaction in every L2 block.
     ///
-    /// @param anchorHeight The latest L1 block height when this block was proposed.
-    /// @param anchorHash The latest L1 block hash when this block was proposed.
-    function anchor(uint256 anchorHeight, bytes32 anchorHash)
+    /// @param latestL1Height The latest L1 block height when this block was proposed.
+    /// @param latestL1Hash The latest L1 block hash when this block was proposed.
+    function anchor(uint256 latestL1Height, bytes32 latestL1Hash)
         external
         onlyWhenNotAnchored
     {
-        anchorHashes[anchorHeight] = anchorHash;
+        latestL1Hashes[latestL1Height] = latestL1Hash;
         _checkGlobalVariables();
 
-        emit HeaderExchanged(block.number, anchorHeight, anchorHash);
+        emit HeaderExchanged(block.number, latestL1Height, latestL1Hash);
     }
 
     /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
