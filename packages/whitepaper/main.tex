@@ -119,7 +119,7 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 
 \begin{description}
 \item[nextBlockId] The ID for the next proposed block, formally $R_\mathrm{i}$.
-\item[lastFinalizedBlockId] The ID of the last finalized block, formally $R_\mathrm{f}$.
+\item[latestFinalizedBlockId] The ID of the latest finalized block, formally $R_\mathrm{f}$.
 % \item [numUnprovenBlocks] The number of proposed blocks that have not been proven,  formally $R_\mathrm{n}$.
 \item [blockCommits] The mapping from proposed block \textit{commit hashes} to their enclosed L1 blocks' block numbers, formally $R_\mathrm{c}$. If a block's hash is $h$, the commit hash number is $R_\mathrm{c}[h]$.
 \item[forkChoices] The mapping from proposed block IDs to their \textit{Fork Choices} , formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork Choices are discussed in detail in section \ref{sec:proving}.
@@ -353,9 +353,9 @@ It's very important to notice that throw-away blocks are not mapped to L2 and ar
 
 \subsection{Finalizing Blocks}\label{sec:finalizing}
 
-Assuming the $j$-th block is the last finalized valid block. The $i$-th block ($i$ > $j$) can be finalized if 1) the $(i-1)$-th block has been finalized, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the the $j$-th block's hash.
+Assuming the $j$-th block is the latest finalized valid block. The $i$-th block ($i$ > $j$) can be finalized if 1) the $(i-1)$-th block has been finalized, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the the $j$-th block's hash.
 
-If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as finalized, $j$ is not updated; otherwise,  $j$ changes to $i$ so now the $i$-th block becomes the last finalized valid block. Obviously, on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
+If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as finalized, $j$ is not updated; otherwise,  $j$ changes to $i$ so now the $i$-th block becomes the latest finalized valid block. Obviously, on L1, Taiko's canonical chain is a subset of all proposed blocks linked through Fork Choices; on L2, Taiko's canonical chain is a subset of all proposed blocks filtered by the Intrinsic Validity Function.
 
 \subsection{Deterministic Blocks}
 To enable parallel ZKP computation, all blocks, once proposed on L1, must have deterministic state transitions on L2. Our design ensures all potential public and private inputs are verified on L1 directly or indirectly to achieve deterministic block transitions.
@@ -394,7 +394,7 @@ Where $h[i]$ is the block's hash, $\kappa$ is  zkEVM's verification key.
 \section{Cross-Chain Communication}
 Taiko enables third parties to develop cross-chain bridges for handling cross-chain communication. The Taiko protocol only ensures some block headers are synchronized between Ethereum and Taiko so bridges can utilize Merkle proofs to verify the validity of cross-chain messages.
 
-On Ethereum, the \textit{TaikoL1} contract persists the height and hash of the last block finalized in a batch; on Taiko, the \textit{TaikoL2} contract uses the anchor function to persist the height and hash of the Ethereum block where the current L2 block is finalized. These cross-chain exchanged block headers are available as solidity mapping objects for bridges to query.
+On Ethereum, the \textit{TaikoL1} contract persists the height and hash of the latest block finalized in a batch; on Taiko, the \textit{TaikoL2} contract uses the anchor function to persist the height and hash of the Ethereum block where the current L2 block is finalized. These cross-chain exchanged block headers are available as solidity mapping objects for bridges to query.
 
 \subsection{Ether on L2}
 Taiko ensures L2 Ether and L1 Ether are always 1-to-1 convertible. $2^128$ Ether is minted to a special vault contract called \textit{EthVault} (and a few EOAs) in the genesis block. When a user deposits Ether to L2, the same amount of Ether will be transferred from \textit{EthVault} to the user on L2; when a user withdraws some Ether from L2, Ether on L2 must be transferred back to \textit{EthVault}. Compared to ERC20 tokens, Ether on L2 is never burnt.
