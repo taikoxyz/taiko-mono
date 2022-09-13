@@ -161,8 +161,4 @@ contract Bridge is EssentialContract, IBridge {
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
         return state.isDestChainEnabled(_chainId);
     }
-
-    function chainId() public view virtual returns (uint256) {
-        return LibBridgeRead.chainId();
-    }
 }

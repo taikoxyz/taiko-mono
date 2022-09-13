@@ -149,7 +149,12 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 amount,
         uint256 maxProcessingFee
     ) external payable nonReentrant {
-        require(destChainId != chainId(), "V:invalid destChainId");
+        uint256 _chainId;
+        assembly {
+            _chainId := chainid()
+        }
+
+        require(destChainId != _chainId, "V:invalid destChainId");
         require(to != address(0), "V:zero to");
 
         address sender = _msgSender();
@@ -191,7 +196,11 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 gasLimit,
         uint256 gasPrice
     ) external payable nonReentrant {
-        require(destChainId != chainId(), "V:invalid destChainId");
+        uint256 _chainId;
+        assembly {
+            _chainId := chainid()
+        }
+        require(destChainId != _chainId, "V:invalid destChainId");
         require(to != address(0), "V:zero to");
         require(token != address(0), "V:zero token");
 
@@ -207,7 +216,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             // The canonical token lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
             canonicalToken = CannonicalERC20({
-                chainId: chainId(),
+                chainId: _chainId,
                 addr: token,
                 decimals: t.decimals(),
                 symbol: t.symbol(),
@@ -268,14 +277,18 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(_msgSender()).context();
 
-        require(ctx.destChainId == chainId(), "V:invalid chain id");
+        uint256 _chainId;
+        assembly {
+            _chainId := chainid()
+        }
+        require(ctx.destChainId == _chainId, "V:invalid chain id");
         require(
-            ctx.xchainSender == _getRemoteERC20Vault(ctx.srcChainId),
+            ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
             "V:invalid sender"
         );
 
         address token;
-        if (canonicalToken.chainId == chainId()) {
+        if (canonicalToken.chainId == _chainId) {
             require(
                 isBridgedToken[canonicalToken.addr] == false,
                 "V:invalid token"
@@ -294,12 +307,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         }
 
         emit ERC20Received(from, to, token, amount);
-    }
-
-    function chainId() internal view returns (uint256 _chainId) {
-        assembly {
-            _chainId := chainid()
-        }
     }
 
     /*********************

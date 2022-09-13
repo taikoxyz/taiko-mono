@@ -34,7 +34,7 @@ library LibBridgeData {
     // TODO: figure out this value
     uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
-    address internal constant XCHAIN_SENDER_DEFAULT =
+    address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         0x000000000000000000000000000000000000dEaD;
 
     /*********************

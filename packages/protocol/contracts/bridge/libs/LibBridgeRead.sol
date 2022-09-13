@@ -49,7 +49,8 @@ library LibBridgeRead {
         returns (IBridge.Context memory)
     {
         require(
-            state.ctx.xchainSender != LibBridgeData.XCHAIN_SENDER_DEFAULT,
+            state.ctx.srcChainSender !=
+                LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
             "B:out of context"
         );
         return state.ctx;

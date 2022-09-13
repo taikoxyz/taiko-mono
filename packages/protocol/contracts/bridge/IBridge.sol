@@ -39,9 +39,9 @@ interface IBridge {
      *********************/
 
     struct Context {
+        address srcChainSender;
         uint256 srcChainId;
         uint256 destChainId;
-        address xchainSender;
     }
 
     /*********************
@@ -60,6 +60,4 @@ interface IBridge {
         );
 
     function context() external view returns (Context memory context);
-
-    function chainId() external view returns (uint256);
 }
