@@ -294,7 +294,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
                 "V:invalid token"
             );
             token = canonicalToken.addr;
-            if (token == resolve("tko")) {
+            if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from
                 // this vault to the user, instead, we mint new TAI to him.
                 TkoToken(token).mint(to, amount);
@@ -383,7 +383,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             uint256 /*_amount*/
         )
     {
-        if (token == resolve("tko")) {
+        if (token == resolve("tko_token")) {
             // Special handling for Tai token: we do not send TAI to
             // this vault, instead, we burn the user's TAI. This is because
             // on L2, we are minting new tokens to validators and DAO.
