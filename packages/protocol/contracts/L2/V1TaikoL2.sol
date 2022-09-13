@@ -26,9 +26,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     mapping(uint256 => bytes32) public blockHashes;
-    mapping(uint256 => bytes32) public anchorHashes;
+    mapping(uint256 => bytes32) private l1Hashes;
     uint256 public chainId;
-    uint256 public lastAnchorHeight;
+    uint256 public latestL1Height;
 
     uint256[46] private __gap;
 
@@ -36,12 +36,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      * Events             *
      **********************/
 
-    event Anchored(
-        uint256 indexed id,
-        bytes32 parentHash,
-        uint256 anchorHeight,
-        bytes32 anchorHash
+    event HeaderExchanged(
+        uint256 indexed height,
+        uint256 indexed srcHeight,
+        bytes32 srcHash
     );
+
     event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
@@ -51,8 +51,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      **********************/
 
     modifier onlyWhenNotAnchored() {
-        require(lastAnchorHeight + 1 == block.number, "L2:anchored");
-        lastAnchorHeight = block.number;
+        require(latestL1Height + 1 == block.number, "L2:anchored");
+        latestL1Height = block.number;
         _;
     }
 
@@ -98,21 +98,16 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     ///
     ///         Note taht this transaciton shall be the first transaction in every L2 block.
     ///
-    /// @param anchorHeight The latest L1 block height when this block was proposed.
-    /// @param anchorHash The latest L1 block hash when this block was proposed.
-    function anchor(uint256 anchorHeight, bytes32 anchorHash)
+    /// @param l1Height The latest L1 block height when this block was proposed.
+    /// @param l1Hash The latest L1 block hash when this block was proposed.
+    function anchor(uint256 l1Height, bytes32 l1Hash)
         external
         onlyWhenNotAnchored
     {
-        anchorHashes[anchorHeight] = anchorHash;
+        l1Hashes[l1Height] = l1Hash;
         _checkGlobalVariables();
 
-        emit Anchored(
-            block.number,
-            blockHashes[block.number - 1],
-            anchorHeight,
-            anchorHash
-        );
+        emit HeaderExchanged(block.number, l1Height, l1Hash);
     }
 
     /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
@@ -135,6 +130,55 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
         _checkGlobalVariables();
 
         emit BlockInvalidated(txList.hashTxList());
+    }
+
+    /**********************
+     * Public Functions   *
+     **********************/
+
+    function getL1BlockHash(uint256 number) public view returns (bytes32) {
+        require(number <= latestL1Height, "L2:number");
+        return l1Hashes[number];
+    }
+
+    /**********************
+     * Private Functions  *
+     **********************/
+
+    function getConstants()
+        public
+        pure
+        returns (
+            uint256, // TAIKO_CHAIN_ID
+            uint256, // TAIKO_MAX_PENDING_BLOCKS
+            uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
+            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
+            uint256, // TAIKO_BLOCK_MAX_TXS
+            bytes32, // TAIKO_BLOCK_DEADEND_HASH
+            uint256, // TAIKO_TXLIST_MAX_BYTES
+            uint256, // TAIKO_TX_MIN_GAS_LIMIT
+            uint256, // V1_ANCHOR_TX_GAS_LIMIT
+            bytes4, // V1_ANCHOR_TX_SELECTOR
+            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+        )
+    {
+        return (
+            LibConstants.TAIKO_CHAIN_ID,
+            LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
+            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.TAIKO_BLOCK_MAX_TXS,
+            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
+            LibConstants.TAIKO_TXLIST_MAX_BYTES,
+            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
+            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.V1_ANCHOR_TX_SELECTOR,
+            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+        );
     }
 
     function _checkGlobalVariables() private {

@@ -52,8 +52,8 @@ contract TaikoL1 is EssentialContract, V1Events {
     ///       Note the following fields in the provided context object must
     ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
-    ///        - anchorHeight
-    ///        - anchorHash
+    ///        - l1Height
+    ///        - l1Hash
     ///        - mixHash
     ///        - proposedAt
     ///
@@ -142,8 +142,8 @@ contract TaikoL1 is EssentialContract, V1Events {
         return state.getPendingBlock(id);
     }
 
-    function getFinalizedBlockHash(uint256 id) public view returns (bytes32) {
-        return state.getFinalizedBlockHash(id);
+    function getL2BlockHash(uint256 number) public view returns (bytes32) {
+        return state.getL2BlockHash(number);
     }
 
     function getStateVariables()
@@ -151,8 +151,8 @@ contract TaikoL1 is EssentialContract, V1Events {
         view
         returns (
             uint64, /*genesisHeight*/
-            uint64, /*lastFinalizedHeight*/
-            uint64, /*lastFinalizedId*/
+            uint64, /*latestFinalizedHeight*/
+            uint64, /*latestFinalizedId*/
             uint64 /*nextPendingId*/
         )
     {
@@ -169,5 +169,41 @@ contract TaikoL1 is EssentialContract, V1Events {
         )
     {
         return LibAnchorSignature.signTransaction(hash, k);
+    }
+
+    function getConstants()
+        public
+        pure
+        returns (
+            uint256, // TAIKO_CHAIN_ID
+            uint256, // TAIKO_MAX_PENDING_BLOCKS
+            uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
+            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
+            uint256, // TAIKO_BLOCK_MAX_TXS
+            bytes32, // TAIKO_BLOCK_DEADEND_HASH
+            uint256, // TAIKO_TXLIST_MAX_BYTES
+            uint256, // TAIKO_TX_MIN_GAS_LIMIT
+            uint256, // V1_ANCHOR_TX_GAS_LIMIT
+            bytes4, // V1_ANCHOR_TX_SELECTOR
+            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+        )
+    {
+        return (
+            LibConstants.TAIKO_CHAIN_ID,
+            LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
+            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.TAIKO_BLOCK_MAX_TXS,
+            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
+            LibConstants.TAIKO_TXLIST_MAX_BYTES,
+            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
+            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.V1_ANCHOR_TX_SELECTOR,
+            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+        );
     }
 }

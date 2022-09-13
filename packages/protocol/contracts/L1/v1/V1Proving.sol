@@ -84,8 +84,8 @@ library V1Proving {
                 _tx.data,
                 bytes.concat(
                     LibConstants.V1_ANCHOR_TX_SELECTOR,
-                    bytes32(evidence.context.anchorHeight),
-                    evidence.context.anchorHash
+                    bytes32(evidence.context.l1Height),
+                    evidence.context.l1Hash
                 )
             ),
             "L1:anchor:calldata"
@@ -292,7 +292,7 @@ library V1Proving {
         LibData.BlockContext memory context
     ) private view {
         require(
-            context.id > s.lastFinalizedId && context.id < s.nextPendingId,
+            context.id > s.latestFinalizedId && context.id < s.nextPendingId,
             "L1:ctx:id"
         );
         require(

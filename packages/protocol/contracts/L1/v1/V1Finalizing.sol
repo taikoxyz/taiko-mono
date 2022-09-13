@@ -14,56 +14,59 @@ import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
-    event BlockFinalized(
-        uint256 indexed id,
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+
+    event HeaderExchanged(
         uint256 indexed height,
-        bytes32 blockHash
+        uint256 indexed srcHeight,
+        bytes32 srcHash
     );
 
     function init(LibData.State storage s, bytes32 _genesisBlockHash) public {
-        s.finalizedBlocks[0] = _genesisBlockHash;
+        s.l2Hashes[0] = _genesisBlockHash;
         s.nextPendingId = 1;
         s.genesisHeight = uint64(block.number);
 
-        emit BlockFinalized(0, 0, _genesisBlockHash);
+        emit BlockFinalized(0, _genesisBlockHash);
+        emit HeaderExchanged(block.number, 0, _genesisBlockHash);
     }
 
     function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
-        uint64 id = s.lastFinalizedId + 1;
-        uint256 processed = 0;
+        uint64 latestL2Height = s.latestFinalizedHeight;
+        bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
+        uint64 processed = 0;
 
-        while (id < s.nextPendingId && processed <= maxBlocks) {
-            bytes32 lastFinalizedHash = s.finalizedBlocks[
-                s.lastFinalizedHeight
-            ];
-            LibData.ForkChoice storage fc = s.forkChoices[id][
-                lastFinalizedHash
-            ];
+        for (
+            uint256 i = s.latestFinalizedId + 1;
+            i < s.nextPendingId && processed <= maxBlocks;
+            i++
+        ) {
+            LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
 
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
-                _finalizeBlock(s, id, fc);
+                emit BlockFinalized(i, 0);
             } else if (fc.blockHash != 0) {
-                s.finalizedBlocks[++s.lastFinalizedHeight] = fc.blockHash;
-                _finalizeBlock(s, id, fc);
+                latestL2Height += 1;
+                latestL2Hash = fc.blockHash;
+                emit BlockFinalized(i, latestL2Hash);
             } else {
                 break;
             }
-
-            s.lastFinalizedId += 1;
-            id += 1;
             processed += 1;
         }
-    }
 
-    function _finalizeBlock(
-        LibData.State storage s,
-        uint64 id,
-        LibData.ForkChoice storage /*fc*/
-    ) private {
-        emit BlockFinalized(
-            id,
-            s.lastFinalizedHeight,
-            s.finalizedBlocks[s.lastFinalizedHeight]
-        );
+        if (processed > 0) {
+            s.latestFinalizedId += processed;
+
+            if (latestL2Height > s.latestFinalizedHeight) {
+                s.latestFinalizedHeight = latestL2Height;
+                s.l2Hashes[latestL2Height] = latestL2Hash;
+                emit HeaderExchanged(
+                    block.number,
+                    latestL2Height,
+                    latestL2Hash
+                );
+            }
+        }
     }
 }

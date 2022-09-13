@@ -13,10 +13,12 @@ import "../LibData.sol";
 /// @author david <david@taiko.xyz>
 abstract contract V1Events {
     // The following events must match the definitions in other V1 libraries.
-    event BlockFinalized(
-        uint256 indexed id,
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+
+    event HeaderExchanged(
         uint256 indexed height,
-        bytes32 blockHash
+        uint256 indexed srcHeight,
+        bytes32 srcHash
     );
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
