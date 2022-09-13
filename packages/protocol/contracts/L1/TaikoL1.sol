@@ -159,6 +159,18 @@ contract TaikoL1 is EssentialContract, V1Events {
         return state.getStateVariables();
     }
 
+    function signWithGoldFinger(bytes32 hash, uint8 k)
+        public
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
+        return LibAnchorSignature.signTransaction(hash, k);
+    }
+
     function getConstants()
         public
         pure
@@ -193,17 +205,5 @@ contract TaikoL1 is EssentialContract, V1Events {
             LibConstants.V1_ANCHOR_TX_SELECTOR,
             LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
         );
-    }
-
-    function signWithGoldFinger(bytes32 hash, uint8 k)
-        public
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
-        return LibAnchorSignature.signTransaction(hash, k);
     }
 }
