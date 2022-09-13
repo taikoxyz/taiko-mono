@@ -20,8 +20,8 @@ library LibData {
 
     struct BlockContext {
         uint256 id;
-        uint256 anchorHeight;
-        bytes32 anchorHash;
+        uint256 l1Height;
+        bytes32 l1Hash;
         address beneficiary;
         uint64 gasLimit;
         uint64 proposedAt;
@@ -45,15 +45,15 @@ library LibData {
 
     struct State {
         // block id => block hash
-        mapping(uint256 => bytes32) finalizedBlocks;
+        mapping(uint256 => bytes32) l2Hashes;
         // block id => PendingBlock
         mapping(uint256 => PendingBlock) pendingBlocks;
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
         uint64 genesisHeight;
-        uint64 lastFinalizedHeight;
-        uint64 lastFinalizedId;
+        uint64 latestFinalizedHeight;
+        uint64 latestFinalizedId;
         uint64 nextPendingId;
     }
 
@@ -73,13 +73,13 @@ library LibData {
         return s.pendingBlocks[id % LibConstants.TAIKO_MAX_PENDING_BLOCKS];
     }
 
-    function getFinalizedBlockHash(State storage s, uint256 id)
+    function getL2BlockHash(State storage s, uint256 number)
         internal
         view
         returns (bytes32)
     {
-        require(id <= s.lastFinalizedId, "L1:id");
-        return s.finalizedBlocks[id];
+        require(number <= s.latestFinalizedHeight, "L1:id");
+        return s.l2Hashes[number];
     }
 
     function getStateVariables(State storage s)
@@ -87,14 +87,14 @@ library LibData {
         view
         returns (
             uint64 genesisHeight,
-            uint64 lastFinalizedHeight,
-            uint64 lastFinalizedId,
+            uint64 latestFinalizedHeight,
+            uint64 latestFinalizedId,
             uint64 nextPendingId
         )
     {
         genesisHeight = s.genesisHeight;
-        lastFinalizedHeight = s.lastFinalizedHeight;
-        lastFinalizedId = s.lastFinalizedId;
+        latestFinalizedHeight = s.latestFinalizedHeight;
+        latestFinalizedId = s.latestFinalizedId;
         nextPendingId = s.nextPendingId;
     }
 
