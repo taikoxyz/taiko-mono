@@ -130,15 +130,15 @@ action("Generate Genesis", function () {
                 signer
             )
 
-            const anchorHeight = 1
-            const anchorHash = ethers.utils.hexlify(
+            const latestL1Height = 1
+            const latestL1Hash = ethers.utils.hexlify(
                 ethers.utils.randomBytes(32)
             )
 
             expect(await V1TaikoL2.chainId()).to.be.equal(testConfig.chainId)
 
             await expect(
-                V1TaikoL2.anchor(anchorHeight, anchorHash)
+                V1TaikoL2.anchor(latestL1Height, latestL1Hash)
             ).not.to.reverted
 
             await expect(

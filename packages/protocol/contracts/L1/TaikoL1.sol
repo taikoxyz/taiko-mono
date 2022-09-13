@@ -52,8 +52,8 @@ contract TaikoL1 is EssentialContract, V1Events {
     ///       Note the following fields in the provided context object must
     ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
-    ///        - anchorHeight
-    ///        - anchorHash
+    ///        - l1Height
+    ///        - l1Hash
     ///        - mixHash
     ///        - proposedAt
     ///
@@ -142,8 +142,8 @@ contract TaikoL1 is EssentialContract, V1Events {
         return state.getPendingBlock(id);
     }
 
-    function getFinalizedBlockHash(uint256 id) public view returns (bytes32) {
-        return state.getFinalizedBlockHash(id);
+    function getL2BlockHash(uint256 number) public view returns (bytes32) {
+        return state.getL2BlockHash(number);
     }
 
     function getStateVariables()
@@ -151,8 +151,8 @@ contract TaikoL1 is EssentialContract, V1Events {
         view
         returns (
             uint64, /*genesisHeight*/
-            uint64, /*lastFinalizedHeight*/
-            uint64, /*lastFinalizedId*/
+            uint64, /*latestFinalizedHeight*/
+            uint64, /*latestFinalizedId*/
             uint64 /*nextPendingId*/
         )
     {
