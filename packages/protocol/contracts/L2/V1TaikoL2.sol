@@ -135,6 +135,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     /**********************
      * Public Functions   *
      **********************/
+
     function getL1BlockHash(uint256 number) public view returns (bytes32) {
         require(number <= latestL1Height, "L2:number");
         return l1Hashes[number];
