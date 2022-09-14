@@ -38,7 +38,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /// @notice Write a _commit hash_ so a few blocks later a L2 block can be proposed
-    ///         such that `calculateCommitHash(context.beneficiary, context.txListHash)`
+    ///         such that `calculateCommitHash(meta.beneficiary, meta.txListHash)`
     ///         equals to this commit hash.
     /// @param commitHash A commit hash calculated as: `calculateCommitHash(beneficiary, txListHash)`.
     function commitBlock(bytes32 commitHash) external {
@@ -48,9 +48,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /// @notice Propose a Taiko L2 block.
     /// @param inputs A list of data input:
     ///
-    ///     - inputs[0] is abi-encoded BlockContext that the actual L2 block header
+    ///     - inputs[0] is abi-encoded BlockMetadata that the actual L2 block header
     ///       must satisfy.
-    ///       Note the following fields in the provided context object must
+    ///       Note the following fields in the provided meta object must
     ///       be zeros -- their actual values will be provisioned by Ethereum.
     ///        - id
     ///        - l1Height
