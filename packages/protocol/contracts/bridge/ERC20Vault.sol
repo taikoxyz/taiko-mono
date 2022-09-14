@@ -154,8 +154,8 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             _chainId := chainid()
         }
 
-        require(destChainId != _chainId, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
+        require(destChainId != _chainId, "V:destChainId");
+        require(to != address(0), "V:to");
 
         address sender = _msgSender();
 
@@ -200,9 +200,9 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         assembly {
             _chainId := chainid()
         }
-        require(destChainId != _chainId, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
-        require(token != address(0), "V:zero token");
+        require(destChainId != _chainId, "V:destChainId");
+        require(to != address(0), "V:to");
+        require(token != address(0), "V:token");
 
         CannonicalERC20 memory canonicalToken;
         uint256 _amount;
@@ -281,18 +281,15 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         assembly {
             _chainId := chainid()
         }
-        require(ctx.destChainId == _chainId, "V:invalid chain id");
+        require(ctx.destChainId == _chainId, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
-            "V:invalid sender"
+            "V:srcChainSender"
         );
 
         address token;
         if (canonicalToken.chainId == _chainId) {
-            require(
-                isBridgedToken[canonicalToken.addr] == false,
-                "V:invalid token"
-            );
+            require(isBridgedToken[canonicalToken.addr] == false, "V:token");
             token = canonicalToken.addr;
             if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from
