@@ -50,14 +50,17 @@ interface IBridge {
 
     /// @dev Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(address refundFeeTo, Message memory message)
+    function sendMessage(Message memory message)
         external
         payable
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        );
+        returns (uint256 height, bytes32 messageHash);
+
+    /// @dev Sends a message to the destination chain and takes custody
+    /// of Ether required in this contract. All extra Ether will be refunded.
+    function sendMessage(Message memory message, address refundFeeTo)
+        external
+        payable
+        returns (uint256 height, bytes32 messageHash);
 
     function context() external view returns (Context memory context);
 }

@@ -26,14 +26,7 @@ library LibBridgeSend {
         address sender,
         address refundFeeTo,
         Message memory message
-    )
-        internal
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        )
-    {
+    ) internal returns (uint256 height, bytes32 messageHash) {
         require(
             message.destChainId != LibBridgeRead.chainId() &&
                 state.isDestChainEnabled(message.destChainId),
@@ -61,7 +54,6 @@ library LibBridgeSend {
             message.srcChainId,
             message.id,
             height,
-            signal,
             abi.encode(message)
         );
     }

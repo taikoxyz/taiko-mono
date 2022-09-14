@@ -38,17 +38,16 @@ contract Bridge is EssentialContract, IBridge {
 
     // Note these events must match the one defined in Bridge.sol.
     event MessageSent(
-        bytes32 indexed messageHash, // signal value
+        bytes32 indexed messageHash,
         address indexed owner,
         uint256 srcChainId,
         uint256 id,
         uint256 height, // used for compute message proofs
-        bytes32 signal,
         bytes message
     );
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash, // signal value
+        bytes32 indexed messageHash,
         address indexed owner,
         uint256 srcChainId,
         uint256 id,
@@ -70,15 +69,20 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(address refundFeeTo, Message calldata message)
+    function sendMessage(Message calldata message)
         external
         payable
         nonReentrant
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        )
+        returns (uint256 height, bytes32 messageHash)
+    {
+        return state.sendMessage(_msgSender(), _msgSender(), message);
+    }
+
+    function sendMessage(Message calldata message, address refundFeeTo)
+        external
+        payable
+        nonReentrant
+        returns (uint256 height, bytes32 messageHash)
     {
         return state.sendMessage(_msgSender(), refundFeeTo, message);
     }
