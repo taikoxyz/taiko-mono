@@ -33,15 +33,15 @@ library LibBridgeRead {
         messageHash = message.hashMessage();
         MKProof memory mkp = abi.decode(mkproof, (MKProof));
 
-        bytes32 headerHash = IHeaderSync(resolver.resolve("header_sync"))
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
             .getSyncedHeader(mkp.blockNumber);
-        require(headerHash != 0, "B:headerhash:zero");
+        require(syncedHeaderHash != 0, "B:headerhash:zero");
 
         received = Lib_MerkleTrie.verifyInclusionProof(
             Lib_RLPWriter.writeBytes32(messageHash),
             Lib_RLPWriter.writeUint(1),
             mkp.proof,
-            headerHash
+            syncedHeaderHash
         );
     }
 
