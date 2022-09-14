@@ -122,13 +122,13 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageReceived(Message memory message, bytes memory mkproof)
+    function isMessageReceived(Message memory message, bytes memory proof)
         public
         view
         virtual
         returns (bool received, bytes32 messageHash)
     {
-        return AddressResolver(this).isMessageReceived(message, mkproof);
+        return AddressResolver(this).isMessageReceived(message, proof);
     }
 
     function getMessageStatus(uint256 srcChainId, uint256 messageId)

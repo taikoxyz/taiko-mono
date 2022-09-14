@@ -28,10 +28,10 @@ library LibBridgeRead {
     function isMessageReceived(
         AddressResolver resolver,
         Message memory message,
-        bytes memory mkproof
+        bytes memory proof
     ) internal view returns (bool received, bytes32 messageHash) {
         messageHash = message.hashMessage();
-        MKProof memory mkp = abi.decode(mkproof, (MKProof));
+        MKProof memory mkp = abi.decode(proof, (MKProof));
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
             .getSyncedHeader(mkp.blockNumber);
