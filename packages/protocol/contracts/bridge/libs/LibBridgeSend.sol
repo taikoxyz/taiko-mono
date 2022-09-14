@@ -63,7 +63,7 @@ library LibBridgeSend {
         messageHash = message.hashMessage();
 
         // store the messageHash in contract state
-        state.messageIdToHash[message.srcChainId][idx] = messageHash;
+        state.messageIdToHash[message.srcChainId][message.id] = messageHash;
 
         // `signalFee` is paid to the Rollup contract.
         // (height, signal) = signalService.sendSignal{value: fee}(
