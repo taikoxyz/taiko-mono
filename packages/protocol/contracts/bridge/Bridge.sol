@@ -140,6 +140,14 @@ contract Bridge is EssentialContract, IBridge {
         return state.getMessageStatus(srcChainId, messageId);
     }
 
+    function getMessageFeeAndCapacity()
+        public
+        view
+        returns (uint256 fee, uint256 capacity)
+    {
+        return AddressResolver(this).getMessageFeeAndCapacity();
+    }
+
     function context() public view returns (Context memory) {
         return state.context();
     }

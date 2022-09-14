@@ -281,6 +281,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         assembly {
             _chainId := chainid()
         }
+
         require(ctx.destChainId == _chainId, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
@@ -290,6 +291,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address token;
         if (canonicalToken.chainId == _chainId) {
             require(isBridgedToken[canonicalToken.addr] == false, "V:token");
+
             token = canonicalToken.addr;
             if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from
