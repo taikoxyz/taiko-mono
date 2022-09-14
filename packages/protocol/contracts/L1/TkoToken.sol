@@ -17,7 +17,7 @@ import "../thirdparty/ERC20Upgradeable.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @dev This is Taiko's governance token.
-contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
+contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
@@ -42,7 +42,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init("Taiko Token", "TAI", 18);
+        ERC20Upgradeable.__ERC20_init("Taiko Token", "TKO", 18);
     }
 
     /*********************
@@ -54,7 +54,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
-        require(to != address(this), "TAI: invalid to");
+        require(to != address(this), "TKO: invalid to");
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -63,7 +63,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TAI: invalid to");
+        require(to != address(this), "TKO: invalid to");
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
@@ -77,7 +77,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         public
         onlyFromNamed("proto_broker")
     {
-        require(account != address(0), "TAI: invalid address");
+        require(account != address(0), "TKO: invalid address");
         _mint(account, amount);
         emit Mint(account, amount);
     }
@@ -92,7 +92,7 @@ contract TaiToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         public
         onlyFromNamed("proto_broker")
     {
-        require(account != address(0), "TAI: invalid address");
+        require(account != address(0), "TKO: invalid address");
         _burn(account, amount);
         emit Burn(account, amount);
     }

@@ -75,12 +75,12 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress("v1_taiko_l2", v1TaikoL2Address)
     )
 
-    // TaiToken
-    const TaiToken = await utils.deployContract(hre, "TaiToken")
-    await utils.waitTx(hre, await TaiToken.init(AddressManager.address))
+    // TkoToken
+    const TkoToken = await utils.deployContract(hre, "TkoToken")
+    await utils.waitTx(hre, await TkoToken.init(AddressManager.address))
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("tai_token", TaiToken.address)
+        await AddressManager.setAddress("tko_token", TkoToken.address)
     )
 
     // Config manager
@@ -110,7 +110,7 @@ export async function deployContracts(hre: any) {
         l2GenesisBlockHash,
         contracts: Object.assign(
             { AddressManager: AddressManager.address },
-            { TaiToken: TaiToken.address },
+            { TkoToken: TkoToken.address },
             { TaikoL1: taikoL1.address }
         ),
     }
