@@ -43,6 +43,7 @@ library LibBridgeRetry {
         );
 
         (bool received, bytes32 messageHash) = resolver.isMessageReceived(
+            state,
             message,
             proof
         );

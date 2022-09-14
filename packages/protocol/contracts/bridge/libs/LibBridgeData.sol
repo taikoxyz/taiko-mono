@@ -22,6 +22,7 @@ library LibBridgeData {
     struct State {
         mapping(uint256 => bool) destChains;
         mapping(uint256 => mapping(uint256 => uint256)) statusBitmaps;
+        mapping(uint256 => mapping(uint256 => bytes32)) messageIdToHash;
         uint256 nextMessageId;
         IBridge.Context ctx; // 4 slots
         uint256[43] __gap;

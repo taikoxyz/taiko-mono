@@ -16,6 +16,7 @@ struct Message {
     address owner;
     address to;
     address refundAddress;
+    address bridgeContractAddress;
     uint256 depositValue;
     uint256 callValue;
     uint256 maxProcessingFee;

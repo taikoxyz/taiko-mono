@@ -23,7 +23,7 @@ library LibBridgeSend {
 
     function sendMessage(
         LibBridgeData.State storage state,
-        AddressResolver resolver,
+        address bridgeContractAddress,
         address sender,
         address refundFeeTo,
         Message memory message
@@ -44,6 +44,7 @@ library LibBridgeSend {
         message.id = state.nextMessageId++;
         message.sender = sender;
         message.srcChainId = LibBridgeRead.chainId();
+        message.bridgeContractAddress = bridgeContractAddress;
 
         if (message.owner == address(0)) {
             message.owner = sender;
@@ -60,6 +61,9 @@ library LibBridgeSend {
         // require(capacity > 0, "B:out of capacity");
 
         messageHash = message.hashMessage();
+
+        // store the messageHash in contract state
+        state.messageIdToHash[message.srcChainId][idx] = messageHash;
 
         // `signalFee` is paid to the Rollup contract.
         // (height, signal) = signalService.sendSignal{value: fee}(

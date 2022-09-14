@@ -36,7 +36,7 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    // Note these events must match the one defined in Bridge.sol.
+    /// @dev These events must match the ones defined in LibBridgeData.sol
     event MessageSent(
         bytes32 indexed messageHash, // signal value
         address indexed owner,
@@ -82,7 +82,7 @@ contract Bridge is EssentialContract, IBridge {
     {
         return
             state.sendMessage(
-                AddressResolver(this),
+                address(this),
                 _msgSender(),
                 refundFeeTo,
                 message

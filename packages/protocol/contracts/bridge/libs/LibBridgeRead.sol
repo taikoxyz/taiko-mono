@@ -20,17 +20,16 @@ library LibBridgeRead {
 
     function isMessageReceived(
         AddressResolver resolver,
+        LibBridgeData.State storage state,
         Message memory message,
         bytes memory mkproof
     ) internal view returns (bool received, bytes32 messageHash) {
-        messageHash = message.hashMessage();
-        // received = ISignalService(resolver.resolve("rollup")).isSignalValid(
-        //     resolver.resolve(
-        //         string(abi.encodePacked(message.srcChainId, ".bridge"))
-        //     ),
-        //     messageHash,
-        //     mkproof
-        // );
+        messageHash = state.messageIdToHash[message.srcChainId][message.id];
+
+        require(messageHash == message.hashMessage(), "B:invalid message");
+
+        // verify that the messageHash exists in state trie by proving that the messageHash exists in the source chain bridge contract address state
+        // verifyMessage(message.bridgeContractAddress, messageHash, mkproof);
     }
 
     function getMessageStatus(
@@ -63,11 +62,9 @@ library LibBridgeRead {
         return state.destChains[_chainId];
     }
 
-    function getMessageFeeAndCapacity(AddressResolver resolver)
-        internal
-        view
-        returns (uint256 fee, uint256 capacity)
-    {
+    function getMessageFeeAndCapacity(
+        AddressResolver resolver // can be removed
+    ) internal view returns (uint256 fee, uint256 capacity) {
         // return
         //     ISignalService(resolver.resolve("rollup"))
         //         .getSignalFeeAndCapacity();
