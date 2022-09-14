@@ -70,7 +70,7 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(address refundFeeTo, Message memory message)
+    function sendMessage(address refundFeeTo, Message calldata message)
         external
         payable
         nonReentrant
@@ -83,7 +83,7 @@ contract Bridge is EssentialContract, IBridge {
         return state.sendMessage(_msgSender(), refundFeeTo, message);
     }
 
-    function processMessage(Message memory message, bytes memory proof)
+    function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
@@ -97,8 +97,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function retryMessage(
-        Message memory message,
-        bytes memory proof,
+        Message calldata message,
+        bytes calldata proof,
         bool lastAttempt
     ) external nonReentrant {
         return
@@ -122,7 +122,7 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageReceived(Message memory message, bytes memory proof)
+    function isMessageReceived(Message calldata message, bytes calldata proof)
         public
         view
         virtual

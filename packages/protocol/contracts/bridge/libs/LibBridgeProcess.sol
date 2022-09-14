@@ -31,9 +31,9 @@ library LibBridgeProcess {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         address sender,
-        Message memory message,
-        bytes memory proof
-    ) internal {
+        Message calldata message,
+        bytes calldata proof
+    ) external {
         uint256 gasStart = gasleft();
         require(
             message.destChainId == LibBridgeRead.chainId(),
@@ -88,22 +88,23 @@ library LibBridgeProcess {
         }
 
         state.setMessageStatus(message, status);
+        {
+            address refundAddress = message.refundAddress == address(0)
+                ? message.owner
+                : message.refundAddress;
 
-        address refundAddress = message.refundAddress == address(0)
-            ? message.owner
-            : message.refundAddress;
+            (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
+                message,
+                gasStart,
+                invocationGasUsed
+            );
 
-        (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
-            message,
-            gasStart,
-            invocationGasUsed
-        );
-
-        if (refundAddress == sender) {
-            sender.sendEther(refundAmount + feeRefundAmound + fees);
-        } else {
-            refundAddress.sendEther(refundAmount + feeRefundAmound);
-            sender.sendEther(fees);
+            if (refundAddress == sender) {
+                sender.sendEther(refundAmount + feeRefundAmound + fees);
+            } else {
+                refundAddress.sendEther(refundAmount + feeRefundAmound);
+                sender.sendEther(fees);
+            }
         }
 
         emit LibBridgeData.MessageStatusChanged(

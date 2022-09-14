@@ -13,6 +13,7 @@ import "./LibConstants.sol";
 
 /// @author david <david@taiko.xyz>
 struct BlockHeader {
+    bytes32 parentHash;
     bytes32 ommersHash;
     address beneficiary;
     bytes32 stateRoot;
@@ -33,14 +34,13 @@ library LibBlockHeader {
     bytes32 private constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(BlockHeader memory header, bytes32 parentHash)
+    function hashBlockHeader(BlockHeader memory header)
         internal
         pure
         returns (bytes32)
     {
-        // require(parentHash != 0, "invalid parentHash");
         bytes[] memory list = new bytes[](15);
-        list[0] = Lib_RLPWriter.writeHash(parentHash);
+        list[0] = Lib_RLPWriter.writeHash(header.parentHash);
         list[1] = Lib_RLPWriter.writeHash(header.ommersHash);
         list[2] = Lib_RLPWriter.writeAddress(header.beneficiary);
         list[3] = Lib_RLPWriter.writeHash(header.stateRoot);
@@ -68,6 +68,7 @@ library LibBlockHeader {
         returns (bool)
     {
         return
+            header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
             header.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
             header.extraData.length <= 32 &&

@@ -9,40 +9,43 @@
 pragma solidity ^0.8.9;
 
 import "../../common/IHeaderSync.sol";
+import "../../libs/LibBlockHeader.sol";
 import "../../thirdparty/Lib_MerkleTrie.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRead {
     using LibBridgeData for Message;
+    using LibBlockHeader for BlockHeader;
 
     /*********************
      * Internal Functions*
      *********************/
 
     struct MKProof {
-        uint256 blockNumber;
+        BlockHeader header;
         bytes proof;
     }
 
     function isMessageReceived(
         AddressResolver resolver,
-        Message memory message,
-        bytes memory proof
-    ) internal view returns (bool received, bytes32 messageHash) {
+        Message calldata message,
+        bytes calldata proof
+    ) external view returns (bool received, bytes32 messageHash) {
         messageHash = message.hashMessage();
         MKProof memory mkp = abi.decode(proof, (MKProof));
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
-            .getSyncedHeader(mkp.blockNumber);
+            .getSyncedHeader(mkp.header.height);
 
         received =
             syncedHeaderHash != 0 &&
+            syncedHeaderHash == mkp.header.hashBlockHeader() &&
             Lib_MerkleTrie.verifyInclusionProof(
                 Lib_RLPWriter.writeBytes32(messageHash),
                 Lib_RLPWriter.writeUint(1),
                 mkp.proof,
-                syncedHeaderHash
+                mkp.header.stateRoot
             );
     }
 

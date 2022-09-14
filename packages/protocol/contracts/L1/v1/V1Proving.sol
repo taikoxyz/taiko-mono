@@ -34,7 +34,6 @@ library V1Proving {
         LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes32 parentHash;
         bytes[] proofs;
     }
 
@@ -194,9 +193,7 @@ library V1Proving {
         _checkMetadataPending(s, target);
         _validateHeaderForMetadata(evidence.header, evidence.meta);
 
-        bytes32 blockHash = evidence.header.hashBlockHeader(
-            evidence.parentHash
-        );
+        bytes32 blockHash = evidence.header.hashBlockHeader();
 
         LibZKP.verify(
             ConfigManager(resolver.resolve("config_manager")).getValue(
@@ -212,7 +209,7 @@ library V1Proving {
             s,
             evidence.prover,
             target,
-            evidence.parentHash,
+            evidence.header.parentHash,
             blockHashOverride == 0 ? blockHash : blockHashOverride
         );
     }
@@ -307,7 +304,8 @@ library V1Proving {
         LibData.BlockMetadata memory meta
     ) private pure {
         require(
-            header.beneficiary == meta.beneficiary &&
+            header.parentHash != 0 &&
+                header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
                 meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&

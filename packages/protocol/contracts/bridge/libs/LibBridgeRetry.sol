@@ -28,10 +28,10 @@ library LibBridgeRetry {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         address sender,
-        Message memory message,
-        bytes memory proof,
+        Message calldata message,
+        bytes calldata proof,
         bool lastAttempt
-    ) internal {
+    ) external {
         if (message.gasLimit == 0 || lastAttempt) {
             require(sender == message.owner, "B:denied");
         }
