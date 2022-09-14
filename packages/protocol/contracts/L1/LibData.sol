@@ -18,7 +18,7 @@ library LibData {
         YES //=2
     }
 
-    struct BlockContext {
+    struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
         bytes32 l1Hash;
@@ -31,7 +31,7 @@ library LibData {
     }
 
     struct PendingBlock {
-        bytes32 contextHash;
+        bytes32 metaHash;
         uint128 proposerFee;
         uint8 everProven;
     }
@@ -98,11 +98,11 @@ library LibData {
         nextPendingId = s.nextPendingId;
     }
 
-    function hashContext(BlockContext memory context)
+    function hashMetadata(BlockMetadata memory meta)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(context));
+        return keccak256(abi.encode(meta));
     }
 }

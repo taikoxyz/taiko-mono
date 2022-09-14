@@ -31,7 +31,7 @@ library V1Proving {
     using LibData for LibData.State;
 
     struct Evidence {
-        LibData.BlockContext context;
+        LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
         bytes32 parentHash;
@@ -60,7 +60,7 @@ library V1Proving {
         bytes calldata anchorReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.context.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockIndex, "L1:id");
         require(evidence.proofs.length == 3, "L1:proof:size");
 
         // Check anchor tx is valid
@@ -84,8 +84,8 @@ library V1Proving {
                 _tx.data,
                 bytes.concat(
                     LibConstants.V1_ANCHOR_TX_SELECTOR,
-                    bytes32(evidence.context.l1Height),
-                    evidence.context.l1Hash
+                    bytes32(evidence.meta.l1Height),
+                    evidence.meta.l1Hash
                 )
             ),
             "L1:anchor:calldata"
@@ -118,7 +118,7 @@ library V1Proving {
         );
 
         // ZK-prove block and mark block proven to be valid.
-        _proveBlock(s, resolver, evidence, evidence.context, 0);
+        _proveBlock(s, resolver, evidence, evidence.meta, 0);
     }
 
     function proveBlockInvalid(
@@ -130,14 +130,14 @@ library V1Proving {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
-        LibData.BlockContext memory target = abi.decode(
+        LibData.BlockMetadata memory target = abi.decode(
             inputs[1],
-            (LibData.BlockContext)
+            (LibData.BlockMetadata)
         );
         bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.context.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockIndex, "L1:id");
         require(evidence.proofs.length == 2, "L1:proof:size");
 
         // Check the 1st receipt is for an InvalidateBlock tx with
@@ -185,14 +185,14 @@ library V1Proving {
         LibData.State storage s,
         AddressResolver resolver,
         Evidence memory evidence,
-        LibData.BlockContext memory target,
+        LibData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
-        require(evidence.context.id == target.id, "L1:height");
+        require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkContextPending(s, target);
-        _validateHeaderForContext(evidence.header, evidence.context);
+        _checkMetadataPending(s, target);
+        _validateHeaderForMetadata(evidence.header, evidence.meta);
 
         bytes32 blockHash = evidence.header.hashBlockHeader(
             evidence.parentHash
@@ -205,7 +205,7 @@ library V1Proving {
             evidence.proofs[0],
             blockHash,
             evidence.prover,
-            evidence.context.txListHash
+            evidence.meta.txListHash
         );
 
         _markBlockProven(
@@ -220,7 +220,7 @@ library V1Proving {
     function _markBlockProven(
         LibData.State storage s,
         address prover,
-        LibData.BlockContext memory target,
+        LibData.BlockMetadata memory target,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
@@ -253,7 +253,7 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        // LibData.PendingBlock storage blk = s.getPendingBlock(context.id);
+        // LibData.PendingBlock storage blk = s.getPendingBlock(meta.id);
         // if (blk.everProven != uint8(LibData.EverProven.YES)) {
         //     blk.everProven = uint8(LibData.EverProven.YES);
         //     s.numUnprovenBlocks -= 1;
@@ -287,36 +287,36 @@ library V1Proving {
         }
     }
 
-    function _checkContextPending(
+    function _checkMetadataPending(
         LibData.State storage s,
-        LibData.BlockContext memory context
+        LibData.BlockMetadata memory meta
     ) private view {
         require(
-            context.id > s.latestFinalizedId && context.id < s.nextPendingId,
-            "L1:ctx:id"
+            meta.id > s.latestFinalizedId && meta.id < s.nextPendingId,
+            "L1:meta:id"
         );
         require(
-            LibData.getPendingBlock(s, context.id).contextHash ==
-                LibData.hashContext(context),
-            "L1:contextHash"
+            LibData.getPendingBlock(s, meta.id).metaHash ==
+                LibData.hashMetadata(meta),
+            "L1:metaHash"
         );
     }
 
-    function _validateHeaderForContext(
+    function _validateHeaderForMetadata(
         BlockHeader memory header,
-        LibData.BlockContext memory context
+        LibData.BlockMetadata memory meta
     ) private pure {
         require(
-            header.beneficiary == context.beneficiary &&
+            header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
-                context.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
+                meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
-                header.timestamp == context.proposedAt &&
-                header.extraData.length == context.extraData.length &&
-                keccak256(header.extraData) == keccak256(context.extraData) &&
-                header.mixHash == context.mixHash,
-            "L1:ctx:headerMismatch"
+                header.timestamp == meta.proposedAt &&
+                header.extraData.length == meta.extraData.length &&
+                keccak256(header.extraData) == keccak256(meta.extraData) &&
+                header.mixHash == meta.mixHash,
+            "L1:meta:headerMismatch"
         );
     }
 }

@@ -23,7 +23,7 @@ abstract contract V1Events {
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
 
-    event BlockProposed(uint256 indexed id, LibData.BlockContext context);
+    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     event BlockProven(
         uint256 indexed id,
