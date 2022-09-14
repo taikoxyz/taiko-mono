@@ -18,7 +18,6 @@ library LibBridgeProcess {
     using LibAddress for address;
     using LibBridgeData for Message;
     using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
     using LibBridgeRead for LibBridgeData.State;
 
     /*********************
@@ -45,7 +44,8 @@ library LibBridgeProcess {
                 IBridge.MessageStatus.NEW,
             "B:invalid status"
         );
-        (bool received, bytes32 messageHash) = resolver.isMessageReceived(
+        (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
+            resolver,
             message,
             proof
         );
