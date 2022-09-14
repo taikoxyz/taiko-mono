@@ -134,7 +134,7 @@ contract Bridge is EssentialContract, IBridge {
         virtual
         returns (bool received, bytes32 messageHash)
     {
-        return AddressResolver(this).isMessageReceived(message, mkproof);
+        return AddressResolver(this).isMessageReceived(state, message, mkproof);
     }
 
     function getMessageStatus(uint256 srcChainId, uint256 messageId)
