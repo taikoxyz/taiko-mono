@@ -22,7 +22,7 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
-    event BlockProposed(uint256 indexed id, LibData.BlockContext context);
+    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(LibData.State storage s, bytes32 commitHash) public {
         require(commitHash != 0, "L1:hash");
@@ -39,17 +39,17 @@ library V1Proposing {
         public
     {
         require(inputs.length == 2, "L1:inputs:size");
-        LibData.BlockContext memory context = abi.decode(
+        LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
-            (LibData.BlockContext)
+            (LibData.BlockMetadata)
         );
         bytes calldata txList = inputs[1];
 
-        _validateContext(context);
+        _validateMetadata(meta);
 
         bytes32 commitHash = _calculateCommitHash(
-            context.beneficiary,
-            context.txListHash
+            meta.beneficiary,
+            meta.txListHash
         );
 
         require(isCommitValid(s, commitHash), "L1:commit");
@@ -58,7 +58,7 @@ library V1Proposing {
         require(
             txList.length > 0 &&
                 txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
-                context.txListHash == txList.hashTxList(),
+                meta.txListHash == txList.hashTxList(),
             "L1:txList"
         );
         require(
@@ -67,21 +67,21 @@ library V1Proposing {
             "L1:tooMany"
         );
 
-        context.id = s.nextPendingId;
-        context.l1Height = block.number - 1;
-        context.l1Hash = blockhash(block.number - 1);
-        context.proposedAt = uint64(block.timestamp);
+        meta.id = s.nextPendingId;
+        meta.l1Height = block.number - 1;
+        meta.l1Hash = blockhash(block.number - 1);
+        meta.proposedAt = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
-        context.mixHash = bytes32(block.difficulty);
+        meta.mixHash = bytes32(block.difficulty);
 
         uint256 proposerFee = 0;
 
         s.savePendingBlock(
             s.nextPendingId,
             LibData.PendingBlock({
-                contextHash: LibData.hashContext(context),
+                metaHash: LibData.hashMetadata(meta),
                 proposerFee: proposerFee.toUint128(),
                 everProven: uint8(LibData.EverProven.NO)
             })
@@ -89,7 +89,7 @@ library V1Proposing {
 
         // numUnprovenBlocks += 1;
 
-        emit BlockProposed(s.nextPendingId++, context);
+        emit BlockProposed(s.nextPendingId++, meta);
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
@@ -104,26 +104,23 @@ library V1Proposing {
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
 
-    function _validateContext(LibData.BlockContext memory context)
-        private
-        pure
-    {
+    function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
         require(
-            context.id == 0 &&
-                context.l1Height == 0 &&
-                context.l1Hash == 0 &&
-                context.mixHash == 0 &&
-                context.proposedAt == 0 &&
-                context.beneficiary != address(0) &&
-                context.txListHash != 0,
+            meta.id == 0 &&
+                meta.l1Height == 0 &&
+                meta.l1Hash == 0 &&
+                meta.mixHash == 0 &&
+                meta.proposedAt == 0 &&
+                meta.beneficiary != address(0) &&
+                meta.txListHash != 0,
             "L1:placeholder"
         );
 
         require(
-            context.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            meta.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
             "L1:gasLimit"
         );
-        require(context.extraData.length <= 32, "L1:extraData");
+        require(meta.extraData.length <= 32, "L1:extraData");
     }
 
     function _calculateCommitHash(address beneficiary, bytes32 txListHash)
