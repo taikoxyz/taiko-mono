@@ -48,14 +48,7 @@ library LibBridgeSend {
 
         _handleMessageFee(refundFeeTo, message);
 
-        emit LibBridgeData.MessageSent(
-            messageHash,
-            message.owner,
-            message.srcChainId,
-            message.id,
-            height,
-            abi.encode(message)
-        );
+        emit LibBridgeData.MessageSent(height, messageHash, message);
     }
 
     function enableDestChain(

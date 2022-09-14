@@ -107,14 +107,7 @@ library LibBridgeProcess {
             }
         }
 
-        emit LibBridgeData.MessageStatusChanged(
-            messageHash,
-            message.owner,
-            message.srcChainId,
-            message.id,
-            status,
-            success
-        );
+        emit LibBridgeData.MessageStatusChanged(messageHash, status, success);
     }
 
     /*********************

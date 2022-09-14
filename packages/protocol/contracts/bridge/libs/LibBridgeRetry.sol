@@ -53,9 +53,6 @@ library LibBridgeRetry {
             state.setMessageStatus(message, IBridge.MessageStatus.DONE);
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.DONE,
                 true
             );
@@ -71,18 +68,12 @@ library LibBridgeRetry {
             state.setMessageStatus(message, IBridge.MessageStatus.DONE);
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.DONE,
                 false
             );
         } else {
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.RETRIABLE,
                 false
             );
