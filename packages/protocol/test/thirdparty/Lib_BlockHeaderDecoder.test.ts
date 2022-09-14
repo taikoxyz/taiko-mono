@@ -31,7 +31,10 @@ describe("Lib_BlockHeaderDecoder", async function () {
     })
 
     it("Decode should return stateRoot and timeStamp", async function () {
+        const parentHash =
+            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb"
         const blockHeader: any = {
+            parentHash: parentHash,
             ommersHash:
                 "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             beneficiary: "0xea674fdde714fd979de3edf0f56aa9716b898ec8",
@@ -56,11 +59,8 @@ describe("Lib_BlockHeaderDecoder", async function () {
             nonce: EBN.from("0x738b7e38476abe98"),
         }
 
-        const parentHash =
-            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb"
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
-            blockHeader,
-            parentHash
+            blockHeader
         )
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
@@ -83,6 +83,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
         ])
         const logsBloom = block.logsBloom.toString().substring(2)
         const blockHeader = {
+            parentHash: block.parentHash,
             ommersHash: block.sha3Uncles,
             beneficiary: block.miner,
             stateRoot: block.stateRoot,
@@ -101,8 +102,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
             nonce: block.nonce,
         }
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
-            blockHeader,
-            block.parentHash
+            blockHeader
         )
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
@@ -125,6 +125,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
         ])
         const logsBloom = block.logsBloom.toString().substring(2)
         const blockHeader = {
+            parentHash: block.parentHash,
             ommersHash: block.sha3Uncles,
             beneficiary: block.miner,
             stateRoot: block.stateRoot,
@@ -143,8 +144,7 @@ describe("Lib_BlockHeaderDecoder", async function () {
             nonce: block.nonce,
         }
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
-            blockHeader,
-            block.parentHash
+            blockHeader
         )
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
