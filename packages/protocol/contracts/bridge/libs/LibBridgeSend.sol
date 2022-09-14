@@ -37,7 +37,7 @@ library LibBridgeSend {
         require(
             message.destChainId != LibBridgeRead.chainId() &&
                 state.isDestChainEnabled(message.destChainId),
-            "B:invalid destChainId"
+            "B:destChainId"
         );
 
         message.id = state.nextMessageId++;
@@ -71,10 +71,7 @@ library LibBridgeSend {
         uint256 chainId,
         bool enabled
     ) internal {
-        require(
-            chainId > 0 && chainId != LibBridgeRead.chainId(),
-            "B:invalid chainId"
-        );
+        require(chainId > 0 && chainId != LibBridgeRead.chainId(), "B:chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
     }
@@ -94,7 +91,7 @@ library LibBridgeSend {
         if (msg.value > requiredEther) {
             refundFeeTo.sendEther(msg.value - requiredEther);
         } else if (msg.value < requiredEther) {
-            revert("B:insufficient ether");
+            revert("B:lowFee");
         }
     }
 }

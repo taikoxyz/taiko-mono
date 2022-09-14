@@ -37,19 +37,19 @@ library LibBridgeProcess {
         uint256 gasStart = gasleft();
         require(
             message.destChainId == LibBridgeRead.chainId(),
-            "B:destChainId mismatch"
+            "B:destChainId"
         );
         require(
             state.getMessageStatus(message.srcChainId, message.id) ==
                 IBridge.MessageStatus.NEW,
-            "B:invalid status"
+            "B:status"
         );
         (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
             resolver,
             message,
             proof
         );
-        require(received, "B:not received");
+        require(received, "B:notReceived");
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.

@@ -64,7 +64,7 @@ library LibBridgeRead {
         require(
             state.ctx.srcChainSender !=
                 LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            "B:out of context"
+            "B:noContext"
         );
         return state.ctx;
     }

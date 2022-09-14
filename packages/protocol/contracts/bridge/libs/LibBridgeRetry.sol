@@ -39,14 +39,14 @@ library LibBridgeRetry {
         require(
             state.getMessageStatus(message.srcChainId, message.id) ==
                 IBridge.MessageStatus.RETRIABLE,
-            "B:failed msg not found"
+            "B:notFound"
         );
 
         (bool received, bytes32 messageHash) = resolver.isMessageReceived(
             message,
             proof
         );
-        require(received, "B:not received");
+        require(received, "B:notReceived");
 
         bool success = state.invokeMessageCall(message, gasleft());
         if (success) {
