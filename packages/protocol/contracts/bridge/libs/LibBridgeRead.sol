@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../../common/IHeaderSync.sol";
+import "../../thirdparty/Lib_MerkleTrie.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -18,19 +20,29 @@ library LibBridgeRead {
      * Internal Functions*
      *********************/
 
+    struct MKProof {
+        uint256 blockNumber;
+        bytes proof;
+    }
+
     function isMessageReceived(
         AddressResolver resolver,
         Message memory message,
         bytes memory mkproof
     ) internal view returns (bool received, bytes32 messageHash) {
         messageHash = message.hashMessage();
-        // received = ISignalService(resolver.resolve("rollup")).isSignalValid(
-        //     resolver.resolve(
-        //         string(abi.encodePacked(message.srcChainId, ".bridge"))
-        //     ),
-        //     messageHash,
-        //     mkproof
-        // );
+        MKProof memory mkp = abi.decode(mkproof, (MKProof));
+
+        bytes32 headerHash = IHeaderSync(resolver.resolve("header_sync"))
+            .getSyncedHeader(mkp.blockNumber);
+        require(headerHash != 0, "B:headerhash:zero");
+
+        received = Lib_MerkleTrie.verifyInclusionProof(
+            Lib_RLPWriter.writeBytes32(messageHash),
+            Lib_RLPWriter.writeUint(1),
+            mkp.proof,
+            headerHash
+        );
     }
 
     function getMessageStatus(
@@ -61,16 +73,6 @@ library LibBridgeRead {
         uint256 _chainId
     ) internal view returns (bool) {
         return state.destChains[_chainId];
-    }
-
-    function getMessageFeeAndCapacity(AddressResolver resolver)
-        internal
-        view
-        returns (uint256 fee, uint256 capacity)
-    {
-        // return
-        //     ISignalService(resolver.resolve("rollup"))
-        //         .getSignalFeeAndCapacity();
     }
 
     function chainId() internal view returns (uint256 _chainId) {

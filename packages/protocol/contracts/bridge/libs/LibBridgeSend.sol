@@ -23,7 +23,6 @@ library LibBridgeSend {
 
     function sendMessage(
         LibBridgeData.State storage state,
-        AddressResolver resolver,
         address sender,
         address refundFeeTo,
         Message memory message
@@ -49,25 +48,12 @@ library LibBridgeSend {
             message.owner = sender;
         }
 
-        // ISignalService signalService = ISignalService(
-        //     resolver.resolve("rollup")
-        // );
-
-        uint256 fee;
-        // uint256 capacity;
-        // = signalService
-        //     .getSignalFeeAndCapacity();
-        // require(capacity > 0, "B:out of capacity");
-
         messageHash = message.hashMessage();
+        assembly {
+            sstore(messageHash, 1)
+        }
 
-        // `signalFee` is paid to the Rollup contract.
-        // (height, signal) = signalService.sendSignal{value: fee}(
-        //     messageHash,
-        //     address(0) // the signal fee refund amount is 0.
-        // );
-
-        _handleMessageFee(refundFeeTo, fee, message);
+        _handleMessageFee(refundFeeTo, message);
 
         emit LibBridgeData.MessageSent(
             messageHash,
@@ -97,13 +83,10 @@ library LibBridgeSend {
      * Private Functions *
      *********************/
 
-    function _handleMessageFee(
-        address refundFeeTo,
-        uint256 signalFee,
-        Message memory message
-    ) private {
-        uint256 requiredEther = signalFee +
-            message.maxProcessingFee +
+    function _handleMessageFee(address refundFeeTo, Message memory message)
+        private
+    {
+        uint256 requiredEther = message.maxProcessingFee +
             message.depositValue +
             message.callValue +
             (message.gasLimit * message.gasPrice);
@@ -113,11 +96,5 @@ library LibBridgeSend {
         } else if (msg.value < requiredEther) {
             revert("B:insufficient ether");
         }
-
-        // Important note:
-        // All remaining ether, which equals (requiredEther - signalFee)
-        // stay in this contract.
-        //
-        // The remote bridge will also have ether to credit to the message owner.
     }
 }

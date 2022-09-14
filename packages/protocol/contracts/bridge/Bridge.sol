@@ -80,13 +80,7 @@ contract Bridge is EssentialContract, IBridge {
             bytes32 messageHash
         )
     {
-        return
-            state.sendMessage(
-                AddressResolver(this),
-                _msgSender(),
-                refundFeeTo,
-                message
-            );
+        return state.sendMessage(_msgSender(), refundFeeTo, message);
     }
 
     function processMessage(Message memory message, bytes memory proof)
@@ -144,14 +138,6 @@ contract Bridge is EssentialContract, IBridge {
         returns (MessageStatus)
     {
         return state.getMessageStatus(srcChainId, messageId);
-    }
-
-    function getMessageFeeAndCapacity()
-        public
-        view
-        returns (uint256 fee, uint256 capacity)
-    {
-        return AddressResolver(this).getMessageFeeAndCapacity();
     }
 
     function context() public view returns (Context memory) {
