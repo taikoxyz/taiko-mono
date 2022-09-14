@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-
 import "../../common/IHeaderSync.sol";
 import "../../thirdparty/Lib_MerkleTrie.sol";
 import "./LibBridgeData.sol";
