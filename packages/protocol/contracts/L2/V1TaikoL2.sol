@@ -13,12 +13,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../common/AddressResolver.sol";
+import "../common/IHeaderSync.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
+contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     using LibTxDecoder for bytes;
 
     /**********************
@@ -35,12 +36,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
     /**********************
      * Events             *
      **********************/
-
-    event HeaderExchanged(
-        uint256 indexed height,
-        uint256 indexed srcHeight,
-        bytes32 srcHash
-    );
 
     event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
@@ -107,7 +102,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
         l1Hashes[l1Height] = l1Hash;
         _checkGlobalVariables();
 
-        emit HeaderExchanged(block.number, l1Height, l1Hash);
+        emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
     /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
@@ -136,7 +131,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard {
      * Public Functions   *
      **********************/
 
-    function getL1BlockHash(uint256 number) public view returns (bytes32) {
+    function getSyncedHeader(uint256 number)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         require(number <= latestL1Height, "L2:number");
         return l1Hashes[number];
     }

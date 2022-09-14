@@ -8,23 +8,16 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../LibData.sol";
-
-/// @author david <david@taiko.xyz>
-abstract contract V1Events {
-    // The following events must match the definitions in other V1 libraries.
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
-
-    event BlockCommitted(bytes32 hash, uint256 validSince);
-
-    event BlockProposed(uint256 indexed id, LibData.BlockContext context);
-
-    event BlockProven(
-        uint256 indexed id,
-        bytes32 parentHash,
-        bytes32 blockHash,
-        uint64 proposedAt,
-        uint64 provenAt,
-        address prover
+/**
+ * @author dantaik <dan@taiko.xyz>
+ * @notice Interface to set and get an address for a name.
+ */
+interface IHeaderSync {
+    event HeaderSynced(
+        uint256 indexed height,
+        uint256 indexed srcHeight,
+        bytes32 srcHash
     );
+
+    function getSyncedHeader(uint256 number) external view returns (bytes32);
 }
