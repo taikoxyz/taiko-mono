@@ -16,7 +16,7 @@ import "../LibData.sol";
 library V1Finalizing {
     event BlockFinalized(uint256 indexed id, bytes32 blockHash);
 
-    event HeaderExchanged(
+    event HeaderSynced(
         uint256 indexed height,
         uint256 indexed srcHeight,
         bytes32 srcHash
@@ -28,7 +28,7 @@ library V1Finalizing {
         s.genesisHeight = uint64(block.number);
 
         emit BlockFinalized(0, _genesisBlockHash);
-        emit HeaderExchanged(block.number, 0, _genesisBlockHash);
+        emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
     function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
@@ -61,11 +61,7 @@ library V1Finalizing {
             if (latestL2Height > s.latestFinalizedHeight) {
                 s.latestFinalizedHeight = latestL2Height;
                 s.l2Hashes[latestL2Height] = latestL2Hash;
-                emit HeaderExchanged(
-                    block.number,
-                    latestL2Height,
-                    latestL2Hash
-                );
+                emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }
     }

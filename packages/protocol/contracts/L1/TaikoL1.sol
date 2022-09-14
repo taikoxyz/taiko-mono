@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
+import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
 import "./v1/V1Events.sol";
@@ -20,7 +21,7 @@ import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract TaikoL1 is EssentialContract, V1Events {
+contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using LibData for LibData.State;
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
@@ -142,7 +143,12 @@ contract TaikoL1 is EssentialContract, V1Events {
         return state.getPendingBlock(id);
     }
 
-    function getL2BlockHash(uint256 number) public view returns (bytes32) {
+    function getSyncedHeader(uint256 number)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         return state.getL2BlockHash(number);
     }
 
