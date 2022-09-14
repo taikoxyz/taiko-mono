@@ -35,14 +35,15 @@ library LibBridgeRead {
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
             .getSyncedHeader(mkp.blockNumber);
-        require(syncedHeaderHash != 0, "B:headerhash:zero");
 
-        received = Lib_MerkleTrie.verifyInclusionProof(
-            Lib_RLPWriter.writeBytes32(messageHash),
-            Lib_RLPWriter.writeUint(1),
-            mkp.proof,
-            syncedHeaderHash
-        );
+        received =
+            syncedHeaderHash != 0 &&
+            Lib_MerkleTrie.verifyInclusionProof(
+                Lib_RLPWriter.writeBytes32(messageHash),
+                Lib_RLPWriter.writeUint(1),
+                mkp.proof,
+                syncedHeaderHash
+            );
     }
 
     function getMessageStatus(
