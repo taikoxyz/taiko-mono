@@ -27,6 +27,8 @@ library LibBridgeRead {
         bytes proof;
     }
 
+    // TODO:isMessageSent()?
+
     function isMessageReceived(
         AddressResolver resolver,
         Message calldata message,

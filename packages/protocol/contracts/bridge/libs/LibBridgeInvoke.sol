@@ -45,6 +45,7 @@ library LibBridgeInvoke {
         });
     }
 
+    // TODO: add comment and get back to Roger
     function setMessageStatus(
         LibBridgeData.State storage state,
         Message memory message,

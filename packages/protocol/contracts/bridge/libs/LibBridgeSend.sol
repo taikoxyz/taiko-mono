@@ -41,6 +41,7 @@ library LibBridgeSend {
             message.owner = sender;
         }
 
+        height = block.number;
         messageHash = message.hashMessage();
         assembly {
             sstore(messageHash, 1)

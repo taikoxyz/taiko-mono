@@ -45,7 +45,7 @@ contract Bridge is EssentialContract, IBridge {
     event MessageStatusChanged(
         bytes32 indexed messageHash,
         IBridge.MessageStatus status,
-        bool succeeded
+        bool succeeded // TODO: remove this?
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -101,7 +101,7 @@ contract Bridge is EssentialContract, IBridge {
         return
             state.retryMessage(
                 AddressResolver(this),
-                _msgSender(),
+                _msgSender(), // TODO: remove it.
                 message,
                 proof,
                 lastAttempt
