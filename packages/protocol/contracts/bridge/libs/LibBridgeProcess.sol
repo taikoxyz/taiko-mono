@@ -46,11 +46,7 @@ library LibBridgeProcess {
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
-        if (message.depositValue > 0) {
-            // sending ether may end up with another contract calling back to
-            // this contract.
-            message.owner.sendEther(message.depositValue);
-        }
+        message.owner.sendEther(message.depositValue);
 
         IBridge.MessageStatus status;
         uint256 refundAmount;
