@@ -51,16 +51,6 @@ library LibBridgeRead {
             );
     }
 
-    function getMessageStatus(
-        LibBridgeData.State storage state,
-        uint256 srcChainId,
-        uint256 messageId
-    ) internal view returns (IBridge.MessageStatus) {
-        uint256 bits = state.statusBitmaps[srcChainId][messageId / 128];
-        uint256 value = (bits >> ((messageId % 128) << 1)) & 3;
-        return IBridge.MessageStatus(value);
-    }
-
     function context(LibBridgeData.State storage state)
         internal
         view

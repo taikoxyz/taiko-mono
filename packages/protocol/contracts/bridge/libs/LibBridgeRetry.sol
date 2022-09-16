@@ -16,6 +16,7 @@ import "./LibBridgeRead.sol";
 library LibBridgeRetry {
     using LibAddress for address;
     using LibBridgeData for Message;
+    using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
     using LibBridgeRead for AddressResolver;
@@ -35,27 +36,22 @@ library LibBridgeRetry {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        require(
-            state.getMessageStatus(message.srcChainId, message.id) ==
-                IBridge.MessageStatus.RETRIABLE,
-            "B:notFound"
-        );
-
         (bool received, bytes32 messageHash) = resolver.isMessageReceived(
             message,
             proof
         );
         require(received, "B:notReceived");
 
-        bool success = state.invokeMessageCall(message, gasleft());
-        if (success) {
-            state.setMessageStatus(message, IBridge.MessageStatus.DONE);
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                IBridge.MessageStatus.DONE,
-                true
-            );
+        require(
+            state.messageStatus[messageHash] == IBridge.MessageStatus.RETRIABLE,
+            "B:notFound"
+        );
+
+        if (state.invokeMessageCall(message, gasleft())) {
+            state.updateMessageStatus(messageHash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
+            state.updateMessageStatus(messageHash, IBridge.MessageStatus.DONE);
+
             if (message.callValue > 0) {
                 address refundAddress = message.refundAddress == address(0)
                     ? message.owner
@@ -63,19 +59,6 @@ library LibBridgeRetry {
 
                 refundAddress.sendEther(message.callValue);
             }
-
-            state.setMessageStatus(message, IBridge.MessageStatus.DONE);
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                IBridge.MessageStatus.DONE,
-                false
-            );
-        } else {
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                IBridge.MessageStatus.RETRIABLE,
-                false
-            );
         }
     }
 }

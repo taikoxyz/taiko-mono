@@ -17,6 +17,7 @@ library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
     using LibBridgeData for Message;
+    using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
 
@@ -38,17 +39,18 @@ library LibBridgeProcess {
             message.destChainId == LibBridgeRead.chainId(),
             "B:destChainId"
         );
-        require(
-            state.getMessageStatus(message.srcChainId, message.id) ==
-                IBridge.MessageStatus.NEW,
-            "B:status"
-        );
+
         (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
             resolver,
             message,
             proof
         );
         require(received, "B:notReceived");
+
+        require(
+            state.messageStatus[messageHash] == IBridge.MessageStatus.NEW,
+            "B:status"
+        );
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
@@ -86,7 +88,8 @@ library LibBridgeProcess {
             revert("B:forbidden");
         }
 
-        state.setMessageStatus(message, status);
+        state.updateMessageStatus(messageHash, status);
+
         {
             address refundAddress = message.refundAddress == address(0)
                 ? message.owner
@@ -105,8 +108,6 @@ library LibBridgeProcess {
                 msg.sender.sendEther(fees);
             }
         }
-
-        emit LibBridgeData.MessageStatusChanged(messageHash, status, success);
     }
 
     /*********************

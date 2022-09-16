@@ -19,6 +19,7 @@ import "./libs/LibBridgeSend.sol";
 /// @author dantaik <dan@taiko.xyz>
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using LibBridgeData for Message;
     using LibBridgeProcess for LibBridgeData.State;
     using LibBridgeRead for AddressResolver;
     using LibBridgeRead for LibBridgeData.State;
@@ -44,8 +45,7 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageStatusChanged(
         bytes32 indexed messageHash,
-        IBridge.MessageStatus status,
-        bool succeeded // TODO: remove this?
+        IBridge.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -121,13 +121,22 @@ contract Bridge is EssentialContract, IBridge {
         return AddressResolver(this).isMessageReceived(message, proof);
     }
 
-    function getMessageStatus(uint256 srcChainId, uint256 messageId)
+    function getMessageStatus(Message calldata message)
         public
         view
         virtual
         returns (MessageStatus)
     {
-        return state.getMessageStatus(srcChainId, messageId);
+        return state.messageStatus[message.hashMessage()];
+    }
+
+    function getMessageStatus(bytes32 messageHash)
+        public
+        view
+        virtual
+        returns (MessageStatus)
+    {
+        return state.messageStatus[messageHash];
     }
 
     function context() public view returns (Context memory) {

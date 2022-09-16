@@ -21,10 +21,10 @@ library LibBridgeData {
 
     struct State {
         mapping(uint256 => bool) destChains;
-        mapping(uint256 => mapping(uint256 => uint256)) statusBitmaps; // TODO: one level?
+        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[43] __gap;
+        uint256[44] __gap;
     }
 
     /*********************
@@ -35,7 +35,7 @@ library LibBridgeData {
     uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
-        0x000000000000000000000000000000000000dEaD;
+        0x0000000000000000000000000000000000000001;
 
     /*********************
      * Events            *
@@ -50,8 +50,7 @@ library LibBridgeData {
 
     event MessageStatusChanged(
         bytes32 indexed messageHash,
-        IBridge.MessageStatus status,
-        bool succeeded
+        IBridge.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -66,5 +65,14 @@ library LibBridgeData {
         returns (bytes32)
     {
         return keccak256(abi.encode(message));
+    }
+
+    function updateMessageStatus(
+        State storage state,
+        bytes32 messageHash,
+        IBridge.MessageStatus status
+    ) internal {
+        state.messageStatus[messageHash] = status;
+        emit LibBridgeData.MessageStatusChanged(messageHash, status);
     }
 }
