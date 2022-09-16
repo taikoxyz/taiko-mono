@@ -59,7 +59,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     function bridgeMintTo(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "rollup")
+        onlyFromNamedEither("erc20_vault", "taiko")
     {
         _mint(account, amount);
         emit BridgeMint(account, amount);
@@ -68,7 +68,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     function bridgeBurnFrom(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "rollup")
+        onlyFromNamedEither("erc20_vault", "taiko")
     {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
