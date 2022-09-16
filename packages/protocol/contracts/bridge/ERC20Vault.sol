@@ -147,12 +147,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 amount,
         uint256 maxProcessingFee
     ) external payable nonReentrant {
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
-
-        require(destChainId != _chainId, "V:destChainId");
+        require(destChainId != block.chainid, "V:destChainId");
         require(to != address(0), "V:to");
 
         Message memory message;
@@ -180,11 +175,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 gasLimit,
         uint256 gasPrice
     ) external payable nonReentrant {
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
-        require(destChainId != _chainId, "V:destChainId");
+        require(destChainId != block.chainid, "V:destChainId");
         require(to != address(0), "V:to");
         require(token != address(0), "V:token");
 
@@ -199,7 +190,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             // The canonical token lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
             canonicalToken = CannonicalERC20({
-                chainId: _chainId,
+                chainId: block.chainid,
                 addr: token,
                 decimals: t.decimals(),
                 symbol: t.symbol(),
@@ -255,21 +246,15 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
 
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
-
-        require(ctx.destChainId == _chainId, "V:destChainId");
+        require(ctx.destChainId == block.chainid, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
-            "V:srcChainSender"
+            "V:sender"
         );
 
         address token;
-        if (canonicalToken.chainId == _chainId) {
+        if (canonicalToken.chainId == block.chainid) {
             require(isBridgedToken[canonicalToken.addr] == false, "V:token");
-
             token = canonicalToken.addr;
             if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from

@@ -35,10 +35,7 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();
-        require(
-            message.destChainId == LibBridgeRead.chainId(),
-            "B:destChainId"
-        );
+        require(message.destChainId == block.chainid, "B:destChainId");
 
         (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
             resolver,

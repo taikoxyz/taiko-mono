@@ -28,14 +28,14 @@ library LibBridgeSend {
     ) internal returns (uint256 height, bytes32 mhash) {
         require(refundFeeTo != address(0), "B:refundFeeTo");
         require(
-            message.destChainId != LibBridgeRead.chainId() &&
+            message.destChainId != block.chainid &&
                 state.isDestChainEnabled(message.destChainId),
             "B:destChainId"
         );
 
         message.id = state.nextMessageId++;
         message.sender = msg.sender;
-        message.srcChainId = LibBridgeRead.chainId();
+        message.srcChainId = block.chainid;
 
         if (message.owner == address(0)) {
             message.owner = msg.sender;
@@ -57,7 +57,7 @@ library LibBridgeSend {
         uint256 chainId,
         bool enabled
     ) internal {
-        require(chainId > 0 && chainId != LibBridgeRead.chainId(), "B:chainId");
+        require(chainId > 0 && chainId != block.chainid, "B:chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
     }

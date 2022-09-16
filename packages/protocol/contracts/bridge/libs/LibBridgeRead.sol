@@ -76,10 +76,4 @@ library LibBridgeRead {
     ) internal view returns (bool) {
         return state.destChains[_chainId];
     }
-
-    function chainId() internal view returns (uint256 _chainId) {
-        assembly {
-            _chainId := chainid()
-        }
-    }
 }
