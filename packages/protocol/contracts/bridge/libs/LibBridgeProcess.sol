@@ -31,7 +31,6 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();
-
         require(message.destChainId == block.chainid, "B:destChainId");
 
         bytes32 mhash = message.hashMessage();
@@ -79,7 +78,10 @@ library LibBridgeProcess {
         if (refundAddress == msg.sender) {
             refundAddress.sendEther(refundAmount + message.maxProcessingFee);
         } else {
-            uint256 processingCost = tx.gasprice * (gasStart - gasleft());
+            uint256 processingCost = tx.gasprice *
+                (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
+                    gasStart -
+                    gasleft());
             uint256 processingFee = processingCost.min(
                 message.maxProcessingFee
             );
