@@ -17,10 +17,6 @@ library LibBridgeSend {
     using LibBridgeData for Message;
     using LibBridgeRead for LibBridgeData.State;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     function sendMessage(
         LibBridgeData.State storage state,
         Message memory message
@@ -35,7 +31,6 @@ library LibBridgeSend {
         uint256 expectedAmount = message.depositValue +
             message.callValue +
             message.maxProcessingFee;
-
         require(expectedAmount == msg.value, "B:value");
 
         message.id = state.nextMessageId++;
@@ -46,7 +41,6 @@ library LibBridgeSend {
         assembly {
             sstore(mhash, 1)
         }
-
         emit LibBridgeData.MessageSent(mhash, message);
     }
 
