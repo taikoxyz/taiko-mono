@@ -142,9 +142,9 @@ describe("LibTxUtils", function () {
             const signature = signingKey.signDigest(expectedHash)
 
             const randomSignature = {
-                v: Math.floor(Math.random() * Math.pow(2, 7)),
-                r: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
-                s: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                v: 75,
+                r: "0xb14e3f5eab11cd2c459b04a91a9db8bd6f5acccfbd830c9693c84f8d21187eef",
+                s: "0x5cf4b3b2b3957e7016366d180493c2c226ea8ad12aed7faddbc0ce3a6789256d",
             }
 
             const txData = await changeSignature(
