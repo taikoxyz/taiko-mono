@@ -27,13 +27,12 @@ library LibBridgeRetry {
     function retryMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        address sender,
         Message calldata message,
         bytes calldata proof,
         bool lastAttempt
     ) external {
         if (message.gasLimit == 0 || lastAttempt) {
-            require(sender == message.owner, "B:denied");
+            require(msg.sender == message.owner, "B:denied");
         }
 
         require(

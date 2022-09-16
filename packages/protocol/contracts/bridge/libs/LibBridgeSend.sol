@@ -23,7 +23,6 @@ library LibBridgeSend {
 
     function sendMessage(
         LibBridgeData.State storage state,
-        address sender,
         address refundFeeTo,
         Message memory message
     ) internal returns (uint256 height, bytes32 messageHash) {
@@ -34,11 +33,11 @@ library LibBridgeSend {
         );
 
         message.id = state.nextMessageId++;
-        message.sender = sender;
+        message.sender = msg.sender;
         message.srcChainId = LibBridgeRead.chainId();
 
         if (message.owner == address(0)) {
-            message.owner = sender;
+            message.owner = msg.sender;
         }
 
         height = block.number;

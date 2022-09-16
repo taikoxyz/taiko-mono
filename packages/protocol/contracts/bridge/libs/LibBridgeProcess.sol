@@ -30,7 +30,6 @@ library LibBridgeProcess {
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        address sender,
         Message calldata message,
         bytes calldata proof
     ) external {
@@ -70,7 +69,7 @@ library LibBridgeProcess {
             status = IBridge.MessageStatus.DONE;
             success = true;
             refundAmount = message.callValue;
-        } else if (message.gasLimit > 0 || sender == message.owner) {
+        } else if (message.gasLimit > 0 || message.owner == msg.sender) {
             invocationGasUsed = gasleft();
 
             success = state.invokeMessageCall(
@@ -99,11 +98,11 @@ library LibBridgeProcess {
                 invocationGasUsed
             );
 
-            if (refundAddress == sender) {
-                sender.sendEther(refundAmount + feeRefundAmound + fees);
+            if (refundAddress == msg.sender) {
+                refundAddress.sendEther(refundAmount + feeRefundAmound + fees);
             } else {
                 refundAddress.sendEther(refundAmount + feeRefundAmound);
-                sender.sendEther(fees);
+                msg.sender.sendEther(fees);
             }
         }
 

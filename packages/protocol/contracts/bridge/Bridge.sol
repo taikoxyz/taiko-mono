@@ -68,7 +68,7 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (uint256 height, bytes32 messageHash)
     {
-        return state.sendMessage(_msgSender(), _msgSender(), message);
+        return state.sendMessage(msg.sender, message);
     }
 
     function sendMessage(Message calldata message, address refundFeeTo)
@@ -77,20 +77,14 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (uint256 height, bytes32 messageHash)
     {
-        return state.sendMessage(_msgSender(), refundFeeTo, message);
+        return state.sendMessage(refundFeeTo, message);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
-        return
-            state.processMessage(
-                AddressResolver(this),
-                _msgSender(),
-                message,
-                proof
-            );
+        return state.processMessage(AddressResolver(this), message, proof);
     }
 
     function retryMessage(
@@ -101,7 +95,6 @@ contract Bridge is EssentialContract, IBridge {
         return
             state.retryMessage(
                 AddressResolver(this),
-                _msgSender(), // TODO: remove it.
                 message,
                 proof,
                 lastAttempt
