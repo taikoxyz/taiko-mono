@@ -78,27 +78,23 @@ library LibBridgeProcess {
 
         state.updateMessageStatus(mhash, status);
 
-        {
-            address refundAddress = message.refundAddress == address(0)
-                ? message.owner
-                : message.refundAddress;
+        address refundAddress = message.refundAddress == address(0)
+            ? message.owner
+            : message.refundAddress;
 
-            if (refundAddress == msg.sender) {
-                refundAddress.sendEther(
-                    refundAmount + message.maxProcessingFee
-                );
-            } else {
-                uint256 processingCost = tx.gasprice * (gasStart - gasleft());
-                uint256 processingFee = processingCost.min(
-                    message.maxProcessingFee
-                );
+        if (refundAddress == msg.sender) {
+            refundAddress.sendEther(refundAmount + message.maxProcessingFee);
+        } else {
+            uint256 processingCost = tx.gasprice * (gasStart - gasleft());
+            uint256 processingFee = processingCost.min(
+                message.maxProcessingFee
+            );
 
-                uint256 processingFeeRefund = message.maxProcessingFee -
-                    processingFee;
+            uint256 processingFeeRefund = message.maxProcessingFee -
+                processingFee;
 
-                refundAddress.sendEther(refundAmount + processingFeeRefund);
-                msg.sender.sendEther(processingFee);
-            }
+            refundAddress.sendEther(refundAmount + processingFeeRefund);
+            msg.sender.sendEther(processingFee);
         }
     }
 }
