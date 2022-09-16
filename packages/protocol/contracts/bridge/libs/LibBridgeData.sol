@@ -64,7 +64,7 @@ library LibBridgeData {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(message));
+        return keccak256(abi.encode("XCHAIN_MESSAGE", message));
     }
 
     function updateMessageStatus(

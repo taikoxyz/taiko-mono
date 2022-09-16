@@ -27,13 +27,19 @@ library LibBridgeRead {
         bytes proof;
     }
 
-    // TODO:isMessageSent()?
+    function isMessageSent(bytes32 messageHash) internal view returns (bool) {
+        uint256 v;
+        assembly {
+            v := sload(messageHash)
+        }
+        return v == uint256(1);
+    }
 
     function isMessageReceived(
         AddressResolver resolver,
         Message calldata message,
         bytes calldata proof
-    ) external view returns (bool received, bytes32 messageHash) {
+    ) internal view returns (bool received, bytes32 messageHash) {
         messageHash = message.hashMessage();
         MKProof memory mkp = abi.decode(proof, (MKProof));
 

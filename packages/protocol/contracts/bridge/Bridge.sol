@@ -112,6 +112,24 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
+    function isMessageSent(Message calldata message)
+        public
+        view
+        virtual
+        returns (bool)
+    {
+        return LibBridgeRead.isMessageSent(message.hashMessage());
+    }
+
+    function isMessageSent(bytes32 messageHash)
+        public
+        view
+        virtual
+        returns (bool)
+    {
+        return LibBridgeRead.isMessageSent(messageHash);
+    }
+
     function isMessageReceived(Message calldata message, bytes calldata proof)
         public
         view
