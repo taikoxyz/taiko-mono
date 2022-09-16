@@ -28,10 +28,10 @@ library LibBridgeRetry {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         address sender,
-        Message memory message,
-        bytes memory proof,
+        Message calldata message,
+        bytes calldata proof,
         bool lastAttempt
-    ) internal {
+    ) external {
         if (message.gasLimit == 0 || lastAttempt) {
             require(sender == message.owner, "B:denied");
         }
@@ -39,23 +39,20 @@ library LibBridgeRetry {
         require(
             state.getMessageStatus(message.srcChainId, message.id) ==
                 IBridge.MessageStatus.RETRIABLE,
-            "B:failed msg not found"
+            "B:notFound"
         );
 
         (bool received, bytes32 messageHash) = resolver.isMessageReceived(
             message,
             proof
         );
-        require(received, "B:not received");
+        require(received, "B:notReceived");
 
         bool success = state.invokeMessageCall(message, gasleft());
         if (success) {
             state.setMessageStatus(message, IBridge.MessageStatus.DONE);
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.DONE,
                 true
             );
@@ -71,18 +68,12 @@ library LibBridgeRetry {
             state.setMessageStatus(message, IBridge.MessageStatus.DONE);
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.DONE,
                 false
             );
         } else {
             emit LibBridgeData.MessageStatusChanged(
                 messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
                 IBridge.MessageStatus.RETRIABLE,
                 false
             );

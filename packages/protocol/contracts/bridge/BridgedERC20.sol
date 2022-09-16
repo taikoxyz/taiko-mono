@@ -48,7 +48,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
                 _sourceChainId != 0 &&
                 bytes(_symbol).length > 0 &&
                 bytes(_name).length > 0,
-            "invalid params"
+            "BE:params"
         );
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init(_name, _symbol, _decimals);
@@ -79,7 +79,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
-        require(to != address(this), "BridgedERC20: invalid to");
+        require(to != address(this), "BE:to");
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -88,7 +88,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "BridgedERC20: invalid to");
+        require(to != address(this), "BE:to");
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 

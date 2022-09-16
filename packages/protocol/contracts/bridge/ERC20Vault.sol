@@ -113,7 +113,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         CannonicalERC20 canonicalToken,
         uint256 amount,
         uint256 height,
-        bytes32 signal,
         bytes32 messageHash,
         Message message
     );
@@ -123,7 +122,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address indexed to,
         uint256 amount,
         uint256 height,
-        bytes32 signal,
         bytes32 messageHash,
         Message message
     );
@@ -162,22 +160,13 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         message.maxProcessingFee = maxProcessingFee;
 
         // Ether are held by Bridges, not ERC20Vaults
-        (uint256 height, bytes32 signal, bytes32 messageHash) = IBridge(
-            resolve("bridge")
-        ).sendMessage{value: msg.value}(
-            sender, // refund unspent ether to msg sender
-            message
+        (uint256 height, bytes32 messageHash) = IBridge(resolve("bridge"))
+            .sendMessage{value: msg.value}(
+            message,
+            sender // refund unspent ether to msg sender
         );
 
-        emit EtherSent(
-            sender,
-            to,
-            amount,
-            height,
-            signal,
-            messageHash,
-            message
-        );
+        emit EtherSent(sender, to, amount, height, messageHash, message);
     }
 
     /// @inheritdoc IERC20Vault
@@ -232,11 +221,10 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             _amount
         );
 
-        (uint256 height, bytes32 signal, bytes32 messageHash) = IBridge(
-            resolve("bridge")
-        ).sendMessage{value: msg.value}(
-            sender, // refund unspent ether to msg sender
-            message
+        (uint256 height, bytes32 messageHash) = IBridge(resolve("bridge"))
+            .sendMessage{value: msg.value}(
+            message,
+            sender // refund unspent ether to msg sender
         );
 
         emit ERC20Sent(
@@ -245,7 +233,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             canonicalToken,
             _amount,
             height,
-            signal,
             messageHash,
             message
         );
@@ -267,7 +254,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(_msgSender()).context();
-
         require(ctx.destChainId == block.chainid, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),

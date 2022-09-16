@@ -18,7 +18,6 @@ library LibBridgeProcess {
     using LibAddress for address;
     using LibBridgeData for Message;
     using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
     using LibBridgeRead for LibBridgeData.State;
 
     /*********************
@@ -32,21 +31,25 @@ library LibBridgeProcess {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         address sender,
-        Message memory message,
-        bytes memory proof
-    ) internal {
+        Message calldata message,
+        bytes calldata proof
+    ) external {
         uint256 gasStart = gasleft();
-        require(message.destChainId == block.chainid, "B:destChainId mismatch");
+        require(
+            message.destChainId == block.chainid,
+            "B:destChainId"
+        );
         require(
             state.getMessageStatus(message.srcChainId, message.id) ==
                 IBridge.MessageStatus.NEW,
-            "B:invalid status"
+            "B:status"
         );
-        (bool received, bytes32 messageHash) = resolver.isMessageReceived(
+        (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
+            resolver,
             message,
             proof
         );
-        require(received, "B:not received");
+        require(received, "B:notReceived");
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
@@ -85,32 +88,26 @@ library LibBridgeProcess {
         }
 
         state.setMessageStatus(message, status);
+        {
+            address refundAddress = message.refundAddress == address(0)
+                ? message.owner
+                : message.refundAddress;
 
-        address refundAddress = message.refundAddress == address(0)
-            ? message.owner
-            : message.refundAddress;
+            (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
+                message,
+                gasStart,
+                invocationGasUsed
+            );
 
-        (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
-            message,
-            gasStart,
-            invocationGasUsed
-        );
-
-        if (refundAddress == sender) {
-            sender.sendEther(refundAmount + feeRefundAmound + fees);
-        } else {
-            refundAddress.sendEther(refundAmount + feeRefundAmound);
-            sender.sendEther(fees);
+            if (refundAddress == sender) {
+                sender.sendEther(refundAmount + feeRefundAmound + fees);
+            } else {
+                refundAddress.sendEther(refundAmount + feeRefundAmound);
+                sender.sendEther(fees);
+            }
         }
 
-        emit LibBridgeData.MessageStatusChanged(
-            messageHash,
-            message.owner,
-            message.srcChainId,
-            message.id,
-            status,
-            success
-        );
+        emit LibBridgeData.MessageStatusChanged(messageHash, status, success);
     }
 
     /*********************

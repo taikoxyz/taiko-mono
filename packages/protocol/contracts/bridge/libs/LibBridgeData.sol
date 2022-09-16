@@ -43,20 +43,13 @@ library LibBridgeData {
 
     // Note these events must match the one defined in Bridge.sol.
     event MessageSent(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        uint256 height, // used for compute message proofs
-        bytes32 signal,
-        bytes message
+        uint256 indexed height, // used for compute message proofs
+        bytes32 indexed messageHash,
+        Message message
     );
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
+        bytes32 indexed messageHash,
         IBridge.MessageStatus status,
         bool succeeded
     );

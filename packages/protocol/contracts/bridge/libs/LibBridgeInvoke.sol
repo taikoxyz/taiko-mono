@@ -26,7 +26,7 @@ library LibBridgeInvoke {
         Message memory message,
         uint256 gasLimit
     ) internal returns (bool success) {
-        require(gasLimit > 0, "B:zero gasLimit");
+        require(gasLimit > 0, "B:gasLimit");
 
         state.ctx = IBridge.Context({
             srcChainSender: message.sender,

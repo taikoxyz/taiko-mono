@@ -36,22 +36,14 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    // Note these events must match the one defined in Bridge.sol.
     event MessageSent(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        uint256 height, // used for compute message proofs
-        bytes32 signal,
-        bytes message
+        uint256 indexed height, // used for compute message proofs
+        bytes32 indexed messageHash,
+        Message message
     );
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
+        bytes32 indexed messageHash,
         IBridge.MessageStatus status,
         bool succeeded
     );
@@ -70,26 +62,25 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(address refundFeeTo, Message memory message)
+    function sendMessage(Message calldata message)
         external
         payable
         nonReentrant
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        )
+        returns (uint256 height, bytes32 messageHash)
     {
-        return
-            state.sendMessage(
-                AddressResolver(this),
-                _msgSender(),
-                refundFeeTo,
-                message
-            );
+        return state.sendMessage(_msgSender(), _msgSender(), message);
     }
 
-    function processMessage(Message memory message, bytes memory proof)
+    function sendMessage(Message calldata message, address refundFeeTo)
+        external
+        payable
+        nonReentrant
+        returns (uint256 height, bytes32 messageHash)
+    {
+        return state.sendMessage(_msgSender(), refundFeeTo, message);
+    }
+
+    function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
@@ -103,8 +94,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function retryMessage(
-        Message memory message,
-        bytes memory proof,
+        Message calldata message,
+        bytes calldata proof,
         bool lastAttempt
     ) external nonReentrant {
         return
@@ -128,13 +119,13 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageReceived(Message memory message, bytes memory mkproof)
+    function isMessageReceived(Message calldata message, bytes calldata proof)
         public
         view
         virtual
         returns (bool received, bytes32 messageHash)
     {
-        return AddressResolver(this).isMessageReceived(message, mkproof);
+        return AddressResolver(this).isMessageReceived(message, proof);
     }
 
     function getMessageStatus(uint256 srcChainId, uint256 messageId)
@@ -144,14 +135,6 @@ contract Bridge is EssentialContract, IBridge {
         returns (MessageStatus)
     {
         return state.getMessageStatus(srcChainId, messageId);
-    }
-
-    function getMessageFeeAndCapacity()
-        public
-        view
-        returns (uint256 fee, uint256 capacity)
-    {
-        return AddressResolver(this).getMessageFeeAndCapacity();
     }
 
     function context() public view returns (Context memory) {
