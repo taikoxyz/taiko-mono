@@ -36,16 +36,12 @@ library LibBridgeRetry {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        (bool received, bytes32 mhash) = resolver.isMessageReceived(
-            message,
-            proof
-        );
-        require(received, "B:notReceived");
-
+        bytes32 mhash = message.hashMessage();
         require(
             state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
+        require(resolver.isMessageReceived(mhash, proof), "B:notReceived");
 
         if (state.invokeMessageCall(message, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);

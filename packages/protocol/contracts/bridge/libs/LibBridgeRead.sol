@@ -37,10 +37,9 @@ library LibBridgeRead {
 
     function isMessageReceived(
         AddressResolver resolver,
-        Message calldata message,
+        bytes32 mhash,
         bytes calldata proof
-    ) internal view returns (bool received, bytes32 mhash) {
-        mhash = message.hashMessage();
+    ) internal view returns (bool received) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))

@@ -54,15 +54,6 @@ library LibBridgeData {
     /*********************
      * Internal Functions*
      *********************/
-
-    function hashMessage(Message memory message)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode("XCHAIN_MESSAGE", message));
-    }
-
     function updateMessageStatus(
         State storage state,
         bytes32 mhash,
@@ -70,5 +61,13 @@ library LibBridgeData {
     ) internal {
         state.messageStatus[mhash] = status;
         emit LibBridgeData.MessageStatusChanged(mhash, status);
+    }
+
+    function hashMessage(Message memory message)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode("XCHAIN_MESSAGE", message));
     }
 }

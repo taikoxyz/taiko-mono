@@ -35,18 +35,18 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();
-        
+
         require(message.destChainId == block.chainid, "B:destChainId");
-        (bool received, bytes32 mhash) = LibBridgeRead.isMessageReceived(
-            resolver,
-            message,
-            proof
-        );
-        require(received, "B:notReceived");
+        bytes32 mhash = message.hashMessage();
 
         require(
             state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
             "B:status"
+        );
+
+        require(
+            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
+            "B:notReceived"
         );
 
         // We deposit Ether first before the message call in case the call
