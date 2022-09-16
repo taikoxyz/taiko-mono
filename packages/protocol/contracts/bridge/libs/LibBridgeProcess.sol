@@ -54,7 +54,6 @@ library LibBridgeProcess {
 
         IBridge.MessageStatus status;
         uint256 refundAmount;
-        uint256 invocationGasUsed;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
@@ -62,12 +61,10 @@ library LibBridgeProcess {
             status = IBridge.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else if (message.gasLimit > 0 || message.owner == msg.sender) {
-            invocationGasUsed = gasleft();
             bool success = state.invokeMessageCall(
                 message,
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
-            invocationGasUsed -= gasleft();
 
             status = success
                 ? IBridge.MessageStatus.DONE
@@ -78,6 +75,7 @@ library LibBridgeProcess {
 
         state.updateMessageStatus(mhash, status);
 
+        // Refund processing fees if necessary
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
             : message.refundAddress;
