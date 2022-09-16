@@ -193,9 +193,6 @@ async function generateContractConfigs(
             address: addressMap.AddressManager,
             deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
                 // OwnableUpgradeable
                 _owner: contractOwner,
                 // AddressManager
