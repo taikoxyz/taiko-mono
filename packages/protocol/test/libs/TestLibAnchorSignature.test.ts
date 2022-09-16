@@ -41,7 +41,12 @@ describe("LibAnchorSignature", function () {
             const [v, r, s] = await libAnchorSignature.signTransaction(hash, k)
 
             expect(
-                await libAnchorSignature.recover(hash, v + 27, r, s)
+                await libAnchorSignature.recover(
+                    hash,
+                    v + 27,
+                    ethers.utils.hexZeroPad(r, 32),
+                    ethers.utils.hexZeroPad(s, 32)
+                )
             ).to.be.equal(await libAnchorSignature.goldFingerAddress())
         }
     })
