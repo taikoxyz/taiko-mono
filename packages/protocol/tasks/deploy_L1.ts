@@ -64,11 +64,11 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(hre, await AddressManager.init())
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(chainId + ".dao_vault", daoVault)
+        await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(chainId + ".team_vault", teamVault)
+        await AddressManager.setAddress(`${chainId}.team_vault`, teamVault)
     )
     await utils.waitTx(
         hre,
@@ -76,12 +76,12 @@ export async function deployContracts(hre: any) {
     )
 
     // TkoToken
-    const TkoToken = await utils.deployContract(hre, chainId + ".TkoToken")
+    const TkoToken = await utils.deployContract(hre, "TkoToken")
     await utils.waitTx(hre, await TkoToken.init(AddressManager.address))
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            chainId + ".tko_token",
+            `${chainId}.tko_token`,
             TkoToken.address
         )
     )
@@ -92,7 +92,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            chainId + ".config_manager",
+            `${chainId}.config_manager`,
             ConfigManager.address
         )
     )
@@ -110,9 +110,9 @@ export async function deployContracts(hre: any) {
 
     // save deployments
     const deployments = {
-        network: network,
-        chainId: chainId,
-        deployer: deployer,
+        network,
+        chainId,
+        deployer,
         l2GenesisBlockHash,
         contracts: Object.assign(
             { AddressManager: AddressManager.address },
