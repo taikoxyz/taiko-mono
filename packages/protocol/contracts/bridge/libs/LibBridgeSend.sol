@@ -26,6 +26,7 @@ library LibBridgeSend {
         address refundFeeTo,
         Message memory message
     ) internal returns (uint256 height, bytes32 mhash) {
+        require(refundFeeTo != address(0), "B:refundFeeTo");
         require(
             message.destChainId != LibBridgeRead.chainId() &&
                 state.isDestChainEnabled(message.destChainId),
