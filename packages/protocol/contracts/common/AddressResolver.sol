@@ -84,13 +84,11 @@ abstract contract AddressResolver {
         view
         returns (address payable)
     {
-        return
-            payable(
-                _addressManager.getAddress(
-                    string(
-                        abi.encodePacked(Strings.toString(chainId), ".", name)
-                    )
-                )
-            );
+        bytes memory key = abi.encodePacked(
+            Strings.toString(chainId),
+            ".",
+            name
+        );
+        return payable(_addressManager.getAddress(string(key)));
     }
 }
