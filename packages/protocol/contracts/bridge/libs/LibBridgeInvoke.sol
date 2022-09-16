@@ -14,7 +14,7 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeInvoke {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeRead for LibBridgeData.State;
 
     /*********************
@@ -23,7 +23,7 @@ library LibBridgeInvoke {
 
     function invokeMessageCall(
         LibBridgeData.State storage state,
-        Message memory message,
+        IBridge.Message memory message,
         uint256 gasLimit
     ) internal returns (bool success) {
         require(gasLimit > 0, "B:gasLimit");

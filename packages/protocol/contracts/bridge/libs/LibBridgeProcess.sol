@@ -16,7 +16,7 @@ import "./LibBridgeRead.sol";
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
@@ -27,7 +27,7 @@ library LibBridgeProcess {
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        Message calldata message,
+        IBridge.Message calldata message,
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();

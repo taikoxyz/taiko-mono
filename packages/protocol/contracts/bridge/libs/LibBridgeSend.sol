@@ -14,12 +14,12 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeSend {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeRead for LibBridgeData.State;
 
     function sendMessage(
         LibBridgeData.State storage state,
-        Message memory message
+        IBridge.Message memory message
     ) internal returns (bytes32 mhash) {
         require(message.owner != address(0), "B:owner");
         require(

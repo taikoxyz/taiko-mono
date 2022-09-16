@@ -37,7 +37,7 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    event MessageSent(bytes32 indexed mhash, Message message);
+    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
 
     event MessageStatusChanged(
         bytes32 indexed mhash,

@@ -15,7 +15,7 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRetry {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
@@ -26,7 +26,7 @@ library LibBridgeRetry {
 
     function retryMessage(
         LibBridgeData.State storage state,
-        Message calldata message,
+        IBridge.Message calldata message,
         bool lastAttempt
     ) external {
         if (message.gasLimit == 0 || lastAttempt) {

@@ -146,7 +146,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         require(destChainId != block.chainid, "V:destChainId");
         require(to != address(0), "V:to");
 
-        Message memory message;
+        IBridge.Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
         message.to = to;
@@ -196,7 +196,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             _amount = _transferFrom(msg.sender, token, amount);
         }
 
-        Message memory message;
+        IBridge.Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
         message.to = resolve(destChainId, "erc20_vault");

@@ -15,7 +15,7 @@ import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRead {
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBlockHeader for BlockHeader;
 
     /*********************
