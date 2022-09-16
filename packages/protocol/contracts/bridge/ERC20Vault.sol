@@ -199,7 +199,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
-        message.to = _getRemoteERC20Vault(destChainId);
+        message.to = resolve(destChainId, "erc20_vault");
         message.refundAddress = refundAddress;
         message.maxProcessingFee = maxProcessingFee;
         message.gasLimit = gasLimit;
@@ -236,7 +236,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(
-            ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
+            ctx.srcChainSender == resolve(ctx.srcChainId, "erc20_vault"),
             "V:sender"
         );
 

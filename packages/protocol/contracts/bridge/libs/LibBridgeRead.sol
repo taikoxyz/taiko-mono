@@ -38,12 +38,18 @@ library LibBridgeRead {
     function isMessageReceived(
         AddressResolver resolver,
         bytes32 mhash,
+        uint256 srcChainId,
         bytes calldata proof
     ) internal view returns (bool received) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
+        require(srcChainId != block.chainid, "B:chainId");
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
             .getSyncedHeader(mkp.header.height);
+
+        // TODO(david): we need to verify that the message hash (mhash) was
+        // written in the storage of the bridge on the source chain.
+        address srcBridge = resolver.resolve(srcChainId, "bridge");
 
         received =
             syncedHeaderHash != 0 &&

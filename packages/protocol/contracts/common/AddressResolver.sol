@@ -50,6 +50,23 @@ abstract contract AddressResolver {
     }
 
     /**
+     * @notice Resolves a name to an address.
+     * @dev This funcition will throw if the resolved address is `address(0)`.
+     * @param domain The domain
+     * @param name The name to resolve
+     * @return addr The name's corresponding address
+     */
+    function resolve(uint256 domain, string memory name)
+        public
+        view
+        virtual
+        returns (address payable addr)
+    {
+        string memory _name = string(abi.encodePacked(domain, ".", name));
+        addr = payable(_addressManager.getAddress(_name));
+    }
+
+    /**
      * @notice Returns the AddressManager's address.
      * @return The AddressManager's address.
      */

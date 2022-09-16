@@ -39,7 +39,12 @@ library LibBridgeProcess {
             "B:status"
         );
         require(
-            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
+            LibBridgeRead.isMessageReceived(
+                resolver,
+                mhash,
+                message.srcChainId,
+                proof
+            ),
             "B:notReceived"
         );
 

@@ -96,13 +96,13 @@ contract Bridge is EssentialContract, IBridge {
         return LibBridgeRead.isMessageSent(mhash);
     }
 
-    function isMessageReceived(bytes32 mhash, bytes calldata proof)
-        public
-        view
-        virtual
-        returns (bool)
-    {
-        return AddressResolver(this).isMessageReceived(mhash, proof);
+    function isMessageReceived(
+        bytes32 mhash,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) public view virtual returns (bool) {
+        return
+            AddressResolver(this).isMessageReceived(mhash, srcChainId, proof);
     }
 
     function getMessageStatus(bytes32 mhash)
