@@ -36,10 +36,7 @@ library LibBridgeProcess {
         bytes memory proof
     ) internal {
         uint256 gasStart = gasleft();
-        require(
-            message.destChainId == LibBridgeRead.chainId(),
-            "B:destChainId mismatch"
-        );
+        require(message.destChainId == block.chainid, "B:destChainId mismatch");
         require(
             state.getMessageStatus(message.srcChainId, message.id) ==
                 IBridge.MessageStatus.NEW,

@@ -72,10 +72,4 @@ library LibBridgeRead {
         //     ISignalService(resolver.resolve("rollup"))
         //         .getSignalFeeAndCapacity();
     }
-
-    function chainId() internal view returns (uint256 _chainId) {
-        assembly {
-            _chainId := chainid()
-        }
-    }
 }

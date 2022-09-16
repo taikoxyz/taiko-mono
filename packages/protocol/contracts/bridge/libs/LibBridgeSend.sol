@@ -36,14 +36,14 @@ library LibBridgeSend {
         )
     {
         require(
-            message.destChainId != LibBridgeRead.chainId() &&
+            message.destChainId != block.chainid &&
                 state.isDestChainEnabled(message.destChainId),
             "B:invalid destChainId"
         );
 
         message.id = state.nextMessageId++;
         message.sender = sender;
-        message.srcChainId = LibBridgeRead.chainId();
+        message.srcChainId = block.chainid;
 
         if (message.owner == address(0)) {
             message.owner = sender;
@@ -85,10 +85,7 @@ library LibBridgeSend {
         uint256 chainId,
         bool enabled
     ) internal {
-        require(
-            chainId > 0 && chainId != LibBridgeRead.chainId(),
-            "B:invalid chainId"
-        );
+        require(chainId > 0 && chainId != block.chainid, "B:invalid chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
     }

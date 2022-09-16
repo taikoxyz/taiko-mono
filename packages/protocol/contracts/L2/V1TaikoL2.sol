@@ -56,6 +56,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     constructor(address _addressManager) initializer {
+        require(block.chainid != 0, "L2:chainId");
         AddressResolver._init(_addressManager);
         chainId = block.chainid;
     }
