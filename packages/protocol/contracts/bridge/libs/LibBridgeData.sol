@@ -59,8 +59,10 @@ library LibBridgeData {
         bytes32 mhash,
         IBridge.MessageStatus status
     ) internal {
-        state.messageStatus[mhash] = status;
-        emit LibBridgeData.MessageStatusChanged(mhash, status);
+        if (state.messageStatus[mhash] != status) {
+            state.messageStatus[mhash] = status;
+            emit LibBridgeData.MessageStatusChanged(mhash, status);
+        }
     }
 
     function hashMessage(Message memory message)
@@ -68,6 +70,6 @@ library LibBridgeData {
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode("XCHAIN_MESSAGE", message));
+        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
     }
 }

@@ -37,13 +37,12 @@ library LibBridgeProcess {
         uint256 gasStart = gasleft();
 
         require(message.destChainId == block.chainid, "B:destChainId");
-        bytes32 mhash = message.hashMessage();
 
+        bytes32 mhash = message.hashMessage();
         require(
             state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
             "B:status"
         );
-
         require(
             LibBridgeRead.isMessageReceived(resolver, mhash, proof),
             "B:notReceived"

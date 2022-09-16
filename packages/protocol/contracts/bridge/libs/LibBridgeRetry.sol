@@ -19,7 +19,6 @@ library LibBridgeRetry {
     using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
 
     /*********************
      * Internal Functions*
@@ -41,7 +40,10 @@ library LibBridgeRetry {
             state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
-        require(resolver.isMessageReceived(mhash, proof), "B:notReceived");
+        require(
+            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
+            "B:notReceived"
+        );
 
         if (state.invokeMessageCall(message, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
