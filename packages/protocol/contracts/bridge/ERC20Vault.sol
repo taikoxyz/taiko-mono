@@ -149,8 +149,8 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 amount,
         uint256 maxProcessingFee
     ) external payable nonReentrant {
-        require(destChainId != block.chainid, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
+        require(destChainId != block.chainid, "V:destChainId");
+        require(to != address(0), "V:to");
 
         address sender = _msgSender();
 
@@ -191,9 +191,9 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint256 gasLimit,
         uint256 gasPrice
     ) external payable nonReentrant {
-        require(destChainId != block.chainid, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
-        require(token != address(0), "V:zero token");
+        require(destChainId != block.chainid, "V:destChainId");
+        require(to != address(0), "V:to");
+        require(token != address(0), "V:token");
 
         CannonicalERC20 memory canonicalToken;
         uint256 _amount;
@@ -268,18 +268,15 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(_msgSender()).context();
 
-        require(ctx.destChainId == block.chainid, "V:invalid chain id");
+        require(ctx.destChainId == block.chainid, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
-            "V:invalid sender"
+            "V:sender"
         );
 
         address token;
         if (canonicalToken.chainId == block.chainid) {
-            require(
-                isBridgedToken[canonicalToken.addr] == false,
-                "V:invalid token"
-            );
+            require(isBridgedToken[canonicalToken.addr] == false, "V:token");
             token = canonicalToken.addr;
             if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from
