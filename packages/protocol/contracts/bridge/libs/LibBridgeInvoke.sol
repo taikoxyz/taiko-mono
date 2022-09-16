@@ -30,8 +30,7 @@ library LibBridgeInvoke {
 
         state.ctx = IBridge.Context({
             srcChainSender: message.sender,
-            srcChainId: message.srcChainId,
-            destChainId: message.destChainId
+            srcChainId: message.srcChainId
         });
 
         (success, ) = message.to.call{value: message.callValue, gas: gasLimit}(
@@ -40,8 +39,7 @@ library LibBridgeInvoke {
 
         state.ctx = IBridge.Context({
             srcChainSender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            srcChainId: LibBridgeData.CHAINID_PLACEHOLDER,
-            destChainId: LibBridgeData.CHAINID_PLACEHOLDER
+            srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });
     }
 }

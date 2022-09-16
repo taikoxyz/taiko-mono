@@ -23,8 +23,8 @@ library LibBridgeData {
         mapping(uint256 => bool) destChains;
         mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
-        IBridge.Context ctx; // 3 slots
-        uint256[44] __gap;
+        IBridge.Context ctx; // 2 slots
+        uint256[45] __gap;
     }
 
     /*********************

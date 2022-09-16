@@ -41,7 +41,6 @@ interface IBridge {
     struct Context {
         address srcChainSender;
         uint256 srcChainId;
-        uint256 destChainId;
     }
 
     /*********************
