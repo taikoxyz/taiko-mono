@@ -108,20 +108,18 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     );
 
     event ERC20Sent(
+        bytes32 indexed mhash,
         address indexed from,
         address indexed to,
         CannonicalERC20 canonicalToken,
-        uint256 amount,
-        bytes32 mhash,
-        Message message
+        uint256 amount
     );
 
     event EtherSent(
+        bytes32 indexed mhash,
         address indexed from,
         address indexed to,
-        uint256 amount,
-        bytes32 mhash,
-        Message message
+        uint256 amount
     );
 
     event ERC20Received(
@@ -160,7 +158,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             value: msg.value
         }(message);
 
-        emit EtherSent(msg.sender, to, amount, mhash, message);
+        emit EtherSent(mhash, msg.sender, to, amount);
     }
 
     /// @inheritdoc IERC20Vault
@@ -218,7 +216,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             value: msg.value
         }(message);
 
-        emit ERC20Sent(msg.sender, to, canonicalToken, _amount, mhash, message);
+        emit ERC20Sent(mhash, msg.sender, to, canonicalToken, _amount);
     }
 
     /**
