@@ -36,7 +36,7 @@ library LibBridgeProcess {
     ) external {
         uint256 gasStart = gasleft();
         require(
-            message.destChainId == LibBridgeRead.chainId(),
+            message.destChainId == block.chainid,
             "B:destChainId"
         );
         require(
