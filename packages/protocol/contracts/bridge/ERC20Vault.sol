@@ -236,8 +236,8 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address to,
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
-        IBridge.Context memory ctx = IBridge(msg.sender).context();
 
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(ctx.destChainId == block.chainid, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
