@@ -227,6 +227,7 @@ async function generateContractConfigs(
                 _status: 1, // _NOT_ENTERED
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
+                chainId: config.chainId,
             },
         },
     }
