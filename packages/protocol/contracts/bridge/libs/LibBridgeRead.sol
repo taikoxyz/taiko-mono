@@ -27,10 +27,10 @@ library LibBridgeRead {
         bytes proof;
     }
 
-    function isMessageSent(bytes32 messageHash) internal view returns (bool) {
+    function isMessageSent(bytes32 mhash) internal view returns (bool) {
         uint256 v;
         assembly {
-            v := sload(messageHash)
+            v := sload(mhash)
         }
         return v == uint256(1);
     }
@@ -39,8 +39,8 @@ library LibBridgeRead {
         AddressResolver resolver,
         Message calldata message,
         bytes calldata proof
-    ) internal view returns (bool received, bytes32 messageHash) {
-        messageHash = message.hashMessage();
+    ) internal view returns (bool received, bytes32 mhash) {
+        mhash = message.hashMessage();
         MKProof memory mkp = abi.decode(proof, (MKProof));
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
@@ -50,7 +50,7 @@ library LibBridgeRead {
             syncedHeaderHash != 0 &&
             syncedHeaderHash == mkp.header.hashBlockHeader() &&
             Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeBytes32(messageHash),
+                Lib_RLPWriter.writeBytes32(mhash),
                 Lib_RLPWriter.writeUint(1),
                 mkp.proof,
                 mkp.header.stateRoot

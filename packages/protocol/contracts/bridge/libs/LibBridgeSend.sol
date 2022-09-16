@@ -25,7 +25,7 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         address refundFeeTo,
         Message memory message
-    ) internal returns (uint256 height, bytes32 messageHash) {
+    ) internal returns (uint256 height, bytes32 mhash) {
         require(
             message.destChainId != LibBridgeRead.chainId() &&
                 state.isDestChainEnabled(message.destChainId),
@@ -41,14 +41,14 @@ library LibBridgeSend {
         }
 
         height = block.number;
-        messageHash = message.hashMessage();
+        mhash = message.hashMessage();
         assembly {
-            sstore(messageHash, 1)
+            sstore(mhash, 1)
         }
 
         _handleMessageFee(refundFeeTo, message);
 
-        emit LibBridgeData.MessageSent(height, messageHash, message);
+        emit LibBridgeData.MessageSent(height, mhash, message);
     }
 
     function enableDestChain(

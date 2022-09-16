@@ -44,12 +44,12 @@ library LibBridgeData {
     // Note these events must match the one defined in Bridge.sol.
     event MessageSent(
         uint256 indexed height, // used for compute message proofs
-        bytes32 indexed messageHash,
+        bytes32 indexed mhash,
         Message message
     );
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash,
+        bytes32 indexed mhash,
         IBridge.MessageStatus status
     );
 
@@ -69,10 +69,10 @@ library LibBridgeData {
 
     function updateMessageStatus(
         State storage state,
-        bytes32 messageHash,
+        bytes32 mhash,
         IBridge.MessageStatus status
     ) internal {
-        state.messageStatus[messageHash] = status;
-        emit LibBridgeData.MessageStatusChanged(messageHash, status);
+        state.messageStatus[mhash] = status;
+        emit LibBridgeData.MessageStatusChanged(mhash, status);
     }
 }

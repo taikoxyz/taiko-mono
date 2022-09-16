@@ -36,21 +36,21 @@ library LibBridgeRetry {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        (bool received, bytes32 messageHash) = resolver.isMessageReceived(
+        (bool received, bytes32 mhash) = resolver.isMessageReceived(
             message,
             proof
         );
         require(received, "B:notReceived");
 
         require(
-            state.messageStatus[messageHash] == IBridge.MessageStatus.RETRIABLE,
+            state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
 
         if (state.invokeMessageCall(message, gasleft())) {
-            state.updateMessageStatus(messageHash, IBridge.MessageStatus.DONE);
+            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
-            state.updateMessageStatus(messageHash, IBridge.MessageStatus.DONE);
+            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
             if (message.callValue > 0) {
                 address refundAddress = message.refundAddress == address(0)

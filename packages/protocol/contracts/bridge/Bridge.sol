@@ -39,12 +39,12 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageSent(
         uint256 indexed height, // used for compute message proofs
-        bytes32 indexed messageHash,
+        bytes32 indexed mhash,
         Message message
     );
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash,
+        bytes32 indexed mhash,
         IBridge.MessageStatus status
     );
 
@@ -66,7 +66,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (uint256 height, bytes32 messageHash)
+        returns (uint256 height, bytes32 mhash)
     {
         return state.sendMessage(msg.sender, message);
     }
@@ -75,7 +75,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (uint256 height, bytes32 messageHash)
+        returns (uint256 height, bytes32 mhash)
     {
         return state.sendMessage(refundFeeTo, message);
     }
@@ -121,20 +121,15 @@ contract Bridge is EssentialContract, IBridge {
         return LibBridgeRead.isMessageSent(message.hashMessage());
     }
 
-    function isMessageSent(bytes32 messageHash)
-        public
-        view
-        virtual
-        returns (bool)
-    {
-        return LibBridgeRead.isMessageSent(messageHash);
+    function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
+        return LibBridgeRead.isMessageSent(mhash);
     }
 
     function isMessageReceived(Message calldata message, bytes calldata proof)
         public
         view
         virtual
-        returns (bool received, bytes32 messageHash)
+        returns (bool received, bytes32 mhash)
     {
         return AddressResolver(this).isMessageReceived(message, proof);
     }
@@ -148,13 +143,13 @@ contract Bridge is EssentialContract, IBridge {
         return state.messageStatus[message.hashMessage()];
     }
 
-    function getMessageStatus(bytes32 messageHash)
+    function getMessageStatus(bytes32 mhash)
         public
         view
         virtual
         returns (MessageStatus)
     {
-        return state.messageStatus[messageHash];
+        return state.messageStatus[mhash];
     }
 
     function context() public view returns (Context memory) {
