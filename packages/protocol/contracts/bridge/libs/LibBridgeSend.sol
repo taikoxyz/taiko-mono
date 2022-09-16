@@ -25,13 +25,18 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         Message memory message
     ) internal returns (bytes32 mhash) {
+        require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
                 state.isDestChainEnabled(message.destChainId),
             "B:destChainId"
         );
 
-        require(message.owner != address(0), "B:owner");
+        uint256 expectedAmount = message.depositValue +
+            message.callValue +
+            message.maxProcessingFee;
+
+        require(expectedAmount == msg.value, "B:value");
 
         message.id = state.nextMessageId++;
         message.sender = msg.sender;
@@ -41,14 +46,6 @@ library LibBridgeSend {
         assembly {
             sstore(mhash, 1)
         }
-
-        // TODO(daniel): figure out maxProcessingFee <>  message.gasLimit * message.gasPrice
-        uint256 expectedAmount = message.maxProcessingFee +
-            message.depositValue +
-            message.callValue +
-            (message.gasLimit * message.gasPrice);
-
-        require(expectedAmount == msg.value, "B:value");
 
         emit LibBridgeData.MessageSent(mhash, message);
     }
