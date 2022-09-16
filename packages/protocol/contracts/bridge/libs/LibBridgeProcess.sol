@@ -17,6 +17,7 @@ library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
     using LibBridgeData for Message;
+    using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
 
@@ -30,26 +31,22 @@ library LibBridgeProcess {
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        address sender,
         Message calldata message,
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();
+
+        require(message.destChainId == block.chainid, "B:destChainId");
+
+        bytes32 mhash = message.hashMessage();
         require(
-            message.destChainId == block.chainid,
-            "B:destChainId"
-        );
-        require(
-            state.getMessageStatus(message.srcChainId, message.id) ==
-                IBridge.MessageStatus.NEW,
+            state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
             "B:status"
         );
-        (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
-            resolver,
-            message,
-            proof
+        require(
+            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
+            "B:notReceived"
         );
-        require(received, "B:notReceived");
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
@@ -70,7 +67,7 @@ library LibBridgeProcess {
             status = IBridge.MessageStatus.DONE;
             success = true;
             refundAmount = message.callValue;
-        } else if (message.gasLimit > 0 || sender == message.owner) {
+        } else if (message.gasLimit > 0 || message.owner == msg.sender) {
             invocationGasUsed = gasleft();
 
             success = state.invokeMessageCall(
@@ -87,7 +84,8 @@ library LibBridgeProcess {
             revert("B:forbidden");
         }
 
-        state.setMessageStatus(message, status);
+        state.updateMessageStatus(mhash, status);
+
         {
             address refundAddress = message.refundAddress == address(0)
                 ? message.owner
@@ -99,15 +97,13 @@ library LibBridgeProcess {
                 invocationGasUsed
             );
 
-            if (refundAddress == sender) {
-                sender.sendEther(refundAmount + feeRefundAmound + fees);
+            if (refundAddress == msg.sender) {
+                refundAddress.sendEther(refundAmount + feeRefundAmound + fees);
             } else {
                 refundAddress.sendEther(refundAmount + feeRefundAmound);
-                sender.sendEther(fees);
+                msg.sender.sendEther(fees);
             }
         }
-
-        emit LibBridgeData.MessageStatusChanged(messageHash, status, success);
     }
 
     /*********************

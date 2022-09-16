@@ -19,6 +19,7 @@ import "./libs/LibBridgeSend.sol";
 /// @author dantaik <dan@taiko.xyz>
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
+    using LibBridgeData for Message;
     using LibBridgeProcess for LibBridgeData.State;
     using LibBridgeRead for AddressResolver;
     using LibBridgeRead for LibBridgeData.State;
@@ -36,16 +37,11 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    event MessageSent(
-        uint256 indexed height, // used for compute message proofs
-        bytes32 indexed messageHash,
-        Message message
-    );
+    event MessageSent(bytes32 indexed mhash, Message message);
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash,
-        IBridge.MessageStatus status,
-        bool succeeded
+        bytes32 indexed mhash,
+        IBridge.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -66,31 +62,16 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (uint256 height, bytes32 messageHash)
+        returns (bytes32 mhash)
     {
-        return state.sendMessage(_msgSender(), _msgSender(), message);
-    }
-
-    function sendMessage(Message calldata message, address refundFeeTo)
-        external
-        payable
-        nonReentrant
-        returns (uint256 height, bytes32 messageHash)
-    {
-        return state.sendMessage(_msgSender(), refundFeeTo, message);
+        return state.sendMessage(message);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
-        return
-            state.processMessage(
-                AddressResolver(this),
-                _msgSender(),
-                message,
-                proof
-            );
+        return state.processMessage(AddressResolver(this), message, proof);
     }
 
     function retryMessage(
@@ -101,7 +82,6 @@ contract Bridge is EssentialContract, IBridge {
         return
             state.retryMessage(
                 AddressResolver(this),
-                _msgSender(),
                 message,
                 proof,
                 lastAttempt
@@ -119,22 +99,26 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageReceived(Message calldata message, bytes calldata proof)
+    function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
+        return LibBridgeRead.isMessageSent(mhash);
+    }
+
+    function isMessageReceived(bytes32 mhash, bytes calldata proof)
         public
         view
         virtual
-        returns (bool received, bytes32 messageHash)
+        returns (bool)
     {
-        return AddressResolver(this).isMessageReceived(message, proof);
+        return AddressResolver(this).isMessageReceived(mhash, proof);
     }
 
-    function getMessageStatus(uint256 srcChainId, uint256 messageId)
+    function getMessageStatus(bytes32 mhash)
         public
         view
         virtual
         returns (MessageStatus)
     {
-        return state.getMessageStatus(srcChainId, messageId);
+        return state.messageStatus[mhash];
     }
 
     function context() public view returns (Context memory) {

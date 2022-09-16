@@ -17,38 +17,31 @@ library LibBridgeSend {
     using LibBridgeData for Message;
     using LibBridgeRead for LibBridgeData.State;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     function sendMessage(
         LibBridgeData.State storage state,
-        address sender,
-        address refundFeeTo,
         Message memory message
-    ) internal returns (uint256 height, bytes32 messageHash) {
+    ) internal returns (bytes32 mhash) {
+        require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
                 state.isDestChainEnabled(message.destChainId),
             "B:destChainId"
         );
 
+        uint256 expectedAmount = message.depositValue +
+            message.callValue +
+            message.maxProcessingFee;
+        require(expectedAmount == msg.value, "B:value");
+
         message.id = state.nextMessageId++;
-        message.sender = sender;
+        message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
-        if (message.owner == address(0)) {
-            message.owner = sender;
-        }
-
-        messageHash = message.hashMessage();
+        mhash = message.hashMessage();
         assembly {
-            sstore(messageHash, 1)
+            sstore(mhash, 1)
         }
-
-        _handleMessageFee(refundFeeTo, message);
-
-        emit LibBridgeData.MessageSent(height, messageHash, message);
+        emit LibBridgeData.MessageSent(mhash, message);
     }
 
     function enableDestChain(
@@ -59,24 +52,5 @@ library LibBridgeSend {
         require(chainId > 0 && chainId != block.chainid, "B:chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
-    }
-
-    /*********************
-     * Private Functions *
-     *********************/
-
-    function _handleMessageFee(address refundFeeTo, Message memory message)
-        private
-    {
-        uint256 requiredEther = message.maxProcessingFee +
-            message.depositValue +
-            message.callValue +
-            (message.gasLimit * message.gasPrice);
-
-        if (msg.value > requiredEther) {
-            refundFeeTo.sendEther(msg.value - requiredEther);
-        } else if (msg.value < requiredEther) {
-            revert("B:lowFee");
-        }
     }
 }

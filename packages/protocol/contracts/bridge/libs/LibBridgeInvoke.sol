@@ -44,24 +44,4 @@ library LibBridgeInvoke {
             destChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });
     }
-
-    function setMessageStatus(
-        LibBridgeData.State storage state,
-        Message memory message,
-        IBridge.MessageStatus status
-    ) internal {
-        uint256 idx = message.id / 128;
-        uint256 offset = (message.id % 128) << 1;
-        uint256 bitmap = state.statusBitmaps[message.srcChainId][idx];
-        // [prefix][2bit][postfix]
-        uint256 _bitmap = bitmap >> (offset + 2); // prefix
-        _bitmap <<= 2; // [prefix][0-2bit]
-        _bitmap |= uint256(status); // [prefix][2bit]
-        _bitmap <<= offset; // [prefix][2bit][0-postfix]
-
-        uint256 y = 256 - offset;
-        _bitmap |= (bitmap << y) >> y; // [prefix][2bit][postfix]
-
-        state.statusBitmaps[message.srcChainId][idx] = _bitmap;
-    }
 }

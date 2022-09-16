@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-
 import "./IAddressManager.sol";
 
 /**
@@ -18,20 +16,19 @@ import "./IAddressManager.sol";
  *         Under the hood, it uses an AddressManager to manage the
  *         name-to-address mapping.
  */
-abstract contract AddressResolver is ContextUpgradeable {
+abstract contract AddressResolver {
     IAddressManager internal _addressManager;
 
     uint256[49] private __gap;
 
     modifier onlyFromNamed(string memory name) {
-        require(_msgSender() == resolve(name), "AR:denied");
+        require(msg.sender == resolve(name), "AR:denied");
         _;
     }
 
     modifier onlyFromNamedEither(string memory name1, string memory name2) {
-        address sender = _msgSender();
         require(
-            sender == resolve(name1) || sender == resolve(name2),
+            msg.sender == resolve(name1) || msg.sender == resolve(name2),
             "AR:denied"
         );
         _;
@@ -61,7 +58,6 @@ abstract contract AddressResolver is ContextUpgradeable {
     }
 
     function _init(address addressManager_) internal virtual {
-        ContextUpgradeable.__Context_init_unchained();
         _addressManager = IAddressManager(addressManager_);
     }
 }

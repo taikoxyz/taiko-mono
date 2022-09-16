@@ -108,22 +108,18 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     );
 
     event ERC20Sent(
+        bytes32 indexed mhash,
         address indexed from,
         address indexed to,
         CannonicalERC20 canonicalToken,
-        uint256 amount,
-        uint256 height,
-        bytes32 messageHash,
-        Message message
+        uint256 amount
     );
 
     event EtherSent(
+        bytes32 indexed mhash,
         address indexed from,
         address indexed to,
-        uint256 amount,
-        uint256 height,
-        bytes32 messageHash,
-        Message message
+        uint256 amount
     );
 
     event ERC20Received(
@@ -150,23 +146,19 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         require(destChainId != block.chainid, "V:destChainId");
         require(to != address(0), "V:to");
 
-        address sender = _msgSender();
-
         Message memory message;
         message.destChainId = destChainId;
-        message.owner = sender;
+        message.owner = msg.sender;
         message.to = to;
         message.depositValue = amount;
         message.maxProcessingFee = maxProcessingFee;
 
         // Ether are held by Bridges, not ERC20Vaults
-        (uint256 height, bytes32 messageHash) = IBridge(resolve("bridge"))
-            .sendMessage{value: msg.value}(
-            message,
-            sender // refund unspent ether to msg sender
-        );
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
 
-        emit EtherSent(sender, to, amount, height, messageHash, message);
+        emit EtherSent(mhash, msg.sender, to, amount);
     }
 
     /// @inheritdoc IERC20Vault
@@ -186,10 +178,9 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
 
         CannonicalERC20 memory canonicalToken;
         uint256 _amount;
-        address sender = _msgSender();
 
         if (isBridgedToken[token]) {
-            BridgedERC20(payable(token)).bridgeBurnFrom(sender, amount);
+            BridgedERC20(payable(token)).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
             _amount = amount;
         } else {
@@ -202,12 +193,12 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
                 symbol: t.symbol(),
                 name: t.name()
             });
-            _amount = _transferFrom(sender, token, amount);
+            _amount = _transferFrom(msg.sender, token, amount);
         }
 
         Message memory message;
         message.destChainId = destChainId;
-        message.owner = sender;
+        message.owner = msg.sender;
         message.to = _getRemoteERC20Vault(destChainId);
         message.refundAddress = refundAddress;
         message.maxProcessingFee = maxProcessingFee;
@@ -221,21 +212,11 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             _amount
         );
 
-        (uint256 height, bytes32 messageHash) = IBridge(resolve("bridge"))
-            .sendMessage{value: msg.value}(
-            message,
-            sender // refund unspent ether to msg sender
-        );
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
 
-        emit ERC20Sent(
-            sender,
-            to,
-            canonicalToken,
-            _amount,
-            height,
-            messageHash,
-            message
-        );
+        emit ERC20Sent(mhash, msg.sender, to, canonicalToken, _amount);
     }
 
     /**
@@ -253,7 +234,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address to,
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
-        IBridge.Context memory ctx = IBridge(_msgSender()).context();
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(ctx.destChainId == block.chainid, "V:destChainId");
         require(
             ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),

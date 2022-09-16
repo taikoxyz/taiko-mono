@@ -27,12 +27,19 @@ library LibBridgeRead {
         bytes proof;
     }
 
+    function isMessageSent(bytes32 mhash) internal view returns (bool) {
+        uint256 v;
+        assembly {
+            v := sload(mhash)
+        }
+        return v == uint256(1);
+    }
+
     function isMessageReceived(
         AddressResolver resolver,
-        Message calldata message,
+        bytes32 mhash,
         bytes calldata proof
-    ) external view returns (bool received, bytes32 messageHash) {
-        messageHash = message.hashMessage();
+    ) internal view returns (bool received) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
 
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
@@ -42,21 +49,11 @@ library LibBridgeRead {
             syncedHeaderHash != 0 &&
             syncedHeaderHash == mkp.header.hashBlockHeader() &&
             Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeBytes32(messageHash),
+                Lib_RLPWriter.writeBytes32(mhash),
                 Lib_RLPWriter.writeUint(1),
                 mkp.proof,
                 mkp.header.stateRoot
             );
-    }
-
-    function getMessageStatus(
-        LibBridgeData.State storage state,
-        uint256 srcChainId,
-        uint256 messageId
-    ) internal view returns (IBridge.MessageStatus) {
-        uint256 bits = state.statusBitmaps[srcChainId][messageId / 128];
-        uint256 value = (bits >> ((messageId % 128) << 1)) & 3;
-        return IBridge.MessageStatus(value);
     }
 
     function context(LibBridgeData.State storage state)

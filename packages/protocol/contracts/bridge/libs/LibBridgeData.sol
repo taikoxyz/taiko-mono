@@ -21,10 +21,10 @@ library LibBridgeData {
 
     struct State {
         mapping(uint256 => bool) destChains;
-        mapping(uint256 => mapping(uint256 => uint256)) statusBitmaps;
+        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
-        IBridge.Context ctx; // 4 slots
-        uint256[43] __gap;
+        IBridge.Context ctx; // 3 slots
+        uint256[44] __gap;
     }
 
     /*********************
@@ -35,23 +35,18 @@ library LibBridgeData {
     uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
-        0x000000000000000000000000000000000000dEaD;
+        0x0000000000000000000000000000000000000001;
 
     /*********************
      * Events            *
      *********************/
 
     // Note these events must match the one defined in Bridge.sol.
-    event MessageSent(
-        uint256 indexed height, // used for compute message proofs
-        bytes32 indexed messageHash,
-        Message message
-    );
+    event MessageSent(bytes32 indexed mhash, Message message);
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash,
-        IBridge.MessageStatus status,
-        bool succeeded
+        bytes32 indexed mhash,
+        IBridge.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -59,12 +54,22 @@ library LibBridgeData {
     /*********************
      * Internal Functions*
      *********************/
+    function updateMessageStatus(
+        State storage state,
+        bytes32 mhash,
+        IBridge.MessageStatus status
+    ) internal {
+        if (state.messageStatus[mhash] != status) {
+            state.messageStatus[mhash] = status;
+            emit LibBridgeData.MessageStatusChanged(mhash, status);
+        }
+    }
 
     function hashMessage(Message memory message)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(message));
+        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
     }
 }
