@@ -220,9 +220,6 @@ async function generateContractConfigs(
                 addressMap
             ),
             variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
                 // ReentrancyGuardUpgradeable
                 _status: 1, // _NOT_ENTERED
                 // AddressResolver
