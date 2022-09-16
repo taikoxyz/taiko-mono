@@ -37,11 +37,7 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    event MessageSent(
-        uint256 indexed height, // used for compute message proofs
-        bytes32 indexed mhash,
-        Message message
-    );
+    event MessageSent(bytes32 indexed mhash, Message message);
 
     event MessageStatusChanged(
         bytes32 indexed mhash,
@@ -66,18 +62,9 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (uint256 height, bytes32 mhash)
+        returns (bytes32 mhash)
     {
-        return state.sendMessage(msg.sender, message);
-    }
-
-    function sendMessage(Message calldata message, address refundFeeTo)
-        external
-        payable
-        nonReentrant
-        returns (uint256 height, bytes32 mhash)
-    {
-        return state.sendMessage(refundFeeTo, message);
+        return state.sendMessage(message);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)

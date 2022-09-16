@@ -37,7 +37,7 @@ library LibBridgeProcess {
         uint256 gasStart = gasleft();
         require(message.destChainId == block.chainid, "B:destChainId");
 
-        (bool received, bytes32 messageHash) = LibBridgeRead.isMessageReceived(
+        (bool received, bytes32 mhash) = LibBridgeRead.isMessageReceived(
             resolver,
             message,
             proof
@@ -45,7 +45,7 @@ library LibBridgeProcess {
         require(received, "B:notReceived");
 
         require(
-            state.messageStatus[messageHash] == IBridge.MessageStatus.NEW,
+            state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
             "B:status"
         );
 
@@ -85,7 +85,7 @@ library LibBridgeProcess {
             revert("B:forbidden");
         }
 
-        state.updateMessageStatus(messageHash, status);
+        state.updateMessageStatus(mhash, status);
 
         {
             address refundAddress = message.refundAddress == address(0)

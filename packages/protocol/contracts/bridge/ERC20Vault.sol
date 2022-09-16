@@ -112,7 +112,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address indexed to,
         CannonicalERC20 canonicalToken,
         uint256 amount,
-        uint256 height,
         bytes32 mhash,
         Message message
     );
@@ -121,7 +120,6 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address indexed from,
         address indexed to,
         uint256 amount,
-        uint256 height,
         bytes32 mhash,
         Message message
     );
@@ -158,10 +156,11 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         message.maxProcessingFee = maxProcessingFee;
 
         // Ether are held by Bridges, not ERC20Vaults
-        (uint256 height, bytes32 mhash) = IBridge(resolve("bridge"))
-            .sendMessage{value: msg.value}(message, msg.sender);
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
 
-        emit EtherSent(msg.sender, to, amount, height, mhash, message);
+        emit EtherSent(msg.sender, to, amount, mhash, message);
     }
 
     /// @inheritdoc IERC20Vault
@@ -215,18 +214,11 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             _amount
         );
 
-        (uint256 height, bytes32 mhash) = IBridge(resolve("bridge"))
-            .sendMessage{value: msg.value}(message, msg.sender);
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
 
-        emit ERC20Sent(
-            msg.sender,
-            to,
-            canonicalToken,
-            _amount,
-            height,
-            mhash,
-            message
-        );
+        emit ERC20Sent(msg.sender, to, canonicalToken, _amount, mhash, message);
     }
 
     /**

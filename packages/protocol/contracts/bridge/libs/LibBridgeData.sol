@@ -42,11 +42,7 @@ library LibBridgeData {
      *********************/
 
     // Note these events must match the one defined in Bridge.sol.
-    event MessageSent(
-        uint256 indexed height, // used for compute message proofs
-        bytes32 indexed mhash,
-        Message message
-    );
+    event MessageSent(bytes32 indexed mhash, Message message);
 
     event MessageStatusChanged(
         bytes32 indexed mhash,
