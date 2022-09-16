@@ -44,7 +44,7 @@ library LibBridgeRead {
         MKProof memory mkp = abi.decode(proof, (MKProof));
         require(srcChainId != block.chainid, "B:chainId");
 
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);
 
         // TODO(david): we need to verify that the message hash (mhash) was

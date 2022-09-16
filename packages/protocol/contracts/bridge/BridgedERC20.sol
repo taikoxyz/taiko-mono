@@ -43,9 +43,9 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         string memory _name
     ) external initializer {
         require(
-            _addressManager != address(0) &&
-                sourceToken != address(0) &&
+            sourceToken != address(0) &&
                 _sourceChainId != 0 &&
+                _sourceChainId != block.chainid &&
                 bytes(_symbol).length > 0 &&
                 bytes(_name).length > 0,
             "BE:params"
@@ -59,7 +59,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     function bridgeMintTo(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "taiko")
+        onlyFromNamedEither("erc20_vault", "taiko") // TODO
     {
         _mint(account, amount);
         emit BridgeMint(account, amount);
@@ -68,7 +68,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     function bridgeBurnFrom(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "taiko")
+        onlyFromNamedEither("erc20_vault", "taiko") // TODO
     {
         _burn(account, amount);
         emit BridgeBurn(account, amount);

@@ -32,7 +32,7 @@ describe("V1TaikoL2", function () {
 
         signers = await ethers.getSigners()
         await addressManager.setAddress(
-            "eth_depositor",
+            "1337.eth_depositor",
             await signers[0].getAddress()
         )
     })

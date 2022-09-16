@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "./IAddressManager.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -38,32 +39,31 @@ abstract contract AddressResolver {
      * @notice Resolves a name to an address.
      * @dev This funcition will throw if the resolved address is `address(0)`.
      * @param name The name to resolve
-     * @return addr The name's corresponding address
+     * @return  The name's corresponding address
      */
     function resolve(string memory name)
         public
         view
         virtual
-        returns (address payable addr)
+        returns (address payable)
     {
-        addr = payable(_addressManager.getAddress(name));
+        return _resolve(block.chainid, name);
     }
 
     /**
      * @notice Resolves a name to an address.
      * @dev This funcition will throw if the resolved address is `address(0)`.
-     * @param domain The domain
+     * @param chainId The chainId
      * @param name The name to resolve
-     * @return addr The name's corresponding address
+     * @return The name's corresponding address
      */
-    function resolve(uint256 domain, string memory name)
+    function resolve(uint256 chainId, string memory name)
         public
         view
         virtual
-        returns (address payable addr)
+        returns (address payable)
     {
-        string memory _name = string(abi.encodePacked(domain, ".", name));
-        addr = payable(_addressManager.getAddress(_name));
+        return _resolve(chainId, name);
     }
 
     /**
@@ -75,6 +75,22 @@ abstract contract AddressResolver {
     }
 
     function _init(address addressManager_) internal virtual {
+        require(addressManager_ != address(0), "AR:zeroAddress");
         _addressManager = IAddressManager(addressManager_);
+    }
+
+    function _resolve(uint256 chainId, string memory name)
+        private
+        view
+        returns (address payable)
+    {
+        return
+            payable(
+                _addressManager.getAddress(
+                    string(
+                        abi.encodePacked(Strings.toString(chainId), ".", name)
+                    )
+                )
+            );
     }
 }

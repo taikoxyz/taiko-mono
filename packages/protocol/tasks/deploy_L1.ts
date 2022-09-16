@@ -64,23 +64,26 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(hre, await AddressManager.init())
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("dao_vault", daoVault)
+        await AddressManager.setAddress(chainId + ".dao_vault", daoVault)
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("team_vault", teamVault)
+        await AddressManager.setAddress(chainId + ".team_vault", teamVault)
     )
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("v1_taiko_l2", v1TaikoL2Address)
+        await AddressManager.setAddress("1337.taiko", v1TaikoL2Address)
     )
 
     // TkoToken
-    const TkoToken = await utils.deployContract(hre, "TkoToken")
+    const TkoToken = await utils.deployContract(hre, chainId + ".TkoToken")
     await utils.waitTx(hre, await TkoToken.init(AddressManager.address))
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("tko_token", TkoToken.address)
+        await AddressManager.setAddress(
+            chainId + ".tko_token",
+            TkoToken.address
+        )
     )
 
     // Config manager
@@ -88,7 +91,10 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(hre, await ConfigManager.init())
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("config_manager", ConfigManager.address)
+        await AddressManager.setAddress(
+            chainId + ".config_manager",
+            ConfigManager.address
+        )
     )
 
     // TaikoL1
