@@ -101,7 +101,7 @@ action("Generate Genesis", function () {
             expect(owner).to.be.equal(testConfig.contractOwner)
 
             const ethDepositor = await addressManager.getAddress(
-                "eth_depositor"
+                `${testConfig.chainId}.eth_depositor`
             )
 
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)

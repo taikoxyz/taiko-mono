@@ -23,8 +23,8 @@ library LibBridgeData {
         mapping(uint256 => bool) destChains;
         mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
-        IBridge.Context ctx; // 3 slots
-        uint256[44] __gap;
+        IBridge.Context ctx; // 2 slots
+        uint256[45] __gap;
     }
 
     /*********************
@@ -42,7 +42,7 @@ library LibBridgeData {
      *********************/
 
     // Note these events must match the one defined in Bridge.sol.
-    event MessageSent(bytes32 indexed mhash, Message message);
+    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
 
     event MessageStatusChanged(
         bytes32 indexed mhash,
@@ -65,7 +65,7 @@ library LibBridgeData {
         }
     }
 
-    function hashMessage(Message memory message)
+    function hashMessage(IBridge.Message memory message)
         internal
         pure
         returns (bytes32)

@@ -16,14 +16,10 @@ import "./LibBridgeRead.sol";
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
-
-    /*********************
-     * Internal Functions*
-     *********************/
 
     /**
      * @dev This function can be called by any address, including `message.owner`.
@@ -31,11 +27,10 @@ library LibBridgeProcess {
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        Message calldata message,
+        IBridge.Message calldata message,
         bytes calldata proof
     ) external {
         uint256 gasStart = gasleft();
-
         require(message.destChainId == block.chainid, "B:destChainId");
 
         bytes32 mhash = message.hashMessage();
@@ -44,33 +39,29 @@ library LibBridgeProcess {
             "B:status"
         );
         require(
-            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
+            LibBridgeRead.isMessageReceived(
+                resolver,
+                mhash,
+                message.srcChainId,
+                proof
+            ),
             "B:notReceived"
         );
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
-        if (message.depositValue > 0) {
-            // sending ether may end up with another contract calling back to
-            // this contract.
-            message.owner.sendEther(message.depositValue);
-        }
+        message.owner.sendEther(message.depositValue);
 
         IBridge.MessageStatus status;
         uint256 refundAmount;
-        uint256 invocationGasUsed;
-        bool success;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
             status = IBridge.MessageStatus.DONE;
-            success = true;
             refundAmount = message.callValue;
         } else if (message.gasLimit > 0 || message.owner == msg.sender) {
-            invocationGasUsed = gasleft();
-
-            success = state.invokeMessageCall(
+            bool success = state.invokeMessageCall(
                 message,
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
@@ -78,63 +69,33 @@ library LibBridgeProcess {
             status = success
                 ? IBridge.MessageStatus.DONE
                 : IBridge.MessageStatus.RETRIABLE;
-
-            invocationGasUsed -= gasleft();
         } else {
             revert("B:forbidden");
         }
 
         state.updateMessageStatus(mhash, status);
 
-        {
-            address refundAddress = message.refundAddress == address(0)
-                ? message.owner
-                : message.refundAddress;
+        // Refund processing fees if necessary
+        address refundAddress = message.refundAddress == address(0)
+            ? message.owner
+            : message.refundAddress;
 
-            (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
-                message,
-                gasStart,
-                invocationGasUsed
-            );
-
-            if (refundAddress == msg.sender) {
-                refundAddress.sendEther(refundAmount + feeRefundAmound + fees);
-            } else {
-                refundAddress.sendEther(refundAmount + feeRefundAmound);
-                msg.sender.sendEther(fees);
-            }
-        }
-    }
-
-    /*********************
-     * Private Functions *
-     *********************/
-
-    /**
-     * @dev Calculates the amount of fee Ether that should be refuned
-     *      and the amount of fees to message processor.
-     */
-    function _calculateFees(
-        Message memory message,
-        uint256 gasStart,
-        uint256 invocationGasUsed
-    ) private view returns (uint256 feeRefundAmound, uint256 fees) {
-        uint256 processingFee = (gasStart -
-            gasleft() -
-            invocationGasUsed +
-            LibBridgeData.MESSAGE_PROCESSING_OVERHEAD).min(
+        if (refundAddress == msg.sender) {
+            refundAddress.sendEther(refundAmount + message.maxProcessingFee);
+        } else {
+            uint256 processingCost = tx.gasprice *
+                (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
+                    gasStart -
+                    gasleft());
+            uint256 processingFee = processingCost.min(
                 message.maxProcessingFee
             );
 
-        uint256 invocationFee = message.gasLimit.min(invocationGasUsed) *
-            message.gasPrice.min(tx.gasprice);
+            uint256 processingFeeRefund = message.maxProcessingFee -
+                processingFee;
 
-        fees = processingFee + invocationFee;
-
-        feeRefundAmound =
-            message.gasPrice *
-            message.gasLimit +
-            message.maxProcessingFee -
-            fees;
+            refundAddress.sendEther(refundAmount + processingFeeRefund);
+            msg.sender.sendEther(processingFee);
+        }
     }
 }

@@ -10,12 +10,12 @@ pragma solidity ^0.8.9;
 
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
-import "../../thirdparty/Lib_MerkleTrie.sol";
+import "../../libs/LibTrieProof.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRead {
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBlockHeader for BlockHeader;
 
     /*********************
@@ -38,22 +38,26 @@ library LibBridgeRead {
     function isMessageReceived(
         AddressResolver resolver,
         bytes32 mhash,
+        uint256 srcChainId,
         bytes calldata proof
     ) internal view returns (bool received) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
+        require(srcChainId != block.chainid, "B:chainId");
 
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("header_sync"))
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);
+
+        LibTrieProof.verify(
+            mkp.header.stateRoot,
+            resolver.resolve(srcChainId, "bridge"),
+            mhash,
+            bytes32(uint256(1)),
+            mkp.proof
+        );
 
         received =
             syncedHeaderHash != 0 &&
-            syncedHeaderHash == mkp.header.hashBlockHeader() &&
-            Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeBytes32(mhash),
-                Lib_RLPWriter.writeUint(1),
-                mkp.proof,
-                mkp.header.stateRoot
-            );
+            syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
     function context(LibBridgeData.State storage state)

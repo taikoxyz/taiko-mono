@@ -37,7 +37,7 @@ contract Bridge is EssentialContract, IBridge {
      * Events             *
      *********************/
 
-    event MessageSent(bytes32 indexed mhash, Message message);
+    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
 
     event MessageStatusChanged(
         bytes32 indexed mhash,
@@ -74,18 +74,11 @@ contract Bridge is EssentialContract, IBridge {
         return state.processMessage(AddressResolver(this), message, proof);
     }
 
-    function retryMessage(
-        Message calldata message,
-        bytes calldata proof,
-        bool lastAttempt
-    ) external nonReentrant {
-        return
-            state.retryMessage(
-                AddressResolver(this),
-                message,
-                proof,
-                lastAttempt
-            );
+    function retryMessage(Message calldata message, bool lastAttempt)
+        external
+        nonReentrant
+    {
+        return state.retryMessage(message, lastAttempt);
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)
@@ -103,13 +96,13 @@ contract Bridge is EssentialContract, IBridge {
         return LibBridgeRead.isMessageSent(mhash);
     }
 
-    function isMessageReceived(bytes32 mhash, bytes calldata proof)
-        public
-        view
-        virtual
-        returns (bool)
-    {
-        return AddressResolver(this).isMessageReceived(mhash, proof);
+    function isMessageReceived(
+        bytes32 mhash,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) public view virtual returns (bool) {
+        return
+            AddressResolver(this).isMessageReceived(mhash, srcChainId, proof);
     }
 
     function getMessageStatus(bytes32 mhash)

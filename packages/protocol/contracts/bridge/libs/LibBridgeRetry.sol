@@ -15,7 +15,7 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRetry {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
@@ -26,9 +26,7 @@ library LibBridgeRetry {
 
     function retryMessage(
         LibBridgeData.State storage state,
-        AddressResolver resolver,
-        Message calldata message,
-        bytes calldata proof,
+        IBridge.Message calldata message,
         bool lastAttempt
     ) external {
         if (message.gasLimit == 0 || lastAttempt) {
@@ -40,23 +38,17 @@ library LibBridgeRetry {
             state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
-        require(
-            LibBridgeRead.isMessageReceived(resolver, mhash, proof),
-            "B:notReceived"
-        );
 
         if (state.invokeMessageCall(message, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
-            if (message.callValue > 0) {
-                address refundAddress = message.refundAddress == address(0)
-                    ? message.owner
-                    : message.refundAddress;
+            address refundAddress = message.refundAddress == address(0)
+                ? message.owner
+                : message.refundAddress;
 
-                refundAddress.sendEther(message.callValue);
-            }
+            refundAddress.sendEther(message.callValue);
         }
     }
 }

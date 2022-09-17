@@ -203,7 +203,7 @@ async function generateContractConfigs(
                     // keccak256(abi.encodePacked(_name))
                     [`${ethers.utils.solidityKeccak256(
                         ["string"],
-                        ["eth_depositor"]
+                        [`${config.chainId}.eth_depositor`]
                     )}`]: config.ethDepositor,
                 },
             },
