@@ -72,6 +72,8 @@ contract TokenVault is EssentialContract, ITokenVault {
         bytes32 mhash
     );
 
+    event EtherReceived(address from, uint256 amount);
+
     event ERC20Sent(
         address indexed to,
         uint256 destChainId,
@@ -127,6 +129,10 @@ contract TokenVault is EssentialContract, ITokenVault {
         }(message);
 
         emit EtherSent(to, destChainId, msg.value, mhash);
+    }
+
+    receive() external payable {
+        emit EtherReceived(msg.sender, msg.value);
     }
 
     /// @inheritdoc ITokenVault

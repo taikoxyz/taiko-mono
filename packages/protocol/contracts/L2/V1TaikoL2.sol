@@ -38,8 +38,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
-    event EtherCredited(address recipient, uint256 amount);
-    event EtherReturned(address recipient, uint256 amount);
 
     /**********************
      * Modifiers          *
@@ -64,6 +62,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * External Functions *
      **********************/
+
     /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
     ///         bridging. This function will also check certain block-level global
     ///         variables because they are not part of the Trie structure.
