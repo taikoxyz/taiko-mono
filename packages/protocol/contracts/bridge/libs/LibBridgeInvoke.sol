@@ -30,8 +30,8 @@ library LibBridgeInvoke {
         require(gasLimit > 0, "B:gasLimit");
 
         state.ctx = IBridge.Context({
-            messageHash: mhash,
-            srcChainSender: message.sender,
+            mhash: mhash,
+            sender: message.sender,
             srcChainId: message.srcChainId
         });
 
@@ -40,8 +40,8 @@ library LibBridgeInvoke {
         );
 
         state.ctx = IBridge.Context({
-            messageHash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
-            srcChainSender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
+            mhash: LibBridgeData.MESSAGE_HASH_PLACEHOLDER,
+            sender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
             srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });
     }

@@ -228,7 +228,7 @@ contract TokenVault is EssentialContract, ITokenVault {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(
-            ctx.srcChainSender == resolve(ctx.srcChainId, "token_vault"),
+            ctx.sender == resolve(ctx.srcChainId, "token_vault"),
             "V:sender"
         );
 
