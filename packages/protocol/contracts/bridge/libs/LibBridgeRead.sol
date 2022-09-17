@@ -40,9 +40,6 @@ library LibBridgeRead {
         MKProof memory mkp = abi.decode(proof, (MKProof));
         require(srcChainId != block.chainid, "B:chainId");
 
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-            .getSyncedHeader(mkp.header.height);
-
         LibTrieProof.verify(
             mkp.header.stateRoot,
             resolver.resolve(srcChainId, "bridge"),
@@ -50,6 +47,9 @@ library LibBridgeRead {
             bytes32(uint256(1)),
             mkp.proof
         );
+
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
+            .getSyncedHeader(mkp.header.height);
 
         return
             syncedHeaderHash != 0 &&

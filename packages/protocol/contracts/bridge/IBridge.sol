@@ -19,7 +19,7 @@ interface IBridge {
 
     struct Message {
         uint256 id; // auto filled
-        address bridge; // auto filled
+        address sender; // auto filled
         uint256 srcChainId; // auto filled
         uint256 destChainId;
         address owner;

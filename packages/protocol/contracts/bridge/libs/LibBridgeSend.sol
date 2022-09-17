@@ -34,7 +34,7 @@ library LibBridgeSend {
         require(expectedAmount == msg.value, "B:value");
 
         message.id = state.nextMessageId++;
-        message.bridge = address(this);
+        message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
         mhash = message.hashMessage();
