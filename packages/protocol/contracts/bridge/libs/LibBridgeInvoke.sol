@@ -17,10 +17,6 @@ library LibBridgeInvoke {
     using LibBridgeData for IBridge.Message;
     using LibBridgeRead for LibBridgeData.State;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     function invokeMessageCall(
         LibBridgeData.State storage state,
         IBridge.Message memory message,

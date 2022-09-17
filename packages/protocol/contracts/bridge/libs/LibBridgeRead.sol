@@ -18,10 +18,6 @@ library LibBridgeRead {
     using LibBridgeData for IBridge.Message;
     using LibBlockHeader for BlockHeader;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     struct MKProof {
         BlockHeader header;
         bytes proof;
@@ -40,7 +36,7 @@ library LibBridgeRead {
         bytes32 mhash,
         uint256 srcChainId,
         bytes calldata proof
-    ) internal view returns (bool received) {
+    ) internal view returns (bool) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
         require(srcChainId != block.chainid, "B:chainId");
 
@@ -55,7 +51,7 @@ library LibBridgeRead {
             mkp.proof
         );
 
-        received =
+        return
             syncedHeaderHash != 0 &&
             syncedHeaderHash == mkp.header.hashBlockHeader();
     }

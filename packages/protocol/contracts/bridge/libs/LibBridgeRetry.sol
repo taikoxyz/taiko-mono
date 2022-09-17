@@ -20,10 +20,6 @@ library LibBridgeRetry {
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     function retryMessage(
         LibBridgeData.State storage state,
         IBridge.Message calldata message,
