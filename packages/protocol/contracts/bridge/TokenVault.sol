@@ -15,57 +15,14 @@ import "../common/EssentialContract.sol";
 import "../L1/TkoToken.sol";
 import "./BridgedERC20.sol";
 import "./IBridge.sol";
-
-/// @author dantaik <dan@taiko.xyz>
-interface IERC20Vault {
-    /**
-     * @notice Transfers Ether to this vault and sends a message to the
-     *         destination chain so the user can receive Ether.
-     * @dev Ether are held by Bridges, not ERC20Vaults.
-     * @param destChainId The destination chain ID where the `to` address lives.
-     * @param to The destination address.
-     * @param amount The amount of token to be transferred.
-     * @param maxProcessingFee @custom:see Bridge
-     */
-    function sendEther(
-        uint256 destChainId,
-        address to,
-        uint256 amount,
-        uint256 maxProcessingFee
-    ) external payable;
-
-    /**
-     * @notice Transfers ERC20 tokens to this vault and sends a message to the
-     *         destination chain so the user can receive the same amount of tokens
-     *         by invoking the message call.
-     * @param token The address of the token to be sent.
-     * @param destChainId The destination chain ID where the `to` address lives.
-     * @param to The destination address.
-     * @param refundAddress The fee refund address. If this address is address(0), extra
-     *        fees will be refunded back to the `to` address.
-     * @param amount The amount of token to be transferred.
-     * @param maxProcessingFee @custom:see Bridge
-     * @param gasLimit @custom:see Bridge
-     * @param gasPrice @custom:see Bridge
-     */
-    function sendERC20(
-        address token,
-        uint256 destChainId,
-        address to,
-        address refundAddress,
-        uint256 amount,
-        uint256 maxProcessingFee,
-        uint256 gasLimit,
-        uint256 gasPrice
-    ) external payable;
-}
+import "./ITokenVault.sol";
 
 /**
  *  @dev This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  *       It also manages the mapping between cannonical ERC20 tokens and their bridged tokens.
  */
-contract ERC20Vault is EssentialContract, IERC20Vault {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+contract TokenVault is EssentialContract, ITokenVault {
+    using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*********************
      * Structs           *
@@ -90,6 +47,7 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     mapping(address => CannonicalERC20) public bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
+    // chainId => cannonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
     uint256[47] private __gap;
@@ -107,30 +65,27 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         uint8 canonicalTokenDecimal
     );
 
-    event ERC20Sent(
-        address indexed from,
+    event EtherSent(
         address indexed to,
-        CannonicalERC20 canonicalToken,
+        uint256 destChainId,
         uint256 amount,
-        uint256 height,
-        bytes32 signal,
-        bytes32 messageHash,
-        Message message
+        bytes32 mhash
     );
 
-    event EtherSent(
-        address indexed from,
+    event EtherReceived(address from, uint256 amount);
+
+    event ERC20Sent(
         address indexed to,
+        uint256 destChainId,
+        address token,
         uint256 amount,
-        uint256 height,
-        bytes32 signal,
-        bytes32 messageHash,
-        Message message
+        bytes32 mhash
     );
 
     event ERC20Received(
-        address indexed from,
         address indexed to,
+        address from,
+        uint256 srcChainId,
         address token,
         uint256 amount
     );
@@ -146,118 +101,114 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
     function sendEther(
         uint256 destChainId,
         address to,
-        uint256 amount,
-        uint256 maxProcessingFee
+        uint256 gasLimit,
+        uint256 maxProcessingFee,
+        address refundAddress,
+        string memory memo
     ) external payable nonReentrant {
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
+        require(
+            to != address(0) && to != resolve(destChainId, "token_vault"),
+            "V:to"
+        );
+        require(msg.value > 0, "V:msgValue");
 
-        require(destChainId != _chainId, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
-
-        address sender = _msgSender();
-
-        Message memory message;
+        IBridge.Message memory message;
         message.destChainId = destChainId;
-        message.owner = sender;
+        message.owner = msg.sender;
         message.to = to;
-        message.depositValue = amount;
+
+        message.gasLimit = gasLimit;
         message.maxProcessingFee = maxProcessingFee;
+        message.depositValue = msg.value;
+        message.refundAddress = refundAddress;
+        message.memo = memo;
 
-        // Ether are held by Bridges, not ERC20Vaults
-        (uint256 height, bytes32 signal, bytes32 messageHash) = IBridge(
-            resolve("bridge")
-        ).sendMessage{value: msg.value}(
-            sender, // refund unspent ether to msg sender
-            message
-        );
+        // Ether are held by the Bridge, not the TokenVault
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
 
-        emit EtherSent(
-            sender,
-            to,
-            amount,
-            height,
-            signal,
-            messageHash,
-            message
-        );
+        emit EtherSent(to, destChainId, msg.value, mhash);
     }
 
-    /// @inheritdoc IERC20Vault
+    receive() external payable {
+        emit EtherReceived(msg.sender, msg.value);
+    }
+
+    /// @inheritdoc ITokenVault
     function sendERC20(
-        address token,
         uint256 destChainId,
         address to,
-        address refundAddress,
+        address token,
         uint256 amount,
-        uint256 maxProcessingFee,
         uint256 gasLimit,
-        uint256 gasPrice
+        uint256 maxProcessingFee,
+        address refundAddress,
+        string memory memo
     ) external payable nonReentrant {
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
-        require(destChainId != _chainId, "V:invalid destChainId");
-        require(to != address(0), "V:zero to");
-        require(token != address(0), "V:zero token");
+        require(
+            to != address(0) && to != resolve(destChainId, "token_vault"),
+            "V:to"
+        );
+        require(token != address(0), "V:token");
+        require(amount > 0, "V:amount");
 
         CannonicalERC20 memory canonicalToken;
         uint256 _amount;
-        address sender = _msgSender();
 
         if (isBridgedToken[token]) {
-            BridgedERC20(payable(token)).bridgeBurnFrom(sender, amount);
+            BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
+            require(canonicalToken.addr != address(0), "V:canonicalToken");
             _amount = amount;
         } else {
             // The canonical token lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
             canonicalToken = CannonicalERC20({
-                chainId: _chainId,
+                chainId: block.chainid,
                 addr: token,
                 decimals: t.decimals(),
                 symbol: t.symbol(),
                 name: t.name()
             });
-            _amount = _transferFrom(sender, token, amount);
+
+            if (token == resolve("tko_token")) {
+                // Special handling for Tai token: we do not send TAI to
+                // this vault, instead, we burn the user's TAI. This is because
+                // on L2, we are minting new tokens to validators and DAO.
+                TkoToken(token).burn(msg.sender, amount);
+                _amount = amount;
+            } else {
+                uint256 _balance = t.balanceOf(address(this));
+                t.safeTransferFrom(msg.sender, address(this), amount);
+                _amount = t.balanceOf(address(this)) - _balance;
+            }
         }
 
-        Message memory message;
+        IBridge.Message memory message;
         message.destChainId = destChainId;
-        message.owner = sender;
-        message.to = _getRemoteERC20Vault(destChainId);
-        message.refundAddress = refundAddress;
-        message.maxProcessingFee = maxProcessingFee;
-        message.gasLimit = gasLimit;
-        message.gasPrice = gasPrice;
+        message.owner = msg.sender;
+
+        message.to = resolve(destChainId, "token_vault");
         message.data = abi.encodeWithSelector(
-            ERC20Vault.receiveERC20.selector,
+            TokenVault.receiveERC20.selector,
             canonicalToken,
             message.owner,
             to,
             _amount
         );
 
-        (uint256 height, bytes32 signal, bytes32 messageHash) = IBridge(
-            resolve("bridge")
-        ).sendMessage{value: msg.value}(
-            sender, // refund unspent ether to msg sender
-            message
-        );
+        message.gasLimit = gasLimit;
+        message.maxProcessingFee = maxProcessingFee;
+        message.depositValue = msg.value;
+        message.refundAddress = refundAddress;
+        message.memo = memo;
 
-        emit ERC20Sent(
-            sender,
-            to,
-            canonicalToken,
-            _amount,
-            height,
-            signal,
-            messageHash,
-            message
-        );
+        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+            value: msg.value
+        }(message);
+
+        emit ERC20Sent(to, destChainId, token, _amount, mhash);
     }
 
     /**
@@ -275,38 +226,28 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
         address to,
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
-        IBridge.Context memory ctx = IBridge(_msgSender()).context();
-
-        uint256 _chainId;
-        assembly {
-            _chainId := chainid()
-        }
-        require(ctx.destChainId == _chainId, "V:invalid chain id");
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(
-            ctx.srcChainSender == _getRemoteERC20Vault(ctx.srcChainId),
-            "V:invalid sender"
+            ctx.sender == resolve(ctx.srcChainId, "token_vault"),
+            "V:sender"
         );
 
         address token;
-        if (canonicalToken.chainId == _chainId) {
-            require(
-                isBridgedToken[canonicalToken.addr] == false,
-                "V:invalid token"
-            );
+        if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
             if (token == resolve("tko_token")) {
                 // Special handling for Tai token: we do not send TAI from
                 // this vault to the user, instead, we mint new TAI to him.
                 TkoToken(token).mint(to, amount);
             } else {
-                IERC20Upgradeable(token).safeTransfer(to, amount);
+                ERC20Upgradeable(token).safeTransfer(to, amount);
             }
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
-            BridgedERC20(payable(token)).bridgeMintTo(to, amount);
+            BridgedERC20(token).bridgeMintTo(to, amount);
         }
 
-        emit ERC20Received(from, to, token, amount);
+        emit ERC20Received(to, from, ctx.srcChainId, token, amount);
     }
 
     /*********************
@@ -371,37 +312,5 @@ contract ERC20Vault is EssentialContract, IERC20Vault {
             canonicalToken.name,
             canonicalToken.decimals
         );
-    }
-
-    function _transferFrom(
-        address from,
-        address token,
-        uint256 amount
-    )
-        private
-        returns (
-            uint256 /*_amount*/
-        )
-    {
-        if (token == resolve("tko_token")) {
-            // Special handling for Tai token: we do not send TAI to
-            // this vault, instead, we burn the user's TAI. This is because
-            // on L2, we are minting new tokens to validators and DAO.
-            TkoToken(token).burn(from, amount);
-            return amount;
-        } else {
-            IERC20Upgradeable t = IERC20Upgradeable(token);
-            uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom(from, address(this), amount);
-            return t.balanceOf(address(this)) - _balance;
-        }
-    }
-
-    function _getRemoteERC20Vault(uint256 _chainId)
-        private
-        view
-        returns (address payable)
-    {
-        return resolve(string(abi.encodePacked(_chainId, ".erc20_vault")));
     }
 }
