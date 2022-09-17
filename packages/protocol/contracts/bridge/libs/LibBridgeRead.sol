@@ -18,10 +18,6 @@ library LibBridgeRead {
     using LibBridgeData for IBridge.Message;
     using LibBlockHeader for BlockHeader;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     struct MKProof {
         BlockHeader header;
         bytes proof;
@@ -40,12 +36,9 @@ library LibBridgeRead {
         bytes32 mhash,
         uint256 srcChainId,
         bytes calldata proof
-    ) internal view returns (bool received) {
+    ) internal view returns (bool) {
         MKProof memory mkp = abi.decode(proof, (MKProof));
         require(srcChainId != block.chainid, "B:chainId");
-
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-            .getSyncedHeader(mkp.header.height);
 
         LibTrieProof.verify(
             mkp.header.stateRoot,
@@ -55,22 +48,12 @@ library LibBridgeRead {
             mkp.proof
         );
 
-        received =
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
+            .getSyncedHeader(mkp.header.height);
+
+        return
             syncedHeaderHash != 0 &&
             syncedHeaderHash == mkp.header.hashBlockHeader();
-    }
-
-    function context(LibBridgeData.State storage state)
-        internal
-        view
-        returns (IBridge.Context memory)
-    {
-        require(
-            state.ctx.srcChainSender !=
-                LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            "B:noContext"
-        );
-        return state.ctx;
     }
 
     function isDestChainEnabled(

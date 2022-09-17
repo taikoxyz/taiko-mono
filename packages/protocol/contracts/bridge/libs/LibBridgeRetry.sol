@@ -20,10 +20,6 @@ library LibBridgeRetry {
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
     function retryMessage(
         LibBridgeData.State storage state,
         IBridge.Message calldata message,
@@ -39,7 +35,7 @@ library LibBridgeRetry {
             "B:notFound"
         );
 
-        if (state.invokeMessageCall(message, gasleft())) {
+        if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);

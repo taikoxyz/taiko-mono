@@ -23,43 +23,46 @@ interface IBridgedERC20 is IERC20Upgradeable, IERC20MetadataUpgradeable {
 
     function bridgeBurnFrom(address account, uint256 amount) external;
 
-    function source() external view returns (address token, uint256 chainId);
+    function source()
+        external
+        view
+        returns (address srcToken, uint256 srcChainId);
 }
 
 /// @author dantaik <dan@taiko.xyz>
 contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
-    address public sourceToken;
-    uint256 public sourceChainId;
+    address public srcToken;
+    uint256 public srcChainId;
 
     uint256[48] private __gap;
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(
         address _addressManager,
-        address _sourceToken,
-        uint256 _sourceChainId,
+        address _srcToken,
+        uint256 _srcChainId,
         uint8 _decimals,
         string memory _symbol,
         string memory _name
     ) external initializer {
         require(
-            sourceToken != address(0) &&
-                _sourceChainId != 0 &&
-                _sourceChainId != block.chainid &&
+            srcToken != address(0) &&
+                _srcChainId != 0 &&
+                _srcChainId != block.chainid &&
                 bytes(_symbol).length > 0 &&
                 bytes(_name).length > 0,
             "BE:params"
         );
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init(_name, _symbol, _decimals);
-        sourceToken = _sourceToken;
-        sourceChainId = _sourceChainId;
+        srcToken = _srcToken;
+        srcChainId = _srcChainId;
     }
 
     function bridgeMintTo(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "taiko") // TODO
+        onlyFromNamed("token_vault")
     {
         _mint(account, amount);
         emit BridgeMint(account, amount);
@@ -68,7 +71,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     function bridgeBurnFrom(address account, uint256 amount)
         public
         override
-        onlyFromNamedEither("erc20_vault", "taiko") // TODO
+        onlyFromNamed("token_vault")
     {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
@@ -92,7 +95,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
-    function source() public view returns (address token, uint256 chainId) {
-        return (sourceToken, sourceChainId);
+    function source() public view returns (address, uint256) {
+        return (srcToken, srcChainId);
     }
 }

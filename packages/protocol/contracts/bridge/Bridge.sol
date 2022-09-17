@@ -115,7 +115,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function context() public view returns (Context memory) {
-        return state.context();
+        return state.ctx;
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
