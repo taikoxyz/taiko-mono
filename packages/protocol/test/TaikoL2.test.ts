@@ -39,41 +39,6 @@ describe("V1TaikoL2", function () {
         )
     })
 
-    it("should emit EtherReturned event when receiving ether", async function () {
-        expect(
-            await signers[0].sendTransaction({
-                to: v1TaikoL2.address,
-                value: ethers.utils.parseEther("150.0"),
-            })
-        ).to.emit(v1TaikoL2, "EtherReturned")
-    })
-
-    describe("creditEther()", async function () {
-        it("should throw if recipient address is v1TaikoL2.address", async function () {
-            await expect(v1TaikoL2.creditEther(v1TaikoL2.address, "1000")).to
-                .reverted
-        })
-
-        it('should revert if not from named "eth_depositor"', async function () {
-            const randWallet = ethers.Wallet.createRandom().address
-            await expect(
-                v1TaikoL2.connect(randWallet).creditEther(randWallet, "1000")
-            ).to.reverted
-        })
-
-        it("should emit EtherCredited when crediting Ether to recipient and balance of reciever should be ether credited", async function () {
-            const recieverWallet = ethers.Wallet.createRandom().address
-            const amount = "10000"
-            expect(await v1TaikoL2.creditEther(recieverWallet, amount)).to.emit(
-                v1TaikoL2,
-                "EtherCredited"
-            )
-            expect(await ethers.provider.getBalance(recieverWallet)).to.equal(
-                amount
-            )
-        })
-    })
-
     describe("anchor()", async function () {
         it("should revert since ancestor hashes not written", async function () {
             const randomHash = randomBytes32()
