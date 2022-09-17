@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
-import "../../thirdparty/Lib_MerkleTrie.sol";
+import "../../libs/LibTrieProof.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -47,19 +47,17 @@ library LibBridgeRead {
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);
 
-        // TODO(david): we need to verify that the message hash (mhash) was
-        // written in the storage of the bridge on the source chain.
-        address srcBridge = resolver.resolve(srcChainId, "bridge");
+        LibTrieProof.verify(
+            mkp.header.stateRoot,
+            resolver.resolve(srcChainId, "bridge"),
+            mhash,
+            bytes32(uint256(1)),
+            mkp.proof
+        );
 
         received =
             syncedHeaderHash != 0 &&
-            syncedHeaderHash == mkp.header.hashBlockHeader() &&
-            Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeBytes32(mhash),
-                Lib_RLPWriter.writeUint(1),
-                mkp.proof,
-                mkp.header.stateRoot
-            );
+            syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
     function context(LibBridgeData.State storage state)
