@@ -18,7 +18,7 @@ library LibBridgeInvoke {
     using LibBridgeRead for LibBridgeData.State;
 
     function invokeMessageCall(
-        LibBridgeData.State storage state,
+        LibBridgeData.State storage, /*state*/
         IBridge.Message memory message,
         uint256 gasLimit
     ) internal returns (bool success) {

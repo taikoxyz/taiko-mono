@@ -64,11 +64,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * External Functions *
      **********************/
-
-    fallback() external payable {
-        revert("L2:prohibited");
-    }
-
     /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
     ///         bridging. This function will also check certain block-level global
     ///         variables because they are not part of the Trie structure.
