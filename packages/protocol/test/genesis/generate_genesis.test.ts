@@ -101,7 +101,7 @@ action("Generate Genesis", function () {
             expect(owner).to.be.equal(testConfig.contractOwner)
 
             const ethDepositor = await addressManager.getAddress(
-                "eth_depositor"
+                `${testConfig.chainId}.eth_depositor`
             )
 
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
@@ -140,13 +140,6 @@ action("Generate Genesis", function () {
             await expect(
                 V1TaikoL2.anchor(latestL1Height, latestL1Hash)
             ).not.to.reverted
-
-            await expect(
-                V1TaikoL2.creditEther(
-                    hre.ethers.Wallet.createRandom().address,
-                    1024
-                )
-            ).to.emit(V1TaikoL2, "EtherCredited")
         })
     })
 

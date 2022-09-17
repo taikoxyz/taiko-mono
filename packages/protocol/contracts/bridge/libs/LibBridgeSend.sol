@@ -14,70 +14,34 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeSend {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
     using LibBridgeRead for LibBridgeData.State;
-
-    /*********************
-     * Internal Functions*
-     *********************/
 
     function sendMessage(
         LibBridgeData.State storage state,
-        AddressResolver resolver,
-        address sender,
-        address refundFeeTo,
-        Message memory message
-    )
-        internal
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        )
-    {
+        IBridge.Message memory message
+    ) internal returns (bytes32 mhash) {
+        require(message.owner != address(0), "B:owner");
         require(
-            message.destChainId != LibBridgeRead.chainId() &&
+            message.destChainId != block.chainid &&
                 state.isDestChainEnabled(message.destChainId),
-            "B:invalid destChainId"
+            "B:destChainId"
         );
+
+        uint256 expectedAmount = message.depositValue +
+            message.callValue +
+            message.maxProcessingFee;
+        require(expectedAmount == msg.value, "B:value");
 
         message.id = state.nextMessageId++;
-        message.sender = sender;
-        message.srcChainId = LibBridgeRead.chainId();
+        message.sender = msg.sender;
+        message.srcChainId = block.chainid;
 
-        if (message.owner == address(0)) {
-            message.owner = sender;
+        mhash = message.hashMessage();
+        assembly {
+            sstore(mhash, 1)
         }
-
-        // ISignalService signalService = ISignalService(
-        //     resolver.resolve("rollup")
-        // );
-
-        uint256 fee;
-        // uint256 capacity;
-        // = signalService
-        //     .getSignalFeeAndCapacity();
-        // require(capacity > 0, "B:out of capacity");
-
-        messageHash = message.hashMessage();
-
-        // `signalFee` is paid to the Rollup contract.
-        // (height, signal) = signalService.sendSignal{value: fee}(
-        //     messageHash,
-        //     address(0) // the signal fee refund amount is 0.
-        // );
-
-        _handleMessageFee(refundFeeTo, fee, message);
-
-        emit LibBridgeData.MessageSent(
-            messageHash,
-            message.owner,
-            message.srcChainId,
-            message.id,
-            height,
-            signal,
-            abi.encode(message)
-        );
+        emit LibBridgeData.MessageSent(mhash, message);
     }
 
     function enableDestChain(
@@ -85,39 +49,8 @@ library LibBridgeSend {
         uint256 chainId,
         bool enabled
     ) internal {
-        require(
-            chainId > 0 && chainId != LibBridgeRead.chainId(),
-            "B:invalid chainId"
-        );
+        require(chainId > 0 && chainId != block.chainid, "B:chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
-    }
-
-    /*********************
-     * Private Functions *
-     *********************/
-
-    function _handleMessageFee(
-        address refundFeeTo,
-        uint256 signalFee,
-        Message memory message
-    ) private {
-        uint256 requiredEther = signalFee +
-            message.maxProcessingFee +
-            message.depositValue +
-            message.callValue +
-            (message.gasLimit * message.gasPrice);
-
-        if (msg.value > requiredEther) {
-            refundFeeTo.sendEther(msg.value - requiredEther);
-        } else if (msg.value < requiredEther) {
-            revert("B:insufficient ether");
-        }
-
-        // Important note:
-        // All remaining ether, which equals (requiredEther - signalFee)
-        // stay in this contract.
-        //
-        // The remote bridge will also have ether to credit to the message owner.
     }
 }

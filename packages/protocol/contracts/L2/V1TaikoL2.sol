@@ -38,8 +38,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
-    event EtherCredited(address recipient, uint256 amount);
-    event EtherReturned(address recipient, uint256 amount);
 
     /**********************
      * Modifiers          *
@@ -55,37 +53,15 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager, uint256 _chainId) initializer {
+    constructor(address _addressManager) {
         AddressResolver._init(_addressManager);
-
-        require(block.chainid == _chainId, "L2:chainId");
-        chainId = _chainId;
+        require(block.chainid != 0, "L2:chainId");
+        chainId = block.chainid;
     }
 
     /**********************
      * External Functions *
      **********************/
-
-    receive() external payable onlyFromNamed("eth_depositor") {
-        emit EtherReturned(msg.sender, msg.value);
-    }
-
-    fallback() external payable {
-        revert("L2:prohibited");
-    }
-
-    function creditEther(address recipient, uint256 amount)
-        external
-        nonReentrant
-        onlyFromNamed("eth_depositor")
-    {
-        require(
-            recipient != address(0) && recipient != address(this),
-            "L2:recipient"
-        );
-        payable(recipient).transfer(amount);
-        emit EtherCredited(recipient, amount);
-    }
 
     /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
     ///         bridging. This function will also check certain block-level global

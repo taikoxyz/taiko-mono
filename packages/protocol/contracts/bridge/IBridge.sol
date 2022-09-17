@@ -8,25 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-struct Message {
-    uint256 id; // auto filled
-    address sender; // auto filled
-    uint256 srcChainId; // auto filled
-    uint256 destChainId;
-    address owner;
-    address to;
-    address refundAddress;
-    uint256 depositValue;
-    uint256 callValue;
-    uint256 maxProcessingFee;
-    uint256 gasLimit;
-    uint256 gasPrice;
-    bytes data;
-    string memo;
-}
-
 /// @author dantaik <dan@taiko.xyz>
-/// @dev Cross-chain Ether are held by Bridges, not ERC20Vaults.
+/// @dev Cross-chain Ether are held by Bridges, not TokenVaults.
 interface IBridge {
     enum MessageStatus {
         NEW,
@@ -34,30 +17,35 @@ interface IBridge {
         DONE
     }
 
-    /*********************
-     * Structs           *
-     *********************/
-
-    struct Context {
-        address srcChainSender;
-        uint256 srcChainId;
+    struct Message {
+        uint256 id; // auto filled
+        address sender; // auto filled
+        uint256 srcChainId; // auto filled
         uint256 destChainId;
+        address owner;
+        address to;
+        address refundAddress;
+        uint256 depositValue;
+        uint256 callValue;
+        uint256 maxProcessingFee;
+        uint256 gasLimit;
+        uint256 gasPrice;
+        bytes data;
+        string memo;
     }
 
-    /*********************
-     * Functions         *
-     *********************/
+    struct Context {
+        bytes32 mhash;
+        address sender;
+        uint256 srcChainId;
+    }
 
     /// @dev Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(address refundFeeTo, Message memory message)
+    function sendMessage(Message memory message)
         external
         payable
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        );
+        returns (bytes32 mhash);
 
     function context() external view returns (Context memory context);
 }

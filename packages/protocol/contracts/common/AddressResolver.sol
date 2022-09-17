@@ -8,9 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-
 import "./IAddressManager.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -18,20 +17,19 @@ import "./IAddressManager.sol";
  *         Under the hood, it uses an AddressManager to manage the
  *         name-to-address mapping.
  */
-abstract contract AddressResolver is ContextUpgradeable {
+abstract contract AddressResolver {
     IAddressManager internal _addressManager;
 
     uint256[49] private __gap;
 
     modifier onlyFromNamed(string memory name) {
-        require(_msgSender() == resolve(name), "AR:denied");
+        require(msg.sender == resolve(name), "AR:denied");
         _;
     }
 
     modifier onlyFromNamedEither(string memory name1, string memory name2) {
-        address sender = _msgSender();
         require(
-            sender == resolve(name1) || sender == resolve(name2),
+            msg.sender == resolve(name1) || msg.sender == resolve(name2),
             "AR:denied"
         );
         _;
@@ -41,15 +39,31 @@ abstract contract AddressResolver is ContextUpgradeable {
      * @notice Resolves a name to an address.
      * @dev This funcition will throw if the resolved address is `address(0)`.
      * @param name The name to resolve
-     * @return addr The name's corresponding address
+     * @return  The name's corresponding address
      */
     function resolve(string memory name)
         public
         view
         virtual
-        returns (address payable addr)
+        returns (address payable)
     {
-        addr = payable(_addressManager.getAddress(name));
+        return _resolve(block.chainid, name);
+    }
+
+    /**
+     * @notice Resolves a name to an address.
+     * @dev This funcition will throw if the resolved address is `address(0)`.
+     * @param chainId The chainId
+     * @param name The name to resolve
+     * @return The name's corresponding address
+     */
+    function resolve(uint256 chainId, string memory name)
+        public
+        view
+        virtual
+        returns (address payable)
+    {
+        return _resolve(chainId, name);
     }
 
     /**
@@ -61,7 +75,20 @@ abstract contract AddressResolver is ContextUpgradeable {
     }
 
     function _init(address addressManager_) internal virtual {
-        ContextUpgradeable.__Context_init_unchained();
+        require(addressManager_ != address(0), "AR:zeroAddress");
         _addressManager = IAddressManager(addressManager_);
+    }
+
+    function _resolve(uint256 chainId, string memory name)
+        private
+        view
+        returns (address payable)
+    {
+        bytes memory key = abi.encodePacked(
+            Strings.toString(chainId),
+            ".",
+            name
+        );
+        return payable(_addressManager.getAddress(string(key)));
     }
 }
