@@ -28,18 +28,8 @@ library LibBridgeInvoke {
     ) internal returns (bool success) {
         require(gasLimit > 0, "B:gasLimit");
 
-        state.ctx = IBridge.Context({
-            srcChainSender: message.sender,
-            srcChainId: message.srcChainId
-        });
-
         (success, ) = message.to.call{value: message.callValue, gas: gasLimit}(
             message.data
         );
-
-        state.ctx = IBridge.Context({
-            srcChainSender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
-        });
     }
 }

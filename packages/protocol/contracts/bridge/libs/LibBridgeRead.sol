@@ -60,19 +60,6 @@ library LibBridgeRead {
             syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
-    function context(LibBridgeData.State storage state)
-        internal
-        view
-        returns (IBridge.Context memory)
-    {
-        require(
-            state.ctx.srcChainSender !=
-                LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
-            "B:noContext"
-        );
-        return state.ctx;
-    }
-
     function isDestChainEnabled(
         LibBridgeData.State storage state,
         uint256 _chainId

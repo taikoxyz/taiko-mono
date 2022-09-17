@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
-/// @dev Cross-chain Ether are held by Bridges, not ERC20Vaults.
+/// @dev Cross-chain Ether are held by Bridges, not TokenVaults.
 interface IBridge {
     enum MessageStatus {
         NEW,
@@ -23,7 +23,7 @@ interface IBridge {
 
     struct Message {
         uint256 id; // auto filled
-        address sender; // auto filled
+        address bridge; // auto filled
         uint256 srcChainId; // auto filled
         uint256 destChainId;
         address owner;
