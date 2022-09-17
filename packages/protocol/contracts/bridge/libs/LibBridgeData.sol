@@ -33,6 +33,7 @@ library LibBridgeData {
 
     // TODO: figure out this value
     uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
+    bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = 1;
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         0x0000000000000000000000000000000000000001;

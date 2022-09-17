@@ -35,6 +35,7 @@ interface IBridge {
     }
 
     struct Context {
+        bytes32 mhash;
         address srcChainSender;
         uint256 srcChainId;
     }

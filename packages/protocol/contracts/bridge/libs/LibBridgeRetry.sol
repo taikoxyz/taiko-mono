@@ -35,7 +35,7 @@ library LibBridgeRetry {
             "B:notFound"
         );
 
-        if (state.invokeMessageCall(message, gasleft())) {
+        if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);

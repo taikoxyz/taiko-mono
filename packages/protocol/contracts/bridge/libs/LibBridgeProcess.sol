@@ -63,6 +63,7 @@ library LibBridgeProcess {
         } else if (message.gasLimit > 0 || message.owner == msg.sender) {
             bool success = state.invokeMessageCall(
                 message,
+                mhash,
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
 
