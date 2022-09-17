@@ -23,7 +23,8 @@ library LibBridgeData {
         mapping(uint256 => bool) destChains;
         mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
-        uint256[47] __gap;
+        IBridge.Context ctx; // 2 slots
+        uint256[45] __gap;
     }
 
     /*********************
@@ -32,6 +33,9 @@ library LibBridgeData {
 
     // TODO: figure out this value
     uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
+    uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
+    address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
+        0x0000000000000000000000000000000000000001;
 
     /*********************
      * Events            *

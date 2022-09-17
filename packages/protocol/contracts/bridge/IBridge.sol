@@ -34,10 +34,17 @@ interface IBridge {
         string memo;
     }
 
+    struct Context {
+        address srcChainSender;
+        uint256 srcChainId;
+    }
+
     /// @dev Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     function sendMessage(Message memory message)
         external
         payable
         returns (bytes32 mhash);
+
+    function context() external view returns (Context memory context);
 }

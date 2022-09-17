@@ -187,7 +187,6 @@ contract TokenVault is EssentialContract, ITokenVault {
         message.data = abi.encodeWithSelector(
             TokenVault.receiveERC20.selector,
             canonicalToken,
-            message.srcChainId,
             message.owner,
             to,
             _amount
@@ -217,11 +216,16 @@ contract TokenVault is EssentialContract, ITokenVault {
      */
     function receiveERC20(
         CannonicalERC20 calldata canonicalToken,
-        uint256 srcChainId,
         address from,
         address to,
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
+        IBridge.Context memory ctx = IBridge(msg.sender).context();
+        require(
+            ctx.srcChainSender == resolve(ctx.srcChainId, "token_vault"),
+            "V:sender"
+        );
+
         address token;
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
@@ -237,7 +241,7 @@ contract TokenVault is EssentialContract, ITokenVault {
             BridgedERC20(token).bridgeMintTo(to, amount);
         }
 
-        emit ERC20Received(to, from, srcChainId, token, amount);
+        emit ERC20Received(to, from, ctx.srcChainId, token, amount);
     }
 
     /*********************
