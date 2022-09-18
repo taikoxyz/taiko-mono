@@ -50,7 +50,7 @@ echo '
 echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
-yarn clean && yarn compile
+# yarn clean && yarn compile
 
 # run the task
 yarn run generate:genesis $DIR/test_config.json
