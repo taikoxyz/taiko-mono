@@ -191,7 +191,11 @@ library V1Proving {
         require(evidence.prover != address(0), "L1:prover");
 
         _checkMetadataPending(s, target);
-        _validateHeaderForMetadata(evidence.header, evidence.meta);
+        _validateHeaderForMetadata(
+            evidence.header,
+            evidence.meta,
+            blockHashOverride
+        );
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
@@ -301,14 +305,19 @@ library V1Proving {
 
     function _validateHeaderForMetadata(
         BlockHeader memory header,
-        LibData.BlockMetadata memory meta
+        LibData.BlockMetadata memory meta,
+        bytes32 blockHashOverride
     ) private pure {
         require(
             header.parentHash != 0 &&
                 header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
-                meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
+                (
+                    blockHashOverride == 0
+                        ? meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT
+                        : meta.gasLimit
+                ) &&
                 header.gasUsed > 0 &&
                 header.timestamp == meta.proposedAt &&
                 header.extraData.length == meta.extraData.length &&
