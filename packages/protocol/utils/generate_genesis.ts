@@ -101,10 +101,8 @@ async function generateL2Genesis(
         }
 
         // pre-mint ETHs for Bridge contract
-        // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to V1TaikoL2 contract address.
         alloc[contractConfig.address].balance =
-            contractName === "V1TaikoL2" ? bridgeBalance.toHexString() : "0x0"
+            contractName === "Bridge" ? bridgeBalance.toHexString() : "0x0"
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
@@ -269,6 +267,14 @@ async function generateContractConfigs(
                         ["string"],
                         [`${config.chainId}.eth_depositor`]
                     )}`]: config.ethDepositor,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.taiko`]
+                    )}`]: addressMap.V1TaikoL2,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.bridge`]
+                    )}`]: addressMap.Bridge,
                 },
             },
         },
