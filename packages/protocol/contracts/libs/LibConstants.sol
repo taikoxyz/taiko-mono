@@ -23,7 +23,9 @@ library LibConstants {
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 21000; // TODO
 
     // Taiko L2 releated constants
-    uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 1000000; // TODO
+    // A V1TaikoL2.anchor transaction that checking all 256 ancestor blocks,
+    // will cost ~70K gas.
+    uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 1000000;
 
     bytes4 public constant V1_ANCHOR_TX_SELECTOR =
         bytes4(keccak256("anchor(uint256,bytes32)"));
