@@ -161,6 +161,14 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./L2/V1TaikoL2.sol/V1TaikoL2.json"
         )),
+        Bridge: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/Bridge.sol/Bridge.json"
+        )),
+        TokenVault: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/TokenVault.sol/TokenVault.json"
+        )),
     }
 
     const addressMap: any = {}
@@ -227,6 +235,38 @@ async function generateContractConfigs(
                 chainId: config.chainId,
             },
         },
+        Bridge: {
+            address: addressMap.Bridge,
+            deployedBytecode: contractArtifacts.Bridge.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+                // Bridge
+                state: {},
+            },
+        },
+        TokenVault: {
+            address: addressMap.TokenVault,
+            deployedBytecode: contractArtifacts.TokenVault.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+            },
+        },
     }
 }
 
@@ -253,3 +293,7 @@ function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
 
     return linkedBytecode
 }
+
+// linkBridgeBytecode tries to link Bridge deployedBytecode to its library.
+// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
+// function linkBridgeBytecode(byteCode: string, addressMap: any): string {}
