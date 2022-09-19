@@ -230,9 +230,10 @@ async function generateContractConfigs(
                 // V1TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["uint256", "uint256", "bytes32[255]"],
+                    ["uint256", "uint256", "uint256", "bytes32[255]"],
                     [
                         config.chainId,
+                        0,
                         0,
                         new Array(255).fill(ethers.constants.HashZero),
                     ]
