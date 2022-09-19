@@ -7,10 +7,6 @@ describe("V1TaikoL2", function () {
     let addressManager: any
     let signers: any
 
-    function randomBytes32() {
-        return ethers.utils.hexlify(ethers.utils.randomBytes(32))
-    }
-
     before(async function () {
         const { chainId } = await hre.ethers.provider.getNetwork()
 
@@ -37,14 +33,5 @@ describe("V1TaikoL2", function () {
             `${chainId}.eth_depositor`,
             await signers[0].getAddress()
         )
-    })
-
-    describe("anchor()", async function () {
-        it("should revert since ancestor hashes not written", async function () {
-            const randomHash = randomBytes32()
-            await expect(v1TaikoL2.anchor(10, randomHash)).to.be.revertedWith(
-                "L2:anchored"
-            )
-        })
     })
 })
