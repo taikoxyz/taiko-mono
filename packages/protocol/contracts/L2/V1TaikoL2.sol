@@ -27,10 +27,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     mapping(uint256 => bytes32) private l1Hashes;
-    uint256 public latestL1Height;
     bytes32 public publicInputHash;
 
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 
     /**********************
      * Events             *
@@ -39,16 +38,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     event BlockInvalidated(bytes32 indexed txListHash);
     event EtherCredited(address recipient, uint256 amount);
     event EtherReturned(address recipient, uint256 amount);
-
-    /**********************
-     * Modifiers          *
-     **********************/
-
-    modifier onlyWhenNotAnchored() {
-        require(latestL1Height + 1 == block.number, "L2:anchored");
-        latestL1Height = block.number;
-        _;
-    }
 
     /**********************
      * Constructor         *
@@ -64,7 +53,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
-        publicInputHash = _hashPublicInputHash(block.chainid, 0, ancestors);
+        publicInputHash = _hashPublicInputHash(
+            block.chainid,
+            number,
+            0,
+            ancestors
+        );
     }
 
     /**********************
@@ -100,13 +94,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     ///
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param l1Hash The latest L1 block hash when this block was proposed.
-    function anchor(uint256 l1Height, bytes32 l1Hash)
-        external
-        onlyWhenNotAnchored
-    {
-        l1Hashes[l1Height] = l1Hash;
+    function anchor(uint256 l1Height, bytes32 l1Hash) external {
         _checkGlobalVariables();
 
+        l1Hashes[l1Height] = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
@@ -142,7 +133,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         override
         returns (bytes32)
     {
-        require(number <= latestL1Height, "L2:number");
         return l1Hashes[number];
     }
 
@@ -196,7 +186,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             ancestors[i] = blockhash(number - i - 2);
         }
         require(
-            publicInputHash == _hashPublicInputHash(chainId, 0, ancestors),
+            publicInputHash ==
+                _hashPublicInputHash(chainId, number - 1, 0, ancestors),
             "L2:publicInputHash"
         );
 
@@ -207,14 +198,15 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         }
         ancestors[0] = blockhash(number - 1);
 
-        publicInputHash = _hashPublicInputHash(chainId, 0, ancestors);
+        publicInputHash = _hashPublicInputHash(chainId, number, 0, ancestors);
     }
 
     function _hashPublicInputHash(
         uint256 chainId,
+        uint256 number,
         uint256 baseFee,
         bytes32[255] memory ancestors
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, baseFee, ancestors));
+        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
     }
 }
