@@ -20,11 +20,11 @@ library LibBridgeData {
      *********************/
 
     struct State {
-        mapping(uint256 => bool) destChains;
-        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
+        mapping(uint256 => bool) destChains; // mappings of ints representing chains and whether they are enabled
+        mapping(bytes32 => IBridge.MessageStatus) messageStatus; // mappings of messageHashes to their Status
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[44] __gap;
+        uint256[44] __gap; // reserving space for a total of 50 for future upgradeability
     }
 
     /*********************
@@ -42,7 +42,7 @@ library LibBridgeData {
      * Events            *
      *********************/
 
-    // Note these events must match the one defined in Bridge.sol.
+    // Note: These events must match the ones defined in Bridge.sol.
     event MessageSent(bytes32 indexed mhash, IBridge.Message message);
 
     event MessageStatusChanged(
@@ -55,6 +55,13 @@ library LibBridgeData {
     /*********************
      * Internal Functions*
      *********************/
+
+    /**
+     * @dev If messageStatus is same as in the messageStatus mapping, does nothing
+     * @param state The current bridge State
+     * @param mhash The messageHash of the message
+     * @param status The status of the message
+     */
     function updateMessageStatus(
         State storage state,
         bytes32 mhash,
@@ -66,6 +73,9 @@ library LibBridgeData {
         }
     }
 
+    /**
+     * @dev Hashes messages and returns the hash signed with "TAIKO_BRIDGE_MESSAGE" for verification
+     */
     function hashMessage(IBridge.Message memory message)
         internal
         pure
