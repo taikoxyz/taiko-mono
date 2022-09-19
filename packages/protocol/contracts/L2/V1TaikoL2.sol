@@ -95,7 +95,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param l1Hash The latest L1 block hash when this block was proposed.
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        _checkGlobalVariables();
+        _checkPublicInputs();
 
         l1Hashes[l1Height] = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
@@ -118,7 +118,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         );
         require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
-        _checkGlobalVariables();
+        _checkPublicInputs();
 
         emit BlockInvalidated(txList.hashTxList());
     }
@@ -176,7 +176,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         );
     }
 
-    function _checkGlobalVariables() private {
+    function _checkPublicInputs() private {
         // Check the latest 256 block hashes (exlcuding the parent hash).
         bytes32[255] memory ancestors;
         uint256 number = block.number;
