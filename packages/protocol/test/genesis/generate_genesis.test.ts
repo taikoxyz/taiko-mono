@@ -135,8 +135,6 @@ action("Generate Genesis", function () {
                 ethers.utils.randomBytes(32)
             )
 
-            expect(await V1TaikoL2.chainId()).to.be.equal(testConfig.chainId)
-
             await expect(
                 V1TaikoL2.anchor(latestL1Height, latestL1Hash)
             ).not.to.reverted
