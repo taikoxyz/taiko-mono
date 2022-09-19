@@ -150,13 +150,6 @@ action("Generate Genesis", function () {
                     })
                 }
             }
-
-            await expect(
-                V1TaikoL2.creditEther(
-                    hre.ethers.Wallet.createRandom().address,
-                    1024
-                )
-            ).to.emit(V1TaikoL2, "EtherCredited")
         })
     })
 
