@@ -59,7 +59,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         require(block.chainid == _chainId, "L2:chainId");
 
         bytes32[255] memory ancestors;
-        publicInputHash = _hashPublicInputHash(ancestors);
+        publicInputHash = _hashPublicInputHash(block.chainid, 0, ancestors);
     }
 
     /**********************
@@ -185,12 +185,13 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         // Check the latest 256 block hashes (exlcuding the parent hash).
         bytes32[255] memory ancestors;
         uint256 number = block.number;
+        uint256 chainId = block.chainid;
 
         for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
         require(
-            publicInputHash == _hashPublicInputHash(ancestors),
+            publicInputHash == _hashPublicInputHash(chainId, 0, ancestors),
             "L2:publicInputHash"
         );
 
@@ -201,16 +202,14 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         }
         ancestors[0] = blockhash(number - 1);
 
-        publicInputHash = _hashPublicInputHash(ancestors);
+        publicInputHash = _hashPublicInputHash(block.chainid, 0, ancestors);
     }
 
-    function _hashPublicInputHash(bytes32[255] memory ancestors)
-        private
-        view
-        returns (bytes32)
-    {
-        uint256 baseFee = 0; // = block.basefee;
-        // require(block.basefee == 0, "L2:baseFee");
-        return keccak256(abi.encodePacked(block.chainid, baseFee, ancestors));
+    function _hashPublicInputHash(
+        uint256 chainId,
+        uint256 baseFee,
+        bytes32[255] memory ancestors
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(chainId, baseFee, ancestors));
     }
 }
