@@ -184,8 +184,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     function _checkGlobalVariables() private {
         // Check the latest 256 block hashes (exlcuding the parent hash).
         bytes32[255] memory ancestors;
-        for (uint256 i = 0; i < 255 && block.number >= i + 2; i++) {
-            ancestors[i] = blockhash(block.number - i - 2);
+        uint256 number = block.number;
+
+        for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
+            ancestors[i] = blockhash(number - i - 2);
         }
         require(
             publicInputHash == _hashPublicInputHash(ancestors),
@@ -194,9 +196,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         // We recalculate the public input hash without the oldest ancester
         // block hash.
-        for (uint256 i = 0; i < 255 && block.number >= i + 1; i++) {
-            ancestors[i] = blockhash(block.number - i - 1);
+        for (uint256 i = 245; i > 0; i--) {
+            ancestors[i] = ancestors[i - 1];
         }
+        ancestors[0] = blockhash(number - 1);
+
         publicInputHash = _hashPublicInputHash(ancestors);
     }
 
