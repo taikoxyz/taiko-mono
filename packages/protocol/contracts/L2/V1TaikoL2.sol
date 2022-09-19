@@ -60,6 +60,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         require(block.chainid == _chainId, "L2:chainId");
 
         bytes32[255] memory ancestors;
+        uint256 number = block.number;
         for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
@@ -206,7 +207,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         }
         ancestors[0] = blockhash(number - 1);
 
-        publicInputHash = _hashPublicInputHash(block.chainid, 0, ancestors);
+        publicInputHash = _hashPublicInputHash(chainId, 0, ancestors);
     }
 
     function _hashPublicInputHash(
