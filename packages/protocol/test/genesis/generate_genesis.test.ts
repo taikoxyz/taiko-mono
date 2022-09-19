@@ -130,16 +130,26 @@ action("Generate Genesis", function () {
                 signer
             )
 
-            const latestL1Height = 1
-            const latestL1Hash = ethers.utils.hexlify(
-                ethers.utils.randomBytes(32)
-            )
+            let latestL1Height = 1
+            for (let i = 0; i < 300; i++) {
+                const tx = await V1TaikoL2.anchor(
+                    latestL1Height++,
+                    ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                    { gasLimit: 1000000 }
+                )
 
-            expect(await V1TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+                const receipt = await tx.wait()
 
-            await expect(
-                V1TaikoL2.anchor(latestL1Height, latestL1Hash)
-            ).not.to.reverted
+                expect(receipt.status).to.be.equal(1)
+
+                if (i === 299) {
+                    console.log({
+                        message:
+                            "V1TaikoL2.anchor gas cost after 256 L2 blocks",
+                        gasUsed: receipt.gasUsed,
+                    })
+                }
+            }
 
             await expect(
                 V1TaikoL2.creditEther(

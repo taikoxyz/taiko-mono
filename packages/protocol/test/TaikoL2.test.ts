@@ -7,10 +7,6 @@ describe("V1TaikoL2", function () {
     let addressManager: any
     let signers: any
 
-    function randomBytes32() {
-        return ethers.utils.hexlify(ethers.utils.randomBytes(32))
-    }
-
     before(async function () {
         // Deploying addressManager Contract
         addressManager = await (
@@ -73,15 +69,6 @@ describe("V1TaikoL2", function () {
             )
             expect(await ethers.provider.getBalance(recieverWallet)).to.equal(
                 amount
-            )
-        })
-    })
-
-    describe("anchor()", async function () {
-        it("should revert since ancestor hashes not written", async function () {
-            const randomHash = randomBytes32()
-            await expect(v1TaikoL2.anchor(10, randomHash)).to.be.revertedWith(
-                "L2:anchored"
             )
         })
     })

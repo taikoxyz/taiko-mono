@@ -227,7 +227,17 @@ async function generateContractConfigs(
                 _status: 1, // _NOT_ENTERED
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                chainId: config.chainId,
+                // V1TaikoL2
+                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
+                publicInputHash: `${ethers.utils.solidityKeccak256(
+                    ["uint256", "uint256", "uint256", "bytes32[255]"],
+                    [
+                        config.chainId,
+                        0,
+                        0,
+                        new Array(255).fill(ethers.constants.HashZero),
+                    ]
+                )}`,
             },
         },
     }
