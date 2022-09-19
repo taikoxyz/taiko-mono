@@ -54,11 +54,15 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Constructor         *
      **********************/
 
+    // This constructor is only used for testing the contract.
     constructor(address _addressManager, uint256 _chainId) initializer {
         AddressResolver._init(_addressManager);
         require(block.chainid == _chainId, "L2:chainId");
 
         bytes32[255] memory ancestors;
+        for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
+            ancestors[i] = blockhash(number - i - 2);
+        }
         publicInputHash = _hashPublicInputHash(block.chainid, 0, ancestors);
     }
 
@@ -197,7 +201,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         // We recalculate the public input hash without the oldest ancester
         // block hash.
-        for (uint256 i = 245; i > 0; i--) {
+        for (uint256 i = 254; i > 0; i--) {
             ancestors[i] = ancestors[i - 1];
         }
         ancestors[0] = blockhash(number - 1);
