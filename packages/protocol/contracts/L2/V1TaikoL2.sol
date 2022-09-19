@@ -26,12 +26,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * State Variables    *
      **********************/
 
-    mapping(uint256 => bytes32) public blockHashes;
     mapping(uint256 => bytes32) private l1Hashes;
-    uint256 public chainId;
     uint256 public latestL1Height;
+    bytes32 public publicInputHash;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /**********************
      * Events             *
@@ -57,9 +56,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     constructor(address _addressManager, uint256 _chainId) initializer {
         AddressResolver._init(_addressManager);
-
         require(block.chainid == _chainId, "L2:chainId");
-        chainId = _chainId;
+
+        bytes32[255] memory ancestors;
+        publicInputHash = _hashPublicInputHash(ancestors);
     }
 
     /**********************
@@ -182,20 +182,31 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     }
 
     function _checkGlobalVariables() private {
-        // Check chainid
-        require(block.chainid == chainId, "L2:chainId");
-
-        // It turns out that if  EIP1559 is disabled, the basefee opcode
-        // won't be available.
-        // require(block.basefee == 0, "L2:baseFee");
-
-        // Check the latest 255 block hashes match the storage version.
-        for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
-            uint256 j = block.number - i;
-            require(blockHashes[j] == blockhash(j), "L2:ancestorHash");
+        // Check the latest 256 block hashes (exlcuding the parent hash).
+        bytes32[255] memory ancestors;
+        for (uint256 i = 0; i < 255 && block.number >= i + 2; i++) {
+            ancestors[i] = blockhash(block.number - i - 2);
         }
+        require(
+            publicInputHash == _hashPublicInputHash(ancestors),
+            "L2:publicInputHash"
+        );
 
-        // Store parent hash into storage tree.
-        blockHashes[block.number - 1] = blockhash(block.number - 1);
+        // We recalculate the public input hash without the oldest ancester
+        // block hash.
+        for (uint256 i = 0; i < 255 && block.number >= i + 1; i++) {
+            ancestors[i] = blockhash(block.number - i - 1);
+        }
+        publicInputHash = _hashPublicInputHash(ancestors);
+    }
+
+    function _hashPublicInputHash(bytes32[255] memory ancestors)
+        private
+        view
+        returns (bytes32)
+    {
+        uint256 baseFee = 0; // = block.basefee;
+        // require(block.basefee == 0, "L2:baseFee");
+        return keccak256(abi.encodePacked(block.chainid, baseFee, ancestors));
     }
 }
