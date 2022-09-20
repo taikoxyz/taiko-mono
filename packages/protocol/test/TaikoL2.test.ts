@@ -34,4 +34,19 @@ describe("V1TaikoL2", function () {
             await signers[0].getAddress()
         )
     })
+
+    describe("anchor()", async function () {
+        it("should revert since ancestor hashes not written", async function () {
+            await expect(
+                v1TaikoL2.anchor(
+                    Math.ceil(Math.random() * 1024),
+                    randomBytes32()
+                )
+            ).to.be.revertedWith("L2:publicInputHash")
+        })
+    })
 })
+
+function randomBytes32() {
+    return ethers.utils.hexlify(ethers.utils.randomBytes(32))
+}

@@ -70,9 +70,15 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${chainId}.team_vault`, teamVault)
     )
+    // Used by V1Proving
     await utils.waitTx(
         hre,
         await AddressManager.setAddress("1337.taiko", v1TaikoL2Address)
+    )
+    // Used by LibBridgeRead
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(`${chainId}.taiko`, v1TaikoL2Address)
     )
 
     // TkoToken
