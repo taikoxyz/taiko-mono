@@ -19,6 +19,12 @@ task("deploy_L1")
         ethers.constants.HashZero
     )
     .addOptionalParam(
+        "l2ChainId",
+        "L2 chain id",
+        config.TAIKO_CHAINID,
+        types.int
+    )
+    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.DEFAULT_DEPLOY_CONFIRMATIONS,
@@ -49,6 +55,7 @@ export async function deployContracts(hre: any) {
     const teamVault = hre.args.teamVault
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
     const v1TaikoL2Address = hre.args.v1TaikoL2
+    const l2ChainId = hre.args.l2ChainId
 
     log.debug(`network: ${network}`)
     log.debug(`chainId: ${chainId}`)
@@ -56,6 +63,7 @@ export async function deployContracts(hre: any) {
     log.debug(`daoVault: ${daoVault}`)
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
     log.debug(`v1TaikoL2Address: ${v1TaikoL2Address}`)
+    log.debug(`l2ChainId: ${l2ChainId}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
 
@@ -73,7 +81,7 @@ export async function deployContracts(hre: any) {
     // Used by V1Proving
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress("1337.taiko", v1TaikoL2Address)
+        await AddressManager.setAddress(`${l2ChainId}.taiko`, v1TaikoL2Address)
     )
     // Used by LibBridgeRead
     await utils.waitTx(
