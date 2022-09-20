@@ -121,7 +121,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         pure
         returns (
             uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PENDING_BLOCKS
+            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
@@ -137,7 +137,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     {
         return (
             LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
