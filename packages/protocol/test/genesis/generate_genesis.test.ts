@@ -109,6 +109,20 @@ action("Generate Genesis", function () {
             )
 
             expect(bridge).to.be.equal(getContractAlloc("Bridge").address)
+
+            const tokenValut = await addressManager.getAddress(
+                `${testConfig.chainId}.token_vault`
+            )
+
+            expect(tokenValut).to.be.equal(
+                getContractAlloc("TokenVault").address
+            )
+
+            const v1TaikoL2 = await addressManager.getAddress(
+                `${testConfig.chainId}.taiko`
+            )
+
+            expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
         })
 
         it("LibTxDecoder", async function () {

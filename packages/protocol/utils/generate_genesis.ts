@@ -275,6 +275,10 @@ async function generateContractConfigs(
                         ["string"],
                         [`${config.chainId}.bridge`]
                     )}`]: addressMap.Bridge,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.token_vault`]
+                    )}`]: addressMap.TokenVault,
                 },
             },
         },
