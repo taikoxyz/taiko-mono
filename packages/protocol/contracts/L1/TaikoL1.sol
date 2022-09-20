@@ -135,12 +135,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Proposing.isCommitValid(state, hash);
     }
 
-    function getPendingBlock(uint256 id)
+    function getProposedBlock(uint256 id)
         public
         view
-        returns (LibData.PendingBlock memory)
+        returns (LibData.ProposedBlock memory)
     {
-        return state.getPendingBlock(id);
+        return state.getProposedBlock(id);
     }
 
     function getSyncedHeader(uint256 number)
@@ -159,7 +159,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             uint64, /*genesisHeight*/
             uint64, /*latestFinalizedHeight*/
             uint64, /*latestFinalizedId*/
-            uint64 /*nextPendingId*/
+            uint64 /*nextBlockId*/
         )
     {
         return state.getStateVariables();

@@ -24,7 +24,7 @@ library V1Finalizing {
 
     function init(LibData.State storage s, bytes32 _genesisBlockHash) public {
         s.l2Hashes[0] = _genesisBlockHash;
-        s.nextPendingId = 1;
+        s.nextBlockId = 1;
         s.genesisHeight = uint64(block.number);
 
         emit BlockFinalized(0, _genesisBlockHash);
@@ -38,7 +38,7 @@ library V1Finalizing {
 
         for (
             uint256 i = s.latestFinalizedId + 1;
-            i < s.nextPendingId && processed <= maxBlocks;
+            i < s.nextBlockId && processed <= maxBlocks;
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];

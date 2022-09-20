@@ -192,7 +192,7 @@ library V1Proving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadataPending(s, target);
+        _checkMetadata(s, target);
         _validateHeaderForMetadata(evidence.header, evidence.meta);
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
@@ -252,7 +252,7 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        // LibData.PendingBlock storage blk = s.getPendingBlock(meta.id);
+        // LibData.ProposedBlock storage blk = s.getProposedBlock(meta.id);
         // if (blk.everProven != uint8(LibData.EverProven.YES)) {
         //     blk.everProven = uint8(LibData.EverProven.YES);
         //     s.numUnprovenBlocks -= 1;
@@ -286,16 +286,16 @@ library V1Proving {
         }
     }
 
-    function _checkMetadataPending(
+    function _checkMetadata(
         LibData.State storage s,
         LibData.BlockMetadata memory meta
     ) private view {
         require(
-            meta.id > s.latestFinalizedId && meta.id < s.nextPendingId,
+            meta.id > s.latestFinalizedId && meta.id < s.nextBlockId,
             "L1:meta:id"
         );
         require(
-            LibData.getPendingBlock(s, meta.id).metaHash ==
+            LibData.getProposedBlock(s, meta.id).metaHash ==
                 LibData.hashMetadata(meta),
             "L1:metaHash"
         );
