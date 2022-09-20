@@ -20,3 +20,5 @@ artifacts
 
 # Editors
 .vscode
+
+contracts/libs/LibConstants.sol

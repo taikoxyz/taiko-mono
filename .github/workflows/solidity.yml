@@ -27,15 +27,23 @@ jobs:
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
         run: yarn && yarn clean && yarn test && yarn test:integration && yarn export:abi
+        env:
+          CHAIN_ID: 1337
 
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: yarn test:genesis
+        env:
+          CHAIN_ID: 1337
 
       - name: protocol - Export ABIs
         working-directory: ./packages/protocol
         run: yarn export:abi
+        env:
+          CHAIN_ID: 1337
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: yarn deploy:hardhat
+        env:
+          CHAIN_ID: 1337

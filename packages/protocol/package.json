@@ -3,7 +3,8 @@
     "version": "1.0.0",
     "description": "Taiko L2 Protocol",
     "scripts": {
-        "compile": "npx hardhat compile",
+        "chainid": "cp contracts/libs/LibConstants.template contracts/libs/LibConstants.sol &&  replace-env contracts/libs/LibConstants.sol",
+        "compile": "yarn chainid && npx hardhat compile && rm -f contracts/libs/LibConstants.sol",
         "export:abi": "npx hardhat clear-abi && npx hardhat export-abi",
         "clean": "rm -rf abis cache && npx hardhat clean",
         "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
@@ -69,6 +70,7 @@
         "merkle-patricia-tree": "^4.2.4",
         "prettier": "^2.5.1",
         "prettier-plugin-solidity": "^1.0.0-beta.19",
+        "replace-env": "^1.0.4",
         "solhint": "^3.3.7",
         "solidity-coverage": "^0.7.21",
         "ts-node": "^10.5.0",
