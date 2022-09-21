@@ -227,11 +227,11 @@ library V1Proving {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.timestamp = target.timestamp;
+            fc.proposedAt = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.timestamp == target.timestamp,
+                fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
                 "L1:proof:conflict"
             );
             require(
@@ -241,7 +241,7 @@ library V1Proving {
             );
 
             // No uncle proof can take more than 1.5x time the first proof did.
-            uint256 delay = fc.provenAt - fc.timestamp;
+            uint256 delay = fc.provenAt - fc.proposedAt;
             uint256 deadline = fc.provenAt + delay / 2;
             require(block.timestamp <= deadline, "L1:tooLate");
 
@@ -262,7 +262,7 @@ library V1Proving {
             target.id,
             parentHash,
             blockHash,
-            fc.timestamp,
+            fc.proposedAt,
             fc.provenAt,
             prover
         );

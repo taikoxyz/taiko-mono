@@ -38,7 +38,7 @@ library LibData {
 
     struct ForkChoice {
         bytes32 blockHash;
-        uint64 timestamp;
+        uint64 proposedAt;
         uint64 provenAt;
         address[] provers;
     }
