@@ -24,7 +24,7 @@ library LibData {
         bytes32 l1Hash;
         address beneficiary;
         uint64 gasLimit;
-        uint64 proposedAt;
+        uint64 timestamp;
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
@@ -38,7 +38,7 @@ library LibData {
 
     struct ForkChoice {
         bytes32 blockHash;
-        uint64 proposedAt;
+        uint64 timestamp;
         uint64 provenAt;
         address[] provers;
     }

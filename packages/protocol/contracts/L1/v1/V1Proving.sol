@@ -41,7 +41,7 @@ library V1Proving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 proposedAt,
+        uint64 timestamp,
         uint64 provenAt,
         address prover
     );
@@ -227,11 +227,11 @@ library V1Proving {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = target.proposedAt;
+            fc.timestamp = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.proposedAt == target.proposedAt,
+                fc.blockHash == blockHash && fc.timestamp == target.timestamp,
                 "L1:proof:conflict"
             );
             require(
@@ -241,7 +241,7 @@ library V1Proving {
             );
 
             // No uncle proof can take more than 1.5x time the first proof did.
-            uint256 delay = fc.provenAt - fc.proposedAt;
+            uint256 delay = fc.provenAt - fc.timestamp;
             uint256 deadline = fc.provenAt + delay / 2;
             require(block.timestamp <= deadline, "L1:tooLate");
 
@@ -262,7 +262,7 @@ library V1Proving {
             target.id,
             parentHash,
             blockHash,
-            fc.proposedAt,
+            fc.timestamp,
             fc.provenAt,
             prover
         );
@@ -312,7 +312,7 @@ library V1Proving {
                 header.gasLimit ==
                 meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
-                header.timestamp == meta.proposedAt &&
+                header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&
                 keccak256(header.extraData) == keccak256(meta.extraData) &&
                 header.mixHash == meta.mixHash,
