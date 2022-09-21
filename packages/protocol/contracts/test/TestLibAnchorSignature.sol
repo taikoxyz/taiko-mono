@@ -23,10 +23,6 @@ library TestLibAnchorSignature {
         return LibAnchorSignature.signTransaction(digest, k);
     }
 
-    function goldenTouchAddress() public pure returns (address) {
-        return LibAnchorSignature.TAIKO_GOLDEN_TOUCH_ADDRESS;
-    }
-
     function recover(
         bytes32 hash,
         uint8 v,
@@ -34,5 +30,12 @@ library TestLibAnchorSignature {
         bytes32 s
     ) public pure returns (address) {
         return ecrecover(hash, v, r, s);
+    }
+
+    function goldenTouchAddress() public pure returns (address, uint256) {
+        return (
+            LibAnchorSignature.TAIKO_GOLDEN_TOUCH_ADDRESS,
+            LibAnchorSignature.TAIKO_GOLDEN_TOUCH_PRIVATEKEY
+        );
     }
 }

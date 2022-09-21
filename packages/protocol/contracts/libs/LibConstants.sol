@@ -10,7 +10,8 @@ pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
 library LibConstants {
-    uint256 public constant TAIKO_CHAIN_ID = 167; // TODO
+    // https://github.com/ethereum-lists/chains/pull/1611
+    uint256 public constant TAIKO_CHAIN_ID = 167;
     uint256 public constant TAIKO_MAX_PROPOSED_BLOCKS = 2048;
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
