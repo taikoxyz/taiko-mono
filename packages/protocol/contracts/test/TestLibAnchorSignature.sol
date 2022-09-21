@@ -23,7 +23,7 @@ library TestLibAnchorSignature {
         return LibAnchorSignature.signTransaction(digest, k);
     }
 
-    function goldFingerAddress() public pure returns (address) {
+    function goldenTouchAddress() public pure returns (address) {
         return LibAnchorSignature.TAIKO_GOLDEN_TOUCH_ADDRESS;
     }
 

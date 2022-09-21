@@ -47,7 +47,7 @@ describe("LibAnchorSignature", function () {
                     ethers.utils.hexZeroPad(r, 32),
                     ethers.utils.hexZeroPad(s, 32)
                 )
-            ).to.be.equal(await libAnchorSignature.goldFingerAddress())
+            ).to.be.equal(await libAnchorSignature.goldenTouchAddress())
         }
     })
 
