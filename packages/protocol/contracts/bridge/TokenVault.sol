@@ -98,6 +98,13 @@ contract TokenVault is EssentialContract, ITokenVault {
         EssentialContract._init(addressManager);
     }
 
+    /**
+     * @dev Sends Ether to the 'to' address on the destChain.
+     * Generates a Message struct with the parameters provided
+     * and msg attributes, then sends it to the corresponding
+     * Bridge.
+     * Emits corresponding event
+     */
     function sendEther(
         uint256 destChainId,
         address to,
@@ -131,11 +138,21 @@ contract TokenVault is EssentialContract, ITokenVault {
         emit EtherSent(to, destChainId, msg.value, mhash);
     }
 
+    // Emits event when this contract receives ether.
     receive() external payable {
         emit EtherReceived(msg.sender, msg.value);
     }
 
     /// @inheritdoc ITokenVault
+    /**
+     * @dev Sends ERC20 Tokens to the 'to' address on the destChain.
+     * If it is a bridged token, it is directly burned from the user's
+     * account on srcChain and the corresponding amount is sent in
+     * a message to destChain bridge.
+     * If it is canonical, this step is skipped.
+     * If it is TkoToken, we burn and mint like Bridged Tokens.
+     * Emits corresponding event.
+     */
     function sendERC20(
         uint256 destChainId,
         address to,
