@@ -26,10 +26,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * State Variables    *
      **********************/
 
+    mapping(uint256 => bytes32) private l2Hashes;
     mapping(uint256 => bytes32) private l1Hashes;
     bytes32 public publicInputHash;
 
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     /**********************
      * Events             *
@@ -136,6 +137,20 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         return l1Hashes[number];
     }
 
+    function getBlockHash(uint256 number)
+        public
+        view
+        returns (bytes32)
+    {
+        if (number >= block.number) {
+            return 0;
+        } else if (number < block.number && number >= block.number - 256) {
+            return blockhash(number);
+        } else {
+            return l2Hashes[number];
+        }
+    }
+
     /**********************
      * Private Functions  *
      **********************/
@@ -186,14 +201,19 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             ancestors[(number - i) % 255] = blockhash(number - i);
         }
 
+        uint parentHeight = number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
+
         require(
             publicInputHash ==
-                _hashPublicInputHash(chainId, number - 1, 0, ancestors),
+                _hashPublicInputHash(chainId, parentHeight, 0, ancestors),
             "L2:publicInputHash"
         );
-
-        ancestors[(number - 1) % 255] = blockhash(number - 1);
+        
+        ancestors[parentHeight % 255] = parentHash;
         publicInputHash = _hashPublicInputHash(chainId, number, 0, ancestors);
+
+        l2Hashes[parentHeight] = parentHash;
     }
 
     function _hashPublicInputHash(
