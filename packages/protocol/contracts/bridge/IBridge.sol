@@ -29,7 +29,6 @@ interface IBridge {
         uint256 callValue; // value to be called on destChain
         uint256 maxProcessingFee; // * maximum processing fee sender is willing to pay
         uint256 gasLimit;
-        uint256 gasPrice;
         bytes data; // calldata
         string memo;
     }

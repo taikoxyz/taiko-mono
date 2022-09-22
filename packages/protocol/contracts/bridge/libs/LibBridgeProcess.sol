@@ -88,6 +88,8 @@ library LibBridgeProcess {
                 (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
                     gasStart -
                     gasleft());
+
+            // TODO(daniel): bug: the relayer didn't make a profit.
             uint256 processingFee = processingCost.min(
                 message.maxProcessingFee
             );
