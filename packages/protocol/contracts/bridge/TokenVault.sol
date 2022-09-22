@@ -131,10 +131,6 @@ contract TokenVault is EssentialContract, ITokenVault {
         emit EtherSent(to, destChainId, msg.value, mhash);
     }
 
-    receive() external payable {
-        emit EtherReceived(msg.sender, msg.value);
-    }
-
     /// @inheritdoc ITokenVault
     function sendERC20(
         uint256 destChainId,
