@@ -11,9 +11,9 @@ import "../thirdparty/Lib_Uint512.sol";
 
 /// @author david <david@taiko.xyz>
 library LibAnchorSignature {
-    address public constant TAIKO_GOLDFINGER_ADDRESS =
+    address public constant TAIKO_GOLDEN_TOUCH_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant TAIKO_GOLDFINGURE_PRIVATEKEY =
+    uint256 public constant TAIKO_GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
     uint256 public constant GX =
@@ -30,21 +30,21 @@ library LibAnchorSignature {
         115792089237316195423570985008687907852837564279074904382605163141518161494337;
 
     // (
-    //     uint256 GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW,
-    //     uint256 GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX, LibConstants.TAIKO_GOLDFINGURE_PRIVATEKEY);
-    uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
+    //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
+    //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
+    // ) = Uint512.mul256x256(GX, LibConstants.TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
-    uint256 public constant GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
+    uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
         0x45b59254b0320fd853f3f38ac574999e91bd75fd5e6cab9c22c5e71fc6d276e4;
 
     // (
-    //     uint256 GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW,
-    //     uint256 GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX2, LibConstants.TAIKO_GOLDFINGURE_PRIVATEKEY);
-    uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW =
+    //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
+    //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
+    // ) = Uint512.mul256x256(GX2, LibConstants.TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
-    uint256 public constant GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH =
+    uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
         0x71620584f61c57e688bbd3fd7a39a036e588d962c4c830f3dacbc15c917e02f2;
 
     // Invert K (= 2) in the field F(N)
@@ -65,12 +65,12 @@ library LibAnchorSignature {
         r = k == 1 ? GX : GX2;
 
         uint256 low256 = k == 1
-            ? GX_MUL_GOLDFINGURE_PRIVATEKEY_LOW
-            : GX2_MUL_GOLDFINGURE_PRIVATEKEY_LOW;
+            ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW
+            : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW;
 
         uint256 high256 = k == 1
-            ? GX_MUL_GOLDFINGURE_PRIVATEKEY_HIGH
-            : GX2_MUL_GOLDFINGURE_PRIVATEKEY_HIGH;
+            ? GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
+            : GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH;
 
         (low256, high256) = Uint512.add512x512(
             low256,

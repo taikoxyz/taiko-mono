@@ -22,14 +22,13 @@ interface IBridge {
         address sender; // auto filled
         uint256 srcChainId; // auto filled
         uint256 destChainId;
-        address owner; // * why is this not autofilled?
+        address owner;
         address to; // target address on destChain
         address refundAddress; // address to refund gas/ether to, if address(0), refunds to owner
         uint256 depositValue; // value to be deposited at "to" address
         uint256 callValue; // value to be called on destChain
-        uint256 maxProcessingFee; // * maximum processing fee sender is willing to pay
+        uint256 maxProcessingFee; // maximum processing fee sender is willing to pay
         uint256 gasLimit;
-        uint256 gasPrice;
         bytes data; // calldata
         string memo;
     }

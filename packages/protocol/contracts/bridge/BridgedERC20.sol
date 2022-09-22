@@ -37,6 +37,8 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     uint256[48] private __gap;
 
     /// @dev Initializer to be called after being deployed behind a proxy.
+    // Intention is for a different BridgedERC20 Contract to be deployed
+    // per unique _srcToken i.e. one for USDC, one for USDT etc.
     function init(
         address _addressManager,
         address _srcToken,
@@ -59,6 +61,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         srcChainId = _srcChainId;
     }
 
+    /// @dev only a TokenVault can call this function
     function bridgeMintTo(address account, uint256 amount)
         public
         override
@@ -68,6 +71,7 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         emit BridgeMint(account, amount);
     }
 
+    /// @dev only a TokenVault can call this function
     function bridgeBurnFrom(address account, uint256 amount)
         public
         override
@@ -77,6 +81,8 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         emit BridgeBurn(account, amount);
     }
 
+    /// @dev any address can call this
+    // caller must have at least amount to call this
     function transfer(address to, uint256 amount)
         public
         override(ERC20Upgradeable, IERC20Upgradeable)
@@ -86,6 +92,9 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         return ERC20Upgradeable.transfer(to, amount);
     }
 
+    /// @dev any address can call this
+    // caller must have allowance of at least 'amount'
+    // for 'from's tokens.
     function transferFrom(
         address from,
         address to,
@@ -95,6 +104,11 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
+<<<<<<< HEAD
+=======
+    /// @dev returns the srcToken being bridged and the srcChainId
+    // of the tokens being bridged
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }

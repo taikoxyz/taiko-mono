@@ -77,9 +77,7 @@ action("Generate Genesis", function () {
             bridgeBalance = bridgeBalance.sub(balance)
         }
 
-        // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to V1TaikoL2 contract address.
-        const bridgeAddress = getContractAlloc("V1TaikoL2").address
+        const bridgeAddress = getContractAlloc("Bridge").address
 
         expect(await provider.getBalance(bridgeAddress)).to.be.equal(
             bridgeBalance.toHexString()
@@ -105,6 +103,26 @@ action("Generate Genesis", function () {
             )
 
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+
+            const bridge = await addressManager.getAddress(
+                `${testConfig.chainId}.bridge`
+            )
+
+            expect(bridge).to.be.equal(getContractAlloc("Bridge").address)
+
+            const tokenValut = await addressManager.getAddress(
+                `${testConfig.chainId}.token_vault`
+            )
+
+            expect(tokenValut).to.be.equal(
+                getContractAlloc("TokenVault").address
+            )
+
+            const v1TaikoL2 = await addressManager.getAddress(
+                `${testConfig.chainId}.taiko`
+            )
+
+            expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
         })
 
         it("LibTxDecoder", async function () {
@@ -130,16 +148,69 @@ action("Generate Genesis", function () {
                 signer
             )
 
-            const latestL1Height = 1
-            const latestL1Hash = ethers.utils.hexlify(
-                ethers.utils.randomBytes(32)
+            let latestL1Height = 1
+            for (let i = 0; i < 300; i++) {
+                const tx = await V1TaikoL2.anchor(
+                    latestL1Height++,
+                    ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                    { gasLimit: 1000000 }
+                )
+
+                const receipt = await tx.wait()
+
+                expect(receipt.status).to.be.equal(1)
+
+                if (i === 299) {
+                    console.log({
+                        message:
+                            "V1TaikoL2.anchor gas cost after 256 L2 blocks",
+                        gasUsed: receipt.gasUsed,
+                    })
+                }
+            }
+        })
+
+        it("Bridge", async function () {
+            const BridgeAlloc = getContractAlloc("Bridge")
+            const Bridge = new hre.ethers.Contract(
+                BridgeAlloc.address,
+                require("../../artifacts/contracts/bridge/Bridge.sol/Bridge.json").abi,
+                signer
             )
 
-            expect(await V1TaikoL2.chainId()).to.be.equal(testConfig.chainId)
+            const owner = await Bridge.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            await expect(Bridge.enableDestChain(1, true)).not.to.reverted
+        })
+
+        it("TokenVault", async function () {
+            const TokenVaultAlloc = getContractAlloc("TokenVault")
+            const TokenVault = new hre.ethers.Contract(
+                TokenVaultAlloc.address,
+                require("../../artifacts/contracts/bridge/TokenVault.sol/TokenVault.json").abi,
+                signer
+            )
+
+            const owner = await TokenVault.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
 
             await expect(
-                V1TaikoL2.anchor(latestL1Height, latestL1Hash)
-            ).not.to.reverted
+                TokenVault.sendEther(
+                    1,
+                    ethers.Wallet.createRandom().address,
+                    100,
+                    0,
+                    ethers.Wallet.createRandom().address,
+                    "memo",
+                    {
+                        gasLimit: 10000000,
+                        value: hre.ethers.utils.parseEther("100"),
+                    }
+                )
+            ).to.emit(TokenVault, "EtherSent")
         })
     })
 

@@ -64,13 +64,21 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (bytes32 mhash)
     {
+<<<<<<< HEAD
         return state.sendMessage(message);
+=======
+        return state.sendMessage(message); //LibBridgeSend
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
+<<<<<<< HEAD
+=======
+        //LibBridgeProcess
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
         return state.processMessage(AddressResolver(this), message, proof);
     }
 
@@ -78,14 +86,18 @@ contract Bridge is EssentialContract, IBridge {
         external
         nonReentrant
     {
+<<<<<<< HEAD
         return state.retryMessage(message, lastAttempt);
+=======
+        return state.retryMessage(message, lastAttempt); //LibBridgeRetry
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)
         external
         nonReentrant
     {
-        state.enableDestChain(_chainId, enabled);
+        state.enableDestChain(_chainId, enabled); //LibBridgeSend
     }
 
     /*********************
@@ -93,6 +105,10 @@ contract Bridge is EssentialContract, IBridge {
      *********************/
 
     function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
+<<<<<<< HEAD
+=======
+        // * Why is this LibBridgeRead and not state or AddressResolver ?
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
         return LibBridgeRead.isMessageSent(mhash);
     }
 
@@ -102,6 +118,10 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata proof
     ) public view virtual returns (bool) {
         return
+<<<<<<< HEAD
+=======
+            // LibBridgeRead
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
             AddressResolver(this).isMessageReceived(mhash, srcChainId, proof);
     }
 
@@ -119,6 +139,6 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return state.isDestChainEnabled(_chainId);
+        return state.isDestChainEnabled(_chainId); //LibBridgeRead
     }
 }

@@ -26,18 +26,18 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * State Variables    *
      **********************/
 
-    mapping(uint256 => bytes32) public blockHashes;
+    mapping(uint256 => bytes32) private l2Hashes;
     mapping(uint256 => bytes32) private l1Hashes;
-    uint256 public chainId;
-    uint256 public latestL1Height;
+    bytes32 public publicInputHash;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     /**********************
      * Events             *
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
+<<<<<<< HEAD
 
     /**********************
      * Modifiers          *
@@ -48,15 +48,34 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         latestL1Height = block.number;
         _;
     }
+=======
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
 
     /**********************
      * Constructor         *
      **********************/
 
     constructor(address _addressManager) {
+<<<<<<< HEAD
         AddressResolver._init(_addressManager);
         require(block.chainid != 0, "L2:chainId");
         chainId = block.chainid;
+=======
+        require(block.chainid != 0, "L2:chainId");
+        AddressResolver._init(_addressManager);
+
+        bytes32[255] memory ancestors;
+        uint256 number = block.number;
+        for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
+            ancestors[i] = blockhash(number - i - 2);
+        }
+        publicInputHash = _hashPublicInputs(
+            block.chainid,
+            number,
+            0,
+            ancestors
+        );
+>>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     }
 
     /**********************
@@ -71,13 +90,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     ///
     /// @param l1Height The latest L1 block height when this block was proposed.
     /// @param l1Hash The latest L1 block hash when this block was proposed.
-    function anchor(uint256 l1Height, bytes32 l1Hash)
-        external
-        onlyWhenNotAnchored
-    {
-        l1Hashes[l1Height] = l1Hash;
-        _checkGlobalVariables();
+    function anchor(uint256 l1Height, bytes32 l1Hash) external {
+        _checkPublicInputs();
 
+        l1Hashes[l1Height] = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
@@ -98,7 +114,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         );
         require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
-        _checkGlobalVariables();
+        _checkPublicInputs();
 
         emit BlockInvalidated(txList.hashTxList());
     }
@@ -113,8 +129,21 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         override
         returns (bytes32)
     {
-        require(number <= latestL1Height, "L2:number");
         return l1Hashes[number];
+    }
+
+    function getBlockHash(uint256 number)
+        public
+        view
+        returns (bytes32)
+    {
+        if (number >= block.number) {
+            return 0;
+        } else if (number < block.number && number >= block.number - 256) {
+            return blockhash(number);
+        } else {
+            return l2Hashes[number];
+        }
     }
 
     /**********************
@@ -126,7 +155,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         pure
         returns (
             uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PENDING_BLOCKS
+            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
@@ -142,7 +171,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     {
         return (
             LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
@@ -157,21 +186,37 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         );
     }
 
-    function _checkGlobalVariables() private {
-        // Check chainid
-        require(block.chainid == chainId, "L2:chainId");
+    function _checkPublicInputs() private {
+        // Check the latest 256 block hashes (exlcuding the parent hash).
+        bytes32[255] memory ancestors;
+        uint256 number = block.number;
+        uint256 chainId = block.chainid;
 
-        // It turns out that if  EIP1559 is disabled, the basefee opcode
-        // won't be available.
-        // require(block.basefee == 0, "L2:baseFee");
-
-        // Check the latest 255 block hashes match the storage version.
-        for (uint256 i = 2; i <= 256 && block.number >= i; i++) {
-            uint256 j = block.number - i;
-            require(blockHashes[j] == blockhash(j), "L2:ancestorHash");
+        for (uint256 i = 2; i <= 256 && number >= i; i++) {
+            ancestors[(number - i) % 255] = blockhash(number - i);
         }
 
-        // Store parent hash into storage tree.
-        blockHashes[block.number - 1] = blockhash(block.number - 1);
+        uint parentHeight = number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
+
+        require(
+            publicInputHash ==
+                _hashPublicInputHash(chainId, parentHeight, 0, ancestors),
+            "L2:publicInputHash"
+        );
+        
+        ancestors[parentHeight % 255] = parentHash;
+        publicInputHash = _hashPublicInputHash(chainId, number, 0, ancestors);
+
+        l2Hashes[parentHeight] = parentHash;
+    }
+
+    function _hashPublicInputs(
+        uint256 chainId,
+        uint256 number,
+        uint256 baseFee,
+        bytes32[255] memory ancestors
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
     }
 }

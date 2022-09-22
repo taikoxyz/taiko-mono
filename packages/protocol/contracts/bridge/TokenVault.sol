@@ -98,6 +98,13 @@ contract TokenVault is EssentialContract, ITokenVault {
         EssentialContract._init(addressManager);
     }
 
+    /**
+     * @dev Sends Ether to the 'to' address on the destChain.
+     * Generates a Message struct with the parameters provided
+     * and msg attributes, then sends it to the corresponding
+     * Bridge.
+     * Emits corresponding event
+     */
     function sendEther(
         uint256 destChainId,
         address to,
@@ -131,11 +138,16 @@ contract TokenVault is EssentialContract, ITokenVault {
         emit EtherSent(to, destChainId, msg.value, mhash);
     }
 
-    receive() external payable {
-        emit EtherReceived(msg.sender, msg.value);
-    }
-
     /// @inheritdoc ITokenVault
+    /**
+     * @dev Sends ERC20 Tokens to the 'to' address on the destChain.
+     * If it is a bridged token, it is directly burned from the user's
+     * account on srcChain and the corresponding amount is sent in
+     * a message to destChain bridge.
+     * If it is canonical, this step is skipped.
+     * If it is TkoToken, we burn and mint like Bridged Tokens.
+     * Emits corresponding event.
+     */
     function sendERC20(
         uint256 destChainId,
         address to,
@@ -172,17 +184,9 @@ contract TokenVault is EssentialContract, ITokenVault {
                 name: t.name()
             });
 
-            if (token == resolve("tko_token")) {
-                // Special handling for Tai token: we do not send TAI to
-                // this vault, instead, we burn the user's TAI. This is because
-                // on L2, we are minting new tokens to validators and DAO.
-                TkoToken(token).burn(msg.sender, amount);
-                _amount = amount;
-            } else {
-                uint256 _balance = t.balanceOf(address(this));
-                t.safeTransferFrom(msg.sender, address(this), amount);
-                _amount = t.balanceOf(address(this)) - _balance;
-            }
+            uint256 _balance = t.balanceOf(address(this));
+            t.safeTransferFrom(msg.sender, address(this), amount);
+            _amount = t.balanceOf(address(this)) - _balance;
         }
 
         IBridge.Message memory message;
@@ -235,13 +239,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         address token;
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
-            if (token == resolve("tko_token")) {
-                // Special handling for Tai token: we do not send TAI from
-                // this vault to the user, instead, we mint new TAI to him.
-                TkoToken(token).mint(to, amount);
-            } else {
-                ERC20Upgradeable(token).safeTransfer(to, amount);
-            }
+            ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
             BridgedERC20(token).bridgeMintTo(to, amount);

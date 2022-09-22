@@ -22,7 +22,10 @@ library LibBridgeProcess {
     using LibBridgeRead for LibBridgeData.State;
 
     /**
-     * @dev This function can be called by any address, including `message.owner`.
+     * @dev This function can be called by any address, including `message. owner`.
+     * It "processes" the message, i.e. takes custody of the attached ether,
+     * attempts to invoke the messageCall, changes the message's status accordingly.
+     * Also refunds processing fee if necessary.
      */
     function processMessage(
         LibBridgeData.State storage state,
@@ -30,14 +33,21 @@ library LibBridgeProcess {
         IBridge.Message calldata message,
         bytes calldata proof
     ) external {
-        uint256 gasStart = gasleft();
-        require(message.destChainId == block.chainid, "B:destChainId");
+        if (message.gasLimit == 0) {
+            require(msg.sender == message.owner, "B:denied");
+        }
 
+        uint256 gasStart = gasleft();
+        // The message's destination chain must be the current chain.
+        require(message.destChainId == block.chainid, "B:destChainId");
+        // The status of the message must be "NEW"; RETRIABLE is handled in
+        // LibBridgeRetry.sol
         bytes32 mhash = message.hashMessage();
         require(
             state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
             "B:status"
         );
+        // Message must have been "received" on the destChain (current chain)
         require(
             LibBridgeRead.isMessageReceived(
                 resolver,
@@ -84,10 +94,13 @@ library LibBridgeProcess {
         if (refundAddress == msg.sender) {
             refundAddress.sendEther(refundAmount + message.maxProcessingFee);
         } else {
-            uint256 processingCost = tx.gasprice *
-                (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
-                    gasStart -
-                    gasleft());
+            uint256 processingCost;
+            // = tx.gasprice *
+            //     (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
+            //         gasStart -
+            //         gasleft());
+
+            // TODO(daniel): bug: the relayer didn't make a profit.
             uint256 processingFee = processingCost.min(
                 message.maxProcessingFee
             );

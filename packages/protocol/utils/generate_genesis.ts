@@ -101,10 +101,8 @@ async function generateL2Genesis(
         }
 
         // pre-mint ETHs for Bridge contract
-        // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to V1TaikoL2 contract address.
         alloc[contractConfig.address].balance =
-            contractName === "V1TaikoL2" ? bridgeBalance.toHexString() : "0x0"
+            contractName === "Bridge" ? bridgeBalance.toHexString() : "0x0"
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
@@ -149,17 +147,39 @@ async function generateContractConfigs(
     chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
-        AddressManager: require(path.join(
+        // Libraries
+        LibTrieProof: require(path.join(
             ARTIFACTS_PATH,
-            "./thirdparty/AddressManager.sol/AddressManager.json"
+            "./libs/LibTrieProof.sol/LibTrieProof.json"
+        )),
+        LibBridgeRetry: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/libs/LibBridgeRetry.sol/LibBridgeRetry.json"
+        )),
+        LibBridgeProcess: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/libs/LibBridgeProcess.sol/LibBridgeProcess.json"
         )),
         LibTxDecoder: require(path.join(
             ARTIFACTS_PATH,
             "./libs/LibTxDecoder.sol/LibTxDecoder.json"
         )),
+        // Contracts
+        AddressManager: require(path.join(
+            ARTIFACTS_PATH,
+            "./thirdparty/AddressManager.sol/AddressManager.json"
+        )),
         V1TaikoL2: require(path.join(
             ARTIFACTS_PATH,
             "./L2/V1TaikoL2.sol/V1TaikoL2.json"
+        )),
+        Bridge: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/Bridge.sol/Bridge.json"
+        )),
+        TokenVault: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/TokenVault.sol/TokenVault.json"
         )),
     }
 
@@ -174,6 +194,24 @@ async function generateContractConfigs(
             }
 
             bytecode = linkV1TaikoL2Bytecode(bytecode, addressMap)
+        } else if (contractName === "LibBridgeProcess") {
+            if (!addressMap.LibTrieProof) {
+                throw new Error("LibTrieProof not initialized")
+            }
+
+            bytecode = linkLibBridgeProcessBytecode(bytecode, addressMap)
+        } else if (contractName === "Bridge") {
+            if (
+                !addressMap.LibTrieProof ||
+                !addressMap.LibBridgeRetry ||
+                !addressMap.LibBridgeProcess
+            ) {
+                throw new Error(
+                    "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
+                )
+            }
+
+            bytecode = linkBridgeBytecode(bytecode, addressMap)
         }
 
         addressMap[contractName] = ethers.utils.getCreate2Address(
@@ -189,6 +227,30 @@ async function generateContractConfigs(
     console.log(addressMap)
 
     return {
+        // Libraries
+        LibTrieProof: {
+            address: addressMap.LibTrieProof,
+            deployedBytecode: contractArtifacts.LibTrieProof.deployedBytecode,
+            variables: {},
+        },
+        LibBridgeRetry: {
+            address: addressMap.LibBridgeRetry,
+            deployedBytecode: contractArtifacts.LibBridgeRetry.deployedBytecode,
+            variables: {},
+        },
+        LibBridgeProcess: {
+            address: addressMap.LibBridgeProcess,
+            deployedBytecode: linkLibBridgeProcessBytecode(
+                contractArtifacts.LibBridgeProcess.deployedBytecode,
+                addressMap
+            ),
+            variables: {},
+        },
+        LibTxDecoder: {
+            address: addressMap.LibTxDecoder,
+            deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
+            variables: {},
+        },
         AddressManager: {
             address: addressMap.AddressManager,
             deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
@@ -205,13 +267,20 @@ async function generateContractConfigs(
                         ["string"],
                         [`${config.chainId}.eth_depositor`]
                     )}`]: config.ethDepositor,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.taiko`]
+                    )}`]: addressMap.V1TaikoL2,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.bridge`]
+                    )}`]: addressMap.Bridge,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${config.chainId}.token_vault`]
+                    )}`]: addressMap.TokenVault,
                 },
             },
-        },
-        LibTxDecoder: {
-            address: addressMap.LibTxDecoder,
-            deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
-            variables: {},
         },
         V1TaikoL2: {
             address: addressMap.V1TaikoL2,
@@ -224,7 +293,52 @@ async function generateContractConfigs(
                 _status: 1, // _NOT_ENTERED
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                chainId: config.chainId,
+                // V1TaikoL2
+                // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
+                publicInputHash: `${ethers.utils.solidityKeccak256(
+                    ["uint256", "uint256", "uint256", "bytes32[255]"],
+                    [
+                        config.chainId,
+                        0,
+                        0,
+                        new Array(255).fill(ethers.constants.HashZero),
+                    ]
+                )}`,
+            },
+        },
+        Bridge: {
+            address: addressMap.Bridge,
+            deployedBytecode: linkBridgeBytecode(
+                contractArtifacts.Bridge.deployedBytecode,
+                addressMap
+            ),
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+                // Bridge
+                state: {},
+            },
+        },
+        TokenVault: {
+            address: addressMap.TokenVault,
+            deployedBytecode: contractArtifacts.TokenVault.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
             },
         },
     }
@@ -248,6 +362,60 @@ function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
     })
 
     if (linkedBytecode.includes("$__")) {
+        throw new Error("failed to link")
+    }
+
+    return linkedBytecode
+}
+
+// linkLibBridgeProcessBytecode tries to link LibBridgeProcess deployedBytecode
+// to its libraries.
+// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
+function linkLibBridgeProcessBytecode(
+    byteCode: string,
+    addressMap: any
+): string {
+    const refs = linker.findLinkReferences(byteCode)
+
+    if (Object.keys(refs).length !== 1) {
+        throw new Error(
+            `wrong link references amount, expected: 1, get: ${
+                Object.keys(refs).length
+            }`
+        )
+    }
+
+    const linkedBytecode: string = linker.linkBytecode(byteCode, {
+        [Object.keys(refs)[0]]: addressMap.LibTrieProof,
+    })
+
+    if (linkedBytecode.includes("$__")) {
+        throw new Error("failed to link")
+    }
+
+    return linkedBytecode
+}
+
+// linkBridgeBytecode tries to link Bridge deployedBytecode to its libraries.
+// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
+function linkBridgeBytecode(byteCode: string, addressMap: any): string {
+    const refs = linker.findLinkReferences(byteCode)
+
+    if (Object.keys(refs).length !== 3) {
+        throw new Error(
+            `wrong link references amount, expected: 3, get: ${
+                Object.keys(refs).length
+            }`
+        )
+    }
+
+    const linkedBytecode: string = linker.linkBytecode(byteCode, {
+        [Object.keys(refs)[0]]: addressMap.LibBridgeProcess,
+        [Object.keys(refs)[1]]: addressMap.LibBridgeRetry,
+        [Object.keys(refs)[2]]: addressMap.LibTrieProof,
+    })
+
+    if (ethers.utils.toUtf8Bytes(linkedBytecode).includes("$__")) {
         throw new Error("failed to link")
     }
 

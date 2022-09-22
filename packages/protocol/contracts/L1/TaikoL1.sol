@@ -56,7 +56,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///        - l1Height
     ///        - l1Hash
     ///        - mixHash
-    ///        - proposedAt
+    ///        - timestamp
     ///
     ///     - inputs[1] is a list of transactions in this block, encoded with RLP.
     ///       Note in the corresponding L2 block, an _anchor transaction_ will be
@@ -135,12 +135,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Proposing.isCommitValid(state, hash);
     }
 
-    function getPendingBlock(uint256 id)
+    function getProposedBlock(uint256 id)
         public
         view
-        returns (LibData.PendingBlock memory)
+        returns (LibData.ProposedBlock memory)
     {
-        return state.getPendingBlock(id);
+        return state.getProposedBlock(id);
     }
 
     function getSyncedHeader(uint256 number)
@@ -159,7 +159,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             uint64, /*genesisHeight*/
             uint64, /*latestFinalizedHeight*/
             uint64, /*latestFinalizedId*/
-            uint64 /*nextPendingId*/
+            uint64 /*nextBlockId*/
         )
     {
         return state.getStateVariables();
@@ -182,7 +182,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         pure
         returns (
             uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PENDING_BLOCKS
+            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
@@ -198,7 +198,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     {
         return (
             LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
