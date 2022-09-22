@@ -88,10 +88,11 @@ library LibBridgeProcess {
         if (refundAddress == msg.sender) {
             refundAddress.sendEther(refundAmount + message.maxProcessingFee);
         } else {
-            uint256 processingCost = tx.gasprice *
-                (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
-                    gasStart -
-                    gasleft());
+            uint256 processingCost;
+            // = tx.gasprice *
+            //     (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
+            //         gasStart -
+            //         gasleft());
 
             // TODO(daniel): bug: the relayer didn't make a profit.
             uint256 processingFee = processingCost.min(
