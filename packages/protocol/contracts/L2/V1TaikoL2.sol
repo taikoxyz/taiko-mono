@@ -145,7 +145,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         if (number >= block.number) {
             return 0;
         } else if (number < block.number && number >= block.number - 256) {
-            return blockhash(nummber);
+            return blockhash(number);
         } else {
             return l2Hashes[number];
         }
