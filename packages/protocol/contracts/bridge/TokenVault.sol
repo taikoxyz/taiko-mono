@@ -223,13 +223,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         address token;
         if (canonicalToken.chainId == block.chainid) {
             token = canonicalToken.addr;
-            if (token == resolve("tko_token")) {
-                // Special handling for Tai token: we do not send TAI from
-                // this vault to the user, instead, we mint new TAI to him.
-                TkoToken(token).mint(to, amount);
-            } else {
-                ERC20Upgradeable(token).safeTransfer(to, amount);
-            }
+            ERC20Upgradeable(token).safeTransfer(to, amount);
         } else {
             token = _getOrDeployBridgedToken(canonicalToken);
             BridgedERC20(token).bridgeMintTo(to, amount);
