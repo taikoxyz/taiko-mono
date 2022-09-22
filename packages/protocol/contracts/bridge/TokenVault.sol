@@ -168,17 +168,9 @@ contract TokenVault is EssentialContract, ITokenVault {
                 name: t.name()
             });
 
-            if (token == resolve("tko_token")) {
-                // Special handling for Tai token: we do not send TAI to
-                // this vault, instead, we burn the user's TAI. This is because
-                // on L2, we are minting new tokens to validators and DAO.
-                TkoToken(token).burn(msg.sender, amount);
-                _amount = amount;
-            } else {
-                uint256 _balance = t.balanceOf(address(this));
-                t.safeTransferFrom(msg.sender, address(this), amount);
-                _amount = t.balanceOf(address(this)) - _balance;
-            }
+            uint256 _balance = t.balanceOf(address(this));
+            t.safeTransferFrom(msg.sender, address(this), amount);
+            _amount = t.balanceOf(address(this)) - _balance;
         }
 
         IBridge.Message memory message;
