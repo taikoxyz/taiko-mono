@@ -27,7 +27,7 @@ interface IBridge {
         address refundAddress; // address to refund gas/ether to, if address(0), refunds to owner
         uint256 depositValue; // value to be deposited at "to" address
         uint256 callValue; // value to be called on destChain
-        uint256 maxProcessingFee; // * maximum processing fee sender is willing to pay
+        uint256 maxProcessingFee; // maximum processing fee sender is willing to pay
         uint256 gasLimit;
         bytes data; // calldata
         string memo;
