@@ -30,6 +30,10 @@ library LibBridgeProcess {
         IBridge.Message calldata message,
         bytes calldata proof
     ) external {
+        if (message.gasLimit == 0) {
+            require(msg.sender == message.owner, "B:denied");
+        }
+
         uint256 gasStart = gasleft();
         require(message.destChainId == block.chainid, "B:destChainId");
 
