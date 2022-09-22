@@ -16,13 +16,13 @@ interface ITokenVault {
      * @dev Ether are held by Bridges, not TokenVaults.
      * @param destChainId The destination chain ID where the `to` address lives.
      * @param to The destination address.
-     * @param maxProcessingFee @custom:see Bridge
+     * @param processingFee @custom:see Bridge
      */
     function sendEther(
         uint256 destChainId,
         address to,
         uint256 gasLimit,
-        uint256 maxProcessingFee,
+        uint256 processingFee,
         address refundAddress,
         string memory memo
     ) external payable;
@@ -37,7 +37,7 @@ interface ITokenVault {
      * @param refundAddress The fee refund address. If this address is address(0), extra
      *        fees will be refunded back to the `to` address.
      * @param amount The amount of token to be transferred.
-     * @param maxProcessingFee @custom:see Bridge
+     * @param processingFee @custom:see Bridge
      * @param gasLimit @custom:see Bridge
      */
     function sendERC20(
@@ -46,7 +46,7 @@ interface ITokenVault {
         address token,
         uint256 amount,
         uint256 gasLimit,
-        uint256 maxProcessingFee,
+        uint256 processingFee,
         address refundAddress,
         string memory memo
     ) external payable;

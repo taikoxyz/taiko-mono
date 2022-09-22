@@ -30,7 +30,7 @@ library LibBridgeSend {
 
         uint256 expectedAmount = message.depositValue +
             message.callValue +
-            message.maxProcessingFee;
+            message.processingFee;
         require(expectedAmount == msg.value, "B:value");
 
         message.id = state.nextMessageId++;

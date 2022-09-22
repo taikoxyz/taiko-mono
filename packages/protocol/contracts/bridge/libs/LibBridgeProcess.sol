@@ -92,24 +92,12 @@ library LibBridgeProcess {
             : message.refundAddress;
 
         if (refundAddress == msg.sender) {
-            refundAddress.sendEther(refundAmount + message.maxProcessingFee);
+            refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
-            uint256 processingCost;
-            // = tx.gasprice *
-            //     (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
-            //         gasStart -
-            //         gasleft());
-
-            // TODO(daniel): bug: the relayer didn't make a profit.
-            uint256 processingFee = processingCost.min(
-                message.maxProcessingFee
-            );
-
-            uint256 processingFeeRefund = message.maxProcessingFee -
-                processingFee;
-
-            refundAddress.sendEther(refundAmount + processingFeeRefund);
-            msg.sender.sendEther(processingFee);
+            // First attempt relayer gets the processingFee 
+            // message.owner has to eat the cost.
+            refundAddress.sendEther(refundAmount);
+            msg.sender.sendEther(message.processingFee);
         }
     }
 }

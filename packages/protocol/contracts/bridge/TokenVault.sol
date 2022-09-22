@@ -109,7 +109,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         uint256 destChainId,
         address to,
         uint256 gasLimit,
-        uint256 maxProcessingFee,
+        uint256 processingFee,
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
@@ -125,7 +125,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         message.to = to;
 
         message.gasLimit = gasLimit;
-        message.maxProcessingFee = maxProcessingFee;
+        message.processingFee = processingFee;
         message.depositValue = msg.value;
         message.refundAddress = refundAddress;
         message.memo = memo;
@@ -154,7 +154,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         address token,
         uint256 amount,
         uint256 gasLimit,
-        uint256 maxProcessingFee,
+        uint256 processingFee,
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
@@ -203,7 +203,7 @@ contract TokenVault is EssentialContract, ITokenVault {
         );
 
         message.gasLimit = gasLimit;
-        message.maxProcessingFee = maxProcessingFee;
+        message.processingFee = processingFee;
         message.depositValue = msg.value;
         message.refundAddress = refundAddress;
         message.memo = memo;

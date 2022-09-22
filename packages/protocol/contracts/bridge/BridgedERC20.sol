@@ -104,11 +104,8 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
-<<<<<<< HEAD
-=======
     /// @dev returns the srcToken being bridged and the srcChainId
     // of the tokens being bridged
->>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     function source() public view returns (address, uint256) {
         return (srcToken, srcChainId);
     }
