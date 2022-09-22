@@ -33,6 +33,10 @@ library LibBridgeProcess {
         IBridge.Message calldata message,
         bytes calldata proof
     ) external {
+        if (message.gasLimit == 0) {
+            require(msg.sender == message.owner, "B:denied");
+        }
+
         uint256 gasStart = gasleft();
         // The message's destination chain must be the current chain.
         require(message.destChainId == block.chainid, "B:destChainId");
@@ -90,10 +94,13 @@ library LibBridgeProcess {
         if (refundAddress == msg.sender) {
             refundAddress.sendEther(refundAmount + message.maxProcessingFee);
         } else {
-            uint256 processingCost = tx.gasprice *
-                (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
-                    gasStart -
-                    gasleft());
+            uint256 processingCost;
+            // = tx.gasprice *
+            //     (LibBridgeData.MESSAGE_PROCESSING_OVERHEAD +
+            //         gasStart -
+            //         gasleft());
+
+            // TODO(daniel): bug: the relayer didn't make a profit.
             uint256 processingFee = processingCost.min(
                 message.maxProcessingFee
             );

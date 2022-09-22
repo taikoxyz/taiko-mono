@@ -20,11 +20,13 @@ library LibBridgeData {
      *********************/
 
     struct State {
-        mapping(uint256 => bool) destChains; // mappings of ints representing chains and whether they are enabled
-        mapping(bytes32 => IBridge.MessageStatus) messageStatus; // mappings of messageHashes to their Status
+        // chainId => isEnabled
+        mapping(uint256 => bool) destChains;
+        // message hash => status
+        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[44] __gap; // reserving space for a total of 50 for future upgradeability
+        uint256[44] __gap;
     }
 
     /*********************
@@ -32,7 +34,6 @@ library LibBridgeData {
      *********************/
 
     // TODO: figure out this value
-    uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
     bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =

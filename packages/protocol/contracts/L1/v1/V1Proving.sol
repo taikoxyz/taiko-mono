@@ -41,7 +41,7 @@ library V1Proving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 proposedAt,
+        uint64 timestamp,
         uint64 provenAt,
         address prover
     );
@@ -227,11 +227,11 @@ library V1Proving {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = target.proposedAt;
+            fc.proposedAt = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.proposedAt == target.proposedAt,
+                fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
                 "L1:proof:conflict"
             );
             require(
@@ -312,7 +312,7 @@ library V1Proving {
                 header.gasLimit ==
                 meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
-                header.timestamp == meta.proposedAt &&
+                header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&
                 keccak256(header.extraData) == keccak256(meta.extraData) &&
                 header.mixHash == meta.mixHash,

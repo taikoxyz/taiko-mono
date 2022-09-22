@@ -23,6 +23,9 @@ library LibBridgeRead {
         bytes proof;
     }
 
+    /**
+     * @dev Queries contract storage for whether the messageHash is present. Only supposed to be called on srcChain bridge contract.
+     */
     function isMessageSent(bytes32 mhash) internal view returns (bool) {
         uint256 v;
         assembly {

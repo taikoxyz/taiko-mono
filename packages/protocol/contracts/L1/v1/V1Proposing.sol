@@ -70,7 +70,7 @@ library V1Proposing {
         meta.id = s.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
-        meta.proposedAt = uint64(block.timestamp);
+        meta.timestamp = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
@@ -110,7 +110,7 @@ library V1Proposing {
                 meta.l1Height == 0 &&
                 meta.l1Hash == 0 &&
                 meta.mixHash == 0 &&
-                meta.proposedAt == 0 &&
+                meta.timestamp == 0 &&
                 meta.beneficiary != address(0) &&
                 meta.txListHash != 0,
             "L1:placeholder"

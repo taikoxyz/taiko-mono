@@ -23,7 +23,7 @@ abstract contract V1Events {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 proposedAt,
+        uint64 timestamp,
         uint64 provenAt,
         address prover
     );

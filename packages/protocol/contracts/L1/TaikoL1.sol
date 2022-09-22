@@ -56,7 +56,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///        - l1Height
     ///        - l1Hash
     ///        - mixHash
-    ///        - proposedAt
+    ///        - timestamp
     ///
     ///     - inputs[1] is a list of transactions in this block, encoded with RLP.
     ///       Note in the corresponding L2 block, an _anchor transaction_ will be

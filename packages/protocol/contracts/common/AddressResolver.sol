@@ -8,8 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "./IAddressManager.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+
+import "./IAddressManager.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
