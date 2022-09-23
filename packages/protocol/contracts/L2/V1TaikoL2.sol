@@ -37,30 +37,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
-<<<<<<< HEAD
-
-    /**********************
-     * Modifiers          *
-     **********************/
-
-    modifier onlyWhenNotAnchored() {
-        require(latestL1Height + 1 == block.number, "L2:anchored");
-        latestL1Height = block.number;
-        _;
-    }
-=======
->>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
 
     /**********************
      * Constructor         *
      **********************/
 
     constructor(address _addressManager) {
-<<<<<<< HEAD
-        AddressResolver._init(_addressManager);
-        require(block.chainid != 0, "L2:chainId");
-        chainId = block.chainid;
-=======
         require(block.chainid != 0, "L2:chainId");
         AddressResolver._init(_addressManager);
 
@@ -75,7 +57,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             0,
             ancestors
         );
->>>>>>> 100d8fbd286476792a5f01f2548cd03cc747440b
     }
 
     /**********************
