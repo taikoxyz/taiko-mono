@@ -21,9 +21,6 @@ import "./ITokenVault.sol";
  *  @dev This vault holds Ether.
  */
 contract EtherVault is EssentialContract {
-    
-    /// allow Bridge to receive ETH directly.
     receive() external payable {}
-
-    function getEther() {}
+    function getEther(uint amount) public {}
 }
