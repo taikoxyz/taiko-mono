@@ -19,6 +19,7 @@ library LibBridgeSend {
 
     function sendMessage(
         LibBridgeData.State storage state,
+        AddressResolver resolver,
         IBridge.Message memory message
     ) internal returns (bytes32 mhash) {
         require(message.owner != address(0), "B:owner");
@@ -32,6 +33,7 @@ library LibBridgeSend {
             message.callValue +
             message.processingFee;
         require(expectedAmount == msg.value, "B:value");
+        resolver.resolve("eth_vault").sendEther(msg.value);
 
         message.id = state.nextMessageId++;
         message.sender = msg.sender;

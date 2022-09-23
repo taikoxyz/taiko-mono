@@ -60,6 +60,9 @@ library LibBridgeProcess {
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
+        EtherVault ethVault = EthVault(resolver.resolve("eth_vault"));
+        ethVault.getEther(message.depositValue + message.callValue + message.processingFee);
+
         message.owner.sendEther(message.depositValue);
 
         IBridge.MessageStatus status;
@@ -76,6 +79,10 @@ library LibBridgeProcess {
                 mhash,
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
+
+            if (!success) {
+                ethVault.sendEther(message.callValue);
+            }
 
             status = success
                 ? IBridge.MessageStatus.DONE

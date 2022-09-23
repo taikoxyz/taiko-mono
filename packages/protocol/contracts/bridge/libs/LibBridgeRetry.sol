@@ -29,6 +29,7 @@ library LibBridgeRetry {
      */
     function retryMessage(
         LibBridgeData.State storage state,
+        AddressResolver resolver,
         IBridge.Message calldata message,
         bool lastAttempt
     ) external {
@@ -43,6 +44,10 @@ library LibBridgeRetry {
             state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
+
+        EtherVault ethVault = EthVault(resolver.resolve("eth_vault"));
+        ethVault.getEther(message.callValue);
+
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
@@ -55,6 +60,8 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
+        } else {
+            ethVault.sendEther(message.callValue);
         }
     }
 }

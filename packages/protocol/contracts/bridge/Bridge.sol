@@ -50,8 +50,6 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// allow Bridge to receive ETH directly.
-    receive() external payable {}
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
@@ -64,7 +62,7 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (bytes32 mhash)
     {
-        return state.sendMessage(message); //LibBridgeSend
+        return state.sendMessage(AddressResolver(this), message); //LibBridgeSend
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
@@ -79,7 +77,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         nonReentrant
     {
-        return state.retryMessage(message, lastAttempt); //LibBridgeRetry
+        return state.retryMessage(AddressResolver(this), message, lastAttempt); //LibBridgeRetry
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)
