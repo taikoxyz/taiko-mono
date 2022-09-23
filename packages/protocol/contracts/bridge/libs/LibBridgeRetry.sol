@@ -46,15 +46,15 @@ library LibBridgeRetry {
             "B:notFound"
         );
 
-        EtherVault ethVault = EtherVault(resolver.resolve("ether_vault"));
-        if (address(ethVault) != address(0)) {
-            ethVault.receiveEther(message.callValue);
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(message.callValue);
         }
 
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
-        // failed invocation
+            // failed invocation
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 

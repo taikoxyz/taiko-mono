@@ -45,7 +45,6 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
@@ -64,14 +63,26 @@ contract Bridge is EssentialContract, IBridge {
         external
         nonReentrant
     {
-        return LibBridgeProcess.processMessage(state, AddressResolver(this), message, proof);
+        return
+            LibBridgeProcess.processMessage(
+                state,
+                AddressResolver(this),
+                message,
+                proof
+            );
     }
 
     function retryMessage(Message calldata message, bool lastAttempt)
         external
         nonReentrant
     {
-        return LibBridgeRetry.retryMessage(state, AddressResolver(this), message, lastAttempt);
+        return
+            LibBridgeRetry.retryMessage(
+                state,
+                AddressResolver(this),
+                message,
+                lastAttempt
+            );
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)
@@ -95,7 +106,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata proof
     ) public view virtual returns (bool) {
         return
-            LibBridgeRead.isMessageReceived(AddressResolver(this),mhash, srcChainId, proof);
+            LibBridgeRead.isMessageReceived(
+                AddressResolver(this),
+                mhash,
+                srcChainId,
+                proof
+            );
     }
 
     function getMessageStatus(bytes32 mhash)

@@ -31,27 +31,20 @@ contract EtherVault is EssentialContract {
 
     receive() external payable onlyAuthorized {}
 
-    function receiveEther(uint amount)
-        public
-        onlyAuthorized
-        nonReentrant
-    {
+    function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
     }
 
-    function authorize(address addr, bool authorized)
-        public
-        onlyOwner
-    {
+    function authorize(address addr, bool authorized) public onlyOwner {
         require(
-            addr!= address(0) && authorizedAddrs[addr] != authorized,
+            addr != address(0) && authorizedAddrs[addr] != authorized,
             "EV:param"
         );
         authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }
 
-    function isAuthorized(address addr) public view returns(bool) {
+    function isAuthorized(address addr) public view returns (bool) {
         return authorizedAddrs[addr];
     }
 }

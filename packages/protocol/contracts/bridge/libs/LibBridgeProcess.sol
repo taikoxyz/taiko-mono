@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibAddress.sol";
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
@@ -39,7 +38,6 @@ library LibBridgeProcess {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        uint256 gasStart = gasleft();
         // The message's destination chain must be the current chain.
         require(message.destChainId == block.chainid, "B:destChainId");
         // The status of the message must be "NEW"; RETRIABLE is handled in
@@ -62,9 +60,11 @@ library LibBridgeProcess {
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
-        EtherVault ethVault = EtherVault(resolver.resolve("ether_vault"));
-        if (address(ethVault) != address(0)) {
-            ethVault.receiveEther(message.depositValue + message.callValue + message.processingFee);
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(
+                message.depositValue + message.callValue + message.processingFee
+            );
         }
 
         message.owner.sendEther(message.depositValue);
@@ -84,7 +84,7 @@ library LibBridgeProcess {
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
 
-            if (!success && address(ethVault) != address(0)) {
+            if (!success && ethVault != address(0)) {
                 ethVault.sendEther(message.callValue);
             }
 
@@ -105,7 +105,7 @@ library LibBridgeProcess {
         if (refundAddress == msg.sender) {
             refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
-            // First attempt relayer gets the processingFee 
+            // First attempt relayer gets the processingFee
             // message.owner has to eat the cost.
             refundAddress.sendEther(refundAmount);
             msg.sender.sendEther(message.processingFee);

@@ -33,7 +33,11 @@ library LibBridgeSend {
             message.callValue +
             message.processingFee;
         require(expectedAmount == msg.value, "B:value");
-        resolver.resolve("ether_vault").sendEther(msg.value);
+
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            ethVault.sendEther(msg.value);
+        }
 
         message.id = state.nextMessageId++;
         message.sender = msg.sender;
