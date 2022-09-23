@@ -53,7 +53,7 @@ contract EtherVault is EssentialContract {
         emit Authorized(addr, authorized);
     }
 
-    function isAuthorized(address addr) pubic view returns(bool) {
+    function isAuthorized(address addr) public view returns(bool) {
         return authorizedAddrs[addr];
     }
 }
