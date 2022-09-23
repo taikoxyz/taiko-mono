@@ -88,7 +88,7 @@ library LibBridgeProcess {
             ? message.owner
             : message.refundAddress;
 
-        if (msg.sender == message.owner) {
+        if (msg.sender == refundAddress) {
             refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
             msg.sender.sendEther(message.processingFee);
