@@ -182,12 +182,12 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         require(
             publicInputHash ==
-                _hashPublicInputHash(chainId, parentHeight, 0, ancestors),
+                _hashPublicInputs(chainId, parentHeight, 0, ancestors),
             "L2:publicInputHash"
         );
         
         ancestors[parentHeight % 255] = parentHash;
-        publicInputHash = _hashPublicInputHash(chainId, number, 0, ancestors);
+        publicInputHash = _hashPublicInputs(chainId, number, 0, ancestors);
 
         l2Hashes[parentHeight] = parentHash;
     }
