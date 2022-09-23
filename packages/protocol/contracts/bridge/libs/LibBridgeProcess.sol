@@ -40,6 +40,7 @@ library LibBridgeProcess {
 
         // The message's destination chain must be the current chain.
         require(message.destChainId == block.chainid, "B:destChainId");
+
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
         bytes32 mhash = message.hashMessage();
@@ -84,13 +85,14 @@ library LibBridgeProcess {
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
 
-            if (!success && ethVault != address(0)) {
-                ethVault.sendEther(message.callValue);
+            if (success) {
+                status = IBridge.MessageStatus.DONE;
+            } else {
+                status = IBridge.MessageStatus.RETRIABLE;
+                if (ethVault != address(0)) {
+                    ethVault.sendEther(message.callValue);
+                }
             }
-
-            status = success
-                ? IBridge.MessageStatus.DONE
-                : IBridge.MessageStatus.RETRIABLE;
         } else {
             revert("B:forbidden");
         }
