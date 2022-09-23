@@ -36,7 +36,7 @@ library LibBridgeSend {
 
         address ethVault = resolver.resolve("ether_vault");
         if (ethVault != address(0)) {
-            ethVault.sendEther(msg.value);
+            ethVault.sendEther(expectedAmount);
         }
 
         message.id = state.nextMessageId++;
