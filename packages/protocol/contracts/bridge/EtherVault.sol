@@ -12,15 +12,13 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import "../common/EssentialContract.sol";
-import "../L1/TkoToken.sol";
-import "./BridgedERC20.sol";
-import "./IBridge.sol";
-import "./ITokenVault.sol";
+import "../libs/LibAddress.sol";
 
 /**
  *  @dev This vault holds Ether.
  */
 contract EtherVault is EssentialContract {
+    using LibAddress for address;
 
     mapping(address => bool) private authorizedAddrs;
 
@@ -31,7 +29,7 @@ contract EtherVault is EssentialContract {
         _;
     }
 
-    receive() external payable {}
+    receive() external payable onlyAuthorized {}
 
     function receiveEther(uint amount)
         public
