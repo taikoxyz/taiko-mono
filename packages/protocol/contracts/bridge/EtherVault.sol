@@ -14,9 +14,8 @@ import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 
-/**
- *  @dev This vault holds Ether.
- */
+/// @dev This vault holds Ether.
+/// @author dantaik <dan@taiko.xyz>
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
