@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../libs/LibAddress.sol";
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
@@ -61,7 +62,7 @@ library LibBridgeProcess {
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
-        EtherVault ethVault = EtherVault(resolver.resolve("eth_vault"));
+        EtherVault ethVault = EtherVault(resolver.resolve("ether_vault"));
         if (address(ethVault) != address(0)) {
             ethVault.receiveEther(message.depositValue + message.callValue + message.processingFee);
         }

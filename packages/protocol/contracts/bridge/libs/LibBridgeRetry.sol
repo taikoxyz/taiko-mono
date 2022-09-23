@@ -46,7 +46,7 @@ library LibBridgeRetry {
             "B:notFound"
         );
 
-        EtherVault ethVault = EtherVault(resolver.resolve("eth_vault"));
+        EtherVault ethVault = EtherVault(resolver.resolve("ether_vault"));
         if (address(ethVault) != address(0)) {
             ethVault.receiveEther(message.callValue);
         }
