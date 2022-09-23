@@ -21,6 +21,39 @@ import "./ITokenVault.sol";
  *  @dev This vault holds Ether.
  */
 contract EtherVault is EssentialContract {
+
+    mapping(address => bool) private authorizedAddrs;
+
+    event Authorized(address indexed addr, bool authorized);
+
+    modifier onlyAuthorized() {
+        require(isAuthorized(msg.sender), "EV:denied");
+        _;
+    }
+
     receive() external payable {}
-    function receiveEther(uint amount) public {}
+
+    function receiveEther(uint amount)
+        public
+        onlyAuthorized
+        nonReentrant
+    {
+        msg.sender.sendEther(amount);
+    }
+
+    function authorize(address addr, bool authorized)
+        public
+        onlyOwner
+    {
+        require(
+            addr!= address(0) && authorizedAddrs[addr] != authorized,
+            "EV:param"
+        );
+        authorizedAddrs[addr] = authorized;
+        emit Authorized(addr, authorized);
+    }
+
+    function isAuthorized(address addr) pubic view returns(bool) {
+        return authorizedAddrs[addr];
+    }
 }
