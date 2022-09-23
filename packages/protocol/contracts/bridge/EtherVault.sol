@@ -20,16 +20,41 @@ import "../libs/LibAddress.sol";
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
+    /*********************
+     * State Variables   *
+     *********************/
+
     mapping(address => bool) private authorizedAddrs;
+    uint256[49] private __gap;
+
+    /*********************
+     * Events            *
+     *********************/
 
     event Authorized(address indexed addr, bool authorized);
+
+    /*********************
+     * Modifiers         *
+     *********************/
 
     modifier onlyAuthorized() {
         require(isAuthorized(msg.sender), "EV:denied");
         _;
     }
 
+    /*********************
+     * External Functions*
+     *********************/
+
     receive() external payable onlyAuthorized {}
+
+    function init(address addressManager) external initializer {
+        EssentialContract._init(addressManager);
+    }
+
+    /*********************
+     * Public Functions  *
+     *********************/
 
     function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);

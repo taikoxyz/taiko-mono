@@ -29,7 +29,7 @@ contract Bridge is EssentialContract, IBridge {
     uint256[50] private __gap;
 
     /*********************
-     * Events             *
+     * Events            *
      *********************/
 
     event MessageSent(bytes32 indexed mhash, IBridge.Message message);
@@ -44,6 +44,9 @@ contract Bridge is EssentialContract, IBridge {
     /*********************
      * External Functions*
      *********************/
+
+    /// allow Bridge to receive ETH from EtherVault.
+    receive() external payable {}
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
