@@ -61,8 +61,10 @@ library LibBridgeProcess {
 
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
-        EtherVault ethVault = EthVault(resolver.resolve("eth_vault"));
-        ethVault.getEther(message.depositValue + message.callValue + message.processingFee);
+        EtherVault ethVault = EtherVault(resolver.resolve("eth_vault"));
+        if (address(ethVault) != address(0)) {
+            ethVault.receiveEther(message.depositValue + message.callValue + message.processingFee);
+        }
 
         message.owner.sendEther(message.depositValue);
 
@@ -81,7 +83,7 @@ library LibBridgeProcess {
                 message.gasLimit == 0 ? gasleft() : message.gasLimit
             );
 
-            if (!success) {
+            if (!success && address(ethVault) != address(0)) {
                 ethVault.sendEther(message.callValue);
             }
 

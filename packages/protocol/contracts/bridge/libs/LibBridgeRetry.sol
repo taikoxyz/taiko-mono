@@ -45,8 +45,10 @@ library LibBridgeRetry {
             "B:notFound"
         );
 
-        EtherVault ethVault = EthVault(resolver.resolve("eth_vault"));
-        ethVault.getEther(message.callValue);
+        EtherVault ethVault = EtherVault(resolver.resolve("eth_vault"));
+        if (address(ethVault) != address(0)) {
+            ethVault.receiveEther(message.callValue);
+        }
 
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
@@ -60,7 +62,7 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
-        } else {
+        } else if (address(ethVault) != address(0)) {
             ethVault.sendEther(message.callValue);
         }
     }

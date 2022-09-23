@@ -22,5 +22,5 @@ import "./ITokenVault.sol";
  */
 contract EtherVault is EssentialContract {
     receive() external payable {}
-    function getEther(uint amount) public {}
+    function receiveEther(uint amount) public {}
 }
