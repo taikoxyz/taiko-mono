@@ -54,7 +54,6 @@ library LibBridgeRetry {
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
-            // failed invocation
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
@@ -63,7 +62,7 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
-        } else if (address(ethVault) != address(0)) {
+        } else if (ethVault != address(0)) {
             ethVault.sendEther(message.callValue);
         }
     }
