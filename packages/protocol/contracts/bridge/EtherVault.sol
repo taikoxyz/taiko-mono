@@ -45,7 +45,12 @@ contract EtherVault is EssentialContract {
      * External Functions*
      *********************/
 
-    receive() external payable onlyAuthorized {}
+    receive() external payable {
+        require(
+            address(this).balance == 0 || isAuthorized(msg.sender),
+            "EV:denied"
+        );
+    }
 
     function init(address addressManager) external initializer {
         EssentialContract._init(addressManager);
