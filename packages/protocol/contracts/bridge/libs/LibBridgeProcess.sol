@@ -35,7 +35,7 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         if (message.gasLimit == 0) {
-            require(msg.sender == message.owner, "B:denied");
+            require(msg.sender == message.owner, "B:forbidden");
         }
 
         // The message's destination chain must be the current chain.
@@ -78,11 +78,14 @@ library LibBridgeProcess {
             // invoked but will be marked DONE. The callValue will be refunded.
             status = IBridge.MessageStatus.DONE;
             refundAmount = message.callValue;
-        } else if (message.gasLimit > 0 || message.owner == msg.sender) {
+        } else {
+            uint gasLimit = msg.sender == message.owner ?
+                gasleft() :
+                message.gasLimit;
             bool success = state.invokeMessageCall(
                 message,
                 mhash,
-                message.gasLimit == 0 ? gasleft() : message.gasLimit
+                gasLimit
             );
 
             if (success) {
@@ -93,24 +96,21 @@ library LibBridgeProcess {
                     ethVault.sendEther(message.callValue);
                 }
             }
-        } else {
-            revert("B:forbidden");
         }
 
         state.updateMessageStatus(mhash, status);
 
-        // Refund processing fees if necessary
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
             : message.refundAddress;
 
-        if (refundAddress == msg.sender) {
+        if (msg.sender == refundAddress) {
             refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
             // First attempt relayer gets the processingFee
             // message.owner has to eat the cost.
-            refundAddress.sendEther(refundAmount);
             msg.sender.sendEther(message.processingFee);
+            refundAddress.sendEther(refundAmount);
         }
     }
 }
