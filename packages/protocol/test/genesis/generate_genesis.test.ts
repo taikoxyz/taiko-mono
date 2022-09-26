@@ -158,6 +158,36 @@ action("Generate Genesis", function () {
                 )
             ).to.emit(V1TaikoL2, "EtherCredited")
         })
+
+        it("ERC20", async function () {
+            const ERC20 = new hre.ethers.Contract(
+                getContractAlloc("TestERC20").address,
+                require("../../artifacts/contracts/test/TestERC20.sol/TestERC20.json").abi,
+                signer
+            )
+
+            expect(await ERC20.name()).to.be.equal("predeployERC20")
+            expect(await ERC20.symbol()).to.be.equal("PRE")
+
+            const PREMINT_ADDRESS_BALANCE =
+                require("../../utils/generate_genesis/erc20").PREMINT_ADDRESS_BALANCE
+
+            for (const premintEthAccount of premintEthAccounts) {
+                const accountAddress = Object.keys(premintEthAccount)[0]
+
+                expect(await ERC20.balanceOf(accountAddress)).to.be.equal(
+                    PREMINT_ADDRESS_BALANCE
+                )
+            }
+
+            expect(await ERC20.totalSupply()).to.be.equal(
+                premintEthAccounts.length * PREMINT_ADDRESS_BALANCE
+            )
+
+            await expect(
+                ERC20.transfer(ethers.Wallet.createRandom().address, 1)
+            ).to.be.emit(ERC20, "Transfer")
+        })
     })
 
     function getContractAlloc(name: string): any {
