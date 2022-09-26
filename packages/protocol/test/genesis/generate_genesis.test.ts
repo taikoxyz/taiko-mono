@@ -22,7 +22,7 @@ action("Generate Genesis", function () {
 
     const testConfig = require("./test_config")
 
-    const premintEthAccounts = testConfig.premintEthAccounts
+    const seedAccounts = testConfig.seedAccounts
 
     before(async () => {
         let retry = 0
@@ -46,9 +46,9 @@ action("Generate Genesis", function () {
     it("contracts should be deployed", async function () {
         for (const address of Object.keys(alloc)) {
             if (
-                premintEthAccounts
-                    .map((premintEthAccount: any) => {
-                        const accountAddress = Object.keys(premintEthAccount)[0]
+                seedAccounts
+                    .map((seedAccount: any) => {
+                        const accountAddress = Object.keys(seedAccount)[0]
                         return accountAddress
                     })
                     .includes(address)
@@ -65,10 +65,10 @@ action("Generate Genesis", function () {
     it("premint ETH should be allocated", async function () {
         let bridgeBalance = hre.ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
 
-        for (const premintEthAccount of premintEthAccounts) {
-            const accountAddress = Object.keys(premintEthAccount)[0]
+        for (const seedAccount of seedAccounts) {
+            const accountAddress = Object.keys(seedAccount)[0]
             const balance = hre.ethers.utils.parseEther(
-                `${Object.values(premintEthAccount)[0]}`
+                `${Object.values(seedAccount)[0]}`
             )
             expect(await provider.getBalance(accountAddress)).to.be.equal(
                 balance.toHexString()
@@ -169,22 +169,22 @@ action("Generate Genesis", function () {
             const {
                 TOKEN_NAME,
                 TOKEN_SYMBOL,
-                PREMINT_ADDRESS_BALANCE,
+                PREMINT_SEED_ACCOUNT_BALANCE,
             } = require("../../utils/generate_genesis/erc20")
 
             expect(await ERC20.name()).to.be.equal(TOKEN_NAME)
             expect(await ERC20.symbol()).to.be.equal(TOKEN_SYMBOL)
 
-            for (const premintEthAccount of premintEthAccounts) {
-                const accountAddress = Object.keys(premintEthAccount)[0]
+            for (const seedAccount of seedAccounts) {
+                const accountAddress = Object.keys(seedAccount)[0]
 
                 expect(await ERC20.balanceOf(accountAddress)).to.be.equal(
-                    PREMINT_ADDRESS_BALANCE
+                    PREMINT_SEED_ACCOUNT_BALANCE
                 )
             }
 
             expect(await ERC20.totalSupply()).to.be.equal(
-                premintEthAccounts.length * PREMINT_ADDRESS_BALANCE
+                seedAccounts.length * PREMINT_SEED_ACCOUNT_BALANCE
             )
 
             await expect(

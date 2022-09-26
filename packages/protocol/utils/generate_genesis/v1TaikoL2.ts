@@ -15,19 +15,19 @@ export async function deployV1TaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, premintEthAccounts, ethDepositor } = config
+    const { contractOwner, chainId, seedAccounts, ethDepositor } = config
 
     const alloc: any = {}
 
     let bridgeBalance = ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
 
-    for (const premintEthAccount of premintEthAccounts) {
-        const accountAddress = Object.keys(premintEthAccount)[0]
+    for (const seedAccount of seedAccounts) {
+        const accountAddress = Object.keys(seedAccount)[0]
         const balance = ethers.utils.parseEther(
-            `${Object.values(premintEthAccount)[0]}`
+            `${Object.values(seedAccount)[0]}`
         )
 
-        console.log(`premintAccountAddress: ${accountAddress}`)
+        console.log(`seedAccountAddress: ${accountAddress}`)
         console.log(`premintBalance: ${balance}`)
 
         alloc[accountAddress] = { balance: balance.toHexString() }

@@ -17,19 +17,19 @@ async function main() {
     const contractOwner = config.contractOwner
     const ethDepositor = config.ethDepositor
     const chainId = config.chainId
-    const premintEthAccounts = config.premintEthAccounts
+    const seedAccounts = config.seedAccounts
     const predeployERC20 = config.predeployERC20
 
     if (
         !ethers.utils.isAddress(contractOwner) ||
         !ethers.utils.isAddress(ethDepositor) ||
         !Number.isInteger(chainId) ||
-        !Array.isArray(premintEthAccounts) ||
-        !premintEthAccounts.every((premintEthAccount) => {
+        !Array.isArray(seedAccounts) ||
+        !seedAccounts.every((seedAccount) => {
             return (
-                Object.keys(premintEthAccount).length === 1 &&
-                ethers.utils.isAddress(Object.keys(premintEthAccount)[0]) &&
-                Number.isInteger(Object.values(premintEthAccount)[0])
+                Object.keys(seedAccount).length === 1 &&
+                ethers.utils.isAddress(Object.keys(seedAccount)[0]) &&
+                Number.isInteger(Object.values(seedAccount)[0])
             )
         }) ||
         typeof predeployERC20 !== "boolean"
@@ -38,7 +38,7 @@ async function main() {
             `invalid input: ${JSON.stringify({
                 contractOwner,
                 chainId,
-                premintEthAccounts,
+                seedAccounts,
             })}`
         )
     }

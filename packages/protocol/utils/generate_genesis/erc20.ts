@@ -9,13 +9,13 @@ const {
 
 export const TOKEN_NAME = "PredeployERC20"
 export const TOKEN_SYMBOL = "PRE"
-export const PREMINT_ADDRESS_BALANCE = ethers.BigNumber.from(1024000)
+export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000)
 
 export async function deployERC20(
     config: any,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, premintEthAccounts } = config
+    const { contractOwner, chainId, seedAccounts } = config
 
     const alloc: any = {}
     const storageLayouts: any = {}
@@ -36,12 +36,13 @@ export async function deployERC20(
     const variables = {
         _name: TOKEN_NAME,
         _symbol: TOKEN_SYMBOL,
-        _totalSupply: PREMINT_ADDRESS_BALANCE.mul(premintEthAccounts.length),
+        _totalSupply: PREMINT_SEED_ACCOUNT_BALANCE.mul(seedAccounts.length),
         _balances: {} as any,
     }
 
-    for (const account of premintEthAccounts) {
-        variables._balances[Object.keys(account)[0]] = PREMINT_ADDRESS_BALANCE
+    for (const account of seedAccounts) {
+        variables._balances[Object.keys(account)[0]] =
+            PREMINT_SEED_ACCOUNT_BALANCE
     }
 
     alloc[address] = {
