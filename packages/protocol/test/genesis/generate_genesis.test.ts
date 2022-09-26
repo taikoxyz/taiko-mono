@@ -166,11 +166,14 @@ action("Generate Genesis", function () {
                 signer
             )
 
-            expect(await ERC20.name()).to.be.equal("predeployERC20")
-            expect(await ERC20.symbol()).to.be.equal("PRE")
+            const {
+                TOKEN_NAME,
+                TOKEN_SYMBOL,
+                PREMINT_ADDRESS_BALANCE,
+            } = require("../../utils/generate_genesis/erc20")
 
-            const PREMINT_ADDRESS_BALANCE =
-                require("../../utils/generate_genesis/erc20").PREMINT_ADDRESS_BALANCE
+            expect(await ERC20.name()).to.be.equal(TOKEN_NAME)
+            expect(await ERC20.symbol()).to.be.equal(TOKEN_SYMBOL)
 
             for (const premintEthAccount of premintEthAccounts) {
                 const accountAddress = Object.keys(premintEthAccount)[0]

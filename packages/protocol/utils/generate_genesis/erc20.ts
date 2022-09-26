@@ -7,6 +7,8 @@ const {
     getStorageLayout,
 } = require("@defi-wonderland/smock/dist/src/utils")
 
+export const TOKEN_NAME = "PredeployERC20"
+export const TOKEN_SYMBOL = "PRE"
 export const PREMINT_ADDRESS_BALANCE = ethers.BigNumber.from(1024000)
 
 export async function deployERC20(
@@ -32,8 +34,8 @@ export async function deployERC20(
     )
 
     const variables = {
-        _name: "predeployERC20",
-        _symbol: "PRE",
+        _name: TOKEN_NAME,
+        _symbol: TOKEN_SYMBOL,
         _totalSupply: PREMINT_ADDRESS_BALANCE.mul(premintEthAccounts.length),
         _balances: {} as any,
     }
