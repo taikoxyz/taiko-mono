@@ -189,7 +189,7 @@ action("Generate Genesis", function () {
 
             await expect(
                 ERC20.transfer(ethers.Wallet.createRandom().address, 1)
-            ).to.be.emit(ERC20, "Transfer")
+            ).to.emit(ERC20, "Transfer")
         })
     })
 
