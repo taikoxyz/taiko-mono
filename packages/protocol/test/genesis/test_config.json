@@ -15,5 +15,6 @@
         {
             "0x79b9f64744c98cd8cc20adb79b6a297e964254cc": 1024
         }
-    ]
+    ],
+    "predeployERC20": true
 }
