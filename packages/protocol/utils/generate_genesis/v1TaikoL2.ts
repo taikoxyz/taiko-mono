@@ -9,8 +9,7 @@ const {
 } = require("@defi-wonderland/smock/dist/src/utils")
 const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts")
 
-// deployV1TaikoL2 generates a L2 genesis `alloc` for V1TaikoL2 contract.
-// ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
+// deployV1TaikoL2 generates a L2 genesis alloc of the V1TaikoL2 contract.
 export async function deployV1TaikoL2(
     config: Config,
     result: Result

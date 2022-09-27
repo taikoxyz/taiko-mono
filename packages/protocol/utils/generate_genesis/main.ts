@@ -5,6 +5,8 @@ const { ethers } = require("ethers")
 const { deployV1TaikoL2 } = require("./v1TaikoL2")
 const { deployERC20 } = require("./erc20")
 
+// Generate a L2 genesis JSON based on the given configurations.
+// ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
 async function main() {
     if (process.argv.length < 3) {
         throw new Error("missing config json")

@@ -11,6 +11,8 @@ export const TOKEN_NAME = "PredeployERC20"
 export const TOKEN_SYMBOL = "PRE"
 export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000)
 
+// deployERC20 generates a L2 genesis alloc of an ERC-20 contract,
+// and premints some tokens for the seed accounts given in the configurations.
 export async function deployERC20(
     config: any,
     result: Result
