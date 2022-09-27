@@ -1,0 +1,72 @@
+import { ethers } from "ethers"
+import { Result } from "./interface"
+const path = require("path")
+const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts")
+const {
+    computeStorageSlots,
+    getStorageLayout,
+} = require("@defi-wonderland/smock/dist/src/utils")
+
+export const TOKEN_NAME = "PredeployERC20"
+export const TOKEN_SYMBOL = "PRE"
+export const PREMINT_SEED_ACCOUNT_BALANCE = ethers.BigNumber.from(1024000)
+
+// deployERC20 generates a L2 genesis alloc of an ERC-20 contract,
+// and premints some tokens for the seed accounts given in the configurations.
+export async function deployERC20(
+    config: any,
+    result: Result
+): Promise<Result> {
+    const { contractOwner, chainId, seedAccounts } = config
+
+    const alloc: any = {}
+    const storageLayouts: any = {}
+
+    const artifact = require(path.join(
+        ARTIFACTS_PATH,
+        "./test/TestERC20.sol/TestERC20.json"
+    ))
+
+    const address = ethers.utils.getCreate2Address(
+        contractOwner,
+        ethers.utils.keccak256(
+            ethers.utils.toUtf8Bytes(`${chainId}${artifact.contractName}`)
+        ),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes(artifact.bytecode))
+    )
+
+    const variables = {
+        _name: TOKEN_NAME,
+        _symbol: TOKEN_SYMBOL,
+        _totalSupply: PREMINT_SEED_ACCOUNT_BALANCE.mul(seedAccounts.length),
+        _balances: {} as any,
+    }
+
+    for (const account of seedAccounts) {
+        variables._balances[Object.keys(account)[0]] =
+            PREMINT_SEED_ACCOUNT_BALANCE
+    }
+
+    alloc[address] = {
+        contractName: artifact.contractName,
+        storage: {},
+        code: artifact.deployedBytecode,
+        balance: "0x0",
+    }
+
+    storageLayouts[artifact.contractName] = await getStorageLayout(
+        artifact.contractName
+    )
+
+    for (const slot of computeStorageSlots(
+        storageLayouts[artifact.contractName],
+        variables
+    )) {
+        alloc[address].storage[slot.key] = slot.val
+    }
+
+    result.alloc = Object.assign(result.alloc, alloc)
+    result.storageLayouts = Object.assign(result.storageLayouts, storageLayouts)
+
+    return result
+}
