@@ -135,6 +135,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Proposing.isCommitValid(state, hash);
     }
 
+    function getCommitHeight(bytes32 commitHash) public view returns (uint256) {
+        return state.commits[commitHash];
+    }
+
     function getPendingBlock(uint256 id)
         public
         view
