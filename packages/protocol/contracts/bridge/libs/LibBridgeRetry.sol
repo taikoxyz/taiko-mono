@@ -46,7 +46,7 @@ library LibBridgeRetry {
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
-        // failed invocation
+            // failed invocation
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
