@@ -34,6 +34,8 @@ library LibBridgeSend {
             message.processingFee;
         require(expectedAmount == msg.value, "B:value");
 
+        // For each message, expectedAmount is sent to ethVault to be handled.
+        // Processing will retrieve these funds directly from ethVault.
         address ethVault = resolver.resolve("ether_vault");
         if (ethVault != address(0)) {
             ethVault.sendEther(expectedAmount);

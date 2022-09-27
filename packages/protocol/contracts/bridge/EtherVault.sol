@@ -46,6 +46,7 @@ contract EtherVault is EssentialContract {
      *********************/
 
     receive() external payable {
+        // EthVault's balance must == 0 OR the sender isAuthorized.
         require(
             address(this).balance == 0 || isAuthorized(msg.sender),
             "EV:denied"

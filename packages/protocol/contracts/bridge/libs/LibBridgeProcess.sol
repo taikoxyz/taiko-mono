@@ -59,15 +59,15 @@ library LibBridgeProcess {
             "B:notReceived"
         );
 
-        // We deposit Ether first before the message call in case the call
-        // will actually consume the Ether.
+        // We retrieve the necessary ether from EtherVault
         address ethVault = resolver.resolve("ether_vault");
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).receiveEther(
                 message.depositValue + message.callValue + message.processingFee
             );
         }
-
+        // We deposit Ether first before the message call in case the call
+        // will actually consume the Ether.
         message.owner.sendEther(message.depositValue);
 
         IBridge.MessageStatus status;
