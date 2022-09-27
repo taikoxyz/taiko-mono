@@ -79,14 +79,10 @@ library LibBridgeProcess {
             status = IBridge.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else {
-            uint gasLimit = msg.sender == message.owner ?
-                gasleft() :
-                message.gasLimit;
-            bool success = state.invokeMessageCall(
-                message,
-                mhash,
-                gasLimit
-            );
+            uint256 gasLimit = msg.sender == message.owner
+                ? gasleft()
+                : message.gasLimit;
+            bool success = state.invokeMessageCall(message, mhash, gasLimit);
 
             if (success) {
                 status = IBridge.MessageStatus.DONE;
