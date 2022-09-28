@@ -231,6 +231,12 @@ action("Generate Genesis", function () {
                     getContractAlloc("Bridge").address
                 )
             ).to.be.true
+
+            expect(
+                await EtherVault.isAuthorized(
+                    ethers.Wallet.createRandom().address
+                )
+            ).to.be.false
         })
 
         it("ERC20", async function () {

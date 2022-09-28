@@ -304,7 +304,7 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                // authorizedAddrs
+                // EtherVault
                 authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
