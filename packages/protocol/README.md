@@ -24,7 +24,7 @@ To run test cases that rely on a go-ethereum node:
 yarn test:geth
 ```
 
-## Generate L2 genesis `alloc`
+## Generate L2 genesis JSON's `alloc` field
 
 ```bash
 yarn compile && yarn generate:genesis config.json
