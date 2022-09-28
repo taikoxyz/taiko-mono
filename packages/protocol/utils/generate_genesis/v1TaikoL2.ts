@@ -18,7 +18,7 @@ export async function deployV1TaikoL2(
 
     const alloc: any = {}
 
-    let bridgeBalance = ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
+    let etherVaultBalance = ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
 
     for (const seedAccount of seedAccounts) {
         const accountAddress = Object.keys(seedAccount)[0]
@@ -31,10 +31,10 @@ export async function deployV1TaikoL2(
 
         alloc[accountAddress] = { balance: balance.toHexString() }
 
-        bridgeBalance = bridgeBalance.sub(balance)
+        etherVaultBalance = etherVaultBalance.sub(balance)
     }
 
-    console.log(`bridgeBalance: ${bridgeBalance}`)
+    console.log({ etherVaultBalance })
     console.log("\n")
 
     const contractConfigs: any = await generateContractConfigs(
@@ -56,9 +56,11 @@ export async function deployV1TaikoL2(
             code: contractConfig.deployedBytecode,
         }
 
-        // pre-mint ETHs for Bridge contract
+        // pre-mint ETHs for EtherVault contract
         alloc[contractConfig.address].balance =
-            contractName === "Bridge" ? bridgeBalance.toHexString() : "0x0"
+            contractName === "EtherVault"
+                ? etherVaultBalance.toHexString()
+                : "0x0"
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
@@ -124,6 +126,10 @@ async function generateContractConfigs(
         TokenVault: require(path.join(
             ARTIFACTS_PATH,
             "./bridge/TokenVault.sol/TokenVault.json"
+        )),
+        EtherVault: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/EtherVault.sol/EtherVault.json"
         )),
     }
 
@@ -209,10 +215,6 @@ async function generateContractConfigs(
                     // keccak256(abi.encodePacked(_name))
                     [`${ethers.utils.solidityKeccak256(
                         ["string"],
-                        [`${chainId}.eth_depositor`]
-                    )}`]: ethDepositor,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
                         [`${chainId}.taiko`]
                     )}`]: addressMap.V1TaikoL2,
                     [`${ethers.utils.solidityKeccak256(
@@ -223,6 +225,10 @@ async function generateContractConfigs(
                         ["string"],
                         [`${chainId}.token_vault`]
                     )}`]: addressMap.TokenVault,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${chainId}.ether_vault`]
+                    )}`]: addressMap.EtherVault,
                 },
             },
         },
@@ -283,6 +289,23 @@ async function generateContractConfigs(
                 _owner: contractOwner,
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
+            },
+        },
+        EtherVault: {
+            address: addressMap.EtherVault,
+            deployedBytecode: contractArtifacts.EtherVault.deployedBytecode,
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+                // authorizedAddrs
+                authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
     }

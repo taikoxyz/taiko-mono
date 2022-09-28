@@ -63,7 +63,7 @@ action("Generate Genesis", function () {
     })
 
     it("premint ETH should be allocated", async function () {
-        let bridgeBalance = hre.ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
+        let etherVaultBalance = hre.ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
 
         for (const seedAccount of seedAccounts) {
             const accountAddress = Object.keys(seedAccount)[0]
@@ -74,13 +74,13 @@ action("Generate Genesis", function () {
                 balance.toHexString()
             )
 
-            bridgeBalance = bridgeBalance.sub(balance)
+            etherVaultBalance = etherVaultBalance.sub(balance)
         }
 
-        const bridgeAddress = getContractAlloc("Bridge").address
+        const etherVaultAddress = getContractAlloc("EtherVault").address
 
-        expect(await provider.getBalance(bridgeAddress)).to.be.equal(
-            bridgeBalance.toHexString()
+        expect(await provider.getBalance(etherVaultAddress)).to.be.equal(
+            etherVaultBalance.toHexString()
         )
     })
 
@@ -98,12 +98,6 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner)
 
-            const ethDepositor = await addressManager.getAddress(
-                `${testConfig.chainId}.eth_depositor`
-            )
-
-            expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
-
             const bridge = await addressManager.getAddress(
                 `${testConfig.chainId}.bridge`
             )
@@ -116,6 +110,14 @@ action("Generate Genesis", function () {
 
             expect(tokenValut).to.be.equal(
                 getContractAlloc("TokenVault").address
+            )
+
+            const etherVault = await addressManager.getAddress(
+                `${testConfig.chainId}.ether_vault`
+            )
+
+            expect(etherVault).to.be.equal(
+                getContractAlloc("EtherVault").address
             )
 
             const v1TaikoL2 = await addressManager.getAddress(
@@ -211,6 +213,24 @@ action("Generate Genesis", function () {
                     }
                 )
             ).to.emit(TokenVault, "EtherSent")
+        })
+
+        it("EtherVault", async function () {
+            const EtherVault = new hre.ethers.Contract(
+                getContractAlloc("EtherVault").address,
+                require("../../artifacts/contracts/bridge/EtherVault.sol/EtherVault.json").abi,
+                signer
+            )
+
+            const owner = await EtherVault.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            expect(
+                await EtherVault.isAuthorized(
+                    getContractAlloc("Bridge").address
+                )
+            ).to.be.true
         })
 
         it("ERC20", async function () {
