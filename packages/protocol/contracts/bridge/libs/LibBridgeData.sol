@@ -20,11 +20,13 @@ library LibBridgeData {
      *********************/
 
     struct State {
+        // chainId => isEnabled
         mapping(uint256 => bool) destChains;
-        mapping(uint256 => mapping(uint256 => uint256)) statusBitmaps;
+        // message hash => status
+        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
         uint256 nextMessageId;
-        IBridge.Context ctx; // 4 slots
-        uint256[43] __gap;
+        IBridge.Context ctx; // 3 slots
+        uint256[44] __gap;
     }
 
     /*********************
@@ -32,33 +34,21 @@ library LibBridgeData {
      *********************/
 
     // TODO: figure out this value
-    uint256 internal constant MESSAGE_PROCESSING_OVERHEAD = 80000;
+    bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
-        0x000000000000000000000000000000000000dEaD;
+        0x0000000000000000000000000000000000000001;
 
     /*********************
      * Events            *
      *********************/
 
-    // Note these events must match the one defined in Bridge.sol.
-    event MessageSent(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        uint256 height, // used for compute message proofs
-        bytes32 signal,
-        bytes message
-    );
+    // Note: These events must match the ones defined in Bridge.sol.
+    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
 
     event MessageStatusChanged(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        IBridge.MessageStatus status,
-        bool succeeded
+        bytes32 indexed mhash,
+        IBridge.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -67,11 +57,31 @@ library LibBridgeData {
      * Internal Functions*
      *********************/
 
-    function hashMessage(Message memory message)
+    /**
+     * @dev If messageStatus is same as in the messageStatus mapping, does nothing
+     * @param state The current bridge State
+     * @param mhash The messageHash of the message
+     * @param status The status of the message
+     */
+    function updateMessageStatus(
+        State storage state,
+        bytes32 mhash,
+        IBridge.MessageStatus status
+    ) internal {
+        if (state.messageStatus[mhash] != status) {
+            state.messageStatus[mhash] = status;
+            emit LibBridgeData.MessageStatusChanged(mhash, status);
+        }
+    }
+
+    /**
+     * @dev Hashes messages and returns the hash signed with "TAIKO_BRIDGE_MESSAGE" for verification
+     */
+    function hashMessage(IBridge.Message memory message)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(message));
+        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
     }
 }

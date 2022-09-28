@@ -77,9 +77,7 @@ action("Generate Genesis", function () {
             bridgeBalance = bridgeBalance.sub(balance)
         }
 
-        // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to V1TaikoL2 contract address.
-        const bridgeAddress = getContractAlloc("V1TaikoL2").address
+        const bridgeAddress = getContractAlloc("Bridge").address
 
         expect(await provider.getBalance(bridgeAddress)).to.be.equal(
             bridgeBalance.toHexString()
@@ -101,10 +99,30 @@ action("Generate Genesis", function () {
             expect(owner).to.be.equal(testConfig.contractOwner)
 
             const ethDepositor = await addressManager.getAddress(
-                "eth_depositor"
+                `${testConfig.chainId}.eth_depositor`
             )
 
             expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+
+            const bridge = await addressManager.getAddress(
+                `${testConfig.chainId}.bridge`
+            )
+
+            expect(bridge).to.be.equal(getContractAlloc("Bridge").address)
+
+            const tokenValut = await addressManager.getAddress(
+                `${testConfig.chainId}.token_vault`
+            )
+
+            expect(tokenValut).to.be.equal(
+                getContractAlloc("TokenVault").address
+            )
+
+            const v1TaikoL2 = await addressManager.getAddress(
+                `${testConfig.chainId}.taiko`
+            )
+
+            expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
         })
 
         it("LibTxDecoder", async function () {
@@ -150,13 +168,49 @@ action("Generate Genesis", function () {
                     })
                 }
             }
+        })
+
+        it("Bridge", async function () {
+            const BridgeAlloc = getContractAlloc("Bridge")
+            const Bridge = new hre.ethers.Contract(
+                BridgeAlloc.address,
+                require("../../artifacts/contracts/bridge/Bridge.sol/Bridge.json").abi,
+                signer
+            )
+
+            const owner = await Bridge.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            await expect(Bridge.enableDestChain(1, true)).not.to.reverted
+        })
+
+        it("TokenVault", async function () {
+            const TokenVaultAlloc = getContractAlloc("TokenVault")
+            const TokenVault = new hre.ethers.Contract(
+                TokenVaultAlloc.address,
+                require("../../artifacts/contracts/bridge/TokenVault.sol/TokenVault.json").abi,
+                signer
+            )
+
+            const owner = await TokenVault.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
 
             await expect(
-                V1TaikoL2.creditEther(
-                    hre.ethers.Wallet.createRandom().address,
-                    1024
+                TokenVault.sendEther(
+                    1,
+                    ethers.Wallet.createRandom().address,
+                    100,
+                    0,
+                    ethers.Wallet.createRandom().address,
+                    "memo",
+                    {
+                        gasLimit: 10000000,
+                        value: hre.ethers.utils.parseEther("100"),
+                    }
                 )
-            ).to.emit(V1TaikoL2, "EtherCredited")
+            ).to.emit(TokenVault, "EtherSent")
         })
 
         it("ERC20", async function () {

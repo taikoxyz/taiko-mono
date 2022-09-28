@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeRead.sol";
@@ -15,77 +16,54 @@ import "./LibBridgeRead.sol";
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRetry {
     using LibAddress for address;
-    using LibBridgeData for Message;
+    using LibBridgeData for IBridge.Message;
+    using LibBridgeData for LibBridgeData.State;
     using LibBridgeInvoke for LibBridgeData.State;
     using LibBridgeRead for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
 
-    /*********************
-     * Internal Functions*
-     *********************/
-
+    /**
+     * @dev This function can be called by any address including 'message.owner'.
+     * It can only be called on messages marked "RETRIABLE".
+     * It attempts to reinvoke the messageCall.
+     * If invoking fails and the message owner marks lastAttempt
+     * as true, the message is marked "DONE" and cannot be retried.
+     */
     function retryMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        address sender,
-        Message memory message,
-        bytes memory proof,
+        IBridge.Message calldata message,
         bool lastAttempt
-    ) internal {
+    ) external {
+        // If the gasLimit is not set to 0 or lastAttempt is true, the
+        // address calling this function must be message.owner.
         if (message.gasLimit == 0 || lastAttempt) {
-            require(sender == message.owner, "B:denied");
+            require(msg.sender == message.owner, "B:denied");
         }
 
+        bytes32 mhash = message.hashMessage();
         require(
-            state.getMessageStatus(message.srcChainId, message.id) ==
-                IBridge.MessageStatus.RETRIABLE,
-            "B:failed msg not found"
+            state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
+            "B:notFound"
         );
 
-        (bool received, bytes32 messageHash) = resolver.isMessageReceived(
-            message,
-            proof
-        );
-        require(received, "B:not received");
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(message.callValue);
+        }
 
-        bool success = state.invokeMessageCall(message, gasleft());
-        if (success) {
-            state.setMessageStatus(message, IBridge.MessageStatus.DONE);
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
-                IBridge.MessageStatus.DONE,
-                true
-            );
+        // successful invocation
+        if (state.invokeMessageCall(message, mhash, gasleft())) {
+            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
-            if (message.callValue > 0) {
-                address refundAddress = message.refundAddress == address(0)
-                    ? message.owner
-                    : message.refundAddress;
+            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
-                refundAddress.sendEther(message.callValue);
-            }
+            address refundAddress = message.refundAddress == address(0)
+                ? message.owner
+                : message.refundAddress;
 
-            state.setMessageStatus(message, IBridge.MessageStatus.DONE);
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
-                IBridge.MessageStatus.DONE,
-                false
-            );
-        } else {
-            emit LibBridgeData.MessageStatusChanged(
-                messageHash,
-                message.owner,
-                message.srcChainId,
-                message.id,
-                IBridge.MessageStatus.RETRIABLE,
-                false
-            );
+            refundAddress.sendEther(message.callValue);
+        } else if (ethVault != address(0)) {
+            ethVault.sendEther(message.callValue);
         }
     }
 }

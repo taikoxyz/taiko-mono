@@ -41,7 +41,7 @@ library V1Proving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 proposedAt,
+        uint64 timestamp,
         uint64 provenAt,
         address prover
     );
@@ -66,7 +66,8 @@ library V1Proving {
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
         require(_tx.txType == 0, "L1:anchor:type");
         require(
-            _tx.destination == resolver.resolve("v1_taiko_l2"),
+            _tx.destination ==
+                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
             "L1:anchor:dest"
         );
         require(
@@ -148,7 +149,8 @@ library V1Proving {
 
         LibReceiptDecoder.Log memory log = receipt.logs[0];
         require(
-            log.contractAddress == resolver.resolve("v1_taiko_l2"),
+            log.contractAddress ==
+                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
@@ -190,7 +192,7 @@ library V1Proving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadataPending(s, target);
+        _checkMetadata(s, target);
         _validateHeaderForMetadata(evidence.header, evidence.meta);
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
@@ -225,11 +227,11 @@ library V1Proving {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = target.proposedAt;
+            fc.proposedAt = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.proposedAt == target.proposedAt,
+                fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
                 "L1:proof:conflict"
             );
             require(
@@ -250,7 +252,7 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        // LibData.PendingBlock storage blk = s.getPendingBlock(meta.id);
+        // LibData.ProposedBlock storage blk = s.getProposedBlock(meta.id);
         // if (blk.everProven != uint8(LibData.EverProven.YES)) {
         //     blk.everProven = uint8(LibData.EverProven.YES);
         //     s.numUnprovenBlocks -= 1;
@@ -284,16 +286,16 @@ library V1Proving {
         }
     }
 
-    function _checkMetadataPending(
+    function _checkMetadata(
         LibData.State storage s,
         LibData.BlockMetadata memory meta
     ) private view {
         require(
-            meta.id > s.latestFinalizedId && meta.id < s.nextPendingId,
+            meta.id > s.latestFinalizedId && meta.id < s.nextBlockId,
             "L1:meta:id"
         );
         require(
-            LibData.getPendingBlock(s, meta.id).metaHash ==
+            LibData.getProposedBlock(s, meta.id).metaHash ==
                 LibData.hashMetadata(meta),
             "L1:metaHash"
         );
@@ -310,7 +312,7 @@ library V1Proving {
                 header.gasLimit ==
                 meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
-                header.timestamp == meta.proposedAt &&
+                header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&
                 keccak256(header.extraData) == keccak256(meta.extraData) &&
                 header.mixHash == meta.mixHash,

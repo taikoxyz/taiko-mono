@@ -1,6 +1,6 @@
 # Taiko Protocol
 
-This repository contains rollup contracts on both L1 and L2 and other assisting code.
+This repository contains rollup contracts on both L1 and L2 and other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).
 
 ## Deployment
 
