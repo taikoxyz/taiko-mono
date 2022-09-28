@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeRead.sol";
@@ -39,6 +40,7 @@ library LibBridgeProcess {
 
         // The message's destination chain must be the current chain.
         require(message.destChainId == block.chainid, "B:destChainId");
+
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
         bytes32 mhash = message.hashMessage();
@@ -57,6 +59,13 @@ library LibBridgeProcess {
             "B:notReceived"
         );
 
+        // We retrieve the necessary ether from EtherVault
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(
+                message.depositValue + message.callValue + message.processingFee
+            );
+        }
         // We deposit Ether first before the message call in case the call
         // will actually consume the Ether.
         message.owner.sendEther(message.depositValue);
@@ -75,9 +84,14 @@ library LibBridgeProcess {
                 : message.gasLimit;
             bool success = state.invokeMessageCall(message, mhash, gasLimit);
 
-            status = success
-                ? IBridge.MessageStatus.DONE
-                : IBridge.MessageStatus.RETRIABLE;
+            if (success) {
+                status = IBridge.MessageStatus.DONE;
+            } else {
+                status = IBridge.MessageStatus.RETRIABLE;
+                if (ethVault != address(0)) {
+                    ethVault.sendEther(message.callValue);
+                }
+            }
         }
 
         state.updateMessageStatus(mhash, status);
@@ -89,6 +103,8 @@ library LibBridgeProcess {
         if (msg.sender == refundAddress) {
             refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
+            // First attempt relayer gets the processingFee
+            // message.owner has to eat the cost.
             msg.sender.sendEther(message.processingFee);
             refundAddress.sendEther(refundAmount);
         }

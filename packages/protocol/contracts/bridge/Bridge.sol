@@ -20,11 +20,6 @@ import "./libs/LibBridgeSend.sol";
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
-    using LibBridgeProcess for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
-    using LibBridgeRead for LibBridgeData.State;
-    using LibBridgeRetry for LibBridgeData.State;
-    using LibBridgeSend for LibBridgeData.State;
 
     /*********************
      * State Variables   *
@@ -34,7 +29,7 @@ contract Bridge is EssentialContract, IBridge {
     uint256[50] private __gap;
 
     /*********************
-     * Events             *
+     * Events            *
      *********************/
 
     event MessageSent(bytes32 indexed mhash, IBridge.Message message);
@@ -50,7 +45,7 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// allow Bridge to receive ETH directly.
+    /// allow Bridge to receive ETH from EtherVault.
     receive() external payable {}
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -64,29 +59,40 @@ contract Bridge is EssentialContract, IBridge {
         nonReentrant
         returns (bytes32 mhash)
     {
-        return state.sendMessage(message); //LibBridgeSend
+        return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
-        //LibBridgeProcess
-        return state.processMessage(AddressResolver(this), message, proof);
+        return
+            LibBridgeProcess.processMessage(
+                state,
+                AddressResolver(this),
+                message,
+                proof
+            );
     }
 
     function retryMessage(Message calldata message, bool lastAttempt)
         external
         nonReentrant
     {
-        return state.retryMessage(message, lastAttempt); //LibBridgeRetry
+        return
+            LibBridgeRetry.retryMessage(
+                state,
+                AddressResolver(this),
+                message,
+                lastAttempt
+            );
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)
         external
         nonReentrant
     {
-        state.enableDestChain(_chainId, enabled); //LibBridgeSend
+        LibBridgeSend.enableDestChain(state, _chainId, enabled);
     }
 
     /*********************
@@ -103,8 +109,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata proof
     ) public view virtual returns (bool) {
         return
-            // LibBridgeRead
-            AddressResolver(this).isMessageReceived(mhash, srcChainId, proof);
+            LibBridgeRead.isMessageReceived(
+                AddressResolver(this),
+                mhash,
+                srcChainId,
+                proof
+            );
     }
 
     function getMessageStatus(bytes32 mhash)
@@ -121,6 +131,6 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return state.isDestChainEnabled(_chainId); //LibBridgeRead
+        return LibBridgeRead.isDestChainEnabled(state, _chainId);
     }
 }

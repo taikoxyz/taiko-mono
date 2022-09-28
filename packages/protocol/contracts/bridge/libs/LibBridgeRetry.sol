@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeRead.sol";
@@ -29,6 +30,7 @@ library LibBridgeRetry {
      */
     function retryMessage(
         LibBridgeData.State storage state,
+        AddressResolver resolver,
         IBridge.Message calldata message,
         bool lastAttempt
     ) external {
@@ -43,10 +45,15 @@ library LibBridgeRetry {
             state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
+
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(message.callValue);
+        }
+
         // successful invocation
         if (state.invokeMessageCall(message, mhash, gasleft())) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
-            // failed invocation
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
 
@@ -55,6 +62,8 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
+        } else if (ethVault != address(0)) {
+            ethVault.sendEther(message.callValue);
         }
     }
 }
