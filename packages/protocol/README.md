@@ -30,7 +30,7 @@ yarn test:geth
 yarn compile && yarn generate:genesis config.json
 ```
 
-The specified config JSON should contain:
+The specified `config.json` should contain:
 
 -   contractOwner `String`: Owner address of the pre-deployed L2 contracts.
 -   chainId `Number`: Chain id of the L2 network.
