@@ -17,14 +17,12 @@ async function main() {
         : path.join(process.cwd(), process.argv[2]))
 
     const contractOwner = config.contractOwner
-    const ethDepositor = config.ethDepositor
     const chainId = config.chainId
     const seedAccounts = config.seedAccounts
     const predeployERC20 = config.predeployERC20
 
     if (
         !ethers.utils.isAddress(contractOwner) ||
-        !ethers.utils.isAddress(ethDepositor) ||
         !Number.isInteger(chainId) ||
         !Array.isArray(seedAccounts) ||
         !seedAccounts.every((seedAccount) => {
