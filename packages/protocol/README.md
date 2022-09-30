@@ -56,6 +56,7 @@ the script above will output two JSON files:
 -   `./deployments/l2_genesis_alloc.json`: the `alloc` field which will be used in L2 genesis JSON file
 -   `./deployments/l2_genesis_storage_layout.json`: the storage layout of those pre-deployed contracts
 
+
 ## Github Actions
 
 Each commit will automatically trigger the GitHub Actions to run. If any commit message in your push or the HEAD commit of your PR contains the strings [skip ci], [ci skip], [no ci], [skip actions], or [actions skip] workflows triggered on the push or pull_request events will be skipped.
