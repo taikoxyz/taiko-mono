@@ -5,11 +5,8 @@ const ethers = hre.ethers
 describe("V1TaikoL2", function () {
     let v1TaikoL2: any
     let addressManager: any
-    let signers: any
 
     before(async function () {
-        const { chainId } = await hre.ethers.provider.getNetwork()
-
         // Deploying addressManager Contract
         addressManager = await (
             await ethers.getContractFactory("AddressManager")
@@ -27,12 +24,6 @@ describe("V1TaikoL2", function () {
             },
         })
         v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
-
-        signers = await ethers.getSigners()
-        await addressManager.setAddress(
-            `${chainId}.eth_depositor`,
-            await signers[0].getAddress()
-        )
     })
 
     describe("anchor()", async function () {

@@ -130,7 +130,8 @@ contract TokenVault is EssentialContract, ITokenVault {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        // Ether are held by the Bridge, not the TokenVault
+        // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
+        // the TokenVault
         bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
             value: msg.value
         }(message);

@@ -1,6 +1,5 @@
 {
     "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
-    "ethDepositor": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
     "chainId": 167,
     "seedAccounts": [
         {
@@ -14,6 +13,33 @@
         },
         {
             "0x79b9f64744c98cd8cc20adb79b6a297e964254cc": 1024
+        },
+        {
+            "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199": 1024
+        },
+        {
+            "0xdD2FD4581271e230360230F9337D5c0430Bf44C0": 1024
+        },
+        {
+            "0x2546BcD3c84621e976D8185a91A922aE77ECEc30": 1024
+        },
+        {
+            "0xcd3B766CCDd6AE721141F452C550Ca635964ce71": 1024
+        },
+        {
+            "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097": 1024
+        },
+        {
+            "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec": 1024
+        },
+        {
+            "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a": 1024
+        },
+        {
+            "0x71bE63f3384f5fb98995898A86B02Fb2426c5788": 1024
+        },
+        {
+            "0xBcd4042DE499D14e55001CcbB24a551F3b954096": 1024
         }
     ],
     "predeployERC20": true
