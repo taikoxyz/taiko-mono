@@ -32,6 +32,10 @@ jobs:
         working-directory: ./packages/protocol
         run: yarn test:genesis
 
+      - name: protocol - Integration Tests
+        working-directory: ./packages/protocol
+        run: yarn test:integration
+        
       - name: protocol - Export ABIs
         working-directory: ./packages/protocol
         run: yarn export:abi
