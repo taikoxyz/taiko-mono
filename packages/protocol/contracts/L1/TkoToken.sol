@@ -75,6 +75,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function mint(address account, uint256 amount)
         public
+        // TODO
         onlyFromNamed("proto_broker")
     {
         require(account != address(0), "TKO: invalid address");

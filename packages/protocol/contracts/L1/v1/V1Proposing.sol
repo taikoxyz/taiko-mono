@@ -10,10 +10,12 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../common/AddressResolver.sol";
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -35,9 +37,11 @@ library V1Proposing {
         );
     }
 
-    function proposeBlock(LibData.State storage s, bytes[] calldata inputs)
-        public
-    {
+    function proposeBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        bytes[] calldata inputs
+    ) public {
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -76,18 +80,14 @@ library V1Proposing {
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        uint256 proposerFee = 0;
+        uint128 fee = getProposingFee(s, meta, txList.length);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+        s.avgProposingFee = (s.avgProposingFee * 63 + fee) / 64;
 
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposerFee: proposerFee.toUint128(),
-                everProven: uint8(LibData.EverProven.NO)
-            })
+            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
-
-        // numUnprovenBlocks += 1;
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
@@ -103,6 +103,12 @@ library V1Proposing {
             block.number >=
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
+
+    function getProposingFee(
+        LibData.State storage s,
+        LibData.BlockMetadata memory meta,
+        uint256 txListLen
+    ) public view returns (uint128) {}
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
         require(

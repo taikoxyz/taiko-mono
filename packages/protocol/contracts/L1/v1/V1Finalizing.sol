@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
@@ -31,10 +32,15 @@ library V1Finalizing {
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
+    function finalizeBlocks(
+        LibData.State storage s,
+        AddressResolver resolver,
+        uint256 maxBlocks
+    ) public {
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
+        address tkoToken;
 
         for (
             uint256 i = s.latestFinalizedId + 1;
@@ -53,6 +59,19 @@ library V1Finalizing {
                 break;
             }
             processed += 1;
+
+            if (tkoToken == address(0)) {
+                tkoToken = resolver.resolve("tko_token");
+            }
+
+            uint128 fee = getProvingFee(s);
+            for (uint256 j = 0; j < fc.provers.length; j++) {
+                TkoToken(tkoToken).mint(
+                    fc.provers[j],
+                    fee / uint128(fc.provers.length)
+                );
+            }
+            s.avgProvingFee = (s.avgProvingFee * 63 + fee) / 64;
         }
 
         if (processed > 0) {
@@ -65,4 +84,10 @@ library V1Finalizing {
             }
         }
     }
+
+    function getProvingFee(LibData.State storage s)
+        internal
+        view
+        returns (uint128)
+    {}
 }

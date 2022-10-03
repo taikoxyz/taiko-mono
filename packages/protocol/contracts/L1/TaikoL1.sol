@@ -27,7 +27,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     function init(address _addressManager, bytes32 _genesisBlockHash)
         external
@@ -63,9 +63,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///       the first transaction in the block, i.e., if there are n transactions
     ///       in `txList`, then then will be up to n+1 transactions in the L2 block.
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, inputs);
+        V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -90,6 +91,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -120,6 +122,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -128,7 +131,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /// @param maxBlocks Max number of blocks to finalize.
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(state, maxBlocks);
+        V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {
@@ -179,6 +182,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         )
     {
         return LibAnchorSignature.signTransaction(hash, k);
+    }
+
+    function getProposingFee(
+        LibData.BlockMetadata memory meta,
+        uint256 txListLen
+    ) public view returns (uint128) {
+        return V1Proposing.getProposingFee(state, meta, txListLen);
     }
 
     function getConstants()

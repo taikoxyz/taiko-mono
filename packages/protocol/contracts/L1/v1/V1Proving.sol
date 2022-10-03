@@ -252,12 +252,6 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        // LibData.ProposedBlock storage blk = s.getProposedBlock(meta.id);
-        // if (blk.everProven != uint8(LibData.EverProven.YES)) {
-        //     blk.everProven = uint8(LibData.EverProven.YES);
-        //     s.numUnprovenBlocks -= 1;
-        // }
-
         emit BlockProven(
             target.id,
             parentHash,
