@@ -71,7 +71,7 @@ library V1Finalizing {
                     fee / uint128(fc.provers.length)
                 );
             }
-            s.avgProvingFee = (s.avgProvingFee * 63 + fee) / 64;
+            s.waProvingFee = (s.waProvingFee * 63 + fee) / 64;
         }
 
         if (processed > 0) {

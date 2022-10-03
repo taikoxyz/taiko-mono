@@ -47,8 +47,9 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
-        uint128 avgProposingFee;
-        uint128 avgProvingFee;
+        // weighted average of proposing/proving fees
+        uint128 waProposingFee;
+        uint128 waProvingFee;
     }
 
     function saveProposedBlock(

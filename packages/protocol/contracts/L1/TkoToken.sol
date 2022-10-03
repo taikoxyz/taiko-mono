@@ -54,7 +54,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         override(ERC20Upgradeable, IERC20Upgradeable)
         returns (bool)
     {
-        require(to != address(this), "TKO: invalid to");
+        require(to != address(this), "TKO:to");
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -63,7 +63,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TKO: invalid to");
+        require(to != address(this), "TKO:to");
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
@@ -75,10 +75,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function mint(address account, uint256 amount)
         public
-        // TODO
-        onlyFromNamed("proto_broker")
+        onlyFromNamed("taiko")
     {
-        require(account != address(0), "TKO: invalid address");
+        require(account != address(0), "TKO:account");
         _mint(account, amount);
         emit Mint(account, amount);
     }
@@ -91,9 +90,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      */
     function burn(address account, uint256 amount)
         public
-        onlyFromNamed("proto_broker")
+        onlyFromNamed("taiko")
     {
-        require(account != address(0), "TKO: invalid address");
+        require(account != address(0), "TKO:account");
         _burn(account, amount);
         emit Burn(account, amount);
     }

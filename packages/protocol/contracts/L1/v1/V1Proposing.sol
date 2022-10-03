@@ -82,7 +82,7 @@ library V1Proposing {
 
         uint128 fee = getProposingFee(s, meta, txList.length);
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
-        s.avgProposingFee = (s.avgProposingFee * 63 + fee) / 64;
+        s.waProposingFee = (s.waProposingFee * 63 + fee) / 64;
 
         s.saveProposedBlock(
             s.nextBlockId,
