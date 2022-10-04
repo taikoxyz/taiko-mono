@@ -87,7 +87,7 @@ library V1Finalizing {
             }
             s.maProvingFee = LibData
                 .calcMovingAvg(s.maProvingFee, fee, 64)
-                .toUint128();
+                .toUint64();
 
             s.maProvingDelay = LibData
                 .calcMovingAvg(

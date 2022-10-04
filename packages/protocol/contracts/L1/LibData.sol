@@ -43,17 +43,18 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
-        uint64 genesisHeight;
-        uint64 latestFinalizedHeight;
-        uint64 latestFinalizedId;
+        // The following 4 variables will likely update in one tx
         uint64 nextBlockId;
         uint64 lastBlockTime;
-        // weighted average of proposing/proving delay
+        uint64 maProposingFee;
         uint64 maProposingDelay;
+        // The following 4 variables will likely update in one tx
+        uint64 latestFinalizedHeight;
+        uint64 latestFinalizedId;
+        uint64 maProvingFee;
         uint64 maProvingDelay;
-        // weighted average of proposing/proving fees
-        uint128 maProposingFee;
-        uint128 maProvingFee;
+        //
+        uint64 genesisHeight;
     }
 
     function saveProposedBlock(

@@ -102,7 +102,7 @@ library V1Proposing {
 
         s.maProposingFee = LibData
             .calcMovingAvg(s.maProposingFee, fee, 64)
-            .toUint128();
+            .toUint64();
 
         emit BlockProposed(s.nextBlockId++, meta, fee);
     }
