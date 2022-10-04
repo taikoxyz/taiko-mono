@@ -47,9 +47,13 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
+        uint64 lastBlockTime;
+        // weighted average of proposing/proving delay
+        uint64 maProposingDelay;
+        uint64 maProvingDelay;
         // weighted average of proposing/proving fees
-        uint128 waProposingFee;
-        uint128 waProvingFee;
+        uint128 maProposingFee;
+        uint128 maProvingFee;
     }
 
     function saveProposedBlock(
@@ -84,13 +88,25 @@ library LibData {
             uint64 genesisHeight,
             uint64 latestFinalizedHeight,
             uint64 latestFinalizedId,
-            uint64 nextBlockId
+            uint64 nextBlockId,
+            uint64 lastBlockTime,
+            uint64 maProposingDelay,
+            uint64 maProvingDelay,
+            uint128 maProposingFee,
+            uint128 maProvingFee
         )
     {
         genesisHeight = s.genesisHeight;
         latestFinalizedHeight = s.latestFinalizedHeight;
         latestFinalizedId = s.latestFinalizedId;
         nextBlockId = s.nextBlockId;
+
+        lastBlockTime = s.lastBlockTime;
+        maProposingDelay = s.maProposingDelay;
+        maProvingDelay = s.maProvingDelay;
+
+        maProposingFee = s.maProposingFee;
+        maProvingFee = s.maProvingFee;
     }
 
     function hashMetadata(BlockMetadata memory meta)
@@ -99,5 +115,13 @@ library LibData {
         returns (bytes32)
     {
         return keccak256(abi.encode(meta));
+    }
+
+    function calcMovingAvg(
+        uint256 mv,
+        uint256 v,
+        uint256 factor
+    ) internal pure returns (uint256) {
+        return mv == 0 ? v : (mv * (factor - 1) + v) / factor;
     }
 }

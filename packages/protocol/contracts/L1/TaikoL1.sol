@@ -27,7 +27,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 
     function init(address _addressManager, bytes32 _genesisBlockHash)
         external
@@ -166,7 +166,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             uint64, /*genesisHeight*/
             uint64, /*latestFinalizedHeight*/
             uint64, /*latestFinalizedId*/
-            uint64 /*nextBlockId*/
+            uint64, /*nextBlockId*/
+            uint64, /* lastBlockTime*/
+            uint64, /* maProposingDelay*/
+            uint64, /*maProvingDelay*/
+            uint128, /*maProposingFee*/
+            uint128 /*maProvingFee*/
         )
     {
         return state.getStateVariables();
@@ -184,11 +189,17 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
-    function getProposingFee(
-        LibData.BlockMetadata memory meta,
-        uint256 txListLen
-    ) public view returns (uint128) {
-        return V1Proposing.getProposingFee(state, meta, txListLen);
+    function getProposingFee(LibData.BlockMetadata memory meta)
+        public
+        view
+        returns (uint128)
+    {
+        return
+            V1Proposing.getProposingFee(
+                state,
+                meta,
+                block.timestamp - state.lastBlockTime
+            );
     }
 
     function getConstants()

@@ -24,7 +24,12 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
-    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
+
+    event BlockProposed(
+        uint256 indexed id,
+        LibData.BlockMetadata meta,
+        uint256 fee
+    );
 
     function commitBlock(LibData.State storage s, bytes32 commitHash) public {
         require(commitHash != 0, "L1:hash");
@@ -80,16 +85,26 @@ library V1Proposing {
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        uint128 fee = getProposingFee(s, meta, txList.length);
-        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
-        s.waProposingFee = (s.waProposingFee * 63 + fee) / 64;
+        uint256 proposingDelay = block.timestamp - s.lastBlockTime;
+        s.maProposingDelay = LibData
+            .calcMovingAvg(s.maProposingDelay, proposingDelay, 64)
+            .toUint64();
+
+        s.lastBlockTime = uint64(block.timestamp);
 
         s.saveProposedBlock(
             s.nextBlockId,
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        emit BlockProposed(s.nextBlockId++, meta);
+        uint128 fee = getProposingFee(s, meta, proposingDelay);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+
+        s.maProposingFee = LibData
+            .calcMovingAvg(s.maProposingFee, fee, 64)
+            .toUint128();
+
+        emit BlockProposed(s.nextBlockId++, meta, fee);
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
@@ -107,7 +122,7 @@ library V1Proposing {
     function getProposingFee(
         LibData.State storage s,
         LibData.BlockMetadata memory meta,
-        uint256 txListLen
+        uint256 provingDelay
     ) public view returns (uint128) {}
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {

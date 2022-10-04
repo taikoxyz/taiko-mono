@@ -15,7 +15,9 @@ import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+    using SafeCastUpgradeable for uint256;
+
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash, uint256 fee);
 
     event HeaderSynced(
         uint256 indexed height,
@@ -27,8 +29,9 @@ library V1Finalizing {
         s.l2Hashes[0] = _genesisBlockHash;
         s.nextBlockId = 1;
         s.genesisHeight = uint64(block.number);
+        s.lastBlockTime = uint64(block.timestamp);
 
-        emit BlockFinalized(0, _genesisBlockHash);
+        emit BlockFinalized(0, _genesisBlockHash, 0);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
@@ -49,29 +52,52 @@ library V1Finalizing {
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
 
-            if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
-                emit BlockFinalized(i, 0);
-            } else if (fc.blockHash != 0) {
+            bytes32 _blockHash;
+
+            if (
+                fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH
+            ) {} else if (fc.blockHash != 0) {
                 latestL2Height += 1;
                 latestL2Hash = fc.blockHash;
-                emit BlockFinalized(i, latestL2Hash);
+                _blockHash = latestL2Hash;
             } else {
                 break;
             }
+
             processed += 1;
 
             if (tkoToken == address(0)) {
                 tkoToken = resolver.resolve("tko_token");
             }
 
-            uint128 fee = getProvingFee(s);
-            for (uint256 j = 0; j < fc.provers.length; j++) {
+            uint256 weight = 3628800; // a number that can be devided by 1,...,10.
+            uint256 totalWeight;
+            uint256 count = fc.provers.length;
+            for (uint256 j = 0; j < count; j++) {
+                totalWeight += weight / (j + 1);
+            }
+
+            uint128 fee = getProvingFee(s, fc.provenAt - fc.proposedAt);
+            // The reward ratio is: 1/1, 1/2, 1/3, ..., 1/n.
+            for (uint256 j = 0; j < count; j++) {
                 TkoToken(tkoToken).mint(
                     fc.provers[j],
-                    fee / uint128(fc.provers.length)
+                    (fee * weight) / totalWeight / (j + 1)
                 );
             }
-            s.waProvingFee = (s.waProvingFee * 63 + fee) / 64;
+            s.maProvingFee = LibData
+                .calcMovingAvg(s.maProvingFee, fee, 64)
+                .toUint128();
+
+            s.maProvingDelay = LibData
+                .calcMovingAvg(
+                    s.maProvingDelay,
+                    fc.provenAt - fc.proposedAt,
+                    64
+                )
+                .toUint64();
+
+            emit BlockFinalized(i, _blockHash, fee);
         }
 
         if (processed > 0) {
@@ -85,7 +111,7 @@ library V1Finalizing {
         }
     }
 
-    function getProvingFee(LibData.State storage s)
+    function getProvingFee(LibData.State storage s, uint256 provingDelay)
         internal
         view
         returns (uint128)
