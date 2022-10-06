@@ -19,6 +19,14 @@ contract TestLibBridgeData {
         return LibBridgeData.hashMessage(message);
     }
 
+    function test(IBridge.Message memory message)
+        public
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode("TAIKO_BRIDGE_MESSAGE", message);
+    }
+
     // function updateMessageStatus(
     //     LibBridgeData.State memory state,
     //     bytes32 mhash,
