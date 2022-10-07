@@ -33,7 +33,7 @@ library LibBridgeSignal {
     {
         bytes32 key = _key(sender, signal);
         assembly {
-            sstore(key, signal)
+            sstore(key, 1)
         }
     }
 
@@ -48,7 +48,7 @@ library LibBridgeSignal {
         assembly {
             v := sload(key)
         }
-        return bytes32(v) == signal;
+        return v == 1;
     }
 
     function isSignalReceived(
@@ -65,7 +65,7 @@ library LibBridgeSignal {
             mkp.header.stateRoot,
             srcBridge,
             _key(sender, signal),
-            signal,
+            bytes32(uint256(1)),
             mkp.proof
         );
 
