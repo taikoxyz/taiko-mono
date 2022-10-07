@@ -29,7 +29,7 @@ contract Signaler is EssentialContract {
     }
 
     function sendSignal(bytes32 signal) external {
-        bytes32 key = _key(block.chainid, msg.sender, signal);
+        bytes32 key = _key(msg.sender, signal);
         assembly {
             sstore(key, 1)
         }
@@ -40,7 +40,7 @@ contract Signaler is EssentialContract {
         view
         returns (bool)
     {
-        bytes32 key = _key(block.chainid, sender, signal);
+        bytes32 key = _key(sender, signal);
         uint256 v;
         assembly {
             v := sload(key)
@@ -63,7 +63,7 @@ contract Signaler is EssentialContract {
         LibTrieProof.verify(
             mkp.header.stateRoot,
             srcSignaler,
-            _key(srcChainId, sender, signal),
+            _key(sender, signal),
             bytes32(uint256(1)),
             mkp.proof
         );
@@ -76,11 +76,11 @@ contract Signaler is EssentialContract {
             syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
-    function _key(
-        uint256 chainId,
-        address sender,
-        bytes32 signal
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, sender, signal));
+    function _key(address sender, bytes32 signal)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(sender, signal));
     }
 }
