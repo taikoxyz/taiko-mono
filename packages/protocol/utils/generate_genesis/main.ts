@@ -50,7 +50,7 @@ async function main() {
     let result = await deployV1TaikoL2(config, {
         alloc: {},
         storageLayouts: {},
-    })
+    }).catch(console.error)
 
     if (config.predeployERC20) {
         console.log("start deploy an ERC-20 token")
