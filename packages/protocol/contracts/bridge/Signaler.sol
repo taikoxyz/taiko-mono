@@ -29,9 +29,10 @@ contract Signaler is EssentialContract {
     }
 
     function sendSignal(bytes32 signal) external {
+        require(signal != 0, "S:signal");
         bytes32 key = _key(msg.sender, signal);
         assembly {
-            sstore(key, 1)
+            sstore(key, signal)
         }
     }
 
@@ -45,7 +46,7 @@ contract Signaler is EssentialContract {
         assembly {
             v := sload(key)
         }
-        return v == uint256(1);
+        return bytes32(v) == signal;
     }
 
     function isSignalReceived(
@@ -65,7 +66,7 @@ contract Signaler is EssentialContract {
             mkp.header.stateRoot,
             srcSignaler,
             _key(sender, signal),
-            bytes32(uint256(1)),
+            signal,
             mkp.proof
         );
 
