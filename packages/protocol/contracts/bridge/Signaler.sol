@@ -54,12 +54,13 @@ contract Signaler is EssentialContract {
         uint256 srcChainId,
         bytes calldata proof
     ) public view returns (bool) {
-        SignalProof memory mkp = abi.decode(proof, (SignalProof));
+        require(sender != address(0), "S:sender");
         require(srcChainId != block.chainid, "S:chainId");
 
         address srcSignaler = resolve(srcChainId, "signaler");
         require(srcSignaler != address(0), "S:signaler");
 
+        SignalProof memory mkp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify(
             mkp.header.stateRoot,
             srcSignaler,
