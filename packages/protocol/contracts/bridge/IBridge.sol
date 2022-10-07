@@ -34,7 +34,7 @@ interface IBridge {
     }
 
     struct Context {
-        bytes32 mhash; // messageHash
+        bytes32 signal; // messageHash
         address sender;
         uint256 srcChainId;
     }
@@ -44,7 +44,7 @@ interface IBridge {
     function sendMessage(Message memory message)
         external
         payable
-        returns (bytes32 mhash);
+        returns (bytes32 signal);
 
     function context() external view returns (Context memory context);
 }
