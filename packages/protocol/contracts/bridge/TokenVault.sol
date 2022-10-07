@@ -100,7 +100,7 @@ contract TokenVault is EssentialContract {
     /**
      * @notice Transfers Ether to this vault and sends a message to the
      *         destination chain so the user can receive Ether.
-     * @dev Ether are held by Bridges, not TokenVaults.
+     * @dev Ether are held by Bridges on L1 and by the EtherVault on L2, not TokenVaults.
      * @param destChainId The destination chain ID where the `to` address lives.
      * @param to The destination address.
      * @param processingFee @custom:see Bridge
