@@ -37,9 +37,9 @@ library LibBridgeRetry {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        bytes32 mhash = message.hashMessage();
+        bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[mhash] == IBridge.MessageStatus.RETRIABLE,
+            state.messageStatus[signal] == IBridge.MessageStatus.RETRIABLE,
             "B:notFound"
         );
 
@@ -50,11 +50,11 @@ library LibBridgeRetry {
 
         // successful invocation
         if (
-            LibBridgeInvoke.invokeMessageCall(state, message, mhash, gasleft())
+            LibBridgeInvoke.invokeMessageCall(state, message, signal, gasleft())
         ) {
-            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
+            state.updateMessageStatus(signal, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
-            state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
+            state.updateMessageStatus(signal, IBridge.MessageStatus.DONE);
 
             address refundAddress = message.refundAddress == address(0)
                 ? message.owner

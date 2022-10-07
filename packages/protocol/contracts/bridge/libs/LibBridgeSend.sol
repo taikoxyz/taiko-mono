@@ -21,7 +21,7 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 mhash) {
+    ) internal returns (bytes32 signal) {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
@@ -45,9 +45,9 @@ library LibBridgeSend {
         message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
-        mhash = message.hashMessage();
-        LibBridgeSignal.sendSignal(address(this), mhash);
-        emit LibBridgeData.MessageSent(mhash, message);
+        signal = message.hashMessage();
+        LibBridgeSignal.sendSignal(address(this), signal);
+        emit LibBridgeData.MessageSent(signal, message);
     }
 
     function enableDestChain(

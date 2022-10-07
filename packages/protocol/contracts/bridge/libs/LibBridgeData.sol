@@ -34,7 +34,7 @@ library LibBridgeData {
      *********************/
 
     // TODO: figure out this value
-    bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
+    bytes32 internal constant SIGNAL_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         0x0000000000000000000000000000000000000001;
@@ -44,10 +44,10 @@ library LibBridgeData {
      *********************/
 
     // Note: These events must match the ones defined in Bridge.sol.
-    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
+    event MessageSent(bytes32 indexed signal, IBridge.Message message);
 
     event MessageStatusChanged(
-        bytes32 indexed mhash,
+        bytes32 indexed signal,
         IBridge.MessageStatus status
     );
 
@@ -60,17 +60,17 @@ library LibBridgeData {
     /**
      * @dev If messageStatus is same as in the messageStatus mapping, does nothing
      * @param state The current bridge State
-     * @param mhash The messageHash of the message
+     * @param signal The messageHash of the message
      * @param status The status of the message
      */
     function updateMessageStatus(
         State storage state,
-        bytes32 mhash,
+        bytes32 signal,
         IBridge.MessageStatus status
     ) internal {
-        if (state.messageStatus[mhash] != status) {
-            state.messageStatus[mhash] = status;
-            emit LibBridgeData.MessageStatusChanged(mhash, status);
+        if (state.messageStatus[signal] != status) {
+            state.messageStatus[signal] = status;
+            emit LibBridgeData.MessageStatusChanged(signal, status);
         }
     }
 

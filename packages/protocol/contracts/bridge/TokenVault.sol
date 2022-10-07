@@ -68,7 +68,7 @@ contract TokenVault is EssentialContract {
         address indexed to,
         uint256 destChainId,
         uint256 amount,
-        bytes32 mhash
+        bytes32 signal
     );
 
     event EtherReceived(address from, uint256 amount);
@@ -78,7 +78,7 @@ contract TokenVault is EssentialContract {
         uint256 destChainId,
         address token,
         uint256 amount,
-        bytes32 mhash
+        bytes32 signal
     );
 
     event ERC20Received(
@@ -132,11 +132,11 @@ contract TokenVault is EssentialContract {
 
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
         // the TokenVault
-        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+        bytes32 signal = IBridge(resolve("bridge")).sendMessage{
             value: msg.value
         }(message);
 
-        emit EtherSent(to, destChainId, msg.value, mhash);
+        emit EtherSent(to, destChainId, msg.value, signal);
     }
 
     /**
@@ -212,11 +212,11 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        bytes32 mhash = IBridge(resolve("bridge")).sendMessage{
+        bytes32 signal = IBridge(resolve("bridge")).sendMessage{
             value: msg.value
         }(message);
 
-        emit ERC20Sent(to, destChainId, token, _amount, mhash);
+        emit ERC20Sent(to, destChainId, token, _amount, signal);
     }
 
     /**

@@ -41,9 +41,9 @@ library LibBridgeProcess {
 
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
-        bytes32 mhash = message.hashMessage();
+        bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
+            state.messageStatus[signal] == IBridge.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
@@ -53,7 +53,7 @@ library LibBridgeProcess {
                 resolver,
                 srcBridge,
                 srcBridge,
-                mhash,
+                signal,
                 proof
             ),
             "B:notReceived"
@@ -85,7 +85,7 @@ library LibBridgeProcess {
             bool success = LibBridgeInvoke.invokeMessageCall(
                 state,
                 message,
-                mhash,
+                signal,
                 gasLimit
             );
 
@@ -99,7 +99,7 @@ library LibBridgeProcess {
             }
         }
 
-        state.updateMessageStatus(mhash, status);
+        state.updateMessageStatus(signal, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner

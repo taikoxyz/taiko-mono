@@ -32,10 +32,10 @@ contract Bridge is EssentialContract, IBridge {
      * Events            *
      *********************/
 
-    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
+    event MessageSent(bytes32 indexed signal, IBridge.Message message);
 
     event MessageStatusChanged(
-        bytes32 indexed mhash,
+        bytes32 indexed signal,
         IBridge.MessageStatus status
     );
 
@@ -57,7 +57,7 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (bytes32 mhash)
+        returns (bytes32 signal)
     {
         return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
@@ -103,12 +103,12 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
-        return LibBridgeSignal.isSignalSent(address(this), mhash);
+    function isMessageSent(bytes32 signal) public view virtual returns (bool) {
+        return LibBridgeSignal.isSignalSent(address(this), signal);
     }
 
     function isMessageReceived(
-        bytes32 mhash,
+        bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
     ) public view virtual returns (bool) {
@@ -118,7 +118,7 @@ contract Bridge is EssentialContract, IBridge {
                 AddressResolver(this),
                 srcBridge,
                 srcBridge,
-                mhash,
+                signal,
                 proof
             );
     }
@@ -149,13 +149,13 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function getMessageStatus(bytes32 mhash)
+    function getMessageStatus(bytes32 signal)
         public
         view
         virtual
         returns (MessageStatus)
     {
-        return state.messageStatus[mhash];
+        return state.messageStatus[signal];
     }
 
     function context() public view returns (Context memory) {
