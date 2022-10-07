@@ -329,9 +329,9 @@ function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
 function linkBridgeBytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
-    if (Object.keys(refs).length !== 2) {
+    if (Object.keys(refs).length !== 3) {
         throw new Error(
-            `wrong link references amount, expected: 2, get: ${
+            `wrong link references amount, expected: 3, get: ${
                 Object.keys(refs).length
             }`
         )
