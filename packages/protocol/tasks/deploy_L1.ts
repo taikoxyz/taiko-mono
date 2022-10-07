@@ -83,7 +83,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${l2ChainId}.taiko`, v1TaikoL2Address)
     )
-    // Used by LibBridgeSignal
+    // Used by LibBridgeRead
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.taiko`, v1TaikoL2Address)
@@ -145,7 +145,6 @@ export async function deployContracts(hre: any) {
             { TkoToken: TkoToken.address },
             { TaikoL1: TaikoL1.address },
             { Bridge: Bridge.address },
-            { TokenVault: TokenVault.address },
             { TokenVault: TokenVault.address }
         ),
     }
@@ -182,10 +181,18 @@ async function deployBaseLibs(hre: any) {
 }
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
+    const libTrieProof = await utils.deployContract(hre, "LibTrieProof")
     const libBridgeRetry = await utils.deployContract(hre, "LibBridgeRetry")
-    const libBridgeProcess = await utils.deployContract(hre, "LibBridgeProcess")
+    const libBridgeProcess = await utils.deployContract(
+        hre,
+        "LibBridgeProcess",
+        {
+            LibTrieProof: libTrieProof.address,
+        }
+    )
 
     const Bridge = await utils.deployContract(hre, "Bridge", {
+        LibTrieProof: libTrieProof.address,
         LibBridgeRetry: libBridgeRetry.address,
         LibBridgeProcess: libBridgeProcess.address,
     })
