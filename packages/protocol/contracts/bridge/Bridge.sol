@@ -32,6 +32,8 @@ contract Bridge is EssentialContract, IBridge {
      * Events            *
      *********************/
 
+    event SignalSent(bytes32 signal);
+
     event MessageSent(bytes32 indexed signal, IBridge.Message message);
 
     event MessageStatusChanged(
@@ -63,7 +65,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function sendSignal(bytes32 signal) external {
-        return LibBridgeSignal.sendSignal(msg.sender, signal);
+        LibBridgeSignal.sendSignal(msg.sender, signal);
+        emit SignalSent(signal);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
