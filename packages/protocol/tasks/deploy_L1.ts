@@ -83,7 +83,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${l2ChainId}.taiko`, v1TaikoL2Address)
     )
-    // Used by LibBridgeRead
+    // Used by LibBridgeSignal
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.taiko`, v1TaikoL2Address)
