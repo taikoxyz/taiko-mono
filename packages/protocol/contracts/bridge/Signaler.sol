@@ -13,23 +13,23 @@ import "../common/IHeaderSync.sol";
 import "../libs/LibBlockHeader.sol";
 import "../libs/LibTrieProof.sol";
 
-struct MKProof {
+struct SignalProof {
     BlockHeader header;
     bytes proof;
 }
 
-interface IMessager {
-    function sendMessage(bytes32 message) external;
+interface ISignaler {
+    function sendSignal(bytes32 signal) external;
 
-    function isMessageReceived(
+    function isSignalReceived(
         address sender,
-        bytes32 message,
+        bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
     ) external view returns (bool);
 }
 
-contract Messager is EssentialContract, IMessager {
+contract Signaler is EssentialContract, ISignaler {
     using LibBlockHeader for BlockHeader;
 
     uint256[50] private __gap;
@@ -39,19 +39,19 @@ contract Messager is EssentialContract, IMessager {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(bytes32 message) external override {
-        bytes32 key = _key(msg.sender, message);
+    function sendSignal(bytes32 signal) external override {
+        bytes32 key = _key(msg.sender, signal);
         assembly {
             sstore(key, 1)
         }
     }
 
-    function isMessageSent(address sender, bytes32 message)
+    function isSignalSent(address sender, bytes32 signal)
         public
         view
         returns (bool)
     {
-        bytes32 key = _key(sender, message);
+        bytes32 key = _key(sender, signal);
         uint256 v;
         assembly {
             v := sload(key)
@@ -59,21 +59,22 @@ contract Messager is EssentialContract, IMessager {
         return v == uint256(1);
     }
 
-    function isMessageReceived(
+    function isSignalReceived(
         address sender,
-        bytes32 message,
+        bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
     ) public view override returns (bool) {
-        MKProof memory mkp = abi.decode(proof, (MKProof));
-        require(srcChainId != block.chainid, "B:chainId");
+        SignalProof memory mkp = abi.decode(proof, (SignalProof));
+        require(srcChainId != block.chainid, "S:chainId");
 
-        bytes32 key = _key(sender, message);
+        address srcSignaler = resolve(srcChainId, "signaler");
+        require(srcSignaler != address(0), "S:signaler");
 
         LibTrieProof.verify(
             mkp.header.stateRoot,
-            resolve(srcChainId, "messanger"),
-            key,
+            srcSignaler,
+            _key(sender, signal),
             bytes32(uint256(1)),
             mkp.proof
         );
@@ -86,11 +87,11 @@ contract Messager is EssentialContract, IMessager {
             syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
-    function _key(address sender, bytes32 message)
+    function _key(address sender, bytes32 signal)
         private
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(sender, message));
+        return keccak256(abi.encodePacked(sender, signal));
     }
 }

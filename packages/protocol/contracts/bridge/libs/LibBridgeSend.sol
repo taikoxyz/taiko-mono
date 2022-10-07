@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../Messager.sol";
+import "../Signaler.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeRead.sol";
 
@@ -47,7 +47,7 @@ library LibBridgeSend {
         message.srcChainId = block.chainid;
 
         mhash = message.hashMessage();
-        Messager(resolver.resolve("messanger")).sendMessage(mhash);
+        Signaler(resolver.resolve("signaler")).sendSignal(mhash);
         emit LibBridgeData.MessageSent(mhash, message);
     }
 

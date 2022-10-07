@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibTrieProof.sol";
-import "../Messager.sol";
+import "../Signaler.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -28,7 +28,7 @@ library LibBridgeRead {
         returns (bool)
     {
         return
-            Messager(resolver.resolve("messanger")).isMessageSent(
+            Signaler(resolver.resolve("signaler")).isSignalSent(
                 address(this),
                 mhash
             );
@@ -41,7 +41,7 @@ library LibBridgeRead {
         bytes calldata proof
     ) internal view returns (bool) {
         return
-            Messager(resolver.resolve("messanger")).isMessageReceived(
+            Signaler(resolver.resolve("signaler")).isSignalReceived(
                 address(this),
                 mhash,
                 srcChainId,
