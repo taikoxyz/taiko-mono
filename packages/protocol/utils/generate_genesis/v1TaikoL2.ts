@@ -131,6 +131,10 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./bridge/EtherVault.sol/EtherVault.json"
         )),
+        Signaler: require(path.join(
+            ARTIFACTS_PATH,
+            "./bridge/Signaler.sol/Signaler.json"
+        )),
     }
 
     const addressMap: any = {}
@@ -144,20 +148,16 @@ async function generateContractConfigs(
             }
 
             bytecode = linkV1TaikoL2Bytecode(bytecode, addressMap)
-        } else if (contractName === "LibBridgeProcess") {
+        } else if (contractName === "Signaler") {
             if (!addressMap.LibTrieProof) {
                 throw new Error("LibTrieProof not initialized")
             }
 
-            bytecode = linkLibBridgeProcessBytecode(bytecode, addressMap)
+            bytecode = linkSignalerBytecode(bytecode, addressMap)
         } else if (contractName === "Bridge") {
-            if (
-                !addressMap.LibTrieProof ||
-                !addressMap.LibBridgeRetry ||
-                !addressMap.LibBridgeProcess
-            ) {
+            if (!addressMap.LibBridgeRetry || !addressMap.LibBridgeProcess) {
                 throw new Error(
-                    "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
+                    "LibBridgeRetry/LibBridgeProcess not initialized"
                 )
             }
 
@@ -190,10 +190,8 @@ async function generateContractConfigs(
         },
         LibBridgeProcess: {
             address: addressMap.LibBridgeProcess,
-            deployedBytecode: linkLibBridgeProcessBytecode(
+            deployedBytecode:
                 contractArtifacts.LibBridgeProcess.deployedBytecode,
-                addressMap
-            ),
             variables: {},
         },
         LibTxDecoder: {
@@ -229,6 +227,10 @@ async function generateContractConfigs(
                         ["string"],
                         [`${chainId}.ether_vault`]
                     )}`]: addressMap.EtherVault,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${chainId}.signaler`]
+                    )}`]: addressMap.Signaler,
                 },
             },
         },
@@ -309,6 +311,24 @@ async function generateContractConfigs(
                 authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
+        Signaler: {
+            address: addressMap.Signaler,
+            deployedBytecode: linkSignalerBytecode(
+                contractArtifacts.Signaler.deployedBytecode,
+                addressMap
+            ),
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
+            },
+        },
     }
 }
 
@@ -339,10 +359,7 @@ function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
 // linkLibBridgeProcessBytecode tries to link LibBridgeProcess deployedBytecode
 // to its libraries.
 // Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkLibBridgeProcessBytecode(
-    byteCode: string,
-    addressMap: any
-): string {
+function linkSignalerBytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
     if (Object.keys(refs).length !== 1) {
@@ -369,9 +386,9 @@ function linkLibBridgeProcessBytecode(
 function linkBridgeBytecode(byteCode: string, addressMap: any): string {
     const refs = linker.findLinkReferences(byteCode)
 
-    if (Object.keys(refs).length !== 3) {
+    if (Object.keys(refs).length !== 2) {
         throw new Error(
-            `wrong link references amount, expected: 3, get: ${
+            `wrong link references amount, expected: 2, get: ${
                 Object.keys(refs).length
             }`
         )
@@ -380,7 +397,6 @@ function linkBridgeBytecode(byteCode: string, addressMap: any): string {
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
         [Object.keys(refs)[0]]: addressMap.LibBridgeProcess,
         [Object.keys(refs)[1]]: addressMap.LibBridgeRetry,
-        [Object.keys(refs)[2]]: addressMap.LibTrieProof,
     })
 
     if (ethers.utils.toUtf8Bytes(linkedBytecode).includes("$__")) {

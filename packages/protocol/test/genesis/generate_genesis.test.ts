@@ -125,6 +125,12 @@ action("Generate Genesis", function () {
             )
 
             expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
+
+            const signaler = await addressManager.getAddress(
+                `${testConfig.chainId}.signaler`
+            )
+
+            expect(signaler).to.be.equal(getContractAlloc("Signaler").address)
         })
 
         it("LibTxDecoder", async function () {
@@ -235,6 +241,25 @@ action("Generate Genesis", function () {
             expect(
                 await EtherVault.isAuthorized(
                     ethers.Wallet.createRandom().address
+                )
+            ).to.be.false
+        })
+
+        it("Signaler", async function () {
+            const Signaler = new hre.ethers.Contract(
+                getContractAlloc("Signaler").address,
+                require("../../artifacts/contracts/bridge/Signaler.sol/Signaler.json").abi,
+                signer
+            )
+
+            const owner = await Signaler.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            expect(
+                await Signaler.isSignalSent(
+                    ethers.Wallet.createRandom().address,
+                    ethers.utils.randomBytes(32)
                 )
             ).to.be.false
         })
