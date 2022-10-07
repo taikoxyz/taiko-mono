@@ -134,15 +134,6 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${chainId}.bridge`, Bridge.address)
     )
 
-    // Signaler
-    const Signaler = await deploySignaler(hre, AddressManager.address)
-
-    // Used by Bridge
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(`${chainId}.signaler`, Signaler.address)
-    )
-
     // save deployments
     const deployments = {
         network,
@@ -155,7 +146,6 @@ export async function deployContracts(hre: any) {
             { TaikoL1: TaikoL1.address },
             { Bridge: Bridge.address },
             { TokenVault: TokenVault.address },
-            { Signaler: Signaler.address },
             { TokenVault: TokenVault.address }
         ),
     }
@@ -203,17 +193,6 @@ async function deployBridge(hre: any, addressManager: string): Promise<any> {
     await utils.waitTx(hre, await Bridge.init(addressManager))
 
     return Bridge
-}
-
-async function deploySignaler(hre: any, addressManager: string): Promise<any> {
-    const libTrieProof = await utils.deployContract(hre, "LibTrieProof")
-
-    const Signaler = await utils.deployContract(hre, "Signaler", {
-        LibTrieProof: libTrieProof.address,
-    })
-    await utils.waitTx(hre, await Signaler.init(addressManager))
-
-    return Signaler
 }
 
 async function deployTokenVault(

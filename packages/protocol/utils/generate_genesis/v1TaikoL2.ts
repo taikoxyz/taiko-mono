@@ -131,10 +131,6 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./bridge/EtherVault.sol/EtherVault.json"
         )),
-        Signaler: require(path.join(
-            ARTIFACTS_PATH,
-            "./bridge/Signaler.sol/Signaler.json"
-        )),
     }
 
     const addressMap: any = {}
@@ -148,12 +144,6 @@ async function generateContractConfigs(
             }
 
             bytecode = linkV1TaikoL2Bytecode(bytecode, addressMap)
-        } else if (contractName === "Signaler") {
-            if (!addressMap.LibTrieProof) {
-                throw new Error("LibTrieProof not initialized")
-            }
-
-            bytecode = linkSignalerBytecode(bytecode, addressMap)
         } else if (contractName === "Bridge") {
             if (!addressMap.LibBridgeRetry || !addressMap.LibBridgeProcess) {
                 throw new Error(
@@ -227,10 +217,6 @@ async function generateContractConfigs(
                         ["string"],
                         [`${chainId}.ether_vault`]
                     )}`]: addressMap.EtherVault,
-                    [`${ethers.utils.solidityKeccak256(
-                        ["string"],
-                        [`${chainId}.signaler`]
-                    )}`]: addressMap.Signaler,
                 },
             },
         },
@@ -311,24 +297,6 @@ async function generateContractConfigs(
                 authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
-        Signaler: {
-            address: addressMap.Signaler,
-            deployedBytecode: linkSignalerBytecode(
-                contractArtifacts.Signaler.deployedBytecode,
-                addressMap
-            ),
-            variables: {
-                // initializer
-                _initialized: 1,
-                _initializing: false,
-                // ReentrancyGuardUpgradeable
-                _status: 1, // _NOT_ENTERED
-                // OwnableUpgradeable
-                _owner: contractOwner,
-                // AddressResolver
-                _addressManager: addressMap.AddressManager,
-            },
-        },
     }
 }
 
@@ -347,31 +315,6 @@ function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
 
     const linkedBytecode: string = linker.linkBytecode(byteCode, {
         [Object.keys(refs)[0]]: addressMap.LibTxDecoder,
-    })
-
-    if (linkedBytecode.includes("$__")) {
-        throw new Error("failed to link")
-    }
-
-    return linkedBytecode
-}
-
-// linkLibBridgeProcessBytecode tries to link LibBridgeProcess deployedBytecode
-// to its libraries.
-// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkSignalerBytecode(byteCode: string, addressMap: any): string {
-    const refs = linker.findLinkReferences(byteCode)
-
-    if (Object.keys(refs).length !== 1) {
-        throw new Error(
-            `wrong link references amount, expected: 1, get: ${
-                Object.keys(refs).length
-            }`
-        )
-    }
-
-    const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTrieProof,
     })
 
     if (linkedBytecode.includes("$__")) {
