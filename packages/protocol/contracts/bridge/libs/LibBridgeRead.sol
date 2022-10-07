@@ -42,7 +42,7 @@ library LibBridgeRead {
     ) internal view returns (bool) {
         return
             Signaler(resolver.resolve("signaler")).isSignalReceived(
-                address(this),
+                resolver.resolve(srcChainId, "bridge"),
                 mhash,
                 srcChainId,
                 proof
