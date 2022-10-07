@@ -15,13 +15,12 @@ import "../common/EssentialContract.sol";
 import "../L1/TkoToken.sol";
 import "./BridgedERC20.sol";
 import "./IBridge.sol";
-import "./ITokenVault.sol";
 
 /**
  *  @dev This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  *       It also manages the mapping between cannonical ERC20 tokens and their bridged tokens.
  */
-contract TokenVault is EssentialContract, ITokenVault {
+contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
 
     /*********************
@@ -99,11 +98,12 @@ contract TokenVault is EssentialContract, ITokenVault {
     }
 
     /**
-     * @dev Sends Ether to the 'to' address on the destChain.
-     * Generates a Message struct with the parameters provided
-     * and msg attributes, then sends it to the corresponding
-     * Bridge.
-     * Emits corresponding event
+     * @notice Transfers Ether to this vault and sends a message to the
+     *         destination chain so the user can receive Ether.
+     * @dev Ether are held by Bridges, not TokenVaults.
+     * @param destChainId The destination chain ID where the `to` address lives.
+     * @param to The destination address.
+     * @param processingFee @custom:see Bridge
      */
     function sendEther(
         uint256 destChainId,
@@ -139,15 +139,18 @@ contract TokenVault is EssentialContract, ITokenVault {
         emit EtherSent(to, destChainId, msg.value, mhash);
     }
 
-    /// @inheritdoc ITokenVault
     /**
-     * @dev Sends ERC20 Tokens to the 'to' address on the destChain.
-     * If it is a bridged token, it is directly burned from the user's
-     * account on srcChain and the corresponding amount is sent in
-     * a message to destChain bridge.
-     * If it is canonical, this step is skipped.
-     * If it is TkoToken, we burn and mint like Bridged Tokens.
-     * Emits corresponding event.
+     * @notice Transfers ERC20 tokens to this vault and sends a message to the
+     *         destination chain so the user can receive the same amount of tokens
+     *         by invoking the message call.
+     * @param token The address of the token to be sent.
+     * @param destChainId The destination chain ID where the `to` address lives.
+     * @param to The destination address.
+     * @param refundAddress The fee refund address. If this address is address(0), extra
+     *        fees will be refunded back to the `to` address.
+     * @param amount The amount of token to be transferred.
+     * @param processingFee @custom:see Bridge
+     * @param gasLimit @custom:see Bridge
      */
     function sendERC20(
         uint256 destChainId,

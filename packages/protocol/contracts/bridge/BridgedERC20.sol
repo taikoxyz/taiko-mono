@@ -15,26 +15,19 @@ import "../common/EssentialContract.sol";
 import "../thirdparty/ERC20Upgradeable.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-interface IBridgedERC20 is IERC20Upgradeable, IERC20MetadataUpgradeable {
-    event BridgeMint(address indexed account, uint256 amount);
-    event BridgeBurn(address indexed account, uint256 amount);
-
-    function bridgeMintTo(address account, uint256 amount) external;
-
-    function bridgeBurnFrom(address account, uint256 amount) external;
-
-    function source()
-        external
-        view
-        returns (address srcToken, uint256 srcChainId);
-}
-
-/// @author dantaik <dan@taiko.xyz>
-contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
+contract BridgedERC20 is
+    EssentialContract,
+    IERC20Upgradeable,
+    IERC20MetadataUpgradeable,
+    ERC20Upgradeable
+{
     address public srcToken;
     uint256 public srcChainId;
 
     uint256[48] private __gap;
+
+    event BridgeMint(address indexed account, uint256 amount);
+    event BridgeBurn(address indexed account, uint256 amount);
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC20 Contract to be deployed
@@ -64,7 +57,6 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     /// @dev only a TokenVault can call this function
     function bridgeMintTo(address account, uint256 amount)
         public
-        override
         onlyFromNamed("token_vault")
     {
         _mint(account, amount);
@@ -74,7 +66,6 @@ contract BridgedERC20 is EssentialContract, ERC20Upgradeable, IBridgedERC20 {
     /// @dev only a TokenVault can call this function
     function bridgeBurnFrom(address account, uint256 amount)
         public
-        override
         onlyFromNamed("token_vault")
     {
         _burn(account, amount);

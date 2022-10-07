@@ -18,18 +18,7 @@ struct SignalProof {
     bytes proof;
 }
 
-interface ISignaler {
-    function sendSignal(bytes32 signal) external;
-
-    function isSignalReceived(
-        address sender,
-        bytes32 signal,
-        uint256 srcChainId,
-        bytes calldata proof
-    ) external view returns (bool);
-}
-
-contract Signaler is EssentialContract, ISignaler {
+contract Signaler is EssentialContract {
     using LibBlockHeader for BlockHeader;
 
     uint256[50] private __gap;
@@ -39,7 +28,7 @@ contract Signaler is EssentialContract, ISignaler {
         EssentialContract._init(_addressManager);
     }
 
-    function sendSignal(bytes32 signal) external override {
+    function sendSignal(bytes32 signal) external {
         bytes32 key = _key(msg.sender, signal);
         assembly {
             sstore(key, 1)
@@ -64,7 +53,7 @@ contract Signaler is EssentialContract, ISignaler {
         bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
-    ) public view override returns (bool) {
+    ) public view returns (bool) {
         SignalProof memory mkp = abi.decode(proof, (SignalProof));
         require(srcChainId != block.chainid, "S:chainId");
 
