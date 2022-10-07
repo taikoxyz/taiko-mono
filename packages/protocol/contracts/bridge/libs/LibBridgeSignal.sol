@@ -8,37 +8,39 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../common/EssentialContract.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibBlockHeader.sol";
-import "../libs/LibTrieProof.sol";
+import "../../common/AddressResolver.sol";
+import "../../common/IHeaderSync.sol";
+import "../../libs/LibBlockHeader.sol";
+import "../../libs/LibTrieProof.sol";
 
-struct SignalProof {
-    BlockHeader header;
-    bytes proof;
-}
-
-contract Signaler is EssentialContract {
+library LibBridgeSignal {
     using LibBlockHeader for BlockHeader;
 
-    uint256[50] private __gap;
-
-    /// @dev Initializer to be called after being deployed behind a proxy.
-    function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
+    struct SignalProof {
+        BlockHeader header;
+        bytes proof;
     }
 
-    function sendSignal(bytes32 signal) external {
-        require(signal != 0, "S:signal");
-        bytes32 key = _key(msg.sender, signal);
+    modifier onlyValidSenderAndSignal(address sender, bytes32 signal) {
+        require(sender != address(0), "B:sender");
+        require(signal != 0, "B:signal");
+        _;
+    }
+
+    function sendSignal(address sender, bytes32 signal)
+        internal
+        onlyValidSenderAndSignal(sender, signal)
+    {
+        bytes32 key = _key(sender, signal);
         assembly {
             sstore(key, signal)
         }
     }
 
     function isSignalSent(address sender, bytes32 signal)
-        public
+        internal
         view
+        onlyValidSenderAndSignal(sender, signal)
         returns (bool)
     {
         bytes32 key = _key(sender, signal);
@@ -50,27 +52,24 @@ contract Signaler is EssentialContract {
     }
 
     function isSignalReceived(
+        AddressResolver resolver,
+        address srcBridge,
         address sender,
         bytes32 signal,
-        uint256 srcChainId,
         bytes calldata proof
-    ) public view returns (bool) {
-        require(sender != address(0), "S:sender");
-        require(srcChainId != block.chainid, "S:chainId");
-
-        address srcSignaler = resolve(srcChainId, "signaler");
-        require(srcSignaler != address(0), "S:signaler");
+    ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
+        require(srcBridge != address(0), "S:srcBridge");
 
         SignalProof memory mkp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify(
             mkp.header.stateRoot,
-            srcSignaler,
+            srcBridge,
             _key(sender, signal),
             signal,
             mkp.proof
         );
 
-        bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko"))
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);
 
         return

@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
+import "./LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeProcess {
@@ -19,8 +19,6 @@ library LibBridgeProcess {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
-    using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for LibBridgeData.State;
 
     /**
      * @dev This function can be called by any address, including `message. owner`.
@@ -49,11 +47,13 @@ library LibBridgeProcess {
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
+        address srcBridge = resolver.resolve(message.srcChainId, "bridge");
         require(
-            LibBridgeRead.isMessageReceived(
+            LibBridgeSignal.isSignalReceived(
                 resolver,
+                srcBridge,
+                srcBridge,
                 mhash,
-                message.srcChainId,
                 proof
             ),
             "B:notReceived"
@@ -82,7 +82,12 @@ library LibBridgeProcess {
             uint256 gasLimit = msg.sender == message.owner
                 ? gasleft()
                 : message.gasLimit;
-            bool success = state.invokeMessageCall(message, mhash, gasLimit);
+            bool success = LibBridgeInvoke.invokeMessageCall(
+                state,
+                message,
+                mhash,
+                gasLimit
+            );
 
             if (success) {
                 status = IBridge.MessageStatus.DONE;

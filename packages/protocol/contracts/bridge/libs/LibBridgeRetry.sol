@@ -11,15 +11,12 @@ pragma solidity ^0.8.9;
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeRetry {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
-    using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for LibBridgeData.State;
 
     /**
      * @dev This function can be called by any address including 'message.owner'.
@@ -52,7 +49,9 @@ library LibBridgeRetry {
         }
 
         // successful invocation
-        if (state.invokeMessageCall(message, mhash, gasleft())) {
+        if (
+            LibBridgeInvoke.invokeMessageCall(state, message, mhash, gasleft())
+        ) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);
         } else if (lastAttempt) {
             state.updateMessageStatus(mhash, IBridge.MessageStatus.DONE);

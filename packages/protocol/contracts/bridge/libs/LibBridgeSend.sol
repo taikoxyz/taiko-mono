@@ -8,15 +8,14 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../Signaler.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
+
+import "./LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
-    using LibBridgeRead for LibBridgeData.State;
 
     function sendMessage(
         LibBridgeData.State storage state,
@@ -26,7 +25,7 @@ library LibBridgeSend {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
-                state.isDestChainEnabled(message.destChainId),
+                state.destChains[message.destChainId],
             "B:destChainId"
         );
 
@@ -47,7 +46,7 @@ library LibBridgeSend {
         message.srcChainId = block.chainid;
 
         mhash = message.hashMessage();
-        Signaler(resolver.resolve("signaler")).sendSignal(mhash);
+        LibBridgeSignal.sendSignal(address(this), mhash);
         emit LibBridgeData.MessageSent(mhash, message);
     }
 
