@@ -100,7 +100,7 @@ contract Bridge is EssentialContract, IBridge {
      *********************/
 
     function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
-        return LibBridgeRead.isMessageSent(mhash);
+        return LibBridgeRead.isMessageSent(AddressResolver(this), mhash);
     }
 
     function isMessageReceived(

@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibTrieProof.sol";
+import "../Messager.sol";
 import "./LibBridgeData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -18,20 +19,19 @@ library LibBridgeRead {
     using LibBridgeData for IBridge.Message;
     using LibBlockHeader for BlockHeader;
 
-    struct MKProof {
-        BlockHeader header;
-        bytes proof;
-    }
-
     /**
      * @dev Queries contract storage for whether the messageHash is present. Only supposed to be called on srcChain bridge contract.
      */
-    function isMessageSent(bytes32 mhash) internal view returns (bool) {
-        uint256 v;
-        assembly {
-            v := sload(mhash)
-        }
-        return v == uint256(1);
+    function isMessageSent(AddressResolver resolver, bytes32 mhash)
+        internal
+        view
+        returns (bool)
+    {
+        return
+            Messager(resolver.resolve("messanger")).isMessageSent(
+                address(this),
+                mhash
+            );
     }
 
     function isMessageReceived(
@@ -40,23 +40,13 @@ library LibBridgeRead {
         uint256 srcChainId,
         bytes calldata proof
     ) internal view returns (bool) {
-        MKProof memory mkp = abi.decode(proof, (MKProof));
-        require(srcChainId != block.chainid, "B:chainId");
-
-        LibTrieProof.verify(
-            mkp.header.stateRoot,
-            resolver.resolve(srcChainId, "bridge"),
-            mhash,
-            bytes32(uint256(1)),
-            mkp.proof
-        );
-
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-            .getSyncedHeader(mkp.header.height);
-
         return
-            syncedHeaderHash != 0 &&
-            syncedHeaderHash == mkp.header.hashBlockHeader();
+            Messager(resolver.resolve("messanger")).isMessageReceived(
+                address(this),
+                mhash,
+                srcChainId,
+                proof
+            );
     }
 
     function isDestChainEnabled(
