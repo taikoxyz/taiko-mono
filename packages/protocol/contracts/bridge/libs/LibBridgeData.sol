@@ -18,12 +18,17 @@ library LibBridgeData {
     /*********************
      * Structs           *
      *********************/
+    enum MessageStatus {
+        NEW,
+        RETRIABLE,
+        DONE
+    }
 
     struct State {
         // chainId => isEnabled
         mapping(uint256 => bool) destChains;
         // message hash => status
-        mapping(bytes32 => IBridge.MessageStatus) messageStatus;
+        mapping(bytes32 => MessageStatus) messageStatus;
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
         uint256[44] __gap;
@@ -46,10 +51,7 @@ library LibBridgeData {
     // Note: These events must match the ones defined in Bridge.sol.
     event MessageSent(bytes32 indexed signal, IBridge.Message message);
 
-    event MessageStatusChanged(
-        bytes32 indexed signal,
-        IBridge.MessageStatus status
-    );
+    event MessageStatusChanged(bytes32 indexed signal, MessageStatus status);
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
@@ -66,7 +68,7 @@ library LibBridgeData {
     function updateMessageStatus(
         State storage state,
         bytes32 signal,
-        IBridge.MessageStatus status
+        MessageStatus status
     ) internal {
         if (state.messageStatus[signal] != status) {
             state.messageStatus[signal] = status;

@@ -43,7 +43,7 @@ library LibBridgeProcess {
         // LibBridgeRetry.sol
         bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[signal] == IBridge.MessageStatus.NEW,
+            state.messageStatus[signal] == LibBridgeData.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
@@ -70,13 +70,13 @@ library LibBridgeProcess {
         // will actually consume the Ether.
         message.owner.sendEther(message.depositValue);
 
-        IBridge.MessageStatus status;
+        LibBridgeData.MessageStatus status;
         uint256 refundAmount;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
-            status = IBridge.MessageStatus.DONE;
+            status = LibBridgeData.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else {
             uint256 gasLimit = msg.sender == message.owner
@@ -90,9 +90,9 @@ library LibBridgeProcess {
             );
 
             if (success) {
-                status = IBridge.MessageStatus.DONE;
+                status = LibBridgeData.MessageStatus.DONE;
             } else {
-                status = IBridge.MessageStatus.RETRIABLE;
+                status = LibBridgeData.MessageStatus.RETRIABLE;
                 if (ethVault != address(0)) {
                     ethVault.sendEther(message.callValue);
                 }

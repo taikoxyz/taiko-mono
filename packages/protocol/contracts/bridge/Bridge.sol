@@ -32,13 +32,9 @@ contract Bridge is EssentialContract, IBridge {
      * Events            *
      *********************/
 
-    event SignalSent(address sender, bytes32 signal);
-
-    event MessageSent(bytes32 indexed signal, IBridge.Message message);
-
     event MessageStatusChanged(
         bytes32 indexed signal,
-        IBridge.MessageStatus status
+        LibBridgeData.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -64,7 +60,7 @@ contract Bridge is EssentialContract, IBridge {
         return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
 
-    function sendSignal(bytes32 signal) external {
+    function sendSignal(bytes32 signal) external override {
         LibBridgeSignal.sendSignal(msg.sender, signal);
         emit SignalSent(msg.sender, signal);
     }
@@ -114,7 +110,7 @@ contract Bridge is EssentialContract, IBridge {
         bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
-    ) public view virtual returns (bool) {
+    ) public view virtual override returns (bool) {
         address srcBridge = resolve(srcChainId, "bridge");
         return
             LibBridgeSignal.isSignalReceived(
@@ -130,6 +126,7 @@ contract Bridge is EssentialContract, IBridge {
         public
         view
         virtual
+        override
         returns (bool)
     {
         return LibBridgeSignal.isSignalSent(sender, signal);
@@ -140,7 +137,7 @@ contract Bridge is EssentialContract, IBridge {
         uint256 srcChainId,
         address sender,
         bytes calldata proof
-    ) public view virtual returns (bool) {
+    ) public view virtual override returns (bool) {
         address srcBridge = resolve(srcChainId, "bridge");
         return
             LibBridgeSignal.isSignalReceived(
@@ -156,7 +153,7 @@ contract Bridge is EssentialContract, IBridge {
         public
         view
         virtual
-        returns (MessageStatus)
+        returns (LibBridgeData.MessageStatus)
     {
         return state.messageStatus[signal];
     }
