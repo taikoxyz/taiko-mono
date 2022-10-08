@@ -43,6 +43,12 @@ library LibData {
         address[] provers;
     }
 
+    struct Reservation {
+        uint256 deposit;
+        address prover;
+        uint64 expiry;
+    }
+
     struct State {
         // block id => block hash
         mapping(uint256 => bytes32) l2Hashes;
@@ -55,6 +61,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
+        mapping(uint256 => Reservation) reservations;
     }
 
     function saveProposedBlock(

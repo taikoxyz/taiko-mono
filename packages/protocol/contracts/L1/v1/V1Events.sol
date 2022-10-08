@@ -19,6 +19,8 @@ abstract contract V1Events {
 
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
+    event Reserved(uint256 indexed id, LibData.Reservation reservation);
+
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,

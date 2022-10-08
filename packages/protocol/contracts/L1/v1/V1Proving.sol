@@ -23,6 +23,7 @@ import "../../thirdparty/Lib_BytesUtils.sol";
 import "../../thirdparty/Lib_MerkleTrie.sol";
 import "../../thirdparty/Lib_RLPWriter.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
@@ -37,6 +38,8 @@ library V1Proving {
         bytes[] proofs;
     }
 
+    event Reserved(uint256 indexed id, LibData.Reservation reservation);
+
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -45,6 +48,33 @@ library V1Proving {
         uint64 provenAt,
         address prover
     );
+
+    function reserveBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        uint256 blockIndex,
+        address prover
+    ) public {
+        require(prover != address(0), "L1:prover");
+        require(
+            blockIndex > s.latestFinalizedId && blockIndex < s.nextBlockId,
+            "L1:blockIndex"
+        );
+        require(s.reservations[blockIndex].prover == address(0), "L1:reserved");
+
+        uint256 deposit; // TODO(daniel): use the average proving cost * a percentage
+        uint64 expiry; // TODO(daniel): use the average proving time
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, deposit);
+
+        LibData.Reservation memory reservation = LibData.Reservation({
+            deposit: deposit,
+            prover: prover,
+            expiry: expiry
+        });
+
+        s.reservations[blockIndex] = reservation;
+        emit Reserved(blockIndex, reservation);
+    }
 
     function proveBlock(
         LibData.State storage s,
@@ -57,6 +87,25 @@ library V1Proving {
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
+
+        LibData.Reservation storage reservation = s.reservations[blockIndex];
+        if (
+            reservation.prover == address(0) || reservation.prover == msg.sender
+        ) {
+            // This block is not reserved or reserved by msg.sender, do nothing,
+            // the reservation record shall be kept as is.
+            // Reservation deposit will be refunded when the block is finalized
+        } else if (
+            block.timestamp > evidence.meta.timestamp + reservation.expiry
+        ) {
+            // Other prover's reservation expired, we delete the reservation
+            // so refund of reservation deposit is no longer possible.
+            reservation.deposit = 0;
+            reservation.prover = address(0);
+            reservation.expiry = 0;
+        } else {
+            revert("L1:reserved");
+        }
 
         // Check evidence
         require(evidence.meta.id == blockIndex, "L1:id");

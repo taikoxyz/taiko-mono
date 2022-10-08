@@ -48,6 +48,18 @@ library V1Finalizing {
             } else if (fc.blockHash != 0) {
                 latestL2Height += 1;
                 latestL2Hash = fc.blockHash;
+
+                LibData.Reservation storage reservation = s.reservations[i];
+                for (uint256 j = 0; j < fc.provers.length; j++) {
+                    if (fc.provers[j] == reservation.prover) {
+                        // TODO(daniel): refund the reservation deposit
+                    }
+                }
+
+                reservation.deposit = 0;
+                reservation.prover = address(0);
+                reservation.expiry = 0;
+
                 emit BlockFinalized(i, latestL2Hash);
             } else {
                 break;
