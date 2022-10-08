@@ -15,7 +15,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import { useTheme } from '@mui/material/styles'
 
-const pages = ['design', 'career']
+const pages = ['career']
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout']
 
 const ColorModeContext = React.createContext({ toggleColorMode: () => {} })
