@@ -9,23 +9,23 @@
 pragma solidity ^0.8.9;
 
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
+
+import "./LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
-    using LibBridgeRead for LibBridgeData.State;
 
     function sendMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 mhash) {
+    ) internal returns (bytes32 signal) {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
-                state.isDestChainEnabled(message.destChainId),
+                state.destChains[message.destChainId],
             "B:destChainId"
         );
 
@@ -45,11 +45,9 @@ library LibBridgeSend {
         message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
-        mhash = message.hashMessage();
-        assembly {
-            sstore(mhash, 1)
-        }
-        emit LibBridgeData.MessageSent(mhash, message);
+        signal = message.hashMessage();
+        LibBridgeSignal.sendSignal(address(this), signal);
+        emit LibBridgeData.MessageSent(signal, message);
     }
 
     function enableDestChain(
