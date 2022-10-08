@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
+import "./LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeProcess {
@@ -19,8 +19,6 @@ library LibBridgeProcess {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
-    using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for LibBridgeData.State;
 
     /**
      * @dev This function can be called by any address, including `message. owner`.
@@ -43,17 +41,19 @@ library LibBridgeProcess {
 
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
-        bytes32 mhash = message.hashMessage();
+        bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[mhash] == IBridge.MessageStatus.NEW,
+            state.messageStatus[signal] == LibBridgeData.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
+        address srcBridge = resolver.resolve(message.srcChainId, "bridge");
         require(
-            LibBridgeRead.isMessageReceived(
+            LibBridgeSignal.isSignalReceived(
                 resolver,
-                mhash,
-                message.srcChainId,
+                srcBridge,
+                srcBridge,
+                signal,
                 proof
             ),
             "B:notReceived"
@@ -70,31 +70,36 @@ library LibBridgeProcess {
         // will actually consume the Ether.
         message.owner.sendEther(message.depositValue);
 
-        IBridge.MessageStatus status;
+        LibBridgeData.MessageStatus status;
         uint256 refundAmount;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
-            status = IBridge.MessageStatus.DONE;
+            status = LibBridgeData.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else {
             uint256 gasLimit = msg.sender == message.owner
                 ? gasleft()
                 : message.gasLimit;
-            bool success = state.invokeMessageCall(message, mhash, gasLimit);
+            bool success = LibBridgeInvoke.invokeMessageCall(
+                state,
+                message,
+                signal,
+                gasLimit
+            );
 
             if (success) {
-                status = IBridge.MessageStatus.DONE;
+                status = LibBridgeData.MessageStatus.DONE;
             } else {
-                status = IBridge.MessageStatus.RETRIABLE;
+                status = LibBridgeData.MessageStatus.RETRIABLE;
                 if (ethVault != address(0)) {
                     ethVault.sendEther(message.callValue);
                 }
             }
         }
 
-        state.updateMessageStatus(mhash, status);
+        state.updateMessageStatus(signal, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
