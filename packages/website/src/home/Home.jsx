@@ -40,7 +40,7 @@ function Hero({ theme }) {
           </Typography>
 
           <Typography variant='h6' sx={{ pt: 4, color: theme.palette.text.secondary }}>
-            Learn more about <Link to='/design'>our design</Link>.
+            Learn more from our<a href='https://drive.google.com/file/d/1EIJq_XBbb1Y9k6Pe0szUkNoVKILTcO2R/view?usp=sharing'>witepaper</a>.
           </Typography>
         </Box>
       </Grid>
