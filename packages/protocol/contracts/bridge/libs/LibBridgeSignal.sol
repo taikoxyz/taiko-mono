@@ -58,7 +58,7 @@ library LibBridgeSignal {
         bytes32 signal,
         bytes calldata proof
     ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
-        require(srcBridge != address(0), "S:srcBridge");
+        require(srcBridge != address(0), "B:srcBridge");
 
         SignalProof memory mkp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify(
