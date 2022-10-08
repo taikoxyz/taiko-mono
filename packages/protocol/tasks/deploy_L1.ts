@@ -128,6 +128,12 @@ export async function deployContracts(hre: any) {
     // TokenVault
     const TokenVault = await deployTokenVault(hre, AddressManager.address)
 
+    // Used by TokenVault
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(`${chainId}.bridge`, Bridge.address)
+    )
+
     // save deployments
     const deployments = {
         network,
