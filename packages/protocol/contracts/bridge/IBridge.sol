@@ -11,12 +11,6 @@ pragma solidity ^0.8.9;
 /// @author dantaik <dan@taiko.xyz>
 /// @dev Cross-chain Ether are held by Bridges, not TokenVaults.
 interface IBridge {
-    enum MessageStatus {
-        NEW,
-        RETRIABLE,
-        DONE
-    }
-
     struct Message {
         uint256 id; // auto filled
         address sender; // auto filled
@@ -34,17 +28,43 @@ interface IBridge {
     }
 
     struct Context {
-        bytes32 mhash; // messageHash
+        bytes32 signal; // messageHash
         address sender;
         uint256 srcChainId;
     }
+
+    event SignalSent(address sender, bytes32 signal);
+
+    event MessageSent(bytes32 indexed signal, Message message);
 
     /// @dev Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     function sendMessage(Message memory message)
         external
         payable
-        returns (bytes32 mhash);
+        returns (bytes32 signal);
+
+    function sendSignal(bytes32 signal) external;
+
+    function isMessageSent(bytes32 signal) external view returns (bool);
+
+    function isMessageReceived(
+        bytes32 signal,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) external view returns (bool);
+
+    function isSignalSent(address sender, bytes32 signal)
+        external
+        view
+        returns (bool);
+
+    function isSignalReceived(
+        bytes32 signal,
+        uint256 srcChainId,
+        address sender,
+        bytes calldata proof
+    ) external view returns (bool);
 
     function context() external view returns (Context memory context);
 }

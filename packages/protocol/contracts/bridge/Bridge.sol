@@ -12,9 +12,9 @@ import "../common/EssentialContract.sol";
 import "./IBridge.sol";
 import "./libs/LibBridgeData.sol";
 import "./libs/LibBridgeProcess.sol";
-import "./libs/LibBridgeRead.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
+import "./libs/LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @dev The code hash for the same address on L1 and L2 may be different.
@@ -32,11 +32,9 @@ contract Bridge is EssentialContract, IBridge {
      * Events            *
      *********************/
 
-    event MessageSent(bytes32 indexed mhash, IBridge.Message message);
-
     event MessageStatusChanged(
-        bytes32 indexed mhash,
-        IBridge.MessageStatus status
+        bytes32 indexed signal,
+        LibBridgeData.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -57,9 +55,14 @@ contract Bridge is EssentialContract, IBridge {
         external
         payable
         nonReentrant
-        returns (bytes32 mhash)
+        returns (bytes32 signal)
     {
         return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
+    }
+
+    function sendSignal(bytes32 signal) external override {
+        LibBridgeSignal.sendSignal(msg.sender, signal);
+        emit SignalSent(msg.sender, signal);
     }
 
     function processMessage(Message calldata message, bytes calldata proof)
@@ -99,31 +102,60 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageSent(bytes32 mhash) public view virtual returns (bool) {
-        return LibBridgeRead.isMessageSent(mhash);
+    function isMessageSent(bytes32 signal) public view virtual returns (bool) {
+        return LibBridgeSignal.isSignalSent(address(this), signal);
     }
 
     function isMessageReceived(
-        bytes32 mhash,
+        bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
-    ) public view virtual returns (bool) {
+    ) public view virtual override returns (bool) {
+        address srcBridge = resolve(srcChainId, "bridge");
         return
-            LibBridgeRead.isMessageReceived(
+            LibBridgeSignal.isSignalReceived(
                 AddressResolver(this),
-                mhash,
-                srcChainId,
+                srcBridge,
+                srcBridge,
+                signal,
                 proof
             );
     }
 
-    function getMessageStatus(bytes32 mhash)
+    function isSignalSent(address sender, bytes32 signal)
         public
         view
         virtual
-        returns (MessageStatus)
+        override
+        returns (bool)
     {
-        return state.messageStatus[mhash];
+        return LibBridgeSignal.isSignalSent(sender, signal);
+    }
+
+    function isSignalReceived(
+        bytes32 signal,
+        uint256 srcChainId,
+        address sender,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        address srcBridge = resolve(srcChainId, "bridge");
+        return
+            LibBridgeSignal.isSignalReceived(
+                AddressResolver(this),
+                srcBridge,
+                sender,
+                signal,
+                proof
+            );
+    }
+
+    function getMessageStatus(bytes32 signal)
+        public
+        view
+        virtual
+        returns (LibBridgeData.MessageStatus)
+    {
+        return state.messageStatus[signal];
     }
 
     function context() public view returns (Context memory) {
@@ -131,6 +163,6 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return LibBridgeRead.isDestChainEnabled(state, _chainId);
+        return state.destChains[_chainId];
     }
 }
