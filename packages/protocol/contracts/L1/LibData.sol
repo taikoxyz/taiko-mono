@@ -46,7 +46,7 @@ library LibData {
     struct Reservation {
         uint256 deposit;
         address prover;
-        uint64 expiry;
+        uint64 deadline;
     }
 
     struct State {

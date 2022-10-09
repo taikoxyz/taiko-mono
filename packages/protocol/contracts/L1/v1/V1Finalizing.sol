@@ -50,15 +50,19 @@ library V1Finalizing {
                 latestL2Hash = fc.blockHash;
 
                 LibData.Reservation storage reservation = s.reservations[i];
-                for (uint256 j = 0; j < fc.provers.length; j++) {
-                    if (fc.provers[j] == reservation.prover) {
-                        // TODO(daniel): refund the reservation deposit
+                if (reservation.prover == fc.provers[0]) {
+                    // If the block is auctioned, and if the first prover is the
+                    // auction winner, we do not reward other provers.
+                    // TODO(daniel): reward the first prover only
+                } else {
+                    for (uint256 j = 0; j < fc.provers.length; j++) {
+                        // TODO(daniel): reward each prover
                     }
                 }
 
                 reservation.deposit = 0;
                 reservation.prover = address(0);
-                reservation.expiry = 0;
+                reservation.deadline = 0;
 
                 emit BlockFinalized(i, latestL2Hash);
             } else {

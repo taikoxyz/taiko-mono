@@ -70,16 +70,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
     }
 
-    function reserveBlock(uint256 blockIndex, address prover)
+    function auctionBlock(bytes[] calldata inputs, uint256 deposit)
         external
         nonReentrant
     {
-        V1Proving.reserveBlock(
-            state,
-            AddressResolver(this),
-            blockIndex,
-            prover
-        );
+        V1Proving.auctionBlock(state, AddressResolver(this), inputs, deposit);
     }
 
     /// @notice Prove a block is valid with a zero-knowledge proof, a transaction

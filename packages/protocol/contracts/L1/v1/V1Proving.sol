@@ -38,7 +38,7 @@ library V1Proving {
         bytes[] proofs;
     }
 
-    event Reserved(uint256 indexed id, LibData.Reservation reservation);
+    event Auctioned(uint256 indexed id, LibData.Reservation reservation);
 
     event BlockProven(
         uint256 indexed id,
@@ -49,31 +49,55 @@ library V1Proving {
         address prover
     );
 
-    function reserveBlock(
+    function auctionBlock(
         LibData.State storage s,
         AddressResolver resolver,
-        uint256 blockIndex,
-        address prover
+        bytes[] calldata inputs,
+        uint256 deposit
     ) public {
-        require(prover != address(0), "L1:prover");
-        require(
-            blockIndex > s.latestFinalizedId && blockIndex < s.nextBlockId,
-            "L1:blockIndex"
+        require(inputs.length == 1, "L1:inputs:size");
+        LibData.BlockMetadata memory meta = abi.decode(
+            inputs[0],
+            (LibData.BlockMetadata)
         );
-        require(s.reservations[blockIndex].prover == address(0), "L1:reserved");
 
-        uint256 deposit; // TODO(daniel): use the average proving cost * a percentage
-        uint64 expiry; // TODO(daniel): use the average proving time
+        _checkMetadata(s, meta);
+        require(
+            block.timestamp <=
+                meta.timestamp + LibConstants.TAIKO_PROVER_AUCTION_WINDOW,
+            "L1:auctionEnded"
+        );
+
+        LibData.Reservation storage reservation = s.reservations[meta.id];
+
+        // TODO(daniel): check the deposit is no smaller than an stats value.
+        uint256 minDeposit;
+        require(
+            deposit >= minDeposit &&
+                deposit >= (reservation.deposit * 150) / 100,
+            "L1:tooSmall"
+        );
+
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, deposit);
 
-        LibData.Reservation memory reservation = LibData.Reservation({
-            deposit: deposit,
-            prover: prover,
-            expiry: expiry
-        });
+        if (reservation.deposit > 0) {
+            // Refund the previous winner's deposit
+            TkoToken(resolver.resolve("tko_token")).mint(
+                reservation.prover,
+                reservation.deposit
+            );
+        }
 
-        s.reservations[blockIndex] = reservation;
-        emit Reserved(blockIndex, reservation);
+        reservation.deposit = deposit;
+        reservation.prover = msg.sender;
+
+        if (reservation.deadline == 0) {
+            // The expiry is only set once
+            uint64 expiry = 30 minutes; // TODO(daniel): use stats
+            reservation.deadline = meta.timestamp + expiry;
+        }
+
+        emit BlockAuctioned(meta.id, reservation);
     }
 
     function proveBlock(
@@ -96,14 +120,12 @@ library V1Proving {
             // the reservation record shall be kept as is.
             //
             // Reservation deposit will be refunded when the block is finalized.
-        } else if (
-            block.timestamp > evidence.meta.timestamp + reservation.expiry
-        ) {
+        } else if (block.timestamp > reservation.deadline) {
             // Other prover's reservation expired, we delete the reservation
             // so refund of deposit is no longer possible.
             reservation.deposit = 0;
             reservation.prover = address(0);
-            reservation.expiry = 0;
+            reservation.deadline = 0;
         } else {
             revert("L1:reserved");
         }
