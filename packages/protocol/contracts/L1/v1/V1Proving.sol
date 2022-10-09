@@ -38,7 +38,7 @@ library V1Proving {
         bytes[] proofs;
     }
 
-    event Auctioned(uint256 indexed id, LibData.Reservation reservation);
+    event BlockAuctioned(uint256 indexed id, LibData.Reservation reservation);
 
     event BlockProven(
         uint256 indexed id,
