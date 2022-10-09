@@ -70,6 +70,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
     }
 
+    /// @notice Auction for the right to prove a block exclusively with a deposit.
+    ///         Auctions must happen within 10 minutes after a block is proposed, each
+    ///         new winning auction must deposit 50% more than the previous winner.
+    /// @param blockIndex The index of the block to aucton for. This is also used to select
+    ///        the right implementation version.
+    /// @param inputs A list of data input:
+    ///     - inputs[0] is an abi-encoded object with various information regarding
+    ///       the block to be auctoned for.
+    /// @param deposit The deposit to make.
     function auctionBlock(
         uint256 blockIndex,
         bytes[] calldata inputs,
