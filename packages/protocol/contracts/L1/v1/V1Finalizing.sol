@@ -49,8 +49,8 @@ library V1Finalizing {
                 latestL2Height += 1;
                 latestL2Hash = fc.blockHash;
 
-                LibData.Reservation storage reservation = s.reservations[i];
-                if (reservation.prover == fc.provers[0]) {
+                LibData.Auction storage auction = s.auctions[i];
+                if (auction.prover == fc.provers[0]) {
                     // If the block is auctioned, and if the first prover is the
                     // auction winner, we do not reward other provers.
                     // TODO(daniel): reward the first prover only
@@ -60,9 +60,9 @@ library V1Finalizing {
                     }
                 }
 
-                reservation.deposit = 0;
-                reservation.prover = address(0);
-                reservation.deadline = 0;
+                auction.deposit = 0;
+                auction.prover = address(0);
+                auction.deadline = 0;
 
                 emit BlockFinalized(i, latestL2Hash);
             } else {

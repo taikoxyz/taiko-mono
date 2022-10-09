@@ -43,7 +43,7 @@ library LibData {
         address[] provers;
     }
 
-    struct Reservation {
+    struct Auction {
         uint256 deposit;
         address prover;
         uint64 deadline;
@@ -61,7 +61,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
-        mapping(uint256 => Reservation) reservations;
+        mapping(uint256 => Auction) auctions;
     }
 
     function saveProposedBlock(

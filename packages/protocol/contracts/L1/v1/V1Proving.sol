@@ -38,7 +38,7 @@ library V1Proving {
         bytes[] proofs;
     }
 
-    event BlockAuctioned(uint256 indexed id, LibData.Reservation reservation);
+    event BlockAuctioned(uint256 indexed id, LibData.Auction auction);
 
     event BlockProven(
         uint256 indexed id,
@@ -68,36 +68,35 @@ library V1Proving {
             "L1:auctionEnded"
         );
 
-        LibData.Reservation storage reservation = s.reservations[meta.id];
+        LibData.Auction storage auction = s.auctions[meta.id];
 
         // TODO(daniel): check the deposit is no smaller than an stats value.
         uint256 minDeposit;
         require(
-            deposit >= minDeposit &&
-                deposit >= (reservation.deposit * 150) / 100,
+            deposit >= minDeposit && deposit >= (auction.deposit * 150) / 100,
             "L1:tooSmall"
         );
 
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, deposit);
 
-        if (reservation.deposit > 0) {
+        if (auction.deposit > 0) {
             // Refund the previous winner's deposit
             TkoToken(resolver.resolve("tko_token")).mint(
-                reservation.prover,
-                reservation.deposit
+                auction.prover,
+                auction.deposit
             );
         }
 
-        reservation.deposit = deposit;
-        reservation.prover = msg.sender;
+        auction.deposit = deposit;
+        auction.prover = msg.sender;
 
-        if (reservation.deadline == 0) {
+        if (auction.deadline == 0) {
             // The expiry is only set once
             uint64 expiry = 30 minutes; // TODO(daniel): use stats
-            reservation.deadline = meta.timestamp + expiry;
+            auction.deadline = meta.timestamp + expiry;
         }
 
-        emit BlockAuctioned(meta.id, reservation);
+        emit BlockAuctioned(meta.id, auction);
     }
 
     function proveBlock(
@@ -112,20 +111,18 @@ library V1Proving {
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
-        LibData.Reservation storage reservation = s.reservations[blockIndex];
-        if (
-            reservation.prover == address(0) || reservation.prover == msg.sender
-        ) {
+        LibData.Auction storage auction = s.auctions[blockIndex];
+        if (auction.prover == address(0) || auction.prover == msg.sender) {
             // This block is not reserved or reserved by msg.sender, do nothing,
-            // the reservation record shall be kept as is.
+            // the auction record shall be kept as is.
             //
-            // Reservation deposit will be refunded when the block is finalized.
-        } else if (block.timestamp > reservation.deadline) {
-            // Other prover's reservation expired, we delete the reservation
+            // Auction deposit will be refunded when the block is finalized.
+        } else if (block.timestamp > auction.deadline) {
+            // Other prover's auction expired, we delete the auction
             // so refund of deposit is no longer possible.
-            reservation.deposit = 0;
-            reservation.prover = address(0);
-            reservation.deadline = 0;
+            auction.deposit = 0;
+            auction.prover = address(0);
+            auction.deadline = 0;
         } else {
             revert("L1:reserved");
         }
