@@ -52,6 +52,7 @@ library V1Proving {
     function auctionBlock(
         LibData.State storage s,
         AddressResolver resolver,
+        uint256 blockIndex,
         bytes[] calldata inputs,
         uint256 deposit
     ) public {
@@ -61,14 +62,16 @@ library V1Proving {
             (LibData.BlockMetadata)
         );
 
+        require(blockIndex == meta.id, "L1:blockIndex");
         _checkMetadata(s, meta);
+
         require(
             block.timestamp <=
                 meta.timestamp + LibConstants.TAIKO_PROVER_AUCTION_WINDOW,
             "L1:auctionEnded"
         );
 
-        LibData.Auction storage auction = s.auctions[meta.id];
+        LibData.Auction storage auction = s.auctions[blockIndex];
 
         // TODO(daniel): check the deposit is no smaller than an stats value.
         uint256 minDeposit;
@@ -96,7 +99,7 @@ library V1Proving {
             auction.deadline = meta.timestamp + expiry;
         }
 
-        emit BlockAuctioned(meta.id, auction);
+        emit BlockAuctioned(blockIndex, auction);
     }
 
     function proveBlock(
