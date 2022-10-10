@@ -53,7 +53,10 @@ library V1Proposing {
         );
 
         require(isCommitValid(s, commitHash), "L1:commit");
-        delete s.commits[commitHash];
+
+        if (LibConstants.V1_RESET_STORAGE_FOR_REFUND) {
+            delete s.commits[commitHash];
+        }
 
         require(
             txList.length > 0 &&

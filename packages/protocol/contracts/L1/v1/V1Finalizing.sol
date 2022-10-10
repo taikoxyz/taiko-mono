@@ -42,6 +42,7 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
+            LibData.Auction storage auction = s.auctions[i];
 
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
                 emit BlockFinalized(i, 0);
@@ -49,7 +50,6 @@ library V1Finalizing {
                 latestL2Height += 1;
                 latestL2Hash = fc.blockHash;
 
-                LibData.Auction storage auction = s.auctions[i];
                 if (auction.prover == fc.provers[0]) {
                     // If the block is auctioned, and if the first prover is the
                     // auction winner, we do not reward other provers.
@@ -60,15 +60,30 @@ library V1Finalizing {
                     }
                 }
 
-                auction.deposit = 0;
-                auction.prover = address(0);
-                auction.deadline = 0;
-
                 emit BlockFinalized(i, latestL2Hash);
             } else {
                 break;
             }
+
             processed += 1;
+
+            // reset storage for refund
+            if (LibConstants.V1_RESET_STORAGE_FOR_REFUND) {
+                auction.deposit = 0;
+                auction.prover = address(0);
+                auction.deadline = 0;
+
+                fc.blockHash = 0;
+                fc.proposedAt = 0;
+                fc.provenAt = 0;
+                address[] storage provers = fc.provers;
+                for (uint256 j = 0; j <= provers.length; j++) {
+                    provers[j] = address(0);
+                }
+                assembly {
+                    sstore(provers.slot, 0)
+                }
+            }
         }
 
         if (processed > 0) {
