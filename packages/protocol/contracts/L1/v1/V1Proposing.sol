@@ -82,8 +82,7 @@ library V1Proposing {
             s.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
-                proposerFee: proposerFee.toUint128(),
-                everProven: uint8(LibData.EverProven.NO)
+                proposerFee: proposerFee.toUint128()
             })
         );
 

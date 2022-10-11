@@ -12,12 +12,6 @@ import "../libs/LibConstants.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibData {
-    enum EverProven {
-        _NO, //=0
-        NO, //=1
-        YES //=2
-    }
-
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
@@ -33,7 +27,6 @@ library LibData {
     struct ProposedBlock {
         bytes32 metaHash;
         uint128 proposerFee;
-        uint8 everProven;
     }
 
     struct ForkChoice {
