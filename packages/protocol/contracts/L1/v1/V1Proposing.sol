@@ -76,17 +76,10 @@ library V1Proposing {
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        uint256 proposerFee = 0;
-
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposerFee: proposerFee.toUint128()
-            })
+            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
-
-        // numUnprovenBlocks += 1;
 
         emit BlockProposed(s.nextBlockId++, meta);
     }

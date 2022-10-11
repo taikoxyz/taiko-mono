@@ -26,7 +26,6 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
-        uint128 proposerFee;
     }
 
     struct ForkChoice {
