@@ -16,6 +16,8 @@ contract PIDController {
     int64 public immutable iweight;
     int64 public immutable dweight;
 
+    // use int128 so we only need 1 sstore
+    // when funciton `command` is called.
     int128 public lastError;
     int128 public integral;
     uint256[49] private __gap;
