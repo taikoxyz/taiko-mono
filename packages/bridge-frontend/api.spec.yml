@@ -1,0 +1,86 @@
+openapi: 3.0.0
+info:
+  title: Bridge API
+  description: APIs to interact with Taiko bridge backend
+  version: 0.0.1
+
+servers:
+  - url: https://taiko.xyz/bridge
+
+paths:
+  /available-liquidity/{chainId}:
+    get:
+      summary: Returns available liquidity on the specified chain
+      parameters:
+        - in: path
+          name: chainId
+          schema:
+            type: string
+          required: true
+          description: Chain ID of the chain whose liquidity is required
+      responses:
+        200:
+          description: A JSON object for liquidity per token
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A map of token address to token details (liquidity, symbol, icon, etc.)
+        404:
+          description: Unsupported chain ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+  /tx-by-user:
+    get:
+      summary: Returns a list of pending transactions for the current user.
+      description: This API endpoint will fetch and return all the transactions, for a given wallet address, that are currently pending. Pending transactions are those which have been submitted on the source chain but not claimed on the destination chain.
+      parameters:
+        - in: query
+          name: address
+          required: true
+          schema:
+            type: string
+          description: User's wallet address
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - submitted
+              - pending
+              - completed
+          description: Parameter to filter the transactions on the basis of status
+      responses:
+        '200':
+          description: A JSON object of user's transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  txId:
+                    type: string
+                  sourceChain:
+                    type: string
+                    description: Source chain ID
+                  destinationChain:
+                    type: string
+                    description: Destination chain ID
+                  amount:
+                    type: number
+                    description: Amount of tokens bridged
+                  status:
+                    type: string
+                    enum:
+                      - submitted
+                      - pending
+                      - completed
+                    description: Enum value to represent the status of the bridge transaction.
+        '204':
+          description: Empty response
