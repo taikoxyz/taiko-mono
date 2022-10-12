@@ -12,18 +12,14 @@ import "../common/EssentialContract.sol";
 import "./IBridge.sol";
 import "./libs/LibBridgeData.sol";
 import "./libs/LibBridgeProcess.sol";
-import "./libs/LibBridgeRead.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
+import "./libs/LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @dev The code hash for the same address on L1 and L2 may be different.
 contract Bridge is EssentialContract, IBridge {
-    using LibBridgeProcess for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
-    using LibBridgeRead for LibBridgeData.State;
-    using LibBridgeRetry for LibBridgeData.State;
-    using LibBridgeSend for LibBridgeData.State;
+    using LibBridgeData for Message;
 
     /*********************
      * State Variables   *
@@ -33,27 +29,12 @@ contract Bridge is EssentialContract, IBridge {
     uint256[50] private __gap;
 
     /*********************
-     * Events             *
+     * Events            *
      *********************/
 
-    // Note these events must match the one defined in Bridge.sol.
-    event MessageSent(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        uint256 height, // used for compute message proofs
-        bytes32 signal,
-        bytes message
-    );
-
     event MessageStatusChanged(
-        bytes32 indexed messageHash, // signal value
-        address indexed owner,
-        uint256 srcChainId,
-        uint256 id,
-        IBridge.MessageStatus status,
-        bool succeeded
+        bytes32 indexed signal,
+        LibBridgeData.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -62,7 +43,7 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// allow Bridge to receive ETH directly.
+    /// allow Bridge to receive ETH from EtherVault.
     receive() external payable {}
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -70,49 +51,42 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(address refundFeeTo, Message memory message)
+    function sendMessage(Message calldata message)
         external
         payable
         nonReentrant
-        returns (
-            uint256 height,
-            bytes32 signal,
-            bytes32 messageHash
-        )
+        returns (bytes32 signal)
     {
-        return
-            state.sendMessage(
-                AddressResolver(this),
-                _msgSender(),
-                refundFeeTo,
-                message
-            );
+        return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
 
-    function processMessage(Message memory message, bytes memory proof)
+    function sendSignal(bytes32 signal) external override {
+        LibBridgeSignal.sendSignal(msg.sender, signal);
+        emit SignalSent(msg.sender, signal);
+    }
+
+    function processMessage(Message calldata message, bytes calldata proof)
         external
         nonReentrant
     {
         return
-            state.processMessage(
+            LibBridgeProcess.processMessage(
+                state,
                 AddressResolver(this),
-                _msgSender(),
                 message,
                 proof
             );
     }
 
-    function retryMessage(
-        Message memory message,
-        bytes memory proof,
-        bool lastAttempt
-    ) external nonReentrant {
+    function retryMessage(Message calldata message, bool lastAttempt)
+        external
+        nonReentrant
+    {
         return
-            state.retryMessage(
+            LibBridgeRetry.retryMessage(
+                state,
                 AddressResolver(this),
-                _msgSender(),
                 message,
-                proof,
                 lastAttempt
             );
     }
@@ -121,44 +95,74 @@ contract Bridge is EssentialContract, IBridge {
         external
         nonReentrant
     {
-        state.enableDestChain(_chainId, enabled);
+        LibBridgeSend.enableDestChain(state, _chainId, enabled);
     }
 
     /*********************
      * Public Functions  *
      *********************/
 
-    function isMessageReceived(Message memory message, bytes memory mkproof)
+    function isMessageSent(bytes32 signal) public view virtual returns (bool) {
+        return LibBridgeSignal.isSignalSent(address(this), signal);
+    }
+
+    function isMessageReceived(
+        bytes32 signal,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        address srcBridge = resolve(srcChainId, "bridge");
+        return
+            LibBridgeSignal.isSignalReceived(
+                AddressResolver(this),
+                srcBridge,
+                srcBridge,
+                signal,
+                proof
+            );
+    }
+
+    function isSignalSent(address sender, bytes32 signal)
         public
         view
         virtual
-        returns (bool received, bytes32 messageHash)
+        override
+        returns (bool)
     {
-        return AddressResolver(this).isMessageReceived(message, mkproof);
+        return LibBridgeSignal.isSignalSent(sender, signal);
     }
 
-    function getMessageStatus(uint256 srcChainId, uint256 messageId)
+    function isSignalReceived(
+        bytes32 signal,
+        uint256 srcChainId,
+        address sender,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        address srcBridge = resolve(srcChainId, "bridge");
+        return
+            LibBridgeSignal.isSignalReceived(
+                AddressResolver(this),
+                srcBridge,
+                sender,
+                signal,
+                proof
+            );
+    }
+
+    function getMessageStatus(bytes32 signal)
         public
         view
         virtual
-        returns (MessageStatus)
+        returns (LibBridgeData.MessageStatus)
     {
-        return state.getMessageStatus(srcChainId, messageId);
-    }
-
-    function getMessageFeeAndCapacity()
-        public
-        view
-        returns (uint256 fee, uint256 capacity)
-    {
-        return AddressResolver(this).getMessageFeeAndCapacity();
+        return state.messageStatus[signal];
     }
 
     function context() public view returns (Context memory) {
-        return state.context();
+        return state.ctx;
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return state.isDestChainEnabled(_chainId);
+        return state.destChains[_chainId];
     }
 }

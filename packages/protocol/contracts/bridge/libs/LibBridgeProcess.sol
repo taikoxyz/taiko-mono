@@ -8,143 +8,110 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeRead.sol";
+import "./LibBridgeSignal.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
-    using LibBridgeData for Message;
-    using LibBridgeInvoke for LibBridgeData.State;
-    using LibBridgeRead for AddressResolver;
-    using LibBridgeRead for LibBridgeData.State;
-
-    /*********************
-     * Internal Functions*
-     *********************/
+    using LibBridgeData for IBridge.Message;
+    using LibBridgeData for LibBridgeData.State;
 
     /**
-     * @dev This function can be called by any address, including `message.owner`.
+     * @dev This function can be called by any address, including `message. owner`.
+     * It "processes" the message, i.e. takes custody of the attached ether,
+     * attempts to invoke the messageCall, changes the message's status accordingly.
+     * Also refunds processing fee if necessary.
      */
     function processMessage(
         LibBridgeData.State storage state,
         AddressResolver resolver,
-        address sender,
-        Message memory message,
-        bytes memory proof
-    ) internal {
-        uint256 gasStart = gasleft();
-        require(
-            message.destChainId == LibBridgeRead.chainId(),
-            "B:destChainId mismatch"
-        );
-        require(
-            state.getMessageStatus(message.srcChainId, message.id) ==
-                IBridge.MessageStatus.NEW,
-            "B:invalid status"
-        );
-        (bool received, bytes32 messageHash) = resolver.isMessageReceived(
-            message,
-            proof
-        );
-        require(received, "B:not received");
-
-        // We deposit Ether first before the message call in case the call
-        // will actually consume the Ether.
-        if (message.depositValue > 0) {
-            // sending ether may end up with another contract calling back to
-            // this contract.
-            message.owner.sendEther(message.depositValue);
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external {
+        if (message.gasLimit == 0) {
+            require(msg.sender == message.owner, "B:forbidden");
         }
 
-        IBridge.MessageStatus status;
+        // The message's destination chain must be the current chain.
+        require(message.destChainId == block.chainid, "B:destChainId");
+
+        // The status of the message must be "NEW"; RETRIABLE is handled in
+        // LibBridgeRetry.sol
+        bytes32 signal = message.hashMessage();
+        require(
+            state.messageStatus[signal] == LibBridgeData.MessageStatus.NEW,
+            "B:status"
+        );
+        // Message must have been "received" on the destChain (current chain)
+        address srcBridge = resolver.resolve(message.srcChainId, "bridge");
+        require(
+            LibBridgeSignal.isSignalReceived(
+                resolver,
+                srcBridge,
+                srcBridge,
+                signal,
+                proof
+            ),
+            "B:notReceived"
+        );
+
+        // We retrieve the necessary ether from EtherVault
+        address ethVault = resolver.resolve("ether_vault");
+        if (ethVault != address(0)) {
+            EtherVault(payable(ethVault)).receiveEther(
+                message.depositValue + message.callValue + message.processingFee
+            );
+        }
+        // We deposit Ether first before the message call in case the call
+        // will actually consume the Ether.
+        message.owner.sendEther(message.depositValue);
+
+        LibBridgeData.MessageStatus status;
         uint256 refundAmount;
-        uint256 invocationGasUsed;
-        bool success;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
-            status = IBridge.MessageStatus.DONE;
-            success = true;
+            status = LibBridgeData.MessageStatus.DONE;
             refundAmount = message.callValue;
-        } else if (message.gasLimit > 0 || sender == message.owner) {
-            invocationGasUsed = gasleft();
-
-            success = state.invokeMessageCall(
+        } else {
+            uint256 gasLimit = msg.sender == message.owner
+                ? gasleft()
+                : message.gasLimit;
+            bool success = LibBridgeInvoke.invokeMessageCall(
+                state,
                 message,
-                message.gasLimit == 0 ? gasleft() : message.gasLimit
+                signal,
+                gasLimit
             );
 
-            status = success
-                ? IBridge.MessageStatus.DONE
-                : IBridge.MessageStatus.RETRIABLE;
-
-            invocationGasUsed -= gasleft();
-        } else {
-            revert("B:forbidden");
+            if (success) {
+                status = LibBridgeData.MessageStatus.DONE;
+            } else {
+                status = LibBridgeData.MessageStatus.RETRIABLE;
+                if (ethVault != address(0)) {
+                    ethVault.sendEther(message.callValue);
+                }
+            }
         }
 
-        state.setMessageStatus(message, status);
+        state.updateMessageStatus(signal, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
             : message.refundAddress;
 
-        (uint256 feeRefundAmound, uint256 fees) = _calculateFees(
-            message,
-            gasStart,
-            invocationGasUsed
-        );
-
-        if (refundAddress == sender) {
-            sender.sendEther(refundAmount + feeRefundAmound + fees);
+        if (msg.sender == refundAddress) {
+            refundAddress.sendEther(refundAmount + message.processingFee);
         } else {
-            refundAddress.sendEther(refundAmount + feeRefundAmound);
-            sender.sendEther(fees);
+            // First attempt relayer gets the processingFee
+            // message.owner has to eat the cost.
+            msg.sender.sendEther(message.processingFee);
+            refundAddress.sendEther(refundAmount);
         }
-
-        emit LibBridgeData.MessageStatusChanged(
-            messageHash,
-            message.owner,
-            message.srcChainId,
-            message.id,
-            status,
-            success
-        );
-    }
-
-    /*********************
-     * Private Functions *
-     *********************/
-
-    /**
-     * @dev Calculates the amount of fee Ether that should be refuned
-     *      and the amount of fees to message processor.
-     */
-    function _calculateFees(
-        Message memory message,
-        uint256 gasStart,
-        uint256 invocationGasUsed
-    ) private view returns (uint256 feeRefundAmound, uint256 fees) {
-        uint256 processingFee = (gasStart -
-            gasleft() -
-            invocationGasUsed +
-            LibBridgeData.MESSAGE_PROCESSING_OVERHEAD).min(
-                message.maxProcessingFee
-            );
-
-        uint256 invocationFee = message.gasLimit.min(invocationGasUsed) *
-            message.gasPrice.min(tx.gasprice);
-
-        fees = processingFee + invocationFee;
-
-        feeRefundAmound =
-            message.gasPrice *
-            message.gasLimit +
-            message.maxProcessingFee -
-            fees;
     }
 }
