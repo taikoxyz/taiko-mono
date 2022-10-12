@@ -63,7 +63,7 @@ action("Generate Genesis", function () {
     })
 
     it("premint ETH should be allocated", async function () {
-        let bridgeBalance = hre.ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
+        let etherVaultBalance = hre.ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
 
         for (const seedAccount of seedAccounts) {
             const accountAddress = Object.keys(seedAccount)[0]
@@ -74,15 +74,13 @@ action("Generate Genesis", function () {
                 balance.toHexString()
             )
 
-            bridgeBalance = bridgeBalance.sub(balance)
+            etherVaultBalance = etherVaultBalance.sub(balance)
         }
 
-        // NOTE: since L2 bridge contract hasn't finished yet, temporarily move
-        // L2 bridge's balance to V1TaikoL2 contract address.
-        const bridgeAddress = getContractAlloc("V1TaikoL2").address
+        const etherVaultAddress = getContractAlloc("EtherVault").address
 
-        expect(await provider.getBalance(bridgeAddress)).to.be.equal(
-            bridgeBalance.toHexString()
+        expect(await provider.getBalance(etherVaultAddress)).to.be.equal(
+            etherVaultBalance.toHexString()
         )
     })
 
@@ -100,11 +98,33 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner)
 
-            const ethDepositor = await addressManager.getAddress(
-                "eth_depositor"
+            const bridge = await addressManager.getAddress(
+                `${testConfig.chainId}.bridge`
             )
 
-            expect(ethDepositor).to.be.equal(testConfig.ethDepositor)
+            expect(bridge).to.be.equal(getContractAlloc("Bridge").address)
+
+            const tokenValut = await addressManager.getAddress(
+                `${testConfig.chainId}.token_vault`
+            )
+
+            expect(tokenValut).to.be.equal(
+                getContractAlloc("TokenVault").address
+            )
+
+            const etherVault = await addressManager.getAddress(
+                `${testConfig.chainId}.ether_vault`
+            )
+
+            expect(etherVault).to.be.equal(
+                getContractAlloc("EtherVault").address
+            )
+
+            const v1TaikoL2 = await addressManager.getAddress(
+                `${testConfig.chainId}.taiko`
+            )
+
+            expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
         })
 
         it("LibTxDecoder", async function () {
@@ -150,13 +170,73 @@ action("Generate Genesis", function () {
                     })
                 }
             }
+        })
+
+        it("Bridge", async function () {
+            const BridgeAlloc = getContractAlloc("Bridge")
+            const Bridge = new hre.ethers.Contract(
+                BridgeAlloc.address,
+                require("../../artifacts/contracts/bridge/Bridge.sol/Bridge.json").abi,
+                signer
+            )
+
+            const owner = await Bridge.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            await expect(Bridge.enableDestChain(1, true)).not.to.reverted
+        })
+
+        it("TokenVault", async function () {
+            const TokenVaultAlloc = getContractAlloc("TokenVault")
+            const TokenVault = new hre.ethers.Contract(
+                TokenVaultAlloc.address,
+                require("../../artifacts/contracts/bridge/TokenVault.sol/TokenVault.json").abi,
+                signer
+            )
+
+            const owner = await TokenVault.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
 
             await expect(
-                V1TaikoL2.creditEther(
-                    hre.ethers.Wallet.createRandom().address,
-                    1024
+                TokenVault.sendEther(
+                    1,
+                    ethers.Wallet.createRandom().address,
+                    100,
+                    0,
+                    ethers.Wallet.createRandom().address,
+                    "memo",
+                    {
+                        gasLimit: 10000000,
+                        value: hre.ethers.utils.parseEther("100"),
+                    }
                 )
-            ).to.emit(V1TaikoL2, "EtherCredited")
+            ).to.emit(TokenVault, "EtherSent")
+        })
+
+        it("EtherVault", async function () {
+            const EtherVault = new hre.ethers.Contract(
+                getContractAlloc("EtherVault").address,
+                require("../../artifacts/contracts/bridge/EtherVault.sol/EtherVault.json").abi,
+                signer
+            )
+
+            const owner = await EtherVault.owner()
+
+            expect(owner).to.be.equal(testConfig.contractOwner)
+
+            expect(
+                await EtherVault.isAuthorized(
+                    getContractAlloc("Bridge").address
+                )
+            ).to.be.true
+
+            expect(
+                await EtherVault.isAuthorized(
+                    ethers.Wallet.createRandom().address
+                )
+            ).to.be.false
         })
 
         it("ERC20", async function () {

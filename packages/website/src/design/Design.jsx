@@ -31,7 +31,6 @@ function Design() {
       <Section>
         <Header activePage='design' />
       </Section>
-
       <Section>
         <Box sx={{ pt: 16, pb: 4, px: { md: 8, sm: 4, xs: 2 } }}>
           <FavoriteIcon sx={{ color: 'primary.main' }} />

@@ -62,34 +62,26 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextPendingId <=
-                s.latestFinalizedId + LibConstants.TAIKO_MAX_PENDING_BLOCKS,
+            s.nextBlockId <=
+                s.latestFinalizedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             "L1:tooMany"
         );
 
-        meta.id = s.nextPendingId;
+        meta.id = s.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
-        meta.proposedAt = uint64(block.timestamp);
+        meta.timestamp = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        uint256 proposerFee = 0;
-
-        s.savePendingBlock(
-            s.nextPendingId,
-            LibData.PendingBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposerFee: proposerFee.toUint128(),
-                everProven: uint8(LibData.EverProven.NO)
-            })
+        s.saveProposedBlock(
+            s.nextBlockId,
+            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        // numUnprovenBlocks += 1;
-
-        emit BlockProposed(s.nextPendingId++, meta);
+        emit BlockProposed(s.nextBlockId++, meta);
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
@@ -110,7 +102,7 @@ library V1Proposing {
                 meta.l1Height == 0 &&
                 meta.l1Hash == 0 &&
                 meta.mixHash == 0 &&
-                meta.proposedAt == 0 &&
+                meta.timestamp == 0 &&
                 meta.beneficiary != address(0) &&
                 meta.txListHash != 0,
             "L1:placeholder"
