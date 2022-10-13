@@ -10,7 +10,9 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../common/AddressResolver.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
@@ -31,7 +33,11 @@ library V1Finalizing {
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
+    function finalizeBlocks(
+        LibData.State storage s,
+        AddressResolver resolver,
+        uint256 maxBlocks
+    ) public {
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
@@ -50,14 +56,22 @@ library V1Finalizing {
                 latestL2Height += 1;
                 latestL2Hash = fc.blockHash;
 
-                if (auction.prover == fc.provers[0]) {
-                    // If the block is auctioned, and if the first prover is the
-                    // auction winner, we do not reward other provers.
-                    // TODO(daniel): reward the first prover only
-                } else {
+                bool refund = auction.forceRefund == uint8(1);
+
+                if (!refund && auction.prover != address(0)) {
                     for (uint256 j = 0; j < fc.provers.length; j++) {
-                        // TODO(daniel): reward each prover
+                        if (fc.provers[j] == auction.prover) {
+                            refund = true;
+                            break;
+                        }
                     }
+                }
+
+                if (refund) {
+                    TkoToken(resolver.resolve("tko_token")).mint(
+                        auction.prover,
+                        auction.deposit
+                    );
                 }
 
                 emit BlockFinalized(i, latestL2Hash);
@@ -71,7 +85,8 @@ library V1Finalizing {
             if (LibConstants.V1_RESET_STORAGE_FOR_REFUND) {
                 auction.deposit = 0;
                 auction.prover = address(0);
-                auction.deadline = 0;
+                auction.expiry = 0;
+                auction.forceRefund = 0;
 
                 fc.blockHash = 0;
                 fc.proposedAt = 0;

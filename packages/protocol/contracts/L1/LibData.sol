@@ -38,7 +38,8 @@ library LibData {
     struct Auction {
         uint256 deposit;
         address prover;
-        uint64 deadline;
+        uint64 expiry;
+        uint8 forceRefund;
     }
 
     struct State {

@@ -66,6 +66,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proposing.proposeBlock(state, inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -113,6 +114,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -143,6 +145,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -151,7 +154,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /// @param maxBlocks Max number of blocks to finalize.
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(state, maxBlocks);
+        V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {

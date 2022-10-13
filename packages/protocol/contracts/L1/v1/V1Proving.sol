@@ -93,10 +93,10 @@ library V1Proving {
         auction.deposit = deposit;
         auction.prover = msg.sender;
 
-        if (auction.deadline == 0) {
+        if (auction.expiry == 0) {
             // The expiry is only set once
             uint64 expiry = 30 minutes; // TODO(daniel): use stats
-            auction.deadline = meta.timestamp + expiry;
+            auction.expiry = expiry;
         }
 
         emit BlockAuctioned(blockIndex, auction);
@@ -115,17 +115,26 @@ library V1Proving {
         bytes calldata anchorReceipt = inputs[2];
 
         LibData.Auction storage auction = s.auctions[blockIndex];
-        if (auction.prover == address(0) || auction.prover == msg.sender) {
+        if (
+            auction.prover == address(0) || // not reserved
+            auction.prover == msg.sender // reserved by msg.sender
+        ) {
             // This block is not reserved or reserved by msg.sender, do nothing,
             // the auction record shall be kept as is.
             //
             // Auction deposit will be refunded when the block is finalized.
-        } else if (block.timestamp > auction.deadline) {
+        } else if (
+            block.timestamp < evidence.meta.timestamp + auction.expiry / 2
+        ) {
+            // reserved but this prove is very early
+            auction.forceRefund = 0;
+        } else if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
             // Other prover's auction expired, we delete the auction
             // so refund of deposit is no longer possible.
             auction.deposit = 0;
             auction.prover = address(0);
-            auction.deadline = 0;
+            auction.expiry = 0;
+            auction.forceRefund = 0;
         } else {
             revert("L1:reserved");
         }
