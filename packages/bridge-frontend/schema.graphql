@@ -1,0 +1,70 @@
+type Chain {
+  id: ID!
+  enabled: Boolean!
+}
+
+enum MessageStatus {
+  NEW
+  RETRIABLE
+  DONE
+}
+
+type Message {
+  id: ID! # possible the same as hash
+  sender: String!
+  srcChain: Chain!
+  destChain: Chain!
+  owner: String!
+  to: Account! # target address on destChain
+  refundAddress: Account! # address to refund gas/ether to, if address(0), refunds to owner
+  depositValue: Int! # value to be deposited at "to" address
+  callValue: Int! # value to be called on destChain
+  processingFee: Int! # processing fee sender is willing to pay
+  gasLimit: Int!
+  data: String! # calldata
+  memo: String!
+  signal: String!
+  status: MessageStatus!
+  createTransactionId: ID # contains transaction ID of the transaction that created this message.
+  updateTransactions: [Transaction!] # to track updates to this message
+}
+
+type HashedMessageWithStatus {
+  message: Message!
+  hash: String!
+  status: MessageStatus!
+}
+
+type Transaction {
+  id: ID!
+  chain: Chain!
+  message: Message
+  proof: [String] # for processMessage transactions
+}
+
+type Account {
+  address: ID!
+}
+
+
+type BridgeState {
+  destChains: [Chain!]!;
+  messageStatus: [MessageWithStatus]!;
+  nextMessageId: Int!;
+  ctx: BridgeContext
+}
+
+type BridgeContext {
+  signal: String!
+  sender: String!;
+  srcChainId: Int!;
+}
+
+type Query {
+  accounts: [Account!]
+  transactions: [Transaction!]
+  chains: [Chain!]
+  messages: [Message!]
+  state: BridgeState
+  context: BridgeContext
+}
