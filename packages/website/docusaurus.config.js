@@ -13,7 +13,7 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
+  favicon: "img/taiko_icon.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -61,7 +61,7 @@ const config = {
         title: "Taiko",
         logo: {
           alt: "Taiko Logo",
-          src: "img/taikologo.png",
+          src: "img/taiko_logo.png",
         },
         items: [
           {
