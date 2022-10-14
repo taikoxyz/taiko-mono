@@ -52,12 +52,6 @@ type BridgeState {
   nextMessageId: Int!
 }
 
-type BridgeContext {
-  signal: String!
-  sender: String!;
-  srcChainId: Int!;
-}
-
 type Query {
   accounts: [Account!]
   transactions: [Transaction!]
