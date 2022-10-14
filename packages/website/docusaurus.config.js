@@ -75,8 +75,18 @@ const config = {
             position: "left",
           },
           {
+            href: "https://discord.gg/tnSra3aFfg",
+            label: "Discord",
+            position: "right",
+          },
+          {
             href: "https://github.com/taikochain",
             label: "GitHub",
+            position: "right",
+          },
+          {
+            href: "https://twitter.com/taikoxyz",
+            label: "Twitter",
             position: "right",
           },
         ],

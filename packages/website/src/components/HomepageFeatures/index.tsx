@@ -39,8 +39,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: "Open",
-    Svg: require("@site/static/img/undraw_public_discussion_re_w9up.svg")
-      .default,
+    Svg: require("@site/static/img/undraw_collaboration_re_vyau.svg").default,
     description: (
       <>
         Taiko is fully open-source and community-centric. We build on the
