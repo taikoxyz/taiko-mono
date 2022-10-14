@@ -21,8 +21,8 @@ type Message {
   callValue: Int! # value to be called on destChain
   processingFee: Int! # processing fee sender is willing to pay
   gasLimit: Int!
-  data: String! # calldata
-  memo: String!
+  data: String # calldata
+  memo: String
   signal: String!
   status: MessageStatus!
   createTransactionId: ID # contains transaction ID of the transaction that created this message.
@@ -48,10 +48,8 @@ type Account {
 
 
 type BridgeState {
-  destChains: [Chain!]!;
-  messageStatus: [MessageWithStatus]!;
-  nextMessageId: Int!;
-  ctx: BridgeContext
+  destChains: [Chain!]!
+  nextMessageId: Int!
 }
 
 type BridgeContext {
@@ -65,6 +63,6 @@ type Query {
   transactions: [Transaction!]
   chains: [Chain!]
   messages: [Message!]
-  state: BridgeState
-  context: BridgeContext
+  srcChain: Chain!
+  destChain: Chain!
 }
