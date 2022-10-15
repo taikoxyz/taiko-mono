@@ -54,6 +54,10 @@ const config = {
     ],
   ],
 
+  stylesheets: [
+    'https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;700&display=swap',
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
