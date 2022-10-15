@@ -13,7 +13,7 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/favicon.ico",
+  favicon: "img/taiko_icon.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -54,6 +54,10 @@ const config = {
     ],
   ],
 
+  stylesheets: [
+    'https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;700&display=swap',
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -61,7 +65,7 @@ const config = {
         title: "Taiko",
         logo: {
           alt: "Taiko Logo",
-          src: "img/taikologo.png",
+          src: "img/taiko_logo.png",
         },
         items: [
           {
@@ -75,8 +79,18 @@ const config = {
             position: "left",
           },
           {
+            href: "https://discord.gg/tnSra3aFfg",
+            label: "Discord",
+            position: "right",
+          },
+          {
             href: "https://github.com/taikochain",
             label: "GitHub",
+            position: "right",
+          },
+          {
+            href: "https://twitter.com/taikoxyz",
+            label: "Twitter",
             position: "right",
           },
         ],
