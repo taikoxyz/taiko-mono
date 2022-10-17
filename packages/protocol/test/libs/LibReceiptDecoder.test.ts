@@ -7,10 +7,9 @@ describe("integration:LibReceiptDecoder", function () {
 
     before(async function () {
         if (hre.network.name === "hardhat") {
-            // throw new Error(
-            //     `hardhat: debug_getRawReceipts - Method not supported`
-            // )
-            this.skip()
+            throw new Error(
+                `hardhat: debug_getRawReceipts - Method not supported`
+            )
         }
 
         const baseLibReceiptDecoder = await (
