@@ -2,6 +2,7 @@ import { expect } from "chai"
 import { AddressManager, TokenVault } from "../../typechain"
 import { ethers } from "hardhat"
 import { BigNumber, BigNumberish } from "ethers"
+import { ADDRESS_RESOLVER_DENIED } from "../constants/errors"
 
 type CanonicalERC20 = {
     chainId: BigNumberish
@@ -58,7 +59,7 @@ describe("TokenVault", function () {
                     nonOwner.address,
                     amount
                 )
-            ).to.be.revertedWith("AR:denied")
+            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED)
         })
     })
 })
