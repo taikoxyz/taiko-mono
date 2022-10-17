@@ -24,7 +24,7 @@ contract TestLibBridgeData {
         pure
         returns (bytes memory)
     {
-        return abi.encode("TAIKO_BRIDGE_MESSAGE", abi.encode(message));
+        return abi.encode("TAIKO_BRIDGE_MESSAGE");
     }
 
     // function updateMessageStatus(
