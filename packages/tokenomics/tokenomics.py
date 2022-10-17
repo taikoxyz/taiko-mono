@@ -4,53 +4,59 @@ import salabim as sim
 import matplotlib.pyplot as plt
 import streamlit as st
 
-speed=3 #m/s
-
-class Car(sim.Component):
-    def setup(self,d1,s1,b1,s2):
-        self.d1=d1
-        self.s1=s1
-        self.b1=b1
-        self.s2=s2     
-    
+class Proposer(sim.Component):
     def process(self):
-        tot_dist=0
         while True:
-            
-            start_drive=env.now()
-            # driving along the road
-            yield self.hold(sim.Normal(self.d1,self.s1),mode='drive')
-            end_drive=env.now()
-            dist=(end_drive-start_drive)*speed
-            
-            tot_dist=tot_dist+dist
-            holding.tally(tot_dist)
-                                                
-            # stop for a coffee
-            yield self.hold(sim.Normal(self.b1,self.s2),mode='break')
-            holding.tally(tot_dist)           
+            Block()
+            yield self.hold(sim.Uniform(2, 10).sample())
 
 
-# columns
-col1, col2 = st.columns([3,1])
+class Block(sim.Component):
+    def process(self):
+        if env.blocks < env.max_slots:
+            env.blocks += 1
+            num_blocks.tally(env.blocks)
 
-# sliders
-drive_time=col1.slider('drive time min',10,120)
-break_time=col1.slider('break time min',10,120)
+# 
 
-standard_dev1=col2.slider('standard deviation min',1,5)
-standard_dev2=col2.slider('standard deviation min',1,2)
+class Prover(sim.Component):
+    def process(self):
+        while True:
+            Proof()
+            yield self.hold(sim.Uniform(2,10).sample())   
 
-env=sim.Environment(trace=False)     
-holding=sim.Monitor('holding_time')
-car=Car(d1=drive_time,s1=standard_dev1,b1=break_time,s2=standard_dev2)
+
+class Proof(sim.Component):
+    def process(self):
+        if env.blocks > 0:
+            env.blocks -= 1
+            num_blocks.tally(env.blocks)
+
+# # columns
+# col1, col2 = st.columns([3,1])
+# # sliders
+# drive_time=col1.slider('drive time min',10,120)
+# break_time=col1.slider('break time min',10,120)
+
+# standard_dev1=col2.slider('standard deviation min',1,5)
+# standard_dev2=col2.slider('standard deviation min',1,2)
+
+env=sim.Environment(trace=False) 
+env.max_slots = 2048
+env.blocks = 0
+
+num_blocks=sim.Monitor('num_blocks', level=True, initial_tally=0)
+proposer = Proposer()
+prover = Prover()
 
 if st.button('click to run'):
-    del car
-    car=Car(d1=drive_time,s1=standard_dev1,b1=break_time,s2=standard_dev2)
+    del proposer
+    proposer = Proposer()
+    del prover
+    prover = Prover()
     env.run(till=1000)
     
-tot_dist=holding.xt()
+tot_dist=num_blocks.xt()
 
 fig,ax=plt.subplots(figsize=(15,5),nrows=1,ncols=1)
 
