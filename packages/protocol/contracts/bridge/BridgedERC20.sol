@@ -41,7 +41,7 @@ contract BridgedERC20 is
         string memory _name
     ) external initializer {
         require(
-            srcToken != address(0) &&
+            _srcToken != address(0) &&
                 _srcChainId != 0 &&
                 _srcChainId != block.chainid &&
                 bytes(_symbol).length > 0 &&
