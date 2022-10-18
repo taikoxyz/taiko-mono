@@ -226,4 +226,40 @@ describe("Bridge", function () {
             )
         })
     })
+
+    describe("sendSignal()", async function () {
+        it.only("throws when sender is zero address", async function () {
+            const { owner, nonOwner, bridge, enabledDestChainId } =
+                await deployBridgeFixture()
+
+            const message: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: 1,
+                destChainId: enabledDestChainId,
+                owner: owner.address,
+                to: nonOwner.address,
+                refundAddress: owner.address,
+                depositValue: 1,
+                callValue: 1,
+                processingFee: 1,
+                gasLimit: 100,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            const expectedAmount =
+                message.depositValue + message.callValue + message.processingFee
+            const signal = await bridge.sendMessage(message, {
+                value: expectedAmount,
+            })
+            await signal.wait()
+
+            expect(
+                await bridge
+                    .connect(ethers.constants.AddressZero)
+                    .sendSignal(signal)
+            ).to.be.revertedWith("B:sender")
+        })
+    })
 })
