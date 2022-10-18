@@ -55,17 +55,17 @@ const config = {
   ],
 
   stylesheets: [
-    'https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;700&display=swap',
+    "https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;700&display=swap",
   ],
 
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: "Taiko",
         logo: {
           alt: "Taiko Logo",
-          src: "img/taiko_logo.png",
+          src: "img/Taiko_Logo-Original_Pink_Black.svg",
+          srcDark: "img/Taiko_Logo-Original_Pink_White.svg",
         },
         items: [
           {
