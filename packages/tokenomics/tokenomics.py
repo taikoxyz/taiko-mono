@@ -19,6 +19,8 @@ class Block(NamedTuple):
 class Protocol(sim.Component):
     def setup(self, max_slots):
         self.max_slots = max_slots
+        st.write("protocol.max_slots = {}".format(max_slots))
+
         genesis = Block(
             status = Status.FINALIZED,
             proposedAt= env.now(),
@@ -80,7 +82,7 @@ class Prover(sim.Component):
         self.blockId = blockId
 
     def process(self):
-        yield self.hold(sim.Normal(30*60, 0).sample())
+        yield self.hold(sim.Normal(avg_proof_time, 0).sample())
         protocol.prove_block(self.blockId)
 
 class Proposer(sim.Component):
@@ -88,44 +90,36 @@ class Proposer(sim.Component):
         while True:
             if protocol.can_propose():
                 protocol.propose_block()
-                yield self.hold(sim.Normal(60, 0).sample())
+                yield self.hold(sim.Normal(avg_block_time, 0).sample())
             else:
                 yield self.hold(1)
 
-# class Proposer(sim.Component):
-#     def process(self):
-#         while True:
-#             if len(env.blocks) < env.max_slots:
-#                 block = (0, 0)
-#                 env.blocks.append(block)
-#             yield self.hold(sim.Uniform(2, 10).sample())
-
-
 # # columns
-# col1, col2 = st.columns([3,1])
+col1, col2 = st.columns([3,1])
 # # sliders
-# drive_time=col1.slider('drive time min',10,120)
-# break_time=col1.slider('break time min',10,120)
+avg_block_time=col1.slider('avg block time (second)',10, 120)
+avg_proof_time=col1.slider('avg proof time (minute)',15, 60)*60
 
 # standard_dev1=col2.slider('standard deviation min',1,5)
 # standard_dev2=col2.slider('standard deviation min',1,2)
 
 env=sim.Environment(trace=False) 
 
-protocol = Protocol(max_slots=1024)
-proposer = Proposer()
+protocol = None
+proposer = None
 
 if st.button('click to run'):
+    expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
+    st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
+
     del protocol
     del proposer
-    protocol = Protocol(max_slots=64)
+    protocol = Protocol(max_slots = 2 * expected_pending_blocks)
     proposer = Proposer()
-    env.run(till=144000)
+
+    env.run(till=12*60*60) ## 12 hours
     
-tot_dist=protocol.num_blocks.xt()
-
-fig,ax=plt.subplots(figsize=(15,5),nrows=1,ncols=1)
-
-ax.plot(tot_dist[1],tot_dist[0],label='distance driven') 
-
-st.write(fig)
+    tot_dist=protocol.num_blocks.xt()
+    fig,ax=plt.subplots(figsize=(15,5),nrows=1,ncols=1)
+    ax.plot(tot_dist[1],tot_dist[0],label='distance driven') 
+    st.write(fig)
