@@ -22,6 +22,9 @@ class Protocol(sim.Component):
         self.f_min = f_min
         self.lamda = int(self.max_slots * lamda_ratio)
         self.phi = (self.max_slots + self.lamda - 1) * (self.max_slots + self.lamda)
+        self.last_proposed_at = env.now()
+        self.avg_block_time = 0;
+        self.avg_proof_time = 0;
         st.write("protocol.max_slots = {}".format(max_slots))
         st.write("protocol.lamda = {}".format(self.lamda))
         st.write("protocol.f_min = {}".format(self.f_min))
@@ -32,20 +35,18 @@ class Protocol(sim.Component):
             provenAt= env.now())
         self.blocks=[genesis]
         self.last_finalized = 0
-        self.m_pending_count=sim.Monitor('pending_count', level=True, initial_tally=0)
-        
         self.profit = 0
+
+        self.m_pending_count=sim.Monitor('pending_count', level=True, initial_tally=0)
         self.m_profit = sim.Monitor('profit', level=True, initial_tally=0)
         self.m_fee= sim.Monitor('fee', level=True, initial_tally=0)
         self.m_reward = sim.Monitor('reward', level=True, initial_tally=0)
+        self.m_block_time = sim.Monitor('block_time', level=True, initial_tally=0)
+        self.m_proof_time= sim.Monitor('proof_time', level=True, initial_tally=0)
 
     def fee(self):
         n = self.max_slots - self.num_pending() + self.lamda
         return self.f_min*self.phi / n / (n-1)
-
-    def reward(self):
-        n = self.max_slots - self.num_pending() + self.lamda
-        return self.f_min*self.phi / n / (n+1)
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized - 1
@@ -55,6 +56,16 @@ class Protocol(sim.Component):
 
     def propose_block(self):
         if self.can_propose():
+            block_time = env.now() - self.last_proposed_at
+            self.m_block_time.tally(block_time)
+
+            self.last_proposed_at = env.now()
+            if self.avg_block_time == 0:
+                self.avg_block_time = block_time
+            else:
+                self.avg_block_time = (1023*self.avg_block_time + block_time)/1024
+
+
             fee = self.fee()
             self.profit += fee
             self.m_fee.tally(fee)
@@ -92,14 +103,22 @@ class Protocol(sim.Component):
     def finalize_block(self):
         for i in range(0, 5):
             if self.can_finalize():
-                reward = self.reward()
+                self.last_finalized += 1
+                self.blocks[self.last_finalized] = self.blocks[self.last_finalized]._replace(status = Status.FINALIZED)
+                print("block {} finalized at {}".format(self.last_finalized, env.now()))
+
+                proof_time= self.blocks[self.last_finalized].provenAt - self.blocks[self.last_finalized].proposedAt
+                self.m_proof_time.tally(proof_time)
+                if self.avg_proof_time == 0:
+                    self.avg_proof_time = proof_time
+                else:
+                    self.avg_proof_time = (1023*self.avg_proof_time + proof_time)/1024
+
+                reward = self.fee()
                 self.profit -= reward
                 self.m_reward.tally(reward)
                 self.m_profit.tally(self.profit)
 
-                self.last_finalized += 1
-                self.blocks[self.last_finalized] = self.blocks[self.last_finalized]._replace(status = Status.FINALIZED)
-                print("block {} finalized at {}".format(self.last_finalized, env.now()))
             else:
                 break
 
@@ -125,8 +144,8 @@ class Proposer(sim.Component):
 # # columns
 col1, col2 = st.columns([3,1])
 # # sliders
-avg_block_time=col1.slider('avg block time (second)',10, 120)
-avg_proof_time=col1.slider('avg proof time (minute)',15, 60) * 60
+avg_block_time=col1.slider('avg block time (second)',10, 120, 15)
+avg_proof_time=col1.slider('avg proof time (minute)',15, 60, 45) * 60
 
 # standard_dev1=col2.slider('standard deviation min',1,5)
 # standard_dev2=col2.slider('standard deviation min',1,2)
@@ -152,7 +171,7 @@ if st.button('click to run'):
     del proposer
     protocol = Protocol(
         max_slots = 2 * expected_pending_blocks,
-        f_min = 100.0,
+        f_min = 4.0,
         lamda_ratio = 1.8)
 
     proposer = Proposer()
@@ -160,5 +179,7 @@ if st.button('click to run'):
     env.run(till=12*60*60) ## 12 hours
     
     plot([(protocol.m_pending_count, "num pending")])
+    plot([(protocol.m_block_time, "block time")])
+    plot([(protocol.m_proof_time, "proof time")])
     plot([(protocol.m_fee, "fee"),
         (protocol.m_reward, "reward")])
