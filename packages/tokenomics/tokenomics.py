@@ -6,6 +6,8 @@ import streamlit as st
 from enum import Enum
 from typing import NamedTuple
 
+F_PROFIT = 512
+F_TIME = 1024
 
 class Status(Enum):
     PENDING = 1
@@ -28,6 +30,7 @@ class Protocol(sim.Component):
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
+        self.avg_profit = 0
         st.write("protocol.max_slots = {}".format(max_slots))
         st.write("protocol.lamda = {}".format(self.lamda))
         st.write("protocol.f_min = {}".format(self.f_min))
@@ -65,12 +68,13 @@ class Protocol(sim.Component):
             if self.avg_block_time == 0:
                 self.avg_block_time = block_time
             else:
-                self.avg_block_time = (1023 * self.avg_block_time + block_time) / 1024
+                self.avg_block_time = ((F_TIME - 1) * self.avg_block_time + block_time) / F_TIME
 
             fee = self.fee()
             self.profit += fee
+            self.avg_profit = ((F_PROFIT-1) * self.avg_profit + self.profit) / F_PROFIT
             self.m_fee.tally(fee)
-            self.m_profit.tally(self.profit)
+            self.m_profit.tally(self.profit - self.avg_profit)
 
             block = Block(status=Status.PENDING, proposedAt=env.now(), provenAt=0)
             print("block {} proposed at {}".format(len(self.blocks), env.now()))
@@ -118,13 +122,14 @@ class Protocol(sim.Component):
                     self.avg_proof_time = proof_time
                 else:
                     self.avg_proof_time = (
-                        1023 * self.avg_proof_time + proof_time
-                    ) / 1024
+                        (F_TIME - 1) * self.avg_proof_time + proof_time
+                    ) / F_TIME
 
                 reward = self.fee()
                 self.profit -= reward
+                self.avg_profit = ((F_PROFIT-1) * self.avg_profit + self.profit) / F_PROFIT
                 self.m_reward.tally(reward)
-                self.m_profit.tally(self.profit)
+                self.m_profit.tally(self.profit - self.avg_profit)
 
             else:
                 break
@@ -199,9 +204,10 @@ if st.button("click to run"):
 
     proposer = Proposer()
 
-    env.run(till=12 * 60 * 60)  ## 12 hours
+    env.run(till=24 * 60 * 60)  ## 12 hours
 
     plot([(protocol.m_pending_count, "num pending")])
     plot([(protocol.m_block_time, "block time")])
     plot([(protocol.m_proof_time, "proof time")])
+    plot([(protocol.m_profit, "profit")])
     plot([(protocol.m_fee, "fee"), (protocol.m_reward, "reward")])
