@@ -11,6 +11,7 @@
         "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
         "test": "npx hardhat test --grep '^[^integration]'",
         "coverage": "npx hardhat coverage",
+        "test:coverage": "npm run test && npm run coverage",
         "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
         "test:genesis": "./test/genesis/generate_genesis.test.sh",
         "test:integration": "./test/test_integration.sh",
@@ -71,7 +72,7 @@
         "prettier": "^2.5.1",
         "prettier-plugin-solidity": "^1.0.0-beta.19",
         "solhint": "^3.3.7",
-        "solidity-coverage": "^0.7.22",
+        "solidity-coverage": "^0.8.2",
         "ts-node": "^10.5.0",
         "typechain": "^5.2.0",
         "typescript": "^4.5.5"
