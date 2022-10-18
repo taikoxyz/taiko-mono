@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import {Lib_RLPWriter} from "../thirdparty/Lib_RLPWriter.sol";
+import {Lib_RLPWriter} from "../../thirdparty/Lib_RLPWriter.sol";
 
 /**
  * @title TestLib_RLPWriter

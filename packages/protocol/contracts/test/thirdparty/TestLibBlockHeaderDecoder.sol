@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../thirdparty/Lib_BlockHeaderDecoder.sol";
+import "../../thirdparty/Lib_BlockHeaderDecoder.sol";
 
 contract TestLibBlockHeaderDecoder {
     function decodeBlockHeader(

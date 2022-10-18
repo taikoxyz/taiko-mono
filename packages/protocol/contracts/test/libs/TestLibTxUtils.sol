@@ -8,20 +8,22 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibReceiptDecoder.sol";
+import "../../libs/LibTxUtils.sol";
 
-contract TestLibReceiptDecoder {
-    event TestLibReceiptDecoderEvent(uint256 indexed a, bytes32 b);
-
-    function emitTestEvent(uint256 a, bytes32 b) public {
-        emit TestLibReceiptDecoderEvent(a, b);
-    }
-
-    function decodeReceipt(bytes calldata encoded)
+contract TestLibTxUtils {
+    function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
         public
         pure
-        returns (LibReceiptDecoder.Receipt memory receipt)
+        returns (bytes32 hash)
     {
-        return LibReceiptDecoder.decodeReceipt(encoded);
+        return LibTxUtils.hashUnsignedTx(transaction);
+    }
+
+    function recoverSender(LibTxDecoder.Tx memory transaction)
+        public
+        pure
+        returns (address)
+    {
+        return LibTxUtils.recoverSender(transaction);
     }
 }

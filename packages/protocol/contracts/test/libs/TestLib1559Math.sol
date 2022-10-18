@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/Lib1559Math.sol";
+import "../../libs/Lib1559Math.sol";
 
 contract TestLib1559Math {
     function adjustTarget(

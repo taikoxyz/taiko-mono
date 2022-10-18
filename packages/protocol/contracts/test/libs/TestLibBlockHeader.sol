@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibBlockHeader.sol";
+import "../../libs/LibBlockHeader.sol";
 
 contract TestLibBlockHeader {
     function hashBlockHeader(BlockHeader calldata header)
