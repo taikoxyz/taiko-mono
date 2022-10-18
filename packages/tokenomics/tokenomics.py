@@ -17,9 +17,14 @@ class Block(NamedTuple):
     provenAt: int
 
 class Protocol(sim.Component):
-    def setup(self, max_slots):
+    def setup(self, max_slots, f_min, lamda_ratio):
         self.max_slots = max_slots
+        self.f_min = f_min
+        self.lamda = int(self.max_slots * lamda_ratio)
+        self.phi = (self.max_slots + self.lamda - 1) * (self.max_slots + self.lamda)
         st.write("protocol.max_slots = {}".format(max_slots))
+        st.write("protocol.lamda = {}".format(self.lamda))
+        st.write("protocol.f_min = {}".format(self.f_min))
 
         genesis = Block(
             status = Status.FINALIZED,
@@ -27,8 +32,20 @@ class Protocol(sim.Component):
             provenAt= env.now())
         self.blocks=[genesis]
         self.last_finalized = 0
+        self.m_pending_count=sim.Monitor('pending_count', level=True, initial_tally=0)
+        
+        self.profit = 0
+        self.m_profit = sim.Monitor('profit', level=True, initial_tally=0)
+        self.m_fee= sim.Monitor('fee', level=True, initial_tally=0)
+        self.m_reward = sim.Monitor('reward', level=True, initial_tally=0)
 
-        self.num_blocks=sim.Monitor('num_blocks', level=True, initial_tally=0)
+    def fee(self):
+        n = self.max_slots - self.num_pending() + self.lamda
+        return self.f_min*self.phi / n / (n-1)
+
+    def reward(self):
+        n = self.max_slots - self.num_pending() + self.lamda
+        return self.f_min*self.phi / n / (n+1)
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized - 1
@@ -38,6 +55,11 @@ class Protocol(sim.Component):
 
     def propose_block(self):
         if self.can_propose():
+            fee = self.fee()
+            self.profit += fee
+            self.m_fee.tally(fee)
+            self.m_profit.tally(self.profit)
+
             block = Block(
                 status = Status.PENDING,
                 proposedAt= env.now(),
@@ -70,19 +92,25 @@ class Protocol(sim.Component):
     def finalize_block(self):
         for i in range(0, 5):
             if self.can_finalize():
+                reward = self.reward()
+                self.profit -= reward
+                self.m_reward.tally(reward)
+                self.m_profit.tally(self.profit)
+
                 self.last_finalized += 1
                 self.blocks[self.last_finalized] = self.blocks[self.last_finalized]._replace(status = Status.FINALIZED)
                 print("block {} finalized at {}".format(self.last_finalized, env.now()))
             else:
                 break
-        self.num_blocks.tally(self.num_pending())
+
+        self.m_pending_count.tally(self.num_pending())
 
 class Prover(sim.Component):
     def setup(self, blockId):
         self.blockId = blockId
 
     def process(self):
-        yield self.hold(sim.Normal(avg_proof_time, 0).sample())
+        yield self.hold(sim.Normal(avg_proof_time, 2*60).sample())
         protocol.prove_block(self.blockId)
 
 class Proposer(sim.Component):
@@ -90,7 +118,7 @@ class Proposer(sim.Component):
         while True:
             if protocol.can_propose():
                 protocol.propose_block()
-                yield self.hold(sim.Normal(avg_block_time, 0).sample())
+                yield self.hold(sim.Normal(avg_block_time, 1).sample())
             else:
                 yield self.hold(1)
 
@@ -98,7 +126,7 @@ class Proposer(sim.Component):
 col1, col2 = st.columns([3,1])
 # # sliders
 avg_block_time=col1.slider('avg block time (second)',10, 120)
-avg_proof_time=col1.slider('avg proof time (minute)',15, 60)*60
+avg_proof_time=col1.slider('avg proof time (minute)',15, 60) * 60
 
 # standard_dev1=col2.slider('standard deviation min',1,5)
 # standard_dev2=col2.slider('standard deviation min',1,2)
@@ -108,18 +136,29 @@ env=sim.Environment(trace=False)
 protocol = None
 proposer = None
 
+def plot(sources):
+    fig,ax=plt.subplots(figsize=(15,5),nrows=1,ncols=1)
+    for s in sources:
+        data=s[0].xt()
+        ax.plot(data[1],data[0],label=s[1]) 
+    ax.legend(loc="lower right")
+    st.write(fig)
+   
 if st.button('click to run'):
     expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
     st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
 
     del protocol
     del proposer
-    protocol = Protocol(max_slots = 2 * expected_pending_blocks)
+    protocol = Protocol(
+        max_slots = 2 * expected_pending_blocks,
+        f_min = 100.0,
+        lamda_ratio = 1.8)
+
     proposer = Proposer()
 
     env.run(till=12*60*60) ## 12 hours
     
-    tot_dist=protocol.num_blocks.xt()
-    fig,ax=plt.subplots(figsize=(15,5),nrows=1,ncols=1)
-    ax.plot(tot_dist[1],tot_dist[0],label='distance driven') 
-    st.write(fig)
+    plot([(protocol.m_pending_count, "num pending")])
+    plot([(protocol.m_fee, "fee"),
+        (protocol.m_reward, "reward")])
