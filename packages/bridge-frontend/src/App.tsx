@@ -1,25 +1,36 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React from "react";
+import { Link, BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+import Home from "./pages/Home";
 
 function App() {
+  const [wallet, setWallet] = React.useState();
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
+    <Router>
+      <header className="bg-white h-12 p-2 flex items-center justify-between text-taiko-blue">
+        <Link to="/" className="flex items-center text-taiko-blue">
+          <img src="/taikologo.png" alt="" height={48} width={48} />
+          <span className="text-xl">Taiko</span>
+        </Link>
+
+        <button
+          type="button"
+          className={`${
+            wallet
+              ? "bg-transparent border border-taiko-pink"
+              : "bg-taiko-pink text-white"
+          } w-[150px] rounded-md py-2`}
         >
-          Learn React
-        </a>
+          {wallet ? "0x1234...678" : "Connect Wallet"}
+        </button>
       </header>
-    </div>
+
+      <main className="bg-taiko-blue h-[calc(100vh-48px)] text-taiko-blue">
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </main>
+    </Router>
   );
 }
 
