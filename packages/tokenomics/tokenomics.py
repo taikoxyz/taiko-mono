@@ -8,7 +8,8 @@ from typing import NamedTuple
 
 F_PROFIT = 512
 F_TIME = 1024
-
+DAY = 24 * 3600
+F_MIN = 8
 
 class Status(Enum):
     PENDING = 1
@@ -23,9 +24,9 @@ class Block(NamedTuple):
 
 
 class Protocol(sim.Component):
-    def setup(self, max_slots, f_min, lamda_ratio):
+    def setup(self, max_slots, lamda_ratio):
         self.max_slots = max_slots
-        self.f_min = f_min
+        self.f_min = F_MIN
         self.lamda = int(self.max_slots * lamda_ratio)
         self.phi = (self.max_slots + self.lamda - 1) * (self.max_slots + self.lamda)
         self.last_proposed_at = env.now()
@@ -151,7 +152,7 @@ class Prover(sim.Component):
     def process(self):
         yield self.hold(
             sim.Bounded(
-                sim.Normal(avg_proof_time, avg_proof_time * sd_proof_time / 100),
+                sim.Normal(get_avg_proof_time(), get_avg_proof_time() * sd_proof_time / 100),
                 lowerbound=1,
             ).sample()
         )
@@ -163,10 +164,11 @@ class Proposer(sim.Component):
         while True:
             if protocol.can_propose():
                 protocol.propose_block()
+
                 yield self.hold(
                     sim.Bounded(
                         sim.Normal(
-                            avg_block_time, avg_block_time * sd_block_time / 100
+                            get_avg_block_time(), get_avg_block_time() * sd_block_time / 100
                         ),
                         lowerbound=1,
                     ).sample()
@@ -189,13 +191,28 @@ env = sim.Environment(trace=False)
 protocol = None
 proposer = None
 
+def get_avg_block_time():
+    if env.now() < DAY:
+        return avg_block_time
+    elif env.now() < 2 * DAY:
+        return 2 * avg_block_time
+    else:
+        return 10 * avg_block_time
+
+def get_avg_proof_time():
+    if env.now() < DAY:
+        return avg_proof_time
+    elif env.now() < 3 * DAY:
+        return 3 * avg_proof_time
+    else:
+        return 10 * avg_proof_time
 
 def plot(sources):
     fig, ax = plt.subplots(figsize=(15, 5), nrows=1, ncols=1)
     for s in sources:
         data = s[0].xt()
         ax.plot(data[1], data[0], label=s[1])
-    ax.legend(loc="lower right")
+    ax.legend(loc="lower right", fontsize = 18.0)
     st.write(fig)
 
 
@@ -203,18 +220,20 @@ if st.button("click to run"):
     expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
     st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
 
-    del protocol
-    del proposer
     protocol = Protocol(
-        max_slots=2 * expected_pending_blocks, f_min=4.0, lamda_ratio=1.8
+        max_slots=2 * expected_pending_blocks, lamda_ratio=1.8
     )
 
     proposer = Proposer()
 
-    env.run(till=24 * 60 * 60)  # 24 hours
+    env.run(till = 10 * DAY)
 
     plot([(protocol.m_pending_count, "num pending")])
     plot([(protocol.m_block_time, "block time")])
     plot([(protocol.m_proof_time, "proof time")])
     plot([(protocol.m_profit, "profit")])
-    plot([(protocol.m_fee, "fee"), (protocol.m_reward, "reward")])
+
+    st.write("Fees and Rewards")
+    plot([
+        (protocol.m_fee, "fee"),
+        (protocol.m_reward, "reward")])
