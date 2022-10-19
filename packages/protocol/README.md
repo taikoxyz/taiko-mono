@@ -21,7 +21,7 @@ yarn test
 To run test cases that rely on a go-ethereum node:
 
 ```bash
-yarn test:geth
+yarn test:integration
 ```
 
 ## Generate L2 genesis JSON's `alloc` field
@@ -55,7 +55,6 @@ the script above will output two JSON files:
 
 -   `./deployments/l2_genesis_alloc.json`: the `alloc` field which will be used in L2 genesis JSON file
 -   `./deployments/l2_genesis_storage_layout.json`: the storage layout of those pre-deployed contracts
-
 
 ## Github Actions
 
