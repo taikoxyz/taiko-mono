@@ -5,11 +5,13 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from enum import Enum
 from typing import NamedTuple
+from timeincentive import fee_discount as fee_dis, reward_discount as reward_dis
+from plots import plot
 
 F_PROFIT = 512
 F_TIME = 1024
 DAY = 24 * 3600
-F_MIN = 8
+F_MIN = 10
 
 class Status(Enum):
     PENDING = 1
@@ -47,13 +49,21 @@ class Protocol(sim.Component):
         self.m_pending_count = sim.Monitor("pending_count", level=True, initial_tally=0)
         self.m_profit = sim.Monitor("profit", level=True, initial_tally=0)
         self.m_fee = sim.Monitor("fee", level=True, initial_tally=0)
+        self.m_actual_fee = sim.Monitor("actual_fee", level=True, initial_tally=0)
         self.m_reward = sim.Monitor("reward", level=True, initial_tally=0)
+        self.m_actual_reward = sim.Monitor("actual_reward", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
 
-    def fee(self):
+    def slot_fee(self):
         n = self.max_slots - self.num_pending() + self.lamda
         return self.f_min * self.phi / n / (n - 1)
+
+    def fee_discount(self, block_time):
+        return fee_dis(block_time, self.avg_block_time)
+
+    def reward_discount(self, proof_time):
+        return reward_dis(proof_time, self.avg_proof_time)
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized - 1
@@ -74,12 +84,14 @@ class Protocol(sim.Component):
                     (F_TIME - 1) * self.avg_block_time + block_time
                 ) / F_TIME
 
-            fee = self.fee()
-            self.profit += fee
+            fee = self.slot_fee()
+            actual_fee = fee * self.fee_discount(block_time)
+            self.profit += actual_fee
             self.avg_profit = (
                 (F_PROFIT - 1) * self.avg_profit + self.profit
             ) / F_PROFIT
             self.m_fee.tally(fee)
+            self.m_actual_fee.tally(actual_fee)
             self.m_profit.tally(self.profit - self.avg_profit)
 
             block = Block(status=Status.PENDING, proposed_at=env.now(), proven_at=0)
@@ -132,12 +144,14 @@ class Protocol(sim.Component):
                         (F_TIME - 1) * self.avg_proof_time + proof_time
                     ) / F_TIME
 
-                reward = self.fee()
-                self.profit -= reward
+                reward = self.slot_fee()
+                actual_reward = reward * self.reward_discount(proof_time)
+                self.profit -= actual_reward
                 self.avg_profit = (
                     (F_PROFIT - 1) * self.avg_profit + self.profit
                 ) / F_PROFIT
                 self.m_reward.tally(reward)
+                self.m_actual_reward.tally(actual_reward)
                 self.m_profit.tally(self.profit - self.avg_profit)
 
             else:
@@ -208,15 +222,6 @@ def get_avg_proof_time():
     else:
         return avg_proof_time
 
-def plot(sources):
-    fig, ax = plt.subplots(figsize=(15, 5), nrows=1, ncols=1)
-    for s in sources:
-        data = s[0].xt()
-        ax.plot(data[1], data[0], label=s[1])
-    ax.legend(loc="lower right", fontsize = 18.0)
-    st.write(fig)
-
-
 if st.button("click to run"):
     expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
     st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
@@ -235,6 +240,5 @@ if st.button("click to run"):
     plot([(protocol.m_profit, "profit")])
 
     st.write("Fees and Rewards")
-    plot([
-        (protocol.m_fee, "fee"),
-        (protocol.m_reward, "reward")])
+    plot([(protocol.m_fee, "fee"),(protocol.m_actual_fee, "actual fee")])
+    plot([(protocol.m_reward, "reward"),(protocol.m_actual_reward, "actual reward")])
