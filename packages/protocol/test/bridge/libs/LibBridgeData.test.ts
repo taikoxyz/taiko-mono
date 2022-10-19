@@ -1,21 +1,15 @@
 import { expect } from "chai"
-import { AddressManager } from "../../../typechain"
 import { ethers } from "hardhat"
 import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
 
 describe("LibBridgeData", function () {
     async function deployLibBridgeDataFixture() {
         const [owner, nonOwner] = await ethers.getSigners()
-        // deploy addressManager
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy()
-        await addressManager.init()
 
         const libData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
-        return { owner, nonOwner, addressManager, libData }
+        return { owner, nonOwner, libData }
     }
 
     describe("LibBridgeData", async function () {
