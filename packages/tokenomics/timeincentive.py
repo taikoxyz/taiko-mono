@@ -64,16 +64,20 @@ FEE_MAX_DISCOUNT = 0.5
 REWARD_MAX_PREMIUM = 4
 REWARD_MAX_DISCOUNT = 0.5
 R = 0.7
-env = sim.Environment(trace=False)
-m_fee_discount = sim.Monitor("fee_discount", level=True, initial_tally=0)
-m_reward_discount = sim.Monitor("reward_discount", level=True, initial_tally=0)
 
-st.write("Time-based incentive (discount & premium)")
-st.write("average block/proof time = {}".format(AVERAGE_TIME))
-if st.button("click to run"):
-    Simulator()
-    env.run(till = AVERAGE_TIME*20)
-    plot([(m_fee_discount, "Fee%"), (m_reward_discount, "Reward%")])
+
+if __name__ == "__main__":
+    env = sim.Environment(trace=False)
+
+    m_fee_discount = sim.Monitor("fee_discount", level=True, initial_tally=0)
+    m_reward_discount = sim.Monitor("reward_discount", level=True, initial_tally=0)
+
+    st.write("Time-based incentive (discount & premium)")
+    st.write("average block/proof time = {}".format(AVERAGE_TIME))
+    if st.button("click to run"):
+        Simulator()
+        env.run(till = AVERAGE_TIME*20)
+        plot([(m_fee_discount, "Fee%"), (m_reward_discount, "Reward%")])
 
 
 
