@@ -19,8 +19,8 @@ class Status(Enum):
 
 class Block(NamedTuple):
     status: Status
-    proposedAt: int
-    provenAt: int
+    proposed_at: int
+    proven_at: int
 
 
 class Protocol(sim.Component):
@@ -38,7 +38,7 @@ class Protocol(sim.Component):
         st.write("protocol.f_min = {}".format(self.f_min))
 
         genesis = Block(
-            status=Status.FINALIZED, proposedAt=env.now(), provenAt=env.now()
+            status=Status.FINALIZED, proposed_at=env.now(), proven_at=env.now()
         )
         self.blocks = [genesis]
         self.last_finalized = 0
@@ -82,8 +82,8 @@ class Protocol(sim.Component):
             self.m_fee.tally(fee)
             self.m_profit.tally(self.profit - self.avg_profit)
 
-            block = Block(status=Status.PENDING, proposedAt=env.now(), provenAt=0)
-            print("block {} proposed at {}".format(len(self.blocks), env.now()))
+            block = Block(status=Status.PENDING, proposed_at=env.now(), proven_at=0)
+            # print("block {} proposed at {}".format(len(self.blocks), env.now()))
             self.blocks.append(block)
 
             Prover(blockId=len(self.blocks) - 1)
@@ -99,9 +99,9 @@ class Protocol(sim.Component):
     def prove_block(self, id):
         if self.can_prove(id):
             self.blocks[id] = self.blocks[id]._replace(
-                status=Status.PROVEN, provenAt=env.now()
+                status=Status.PROVEN, proven_at=env.now()
             )
-            print("block {} proven at {}".format(id, env.now()))
+            # print("block {} proven at {}".format(id, env.now()))
             self.finalize_block()
 
     def can_finalize(self):
@@ -117,12 +117,13 @@ class Protocol(sim.Component):
                 self.blocks[self.last_finalized] = self.blocks[
                     self.last_finalized
                 ]._replace(status=Status.FINALIZED)
-                print("block {} finalized at {}".format(self.last_finalized, env.now()))
+                # print("block {} finalized at {}".format(self.last_finalized, env.now()))
 
                 proof_time = (
-                    self.blocks[self.last_finalized].provenAt
-                    - self.blocks[self.last_finalized].proposedAt
+                    self.blocks[self.last_finalized].proven_at
+                    - self.blocks[self.last_finalized].proposed_at
                 )
+
                 self.m_proof_time.tally(proof_time)
                 if self.avg_proof_time == 0:
                     self.avg_proof_time = proof_time
@@ -194,18 +195,18 @@ proposer = None
 def get_avg_block_time():
     if env.now() < DAY:
         return avg_block_time
-    elif env.now() < 2 * DAY:
+    elif env.now() < 3 * DAY:
         return 2 * avg_block_time
     else:
-        return 10 * avg_block_time
+        return avg_block_time
 
 def get_avg_proof_time():
-    if env.now() < DAY:
+    if env.now() < 2 * DAY:
         return avg_proof_time
-    elif env.now() < 3 * DAY:
+    elif env.now() < 4 * DAY:
         return 3 * avg_proof_time
     else:
-        return 10 * avg_proof_time
+        return avg_proof_time
 
 def plot(sources):
     fig, ax = plt.subplots(figsize=(15, 5), nrows=1, ncols=1)
@@ -221,12 +222,12 @@ if st.button("click to run"):
     st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
 
     protocol = Protocol(
-        max_slots=2 * expected_pending_blocks, lamda_ratio=1.8
+        max_slots= 10 * expected_pending_blocks, lamda_ratio=1.8
     )
 
     proposer = Proposer()
 
-    env.run(till = 10 * DAY)
+    env.run(till = 5 * DAY)
 
     plot([(protocol.m_pending_count, "num pending")])
     plot([(protocol.m_block_time, "block time")])
