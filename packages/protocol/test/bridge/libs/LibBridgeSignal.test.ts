@@ -20,7 +20,7 @@ describe("LibBridgeData", function () {
 
     describe("LibBridgeSignal", async function () {
         describe("sendSignal()", async function () {
-            it.only("stub", async function () {
+            it("stub", async function () {
                 const { owner, nonOwner, addressManager, libSignal } =
                     await deployLibBridgeSignalFixture()
                 console.log(owner, nonOwner, addressManager, libSignal)
