@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { AddressManager } from "../../../typechain"
 import { ethers } from "hardhat"
+import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
 
 describe("LibBridgeData", function () {
     async function deployLibBridgeDataFixture() {
@@ -43,7 +44,7 @@ describe("LibBridgeData", function () {
                 "tuple(uint256 id, address sender, uint256 srcChainId, uint256 destChainId, address owner, address to, address refundAddress, uint256 depositValue, uint256 callValue, uint256 processingFee, uint256 gasLimit, bytes data, string memo)",
             ]
 
-            const testVar = ["TAIKO_BRIDGE_MESSAGE", testMessage]
+            const testVar = [TAIKO_BRIDGE_MESSAGE, testMessage]
             const hashed = await libData.hashMessage(testMessage)
             const expectedEncoded = await ethers.utils.defaultAbiCoder.encode(
                 testTypes,

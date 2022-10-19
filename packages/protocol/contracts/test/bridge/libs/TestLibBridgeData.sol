@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibBridgeData.sol";
+import "../../../bridge/libs/LibBridgeData.sol";
 
 contract TestLibBridgeData {
     function hashMessage(IBridge.Message memory message)
@@ -19,18 +19,10 @@ contract TestLibBridgeData {
         return LibBridgeData.hashMessage(message);
     }
 
-    function test(IBridge.Message memory message)
-        public
-        pure
-        returns (bytes memory)
-    {
-        return abi.encode("TAIKO_BRIDGE_MESSAGE");
-    }
-
     // function updateMessageStatus(
-    //     LibBridgeData.State memory state,
+    //     LibBridgeData.State storage state,
     //     bytes32 mhash,
-    //     IBridge.MessageStatus status
+    //     LibBridgeData.MessageStatus status
     // ) public pure {
     //     LibBridgeData.updateMessageStatus(state, mhash, status);
     // }
