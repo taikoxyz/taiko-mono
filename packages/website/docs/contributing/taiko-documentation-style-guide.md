@@ -85,6 +85,6 @@ Group documentation under one of the four categories:
 
 ## Sources
 
+- [Diátaxis](https://diataxis.fr/)
 - [Google dev docs highlights](https://developers.google.com/style/highlights)
 - [Google docs styleguide](https://google.github.io/styleguide/docguide/)
-- [Diátaxis](https://diataxis.fr/)
