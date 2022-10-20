@@ -58,5 +58,17 @@ describe("LibBridgeSignal", function () {
                 ).to.be.revertedWith("B:signal")
             })
         })
+        describe("isSignalSent()", async function () {
+            it("properly sent message should be received", async function () {
+                const { owner, libSignal, testMessage } =
+                    await deployLibBridgeSignalFixture()
+                const { libData } = await deployLibBridgeDataFixture()
+                const signal = await libData.hashMessage(testMessage)
+                await libSignal.sendSignal(owner.address, signal)
+                expect(
+                    await libSignal.isSignalSent(owner.address, signal)
+                ).to.eq(true)
+            })
+        })
     })
 })
