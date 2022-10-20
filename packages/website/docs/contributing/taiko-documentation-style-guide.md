@@ -17,13 +17,13 @@ Group documentation under one of the four categories:
 
 ### Tone and content
 
-- [Use descriptive link text](https://developers.google.com/style/link-text)
+- [Use descriptive link text](https://developers.google.com/style/link-text).
 - [Write accessibly](https://developers.google.com/style/accessibility).
 - [Write for a global audience](https://developers.google.com/style/translation).
 
 ### Language and grammar
 
-- [Use second person](https://developers.google.com/style/person): "you" rather than "we"
+- [Use second person](https://developers.google.com/style/person): "you" rather than "we".
 - [Use active voice](https://developers.google.com/style/voice): make clear who's performing the action.
 - [Put conditional clauses before instructions](https://developers.google.com/style/clause-order), not after.
 
