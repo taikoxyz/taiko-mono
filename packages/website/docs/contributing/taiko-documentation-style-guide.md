@@ -41,11 +41,6 @@ Group documentation under one of the four categories:
 - Use SVG files or crushed PNG images.
 - Provide alt text.
 
-### Markdown
-
-- Use a trailing backslash instead of spaces for line breaks.
-- Prefer lists over tables.
-
 ### Code blocks
 
 - Do not use `$` in shell blocks.
