@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Taken from https://github.com/privacy-scaling-explorations/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol#L23
+/* solhint-disable */
 pragma solidity ^0.8.9;
 
 /**
- * @title Lib_BlockHeaderDecoder
+ * @title LibBlockHeaderDecoder
  */
-library Lib_BlockHeaderDecoder {
+library LibBlockHeaderDecoder {
     /// @notice This method extracts [stateRoot, timestamp] of a block header.
     /// @param blockHeader RLP encoded block header
     /// @param blockHash The expected block hash

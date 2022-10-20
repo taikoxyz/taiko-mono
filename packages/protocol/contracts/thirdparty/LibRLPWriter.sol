@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/Lib_RLPWriter.sol
+// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPWriter.sol
 // Modified to support writeBytes32/writeUint64
 
 pragma solidity ^0.8.9;
 
 /**
- * @title Lib_RLPWriter
+ * @title LibRLPWriter
  * @author Bakaoh (with modifications)
  */
-library Lib_RLPWriter {
+library LibRLPWriter {
     /**********************
      * Internal Functions *
      **********************/

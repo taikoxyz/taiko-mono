@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/Lib_SecureMerkleTrie.sol
+// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/LibSecureMerkleTrie.sol
 pragma solidity ^0.8.9;
 
 /* Library Imports */
-import {Lib_MerkleTrie} from "./Lib_MerkleTrie.sol";
+import {LibMerkleTrie} from "./LibMerkleTrie.sol";
 
 /**
- * @title Lib_SecureMerkleTrie
+ * @title LibSecureMerkleTrie
  */
-library Lib_SecureMerkleTrie {
+library LibSecureMerkleTrie {
     /**********************
      * Internal Functions *
      **********************/
@@ -32,7 +32,7 @@ library Lib_SecureMerkleTrie {
         bytes32 _root
     ) internal pure returns (bool _verified) {
         bytes memory key = _getSecureKey(_key);
-        return Lib_MerkleTrie.verifyInclusionProof(key, _value, _proof, _root);
+        return LibMerkleTrie.verifyInclusionProof(key, _value, _proof, _root);
     }
 
     /**
@@ -49,7 +49,7 @@ library Lib_SecureMerkleTrie {
         bytes32 _root
     ) internal pure returns (bool _exists, bytes memory _value) {
         bytes memory key = _getSecureKey(_key);
-        return Lib_MerkleTrie.get(key, _proof, _root);
+        return LibMerkleTrie.get(key, _proof, _root);
     }
 
     /*********************

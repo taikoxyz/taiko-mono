@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/Lib_RLPReader.sol
+// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/rlp/LibRLPReader.sol
 
 pragma solidity ^0.8.9;
 
 /**
- * @title Lib_RLPReader
+ * @title LibRLPReader
  * @dev Adapted from "RLPReader" by Hamdi Allam (hamdi.allam97@gmail.com).
  */
-library Lib_RLPReader {
+library LibRLPReader {
     /*************
      * Constants *
      *************/
@@ -248,7 +248,7 @@ library Lib_RLPReader {
 
         require(
             out == 0 || out == 1,
-            "Lib_RLPReader: Invalid RLP boolean value, must be 0 or 1"
+            "LibRLPReader: Invalid RLP boolean value, must be 0 or 1"
         );
 
         return out != 0;

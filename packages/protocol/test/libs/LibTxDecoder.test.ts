@@ -10,7 +10,7 @@ describe("LibTxDecoder", function () {
 
     before(async function () {
         rlpWriter = await (
-            await ethers.getContractFactory("TestLib_RLPWriter")
+            await ethers.getContractFactory("TestLibRLPWriter")
         ).deploy()
         libTxDecoder = await (
             await ethers.getContractFactory("LibTxDecoder")

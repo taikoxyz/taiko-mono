@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/Lib_BytesUtils.sol
+// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/utils/LibBytesUtils.sol
 
 pragma solidity ^0.8.9;
 
 /**
- * @title Lib_BytesUtils
+ * @title LibBytesUtils
  */
-library Lib_BytesUtils {
+library LibBytesUtils {
     /**********************
      * Internal Functions *
      **********************/

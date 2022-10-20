@@ -5,7 +5,7 @@ const hre = require("hardhat")
 const ethers = hre.ethers
 const EBN = ethers.BigNumber
 
-describe("Lib_BlockHeaderDecoder", async function () {
+describe("LibBlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
     let blockHeaderDecoder: any
     let hashBlockHeader: any
@@ -13,14 +13,14 @@ describe("Lib_BlockHeaderDecoder", async function () {
     before(async function () {
         // Deploying Lib to Link
         const blkHdrDcdrLib = await (
-            await ethers.getContractFactory("Lib_BlockHeaderDecoder")
+            await ethers.getContractFactory("LibBlockHeaderDecoder")
         ).deploy()
 
         // Deploying Library
         blockHeaderDecoder = await (
             await ethers.getContractFactory("TestLibBlockHeaderDecoder", {
                 libraries: {
-                    Lib_BlockHeaderDecoder: blkHdrDcdrLib.address,
+                    LibBlockHeaderDecoder: blkHdrDcdrLib.address,
                 },
             })
         ).deploy()

@@ -25,25 +25,25 @@ contract TestLibBlockHeader {
         returns (bytes memory)
     {
         bytes[] memory list = new bytes[](15);
-        list[0] = Lib_RLPWriter.writeHash(header.parentHash);
-        list[1] = Lib_RLPWriter.writeHash(header.ommersHash);
-        list[2] = Lib_RLPWriter.writeAddress(header.beneficiary);
-        list[3] = Lib_RLPWriter.writeHash(header.stateRoot);
-        list[4] = Lib_RLPWriter.writeHash(header.transactionsRoot);
-        list[5] = Lib_RLPWriter.writeHash(header.receiptsRoot);
-        list[6] = Lib_RLPWriter.writeBytes(abi.encodePacked(header.logsBloom));
-        list[7] = Lib_RLPWriter.writeUint(header.difficulty);
-        list[8] = Lib_RLPWriter.writeUint(header.height);
-        list[9] = Lib_RLPWriter.writeUint64(header.gasLimit);
-        list[10] = Lib_RLPWriter.writeUint64(header.gasUsed);
-        list[11] = Lib_RLPWriter.writeUint64(header.timestamp);
-        list[12] = Lib_RLPWriter.writeBytes(header.extraData);
-        list[13] = Lib_RLPWriter.writeHash(header.mixHash);
+        list[0] = LibRLPWriter.writeHash(header.parentHash);
+        list[1] = LibRLPWriter.writeHash(header.ommersHash);
+        list[2] = LibRLPWriter.writeAddress(header.beneficiary);
+        list[3] = LibRLPWriter.writeHash(header.stateRoot);
+        list[4] = LibRLPWriter.writeHash(header.transactionsRoot);
+        list[5] = LibRLPWriter.writeHash(header.receiptsRoot);
+        list[6] = LibRLPWriter.writeBytes(abi.encodePacked(header.logsBloom));
+        list[7] = LibRLPWriter.writeUint(header.difficulty);
+        list[8] = LibRLPWriter.writeUint(header.height);
+        list[9] = LibRLPWriter.writeUint64(header.gasLimit);
+        list[10] = LibRLPWriter.writeUint64(header.gasUsed);
+        list[11] = LibRLPWriter.writeUint64(header.timestamp);
+        list[12] = LibRLPWriter.writeBytes(header.extraData);
+        list[13] = LibRLPWriter.writeHash(header.mixHash);
         // According to the ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
-        list[14] = Lib_RLPWriter.writeBytes(abi.encodePacked(header.nonce));
+        list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
 
-        bytes memory rlpHeader = Lib_RLPWriter.writeList(list);
+        bytes memory rlpHeader = LibRLPWriter.writeList(list);
         return rlpHeader;
     }
 }
