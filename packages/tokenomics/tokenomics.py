@@ -88,10 +88,9 @@ class Protocol(sim.Component):
 
             fee = self.slot_fee()
             discount = self.fee_discount(block_time)
+
             if (discount < 1):
                 self.f_min /= 1+F_MIN_FACTOR
-            elif (discount > 1):
-                self.f_min *= 1+F_MIN_FACTOR
 
             actual_fee = fee * discount
             # self.avg_profit = (
@@ -152,9 +151,8 @@ class Protocol(sim.Component):
 
                 reward = self.slot_fee()
                 discount = self.reward_discount(proof_time)
-                if (discount < 1):
-                    self.f_min /= 1+F_MIN_FACTOR
-                elif (discount > 1):
+
+                if discount > 1:
                     self.f_min *= 1+F_MIN_FACTOR
 
 
@@ -211,20 +209,22 @@ class Proposer(sim.Component):
 
 
 def get_avg_block_time():
-    if env.now() < DAY:
-        return avg_block_time
-    elif env.now() < 3 * DAY:
-        return 2 * avg_block_time
-    else:
-        return avg_block_time
+    return avg_block_time
+    # if env.now() < DAY:
+    #     return avg_block_time
+    # elif env.now() < 3 * DAY:
+    #     return 2 * avg_block_time
+    # else:
+    #     return avg_block_time
 
 def get_avg_proof_time():
-    if env.now() < 2 * DAY:
-        return avg_proof_time
-    elif env.now() < 4 * DAY:
-        return 3 * avg_proof_time
-    else:
-        return avg_proof_time
+    return avg_proof_time
+    # if env.now() < 2 * DAY:
+    #     return avg_proof_time
+    # elif env.now() < 4 * DAY:
+    #     return 3 * avg_proof_time
+    # else:
+    #     return avg_proof_time
 
 if __name__ == "__main__":
     # # columns
@@ -250,7 +250,7 @@ if __name__ == "__main__":
 
         proposer = Proposer()
 
-        env.run(till = 14 * DAY)
+        env.run(till = 30 * DAY)
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])

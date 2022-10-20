@@ -24,6 +24,8 @@ def sigmoid(x):
 def discount(delay, avg_delay, bigger_better, max_discount, max_premium, max_span):
     if avg_delay == 0 or delay==0:
         return 1.0
+    if delay <= 2 * avg_delay:
+        return 1.0
 
     if bigger_better:
         change = 1.0 * (delay - avg_delay) / avg_delay
