@@ -2,6 +2,6 @@
 sidebar_position: 1
 ---
 
-# Introduction
+# Run a Taiko node
 
 Coming soon!
