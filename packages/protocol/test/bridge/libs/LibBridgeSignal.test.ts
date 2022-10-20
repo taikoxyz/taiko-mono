@@ -47,16 +47,16 @@ describe("LibBridgeSignal", function () {
                 ).to.revertedWith("B:sender")
             })
 
-            // it("throws when signal is zero", async function () {
-            //     const { owner, libSignal } =
-            //         await deployLibBridgeSignalFixture()
-            //     await expect(
-            //         libSignal.sendSignal(
-            //             owner.address,
-            //             ethers.utils.hexlify(ethers.constants.Zero)
-            //         )
-            //     ).to.be.revertedWith("B:signal")
-            // })
+            it("throws when signal is zero", async function () {
+                const { owner, libSignal } =
+                    await deployLibBridgeSignalFixture()
+                await expect(
+                    libSignal.sendSignal(
+                        owner.address,
+                        ethers.constants.HashZero
+                    )
+                ).to.be.revertedWith("B:signal")
+            })
         })
     })
 })
