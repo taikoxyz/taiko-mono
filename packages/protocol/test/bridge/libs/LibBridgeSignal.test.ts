@@ -35,48 +35,42 @@ describe("LibBridgeSignal", function () {
         return { libData }
     }
 
-    describe("LibBridgeSignal", async function () {
-        describe("sendSignal()", async function () {
-            it("throws when sender is zero address", async function () {
-                const { libSignal, testMessage } =
-                    await deployLibBridgeSignalFixture()
+    describe("sendSignal()", async function () {
+        it("throws when sender is zero address", async function () {
+            const { libSignal, testMessage } =
+                await deployLibBridgeSignalFixture()
 
-                const { libData } = await deployLibBridgeDataFixture()
+            const { libData } = await deployLibBridgeDataFixture()
 
-                const signal = await libData.hashMessage(testMessage)
+            const signal = await libData.hashMessage(testMessage)
 
-                await expect(
-                    libSignal.sendSignal(ethers.constants.AddressZero, signal)
-                ).to.revertedWith("B:sender")
-            })
-
-            it("throws when signal is zero", async function () {
-                const { owner, libSignal } =
-                    await deployLibBridgeSignalFixture()
-
-                await expect(
-                    libSignal.sendSignal(
-                        owner.address,
-                        ethers.constants.HashZero
-                    )
-                ).to.be.revertedWith("B:signal")
-            })
+            await expect(
+                libSignal.sendSignal(ethers.constants.AddressZero, signal)
+            ).to.revertedWith("B:sender")
         })
-        describe("isSignalSent()", async function () {
-            it("properly sent message should be received", async function () {
-                const { owner, libSignal, testMessage } =
-                    await deployLibBridgeSignalFixture()
 
-                const { libData } = await deployLibBridgeDataFixture()
+        it("throws when signal is zero", async function () {
+            const { owner, libSignal } = await deployLibBridgeSignalFixture()
 
-                const signal = await libData.hashMessage(testMessage)
+            await expect(
+                libSignal.sendSignal(owner.address, ethers.constants.HashZero)
+            ).to.be.revertedWith("B:signal")
+        })
+    })
+    describe("isSignalSent()", async function () {
+        it("properly sent message should be received", async function () {
+            const { owner, libSignal, testMessage } =
+                await deployLibBridgeSignalFixture()
 
-                await libSignal.sendSignal(owner.address, signal)
+            const { libData } = await deployLibBridgeDataFixture()
 
-                expect(
-                    await libSignal.isSignalSent(owner.address, signal)
-                ).to.eq(true)
-            })
+            const signal = await libData.hashMessage(testMessage)
+
+            await libSignal.sendSignal(owner.address, signal)
+
+            expect(await libSignal.isSignalSent(owner.address, signal)).to.eq(
+                true
+            )
         })
     })
 })
