@@ -1,4 +1,4 @@
-import { BaseTrie } from "merkle-patricia-tree"
+import { BaseTrie, SecureTrie } from "merkle-patricia-tree"
 import { ethers } from "ethers"
 import * as rlp from "rlp"
 
@@ -21,16 +21,16 @@ type Test = {
     proof: Proof
 }
 
-class MerkleTrie {
-    public trie: BaseTrie
+class MerkleTrie<T extends BaseTrie | SecureTrie> {
+    public trie: T
     public nodes: Node[] = []
     private nodeLength: number
     private amountOfNodes: number
 
-    constructor(amountOfNodes: number, nodeLength: number) {
+    constructor(amountOfNodes: number, nodeLength: number, f: () => T) {
         this.amountOfNodes = amountOfNodes
         this.nodeLength = nodeLength
-        this.trie = new BaseTrie()
+        this.trie = f()
     }
 
     async init() {

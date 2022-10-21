@@ -1,5 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { BaseTrie } from "merkle-patricia-tree"
 import { TestLibMerkleTrie } from "../../typechain"
 import { MerkleTrie } from "../utils/trie"
 
@@ -19,7 +20,11 @@ describe("LibMerkleTrie", function () {
         const libMerkleTrie: TestLibMerkleTrie =
             await LibMerkleTrieFactory.deploy()
 
-        const defaultMerkleTrie = new MerkleTrie(amountOfNodes, len)
+        const defaultMerkleTrie = new MerkleTrie(
+            amountOfNodes,
+            len,
+            () => new BaseTrie()
+        )
         await defaultMerkleTrie.init()
 
         return { owner, libMerkleTrie, defaultMerkleTrie, LibMerkleTrieFactory }
