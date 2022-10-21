@@ -2,21 +2,7 @@ import { expect } from "chai"
 import { AddressManager, Bridge } from "../../typechain"
 import { ethers } from "hardhat"
 import { BigNumber } from "ethers"
-type Message = {
-    id: number
-    sender: string
-    srcChainId: number
-    destChainId: number
-    owner: string
-    to: string
-    refundAddress: string
-    depositValue: number
-    callValue: number
-    processingFee: number
-    gasLimit: number
-    data: string
-    memo: string
-}
+import { Message } from "../utils/message"
 
 describe("Bridge", function () {
     async function deployBridgeFixture() {
