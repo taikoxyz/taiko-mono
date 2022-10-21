@@ -1,6 +1,7 @@
 {
-  "label": "Tutorial - Extras",
+  "label": "Contributing",
   "position": 3,
+  "collapsed": false,
   "link": {
     "type": "generated-index"
   }
