@@ -141,7 +141,7 @@ describe("integration:LibTrieProof", function () {
             expect(storageValue).to.be.eq(
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             )
-            // rpc all to get the merkle proof what value is at key on the bridge contract
+            // rpc call to get the merkle proof what value is at key on the bridge contract
             const proof: EthGetProofResponse = await ethers.provider.send(
                 "eth_getProof",
                 [bridge.address, [key], block.hash]

@@ -78,7 +78,21 @@ On the Layer 2 Bridge, the relayer, upon receipt of the Layer 1 `LibBridgeData.M
 
 `LibBridgeProces.processMessage` requires the message's `destChainId`, set earlier, is equal to the current `block.chainid`. Then, it will hash the message to generate the `signal`, and then require the internal `state.messageStatus` of the signal is equal to `LibBridgeData.MessageStatus.NEW` to ensure the message has not been processed already.
 
-It will then require that the signal has been received, using `LibBridgeSignal.isSignalReceived(resolver, srcBridge, sender, signal, proof)`, and, using Merkle Trie verification via `LibTrieProof`, and the synced header hash from the `TaikoL2` contract, make sure the block has been synced to by comparing the merkle proof block header hash. The proof generated is proof that the storage of the `srcBridge` address contains a key, generated wth `_key(sender, signal)` on LibBridgeSignal, is equal to the value of `bytes32(uint256(1))`, proving that bridge has sent the signal from the Layer 1 chain. You can generate the proof with `eth_getProof` RPC call to Layer 1.
+It will then require that the signal has been received, using `LibBridgeSignal.isSignalReceived(resolver, srcBridge, sender, signal, proof)`, and, using Merkle Trie verification via `LibTrieProof`, and the synced header hash from the `TaikoL2` contract, make sure the block has been synced to by comparing the merkle proof block header hash. The proof generated is proof that the storage of the `srcBridge` address contains a key, generated wth `_key(sender, signal)` on LibBridgeSignal, is equal to the value of `bytes32(uint256(1))`, proving that bridge has sent the signal from the Layer 1 chain. You can generate the proof with `eth_getProof` RPC call to Layer 1. The `LibTrieProof` expects the proof to be RLP encoded and concatenated together. In Javascript this looks like:
+
+```ts
+const proof = await ethers.provider.send("eth_getProof", [
+    bridge.address,
+    [key],
+    block.hash,
+])
+
+// RLP encode the proof together for LibTrieProof to decode
+const encodedProof = ethers.utils.defaultAbiCoder.encode(
+    ["bytes", "bytes"],
+    [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)]
+)
+```
 
 If that passes verification, the `EtherVault.receiveEither()` call is made to receive Ether on Layer 2. Then, the ether is sent to the `message.owner`.
 
