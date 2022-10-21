@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../../../bridge/libs/LibBridgeSend.sol";
 
-abstract contract TestLibBridgeSend is IBridge {
+contract TestLibBridgeSend {
     LibBridgeData.State public state;
 
     function sendMessage(
