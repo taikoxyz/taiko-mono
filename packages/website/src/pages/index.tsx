@@ -30,12 +30,12 @@ function HomepageHeader() {
         )}
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>
-          <a
+          <Link
             className="button button--secondary button--lg"
-            href="./taiko-whitepaper.pdf"
+            href="https://github.com/taikochain/whitepaper/releases"
           >
             Read the Whitepaper
-          </a>
+          </Link>
         </div>
       </div>
     </header>
