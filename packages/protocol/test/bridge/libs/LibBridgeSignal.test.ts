@@ -40,8 +40,11 @@ describe("LibBridgeSignal", function () {
             it("throws when sender is zero address", async function () {
                 const { libSignal, testMessage } =
                     await deployLibBridgeSignalFixture()
+
                 const { libData } = await deployLibBridgeDataFixture()
+
                 const signal = await libData.hashMessage(testMessage)
+
                 await expect(
                     libSignal.sendSignal(ethers.constants.AddressZero, signal)
                 ).to.revertedWith("B:sender")
@@ -50,6 +53,7 @@ describe("LibBridgeSignal", function () {
             it("throws when signal is zero", async function () {
                 const { owner, libSignal } =
                     await deployLibBridgeSignalFixture()
+
                 await expect(
                     libSignal.sendSignal(
                         owner.address,
@@ -62,9 +66,13 @@ describe("LibBridgeSignal", function () {
             it("properly sent message should be received", async function () {
                 const { owner, libSignal, testMessage } =
                     await deployLibBridgeSignalFixture()
+
                 const { libData } = await deployLibBridgeDataFixture()
+
                 const signal = await libData.hashMessage(testMessage)
+
                 await libSignal.sendSignal(owner.address, signal)
+
                 expect(
                     await libSignal.isSignalSent(owner.address, signal)
                 ).to.eq(true)
