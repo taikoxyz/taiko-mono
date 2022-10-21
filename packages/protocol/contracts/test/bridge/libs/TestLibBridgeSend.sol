@@ -13,7 +13,10 @@ import "../../../bridge/libs/LibBridgeSend.sol";
 abstract contract TestLibBridgeSend is IBridge {
     LibBridgeData.State public state;
 
-    // function get() public view returns(LibBridgeData.State memory) {
-    //     return state;
-    // }
+    function sendMessage(
+        AddressResolver resolver,
+        IBridge.Message memory message
+    ) public returns (bytes32 signal) {
+        return LibBridgeSend.sendMessage(state, resolver, message);
+    }
 }
