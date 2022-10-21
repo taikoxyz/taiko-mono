@@ -10,7 +10,7 @@
         "eslint": "npx eslint --ignore-path .eslintignore --ext .js,.ts .",
         "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
         "test": "npx hardhat test --grep '^[^integration]'",
-        "coverage": "npx hardhat coverage",
+        "coverage": "npx hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
         "test:coverage": "npm run test && npm run coverage",
         "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
         "test:genesis": "./test/genesis/generate_genesis.test.sh",
