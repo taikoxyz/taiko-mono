@@ -7,7 +7,7 @@ Refer to the [Taiko documentation style guide](./docs/contributing/taiko-documen
 ### Installation
 
 ```sh
-yarn
+yarn install
 ```
 
 ### Local development
