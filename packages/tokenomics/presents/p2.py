@@ -3,6 +3,7 @@ from present import Config, Timing, Present
 present = Present(
     title="p2: another present example",
     desc="xyz111",
+    days=10,
     config=Config(
         max_slots=1000,
         lamda_ratio=1,

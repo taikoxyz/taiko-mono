@@ -1,13 +1,9 @@
-# streamlit run main.py
-
 import salabim as sim
 import matplotlib.pyplot as plt
 import streamlit as st
 from enum import Enum
 from typing import NamedTuple
 from plots import plot
-import pandas as pd
-import numpy as np
 from present import Config, Present
 from presents.p1 import present as p1
 from presents.p2 import present as p2
@@ -236,7 +232,7 @@ class Proposer(sim.Component):
                     ).sample()
                 )
 
-def simulate(config):
+def simulate(config, days):
     st.markdown("-----")
     st.markdown("##### Block & proof time and deviation settings")
     st.caption("[block_time_avg_second, block_time_sd_pctg, proof_time_avg_minute, proof_time_sd_pctg]")
@@ -257,16 +253,16 @@ def simulate(config):
 
    
     st.markdown("-----")
-    if st.button("Click to run", key="run"):
+    if st.button("Click to run ({} days)".format(days), key="run"):
         actual_config = Config(timing=config.timing, **inputs)
 
         protocol = Protocol(config=actual_config)
         proposer = Proposer(protocol=protocol)
 
-        env.run(till= 7 * DAY)
+        env.run(till= days * DAY)
 
         st.markdown("-----")
-        st.markdown("##### Results")
+        st.markdown("##### Result")
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
@@ -280,7 +276,7 @@ def simulate(config):
 
 if __name__ == "__main__":
     env = sim.Environment(trace=False)
-    st.title("Taiko Tokenomics Simulation")
+    st.title("Taiko Block Fee/Reward Simulation")
 
     presents = [p1, p2]
     st.markdown("## Configs")
@@ -293,4 +289,4 @@ if __name__ == "__main__":
     st.markdown("-----")
     st.markdown("##### About this config")
     st.markdown(present.desc)
-    simulate(present.config)
+    simulate(present.config, present.days)

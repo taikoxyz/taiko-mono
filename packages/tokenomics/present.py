@@ -19,5 +19,6 @@ class Config(NamedTuple):
 class Present(NamedTuple):
     title: str
     desc: str
+    days: int
     config: Config
 

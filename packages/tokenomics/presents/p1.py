@@ -13,6 +13,7 @@ We should be able to verify:
 - the total mint of new tokens shall stay the same after a while.
 - if `proof_time_sd_pctg` is changed to 0, the proving rewards shall be exactly be the same as the proposing fees.
 """,
+    days=7,
     config=Config(
         max_slots=10000000,
         lamda_ratio=100000,
