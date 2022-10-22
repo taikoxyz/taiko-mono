@@ -10,8 +10,10 @@ class Config(NamedTuple):
     max_slots: int
     lamda_ratio: float
     base_fee: int
-    base_fee_smoothing: int
-    block_and_proof_smoothing: int
+    base_fee_maf: int
+    reward_min_ratio: float
+    reward_max_ratio: float
+    block_and_proof_time_maf: int
     timing: list[Timing]
 
 class Present(NamedTuple):

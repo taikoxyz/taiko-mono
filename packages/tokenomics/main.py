@@ -1,4 +1,4 @@
-# streamlit run tokenomics.py
+# streamlit run main.py
 
 import salabim as sim
 import matplotlib.pyplot as plt
@@ -19,18 +19,36 @@ class Status(Enum):
     PROVEN = 2
     FINALIZED = 3
 
-
 class Block(NamedTuple):
     status: Status
     fee: int
     proposed_at: int
     proven_at: int
 
-
 def calc_proving_fee(base_fee, min_fee, max_fee, avg_delay, delay):
     _max_fee = max(2 * min_fee - base_fee, max_fee) * 1.0
     return min(_max_fee, 1.0 * delay * (base_fee - min_fee) / avg_delay + min_fee)
 
+def get_day(config):
+    day = int(env.now() / DAY)
+    if day >= len(config.timing):
+        day = len(config.timing) - 1
+    return day
+
+def get_block_time_avg_second(config):
+    return config.timing[get_day(config)].block_time_avg_second
+
+def get_block_time_sd_pctg(config):
+    return config.timing[get_day(config)].block_time_sd_pctg
+
+def get_proof_time_avg_second(config):
+    return config.timing[get_day(config)].proof_time_avg_minute * 60
+
+def get_proof_time_sd_pctg(config):
+    return config.timing[get_day(config)].proof_time_sd_pctg
+
+def moving_average(ma, v, maf):
+    return (ma * (maf - 1) + v) * 1.0 / maf
 
 class Protocol(sim.Component):
     def setup(self, config):
@@ -84,9 +102,10 @@ class Protocol(sim.Component):
             if self.avg_block_time == 0:
                 self.avg_block_time = block_time
             else:
-                self.avg_block_time = (
-                    (self.config.block_and_proof_smoothing - 1) * self.avg_block_time + block_time
-                ) / self.config.block_and_proof_smoothing
+                self.avg_block_time = moving_average(
+                    self.avg_block_time,
+                    block_time,
+                    self.config.block_and_proof_time_maf)
 
             fee = self.slot_fee()
             self.m_fee.tally(fee)
@@ -139,26 +158,26 @@ class Protocol(sim.Component):
                 if self.avg_proof_time == 0:
                     self.avg_proof_time = proof_time
                 else:
-                    self.avg_proof_time = (
-                        (self.config.block_and_proof_smoothing - 1) * self.avg_proof_time + proof_time
-                    ) / self.config.block_and_proof_smoothing
+                    self.avg_proof_time = moving_average(
+                        self.avg_proof_time,
+                        proof_time,
+                        self.config.block_and_proof_time_maf)
 
                 reward = self.slot_fee()
                 adjustedReward = calc_proving_fee(
-                    reward, 0.75 * reward, 2 * reward, self.avg_proof_time, proof_time
+                    reward,
+                    self.config.reward_min_ratio * reward,
+                    self.config.reward_max_ratio * reward,
+                    self.avg_proof_time,
+                    proof_time
                 )
 
-                self.base_fee = (
-                    (
-                        self.base_fee * (self.config.base_fee_smoothing - 1)
-                        + self.base_fee * adjustedReward / reward
-                    )
-                    * 1.0
-                    / self.config.base_fee_smoothing
-                )
+                self.base_fee = moving_average(
+                    self.base_fee,
+                    self.base_fee * adjustedReward / reward,
+                    self.config.base_fee_maf)
 
-                mint = adjustedReward - self.blocks[self.last_finalized].fee
-                self.mint += mint
+                self.mint += adjustedReward - self.blocks[self.last_finalized].fee
 
                 self.m_reward.tally(adjustedReward)
                 self.m_base_fee.tally(self.base_fee)
@@ -200,9 +219,10 @@ class Proposer(sim.Component):
 
     def process(self):
         while True:
-            if self.protocol.can_propose():
+            if not self.protocol.can_propose():
+                yield self.hold(1)
+            else:
                 self.protocol.propose_block()
-
                 _block_time_avg_second = get_block_time_avg_second(self.config)
                 _block_time_sd_pctg = get_block_time_sd_pctg(self.config)
                 yield self.hold(
@@ -216,27 +236,6 @@ class Proposer(sim.Component):
                         lowerbound=1,
                     ).sample()
                 )
-            else:
-                yield self.hold(1)
-
-def get_day(config):
-    day = int(env.now() / DAY)
-    if day >= len(config.timing):
-        day = len(config.timing) - 1
-    return day
-
-def get_block_time_avg_second(config):
-    return config.timing[get_day(config)].block_time_avg_second
-
-def get_block_time_sd_pctg(config):
-    return config.timing[get_day(config)].block_time_sd_pctg
-
-
-def get_proof_time_avg_second(config):
-    return config.timing[get_day(config)].proof_time_avg_minute * 60
-
-def get_proof_time_sd_pctg(config):
-    return config.timing[get_day(config)].proof_time_sd_pctg
 
 def simulate(config):
     st.markdown("-----")
@@ -277,9 +276,9 @@ def simulate(config):
         plot([(protocol.m_pending_count, "num pending")])
 
         st.write("Fees and Rewards")
-        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "fee")])
-        plot([(protocol.m_reward, "reward")])
-        plot([(protocol.m_mint, "mint")])
+        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "proposer fee")])
+        plot([(protocol.m_reward, "prover reward")])
+        plot([(protocol.m_mint, "TKO supply change")])
 
 
 if __name__ == "__main__":

@@ -17,8 +17,10 @@ We should be able to verify:
         max_slots=10000000,
         lamda_ratio=100000,
         base_fee=100.0,
-        base_fee_smoothing=1024,
-        block_and_proof_smoothing=1024,
+        base_fee_maf=1024,
+        reward_min_ratio = 0.5,
+        reward_max_ratio = 2.0,
+        block_and_proof_time_maf=1024,
         timing=[
             Timing(
                 block_time_avg_second=15,
