@@ -19,24 +19,28 @@ We should be able to verify:
         lamda_ratio=100000,
         base_fee=100.0,
         base_fee_maf=1024,
-        reward_min_ratio = 0.5,
-        reward_max_ratio = 2.0,
+        reward_min_ratio=0.5,
+        reward_max_ratio=2.0,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=0),
+                proof_time_sd_pctg=0,
+            ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=10),
+                proof_time_sd_pctg=10,
+            ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=25,
-                proof_time_sd_pctg=0)]
+                proof_time_sd_pctg=0,
+            ),
+        ],
     ),
 )

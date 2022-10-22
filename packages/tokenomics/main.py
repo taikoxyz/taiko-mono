@@ -10,10 +10,12 @@ from presents.p2 import present as p2
 
 DAY = 24 * 3600
 
+
 class Status(Enum):
     PENDING = 1
     PROVEN = 2
     FINALIZED = 3
+
 
 class Block(NamedTuple):
     status: Status
@@ -21,9 +23,11 @@ class Block(NamedTuple):
     proposed_at: int
     proven_at: int
 
+
 def calc_proving_fee(base_fee, min_fee, max_fee, avg_delay, delay):
     _max_fee = max(2 * min_fee - base_fee, max_fee) * 1.0
     return min(_max_fee, 1.0 * delay * (base_fee - min_fee) / avg_delay + min_fee)
+
 
 def get_day(config):
     day = int(env.now() / DAY)
@@ -31,20 +35,26 @@ def get_day(config):
         day = len(config.timing) - 1
     return day
 
+
 def get_block_time_avg_second(config):
     return config.timing[get_day(config)].block_time_avg_second
+
 
 def get_block_time_sd_pctg(config):
     return config.timing[get_day(config)].block_time_sd_pctg
 
+
 def get_proof_time_avg_second(config):
     return config.timing[get_day(config)].proof_time_avg_minute * 60
+
 
 def get_proof_time_sd_pctg(config):
     return config.timing[get_day(config)].proof_time_sd_pctg
 
+
 def moving_average(ma, v, maf):
     return (ma * (maf - 1) + v) * 1.0 / maf
+
 
 class Protocol(sim.Component):
     def setup(self, config):
@@ -103,7 +113,8 @@ class Protocol(sim.Component):
                 self.avg_block_time = moving_average(
                     self.avg_block_time,
                     block_time,
-                    self.config.block_and_proof_time_maf)
+                    self.config.block_and_proof_time_maf,
+                )
 
             fee = self.slot_fee()
             self.m_fee.tally(fee)
@@ -156,7 +167,8 @@ class Protocol(sim.Component):
                     self.avg_proof_time = moving_average(
                         self.avg_proof_time,
                         proof_time,
-                        self.config.block_and_proof_time_maf)
+                        self.config.block_and_proof_time_maf,
+                    )
 
                 reward = self.slot_fee()
                 adjustedReward = calc_proving_fee(
@@ -164,13 +176,14 @@ class Protocol(sim.Component):
                     self.config.reward_min_ratio * reward,
                     self.config.reward_max_ratio * reward,
                     self.avg_proof_time,
-                    proof_time
+                    proof_time,
                 )
 
                 self.base_fee = moving_average(
                     self.base_fee,
                     self.base_fee * adjustedReward / reward,
-                    self.config.base_fee_maf)
+                    self.config.base_fee_maf,
+                )
 
                 self.mint += adjustedReward - self.blocks[self.last_finalized].fee
 
@@ -197,9 +210,7 @@ class Prover(sim.Component):
             sim.Bounded(
                 sim.Normal(
                     _proof_time_avg_second,
-                    _proof_time_avg_second
-                    * _proof_time_sd_pctg
-                    / 100,
+                    _proof_time_avg_second * _proof_time_sd_pctg / 100,
                 ),
                 lowerbound=1,
             ).sample()
@@ -224,22 +235,23 @@ class Proposer(sim.Component):
                     sim.Bounded(
                         sim.Normal(
                             _block_time_avg_second,
-                            _block_time_avg_second
-                            * _block_time_sd_pctg
-                            / 100,
+                            _block_time_avg_second * _block_time_sd_pctg / 100,
                         ),
                         lowerbound=1,
                     ).sample()
                 )
 
+
 def simulate(config, days):
     st.markdown("-----")
     st.markdown("##### Block & proof time and deviation settings")
-    st.caption("[block_time_avg_second, block_time_sd_pctg, proof_time_avg_minute, proof_time_sd_pctg]")
+    st.caption(
+        "[block_time_avg_second, block_time_sd_pctg, proof_time_avg_minute, proof_time_sd_pctg]"
+    )
     time_str = ""
     for t in config.timing:
         time_str += str(t._asdict().values())
-    st.write(time_str.replace("dict_values","  ☀️").replace("(","").replace(")",""))
+    st.write(time_str.replace("dict_values", "  ☀️").replace("(", "").replace(")", ""))
 
     st.markdown("-----")
     st.markdown("##### You can change these settings")
@@ -251,7 +263,6 @@ def simulate(config, days):
             inputs[k] = cols[i % 4].number_input(k, value=v)
             i += 1
 
-   
     st.markdown("-----")
     if st.button("Click to run ({} days)".format(days), key="run"):
         actual_config = Config(timing=config.timing, **inputs)
@@ -259,7 +270,7 @@ def simulate(config, days):
         protocol = Protocol(config=actual_config)
         proposer = Proposer(protocol=protocol)
 
-        env.run(till= days * DAY)
+        env.run(till=days * DAY)
 
         st.markdown("-----")
         st.markdown("##### Result")
@@ -268,11 +279,12 @@ def simulate(config, days):
         plot([(protocol.m_proof_time, "proof time")])
         plot([(protocol.m_pending_count, "num pending")])
 
-        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "block proposer fee")])
+        plot([(protocol.m_base_fee, "base"), (protocol.m_fee, "block proposer fee")])
         plot([(protocol.m_reward, "block prover reward")])
         plot([(protocol.m_mint, "TKO supply change")])
 
         protocol.print(st)
+
 
 if __name__ == "__main__":
     env = sim.Environment(trace=False)
