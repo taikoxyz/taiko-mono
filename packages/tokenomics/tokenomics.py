@@ -25,6 +25,12 @@ class SimConfig(NamedTuple):
     proof_time_sd_pctg: int
 
 
+class Present(NamedTuple):
+    title: str
+    desc: str
+    config: SimConfig
+
+
 class Status(Enum):
     PENDING = 1
     PROVEN = 2
@@ -37,9 +43,10 @@ class Block(NamedTuple):
     proposed_at: int
     proven_at: int
 
+
 def calc_proving_fee(base_fee, min_fee, max_fee, avg_delay, delay):
-    _max_fee = max(2*min_fee-base_fee, max_fee)*1.0
-    return min(_max_fee, 1.0 * delay * (base_fee - min_fee)/avg_delay + min_fee)
+    _max_fee = max(2 * min_fee - base_fee, max_fee) * 1.0
+    return min(_max_fee, 1.0 * delay * (base_fee - min_fee) / avg_delay + min_fee)
 
 
 class Protocol(sim.Component):
@@ -54,16 +61,18 @@ class Protocol(sim.Component):
         # self.avg_profit = 0
 
         genesis = Block(
-            status=Status.FINALIZED, fee = 0, proposed_at=env.now(), proven_at=env.now()
+            status=Status.FINALIZED, fee=0, proposed_at=env.now(), proven_at=env.now()
         )
         self.blocks = [genesis]
         self.last_finalized = 0
         self.mint = 0
 
         self.m_pending_count = sim.Monitor("pending_count", level=True, initial_tally=0)
-        self.m_base_fee = sim.Monitor("proof_time", level=True, initial_tally=self.base_fee)
+        self.m_base_fee = sim.Monitor(
+            "proof_time", level=True, initial_tally=self.base_fee
+        )
         self.m_fee = sim.Monitor("fee", level=True, initial_tally=self.base_fee)
-        self.m_reward = sim.Monitor("reward", level=True,initial_tally=self.base_fee)
+        self.m_reward = sim.Monitor("reward", level=True, initial_tally=self.base_fee)
         self.m_mint = sim.Monitor("profit", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
@@ -100,7 +109,9 @@ class Protocol(sim.Component):
             # ) / F_PROFIT
             self.m_fee.tally(fee)
 
-            block = Block(status=Status.PENDING, fee = fee, proposed_at=env.now(), proven_at=0)
+            block = Block(
+                status=Status.PENDING, fee=fee, proposed_at=env.now(), proven_at=0
+            )
             # print("block {} proposed at {}".format(len(self.blocks), env.now()))
             self.blocks.append(block)
 
@@ -152,16 +163,18 @@ class Protocol(sim.Component):
 
                 reward = self.slot_fee()
                 adjustedReward = calc_proving_fee(
-                    reward,
-                    0.75*reward,
-                    2*reward,
-                    self.avg_proof_time,
-                    proof_time)
+                    reward, 0.75 * reward, 2 * reward, self.avg_proof_time, proof_time
+                )
                 print("reward {}".format(reward))
-                 
 
-                self.base_fee = (self.base_fee * (BASE_FACTOR - 1) + self.base_fee * adjustedReward / reward)*1.0 / BASE_FACTOR
-
+                self.base_fee = (
+                    (
+                        self.base_fee * (BASE_FACTOR - 1)
+                        + self.base_fee * adjustedReward / reward
+                    )
+                    * 1.0
+                    / BASE_FACTOR
+                )
 
                 mint = adjustedReward - self.blocks[self.last_finalized].fee
                 self.mint += mint
@@ -190,7 +203,10 @@ class Prover(sim.Component):
             sim.Bounded(
                 sim.Normal(
                     self.config.proof_time_avg_minute * 60,
-                    self.config.proof_time_avg_minute * 60 * self.config.proof_time_sd_pctg /100
+                    self.config.proof_time_avg_minute
+                    * 60
+                    * self.config.proof_time_sd_pctg
+                    / 100,
                 ),
                 lowerbound=1,
             ).sample()
@@ -212,7 +228,9 @@ class Proposer(sim.Component):
                     sim.Bounded(
                         sim.Normal(
                             self.config.block_time_avg_second,
-                            self.config.block_time_avg_second * self.config.block_time_sd_ptcg /100
+                            self.config.block_time_avg_second
+                            * self.config.block_time_sd_ptcg
+                            / 100,
                         ),
                         lowerbound=1,
                     ).sample()
@@ -224,7 +242,7 @@ class Proposer(sim.Component):
 def simulate(config):
     cols = st.columns([1, 1, 1, 1])
     inputs = {}
-    i = 0;
+    i = 0
     for (k, v) in config._asdict().items():
         inputs[k] = cols[i % 4].number_input(k, value=v)
         i += 1
@@ -238,39 +256,68 @@ def simulate(config):
     # block_time_sd = col2.slider("deviation block time", 0, 100, 20)
     # sd_proof_time = col2.slider("deviation proof time", 0, 100, 25)
 
-
     if st.button("Click to run", key="run"):
         actual_config = SimConfig(**inputs)
 
         protocol = Protocol(config=actual_config)
         protocol.print(st)
 
-        proposer = Proposer(protocol = protocol)
+        proposer = Proposer(protocol=protocol)
 
-        env.run(till = actual_config.duration_days * DAY)
+        env.run(till=actual_config.duration_days * DAY)
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
         plot([(protocol.m_pending_count, "num pending")])
 
         st.write("Fees and Rewards")
-        plot([(protocol.m_base_fee, "base"),
-            (protocol.m_fee, "fee"),
-            (protocol.m_reward, "reward")])
+        plot(
+            [
+                (protocol.m_base_fee, "base"),
+                (protocol.m_fee, "fee"),
+                (protocol.m_reward, "reward"),
+            ]
+        )
         plot([(protocol.m_mint, "mint")])
 
 
-config = SimConfig(
-    duration_days = 5,
-    max_slots = 1000,
-    lamda_ratio = 1,
-    base_fee = 10.0,
-    block_time_avg_second = 10,
-    block_time_sd_ptcg = 0,
-    proof_time_avg_minute = 45,
-    proof_time_sd_pctg = 10
-    )
+config1 = SimConfig(
+    duration_days=5,
+    max_slots=1,
+    lamda_ratio=1,
+    base_fee=10.0,
+    block_time_avg_second=10,
+    block_time_sd_ptcg=0,
+    proof_time_avg_minute=45,
+    proof_time_sd_pctg=10,
+)
+
+config2 = SimConfig(
+    duration_days=5,
+    max_slots=1000,
+    lamda_ratio=1,
+    base_fee=10.0,
+    block_time_avg_second=10,
+    block_time_sd_ptcg=0,
+    proof_time_avg_minute=60,
+    proof_time_sd_pctg=0,
+)
+
+presents = [
+    Present(title="hi", desc="b", config=config1),
+    Present(title="hi2", desc="baaa", config=config2),
+]
 
 if __name__ == "__main__":
     env = sim.Environment(trace=False)
-    simulate(config)
+    st.title("Taiko Tokenomics Simulation")
+    # st.subheader("Predefined configs")
+    selected = st.radio(
+        "Please choose a predefined config",
+        [0, 1],
+        format_func=lambda x: presents[x].title,
+    )
+    present = presents[selected]
+    st.write("About this config:")
+    st.write(present.desc)
+    simulate(present.config)
