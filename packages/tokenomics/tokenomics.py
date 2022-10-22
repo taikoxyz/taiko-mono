@@ -6,7 +6,9 @@ import streamlit as st
 from enum import Enum
 from typing import NamedTuple
 from plots import plot
-from present import SimConfig, Present
+import pandas as pd
+import numpy as np
+from present import Config, Present
 from presents.p1 import present as p1
 from presents.p2 import present as p2
 
@@ -59,7 +61,8 @@ class Protocol(sim.Component):
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
 
     def print(self, st):
-        st.caption("Protocol internal variables")
+        st.markdown("-----")
+        st.markdown("##### Protocol internal variables")
         st.write("lamda = {}".format(self.lamda))
 
     def slot_fee(self):
@@ -144,7 +147,6 @@ class Protocol(sim.Component):
                 adjustedReward = calc_proving_fee(
                     reward, 0.75 * reward, 2 * reward, self.avg_proof_time, proof_time
                 )
-                print("reward {}".format(reward))
 
                 self.base_fee = (
                     (
@@ -175,13 +177,14 @@ class Prover(sim.Component):
         self.blockId = blockId
 
     def process(self):
+        _proof_time_avg_second = get_proof_time_avg_second(self.config)
+        _proof_time_sd_pctg = get_proof_time_sd_pctg(self.config)
         yield self.hold(
             sim.Bounded(
                 sim.Normal(
-                    self.config.proof_time_avg_minute * 60,
-                    self.config.proof_time_avg_minute
-                    * 60
-                    * self.config.proof_time_sd_pctg
+                    _proof_time_avg_second,
+                    _proof_time_avg_second
+                    * _proof_time_sd_pctg
                     / 100,
                 ),
                 lowerbound=1,
@@ -200,12 +203,14 @@ class Proposer(sim.Component):
             if self.protocol.can_propose():
                 self.protocol.propose_block()
 
+                _block_time_avg_second = get_block_time_avg_second(self.config)
+                _block_time_sd_pctg = get_block_time_sd_pctg(self.config)
                 yield self.hold(
                     sim.Bounded(
                         sim.Normal(
-                            self.config.block_time_avg_second,
-                            self.config.block_time_avg_second
-                            * self.config.block_time_sd_ptcg
+                            _block_time_avg_second,
+                            _block_time_avg_second
+                            * _block_time_sd_pctg
                             / 100,
                         ),
                         lowerbound=1,
@@ -214,24 +219,58 @@ class Proposer(sim.Component):
             else:
                 yield self.hold(1)
 
+def get_day(config):
+    day = int(env.now() / DAY)
+    if day >= len(config.timing):
+        day = len(config.timing) - 1
+    return day
+
+def get_block_time_avg_second(config):
+    return config.timing[get_day(config)].block_time_avg_second
+
+def get_block_time_sd_pctg(config):
+    return config.timing[get_day(config)].block_time_sd_pctg
+
+
+def get_proof_time_avg_second(config):
+    return config.timing[get_day(config)].proof_time_avg_minute * 60
+
+def get_proof_time_sd_pctg(config):
+    return config.timing[get_day(config)].proof_time_sd_pctg
 
 def simulate(config):
+    st.markdown("-----")
+    st.markdown("##### Block & proof time and deviation settings")
+    st.caption("[block_time_avg_second, block_time_sd_pctg, proof_time_avg_minute, proof_time_sd_pctg]")
+    time_str = ""
+    for t in config.timing:
+        time_str += str(t._asdict().values())
+    st.write(time_str.replace("dict_values","  ☀️").replace("(","").replace(")",""))
+
+    st.markdown("-----")
+    st.markdown("##### You can change these settings")
     cols = st.columns([1, 1, 1, 1])
     inputs = {}
     i = 0
     for (k, v) in config._asdict().items():
-        inputs[k] = cols[i % 4].number_input(k, value=v)
-        i += 1
+        if k != "timing":
+            inputs[k] = cols[i % 4].number_input(k, value=v)
+            i += 1
 
+   
+    st.markdown("-----")
     if st.button("Click to run", key="run"):
-        actual_config = SimConfig(**inputs)
+        actual_config = Config(timing=config.timing, **inputs)
 
         protocol = Protocol(config=actual_config)
         protocol.print(st)
 
         proposer = Proposer(protocol=protocol)
 
-        env.run(till=actual_config.duration_days * DAY)
+        env.run(till= 7 * DAY)
+
+        st.markdown("-----")
+        st.markdown("##### Outputs")
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
@@ -248,12 +287,14 @@ if __name__ == "__main__":
     st.title("Taiko Tokenomics Simulation")
 
     presents = [p1, p2]
+    st.markdown("## Configs")
     selected = st.radio(
-        "Please choose a predefined config",
+        "Please choose one of the following predefined configs:",
         range(0, len(presents)),
         format_func=lambda x: presents[x].title,
     )
     present = presents[selected]
-
+    st.markdown("-----")
+    st.markdown("##### About this config")
     st.markdown(present.desc)
     simulate(present.config)
