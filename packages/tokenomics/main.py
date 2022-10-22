@@ -59,7 +59,6 @@ class Protocol(sim.Component):
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
-        # self.avg_profit = 0
 
         genesis = Block(
             status=Status.FINALIZED, fee=0, proposed_at=env.now(), proven_at=env.now()
@@ -80,7 +79,7 @@ class Protocol(sim.Component):
 
     def print(self, st):
         st.markdown("-----")
-        st.markdown("##### Protocol internal variables")
+        st.markdown("##### Protocol state")
         st.write("lamda = {}".format(self.lamda))
         st.write("last_finalized = {}".format(self.last_finalized))
         st.write("num_blocks = {}".format(len(self.blocks)))
@@ -116,7 +115,6 @@ class Protocol(sim.Component):
             block = Block(
                 status=Status.PENDING, fee=fee, proposed_at=env.now(), proven_at=0
             )
-            # print("block {} proposed at {}".format(len(self.blocks), env.now()))
             self.blocks.append(block)
 
             Prover(protocol=self, config=self.config, blockId=len(self.blocks) - 1)
@@ -134,7 +132,6 @@ class Protocol(sim.Component):
             self.blocks[id] = self.blocks[id]._replace(
                 status=Status.PROVEN, proven_at=env.now()
             )
-            # print("block {} proven at {}".format(id, env.now()))
             self.finalize_block()
 
     def can_finalize(self):
@@ -150,7 +147,6 @@ class Protocol(sim.Component):
                 self.blocks[self.last_finalized] = self.blocks[
                     self.last_finalized
                 ]._replace(status=Status.FINALIZED)
-                # print("block {} finalized at {}".format(self.last_finalized, env.now()))
 
                 proof_time = (
                     self.blocks[self.last_finalized].proven_at
@@ -276,8 +272,8 @@ def simulate(config):
         plot([(protocol.m_proof_time, "proof time")])
         plot([(protocol.m_pending_count, "num pending")])
 
-        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "proposer fee")])
-        plot([(protocol.m_reward, "prover reward")])
+        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "block proposer fee")])
+        plot([(protocol.m_reward, "block prover reward")])
         plot([(protocol.m_mint, "TKO supply change")])
 
         protocol.print(st)
