@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import streamlit as st
 
-
 def plot(sources):
     fig, ax = plt.subplots(figsize=(15, 5), nrows=1, ncols=1)
     for s in sources:

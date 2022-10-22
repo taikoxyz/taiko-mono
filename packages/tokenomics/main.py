@@ -82,6 +82,9 @@ class Protocol(sim.Component):
         st.markdown("-----")
         st.markdown("##### Protocol internal variables")
         st.write("lamda = {}".format(self.lamda))
+        st.write("last_finalized = {}".format(self.last_finalized))
+        st.write("num_blocks = {}".format(len(self.blocks)))
+        st.write("mint = {}".format(self.mint))
 
     def slot_fee(self):
         n = self.config.max_slots - self.num_pending() + self.lamda
@@ -262,24 +265,22 @@ def simulate(config):
         actual_config = Config(timing=config.timing, **inputs)
 
         protocol = Protocol(config=actual_config)
-        protocol.print(st)
-
         proposer = Proposer(protocol=protocol)
 
         env.run(till= 7 * DAY)
 
         st.markdown("-----")
-        st.markdown("##### Outputs")
+        st.markdown("##### Results")
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
         plot([(protocol.m_pending_count, "num pending")])
 
-        st.write("Fees and Rewards")
         plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "proposer fee")])
         plot([(protocol.m_reward, "prover reward")])
         plot([(protocol.m_mint, "TKO supply change")])
 
+        protocol.print(st)
 
 if __name__ == "__main__":
     env = sim.Environment(trace=False)
