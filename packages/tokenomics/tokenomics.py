@@ -6,26 +6,11 @@ import streamlit as st
 from enum import Enum
 from typing import NamedTuple
 from plots import plot
+from present import SimConfig, Present
+from presents.p1 import present as p1
+from presents.p2 import present as p2
 
 DAY = 24 * 3600
-
-class SimConfig(NamedTuple):
-    duration_days: int
-    max_slots: int
-    lamda_ratio: float
-    base_fee: int
-    base_fee_smoothing: int
-    block_and_proof_smoothing: int
-    block_time_avg_second: int
-    block_time_sd_ptcg: int
-    proof_time_avg_minute: int
-    proof_time_sd_pctg: int
-
-class Present(NamedTuple):
-    title: str
-    desc: str
-    config: SimConfig
-
 
 class Status(Enum):
     PENDING = 1
@@ -263,47 +248,18 @@ def simulate(config):
         plot([(protocol.m_mint, "mint")])
 
 
-config1 = SimConfig(
-    duration_days=5,
-    max_slots=1,
-    lamda_ratio=1,
-    base_fee=10.0,
-    base_fee_smoothing = 512,
-    block_and_proof_smoothing = 1024,
-    block_time_avg_second=10,
-    block_time_sd_ptcg=0,
-    proof_time_avg_minute=45,
-    proof_time_sd_pctg=10,
-)
-
-config2 = SimConfig(
-    duration_days=5,
-    max_slots=1000,
-    lamda_ratio=1,
-    base_fee=10.0,
-    base_fee_smoothing = 1024,
-    block_and_proof_smoothing = 1024,
-    block_time_avg_second=10,
-    block_time_sd_ptcg=0,
-    proof_time_avg_minute=60,
-    proof_time_sd_pctg=0,
-)
-
-presents = [
-    Present(title="hi", desc="b", config=config1),
-    Present(title="hi2", desc="baaa", config=config2),
-]
-
 if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Tokenomics Simulation")
-    # st.subheader("Predefined configs")
+
+    presents = [p1, p2]
     selected = st.radio(
         "Please choose a predefined config",
-        [0, 1],
+        range(0, len(presents)),
         format_func=lambda x: presents[x].title,
     )
     present = presents[selected]
+
     st.caption("About this config")
     st.write(present.desc)
     simulate(present.config)
