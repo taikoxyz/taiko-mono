@@ -7,23 +7,19 @@ from enum import Enum
 from typing import NamedTuple
 from plots import plot
 
-F_PROFIT = 512
-F_TIME = 1024
 DAY = 24 * 3600
-BASE = 10
-BASE_FACTOR = 1024
-
 
 class SimConfig(NamedTuple):
     duration_days: int
     max_slots: int
     lamda_ratio: float
     base_fee: int
+    base_fee_smoothing: int
+    block_and_proof_smoothing: int
     block_time_avg_second: int
     block_time_sd_ptcg: int
     proof_time_avg_minute: int
     proof_time_sd_pctg: int
-
 
 class Present(NamedTuple):
     title: str
@@ -78,6 +74,7 @@ class Protocol(sim.Component):
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
 
     def print(self, st):
+        st.caption("Protocol internal variables")
         st.write("lamda = {}".format(self.lamda))
 
     def slot_fee(self):
@@ -100,13 +97,10 @@ class Protocol(sim.Component):
                 self.avg_block_time = block_time
             else:
                 self.avg_block_time = (
-                    (F_TIME - 1) * self.avg_block_time + block_time
-                ) / F_TIME
+                    (self.config.block_and_proof_smoothing - 1) * self.avg_block_time + block_time
+                ) / self.config.block_and_proof_smoothing
 
             fee = self.slot_fee()
-            # self.avg_profit = (
-            #     (F_PROFIT - 1) * self.avg_profit + self.mint
-            # ) / F_PROFIT
             self.m_fee.tally(fee)
 
             block = Block(
@@ -158,8 +152,8 @@ class Protocol(sim.Component):
                     self.avg_proof_time = proof_time
                 else:
                     self.avg_proof_time = (
-                        (F_TIME - 1) * self.avg_proof_time + proof_time
-                    ) / F_TIME
+                        (self.config.block_and_proof_smoothing - 1) * self.avg_proof_time + proof_time
+                    ) / self.config.block_and_proof_smoothing
 
                 reward = self.slot_fee()
                 adjustedReward = calc_proving_fee(
@@ -169,19 +163,16 @@ class Protocol(sim.Component):
 
                 self.base_fee = (
                     (
-                        self.base_fee * (BASE_FACTOR - 1)
+                        self.base_fee * (self.config.base_fee_smoothing - 1)
                         + self.base_fee * adjustedReward / reward
                     )
                     * 1.0
-                    / BASE_FACTOR
+                    / self.config.base_fee_smoothing
                 )
 
                 mint = adjustedReward - self.blocks[self.last_finalized].fee
                 self.mint += mint
 
-                # self.avg_profit = (
-                #     (F_PROFIT - 1) * self.avg_profit + self.mint
-                # ) / F_PROFIT
                 self.m_reward.tally(adjustedReward)
                 self.m_base_fee.tally(self.base_fee)
                 self.m_mint.tally(self.mint)
@@ -247,15 +238,6 @@ def simulate(config):
         inputs[k] = cols[i % 4].number_input(k, value=v)
         i += 1
 
-    # # # columns
-    # avg_block_time = col1.number_input("avg block time (second)", 15)
-    # # # sliders
-    # avg_block_time = col1.slider("avg block time (second)", 10, 120, 15)
-    # avg_proof_time = col1.slider("avg proof time (minute)", 15, 60, 45) * 60
-
-    # block_time_sd = col2.slider("deviation block time", 0, 100, 20)
-    # sd_proof_time = col2.slider("deviation proof time", 0, 100, 25)
-
     if st.button("Click to run", key="run"):
         actual_config = SimConfig(**inputs)
 
@@ -286,6 +268,8 @@ config1 = SimConfig(
     max_slots=1,
     lamda_ratio=1,
     base_fee=10.0,
+    base_fee_smoothing = 512,
+    block_and_proof_smoothing = 1024,
     block_time_avg_second=10,
     block_time_sd_ptcg=0,
     proof_time_avg_minute=45,
@@ -297,6 +281,8 @@ config2 = SimConfig(
     max_slots=1000,
     lamda_ratio=1,
     base_fee=10.0,
+    base_fee_smoothing = 1024,
+    block_and_proof_smoothing = 1024,
     block_time_avg_second=10,
     block_time_sd_ptcg=0,
     proof_time_avg_minute=60,
@@ -318,6 +304,6 @@ if __name__ == "__main__":
         format_func=lambda x: presents[x].title,
     )
     present = presents[selected]
-    st.write("About this config:")
+    st.caption("About this config")
     st.write(present.desc)
     simulate(present.config)
