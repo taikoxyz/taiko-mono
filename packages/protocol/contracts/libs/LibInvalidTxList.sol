@@ -11,8 +11,8 @@ pragma solidity ^0.8.9;
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibTxUtils.sol";
-import "../thirdparty/Lib_RLPReader.sol";
-import "../thirdparty/Lib_RLPWriter.sol";
+import "../thirdparty/LibRLPReader.sol";
+import "../thirdparty/LibRLPWriter.sol";
 
 /// @dev A library to invalidate a txList using the following rules:
 /// @author david <david@taiko.xyz>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/resolver/Lib_AddressManager.sol
+// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/resolver/LibAddressManager.sol
 // Modified:
-//   - contract name `Lib_AddressManager` modified to `AddressManager` to obey `lint:sol`
+//   - contract name `LibAddressManager` modified to `AddressManager` to obey `lint:sol`
 //   - `Ownable.sol` modified to `OwnableUpgradeable.sol`
 //   - `init()` added to initialize
 //   - `setAddress` modified to `addAddress` to conform to ABI of `IAddressManager.sol`

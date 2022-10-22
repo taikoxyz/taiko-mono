@@ -24,7 +24,7 @@ export async function deployERC20(
 
     const artifact = require(path.join(
         ARTIFACTS_PATH,
-        "./test/TestERC20.sol/TestERC20.json"
+        "./test/thirdparty/TestERC20.sol/TestERC20.json"
     ))
 
     const address = ethers.utils.getCreate2Address(
