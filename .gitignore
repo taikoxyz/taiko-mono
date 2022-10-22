@@ -108,4 +108,3 @@ dist
 
 # vscode
 .vscode/
-packages/tokenomics/__pycache__/
