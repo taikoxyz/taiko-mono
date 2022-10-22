@@ -5,14 +5,20 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from enum import Enum
 from typing import NamedTuple
-from timeincentive import fee_discount as fee_dis, reward_discount as reward_dis
 from plots import plot
 
 F_PROFIT = 512
 F_TIME = 1024
 DAY = 24 * 3600
-F_MIN = 10
-F_MIN_FACTOR = 0.0002
+BASE = 10
+BASE_FACTOR = 1024
+
+
+class SimConfig(NamedTuple):
+    max_slots: int
+    lamda_ratio: float
+    base_fee: int
+
 class Status(Enum):
     PENDING = 1
     PROVEN = 2
@@ -25,20 +31,23 @@ class Block(NamedTuple):
     proposed_at: int
     proven_at: int
 
+def calc_proving_fee(base_fee, min_fee, max_fee, avg_delay, delay):
+    _max_fee = max(2*min_fee-base_fee, max_fee)*1.0
+    return min(_max_fee, 1.0 * delay * (base_fee - min_fee)/avg_delay + min_fee)
+
 
 class Protocol(sim.Component):
-    def setup(self, max_slots, lamda_ratio):
-        self.max_slots = max_slots
-        self.f_min = F_MIN
-        self.lamda = int(self.max_slots * lamda_ratio)
-        self.phi = (self.max_slots + self.lamda - 1) * (self.max_slots + self.lamda)
+    def setup(self, config):
+        self.config = config
+        self.base_fee = config.base_fee
+        self.lamda = int(config.max_slots * config.lamda_ratio)
+        self.phi = (config.max_slots + self.lamda - 1) * (config.max_slots + self.lamda)
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
         # self.avg_profit = 0
-        st.write("protocol.max_slots = {}".format(max_slots))
+        st.write("protocol.config = {}".format(config))
         st.write("protocol.lamda = {}".format(self.lamda))
-        st.write("protocol.f_min = {}".format(self.f_min))
 
         genesis = Block(
             status=Status.FINALIZED, fee = 0, proposed_at=env.now(), proven_at=env.now()
@@ -48,30 +57,22 @@ class Protocol(sim.Component):
         self.mint = 0
 
         self.m_pending_count = sim.Monitor("pending_count", level=True, initial_tally=0)
+        self.m_base_fee = sim.Monitor("proof_time", level=True, initial_tally=self.base_fee)
+        self.m_fee = sim.Monitor("fee", level=True, initial_tally=self.base_fee)
+        self.m_reward = sim.Monitor("reward", level=True,initial_tally=self.base_fee)
         self.m_mint = sim.Monitor("profit", level=True, initial_tally=0)
-        self.m_fee = sim.Monitor("fee", level=True, initial_tally=0)
-        self.m_actual_fee = sim.Monitor("actual_fee", level=True, initial_tally=0)
-        self.m_reward = sim.Monitor("reward", level=True, initial_tally=0)
-        self.m_actual_reward = sim.Monitor("actual_reward", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
-        self.m_f_min = sim.Monitor("proof_time", level=True, initial_tally=self.f_min)
 
     def slot_fee(self):
-        n = self.max_slots - self.num_pending() + self.lamda
-        return self.f_min * self.phi / n / (n - 1)
-
-    def fee_discount(self, block_time):
-        return fee_dis(block_time, self.avg_block_time)
-
-    def reward_discount(self, proof_time):
-        return reward_dis(proof_time, self.avg_proof_time)
+        n = self.config.max_slots - self.num_pending() + self.lamda
+        return self.base_fee * self.phi / n / (n - 1)
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized - 1
 
     def can_propose(self):
-        return self.num_pending() < self.max_slots
+        return self.num_pending() < self.config.max_slots
 
     def propose_block(self):
         if self.can_propose():
@@ -87,19 +88,12 @@ class Protocol(sim.Component):
                 ) / F_TIME
 
             fee = self.slot_fee()
-            discount = self.fee_discount(block_time)
-
-            if (discount < 1):
-                self.f_min /= 1+F_MIN_FACTOR
-
-            actual_fee = fee * discount
             # self.avg_profit = (
             #     (F_PROFIT - 1) * self.avg_profit + self.mint
             # ) / F_PROFIT
             self.m_fee.tally(fee)
-            self.m_actual_fee.tally(actual_fee)
 
-            block = Block(status=Status.PENDING, fee = actual_fee, proposed_at=env.now(), proven_at=0)
+            block = Block(status=Status.PENDING, fee = fee, proposed_at=env.now(), proven_at=0)
             # print("block {} proposed at {}".format(len(self.blocks), env.now()))
             self.blocks.append(block)
 
@@ -150,23 +144,27 @@ class Protocol(sim.Component):
                     ) / F_TIME
 
                 reward = self.slot_fee()
-                discount = self.reward_discount(proof_time)
+                adjustedReward = calc_proving_fee(
+                    reward,
+                    0.75*reward,
+                    2*reward,
+                    self.avg_proof_time,
+                    proof_time)
+                print("reward {}".format(reward))
+                 
 
-                if discount > 1:
-                    self.f_min *= 1+F_MIN_FACTOR
+                self.base_fee = (self.base_fee * (BASE_FACTOR - 1) + self.base_fee * adjustedReward / reward)*1.0 / BASE_FACTOR
 
 
-                actual_reward = reward * discount
-                mint = actual_reward - self.blocks[self.last_finalized].fee
+                mint = adjustedReward - self.blocks[self.last_finalized].fee
                 self.mint += mint
 
                 # self.avg_profit = (
                 #     (F_PROFIT - 1) * self.avg_profit + self.mint
                 # ) / F_PROFIT
-                self.m_reward.tally(reward)
-                self.m_actual_reward.tally(actual_reward)
+                self.m_reward.tally(adjustedReward)
+                self.m_base_fee.tally(self.base_fee)
                 self.m_mint.tally(self.mint)
-                self.m_f_min.tally(self.f_min)
 
             else:
                 break
@@ -244,20 +242,21 @@ if __name__ == "__main__":
         expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
         st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
 
-        protocol = Protocol(
-            max_slots= 10 * expected_pending_blocks, lamda_ratio=1.8
-        )
+        config = SimConfig(max_slots = 10000,
+            lamda_ratio = 1.8,
+            base_fee = 10.0)
 
+        protocol = Protocol(config=config)
         proposer = Proposer()
 
-        env.run(till = 30 * DAY)
+        env.run(till = 10 * DAY)
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
         plot([(protocol.m_pending_count, "num pending")])
-        plot([(protocol.m_mint, "mint")])
-        plot([(protocol.m_f_min, "f_min")])
 
         st.write("Fees and Rewards")
-        plot([(protocol.m_fee, "fee"),(protocol.m_actual_fee, "actual fee")])
-        plot([(protocol.m_reward, "reward"),(protocol.m_actual_reward, "actual reward")])
+        plot([(protocol.m_base_fee, "base"),
+            (protocol.m_fee, "fee"),
+            (protocol.m_reward, "reward")])
+        plot([(protocol.m_mint, "mint")])
