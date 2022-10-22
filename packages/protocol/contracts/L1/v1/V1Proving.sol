@@ -19,9 +19,9 @@ import "../../libs/LibReceiptDecoder.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../libs/LibZKP.sol";
-import "../../thirdparty/Lib_BytesUtils.sol";
-import "../../thirdparty/Lib_MerkleTrie.sol";
-import "../../thirdparty/Lib_RLPWriter.sol";
+import "../../thirdparty/LibBytesUtils.sol";
+import "../../thirdparty/LibMerkleTrie.sol";
+import "../../thirdparty/LibRLPWriter.sol";
 import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -80,7 +80,7 @@ library V1Proving {
 
         // Check anchor tx's calldata is valid
         require(
-            Lib_BytesUtils.equal(
+            LibBytesUtils.equal(
                 _tx.data,
                 bytes.concat(
                     LibConstants.V1_ANCHOR_TX_SELECTOR,
@@ -93,8 +93,8 @@ library V1Proving {
 
         // Check anchor tx is the 1st tx in the block
         require(
-            Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeUint(0),
+            LibMerkleTrie.verifyInclusionProof(
+                LibRLPWriter.writeUint(0),
                 anchorTx,
                 evidence.proofs[1],
                 evidence.header.transactionsRoot
@@ -108,8 +108,8 @@ library V1Proving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeUint(0),
+            LibMerkleTrie.verifyInclusionProof(
+                LibRLPWriter.writeUint(0),
                 anchorReceipt,
                 evidence.proofs[2],
                 evidence.header.receiptsRoot
@@ -163,8 +163,8 @@ library V1Proving {
 
         // Check the event is the first one in the throw-away block
         require(
-            Lib_MerkleTrie.verifyInclusionProof(
-                Lib_RLPWriter.writeUint(0),
+            LibMerkleTrie.verifyInclusionProof(
+                LibRLPWriter.writeUint(0),
                 invalidateBlockReceipt,
                 evidence.proofs[1],
                 evidence.header.receiptsRoot

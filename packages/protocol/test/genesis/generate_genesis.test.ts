@@ -242,7 +242,7 @@ action("Generate Genesis", function () {
         it("ERC20", async function () {
             const ERC20 = new hre.ethers.Contract(
                 getContractAlloc("TestERC20").address,
-                require("../../artifacts/contracts/test/TestERC20.sol/TestERC20.json").abi,
+                require("../../artifacts/contracts/test/thirdparty/TestERC20.sol/TestERC20.json").abi,
                 signer
             )
 

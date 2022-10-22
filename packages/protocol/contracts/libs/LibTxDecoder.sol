@@ -9,8 +9,8 @@
 pragma solidity ^0.8.9;
 
 import "../libs/LibConstants.sol";
-import "../thirdparty/Lib_BytesUtils.sol";
-import "../thirdparty/Lib_RLPReader.sol";
+import "../thirdparty/LibBytesUtils.sol";
+import "../thirdparty/LibRLPReader.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxDecoder {
@@ -80,12 +80,12 @@ library LibTxDecoder {
         pure
         returns (TxList memory txList)
     {
-        Lib_RLPReader.RLPItem[] memory txs = Lib_RLPReader.readList(encoded);
+        LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
         require(txs.length > 0, "empty txList");
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
-            _txList[i] = decodeTx(Lib_RLPReader.readBytes(txs[i]));
+            _txList[i] = decodeTx(LibRLPReader.readBytes(txs[i]));
         }
 
         txList = TxList(_txList);
@@ -107,7 +107,7 @@ library LibTxDecoder {
         if (txType >= 0xc0 && txType <= 0xfe) {
             // Legacy tx:
             _tx.txType = 0;
-            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
+            LibRLPReader.RLPItem[] memory txBody = LibRLPReader.readList(
                 txBytes
             );
             TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
@@ -119,8 +119,8 @@ library LibTxDecoder {
             _tx.data = txLegacy.data;
         } else if (txType <= 0x7f) {
             _tx.txType = txType;
-            Lib_RLPReader.RLPItem[] memory txBody = Lib_RLPReader.readList(
-                Lib_BytesUtils.slice(txBytes, 1)
+            LibRLPReader.RLPItem[] memory txBody = LibRLPReader.readList(
+                LibBytesUtils.slice(txBytes, 1)
             );
 
             if (txType == 1) {
@@ -155,88 +155,88 @@ library LibTxDecoder {
         return keccak256(encoded);
     }
 
-    function decodeLegacyTx(Lib_RLPReader.RLPItem[] memory body)
+    function decodeLegacyTx(LibRLPReader.RLPItem[] memory body)
         internal
         pure
         returns (TransactionLegacy memory txLegacy)
     {
         require(body.length == 9, "invalid items length");
 
-        txLegacy.nonce = Lib_RLPReader.readUint256(body[0]);
-        txLegacy.gasPrice = Lib_RLPReader.readUint256(body[1]);
-        txLegacy.gasLimit = Lib_RLPReader.readUint256(body[2]);
-        txLegacy.destination = Lib_RLPReader.readAddress(body[3]);
-        txLegacy.amount = Lib_RLPReader.readUint256(body[4]);
-        txLegacy.data = Lib_RLPReader.readBytes(body[5]);
+        txLegacy.nonce = LibRLPReader.readUint256(body[0]);
+        txLegacy.gasPrice = LibRLPReader.readUint256(body[1]);
+        txLegacy.gasLimit = LibRLPReader.readUint256(body[2]);
+        txLegacy.destination = LibRLPReader.readAddress(body[3]);
+        txLegacy.amount = LibRLPReader.readUint256(body[4]);
+        txLegacy.data = LibRLPReader.readBytes(body[5]);
         // EIP-155 is enabled on L2
         txLegacy.v = uint8(
-            Lib_RLPReader.readUint256(body[6]) -
+            LibRLPReader.readUint256(body[6]) -
                 LibConstants.TAIKO_CHAIN_ID *
                 2 +
                 35
         );
-        txLegacy.r = Lib_RLPReader.readUint256(body[7]);
-        txLegacy.s = Lib_RLPReader.readUint256(body[8]);
+        txLegacy.r = LibRLPReader.readUint256(body[7]);
+        txLegacy.s = LibRLPReader.readUint256(body[8]);
     }
 
-    function decodeTx2930(Lib_RLPReader.RLPItem[] memory body)
+    function decodeTx2930(LibRLPReader.RLPItem[] memory body)
         internal
         pure
         returns (Transaction2930 memory tx2930)
     {
         require(body.length == 11, "invalid items length");
 
-        tx2930.chainId = Lib_RLPReader.readUint256(body[0]);
-        tx2930.nonce = Lib_RLPReader.readUint256(body[1]);
-        tx2930.gasPrice = Lib_RLPReader.readUint256(body[2]);
-        tx2930.gasLimit = Lib_RLPReader.readUint256(body[3]);
-        tx2930.destination = Lib_RLPReader.readAddress(body[4]);
-        tx2930.amount = Lib_RLPReader.readUint256(body[5]);
-        tx2930.data = Lib_RLPReader.readBytes(body[6]);
-        tx2930.accessList = decodeAccessList(Lib_RLPReader.readList(body[7]));
-        tx2930.signatureYParity = uint8(Lib_RLPReader.readUint256(body[8]));
-        tx2930.signatureR = Lib_RLPReader.readUint256(body[9]);
-        tx2930.signatureS = Lib_RLPReader.readUint256(body[10]);
+        tx2930.chainId = LibRLPReader.readUint256(body[0]);
+        tx2930.nonce = LibRLPReader.readUint256(body[1]);
+        tx2930.gasPrice = LibRLPReader.readUint256(body[2]);
+        tx2930.gasLimit = LibRLPReader.readUint256(body[3]);
+        tx2930.destination = LibRLPReader.readAddress(body[4]);
+        tx2930.amount = LibRLPReader.readUint256(body[5]);
+        tx2930.data = LibRLPReader.readBytes(body[6]);
+        tx2930.accessList = decodeAccessList(LibRLPReader.readList(body[7]));
+        tx2930.signatureYParity = uint8(LibRLPReader.readUint256(body[8]));
+        tx2930.signatureR = LibRLPReader.readUint256(body[9]);
+        tx2930.signatureS = LibRLPReader.readUint256(body[10]);
     }
 
-    function decodeTx1559(Lib_RLPReader.RLPItem[] memory body)
+    function decodeTx1559(LibRLPReader.RLPItem[] memory body)
         internal
         pure
         returns (Transaction1559 memory tx1559)
     {
         require(body.length == 12, "invalid items length");
 
-        tx1559.chainId = Lib_RLPReader.readUint256(body[0]);
-        tx1559.nonce = Lib_RLPReader.readUint256(body[1]);
-        tx1559.maxPriorityFeePerGas = Lib_RLPReader.readUint256(body[2]);
-        tx1559.maxFeePerGas = Lib_RLPReader.readUint256(body[3]);
-        tx1559.gasLimit = Lib_RLPReader.readUint256(body[4]);
-        tx1559.destination = Lib_RLPReader.readAddress(body[5]);
-        tx1559.amount = Lib_RLPReader.readUint256(body[6]);
-        tx1559.data = Lib_RLPReader.readBytes(body[7]);
-        tx1559.accessList = decodeAccessList(Lib_RLPReader.readList(body[8]));
-        tx1559.signatureYParity = uint8(Lib_RLPReader.readUint256(body[9]));
-        tx1559.signatureR = Lib_RLPReader.readUint256(body[10]);
-        tx1559.signatureS = Lib_RLPReader.readUint256(body[11]);
+        tx1559.chainId = LibRLPReader.readUint256(body[0]);
+        tx1559.nonce = LibRLPReader.readUint256(body[1]);
+        tx1559.maxPriorityFeePerGas = LibRLPReader.readUint256(body[2]);
+        tx1559.maxFeePerGas = LibRLPReader.readUint256(body[3]);
+        tx1559.gasLimit = LibRLPReader.readUint256(body[4]);
+        tx1559.destination = LibRLPReader.readAddress(body[5]);
+        tx1559.amount = LibRLPReader.readUint256(body[6]);
+        tx1559.data = LibRLPReader.readBytes(body[7]);
+        tx1559.accessList = decodeAccessList(LibRLPReader.readList(body[8]));
+        tx1559.signatureYParity = uint8(LibRLPReader.readUint256(body[9]));
+        tx1559.signatureR = LibRLPReader.readUint256(body[10]);
+        tx1559.signatureS = LibRLPReader.readUint256(body[11]);
     }
 
-    function decodeAccessList(Lib_RLPReader.RLPItem[] memory accessListRLP)
+    function decodeAccessList(LibRLPReader.RLPItem[] memory accessListRLP)
         internal
         pure
         returns (AccessItem[] memory accessList)
     {
         accessList = new AccessItem[](accessListRLP.length);
         for (uint256 i = 0; i < accessListRLP.length; i++) {
-            Lib_RLPReader.RLPItem[] memory items = Lib_RLPReader.readList(
+            LibRLPReader.RLPItem[] memory items = LibRLPReader.readList(
                 accessListRLP[i]
             );
-            address addr = Lib_RLPReader.readAddress(items[0]);
-            Lib_RLPReader.RLPItem[] memory slotListRLP = Lib_RLPReader.readList(
+            address addr = LibRLPReader.readAddress(items[0]);
+            LibRLPReader.RLPItem[] memory slotListRLP = LibRLPReader.readList(
                 items[1]
             );
             bytes32[] memory slots = new bytes32[](slotListRLP.length);
             for (uint256 j = 0; j < slotListRLP.length; j++) {
-                slots[j] = Lib_RLPReader.readBytes32(slotListRLP[j]);
+                slots[j] = LibRLPReader.readBytes32(slotListRLP[j]);
             }
             accessList[i] = AccessItem(addr, slots);
         }

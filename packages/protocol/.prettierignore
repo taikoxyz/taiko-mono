@@ -3,4 +3,4 @@ artifacts
 cache
 coverage*
 gasReporterOutput.json
-contracts/thirdparty/Lib_BlockHeaderDecoder.sol
+contracts/thirdparty/LibBlockHeaderDecoder.sol

@@ -59,9 +59,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///        - timestamp
     ///
     ///     - inputs[1] is a list of transactions in this block, encoded with RLP.
-    ///       Note in the corresponding L2 block, an _anchor transaction_ will be
-    ///       the first transaction in the block, i.e., if there are n transactions
-    ///       in `txList`, then then will be up to n+1 transactions in the L2 block.
+    ///       Note, in the corresponding L2 block an _anchor transaction_ will be
+    ///       the first transaction in the block -- if there are n transactions
+    ///       in `txList`, then there will be up to n+1 transactions in the L2 block.
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock(state, inputs);
         V1Finalizing.finalizeBlocks(
@@ -80,7 +80,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///       the block to be proven and the actual proofs.
     ///
     ///     - inputs[1] is the actual anchor transaction in this L2 block. Note that
-    ///       the anchor tranaction is always the first transaction in the block.
+    ///       the anchor transaction is always the first transaction in the block.
     ///
     ///     - inputs[2] is the receipt of the anchor transaction.
     function proveBlock(uint256 blockIndex, bytes[] calldata inputs)

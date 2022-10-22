@@ -23,11 +23,11 @@ describe("LibTxUtils", function () {
         ).deploy()
 
         libRLPReader = await (
-            await ethers.getContractFactory("TestLib_RLPReader")
+            await ethers.getContractFactory("TestLibRLPReader")
         ).deploy()
 
         libRLPWriter = await (
-            await ethers.getContractFactory("TestLib_RLPWriter")
+            await ethers.getContractFactory("TestLibRLPWriter")
         ).deploy()
 
         chainId = (await libConstants.TAIKO_CHAIN_ID()).toNumber()

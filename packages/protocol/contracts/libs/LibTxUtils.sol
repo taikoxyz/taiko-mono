@@ -12,9 +12,9 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
-import "../thirdparty/Lib_BytesUtils.sol";
-import "../thirdparty/Lib_RLPReader.sol";
-import "../thirdparty/Lib_RLPWriter.sol";
+import "../thirdparty/LibBytesUtils.sol";
+import "../thirdparty/LibRLPReader.sol";
+import "../thirdparty/LibRLPWriter.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxUtils {
@@ -26,13 +26,13 @@ library LibTxUtils {
             bytes32 hash
         )
     {
-        Lib_RLPReader.RLPItem[] memory txRLPItems;
+        LibRLPReader.RLPItem[] memory txRLPItems;
         if (transaction.txType == 0) {
             // Legacy transactions do not have the EIP-2718 type prefix.
-            txRLPItems = Lib_RLPReader.readList(transaction.txData);
+            txRLPItems = LibRLPReader.readList(transaction.txData);
         } else {
-            txRLPItems = Lib_RLPReader.readList(
-                Lib_BytesUtils.slice(transaction.txData, 1)
+            txRLPItems = LibRLPReader.readList(
+                LibBytesUtils.slice(transaction.txData, 1)
             );
         }
 
@@ -59,27 +59,27 @@ library LibTxUtils {
             // For Non-legacy transactions, accessList is always the
             // fourth to last item.
             if (transaction.txType != 0 && i == list.length - 1) {
-                list[i] = Lib_RLPReader.readRawBytes(txRLPItems[i]);
+                list[i] = LibRLPReader.readRawBytes(txRLPItems[i]);
                 continue;
             }
 
-            list[i] = Lib_RLPWriter.writeBytes(
-                Lib_RLPReader.readBytes(txRLPItems[i])
+            list[i] = LibRLPWriter.writeBytes(
+                LibRLPReader.readBytes(txRLPItems[i])
             );
 
             // For legacy transactions, there are three more RLP items to
             // encode defined in EIP-155.
             if (transaction.txType == 0 && i == list.length - 4) {
-                list[i + 1] = Lib_RLPWriter.writeUint(
+                list[i + 1] = LibRLPWriter.writeUint(
                     LibConstants.TAIKO_CHAIN_ID
                 );
-                list[i + 2] = Lib_RLPWriter.writeUint64(0);
-                list[i + 3] = Lib_RLPWriter.writeUint64(0);
+                list[i + 2] = LibRLPWriter.writeUint64(0);
+                list[i + 3] = LibRLPWriter.writeUint64(0);
                 break;
             }
         }
 
-        bytes memory unsignedTxRlp = Lib_RLPWriter.writeList(list);
+        bytes memory unsignedTxRlp = LibRLPWriter.writeList(list);
 
         // Add the EIP-2718 type prefix for non-legacy transactions.
         if (transaction.txType != 0) {
