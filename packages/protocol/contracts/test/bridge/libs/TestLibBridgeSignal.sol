@@ -8,20 +8,19 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibReceiptDecoder.sol";
+import "../../../bridge/libs/LibBridgeData.sol";
+import "../../../bridge/libs/LibBridgeSignal.sol";
 
-contract TestLibReceiptDecoder {
-    event TestLibReceiptDecoderEvent(uint256 indexed a, bytes32 b);
-
-    function emitTestEvent(uint256 a, bytes32 b) public {
-        emit TestLibReceiptDecoderEvent(a, b);
+contract TestLibBridgeSignal {
+    function sendSignal(address sender, bytes32 signal) public {
+        LibBridgeSignal.sendSignal(sender, signal);
     }
 
-    function decodeReceipt(bytes calldata encoded)
+    function isSignalSent(address sender, bytes32 signal)
         public
-        pure
-        returns (LibReceiptDecoder.Receipt memory receipt)
+        view
+        returns (bool)
     {
-        return LibReceiptDecoder.decodeReceipt(encoded);
+        return LibBridgeSignal.isSignalSent(sender, signal);
     }
 }

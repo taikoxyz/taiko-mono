@@ -7,7 +7,7 @@
 // ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
-import "../thirdparty/Lib_Uint512.sol";
+import "../thirdparty/LibUint512.sol";
 
 /// @author david <david@taiko.xyz>
 library LibAnchorSignature {

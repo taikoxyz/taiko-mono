@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibTxUtils.sol";
+import "../../libs/LibTxUtils.sol";
 
 contract TestLibTxUtils {
     function hashUnsignedTx(LibTxDecoder.Tx memory transaction)

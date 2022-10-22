@@ -8,8 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../thirdparty/Lib_BytesUtils.sol";
-import "../thirdparty/Lib_RLPReader.sol";
+import "../thirdparty/LibBytesUtils.sol";
+import "../thirdparty/LibRLPReader.sol";
 
 /// @author david <david@taiko.xyz>
 library LibReceiptDecoder {
@@ -32,34 +32,34 @@ library LibReceiptDecoder {
         returns (Receipt memory receipt)
     {
         // Non-legacy transaction receipts should remove the type prefix at first.
-        Lib_RLPReader.RLPItem[] memory rlpItems = Lib_RLPReader.readList(
+        LibRLPReader.RLPItem[] memory rlpItems = LibRLPReader.readList(
             encoded[0] >= 0x0 && encoded[0] <= 0x7f
-                ? Lib_BytesUtils.slice(encoded, 1)
+                ? LibBytesUtils.slice(encoded, 1)
                 : encoded
         );
 
         require(rlpItems.length == 4, "invalid items length");
 
-        receipt.status = uint64(Lib_RLPReader.readUint256(rlpItems[0]));
+        receipt.status = uint64(LibRLPReader.readUint256(rlpItems[0]));
         receipt.cumulativeGasUsed = uint64(
-            Lib_RLPReader.readUint256(rlpItems[1])
+            LibRLPReader.readUint256(rlpItems[1])
         );
         receipt.logsBloom = decodeLogsBloom(rlpItems[2]);
-        receipt.logs = decodeLogs(Lib_RLPReader.readList(rlpItems[3]));
+        receipt.logs = decodeLogs(LibRLPReader.readList(rlpItems[3]));
     }
 
-    function decodeLogsBloom(Lib_RLPReader.RLPItem memory logsBloomRlp)
+    function decodeLogsBloom(LibRLPReader.RLPItem memory logsBloomRlp)
         internal
         pure
         returns (bytes32[8] memory logsBloom)
     {
-        bytes memory bloomBytes = Lib_RLPReader.readBytes(logsBloomRlp);
+        bytes memory bloomBytes = LibRLPReader.readBytes(logsBloomRlp);
         require(bloomBytes.length == 256, "invalid logs bloom");
 
         return abi.decode(bloomBytes, (bytes32[8]));
     }
 
-    function decodeLogs(Lib_RLPReader.RLPItem[] memory logsRlp)
+    function decodeLogs(LibRLPReader.RLPItem[] memory logsRlp)
         internal
         pure
         returns (Log[] memory)
@@ -67,18 +67,18 @@ library LibReceiptDecoder {
         Log[] memory logs = new Log[](logsRlp.length);
 
         for (uint256 i = 0; i < logsRlp.length; i++) {
-            Lib_RLPReader.RLPItem[] memory rlpItems = Lib_RLPReader.readList(
+            LibRLPReader.RLPItem[] memory rlpItems = LibRLPReader.readList(
                 logsRlp[i]
             );
-            logs[i].contractAddress = Lib_RLPReader.readAddress(rlpItems[0]);
-            logs[i].topics = decodeTopics(Lib_RLPReader.readList(rlpItems[1]));
-            logs[i].data = Lib_RLPReader.readBytes(rlpItems[2]);
+            logs[i].contractAddress = LibRLPReader.readAddress(rlpItems[0]);
+            logs[i].topics = decodeTopics(LibRLPReader.readList(rlpItems[1]));
+            logs[i].data = LibRLPReader.readBytes(rlpItems[2]);
         }
 
         return logs;
     }
 
-    function decodeTopics(Lib_RLPReader.RLPItem[] memory topicsRlp)
+    function decodeTopics(LibRLPReader.RLPItem[] memory topicsRlp)
         internal
         pure
         returns (bytes32[] memory)
@@ -86,7 +86,7 @@ library LibReceiptDecoder {
         bytes32[] memory topics = new bytes32[](topicsRlp.length);
 
         for (uint256 i = 0; i < topicsRlp.length; i++) {
-            topics[i] = Lib_RLPReader.readBytes32(topicsRlp[i]);
+            topics[i] = LibRLPReader.readBytes32(topicsRlp[i]);
         }
 
         return topics;

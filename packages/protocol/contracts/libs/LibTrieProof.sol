@@ -8,9 +8,9 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../thirdparty/Lib_RLPReader.sol";
-import "../thirdparty/Lib_RLPWriter.sol";
-import "../thirdparty/Lib_SecureMerkleTrie.sol";
+import "../thirdparty/LibRLPReader.sol";
+import "../thirdparty/LibRLPWriter.sol";
+import "../thirdparty/LibSecureMerkleTrie.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibTrieProof {
@@ -46,7 +46,7 @@ library LibTrieProof {
             (bytes, bytes)
         );
 
-        (bool exists, bytes memory rlpAccount) = Lib_SecureMerkleTrie.get(
+        (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
             abi.encodePacked(addr),
             accountProof,
             stateRoot
@@ -54,16 +54,16 @@ library LibTrieProof {
 
         require(exists, "LTP:invalid account proof");
 
-        Lib_RLPReader.RLPItem[] memory accountState = Lib_RLPReader.readList(
+        LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
             rlpAccount
         );
-        bytes32 storageRoot = Lib_RLPReader.readBytes32(
+        bytes32 storageRoot = LibRLPReader.readBytes32(
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );
 
-        bool verified = Lib_SecureMerkleTrie.verifyInclusionProof(
+        bool verified = LibSecureMerkleTrie.verifyInclusionProof(
             abi.encodePacked(key),
-            Lib_RLPWriter.writeBytes32(value),
+            LibRLPWriter.writeBytes32(value),
             storageProof,
             storageRoot
         );

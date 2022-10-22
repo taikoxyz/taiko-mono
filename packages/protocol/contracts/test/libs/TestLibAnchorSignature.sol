@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibAnchorSignature.sol";
+import "../../libs/LibAnchorSignature.sol";
 
 library TestLibAnchorSignature {
     function signTransaction(bytes32 digest, uint8 k)

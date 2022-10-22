@@ -8,28 +8,15 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../thirdparty/Lib_BlockHeaderDecoder.sol";
+import "../../../bridge/libs/LibBridgeSend.sol";
 
-contract TestLibBlockHeaderDecoder {
-    function decodeBlockHeader(
-        bytes calldata blockHeader,
-        bytes32 blockHash,
-        bool postEIP1559
-    )
-        public
-        pure
-        returns (
-            bytes32 _stateRoot,
-            uint256 _timestamp,
-            bytes32 _transactionsRoot,
-            bytes32 _receiptsRoot
-        )
-    {
-        return
-            Lib_BlockHeaderDecoder.decodeBlockHeader(
-                blockHeader,
-                blockHash,
-                postEIP1559
-            );
+contract TestLibBridgeSend {
+    LibBridgeData.State public state;
+
+    function sendMessage(
+        AddressResolver resolver,
+        IBridge.Message memory message
+    ) public returns (bytes32 signal) {
+        return LibBridgeSend.sendMessage(state, resolver, message);
     }
 }
