@@ -15,9 +15,15 @@ BASE_FACTOR = 1024
 
 
 class SimConfig(NamedTuple):
+    duration_days: int
     max_slots: int
     lamda_ratio: float
     base_fee: int
+    block_time_avg_second: int
+    block_time_sd_ptcg: int
+    proof_time_avg_minute: int
+    proof_time_sd_pctg: int
+
 
 class Status(Enum):
     PENDING = 1
@@ -46,8 +52,6 @@ class Protocol(sim.Component):
         self.avg_block_time = 0
         self.avg_proof_time = 0
         # self.avg_profit = 0
-        st.write("protocol.config = {}".format(config))
-        st.write("protocol.lamda = {}".format(self.lamda))
 
         genesis = Block(
             status=Status.FINALIZED, fee = 0, proposed_at=env.now(), proven_at=env.now()
@@ -63,6 +67,9 @@ class Protocol(sim.Component):
         self.m_mint = sim.Monitor("profit", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
+
+    def print(self, st):
+        st.write("lamda = {}".format(self.lamda))
 
     def slot_fee(self):
         n = self.config.max_slots - self.num_pending() + self.lamda
@@ -97,7 +104,7 @@ class Protocol(sim.Component):
             # print("block {} proposed at {}".format(len(self.blocks), env.now()))
             self.blocks.append(block)
 
-            Prover(blockId=len(self.blocks) - 1)
+            Prover(protocol=self, config=self.config, blockId=len(self.blocks) - 1)
             self.finalize_block()
 
     def can_prove(self, id):
@@ -173,29 +180,39 @@ class Protocol(sim.Component):
 
 
 class Prover(sim.Component):
-    def setup(self, blockId):
+    def setup(self, protocol, config, blockId):
+        self.protocol = protocol
+        self.config = config
         self.blockId = blockId
 
     def process(self):
         yield self.hold(
             sim.Bounded(
-                sim.Normal(get_avg_proof_time(), get_avg_proof_time() * sd_proof_time / 100),
+                sim.Normal(
+                    self.config.proof_time_avg_minute * 60,
+                    self.config.proof_time_avg_minute * 60 * self.config.proof_time_sd_pctg /100
+                ),
                 lowerbound=1,
             ).sample()
         )
-        protocol.prove_block(self.blockId)
+        self.protocol.prove_block(self.blockId)
 
 
 class Proposer(sim.Component):
+    def setup(self, protocol):
+        self.protocol = protocol
+        self.config = protocol.config
+
     def process(self):
         while True:
-            if protocol.can_propose():
-                protocol.propose_block()
+            if self.protocol.can_propose():
+                self.protocol.propose_block()
 
                 yield self.hold(
                     sim.Bounded(
                         sim.Normal(
-                            get_avg_block_time(), get_avg_block_time() * sd_block_time / 100
+                            self.config.block_time_avg_second,
+                            self.config.block_time_avg_second * self.config.block_time_sd_ptcg /100
                         ),
                         lowerbound=1,
                     ).sample()
@@ -204,52 +221,33 @@ class Proposer(sim.Component):
                 yield self.hold(1)
 
 
+def simulate(config):
+    cols = st.columns([1, 1, 1, 1])
+    inputs = {}
+    i = 0;
+    for (k, v) in config._asdict().items():
+        inputs[k] = cols[i % 4].number_input(k, value=v)
+        i += 1
+
+    # # # columns
+    # avg_block_time = col1.number_input("avg block time (second)", 15)
+    # # # sliders
+    # avg_block_time = col1.slider("avg block time (second)", 10, 120, 15)
+    # avg_proof_time = col1.slider("avg proof time (minute)", 15, 60, 45) * 60
+
+    # block_time_sd = col2.slider("deviation block time", 0, 100, 20)
+    # sd_proof_time = col2.slider("deviation proof time", 0, 100, 25)
 
 
-def get_avg_block_time():
-    return avg_block_time
-    # if env.now() < DAY:
-    #     return avg_block_time
-    # elif env.now() < 3 * DAY:
-    #     return 2 * avg_block_time
-    # else:
-    #     return avg_block_time
+    if st.button("Click to run", key="run"):
+        actual_config = SimConfig(**inputs)
 
-def get_avg_proof_time():
-    return avg_proof_time
-    # if env.now() < 2 * DAY:
-    #     return avg_proof_time
-    # elif env.now() < 4 * DAY:
-    #     return 3 * avg_proof_time
-    # else:
-    #     return avg_proof_time
+        protocol = Protocol(config=actual_config)
+        protocol.print(st)
 
-if __name__ == "__main__":
-    # # columns
-    col1, col2 = st.columns([3, 2])
-    # # sliders
-    avg_block_time = col1.slider("avg block time (second)", 10, 120, 15)
-    avg_proof_time = col1.slider("avg proof time (minute)", 15, 60, 45) * 60
+        proposer = Proposer(protocol = protocol)
 
-    sd_block_time = col2.slider("deviation block time", 0, 100, 20)
-    sd_proof_time = col2.slider("deviation proof time", 0, 100, 25)
-
-    if st.button("click to run", key="tokenomics"):
-        env = sim.Environment(trace=False)
-
-        protocol = None
-        proposer = None
-        expected_pending_blocks = int(2 * avg_proof_time / avg_block_time)
-        st.write("expected_pending_blocks = {}".format(expected_pending_blocks))
-
-        config = SimConfig(max_slots = 10000,
-            lamda_ratio = 1.8,
-            base_fee = 10.0)
-
-        protocol = Protocol(config=config)
-        proposer = Proposer()
-
-        env.run(till = 10 * DAY)
+        env.run(till = actual_config.duration_days * DAY)
 
         plot([(protocol.m_block_time, "block time")])
         plot([(protocol.m_proof_time, "proof time")])
@@ -260,3 +258,19 @@ if __name__ == "__main__":
             (protocol.m_fee, "fee"),
             (protocol.m_reward, "reward")])
         plot([(protocol.m_mint, "mint")])
+
+
+config = SimConfig(
+    duration_days = 5,
+    max_slots = 1000,
+    lamda_ratio = 1,
+    base_fee = 10.0,
+    block_time_avg_second = 10,
+    block_time_sd_ptcg = 0,
+    proof_time_avg_minute = 45,
+    proof_time_sd_pctg = 10
+    )
+
+if __name__ == "__main__":
+    env = sim.Environment(trace=False)
+    simulate(config)
