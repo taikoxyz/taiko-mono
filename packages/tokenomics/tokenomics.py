@@ -238,13 +238,8 @@ def simulate(config):
         plot([(protocol.m_pending_count, "num pending")])
 
         st.write("Fees and Rewards")
-        plot(
-            [
-                (protocol.m_base_fee, "base"),
-                (protocol.m_fee, "fee"),
-                (protocol.m_reward, "reward"),
-            ]
-        )
+        plot([(protocol.m_base_fee, "base"),(protocol.m_fee, "fee")])
+        plot([(protocol.m_reward, "reward")])
         plot([(protocol.m_mint, "mint")])
 
 
@@ -260,6 +255,5 @@ if __name__ == "__main__":
     )
     present = presents[selected]
 
-    st.caption("About this config")
-    st.write(present.desc)
+    st.markdown(present.desc)
     simulate(present.config)
