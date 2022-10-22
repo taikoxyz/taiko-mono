@@ -2,7 +2,7 @@ from present import Config, Timing, Present
 
 present = Present(
     title="p2: another present example",
-    desc="xyz111",
+    desc="some description can go here",
     days=10,
     config=Config(
         max_slots=1000,
