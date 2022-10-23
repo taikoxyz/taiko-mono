@@ -31,11 +31,9 @@ class Block(NamedTuple):
 
 
 def calc_proving_fee(base_fee, min_ratio, max_raito, avg_delay, delay):
-    reward = min(
-        base_fee * max(max_raito, 2.0),
+    return min(
+        base_fee * max(max_raito, 2.0 - min_ratio),
         1.0 * delay * base_fee * (1 - min_ratio) / avg_delay + base_fee * min_ratio)
-    return reward
-
 
 def get_day(config):
     day = int(env.now() / DAY)
@@ -73,9 +71,13 @@ class Protocol(sim.Component):
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
+        # self.reward_bootstrap_total = self.config.reward_bootstrap_tota
 
         genesis = Block(
-            status=Status.FINALIZED, fee=0, proposed_at=env.now(), proven_at=env.now()
+            status=Status.FINALIZED,
+            fee=0,
+            proposed_at=env.now(),
+            proven_at=env.now(),
         )
         self.blocks = [genesis]
         self.last_finalized = 0
