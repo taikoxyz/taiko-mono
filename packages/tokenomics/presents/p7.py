@@ -1,7 +1,7 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p6: provers left Taiko then rejoined",
+    title="p7: provers joined Taiko then left",
     desc="""
 
 **About this config**
@@ -29,6 +29,24 @@ present = Present(
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=100,
+                proof_time_avg_minute=15,
+                proof_time_sd_pctg=100,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=100,
+                proof_time_avg_minute=25,
+                proof_time_sd_pctg=100,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=100,
+                proof_time_avg_minute=15,
+                proof_time_sd_pctg=100,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=100,
                 proof_time_avg_minute=45,
                 proof_time_sd_pctg=100,
             ),
@@ -48,24 +66,6 @@ present = Present(
                 block_time_avg_second=15,
                 block_time_sd_pctg=100,
                 proof_time_avg_minute=15,
-                proof_time_sd_pctg=100,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                block_time_sd_pctg=100,
-                proof_time_avg_minute=25,
-                proof_time_sd_pctg=100,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                block_time_sd_pctg=100,
-                proof_time_avg_minute=35,
-                proof_time_sd_pctg=100,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                block_time_sd_pctg=100,
-                proof_time_avg_minute=45,
                 proof_time_sd_pctg=100,
             ),
         ],
