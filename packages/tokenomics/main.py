@@ -10,6 +10,8 @@ from presents.p1 import present as p1
 from presents.p2 import present as p2
 from presents.p3 import present as p3
 from presents.p4 import present as p4
+from presents.p5 import present as p5
+from presents.p6 import present as p6
 
 DAY = 24 * 3600
 
@@ -300,7 +302,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p0, p1, p2, p3, p4]
+    presents = [p0, p1, p2, p3, p4, p5, p6]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",
