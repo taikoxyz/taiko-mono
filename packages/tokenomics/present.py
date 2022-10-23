@@ -11,13 +11,13 @@ class Timing(NamedTuple):
 class Config(NamedTuple):
     max_slots: int
     lamda_ratio: float
-    base_fee: int
-    base_fee_maf: int
-    reward_min_ratio: float
-    reward_max_ratio: float
-    reward_tax_pctg: float
-    reward_bootstrap: int
-    reward_bootstrap_month: int
+    fee_base: int
+    fee_base_maf: int
+    prover_reward_min_ratio: float
+    prover_reward_max_ratio: float
+    prover_reward_tax_pctg: float
+    prover_reward_bootstrap: int
+    prover_reward_bootstrap_day: int
     block_and_proof_time_maf: int
     timing: list[Timing]
 

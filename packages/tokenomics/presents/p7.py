@@ -7,7 +7,7 @@ present = Present(
 **About this config**
 
 - slot fee now varies
-- `reward_tax_pctg` set to non-zero
+- `prover_reward_tax_pctg` set to non-zero
 - block time varies (100%  ocsliaction) but eventually changes back to the initial value.
 - proof time varies (100%  ocsliaction) but eventually changes back to the initial value.
 
@@ -19,13 +19,13 @@ present = Present(
     config=Config(
         max_slots=1024, 
         lamda_ratio=1.2,
-        base_fee=100.0,
-        base_fee_maf=1024,
-        reward_min_ratio=0.5,
-        reward_max_ratio=4.0,
-        reward_tax_pctg=0.5,
-        reward_bootstrap=0,
-        reward_bootstrap_month=24,
+        fee_base=100.0,
+        fee_base_maf=1024,
+        prover_reward_min_ratio=0.5,
+        prover_reward_max_ratio=4.0,
+        prover_reward_tax_pctg=0.5,
+        prover_reward_bootstrap=0,
+        prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(
