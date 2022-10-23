@@ -22,6 +22,8 @@ Block (proposal) fee is constant. This is achieved by settting `max_slots` and
         reward_min_ratio=0.5,
         reward_max_ratio=2.0,
         reward_tax_pctg=0.0,
+        reward_bootstrap=0,
+        reward_bootstrap_month=24,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(
