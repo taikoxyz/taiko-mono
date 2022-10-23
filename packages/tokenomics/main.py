@@ -5,8 +5,11 @@ from enum import Enum
 from typing import NamedTuple
 from plots import plot
 from present import Config, Present
+from presents.p0 import present as p0
 from presents.p1 import present as p1
 from presents.p2 import present as p2
+from presents.p3 import present as p3
+from presents.p4 import present as p4
 
 DAY = 24 * 3600
 
@@ -24,9 +27,10 @@ class Block(NamedTuple):
     proven_at: int
 
 
-def calc_proving_fee(base_fee, min_fee, max_fee, avg_delay, delay):
-    _max_fee = max(2 * min_fee - base_fee, max_fee) * 1.0
-    return min(_max_fee, 1.0 * delay * (base_fee - min_fee) / avg_delay + min_fee)
+def calc_proving_fee(base_fee, min_ratio, max_raito, avg_delay, delay):
+    return min(
+        base_fee * max(max_raito, 2.0),
+        1.0 * delay * base_fee * (1 - min_ratio) / avg_delay + base_fee * min_ratio)
 
 
 def get_day(config):
@@ -89,6 +93,7 @@ class Protocol(sim.Component):
         st.write("lamda = {}".format(self.lamda))
         st.write("last_finalized = {}".format(self.last_finalized))
         st.write("num_blocks = {}".format(len(self.blocks)))
+        st.write("base_fee = {}".format(self.base_fee))
         st.write("mint = {}".format(self.mint))
 
     def slot_fee(self):
@@ -117,7 +122,7 @@ class Protocol(sim.Component):
                 )
 
             fee = self.slot_fee()
-            self.m_fee.tally(fee)
+            self.m_fee.tally(int(fee))
 
             block = Block(
                 status=Status.PENDING, fee=fee, proposed_at=env.now(), proven_at=0
@@ -173,8 +178,8 @@ class Protocol(sim.Component):
                 reward = self.slot_fee()
                 adjustedReward = calc_proving_fee(
                     reward,
-                    self.config.reward_min_ratio * reward,
-                    self.config.reward_max_ratio * reward,
+                    self.config.reward_min_ratio,
+                    self.config.reward_max_ratio,
                     self.avg_proof_time,
                     proof_time,
                 )
@@ -187,9 +192,9 @@ class Protocol(sim.Component):
 
                 self.mint += adjustedReward - self.blocks[self.last_finalized].fee
 
-                self.m_reward.tally(adjustedReward)
-                self.m_base_fee.tally(self.base_fee)
-                self.m_mint.tally(self.mint)
+                self.m_reward.tally(int(adjustedReward))
+                self.m_base_fee.tally(int(self.base_fee))
+                self.m_mint.tally(int(self.mint))
 
             else:
                 break
@@ -264,7 +269,7 @@ def simulate(config, days):
             i += 1
 
     st.markdown("-----")
-    if st.button("Click to run ({} days)".format(days), key="run"):
+    if st.button("Simulate {} days".format(days), key="run"):
         actual_config = Config(timing=config.timing, **inputs)
 
         protocol = Protocol(config=actual_config)
@@ -273,15 +278,17 @@ def simulate(config, days):
         env.run(till=days * DAY)
 
         st.markdown("-----")
+        st.markdown("##### Block/Proof Time")
+        plot(days, [(protocol.m_block_time, "block time")], color="tab:blue")
+        plot(days, [(protocol.m_proof_time, "proof time")], color="tab:blue")
+
+        st.markdown("-----")
         st.markdown("##### Result")
-
-        plot([(protocol.m_block_time, "block time")])
-        plot([(protocol.m_proof_time, "proof time")])
-        plot([(protocol.m_pending_count, "num pending")])
-
-        plot([(protocol.m_base_fee, "base"), (protocol.m_fee, "block proposer fee")])
-        plot([(protocol.m_reward, "block prover reward")])
-        plot([(protocol.m_mint, "TKO supply change")])
+        plot(days, [(protocol.m_pending_count, "num pending blocks")])
+        plot(days, [(protocol.m_base_fee, "base_fee")])
+        plot(days, [(protocol.m_fee, "block fee")])
+        plot(days, [(protocol.m_reward, "block reward")])
+        plot(days, [(protocol.m_mint, "supply change")])
 
         protocol.print(st)
 
@@ -290,7 +297,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p1, p2]
+    presents = [p0, p1, p2, p3, p4]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",
@@ -299,6 +306,6 @@ if __name__ == "__main__":
     )
     present = presents[selected]
     st.markdown("-----")
-    st.markdown("##### About this config")
+    st.markdown("##### Description")
     st.markdown(present.desc)
     simulate(present.config, present.days)
