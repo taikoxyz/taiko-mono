@@ -15,6 +15,7 @@ class Config(NamedTuple):
     base_fee_maf: int
     reward_min_ratio: float
     reward_max_ratio: float
+    reward_tax_pctg: float
     block_and_proof_time_maf: int
     timing: list[Timing]
 

@@ -28,9 +28,10 @@ class Block(NamedTuple):
 
 
 def calc_proving_fee(base_fee, min_ratio, max_raito, avg_delay, delay):
-    return min(
+    reward = min(
         base_fee * max(max_raito, 2.0),
         1.0 * delay * base_fee * (1 - min_ratio) / avg_delay + base_fee * min_ratio)
+    return reward
 
 
 def get_day(config):
@@ -181,7 +182,7 @@ class Protocol(sim.Component):
                     self.config.reward_min_ratio,
                     self.config.reward_max_ratio,
                     self.avg_proof_time,
-                    proof_time,
+                    proof_time
                 )
 
                 self.base_fee = moving_average(
@@ -189,6 +190,8 @@ class Protocol(sim.Component):
                     self.base_fee * adjustedReward / reward,
                     self.config.base_fee_maf,
                 )
+
+                adjustedReward = adjustedReward * (100 - self.config.reward_tax_pctg) / 100.0
 
                 self.mint += adjustedReward - self.blocks[self.last_finalized].fee
 
