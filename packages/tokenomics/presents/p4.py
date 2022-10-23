@@ -1,12 +1,12 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p4: constant block time (100% ocsliaction), varying proof time (200% ocsliaction)",
+    title="p4: varying block time (100% ocsliaction), varying proof time (200% ocsliaction)",
     desc="""
 
 **About this config**
 
-- block time set to a constant (100% ocsliaction).
+- block time varies (100%  ocsliaction)
 - proof time varies (200%  ocsliaction) but eventually changes back to the initial value.
 
 **What to verify**

@@ -324,9 +324,9 @@ def simulate(config, days):
         st.markdown("##### Result")
         plot(days, [(protocol.m_pending_count, "num pending blocks")])
         plot(days, [(protocol.m_fee_base, "fee_base")])
-        plot(days, [(protocol.m_fee, "proposer total fee")], color="tab:green")
-        plot(days, [(protocol.m_prover_bootstrap_reward, "prover bootstrap reward")])
-        plot(days, [(protocol.m_reward, "prover total reward")])
+        plot(days, [(protocol.m_fee, "block's proposer total fee")], color="tab:green")
+        plot(days, [(protocol.m_prover_bootstrap_reward, "block's prover bootstrap reward")])
+        plot(days, [(protocol.m_reward, "block's prover total reward")])
         plot(days, [(protocol.m_mint, "supply change")], color="tab:red")
 
         protocol.print(st)
