@@ -13,6 +13,13 @@ Group documentation under one of the four categories:
 - Concepts
 - Reference
 
+## Philosophy
+
+- Aim for "better" instead of "perfect" -- any enhancement is a worthwhile improvement.
+- Create the minimum viable documentation.
+- Don't repeat yourself, use links to existing documentation.
+- Generate documentation automatically from source code whenever possible.
+
 ## Standards
 
 ### Tone and content
@@ -72,11 +79,6 @@ Group documentation under one of the four categories:
   echo "at least the command" \
   && echo "looks good when copy pastad"
   ```
-
-## Philosophy
-
-- Aim for "better" instead of "perfect".
-- Create the minimum viable documentation.
 
 ## Sources
 
