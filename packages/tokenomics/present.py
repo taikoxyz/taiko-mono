@@ -13,7 +13,7 @@ class Config(NamedTuple):
     lamda_ratio: float
     fee_base: int
     fee_base_maf: int
-    prover_reward_min_ratio: float
+    block_fee_min_ratio: float
     prover_reward_max_ratio: float
     prover_reward_tax_pctg: float
     prover_reward_bootstrap: int

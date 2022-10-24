@@ -32,10 +32,33 @@ class Block(NamedTuple):
     proven_at: int
 
 
-def calc_proving_fee(fee_base, min_ratio, max_raito, avg_delay, delay):
-    return min(
-        fee_base * max(max_raito, 2.0 - min_ratio),
-        1.0 * delay * fee_base * (1 - min_ratio) / avg_delay + fee_base * min_ratio)
+def calc_block_fee(fee_base, min_ratio, avg_delay, delay):
+    p = fee_base
+    m = fee_base * min_ratio
+    b = 3 * avg_delay
+    c = 6 * avg_delay
+    x = delay
+
+    if x <= b:
+        return p
+    elif x >= c:
+        return m
+    else:
+        return (p-m)*(c-x)*1.0/(c-b)+m
+
+def calc_proof_reward(fee_base, max_ratio, avg_delay, delay):
+    p = fee_base
+    m = fee_base * max_ratio
+    b = 3 * avg_delay
+    c = 6 * avg_delay
+    x = delay
+
+    if x <= b:
+        return p
+    elif x >= c:
+        return m
+    else:
+        return (m-p)*(x-b)*1.0/(c-b)+p
 
 def calc_bootstrap_reward(prover_reward_bootstrap, prover_reward_bootstrap_day, avg_block_time):
     if prover_reward_bootstrap == 0:
@@ -150,10 +173,24 @@ class Protocol(sim.Component):
                 )
 
             fee = self.slot_fee()
-            self.m_fee.tally(int(fee))
+            adjusted_fee = calc_block_fee(
+                fee,
+                self.config.block_fee_min_ratio,
+                self.avg_block_time,
+                block_time
+            )
+
+            if fee > 0: # other wise divided by 0
+                self.fee_base = moving_average(
+                    self.fee_base,
+                    self.fee_base * adjusted_fee / fee,
+                    self.config.fee_base_maf,
+                )
+
+            self.m_fee.tally(int(adjusted_fee))
 
             block = Block(
-                status=Status.PENDING, fee=fee, proposed_at=env.now(), proven_at=0
+                status=Status.PENDING, fee=adjusted_fee, proposed_at=env.now(), proven_at=0
             )
             self.blocks.append(block)
 
@@ -204,9 +241,8 @@ class Protocol(sim.Component):
                     )
 
                 reward = self.slot_fee()
-                adjustedReward = calc_proving_fee(
+                adjusted_reward = calc_proof_reward(
                     reward,
-                    self.config.prover_reward_min_ratio,
                     self.config.prover_reward_max_ratio,
                     self.avg_proof_time,
                     proof_time
@@ -215,7 +251,7 @@ class Protocol(sim.Component):
                 if reward > 0:
                     self.fee_base = moving_average(
                         self.fee_base,
-                        self.fee_base * adjustedReward / reward,
+                        self.fee_base * adjusted_reward / reward,
                         self.config.fee_base_maf,
                     )
 
@@ -224,12 +260,13 @@ class Protocol(sim.Component):
                     self.config.prover_reward_bootstrap_day,
                     self.avg_block_time
                 )
+
                 self.prover_bootstrap_reward_total += prover_bootstrap_reward
-                adjustedReward = prover_bootstrap_reward + adjustedReward * (100 - self.config.prover_reward_tax_pctg) / 100.0
+                adjusted_reward = prover_bootstrap_reward + adjusted_reward * (100 - self.config.prover_reward_tax_pctg) / 100.0
 
-                self.mint += adjustedReward - self.blocks[self.last_finalized].fee
+                self.mint += adjusted_reward - self.blocks[self.last_finalized].fee
 
-                self.m_reward.tally(int(adjustedReward))
+                self.m_reward.tally(int(adjusted_reward))
                 self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
                 self.m_fee_base.tally(int(self.fee_base))
                 self.m_mint.tally(int(self.mint))

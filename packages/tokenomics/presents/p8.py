@@ -18,7 +18,7 @@ Block `fee_base` is set to 0.
         lamda_ratio=100000,
         fee_base=0.0,
         fee_base_maf=1024,
-        prover_reward_min_ratio=0.5,
+        block_fee_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
         prover_reward_tax_pctg=0.0,
         prover_reward_bootstrap=1000000.0,
