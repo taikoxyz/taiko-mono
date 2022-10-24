@@ -46,19 +46,10 @@ def calc_block_fee(fee_base, min_ratio, avg_delay, delay):
     else:
         return (p-m)*(c-x)*1.0/(c-b)+m
 
-def calc_proof_reward(fee_base, max_ratio, avg_delay, delay):
-    p = fee_base
-    m = fee_base * max_ratio
-    b = 3 * avg_delay
-    c = 6 * avg_delay
-    x = delay
-
-    if x <= b:
-        return p
-    elif x >= c:
-        return m
-    else:
-        return (m-p)*(x-b)*1.0/(c-b)+p
+def calc_proof_reward(fee_base, min_ratio, max_raito, avg_delay, delay):
+    return min(
+        fee_base * max(max_raito, 2.0 - min_ratio),
+        1.0 * delay * fee_base * (1 - min_ratio) / avg_delay + fee_base * min_ratio)
 
 def calc_bootstrap_reward(prover_reward_bootstrap, prover_reward_bootstrap_day, avg_block_time):
     if prover_reward_bootstrap == 0:
@@ -243,6 +234,7 @@ class Protocol(sim.Component):
                 reward = self.slot_fee()
                 adjusted_reward = calc_proof_reward(
                     reward,
+                    self.config.prover_reward_min_ratio,
                     self.config.prover_reward_max_ratio,
                     self.avg_proof_time,
                     proof_time

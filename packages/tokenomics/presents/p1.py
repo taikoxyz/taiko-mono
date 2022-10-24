@@ -23,6 +23,7 @@ present = Present(
         fee_base=100.0,
         fee_base_maf=1024,
         block_fee_min_ratio=0.5,
+        prover_reward_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
         prover_reward_tax_pctg=0.0,
         prover_reward_bootstrap=0,
