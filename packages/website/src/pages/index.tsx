@@ -32,9 +32,9 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
-            href="https://github.com/taikochain/whitepaper/releases"
+            href="./taiko-whitepaper.pdf"
           >
-            Read the Whitepaper
+            Read the whitepaper
           </Link>
         </div>
       </div>

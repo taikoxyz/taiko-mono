@@ -7,7 +7,7 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Taiko",
-  tagline: "A decentralized Ethereum-equivalent ZK-Rollup",
+  tagline: "A decentralized Ethereum equivalent ZK rollup",
   url: "https://taiko.xyz",
   baseUrl: "/",
   onBrokenLinks: "throw",
@@ -29,7 +29,6 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
-          // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
             "https://github.com/taikochain/taiko-mono/tree/main/packages/website/",
