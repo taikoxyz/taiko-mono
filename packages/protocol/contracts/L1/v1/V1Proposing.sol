@@ -73,11 +73,11 @@ library V1Proposing {
 
         // enforce block.timestamp > parent.timestamp
         if (block.timestamp > s.parentTimestamp) {
-            meta.timestamp = uint64(block.timestamp);
             s.parentTimestamp = uint64(block.timestamp);
         } else {
-            meta.timestamp = ++s.parentTimestamp;
+            s.parentTimestamp += 1;
         }
+        meta.timestamp = s.parentTimestamp;
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
