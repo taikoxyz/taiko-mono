@@ -47,6 +47,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
+        uint64 parentTimestamp;
     }
 
     function saveProposedBlock(
