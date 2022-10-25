@@ -15,7 +15,7 @@ import (
 
 // CatchUp gets the most recent block height that has been indexed, and works it's way
 // up to the latest block.
-func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress string, caughtUp chan struct{}) error {
+func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress string, crossLayerBridgeAddress string, caughtUp chan struct{}) error {
 	log.Info("indexing starting")
 	chainID, err := s.ethClient.ChainID(ctx)
 	if err != nil {
@@ -49,11 +49,15 @@ func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress s
 	// instantiate bridge contract and filter for messages
 	// starting from the most recently processed block,
 	// and ending at the latest.
-	bridge, err := contracts.NewBridgeFilterer(common.HexToAddress(bridgeAddress), s.ethClient)
+	bridge, err := contracts.NewBridge(common.HexToAddress(bridgeAddress), s.ethClient)
 	if err != nil {
 		return errors.Wrap(err, "contracts.NewBridge")
 	}
 
+	crossLayerBridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
+	if err != nil {
+		return errors.Wrap(err, "contracts.NewBridge")
+	}
 	const batchSize = 1000
 	processingBlock := latestProcessedBlock
 	log.Infof("getting events between %v and %v in batches of %v", processingBlock.Height, header.Number.Int64(), batchSize)
@@ -122,6 +126,22 @@ func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress s
 			}); err != nil {
 				return errors.Wrap(err, "s.eventRepo.Save")
 			}
+
+			status, err := crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+			if err != nil {
+				return errors.Wrap(err, "bridge.GetMessageStatus")
+			}
+
+			if status == uint8(relayer.EventStatusNew) {
+				log.Info("message not processed yet, attempting processing")
+				// process the message
+				if err := s.processMessage(ctx, event, crossLayerBridgeAddress); err != nil {
+					return errors.Wrap(err, "s.processMessage")
+				}
+
+			}
+
+			// TODO: update as processed
 
 			// if the block number is higher than the one we are processing,
 			// we can now consider that one processed. save it to the DB

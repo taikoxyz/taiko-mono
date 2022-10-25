@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -52,10 +55,26 @@ func main() {
 	}
 	defer l1EthClient.Close()
 
+	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l2EthClient.Close()
+
+	rpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	l1GethClient := gethclient.New(rpcClient)
+
 	i, err := indexer.NewService(indexer.NewServiceOpts{
-		EventRepo: eventRepository,
-		BlockRepo: blockRepository,
-		EthClient: l1EthClient,
+		EventRepo:           eventRepository,
+		BlockRepo:           blockRepository,
+		CrossLayerEthClient: l2EthClient,
+		EthClient:           l1EthClient,
+		GethClient:          l1GethClient,
+		ECDSAKey:            os.Getenv("RELAYER_ECDSA_KEY"),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -68,6 +87,7 @@ func main() {
 			context.Background(),
 			relayer.EventNameMessageSent,
 			os.Getenv("L1_BRIDGE_ADDRESS"),
+			os.Getenv("L2_BRIDGE_ADDRESS"),
 			caughtUp,
 		); err != nil {
 			log.Fatal(err)
