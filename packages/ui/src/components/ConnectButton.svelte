@@ -1,5 +1,4 @@
 <script lang="ts">
-  import detectGamestopProvider from "@gamestopnft/detect-gamestop-provider";
   import { failureToast, successToast } from "./toasts/toasts";
   import { currentAddress } from "../store/currentAddress";
   import { push } from "svelte-spa-router";
@@ -25,7 +24,7 @@
       chainId.set(c);
       successToast("Successfully connected!");
     } catch (e) {
-      failureToast("Could not connect to Gamestop Provider");
+      failureToast("Could not connect to Ethereum provider");
     }
   };
 </script>
