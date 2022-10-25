@@ -65,11 +65,6 @@ const config = {
             position: "left",
           },
           {
-            href: "https://drive.google.com/file/d/1EIJq_XBbb1Y9k6Pe0szUkNoVKILTcO2R/view",
-            label: "Whitepaper",
-            position: "left",
-          },
-          {
             href: "https://discord.gg/tnSra3aFfg",
             label: "Discord",
             position: "right",
