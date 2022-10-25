@@ -160,7 +160,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         view
         returns (
-            uint64, /*genesisHeight*/
+            uint256, /*genesisHeight*/
             uint64, /*latestFinalizedHeight*/
             uint64, /*latestFinalizedId*/
             uint64 /*nextBlockId*/

@@ -24,8 +24,10 @@ library V1Finalizing {
 
     function init(LibData.State storage s, bytes32 _genesisBlockHash) public {
         s.l2Hashes[0] = _genesisBlockHash;
+        s.genesisHeight = block.number;
+
         s.nextBlockId = 1;
-        s.genesisHeight = uint64(block.number);
+        s.parentTimestamp = uint64(block.number);
 
         emit BlockFinalized(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
