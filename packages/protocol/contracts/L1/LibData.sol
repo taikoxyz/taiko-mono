@@ -43,10 +43,13 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
-        uint64 genesisHeight;
+        // TODO(daniel): optimize the order of these fields after
+        // tokenomics are implemented to reduce gas cost.
+        uint256 genesisHeight; // immutable after initial sstore
+        uint64 nextBlockId;
+        uint64 parentTimestamp;
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
-        uint64 nextBlockId;
     }
 
     function saveProposedBlock(
@@ -78,7 +81,7 @@ library LibData {
         internal
         view
         returns (
-            uint64 genesisHeight,
+            uint256 genesisHeight,
             uint64 latestFinalizedHeight,
             uint64 latestFinalizedId,
             uint64 nextBlockId
