@@ -32,3 +32,7 @@
 .navbar__logo {
   margin-right: 0;
 }
+
+html[data-theme="dark"] footer {
+  background-color: #242526;
+}

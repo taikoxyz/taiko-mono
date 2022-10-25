@@ -32,6 +32,7 @@ function HomepageHeader() {
           <a
             className="button button--secondary button--lg"
             href="./taiko-whitepaper.pdf"
+            target="_blank"
           >
             Read the whitepaper
           </a>
