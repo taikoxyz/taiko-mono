@@ -1,9 +1,12 @@
 import React from "react";
 
-import type { Chain } from "../types";
+import type { Chain } from "../../types";
 
-import { DEFAULT_FROM_CHAIN_ID, DEFAULT_TO_CHAIN_ID } from "../config/defaults";
-import { chains } from "../config/chains";
+import {
+  DEFAULT_FROM_CHAIN_ID,
+  DEFAULT_TO_CHAIN_ID,
+} from "../../config/defaults";
+import { chains } from "../../config/chains";
 
 export type AllowedNames = "from" | "to";
 

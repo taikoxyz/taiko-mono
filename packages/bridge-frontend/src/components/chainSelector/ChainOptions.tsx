@@ -1,5 +1,5 @@
 import React, { SyntheticEvent } from "react";
-import { chains } from "../config/chains";
+import { chains } from "../../config/chains";
 import { ChainSelectorContext } from "./ChainSelector";
 import type { AllowedNames } from "./ChainSelector";
 
