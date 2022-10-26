@@ -23,6 +23,8 @@ library LibConstants {
     uint256 public constant TAIKO_TXLIST_MAX_BYTES = 10240; // TODO
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 21000; // TODO
 
+    uint256 public constant TAIKO_MAX_TIME_DIFF = 120 seconds;
+
     // Taiko L2 releated constants
     uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 250000;
 

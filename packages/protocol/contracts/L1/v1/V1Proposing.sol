@@ -72,8 +72,13 @@ library V1Proposing {
         meta.l1Hash = blockhash(block.number - 1);
 
         // enforce block.timestamp > parent.timestamp
-        if (block.timestamp > s.parentTimestamp) {
+        if (s.parentTimestamp < block.timestamp) {
             s.parentTimestamp = uint64(block.timestamp);
+        } else if (
+            s.parentTimestamp >
+            block.timestamp + LibConstants.TAIKO_MAX_TIME_DIFF
+        ) {
+            revert("L2:timeAdvanceTooLarge");
         } else {
             s.parentTimestamp += 1;
         }
