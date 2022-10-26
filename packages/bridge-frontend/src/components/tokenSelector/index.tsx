@@ -34,6 +34,7 @@ const TokenSelector: React.FC<Props> = ({ filterByChainId }) => {
           <div className="p-2 flex items-center justify-between">
             <h4 className="text-lg">Tokens</h4>
             <button
+              type="button"
               className="text-3xl"
               onClick={() => setShowTokenSelector(false)}
             >
@@ -52,7 +53,7 @@ const TokenSelector: React.FC<Props> = ({ filterByChainId }) => {
               const token = tokensByChain[filterByChainId][address];
               return (
                 <div
-                  className={`flex items-center p-2 hover:bg-slate-100 ${
+                  className={`flex items-center p-2 hover:bg-slate-100 cursor-pointer ${
                     token.address === tokenSelected?.address
                       ? "!bg-slate-200"
                       : ""

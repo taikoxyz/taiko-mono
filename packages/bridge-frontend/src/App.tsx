@@ -28,7 +28,6 @@ const wagmiClient = createClient({
 });
 
 function App() {
-  const [wallet, setWallet] = React.useState();
   return (
     <WagmiConfig client={wagmiClient}>
       <RainbowKitProvider chains={chains}>
