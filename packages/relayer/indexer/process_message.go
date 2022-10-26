@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 
+	"github.com/umbracle/ethgo/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -13,6 +14,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+)
+
+var (
+	typ = abi.MustNewType()
+	args = abi.Arguments{
+		{
+			Name: "signalProof",
+			Type: relayer.SignalProofABIType,
+		},
+	}
 )
 
 // processMessage prepares and calls `processMessage` on the bridge.
@@ -63,8 +74,15 @@ func (s *Service) processMessage(
 		return errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	encodedProof := encodePacked(rlpEncodedAccountProof, rlpEncodedStorageProof)
+	blockheader := relayer.BlockHeader{}
 
+	encodedProof := encodePacked(rlpEncodedAccountProof, rlpEncodedStorageProof
+
+	signalProof := relayer.SignalProof{
+		Header: blockheader,
+		Proof: 
+	}
+	
 	bridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
 	if err != nil {
 		return errors.Wrap(err, "contracts.NewBridge")
