@@ -78,7 +78,7 @@ library V1Proposing {
             s.parentTimestamp >
             block.timestamp + LibConstants.TAIKO_MAX_TIME_DIFF
         ) {
-            revert("L2:timeDiff");
+            revert("L1:timeDiff");
         } else {
             s.parentTimestamp += 1;
         }
