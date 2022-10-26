@@ -16,15 +16,18 @@ present = Present(
 
 
 """,
-    days=20,
+    days=40,
     config=Config(
         max_slots=10000000,
         lamda_ratio=100000,
-        base_fee=100.0,
-        base_fee_maf=1024,
-        reward_min_ratio=0.5,
-        reward_max_ratio=4.0,
-        reward_tax_pctg=0.0,
+        fee_base=100.0,
+        fee_base_maf=1024,
+        block_fee_min_ratio=0.5,
+        prover_reward_min_ratio=0.5,
+        prover_reward_max_ratio=4.0,
+        prover_reward_tax_pctg=0.0,
+        prover_reward_bootstrap=0,
+        prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(

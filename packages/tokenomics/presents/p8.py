@@ -1,29 +1,28 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p0: constant block time and proof time",
+    title="p8: 0 fee/reward but non-zero prover bootstrap reward with constant block time",
     desc="""
 
 **What to simulate?**
 
-The most basic model where block time and proof time are both constant.
+Give prover per-block bootstrap reward based on the current block time average.
 
 **About this config**
+Block `fee_base` is set to 0.
 
-Block (proposal) fee is constant. This is achieved by settting `max_slots` and
-`lamda_ratio` to large values and `block_time_sd_pctg` to 0.
 """,
-    days=7,
+    days=12,
     config=Config(
         max_slots=10000000,
         lamda_ratio=100000,
-        fee_base=100.0,
+        fee_base=0.0,
         fee_base_maf=1024,
         block_fee_min_ratio=0.5,
         prover_reward_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
         prover_reward_tax_pctg=0.0,
-        prover_reward_bootstrap=0,
+        prover_reward_bootstrap=1000000.0,
         prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
         timing=[

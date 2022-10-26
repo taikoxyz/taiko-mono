@@ -13,6 +13,8 @@ from presents.p4 import present as p4
 from presents.p5 import present as p5
 from presents.p6 import present as p6
 from presents.p7 import present as p7
+from presents.p8 import present as p8
+from presents.p9 import present as p9
 
 DAY = 24 * 3600
 
@@ -30,11 +32,35 @@ class Block(NamedTuple):
     proven_at: int
 
 
-def calc_proving_fee(base_fee, min_ratio, max_raito, avg_delay, delay):
-    reward = min(
-        base_fee * max(max_raito, 2.0),
-        1.0 * delay * base_fee * (1 - min_ratio) / avg_delay + base_fee * min_ratio)
-    return reward
+def calc_block_fee(fee_base, min_ratio, avg_delay, delay):
+    p = fee_base
+    m = fee_base * min_ratio
+    b = 3 * avg_delay
+    c = 6 * avg_delay
+    x = delay
+
+    if x <= b:
+        return p
+    elif x >= c:
+        return m
+    else:
+        return (p-m)*(c-x)*1.0/(c-b)+m
+
+def calc_proof_reward(fee_base, min_ratio, max_raito, avg_delay, delay):
+    return min(
+        fee_base * max(max_raito, 2.0 - min_ratio),
+        1.0 * delay * fee_base * (1 - min_ratio) / avg_delay + fee_base * min_ratio)
+
+def calc_bootstrap_reward(prover_reward_bootstrap, prover_reward_bootstrap_day, avg_block_time):
+    if prover_reward_bootstrap == 0:
+        return 0
+    s = prover_reward_bootstrap * 1.0
+    t = prover_reward_bootstrap_day * 24 * 3600
+    b = avg_block_time
+    if env.now() >= t:
+        return 0
+    else:
+        return 2 * s * b * (t - env.now() + b / 2) / t / t
 
 
 def get_day(config):
@@ -67,26 +93,32 @@ def moving_average(ma, v, maf):
 class Protocol(sim.Component):
     def setup(self, config):
         self.config = config
-        self.base_fee = config.base_fee
+        self.fee_base = config.fee_base
         self.lamda = int(config.max_slots * config.lamda_ratio)
         self.phi = (config.max_slots + self.lamda - 1) * (config.max_slots + self.lamda)
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
+        # self.prover_reward_bootstrap_total = self.config.prover_reward_bootstrap_tota
 
         genesis = Block(
-            status=Status.FINALIZED, fee=0, proposed_at=env.now(), proven_at=env.now()
+            status=Status.FINALIZED,
+            fee=0,
+            proposed_at=env.now(),
+            proven_at=env.now(),
         )
         self.blocks = [genesis]
         self.last_finalized = 0
         self.mint = 0
+        self.prover_bootstrap_reward_total = 0
 
         self.m_pending_count = sim.Monitor("pending_count", level=True, initial_tally=0)
-        self.m_base_fee = sim.Monitor(
-            "proof_time", level=True, initial_tally=self.base_fee
+        self.m_fee_base = sim.Monitor(
+            "proof_time", level=True, initial_tally=self.fee_base
         )
-        self.m_fee = sim.Monitor("fee", level=True, initial_tally=self.base_fee)
-        self.m_reward = sim.Monitor("reward", level=True, initial_tally=self.base_fee)
+        self.m_fee = sim.Monitor("fee", level=True, initial_tally=self.fee_base)
+        self.m_reward = sim.Monitor("reward", level=True, initial_tally=self.fee_base)
+        self.m_prover_bootstrap_reward = sim.Monitor("bootstrap_reward", level=True, initial_tally=0)
         self.m_mint = sim.Monitor("profit", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
         self.m_proof_time = sim.Monitor("proof_time", level=True, initial_tally=0)
@@ -97,12 +129,18 @@ class Protocol(sim.Component):
         st.write("lamda = {}".format(self.lamda))
         st.write("last_finalized = {}".format(self.last_finalized))
         st.write("num_blocks = {}".format(len(self.blocks)))
-        st.write("base_fee = {}".format(self.base_fee))
+        st.write("fee_base = {}".format(self.fee_base))
         st.write("mint = {}".format(self.mint))
+        st.write("prover_bootstrap_reward_total = {}".format(self.prover_bootstrap_reward_total))
+
+        if self.config.prover_reward_bootstrap > 0:
+            st.write("prover_bootstrap_reward_total/config.prover_reward_bootstrap = {}".format(
+                self.prover_bootstrap_reward_total * 1.0/self.config.prover_reward_bootstrap
+            ))
 
     def slot_fee(self):
         n = self.config.max_slots - self.num_pending() + self.lamda
-        return self.base_fee * self.phi / n / (n - 1)
+        return self.fee_base * self.phi / n / (n - 1)
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized - 1
@@ -126,10 +164,24 @@ class Protocol(sim.Component):
                 )
 
             fee = self.slot_fee()
-            self.m_fee.tally(int(fee))
+            adjusted_fee = calc_block_fee(
+                fee,
+                self.config.block_fee_min_ratio,
+                self.avg_block_time,
+                block_time
+            )
+
+            if fee > 0: # other wise divided by 0
+                self.fee_base = moving_average(
+                    self.fee_base,
+                    self.fee_base * adjusted_fee / fee,
+                    self.config.fee_base_maf,
+                )
+
+            self.m_fee.tally(int(adjusted_fee))
 
             block = Block(
-                status=Status.PENDING, fee=fee, proposed_at=env.now(), proven_at=0
+                status=Status.PENDING, fee=adjusted_fee, proposed_at=env.now(), proven_at=0
             )
             self.blocks.append(block)
 
@@ -180,26 +232,35 @@ class Protocol(sim.Component):
                     )
 
                 reward = self.slot_fee()
-                adjustedReward = calc_proving_fee(
+                adjusted_reward = calc_proof_reward(
                     reward,
-                    self.config.reward_min_ratio,
-                    self.config.reward_max_ratio,
+                    self.config.prover_reward_min_ratio,
+                    self.config.prover_reward_max_ratio,
                     self.avg_proof_time,
                     proof_time
                 )
 
-                self.base_fee = moving_average(
-                    self.base_fee,
-                    self.base_fee * adjustedReward / reward,
-                    self.config.base_fee_maf,
+                if reward > 0:
+                    self.fee_base = moving_average(
+                        self.fee_base,
+                        self.fee_base * adjusted_reward / reward,
+                        self.config.fee_base_maf,
+                    )
+
+                prover_bootstrap_reward = calc_bootstrap_reward(
+                    self.config.prover_reward_bootstrap,
+                    self.config.prover_reward_bootstrap_day,
+                    self.avg_block_time
                 )
 
-                adjustedReward = adjustedReward * (100 - self.config.reward_tax_pctg) / 100.0
+                self.prover_bootstrap_reward_total += prover_bootstrap_reward
+                adjusted_reward = prover_bootstrap_reward + adjusted_reward * (100 - self.config.prover_reward_tax_pctg) / 100.0
 
-                self.mint += adjustedReward - self.blocks[self.last_finalized].fee
+                self.mint += adjusted_reward - self.blocks[self.last_finalized].fee
 
-                self.m_reward.tally(int(adjustedReward))
-                self.m_base_fee.tally(int(self.base_fee))
+                self.m_reward.tally(int(adjusted_reward))
+                self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
+                self.m_fee_base.tally(int(self.fee_base))
                 self.m_mint.tally(int(self.mint))
 
             else:
@@ -291,10 +352,11 @@ def simulate(config, days):
         st.markdown("-----")
         st.markdown("##### Result")
         plot(days, [(protocol.m_pending_count, "num pending blocks")])
-        plot(days, [(protocol.m_base_fee, "base_fee")])
-        plot(days, [(protocol.m_fee, "block fee")])
-        plot(days, [(protocol.m_reward, "block reward")])
-        plot(days, [(protocol.m_mint, "supply change")])
+        plot(days, [(protocol.m_fee_base, "fee_base")])
+        plot(days, [(protocol.m_fee, "block's proposer total fee")], color="tab:green")
+        plot(days, [(protocol.m_prover_bootstrap_reward, "block's prover bootstrap reward")])
+        plot(days, [(protocol.m_reward, "block's prover total reward")])
+        plot(days, [(protocol.m_mint, "supply change")], color="tab:red")
 
         protocol.print(st)
 
@@ -303,7 +365,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p0, p1, p2, p3, p4, p5, p6, p7]
+    presents = [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",

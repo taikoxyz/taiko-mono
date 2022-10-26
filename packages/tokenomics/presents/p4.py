@@ -1,12 +1,12 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p4: constant block time (100% ocsliaction), varying proof time (200% ocsliaction)",
+    title="p4: varying block time (100% ocsliaction), varying proof time (200% ocsliaction)",
     desc="""
 
 **About this config**
 
-- block time set to a constant (100% ocsliaction).
+- block time varies (100%  ocsliaction)
 - proof time varies (200%  ocsliaction) but eventually changes back to the initial value.
 
 **What to verify**
@@ -20,11 +20,14 @@ present = Present(
     config=Config(
         max_slots=10000000,
         lamda_ratio=100000,
-        base_fee=100.0,
-        base_fee_maf=1024,
-        reward_min_ratio=0.5,
-        reward_max_ratio=4.0,
-        reward_tax_pctg=0.0,
+        fee_base=100.0,
+        fee_base_maf=1024,
+        block_fee_min_ratio=0.5,
+        prover_reward_min_ratio=0.5,
+        prover_reward_max_ratio=4.0,
+        prover_reward_tax_pctg=0.0,
+        prover_reward_bootstrap=0,
+        prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(
