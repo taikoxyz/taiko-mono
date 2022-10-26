@@ -19,7 +19,7 @@ import (
 
 var (
 	signalProofType  = abi.MustNewType("tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce) header, bytes proof)")
-	storageProofType = abi.MustNewType("bytes, bytes")
+	storageProofType = abi.MustNewType("bytes")
 )
 
 // processMessage prepares and calls `processMessage` on the bridge.
@@ -37,6 +37,7 @@ func (s *Service) processMessage(
 
 	blockNumber := event.Raw.BlockNumber
 
+	// encode key as addressManager contract woul
 	key := hex.EncodeToString(
 		crypto.Keccak256(
 			encodePacked(
@@ -55,7 +56,7 @@ func (s *Service) processMessage(
 
 	// TODO: block should not be nil, but event.Raw.BlockNumber.
 	// however, this is throwing a missing trie error with our L1 geth client.
-	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, big.NewInt(int64(blockNumber)))
+	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, nil)
 	if err != nil {
 		return errors.Wrap(err, "s.gethClient.GetProof")
 	}
@@ -77,6 +78,17 @@ func (s *Service) processMessage(
 	if err != nil {
 		return errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
+
+	var logsBloom = make([][32]byte, 0)
+	bloom := [256]byte(block.Bloom())
+	for i := 0; i < 256; i += 32 {
+		end := i + 31
+		b := bloom[i:end]
+		var r [32]byte
+		copy(r[:], b)
+		logsBloom = append(logsBloom, r)
+	}
+
 	blockHeader := relayer.BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
@@ -92,6 +104,7 @@ func (s *Service) processMessage(
 		MixHash:          block.MixDigest(),
 		Nonce:            block.Nonce(),
 		StateRoot:        block.Root(),
+		LogsBloom:        logsBloom,
 	}
 
 	p := bytes.Join([][]byte{rlpEncodedAccountProof, rlpEncodedStorageProof}, nil)
