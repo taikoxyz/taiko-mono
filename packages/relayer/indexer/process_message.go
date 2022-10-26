@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"math/big"
 
-	"github.com/umbracle/ethgo/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -14,16 +14,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+	"github.com/umbracle/ethgo/abi"
 )
 
 var (
-	typ = abi.MustNewType()
-	args = abi.Arguments{
-		{
-			Name: "signalProof",
-			Type: relayer.SignalProofABIType,
-		},
-	}
+	signalProofType  = abi.MustNewType("tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce) header, bytes proof)")
+	storageProofType = abi.MustNewType("bytes, bytes")
 )
 
 // processMessage prepares and calls `processMessage` on the bridge.
@@ -38,6 +34,9 @@ func (s *Service) processMessage(
 	signal := event.Signal
 	message := event.Message
 	bridgeAddress := event.Raw.Address
+
+	blockNumber := event.Raw.BlockNumber
+
 	key := hex.EncodeToString(
 		crypto.Keccak256(
 			encodePacked(
@@ -56,7 +55,7 @@ func (s *Service) processMessage(
 
 	// TODO: block should not be nil, but event.Raw.BlockNumber.
 	// however, this is throwing a missing trie error with our L1 geth client.
-	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, nil)
+	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, big.NewInt(int64(blockNumber)))
 	if err != nil {
 		return errors.Wrap(err, "s.gethClient.GetProof")
 	}
@@ -74,22 +73,50 @@ func (s *Service) processMessage(
 		return errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	blockheader := relayer.BlockHeader{}
+	block, err := s.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
+	if err != nil {
+		return errors.Wrap(err, "s.ethClient.GetBlockByNumber")
+	}
+	blockHeader := relayer.BlockHeader{
+		ParentHash:       block.ParentHash(),
+		OmmersHash:       block.UncleHash(),
+		Beneficiary:      block.Coinbase(),
+		TransactionsRoot: block.TxHash(),
+		ReceiptsRoot:     block.ReceiptHash(),
+		Difficulty:       block.Difficulty(),
+		Height:           block.Number(),
+		GasLimit:         block.GasLimit(),
+		GasUsed:          block.GasUsed(),
+		Timestamp:        block.Time(),
+		ExtraData:        block.Extra(),
+		MixHash:          block.MixDigest(),
+		Nonce:            block.Nonce(),
+		StateRoot:        block.Root(),
+	}
 
-	encodedProof := encodePacked(rlpEncodedAccountProof, rlpEncodedStorageProof
+	p := bytes.Join([][]byte{rlpEncodedAccountProof, rlpEncodedStorageProof}, nil)
+	encodedProof, err := storageProofType.Encode(p)
+	if err != nil {
+		return errors.Wrap(err, "storageProofType.Encode(p)")
+	}
 
 	signalProof := relayer.SignalProof{
-		Header: blockheader,
-		Proof: 
+		Header: blockHeader,
+		Proof:  encodedProof,
 	}
-	
+
+	encodedSignalProof, err := signalProofType.Encode(signalProof)
+	if err != nil {
+		return errors.Wrap(err, "signalProofType.Encode")
+	}
+
 	bridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
 	if err != nil {
 		return errors.Wrap(err, "contracts.NewBridge")
 	}
 
 	log.Info("processing message")
-	tx, err := bridge.ProcessMessage(auth, message, encodedProof)
+	tx, err := bridge.ProcessMessage(auth, message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
 	}
