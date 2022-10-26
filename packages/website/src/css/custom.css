@@ -36,3 +36,8 @@
 html[data-theme="dark"] footer {
   background-color: #242526;
 }
+
+html[data-theme="light"] footer {
+  background-color: #ffffff;
+  color: #000000;
+}
