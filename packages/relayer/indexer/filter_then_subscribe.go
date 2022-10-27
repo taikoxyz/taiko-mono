@@ -13,10 +13,14 @@ import (
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 )
 
+var (
+	eventName = relayer.EventNameMessageSent
+)
+
 // FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
-func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, caughtUp chan struct{}) error {
+func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struct{}) error {
 	log.Info("indexing starting")
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
@@ -72,7 +76,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, c
 		}
 
 		if !events.Next() || events.Event == nil {
-			if err := svc.handleNoEventsInBatch(ctx, eventName, chainID, int64(end)); err != nil {
+			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
 				return errors.Wrap(err, "s.handleNoEventsInBatch")
 			}
 			continue
@@ -81,22 +85,12 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, c
 		log.Info("found events")
 
 		for {
-			if err := svc.handleEvent(ctx, eventName, chainID, events.Event); err != nil {
+			if err := svc.handleEvent(ctx, chainID, events.Event); err != nil {
 				return errors.Wrap(err, "svc.handleEvent")
 			}
 			if !events.Next() {
-				log.Info("no events remaining to be processed")
-				if events.Error() != nil {
-					return errors.Wrap(err, "events.Error")
-				}
-				log.Infof("saving new latest processed block to DB: %v", events.Event.Raw.BlockNumber)
-				if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
-					Height:    events.Event.Raw.BlockNumber,
-					Hash:      events.Event.Raw.BlockHash,
-					ChainID:   chainID,
-					EventName: eventName,
-				}); err != nil {
-					return errors.Wrap(err, "s.blockRepo.Save")
+				if err := svc.handleNoEventsRemaining(ctx, chainID, events); err != nil {
+					return errors.Wrap(err, "svc.handleNoEventsRemaining")
 				}
 				break
 			}
@@ -114,7 +108,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, c
 	return nil
 }
 
-func (svc *Service) handleEvent(ctx context.Context, eventName string, chainID *big.Int, event *contracts.BridgeMessageSent) error {
+func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *contracts.BridgeMessageSent) error {
 	log.Infof("event found. signal:%v", common.Hash(event.Signal).Hex())
 	log.Infof("for block number %v", event.Raw.BlockNumber)
 	marshaled, err := json.Marshal(event)
@@ -176,16 +170,33 @@ func (svc *Service) handleEvent(ctx context.Context, eventName string, chainID *
 			return errors.Wrap(err, "s.blockRepo.Save")
 		}
 		svc.processingBlock = &relayer.Block{
-			Height:    raw.BlockNumber,
-			Hash:      raw.BlockHash.Hex(),
-			EventName: eventName,
+			Height: raw.BlockNumber,
+			Hash:   raw.BlockHash.Hex(),
 		}
 	}
 
 	return nil
 }
 
-func (s *Service) handleNoEventsInBatch(ctx context.Context, eventName string, chainID *big.Int, blockNumber int64) error {
+func (svc *Service) handleNoEventsRemaining(ctx context.Context, chainID *big.Int, events *contracts.BridgeMessageSentIterator) error {
+	log.Info("no events remaining to be processed")
+	if events.Error() != nil {
+		return errors.Wrap(events.Error(), "events.Error")
+	}
+	log.Infof("saving new latest processed block to DB: %v", events.Event.Raw.BlockNumber)
+	if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
+		Height:    events.Event.Raw.BlockNumber,
+		Hash:      events.Event.Raw.BlockHash,
+		ChainID:   chainID,
+		EventName: eventName,
+	}); err != nil {
+		return errors.Wrap(err, "s.blockRepo.Save")
+	}
+
+	return nil
+}
+
+func (s *Service) handleNoEventsInBatch(ctx context.Context, chainID *big.Int, blockNumber int64) error {
 	log.Infof("no events in batch")
 	header, err := s.ethClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
 	if err != nil {

@@ -88,7 +88,6 @@ func main() {
 	go func() {
 		if err := i.FilterThenSubscribe(
 			context.Background(),
-			relayer.EventNameMessageSent,
 			done,
 		); err != nil {
 			log.Fatal(err)
