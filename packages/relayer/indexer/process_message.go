@@ -8,8 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	solsha3 "github.com/miguelmota/go-solidity-sha3"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	signalProofType  = abi.MustNewType("tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce) header, bytes proof)")
+	signalProofType  = abi.MustNewType("tuple(tuple(bytes32 parenthash, bytes32 ommershash, address beneficiary, bytes32 stateroot, bytes32 transactionsroot, bytes32 receiptsroot, bytes32[8] logsbloom, uint256 difficulty, uint128 height, uint64 gaslimit, uint64 gasused, uint64 timestamp, bytes extradata, bytes32 mixhash, uint64 nonce) header, bytes proof)")
 	storageProofType = abi.MustNewType("bytes")
 )
 
@@ -37,14 +37,13 @@ func (s *Service) processMessage(
 
 	blockNumber := event.Raw.BlockNumber
 
-	// encode key as addressManager contract woul
-	key := hex.EncodeToString(
-		crypto.Keccak256(
-			encodePacked(
-				message.Sender[:],
-				signal[:],
-			),
-		))
+	hashed := solsha3.SoliditySHA3(
+		solsha3.Address(bridgeAddress),
+		solsha3.Bytes32(signal),
+	)
+
+	key := hex.EncodeToString(hashed)
+
 	log.Infof("processing message for signal: %v", common.Hash(signal).Hex())
 
 	auth, err := bind.NewKeyedTransactorWithChainID(s.ecdsaKey, message.DestChainId)
@@ -56,10 +55,12 @@ func (s *Service) processMessage(
 
 	// TODO: block should not be nil, but event.Raw.BlockNumber.
 	// however, this is throwing a missing trie error with our L1 geth client.
-	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, nil)
+	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, big.NewInt(int64(blockNumber)))
 	if err != nil {
 		return errors.Wrap(err, "s.gethClient.GetProof")
 	}
+
+	log.Infof("proof value is %v", proof.StorageProof[0].Value.Int64())
 
 	log.Info("rlp encoding account proof")
 
@@ -78,15 +79,17 @@ func (s *Service) processMessage(
 	if err != nil {
 		return errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
-
-	var logsBloom = make([][32]byte, 0)
+	log.Info("converting logsbloom")
+	var logsBloom = [8][32]byte{}
 	bloom := [256]byte(block.Bloom())
+	index := 0
 	for i := 0; i < 256; i += 32 {
 		end := i + 31
 		b := bloom[i:end]
 		var r [32]byte
 		copy(r[:], b)
-		logsBloom = append(logsBloom, r)
+		logsBloom[index] = r
+		index++
 	}
 
 	blockHeader := relayer.BlockHeader{
@@ -108,6 +111,7 @@ func (s *Service) processMessage(
 	}
 
 	p := bytes.Join([][]byte{rlpEncodedAccountProof, rlpEncodedStorageProof}, nil)
+	log.Info("abi encoding storageProof")
 	encodedProof, err := storageProofType.Encode(p)
 	if err != nil {
 		return errors.Wrap(err, "storageProofType.Encode(p)")
@@ -118,6 +122,7 @@ func (s *Service) processMessage(
 		Proof:  encodedProof,
 	}
 
+	log.Info("abi encoding signal proof")
 	encodedSignalProof, err := signalProofType.Encode(signalProof)
 	if err != nil {
 		return errors.Wrap(err, "signalProofType.Encode")

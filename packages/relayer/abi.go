@@ -7,7 +7,7 @@ import (
 )
 
 type BlockHeader struct {
-	ParentHash       common.Hash `abi:"parentHash"`
+	ParentHash       common.Hash
 	OmmersHash       common.Hash
 	Beneficiary      common.Address
 	StateRoot        common.Hash
@@ -19,12 +19,12 @@ type BlockHeader struct {
 	GasUsed          uint64
 	Timestamp        uint64
 	ExtraData        []byte
-	LogsBloom        [][32]byte
+	LogsBloom        [8][32]byte
 	MixHash          common.Hash
 	Nonce            uint64
 }
 
 type SignalProof struct {
-	Header BlockHeader `abi:"header"`
-	Proof  []byte      `abi:"proof"`
+	Header BlockHeader
+	Proof  []byte
 }
