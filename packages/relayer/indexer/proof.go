@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
@@ -73,6 +74,8 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress comm
 		return nil, errors.Wrap(err, "s.gethClient.GetProof")
 	}
 
+	spew.Dump(proof)
+
 	if proof.StorageProof[0].Value.Int64() != int64(1) {
 		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
@@ -90,10 +93,7 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress comm
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	p := Proof{
-		AccountProof: rlpEncodedAccountProof,
-		StorageProof: rlpEncodedStorageProof,
-	}
+	p := [][]byte{rlpEncodedAccountProof, rlpEncodedStorageProof}
 
 	log.Info("abi encoding accountProof")
 	encodedStorageProof, err := storageProofType.Encode(&p)

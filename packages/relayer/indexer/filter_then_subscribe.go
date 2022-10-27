@@ -20,7 +20,7 @@ var (
 // FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
-func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struct{}) error {
+func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 	log.Info("indexing starting")
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
@@ -46,8 +46,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struc
 	// TODO: call SubscribeMessageSent, as we can now just watch the chain for new blocks
 	if latestProcessedBlock.Height == header.Number.Uint64() {
 		log.Info("already caught up")
-		caughtUp <- struct{}{}
-		return nil
+		return svc.subscribe(ctx, chainID)
 	}
 
 	const batchSize = 1000
@@ -96,20 +95,45 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struc
 		}
 	}
 
-	log.Info("indexer fully caught up")
-	// TODO: check latest block number. if its diff than our latest block number,
-	// no new blocks came in while we were catching up. subscribe to recent events instead.
-	// otherwise, recursively call FilterThenSubscribe now to catch up again. this will
-	// repeat until we are actually caught up after a catch up, and we can then subscribe, knowing
-	// we havent missed any past messages.
-	caughtUp <- struct{}{}
+	log.Info("indexer fully caught up, checking latest block number to see if it's advanced")
 
-	return nil
+	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "svc.ethclient.HeaderByNumber")
+	}
+
+	if svc.processingBlock.Height < latestBlock.Number.Uint64() {
+		return svc.FilterThenSubscribe(ctx)
+	}
+
+	return svc.subscribe(ctx, chainID)
+}
+
+// subscribe subscribes to latest events
+func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
+	sink := make(chan *contracts.BridgeMessageSent, 0)
+	sub, err := svc.bridge.WatchMessageSent(&bind.WatchOpts{}, sink, nil)
+	if err != nil {
+		return errors.Wrap(err, "svc.bridge.WatchMessageSent")
+	}
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case err := <-sub.Err():
+			return err
+		case event := <-sink:
+			if err := svc.handleEvent(ctx, chainID, event); err != nil {
+				return errors.Wrap(err, "svc.handleEvent")
+			}
+		}
+	}
 }
 
 // handleEvent handles an individual MessageSent event
 func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *contracts.BridgeMessageSent) error {
-	log.Infof("event found. signal:%v for block #v", common.Hash(event.Signal).Hex(), event.Raw.BlockNumber)
+	log.Infof("event found. signal:%v for block %v", common.Hash(event.Signal).Hex(), event.Raw.BlockNumber)
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")

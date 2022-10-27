@@ -25,12 +25,6 @@ class ETHBridge implements Bridge {
       opts.signer
     );
 
-    const isDestChainEnabled = await bridge.isDestChainEnabled(
-      opts.destChainId
-    );
-    if (!isDestChainEnabled)
-      await bridge.enableDestChain(opts.destChainId, true);
-
     const owner = await opts.signer.getAddress();
 
     const message = {
@@ -44,9 +38,9 @@ class ETHBridge implements Bridge {
       depositValue: opts.amount,
       callValue: 1,
       processingFee: 1,
-      gasLimit: 10000,
+      gasLimit: 100000000,
       data: ethers.constants.HashZero,
-      memo: "",
+      memo: "sent by bad UI bridge!",
     };
 
     const expectedAmount = BigNumber.from(message.depositValue)

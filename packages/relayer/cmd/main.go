@@ -18,6 +18,7 @@ import (
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -83,18 +84,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	done := make(chan struct{})
+	forever := make(chan struct{})
 
 	go func() {
-		if err := i.FilterThenSubscribe(
-			context.Background(),
-			done,
-		); err != nil {
+		if err := i.FilterThenSubscribe(context.Background()); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	<-done
+	<-forever
 }
 
 func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
@@ -107,7 +105,7 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 	)
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: nil,
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		log.Fatal(err)

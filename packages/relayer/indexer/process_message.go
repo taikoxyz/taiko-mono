@@ -3,7 +3,9 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
@@ -23,6 +25,13 @@ func (svc *Service) processMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	// TODO: remove, right now cronJob messages have a destChainID of 167001
+	// so they are unprocessable
+	if event.Message.DestChainId.Cmp(big.NewInt(167)) != 0 {
+		log.Infof("skipping")
+		return nil
+	}
+	spew.Dump(event.Message)
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
