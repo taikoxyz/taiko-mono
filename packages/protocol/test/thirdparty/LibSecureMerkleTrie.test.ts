@@ -88,7 +88,7 @@ describe("LibSecureMerkleTrie", function () {
                 defaultSecureMerkleTrie.nodes[0].key
             )
 
-            const key = randomBytes(32)
+            const key = randomBytes(defaultNodeLength)
             const isIncluded = await libSecureMerkleTrie.get(
                 key,
                 t.proof.proof,

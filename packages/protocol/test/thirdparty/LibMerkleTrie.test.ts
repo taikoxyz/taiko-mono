@@ -84,7 +84,7 @@ describe("LibMerkleTrie", function () {
                 defaultMerkleTrie.nodes[0].key
             )
 
-            const key = randomBytes(32)
+            const key = randomBytes(defaultNodeLength)
             const isIncluded = await libMerkleTrie.get(
                 key,
                 t.proof.proof,

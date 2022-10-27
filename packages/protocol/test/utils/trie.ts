@@ -44,8 +44,8 @@ class MerkleTrie<T extends BaseTrie | SecureTrie> {
 
     newRandomNode(): Node {
         return {
-            key: randomBytes(32),
-            value: randomBytes(32),
+            key: randomBytes(this.nodeLength),
+            value: randomBytes(this.nodeLength),
         }
     }
 
