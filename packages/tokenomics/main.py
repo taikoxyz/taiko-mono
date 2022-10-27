@@ -52,7 +52,7 @@ def get_proof_reward(base_fee, max_ratio, avg_proof_time, proof_time):
     if proof_time <= a:
         return base_fee
 
-    b = avg_block_time * 3
+    b = avg_proof_time * 3
     n = base_fee * max_ratio
 
     if proof_time >= b:
@@ -105,8 +105,8 @@ def moving_average(ma, v, maf):
 class Protocol(sim.Component):
     def setup(self, config):
         self.config = config
-        self.base_fee = config.base_fee * 1000000.0
-        self.phi = (config.max_slots + self.config.lamda - 1) * (config.max_slots + self.lamda)
+        self.base_fee = config.base_fee
+        self.phi = (config.max_slots + self.config.lamda - 1) * (config.max_slots + self.config.lamda)
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
         self.avg_proof_time = 0
@@ -184,11 +184,12 @@ class Protocol(sim.Component):
                 block_time
             )
 
-            self.base_fee = moving_average(
-                self.base_fee,
-                self.base_fee * actual_fee / premium,
-                self.config.base_fee_maf,
-            )
+            if premium > 0:
+                self.base_fee = moving_average(
+                    self.base_fee,
+                    self.base_fee * actual_fee / premium,
+                    self.config.base_fee_maf,
+                )
 
             self.m_fee.tally(actual_fee)
 
@@ -248,16 +249,17 @@ class Protocol(sim.Component):
                     proof_time
                 )
 
-                self.base_fee = moving_average(
-                    self.base_fee,
-                    self.base_fee * actual_reward / premium,
-                    self.config.base_fee_maf,
-                )
+                if premium > 0:
+                    self.base_fee = moving_average(
+                        self.base_fee,
+                        self.base_fee * actual_reward / premium,
+                        self.config.base_fee_maf,
+                    )
 
                 prover_bootstrap_reward = calc_bootstrap_reward(
                     self.config.prover_reward_bootstrap,
                     self.config.prover_reward_bootstrap_day,
-                    self.avg_block_time
+                    self.avg_proof_time
                 )
 
                 self.prover_bootstrap_reward_total += prover_bootstrap_reward
