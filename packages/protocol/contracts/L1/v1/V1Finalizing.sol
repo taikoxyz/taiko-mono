@@ -68,18 +68,19 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-                uint256 reward = getProofReward(s, proofTime);
+                uint256 premium = V1Utils.getPremium(s);
+                uint256 actualReward = getProofReward(s, premium, proofTime);
 
                 if (address(tkoToken) == address(0)) {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
                 // TODO(daniel): reward all provers
-                tkoToken.mint(fc.provers[0], reward);
-                V1Utils.updateBaseFee(s, reward);
+                tkoToken.mint(fc.provers[0], actualReward);
+                V1Utils.updateBaseFee(s, premium, actualReward);
                 _updateAvgProofTime(s, proofTime);
 
-                emit BlockFinalized(i, fc.blockHash, reward);
+                emit BlockFinalized(i, fc.blockHash, actualReward);
             }
 
             processed += 1;
@@ -96,19 +97,19 @@ library V1Finalizing {
         }
     }
 
-    function getProofReward(LibData.State storage s, uint64 proofTime)
-        public
-        view
-        returns (uint256)
-    {
+    function getProofReward(
+        LibData.State storage s,
+        uint256 premium,
+        uint64 proofTime
+    ) public view returns (uint256) {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        if (proofTime <= a) return s.baseFee;
+        if (proofTime <= a) return premium;
 
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 n = (s.baseFee * 400) / 100; // 400%
+        uint256 n = (premium * 400) / 100; // 400%
         if (proofTime >= b) return n;
 
-        return ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
+        return ((n - premium) * (proofTime - a)) / (b - a) + n;
     }
 
     function _updateAvgProofTime(LibData.State storage s, uint64 proofTime)

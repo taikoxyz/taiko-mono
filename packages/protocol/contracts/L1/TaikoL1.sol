@@ -19,6 +19,7 @@ import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
+import "./v1/V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
@@ -136,12 +137,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     function getBlockFee() public view returns (uint256) {
+        uint256 premium = V1Utils.getPremium(state);
         uint64 blocktime = uint64(block.timestamp - state.lastProposedAt);
-        return V1Proposing.getBlockFee(state, blocktime);
+        return V1Proposing.getBlockFee(state, premium, blocktime);
     }
 
     function getProofReward(uint64 proofTime) public view returns (uint256) {
-        return V1Finalizing.getProofReward(state, proofTime);
+        uint256 premium = V1Utils.getPremium(state);
+        return V1Finalizing.getProofReward(state, premium, proofTime);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {

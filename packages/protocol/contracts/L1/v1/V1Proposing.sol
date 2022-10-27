@@ -88,28 +88,29 @@ library V1Proposing {
         );
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
-        uint256 fee = getBlockFee(s, blockTime);
-        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+        uint256 premium = V1Utils.getPremium(s);
+        uint256 actualFee = getBlockFee(s, premium, blockTime);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, actualFee);
 
-        V1Utils.updateBaseFee(s, fee);
+        V1Utils.updateBaseFee(s, premium, actualFee);
         _updateAvgBlockTime(s, blockTime);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s, uint64 blockTime)
-        public
-        view
-        returns (uint256)
-    {
+    function getBlockFee(
+        LibData.State storage s,
+        uint256 baseFee,
+        uint64 blockTime
+    ) public view returns (uint256) {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        if (blockTime <= a) return s.baseFee;
+        if (blockTime <= a) return baseFee;
 
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 m = (s.baseFee * 25) / 100; // 25%
+        uint256 m = (baseFee * 25) / 100; // 25%
         if (blockTime >= b) return m;
 
-        return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
+        return ((baseFee - m) * (b - blockTime)) / (b - a) + m;
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)

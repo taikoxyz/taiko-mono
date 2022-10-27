@@ -14,7 +14,17 @@ import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Utils {
-    function updateBaseFee(LibData.State storage s, uint256 value) public {
-        s.baseFee = (1023 * s.baseFee + value) / 1024;
+    function updateBaseFee(
+        LibData.State storage s,
+        uint256 premium,
+        uint256 actualFee
+    ) public {
+        s.baseFee =
+            (s.baseFee * (1023 * premium + actualFee)) /
+            (1024 * premium);
+    }
+
+    function getPremium(LibData.State storage s) public view returns (uint256) {
+        return s.baseFee;
     }
 }
