@@ -15,6 +15,7 @@ import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -51,10 +52,9 @@ library V1Proposing {
         _validateMetadata(meta);
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
-        TkoToken(resolver.resolve("tko_token")).burn(
-            msg.sender,
-            getBlockFee(s, blockTime)
-        );
+        uint256 fee = getBlockFee(s, blockTime);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+        V1Utils.updateBaseFee(s, fee);
 
         s.lastProposedAt = meta.timestamp;
 
