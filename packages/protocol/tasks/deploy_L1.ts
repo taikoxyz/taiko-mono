@@ -117,7 +117,8 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
-    const baseFee = hre.ethers.BigNumber.from("1E18")
+    const baseFee = hre.ethers.BigNumber.from(10).pow(18)
+
     await utils.waitTx(
         hre,
         await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, baseFee)
