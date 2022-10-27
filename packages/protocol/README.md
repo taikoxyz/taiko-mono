@@ -37,7 +37,7 @@ Start by creating a `config.json`, for example:
     "chainId": 167,
 
     // Account address and pre-mint ETH amount as key-value pairs.
-    "premintEthAccounts": [
+    "seedAccounts": [
         { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1024 },
         { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 }
     ],
