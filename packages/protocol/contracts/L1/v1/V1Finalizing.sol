@@ -15,7 +15,6 @@ import "../LibData.sol";
 import "../TkoToken.sol";
 import "./V1Utils.sol";
 
-//
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
     event BlockFinalized(uint256 indexed id, bytes32 blockHash, uint256 reward);
@@ -68,7 +67,7 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-                uint256 premium = V1Utils.getPremium(s);
+                uint256 premium = V1Utils.getPremium(s, true);
                 uint256 actualReward = getProofReward(s, premium, proofTime);
 
                 if (address(tkoToken) == address(0)) {

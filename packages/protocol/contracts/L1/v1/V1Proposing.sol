@@ -88,7 +88,7 @@ library V1Proposing {
         );
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
-        uint256 premium = V1Utils.getPremium(s);
+        uint256 premium = V1Utils.getPremium(s, false);
         uint256 actualFee = getBlockFee(s, premium, blockTime);
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, actualFee);
 

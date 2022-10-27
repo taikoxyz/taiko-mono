@@ -137,13 +137,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     function getBlockFee() public view returns (uint256) {
-        uint256 premium = V1Utils.getPremium(state);
+        uint256 premium = V1Utils.getPremium(state, false);
         uint64 blocktime = uint64(block.timestamp - state.lastProposedAt);
         return V1Proposing.getBlockFee(state, premium, blocktime);
     }
 
     function getProofReward(uint64 proofTime) public view returns (uint256) {
-        uint256 premium = V1Utils.getPremium(state);
+        uint256 premium = V1Utils.getPremium(state, true);
         return V1Finalizing.getProofReward(state, premium, proofTime);
     }
 

@@ -22,7 +22,17 @@ library V1Utils {
         s.baseFee = (s.baseFee * (1023 + actualFee / premium)) / 1024;
     }
 
-    function getPremium(LibData.State storage s) public view returns (uint256) {
-        return s.baseFee;
+    function getPremium(LibData.State storage s, bool releaseOneSlot)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 n = LibConstants.TAIKO_MAX_PROPOSED_BLOCKS +
+            1 -
+            s.nextBlockId +
+            s.latestFinalizedId;
+        uint256 p = n + LibConstants.TAIKO_FEE_PREMIUM_LAMDA;
+        uint256 q = releaseOneSlot ? p + 1 : p - 1;
+        return (s.baseFee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
     }
 }
