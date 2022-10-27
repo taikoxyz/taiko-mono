@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 )
 
 // FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
@@ -80,83 +81,18 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, c
 		log.Info("found events")
 
 		for {
-			event := events.Event
-			log.Infof("event found. signal:%v", common.Hash(event.Signal).Hex())
-			log.Infof("for block number %v", event.Raw.BlockNumber)
-			marshaled, err := json.Marshal(event)
-			if err != nil {
-				return errors.Wrap(err, "json.Marshal(event)")
+			if err := svc.handleEvent(ctx, eventName, chainID, events.Event); err != nil {
+				return errors.Wrap(err, "svc.handleEvent")
 			}
-			raw := event.Raw
-
-			// save event to database for later processing outside
-			// the indexer
-			log.Info("saving event to database")
-			eventStatus := relayer.EventStatusNew
-			// if gasLimit is 0, relayer can not process this.
-			if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(big.NewInt(0)) == 0 {
-				eventStatus = relayer.EventStatusNewOnlyOwner
-			}
-			e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
-				Name:    eventName,
-				Data:    string(marshaled),
-				ChainID: chainID,
-				Status:  eventStatus,
-			})
-			if err != nil {
-				return errors.Wrap(err, "s.eventRepo.Save")
-			}
-
-			// we can not process
-			if eventStatus == relayer.EventStatusNewOnlyOwner {
-				log.Infof("gasLimit == 0, can not process. continuing loop")
-				continue
-			}
-
-			messageStatus, err := svc.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
-			if err != nil {
-				return errors.Wrap(err, "bridge.GetMessageStatus")
-			}
-
-			if messageStatus == uint8(relayer.EventStatusNew) {
-				log.Info("message not processed yet, attempting processing")
-				// process the message
-				if err := svc.processMessage(ctx, event, e); err != nil {
-					return errors.Wrap(err, "s.processMessage")
-				}
-
-			}
-
-			// if the block number is higher than the one we are processing,
-			// we can now consider that one processed. save it to the DB
-			// and bump the block number.
-			if raw.BlockNumber > svc.processingBlock.Height {
-				log.Info("raw blockNumber > processingBlock.height")
-				log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
-				if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
-					Height:    svc.processingBlock.Height,
-					Hash:      common.HexToHash(svc.processingBlock.Hash),
-					ChainID:   chainID,
-					EventName: eventName,
-				}); err != nil {
-					return errors.Wrap(err, "s.blockRepo.Save")
-				}
-				svc.processingBlock = &relayer.Block{
-					Height:    raw.BlockNumber,
-					Hash:      raw.BlockHash.Hex(),
-					EventName: eventName,
-				}
-			}
-
 			if !events.Next() {
 				log.Info("no events remaining to be processed")
 				if events.Error() != nil {
 					return errors.Wrap(err, "events.Error")
 				}
-				log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
+				log.Infof("saving new latest processed block to DB: %v", events.Event.Raw.BlockNumber)
 				if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
-					Height:    raw.BlockNumber,
-					Hash:      raw.BlockHash,
+					Height:    events.Event.Raw.BlockNumber,
+					Hash:      events.Event.Raw.BlockHash,
 					ChainID:   chainID,
 					EventName: eventName,
 				}); err != nil {
@@ -174,6 +110,77 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, eventName string, c
 	// repeat until we are actually caught up after a catch up, and we can then subscribe, knowing
 	// we havent missed any past messages.
 	caughtUp <- struct{}{}
+
+	return nil
+}
+
+func (svc *Service) handleEvent(ctx context.Context, eventName string, chainID *big.Int, event *contracts.BridgeMessageSent) error {
+	log.Infof("event found. signal:%v", common.Hash(event.Signal).Hex())
+	log.Infof("for block number %v", event.Raw.BlockNumber)
+	marshaled, err := json.Marshal(event)
+	if err != nil {
+		return errors.Wrap(err, "json.Marshal(event)")
+	}
+	raw := event.Raw
+
+	// save event to database for later processing outside
+	// the indexer
+	log.Info("saving event to database")
+	eventStatus := relayer.EventStatusNew
+	// if gasLimit is 0, relayer can not process this.
+	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(big.NewInt(0)) == 0 {
+		eventStatus = relayer.EventStatusNewOnlyOwner
+	}
+	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
+		Name:    eventName,
+		Data:    string(marshaled),
+		ChainID: chainID,
+		Status:  eventStatus,
+	})
+	if err != nil {
+		return errors.Wrap(err, "s.eventRepo.Save")
+	}
+
+	// we can not process, exit early
+	if eventStatus == relayer.EventStatusNewOnlyOwner {
+		log.Infof("gasLimit == 0, can not process. continuing loop")
+		return nil
+	}
+
+	messageStatus, err := svc.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	if err != nil {
+		return errors.Wrap(err, "bridge.GetMessageStatus")
+	}
+
+	if messageStatus == uint8(relayer.EventStatusNew) {
+		log.Info("message not processed yet, attempting processing")
+		// process the message
+		if err := svc.processMessage(ctx, event, e); err != nil {
+			return errors.Wrap(err, "s.processMessage")
+		}
+
+	}
+
+	// if the block number is higher than the one we are processing,
+	// we can now consider that one processed. save it to the DB
+	// and bump the block number.
+	if raw.BlockNumber > svc.processingBlock.Height {
+		log.Info("raw blockNumber > processingBlock.height")
+		log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
+		if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
+			Height:    svc.processingBlock.Height,
+			Hash:      common.HexToHash(svc.processingBlock.Hash),
+			ChainID:   chainID,
+			EventName: eventName,
+		}); err != nil {
+			return errors.Wrap(err, "s.blockRepo.Save")
+		}
+		svc.processingBlock = &relayer.Block{
+			Height:    raw.BlockNumber,
+			Hash:      raw.BlockHash.Hex(),
+			EventName: eventName,
+		}
+	}
 
 	return nil
 }
