@@ -5,7 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "build": "docusaurus build",
+    "build": "curl -L -o ./static/taiko-whitepaper.pdf https://github.com/taikochain/whitepaper/releases/latest/download/taiko-whitepaper.pdf && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
