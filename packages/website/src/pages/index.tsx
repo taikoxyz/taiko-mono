@@ -1,41 +1,35 @@
 import React from "react";
 import clsx from "clsx";
-import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 import HomepageFeatures from "@site/src/components/HomepageFeatures";
-import { useColorMode } from "@docusaurus/theme-common";
+import ThemedImage from "@theme/ThemedImage";
 
 import styles from "./index.module.css";
 
 function HomepageHeader() {
-  const { colorMode } = useColorMode();
   const { siteConfig } = useDocusaurusContext();
 
   return (
     <header className={clsx("hero", styles.heroBanner)}>
       <div className="container">
-        {colorMode === "dark" ? (
-          <img
-            src="./img/Taiko_Logo-Original_Pink_White.svg"
-            alt="Taiko Logo"
-            width="200px"
-          />
-        ) : (
-          <img
-            src="./img/Taiko_Logo-Original_Pink_Black.svg"
-            alt="Taiko Logo"
-            width="200px"
-          />
-        )}
+        <ThemedImage
+          alt="Taiko homepage logo"
+          sources={{
+            light: "./img/Taiko_Logo-Original_Pink_Black.svg",
+            dark: "./img/Taiko_Logo-Original_Pink_White.svg",
+          }}
+          width="200px"
+        />
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>
-          <Link
+          <a
             className="button button--secondary button--lg"
-            href="https://github.com/taikochain/whitepaper/releases"
+            href="./taiko-whitepaper.pdf"
+            target="_blank"
           >
-            Read the Whitepaper
-          </Link>
+            Read the whitepaper
+          </a>
         </div>
       </div>
     </header>
