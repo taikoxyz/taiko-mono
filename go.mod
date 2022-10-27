@@ -7,7 +7,6 @@ replace github.com/umbracle/ethgo => ../../ethgo
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
-	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/joho/godotenv v1.4.0
 	github.com/miguelmota/go-solidity-sha3 v0.1.1

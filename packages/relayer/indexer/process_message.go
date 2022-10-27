@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"math/big"
@@ -82,12 +81,13 @@ func (s *Service) processMessage(
 	return nil
 }
 
-func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (*relayer.BlockHeader, error) {
+func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (*BlockHeader, error) {
 	block, err := s.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
 		return nil, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
-	return &relayer.BlockHeader{
+
+	return &BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
 		Beneficiary:      block.Coinbase(),
@@ -117,7 +117,7 @@ func (s *Service) getEncodedSignalProof(ctx context.Context, bridgeAddress commo
 		return nil, errors.Wrap(err, "s.blockHeader")
 	}
 
-	signalProof := &relayer.SignalProof{
+	signalProof := &SignalProof{
 		Header: *blockHeader,
 		Proof:  encodedStorageProof,
 	}
@@ -149,16 +149,15 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress comm
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	log.Info("abi encoding accountProof")
-	encodedAccountProof, err := storageProofType.Encode(rlpEncodedAccountProof)
-	if err != nil {
-		return nil, errors.Wrap(err, "storageProofType.Encode(p)")
+	p := Proof{
+		AccountProof: rlpEncodedAccountProof,
+		StorageProof: rlpEncodedStorageProof,
 	}
 
-	log.Info("abi encoding storageProof")
-	encodedStorageProof, err := storageProofType.Encode(rlpEncodedStorageProof)
+	log.Info("abi encoding accountProof")
+	encodedStorageProof, err := storageProofType.Encode(&p)
 	if err != nil {
 		return nil, errors.Wrap(err, "storageProofType.Encode(p)")
 	}
-	return bytes.Join([][]byte{encodedAccountProof, encodedStorageProof}, nil), nil
+	return encodedStorageProof, nil
 }
