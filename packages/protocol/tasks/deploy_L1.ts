@@ -165,6 +165,7 @@ async function deployBaseLibs(hre: any) {
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
     const libUint512 = await utils.deployContract(hre, "Uint512")
 
+    const v1Utils = await utils.deployContract(hre, "V1Utils")
     const v1Finalizing = await utils.deployContract(hre, "V1Finalizing")
     const v1Proposing = await utils.deployContract(hre, "V1Proposing")
     const v1Proving = await utils.deployContract(hre, "V1Proving", {
@@ -175,6 +176,7 @@ async function deployBaseLibs(hre: any) {
     })
 
     return {
+        V1Utils: v1Utils.address,
         V1Finalizing: v1Finalizing.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
