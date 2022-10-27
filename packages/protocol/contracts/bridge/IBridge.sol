@@ -8,8 +8,13 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-/// @author dantaik <dan@taiko.xyz>
-/// @dev Cross-chain Ether are held by Bridges, not TokenVaults.
+/**
+ * Bridge interface.
+ *
+ * @title IBridge
+ * @author dantaik <dan@taiko.xyz>
+ * @dev Cross-chain Ether is held by Bridges, not TokenVaults.
+ */
 interface IBridge {
     struct Message {
         uint256 id; // auto filled

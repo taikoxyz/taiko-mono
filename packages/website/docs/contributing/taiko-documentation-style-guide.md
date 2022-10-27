@@ -17,8 +17,9 @@ Group documentation under one of the four categories:
 
 - Aim for "better" instead of "perfect" -- any enhancement is a worthwhile improvement.
 - Create the minimum viable documentation.
-- Don't repeat yourself, use links to existing documentation.
+- Don't repeat yourself, use links to existing documentation or inherit it.
 - Generate documentation automatically from source code whenever possible.
+- Keep your comments as close as possible to the actual source code it is describing.
 
 ## Standards
 
@@ -79,6 +80,14 @@ Group documentation under one of the four categories:
   echo "at least the command" \
   && echo "looks good when copy pastad"
   ```
+
+### Source code comments
+
+In general, you should follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documentating smart contract source code. Please adhere to a few additional standards:
+
+- Use `/** */` over `///` for multiline NatSpec comments
+- Omit the usage of `@notice`, this should be automatically picked up so it will save space and improve readability
+- Take advantage of inheritance for docs (such as documenting the interface), if you need to specify inherited docs use `@inheritdoc`
 
 ## Sources
 

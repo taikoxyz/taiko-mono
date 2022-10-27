@@ -1,13 +1,14 @@
+import "./tasks/deploy_L1"
 import "@nomiclabs/hardhat-etherscan"
 import "@nomiclabs/hardhat-waffle"
 import "@openzeppelin/hardhat-upgrades"
 import "@primitivefi/hardhat-dodoc"
 import "@typechain/hardhat"
 import "hardhat-abi-exporter"
+import "hardhat-docgen"
 import "hardhat-gas-reporter"
-import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
-import "./tasks/deploy_L1"
+import { HardhatUserConfig, task } from "hardhat/config"
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -25,6 +26,11 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
 const config: HardhatUserConfig = {
+    docgen: {
+        path: "./docs",
+        clear: true,
+        runOnCompile: false,
+    },
     solidity: {
         version: "0.8.9",
         settings: {

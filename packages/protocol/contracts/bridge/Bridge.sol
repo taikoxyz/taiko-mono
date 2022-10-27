@@ -16,8 +16,14 @@ import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeSignal.sol";
 
-/// @author dantaik <dan@taiko.xyz>
-/// @dev The code hash for the same address on L1 and L2 may be different.
+/**
+ * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
+ * which calls the library implementations.
+ *
+ * @title Bridge
+ * @author dantaik <dan@taiko.xyz>
+ * @dev The code hash for the same address on L1 and L2 may be different.
+ */
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
 
@@ -43,7 +49,7 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// allow Bridge to receive ETH from EtherVault.
+    /// Allow Bridge to receive ETH from EtherVault.
     receive() external payable {}
 
     /// @dev Initializer to be called after being deployed behind a proxy.
@@ -78,7 +84,7 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function retryMessage(Message calldata message, bool lastAttempt)
+    function retryMessage(Message calldata message, bool isLastAttempt)
         external
         nonReentrant
     {
@@ -87,7 +93,7 @@ contract Bridge is EssentialContract, IBridge {
                 state,
                 AddressResolver(this),
                 message,
-                lastAttempt
+                isLastAttempt
             );
     }
 

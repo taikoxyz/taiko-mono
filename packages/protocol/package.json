@@ -3,19 +3,20 @@
     "version": "1.0.0",
     "description": "Taiko L2 Protocol",
     "scripts": {
-        "compile": "npx hardhat compile",
-        "export:abi": "npx hardhat clear-abi && npx hardhat export-abi",
         "clean": "rm -rf abis cache && npx hardhat clean",
-        "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
+        "compile": "npx hardhat compile",
+        "coverage": "npx hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
+        "deploy:hardhat": "LOG_LEVEL=debug npx hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --confirmations 1",
+        "docgen": "npx hardhat docgen",
         "eslint": "npx eslint --ignore-path .eslintignore --ext .js,.ts .",
         "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
-        "test": "npx hardhat test --grep '^[^integration]'",
-        "coverage": "npx hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
-        "test:coverage": "npm run test && npm run coverage",
+        "export:abi": "npx hardhat clear-abi && npx hardhat export-abi",
         "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
+        "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
+        "test": "npx hardhat test --grep '^[^integration]'",
+        "test:coverage": "npm run test && npm run coverage",
         "test:genesis": "./test/genesis/generate_genesis.test.sh",
-        "test:integration": "./test/test_integration.sh",
-        "deploy:hardhat": "LOG_LEVEL=debug npx hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --confirmations 1"
+        "test:integration": "./test/test_integration.sh"
     },
     "lint-staged": {
         "*.sol": "yarn lint:sol",

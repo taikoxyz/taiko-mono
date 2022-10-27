@@ -12,7 +12,10 @@ import "../thirdparty/LibRLPReader.sol";
 import "../thirdparty/LibRLPWriter.sol";
 import "../thirdparty/LibSecureMerkleTrie.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * @title LibTrieProof
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibTrieProof {
     /*********************
      * Constants         *
@@ -27,7 +30,8 @@ library LibTrieProof {
      *********************/
 
     /**
-     * @notice Verifies that the value of a slot `key` in the storage tree of `addr` is `value`
+     * Verifies that the value of a slot `key` in the storage tree of `addr` is `value`.
+     *
      * @param stateRoot The merkle root of state tree.
      * @param addr The contract address.
      * @param key The slot in the contract.
