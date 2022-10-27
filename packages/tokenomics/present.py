@@ -14,7 +14,6 @@ class Config(NamedTuple):
     fee_base: int
     fee_base_maf: int
     block_fee_min_ratio: float
-    prover_reward_min_ratio: float
     prover_reward_max_ratio: float
     prover_reward_tax_pctg: float
     prover_reward_bootstrap: int

@@ -1,57 +1,59 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p2: constant block time, varying proof time (50% ocsliaction)",
+    title="p11: TKO token goes down",
     desc="""
 
-**About this config**
+**What to simulate?**
 
-- block time set to a constant (no ocsliaction).
-- proof time varies (50%  ocsliaction) but eventually changes back to the initial value.
-
-**What to verify**
-- block fee stays constant.
-- proof reward adapts to proof time changes.
-- total supply change stablizes.
+Whe TKO's price goes down, the proof time will become logger to increase the base fee, then
+the proof time willp10: TKO token goes down
+ recover, but the base fee remains higher than before.
 
 
 """,
-    days=7,
+    days=20,
     config=Config(
         max_slots=10000000,
         lamda_ratio=100000,
-        fee_base=100.0,
+        fee_base=10.0,
         fee_base_maf=1024,
         block_fee_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
         prover_reward_tax_pctg=0.0,
-        prover_reward_bootstrap=0,
-        prover_reward_bootstrap_day=10,
+        prover_reward_bootstrap=0.0,
+        prover_reward_bootstrap_day=0,
         block_and_proof_time_maf=1024,
         timing=[
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=50,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                block_time_sd_pctg=0,
-                proof_time_avg_minute=25,
-                proof_time_sd_pctg=50,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                block_time_sd_pctg=0,
-                proof_time_avg_minute=15,
-                proof_time_sd_pctg=50,
+                proof_time_sd_pctg=10,
             ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=50,
+                proof_time_sd_pctg=10,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=0,
+                proof_time_avg_minute=80,
+                proof_time_sd_pctg=10,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=0,
+                proof_time_avg_minute=45,
+                proof_time_sd_pctg=10,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                block_time_sd_pctg=0,
+                proof_time_avg_minute=45,
+                proof_time_sd_pctg=10,
             ),
         ],
     ),

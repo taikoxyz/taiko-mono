@@ -15,6 +15,8 @@ from presents.p6 import present as p6
 from presents.p7 import present as p7
 from presents.p8 import present as p8
 from presents.p9 import present as p9
+from presents.p10 import present as p10
+from presents.p11 import present as p11
 
 DAY = 24 * 3600
 
@@ -35,8 +37,8 @@ class Block(NamedTuple):
 def calc_block_fee(fee_base, min_ratio, avg_delay, delay):
     p = fee_base
     m = fee_base * min_ratio
-    b = 3 * avg_delay
-    c = 6 * avg_delay
+    b = 1.5 * avg_delay
+    c = 3 * avg_delay
     x = delay
 
     if x <= b:
@@ -46,10 +48,19 @@ def calc_block_fee(fee_base, min_ratio, avg_delay, delay):
     else:
         return (p-m)*(c-x)*1.0/(c-b)+m
 
-def calc_proof_reward(fee_base, min_ratio, max_raito, avg_delay, delay):
-    return min(
-        fee_base * max(max_raito, 2.0 - min_ratio),
-        1.0 * delay * fee_base * (1 - min_ratio) / avg_delay + fee_base * min_ratio)
+def calc_proof_reward(fee_base, max_ratio, avg_delay, delay):
+    p = fee_base
+    m = fee_base * max_ratio
+    b = 1.5 * avg_delay
+    c = 3 * avg_delay
+    x = delay
+
+    if x <= b:
+        return p
+    elif x >= c:
+        return m
+    else:
+        return (m-p)*(x-b)*1.0/(c-b)+p
 
 def calc_bootstrap_reward(prover_reward_bootstrap, prover_reward_bootstrap_day, avg_block_time):
     if prover_reward_bootstrap == 0:
@@ -117,7 +128,9 @@ class Protocol(sim.Component):
             "proof_time", level=True, initial_tally=self.fee_base
         )
         self.m_fee = sim.Monitor("fee", level=True, initial_tally=self.fee_base)
+        self.m_fee_adjust = sim.Monitor("fee_adjust", level=True, initial_tally=100)
         self.m_reward = sim.Monitor("reward", level=True, initial_tally=self.fee_base)
+        self.m_reward_adjust = sim.Monitor("reward_adjust", level=True, initial_tally=100)
         self.m_prover_bootstrap_reward = sim.Monitor("bootstrap_reward", level=True, initial_tally=0)
         self.m_mint = sim.Monitor("profit", level=True, initial_tally=0)
         self.m_block_time = sim.Monitor("block_time", level=True, initial_tally=0)
@@ -171,14 +184,17 @@ class Protocol(sim.Component):
                 block_time
             )
 
+           
+
             if fee > 0: # other wise divided by 0
                 self.fee_base = moving_average(
                     self.fee_base,
                     self.fee_base * adjusted_fee / fee,
                     self.config.fee_base_maf,
                 )
+                self.m_fee_adjust.tally(100*self.fee_base/fee);
 
-            self.m_fee.tally(int(adjusted_fee))
+            self.m_fee.tally(adjusted_fee)
 
             block = Block(
                 status=Status.PENDING, fee=adjusted_fee, proposed_at=env.now(), proven_at=0
@@ -234,7 +250,6 @@ class Protocol(sim.Component):
                 reward = self.slot_fee()
                 adjusted_reward = calc_proof_reward(
                     reward,
-                    self.config.prover_reward_min_ratio,
                     self.config.prover_reward_max_ratio,
                     self.avg_proof_time,
                     proof_time
@@ -246,6 +261,7 @@ class Protocol(sim.Component):
                         self.fee_base * adjusted_reward / reward,
                         self.config.fee_base_maf,
                     )
+                    self.m_reward_adjust.tally(100*self.fee_base/reward);
 
                 prover_bootstrap_reward = calc_bootstrap_reward(
                     self.config.prover_reward_bootstrap,
@@ -258,10 +274,10 @@ class Protocol(sim.Component):
 
                 self.mint += adjusted_reward - self.blocks[self.last_finalized].fee
 
-                self.m_reward.tally(int(adjusted_reward))
+                self.m_reward.tally(adjusted_reward)
                 self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
-                self.m_fee_base.tally(int(self.fee_base))
-                self.m_mint.tally(int(self.mint))
+                self.m_fee_base.tally(self.fee_base)
+                self.m_mint.tally(self.mint)
 
             else:
                 break
@@ -353,9 +369,11 @@ def simulate(config, days):
         st.markdown("##### Result")
         plot(days, [(protocol.m_pending_count, "num pending blocks")])
         plot(days, [(protocol.m_fee_base, "fee_base")])
-        plot(days, [(protocol.m_fee, "block's proposer total fee")], color="tab:green")
+        plot(days, [(protocol.m_fee, "block fee")], color="tab:green")
+        plot(days, [(protocol.m_fee_adjust, "block fee adjust %")], color="tab:green")
+        plot(days, [(protocol.m_reward, "proof reward")])
+        plot(days, [(protocol.m_reward_adjust, "block reward adjust %")], color="tab:green")
         plot(days, [(protocol.m_prover_bootstrap_reward, "block's prover bootstrap reward")])
-        plot(days, [(protocol.m_reward, "block's prover total reward")])
         plot(days, [(protocol.m_mint, "supply change")], color="tab:red")
 
         protocol.print(st)
@@ -365,7 +383,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9]
+    presents = [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",
