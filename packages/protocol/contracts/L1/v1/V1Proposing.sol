@@ -98,7 +98,7 @@ library V1Proposing {
     function getBlockFee(LibData.State storage s)
         public
         view
-        returns (uint128)
+        returns (uint256)
     {
         return s.baseFee;
     }

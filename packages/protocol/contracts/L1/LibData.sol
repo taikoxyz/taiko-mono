@@ -47,7 +47,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 nextBlockId;
-        uint128 baseFee;
+        uint256 baseFee;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
         uint64 avgProofTime; // the proof time moving average

@@ -27,7 +27,7 @@ library V1Finalizing {
     function init(
         LibData.State storage s,
         bytes32 _genesisBlockHash,
-        uint128 _baseFee
+        uint256 _baseFee
     ) public {
         require(_baseFee > 0, "L1:baseFee");
 
@@ -95,7 +95,7 @@ library V1Finalizing {
     function getProofReward(LibData.State storage s)
         public
         view
-        returns (uint128)
+        returns (uint256)
     {
         return s.baseFee;
     }
