@@ -14,6 +14,7 @@ import "../../common/AddressResolver.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
 
+//
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
     event BlockFinalized(uint256 indexed id, bytes32 blockHash, uint256 reward);
