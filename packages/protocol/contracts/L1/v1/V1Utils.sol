@@ -19,7 +19,15 @@ library V1Utils {
         uint256 premium,
         uint256 actualFee
     ) public {
-        s.baseFee = (s.baseFee * (1023 * premium + actualFee)) / 1024 / premium;
+        if (premium == 0) {
+            return;
+        }
+        uint256 baseFee = (s.baseFee * (1023 * premium + actualFee)) /
+            1024 /
+            premium;
+        if (baseFee != 0) {
+            s.baseFee = baseFee;
+        }
     }
 
     function getPremium(LibData.State storage s, bool releaseOneSlot)
