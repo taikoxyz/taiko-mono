@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../common/AddressResolver.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
@@ -68,19 +66,22 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-                uint256 premium = V1Utils.getPremium(s, true);
-                uint256 actualReward = getProofReward(s, premium, proofTime);
+
+                uint256 reward = getProofReward(s, proofTime);
+                V1Utils.updateBaseFee(s, reward);
+
+                s.avgProofTime = V1Utils
+                    .movingAverage(s.avgProofTime, proofTime, 1024)
+                    .toUint64();
+
+                reward = V1Utils.applyOversellPremium(s, reward, true);
 
                 if (address(tkoToken) == address(0)) {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
                 // TODO(daniel): reward all provers
-                tkoToken.mint(fc.provers[0], actualReward);
-                V1Utils.updateBaseFee(s, premium, actualReward);
-                s.avgProofTime = V1Utils
-                    .movingAverage(s.avgProofTime, proofTime, 1024)
-                    .toUint64();
+                tkoToken.mint(fc.provers[0], reward);
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -99,18 +100,18 @@ library V1Finalizing {
         }
     }
 
-    function getProofReward(
-        LibData.State storage s,
-        uint256 premium,
-        uint64 proofTime
-    ) public view returns (uint256) {
+    function getProofReward(LibData.State storage s, uint64 proofTime)
+        public
+        view
+        returns (uint256)
+    {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        if (proofTime <= a) return premium;
+        if (proofTime <= a) return s.baseFee;
 
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 n = (premium * 400) / 100; // 400%
+        uint256 n = (s.baseFee * 400) / 100; // 400%
         if (proofTime >= b) return n;
 
-        return ((n - premium) * (proofTime - a)) / (b - a) + n;
+        return ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
     }
 }

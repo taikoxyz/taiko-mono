@@ -8,35 +8,28 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Utils {
-    function updateBaseFee(
-        LibData.State storage s,
-        uint256 premium,
-        uint256 actualFee
-    ) public {
-        if (premium == 0) return;
-        s.baseFee = movingAverage(
-            s.baseFee,
-            (s.baseFee * actualFee) / premium,
-            1024
-        );
+    function updateBaseFee(LibData.State storage s, uint256 actual) public {
+        s.baseFee = movingAverage(s.baseFee, actual, 1024);
     }
 
-    function getPremium(LibData.State storage s, bool releaseOneSlot)
-        public
-        view
-        returns (uint256)
-    {
+    function applyOversellPremium(
+        LibData.State storage s,
+        uint256 fee,
+        bool releaseOneSlot
+    ) public view returns (uint256) {
         uint256 n = LibConstants.TAIKO_MAX_PROPOSED_BLOCKS +
             1 -
             s.nextBlockId +
             s.latestFinalizedId;
         uint256 p = n + LibConstants.TAIKO_FEE_PREMIUM_LAMDA;
         uint256 q = releaseOneSlot ? p + 1 : p - 1;
-        return (s.baseFee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
+        return (fee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
     }
 
     function movingAverage(
