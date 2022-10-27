@@ -24,7 +24,7 @@ func NewEventRepository(db *gorm.DB) (*EventRepository, error) {
 func (r *EventRepository) Save(opts relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
 		Data:    datatypes.JSON(opts.Data),
-		Status:  relayer.EventStatusNew,
+		Status:  opts.Status,
 		ChainID: opts.ChainID.Int64(),
 		Name:    opts.Name,
 	}

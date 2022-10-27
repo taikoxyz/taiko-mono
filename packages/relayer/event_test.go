@@ -27,6 +27,11 @@ func Test_EventStatus_String(t *testing.T) {
 			EventStatusDone,
 			"done",
 		},
+		{
+			"newOnlyOwner",
+			EventStatusNewOnlyOwner,
+			"onlyOwner",
+		},
 	}
 
 	for _, tt := range tests {

@@ -23,11 +23,12 @@ const (
 	EventStatusNew EventStatus = iota
 	EventStatusRetriable
 	EventStatusDone
+	EventStatusNewOnlyOwner
 )
 
 // String returns string representation of an event status for logging
 func (e EventStatus) String() string {
-	return [...]string{"new", "retriable", "done"}[e]
+	return [...]string{"new", "retriable", "done", "onlyOwner"}[e]
 }
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -46,6 +47,7 @@ type SaveEventOpts struct {
 	Name    string
 	Data    string
 	ChainID *big.Int
+	Status  EventStatus
 }
 
 // EventRepository is used to interact with events in the store

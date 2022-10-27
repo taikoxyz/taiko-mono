@@ -20,11 +20,10 @@ import (
 // then rlp-encoded and combined as a singular byte slice,
 // then abi encoded into a relayer.SignalProof struct as the contract
 // expects
-func (s *Service) processMessage(
+func (svc *Service) processMessage(
 	ctx context.Context,
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
-	crossLayerBridgeAddress string,
 ) error {
 	blockNumber := event.Raw.BlockNumber
 
@@ -37,45 +36,40 @@ func (s *Service) processMessage(
 
 	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
 
-	auth, err := bind.NewKeyedTransactorWithChainID(s.ecdsaKey, event.Message.DestChainId)
+	auth, err := bind.NewKeyedTransactorWithChainID(svc.ecdsaKey, event.Message.DestChainId)
 	if err != nil {
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
 
 	log.Infof("calling eth_getProof")
 
-	encodedSignalProof, err := s.getEncodedSignalProof(ctx, event.Raw.Address, key, int64(blockNumber))
+	encodedSignalProof, err := svc.getEncodedSignalProof(ctx, event.Raw.Address, key, int64(blockNumber))
 	if err != nil {
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
-	bridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
-	if err != nil {
-		return errors.Wrap(err, "contracts.NewBridge")
-	}
-
 	log.Info("processing message")
-	tx, err := bridge.ProcessMessage(auth, event.Message, encodedSignalProof)
+	tx, err := svc.crossLayerBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
 	}
 
-	log.Info("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
+	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
 	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
-	ch := relayer.WaitForTx(ctx, s.crossLayerEthClient, tx.Hash())
+	ch := relayer.WaitForTx(ctx, svc.crossLayerEthClient, tx.Hash())
 	// wait for tx until mined
 	<-ch
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := bridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	messageStatus, err := svc.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
 	// update message status
-	if err := s.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
+	if err := svc.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
 	return nil
