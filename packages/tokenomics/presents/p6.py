@@ -17,8 +17,8 @@ present = Present(
 """,
     days=20,
     config=Config(
-        max_slots=1024, 
-        lamda_ratio=1.2,
+        max_slots=2048, 
+        lamda=2048,
         base_fee=100.0,
         base_fee_maf=1024,
         block_fee_min_ratio=0.5,

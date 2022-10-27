@@ -14,8 +14,8 @@ the proof time willp10: TKO token goes down
 """,
     days=20,
     config=Config(
-        max_slots=10000000,
-        lamda=10000,
+        max_slots=2048, 
+        lamda=2048,
         base_fee=10.0,
         base_fee_maf=1024,
         block_fee_min_ratio=0.5,

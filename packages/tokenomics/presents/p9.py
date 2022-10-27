@@ -14,8 +14,8 @@ Block `base_fee` is set to 0.
 """,
     days=12,
     config=Config(
-        max_slots=10000000,
-        lamda=10000,
+        max_slots=2048, 
+        lamda=2048,
         base_fee=0.0,
         base_fee_maf=1024,
         block_fee_min_ratio=0.5,

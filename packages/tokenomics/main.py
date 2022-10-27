@@ -105,7 +105,7 @@ def moving_average(ma, v, maf):
 class Protocol(sim.Component):
     def setup(self, config):
         self.config = config
-        self.base_fee = config.base_fee
+        self.base_fee = config.base_fee * 1000000.0
         self.phi = (config.max_slots + self.config.lamda - 1) * (config.max_slots + self.lamda)
         self.last_proposed_at = env.now()
         self.avg_block_time = 0
@@ -154,7 +154,7 @@ class Protocol(sim.Component):
         p = n + self.config.lamda
         if releaseOneSlot:
             q = p + 1
-        else
+        else:
             q = p - 1
         return self.base_fee * self.phi / p / q
 
