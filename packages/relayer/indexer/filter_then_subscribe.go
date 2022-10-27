@@ -13,9 +13,10 @@ import (
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 )
 
-// CatchUp gets the most recent block height that has been indexed, and works it's way
-// up to the latest block.
-func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress string, crossLayerBridgeAddress string, caughtUp chan struct{}) error {
+// FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
+// up to the latest block. As it goes, it tries to process messages.
+// When it catches up, it then starts to Subscribe to latest events as they come in.
+func (s *Service) FilterThenSubscribe(ctx context.Context, eventName string, bridgeAddress string, crossLayerBridgeAddress string, caughtUp chan struct{}) error {
 	log.Info("indexing starting")
 	chainID, err := s.ethClient.ChainID(ctx)
 	if err != nil {
@@ -119,11 +120,12 @@ func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress s
 			// save event to database for later processing outside
 			// the indexer
 			log.Info("saving event to database")
-			if err := s.eventRepo.Save(relayer.SaveEventOpts{
+			e, err := s.eventRepo.Save(relayer.SaveEventOpts{
 				Name:    eventName,
 				Data:    string(marshaled),
 				ChainID: chainID,
-			}); err != nil {
+			})
+			if err != nil {
 				return errors.Wrap(err, "s.eventRepo.Save")
 			}
 
@@ -135,13 +137,11 @@ func (s *Service) CatchUp(ctx context.Context, eventName string, bridgeAddress s
 			if status == uint8(relayer.EventStatusNew) {
 				log.Info("message not processed yet, attempting processing")
 				// process the message
-				if err := s.processMessage(ctx, event, crossLayerBridgeAddress); err != nil {
+				if err := s.processMessage(ctx, event, e, crossLayerBridgeAddress); err != nil {
 					return errors.Wrap(err, "s.processMessage")
 				}
 
 			}
-
-			// TODO: update as processed
 
 			// if the block number is higher than the one we are processing,
 			// we can now consider that one processed. save it to the DB

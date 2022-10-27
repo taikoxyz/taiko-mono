@@ -50,5 +50,6 @@ type SaveEventOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
-	Save(opts SaveEventOpts) error
+	Save(opts SaveEventOpts) (*Event, error)
+	UpdateStatus(id int, status EventStatus) error
 }

@@ -80,21 +80,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	caughtUp := make(chan struct{})
+	done := make(chan struct{})
 
 	go func() {
-		if err := i.CatchUp(
+		if err := i.FilterThenSubscribe(
 			context.Background(),
 			relayer.EventNameMessageSent,
 			os.Getenv("L1_BRIDGE_ADDRESS"),
 			os.Getenv("L2_BRIDGE_ADDRESS"),
-			caughtUp,
+			done,
 		); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	<-caughtUp
+	<-done
 }
 
 func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {

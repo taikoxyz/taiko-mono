@@ -66,7 +66,7 @@ func Test_Save(t *testing.T) {
 			}), &gorm.Config{})
 			r, _ := NewEventRepository(db)
 
-			err = r.Save(tt.opts)
+			_, err = r.Save(tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, nil, mock.ExpectationsWereMet())
 		})

@@ -14,85 +14,80 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
-	"github.com/umbracle/ethgo/abi"
-)
-
-var (
-	signalProofType  = abi.MustNewType("tuple(tuple(bytes32 parenthash, bytes32 ommershash, address beneficiary, bytes32 stateroot, bytes32 transactionsroot, bytes32 receiptsroot, bytes32[8] logsbloom, uint256 difficulty, uint128 height, uint64 gaslimit, uint64 gasused, uint64 timestamp, bytes extradata, bytes32 mixhash, uint64 nonce) header, bytes proof)")
-	storageProofType = abi.MustNewType("bytes")
 )
 
 // processMessage prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof,
 // then rlp-encoded and combined as a singular byte slice,
-// as the contract expects
+// then abi encoded into a relayer.SignalProof struct as the contract
+// expects
 func (s *Service) processMessage(
 	ctx context.Context,
 	event *contracts.BridgeMessageSent,
+	e *relayer.Event,
 	crossLayerBridgeAddress string,
 ) error {
-	signal := event.Signal
-	message := event.Message
-	bridgeAddress := event.Raw.Address
-
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
-		solsha3.Address(bridgeAddress),
-		solsha3.Bytes32(signal),
+		solsha3.Address(event.Raw.Address),
+		solsha3.Bytes32(event.Signal),
 	)
 
 	key := hex.EncodeToString(hashed)
 
-	log.Infof("processing message for signal: %v", common.Hash(signal).Hex())
+	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
 
-	auth, err := bind.NewKeyedTransactorWithChainID(s.ecdsaKey, message.DestChainId)
+	auth, err := bind.NewKeyedTransactorWithChainID(s.ecdsaKey, event.Message.DestChainId)
 	if err != nil {
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
 
 	log.Infof("calling eth_getProof")
 
-	// TODO: block should not be nil, but event.Raw.BlockNumber.
-	// however, this is throwing a missing trie error with our L1 geth client.
-	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, big.NewInt(int64(blockNumber)))
+	encodedSignalProof, err := s.getEncodedSignalProof(ctx, event.Raw.Address, key, int64(blockNumber))
 	if err != nil {
-		return errors.Wrap(err, "s.gethClient.GetProof")
+		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
-	log.Infof("proof value is %v", proof.StorageProof[0].Value.Int64())
-
-	log.Info("rlp encoding account proof")
-
-	rlpEncodedAccountProof, err := rlp.EncodeToBytes(proof.AccountProof)
+	bridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
 	if err != nil {
-		return errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
+		return errors.Wrap(err, "contracts.NewBridge")
 	}
 
-	log.Info("rlp encoding storage proof")
-	rlpEncodedStorageProof, err := rlp.EncodeToBytes(proof.StorageProof[0].Proof)
+	log.Info("processing message")
+	tx, err := bridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
+		return errors.Wrap(err, "bridge.ProcessMessage")
 	}
 
+	log.Info("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
+
+	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
+	ch := relayer.WaitForTx(ctx, s.crossLayerEthClient, tx.Hash())
+	// wait for tx until mined
+	<-ch
+
+	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
+
+	messageStatus, err := bridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	if err != nil {
+		return errors.Wrap(err, "bridge.GetMessageStatus")
+	}
+
+	// update message status
+	if err := s.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
+		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
+	}
+	return nil
+}
+
+func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (*relayer.BlockHeader, error) {
 	block, err := s.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
-		return errors.Wrap(err, "s.ethClient.GetBlockByNumber")
+		return nil, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
-	log.Info("converting logsbloom")
-	var logsBloom = [8][32]byte{}
-	bloom := [256]byte(block.Bloom())
-	index := 0
-	for i := 0; i < 256; i += 32 {
-		end := i + 31
-		b := bloom[i:end]
-		var r [32]byte
-		copy(r[:], b)
-		logsBloom[index] = r
-		index++
-	}
-
-	blockHeader := relayer.BlockHeader{
+	return &relayer.BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
 		Beneficiary:      block.Coinbase(),
@@ -107,58 +102,63 @@ func (s *Service) processMessage(
 		MixHash:          block.MixDigest(),
 		Nonce:            block.Nonce(),
 		StateRoot:        block.Root(),
-		LogsBloom:        logsBloom,
-	}
+		LogsBloom:        relayer.LogsBloomToBytes(block.Bloom()),
+	}, nil
+}
 
-	p := bytes.Join([][]byte{rlpEncodedAccountProof, rlpEncodedStorageProof}, nil)
-	log.Info("abi encoding storageProof")
-	encodedProof, err := storageProofType.Encode(p)
+func (s *Service) getEncodedSignalProof(ctx context.Context, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
+	encodedStorageProof, err := s.getEncodedStorageProof(ctx, bridgeAddress, key, int64(blockNumber))
 	if err != nil {
-		return errors.Wrap(err, "storageProofType.Encode(p)")
+		return nil, errors.Wrap(err, "s.getEncodedStorageProof")
 	}
 
-	signalProof := relayer.SignalProof{
-		Header: blockHeader,
-		Proof:  encodedProof,
+	blockHeader, err := s.blockHeader(ctx, int64(blockNumber))
+	if err != nil {
+		return nil, errors.Wrap(err, "s.blockHeader")
+	}
+
+	signalProof := &relayer.SignalProof{
+		Header: *blockHeader,
+		Proof:  encodedStorageProof,
 	}
 
 	log.Info("abi encoding signal proof")
-	encodedSignalProof, err := signalProofType.Encode(signalProof)
-	if err != nil {
-		return errors.Wrap(err, "signalProofType.Encode")
-	}
-
-	bridge, err := contracts.NewBridge(common.HexToAddress(crossLayerBridgeAddress), s.crossLayerEthClient)
-	if err != nil {
-		return errors.Wrap(err, "contracts.NewBridge")
-	}
-
-	log.Info("processing message")
-	tx, err := bridge.ProcessMessage(auth, message, encodedSignalProof)
-	if err != nil {
-		return errors.Wrap(err, "bridge.ProcessMessage")
-	}
-
-	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
-	ch := relayer.WaitForTx(ctx, s.crossLayerEthClient, tx.Hash())
-	// wait for tx until mined
-	<-ch
-
-	log.Infof("Mined tx %s", tx.Hash())
-
-	// TODO: update event in DB to be processed, or retriable if it failed
-	return nil
+	return signalProofType.Encode(signalProof)
 }
 
-// encodePacked replicates solidity's `abi.encodePacked`
-func encodePacked(input ...[]byte) []byte {
-	return bytes.Join(input, nil)
-}
-
-func encodeBytesString(v string) []byte {
-	decoded, err := hex.DecodeString(v)
+func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
+	proof, err := s.gethClient.GetProof(ctx, bridgeAddress, []string{key}, big.NewInt(blockNumber))
 	if err != nil {
-		panic(err)
+		return nil, errors.Wrap(err, "s.gethClient.GetProof")
 	}
-	return decoded
+
+	if proof.StorageProof[0].Value.Int64() != int64(1) {
+		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
+	}
+
+	log.Info("rlp encoding account proof")
+
+	rlpEncodedAccountProof, err := rlp.EncodeToBytes(proof.AccountProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
+	}
+
+	log.Info("rlp encoding storage proof")
+	rlpEncodedStorageProof, err := rlp.EncodeToBytes(proof.StorageProof[0].Proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
+	}
+
+	log.Info("abi encoding accountProof")
+	encodedAccountProof, err := storageProofType.Encode(rlpEncodedAccountProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "storageProofType.Encode(p)")
+	}
+
+	log.Info("abi encoding storageProof")
+	encodedStorageProof, err := storageProofType.Encode(rlpEncodedStorageProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "storageProofType.Encode(p)")
+	}
+	return bytes.Join([][]byte{encodedAccountProof, encodedStorageProof}, nil), nil
 }
