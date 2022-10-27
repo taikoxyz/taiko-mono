@@ -182,14 +182,6 @@ library V1Proving {
         );
     }
 
-    function getProofReward(LibData.State storage s)
-        public
-        view
-        returns (uint128)
-    {
-        return s.baseFee;
-    }
-
     function _proveBlock(
         LibData.State storage s,
         AddressResolver resolver,

@@ -14,6 +14,7 @@ import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -35,9 +36,11 @@ library V1Proposing {
         );
     }
 
-    function proposeBlock(LibData.State storage s, bytes[] calldata inputs)
-        public
-    {
+    function proposeBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        bytes[] calldata inputs
+    ) public {
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -46,6 +49,11 @@ library V1Proposing {
         bytes calldata txList = inputs[1];
 
         _validateMetadata(meta);
+
+        TkoToken(resolver.resolve("tko_token")).burn(
+            msg.sender,
+            getBlockFee(s)
+        );
 
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,

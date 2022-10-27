@@ -10,11 +10,13 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../common/AddressResolver.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash, uint256 reward);
 
     event HeaderSynced(
         uint256 indexed height,
@@ -35,14 +37,19 @@ library V1Finalizing {
         s.baseFee = _baseFee;
         s.lastProposedAt = uint64(block.timestamp);
 
-        emit BlockFinalized(0, _genesisBlockHash);
+        emit BlockFinalized(0, _genesisBlockHash, 0);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
+    function finalizeBlocks(
+        LibData.State storage s,
+        AddressResolver resolver,
+        uint256 maxBlocks
+    ) public {
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
+        TkoToken tkoToken;
 
         for (
             uint256 i = s.latestFinalizedId + 1;
@@ -50,18 +57,27 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
-
-            if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
-                _updateAvgProofTime(s, fc.provenAt - fc.proposedAt);
-                emit BlockFinalized(i, 0);
-            } else if (fc.blockHash != 0) {
-                latestL2Height += 1;
-                latestL2Hash = fc.blockHash;
-                _updateAvgProofTime(s, fc.provenAt - fc.proposedAt);
-                emit BlockFinalized(i, latestL2Hash);
-            } else {
+            if (fc.blockHash == 0) {
                 break;
+            } else {
+                if (fc.blockHash != LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
+                    latestL2Height += 1;
+                    latestL2Hash = fc.blockHash;
+                }
+
+                uint256 reward = getProofReward(s);
+
+                if (address(tkoToken) == address(0)) {
+                    tkoToken = TkoToken(resolver.resolve("tko_token"));
+                }
+
+                // TODO(daniel): reward all provers
+                tkoToken.mint(fc.provers[0], reward);
+
+                _updateAvgProofTime(s, fc.provenAt - fc.proposedAt);
+                emit BlockFinalized(i, fc.blockHash, reward);
             }
+
             processed += 1;
         }
 
@@ -74,6 +90,14 @@ library V1Finalizing {
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }
+    }
+
+    function getProofReward(LibData.State storage s)
+        public
+        view
+        returns (uint128)
+    {
+        return s.baseFee;
     }
 
     function _updateAvgProofTime(LibData.State storage s, uint64 proofTime)
