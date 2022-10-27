@@ -74,13 +74,12 @@ library V1Finalizing {
                     .movingAverage(s.avgProofTime, proofTime, 1024)
                     .toUint64();
 
-                reward = V1Utils.applyOversellPremium(s, reward, true);
-
                 if (address(tkoToken) == address(0)) {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
                 // TODO(daniel): reward all provers
+                reward = V1Utils.applyOversellPremium(s, reward, true);
                 tkoToken.mint(fc.provers[0], reward);
 
                 emit BlockFinalized(i, fc.blockHash);
