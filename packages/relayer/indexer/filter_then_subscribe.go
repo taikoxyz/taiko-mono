@@ -42,9 +42,8 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struc
 		return errors.Wrap(err, "s.ethClient.HeaderByNumber")
 	}
 
-	log.Infof("latest header: %v", header.Number)
-
 	// if we have already done the latest block, exit early
+	// TODO: call SubscribeMessageSent, as we can now just watch the chain for new blocks
 	if latestProcessedBlock.Height == header.Number.Uint64() {
 		log.Info("already caught up")
 		caughtUp <- struct{}{}
@@ -108,9 +107,9 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, caughtUp chan struc
 	return nil
 }
 
+// handleEvent handles an individual MessageSent event
 func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *contracts.BridgeMessageSent) error {
-	log.Infof("event found. signal:%v", common.Hash(event.Signal).Hex())
-	log.Infof("for block number %v", event.Raw.BlockNumber)
+	log.Infof("event found. signal:%v for block #v", common.Hash(event.Signal).Hex(), event.Raw.BlockNumber)
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -152,11 +151,10 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 		if err := svc.processMessage(ctx, event, e); err != nil {
 			return errors.Wrap(err, "s.processMessage")
 		}
-
 	}
 
-	// if the block number is higher than the one we are processing,
-	// we can now consider that one processed. save it to the DB
+	// if the block number of the event is higher than the block we are processing,
+	// we can now consider that previous block processed. save it to the DB
 	// and bump the block number.
 	if raw.BlockNumber > svc.processingBlock.Height {
 		log.Info("raw blockNumber > processingBlock.height")
@@ -178,6 +176,8 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	return nil
 }
 
+// handleNoEventsRemaining is used when the batch had events, but is now finished, and wen eed to
+// update the latest block processed
 func (svc *Service) handleNoEventsRemaining(ctx context.Context, chainID *big.Int, events *contracts.BridgeMessageSentIterator) error {
 	log.Info("no events remaining to be processed")
 	if events.Error() != nil {
@@ -196,6 +196,8 @@ func (svc *Service) handleNoEventsRemaining(ctx context.Context, chainID *big.In
 	return nil
 }
 
+// handleNoEventsInBatch is used when an entire batch call has no events in the entire response,
+// and we need to update the latest block processed
 func (s *Service) handleNoEventsInBatch(ctx context.Context, chainID *big.Int, blockNumber int64) error {
 	log.Infof("no events in batch")
 	header, err := s.ethClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
