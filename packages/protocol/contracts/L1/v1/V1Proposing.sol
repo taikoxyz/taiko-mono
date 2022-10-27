@@ -70,14 +70,7 @@ library V1Proposing {
         meta.id = s.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
-
-        // enforce block.timestamp > parent.timestamp
-        if (block.timestamp > s.parentTimestamp) {
-            s.parentTimestamp = uint64(block.timestamp);
-        } else {
-            s.parentTimestamp += 1;
-        }
-        meta.timestamp = s.parentTimestamp;
+        meta.timestamp = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,
         // their block.mixHash fields for randomness will be the same.
