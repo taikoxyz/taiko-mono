@@ -17,6 +17,7 @@ import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
+    using SafeCastUpgradeable for uint256;
     event BlockFinalized(uint256 indexed id, bytes32 blockHash);
 
     event HeaderSynced(
@@ -77,7 +78,9 @@ library V1Finalizing {
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], actualReward);
                 V1Utils.updateBaseFee(s, premium, actualReward);
-                _updateAvgProofTime(s, proofTime);
+                s.avgProofTime = V1Utils
+                    .movingAverage(s.avgProofTime, proofTime, 1024)
+                    .toUint64();
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -109,15 +112,5 @@ library V1Finalizing {
         if (proofTime >= b) return n;
 
         return ((n - premium) * (proofTime - a)) / (b - a) + n;
-    }
-
-    function _updateAvgProofTime(LibData.State storage s, uint64 proofTime)
-        private
-    {
-        if (s.avgProofTime == 0) {
-            s.avgProofTime = proofTime;
-        } else {
-            s.avgProofTime = (1023 * s.avgProofTime + proofTime) / 1024;
-        }
     }
 }

@@ -93,7 +93,10 @@ library V1Proposing {
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, actualFee);
 
         V1Utils.updateBaseFee(s, premium, actualFee);
-        _updateAvgBlockTime(s, blockTime);
+
+        s.avgBlockTime = V1Utils
+            .movingAverage(s.avgBlockTime, blockTime, 1024)
+            .toUint64();
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
@@ -123,16 +126,6 @@ library V1Proposing {
             s.commits[hash] != 0 &&
             block.number >=
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
-    }
-
-    function _updateAvgBlockTime(LibData.State storage s, uint64 blockTime)
-        private
-    {
-        if (s.avgBlockTime == 0) {
-            s.avgBlockTime = blockTime;
-        } else {
-            s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
-        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {

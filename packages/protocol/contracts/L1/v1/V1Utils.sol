@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -19,15 +17,12 @@ library V1Utils {
         uint256 premium,
         uint256 actualFee
     ) public {
-        if (premium == 0) {
-            return;
-        }
-        uint256 baseFee = (s.baseFee * (1023 * premium + actualFee)) /
-            1024 /
-            premium;
-        if (baseFee != 0) {
-            s.baseFee = baseFee;
-        }
+        if (premium == 0) return;
+        s.baseFee = movingAverage(
+            s.baseFee,
+            (s.baseFee * actualFee) / premium,
+            1024
+        );
     }
 
     function getPremium(LibData.State storage s, bool releaseOneSlot)
@@ -42,5 +37,17 @@ library V1Utils {
         uint256 p = n + LibConstants.TAIKO_FEE_PREMIUM_LAMDA;
         uint256 q = releaseOneSlot ? p + 1 : p - 1;
         return (s.baseFee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
+    }
+
+    function movingAverage(
+        uint256 ma,
+        uint256 v,
+        uint256 factor
+    ) internal pure returns (uint256) {
+        if (ma == 0) {
+            return v;
+        }
+        uint256 _ma = (ma * (factor - 1) + v) / factor;
+        return _ma > 0 ? _ma : ma;
     }
 }
