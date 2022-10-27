@@ -166,7 +166,9 @@ async function deployBaseLibs(hre: any) {
     const libUint512 = await utils.deployContract(hre, "Uint512")
 
     const v1Utils = await utils.deployContract(hre, "V1Utils")
-    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing")
+    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing", {
+        V1Utils: v1Utils.address,
+    })
     const v1Proposing = await utils.deployContract(hre, "V1Proposing", {
         V1Utils: v1Utils.address,
     })
