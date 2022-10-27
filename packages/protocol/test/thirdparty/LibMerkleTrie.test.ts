@@ -83,7 +83,7 @@ describe("LibMerkleTrie", function () {
                 defaultMerkleTrie.nodes[0].key
             )
 
-            const key = Buffer.allocUnsafe(defaultNodeLength)
+            const key = Buffer.alloc(defaultNodeLength, 1)
             const isIncluded = await libMerkleTrie.get(
                 key,
                 t.proof.proof,
