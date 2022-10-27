@@ -180,6 +180,7 @@ async function deployBaseLibs(hre: any) {
     })
 
     return {
+        V1Utils: v1Utils.address,
         V1Finalizing: v1Finalizing.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
