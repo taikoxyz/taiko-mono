@@ -29,12 +29,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     LibData.State public state;
     uint256[45] private __gap;
 
-    function init(address _addressManager, bytes32 _genesisBlockHash)
-        external
-        initializer
-    {
+    function init(
+        address _addressManager,
+        bytes32 _genesisBlockHash,
+        uint128 _baseFee
+    ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash);
+        V1Finalizing.init(state, _genesisBlockHash, _baseFee);
     }
 
     /// @notice Write a _commit hash_ so a few blocks later a L2 block can be proposed
@@ -129,6 +130,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Finalizing.finalizeBlocks(state, maxBlocks);
+    }
+
+    function getBlockFee() public view returns (uint256) {
+        return V1Proposing.getBlockFee(state);
+    }
+
+    function getProofReward() public view returns (uint256) {
+        return V1Proving.getProofReward(state);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {

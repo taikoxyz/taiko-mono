@@ -117,9 +117,10 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
+    const baseFee = 2e18
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, baseFee)
     )
 
     // Bridge
