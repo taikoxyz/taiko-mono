@@ -15,6 +15,7 @@ import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -49,12 +50,6 @@ library V1Proposing {
         bytes calldata txList = inputs[1];
 
         _validateMetadata(meta);
-
-        uint64 blockTime = meta.timestamp - s.lastProposedAt;
-        TkoToken(resolver.resolve("tko_token")).burn(
-            msg.sender,
-            getBlockFee(s, blockTime)
-        );
 
         s.lastProposedAt = meta.timestamp;
 
@@ -92,6 +87,11 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+        uint256 fee = getBlockFee(s, blockTime);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+
+        V1Utils.updateBaseFee(s, fee);
         _updateAvgBlockTime(s, blockTime);
 
         emit BlockProposed(s.nextBlockId++, meta);
@@ -103,11 +103,12 @@ library V1Proposing {
         returns (uint256)
     {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
+        if (blockTime <= a) return s.baseFee;
+
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
         uint256 m = (s.baseFee * 25) / 100; // 25%
-
-        if (blockTime <= a) return s.baseFee;
         if (blockTime >= b) return m;
+
         return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
     }
 

@@ -13,6 +13,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../../common/AddressResolver.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 //
 /// @author dantaik <dan@taiko.xyz>
@@ -75,8 +76,9 @@ library V1Finalizing {
 
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], reward);
-
+                V1Utils.updateBaseFee(s, reward);
                 _updateAvgProofTime(s, proofTime);
+
                 emit BlockFinalized(i, fc.blockHash, reward);
             }
 
