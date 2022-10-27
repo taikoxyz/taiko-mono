@@ -14,9 +14,9 @@ the block time will recover, but the base fee remains lower than before.
     days=10,
     config=Config(
         max_slots=10000000,
-        lamda_ratio=100000,
-        fee_base=10.0,
-        fee_base_maf=1024,
+        lamda=10000,
+        base_fee=10.0,
+        base_fee_maf=1024,
         block_fee_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
         prover_reward_tax_pctg=0.0,
