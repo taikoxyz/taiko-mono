@@ -50,10 +50,13 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
         TkoToken(resolver.resolve("tko_token")).burn(
             msg.sender,
-            getBlockFee(s)
+            getBlockFee(s, blockTime)
         );
+
+        s.lastProposedAt = meta.timestamp;
 
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
@@ -89,18 +92,23 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        _updateAvgBlockTime(s, meta.timestamp - s.lastProposedAt);
-        s.lastProposedAt = meta.timestamp;
+        _updateAvgBlockTime(s, blockTime);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s)
+    function getBlockFee(LibData.State storage s, uint64 blockTime)
         public
         view
         returns (uint256)
     {
-        return s.baseFee;
+        uint64 a = (s.avgBlockTime * 200) / 100; // 200%
+        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
+        uint256 m = (s.baseFee * 50) / 100; // 50%
+
+        if (blockTime <= a) return s.baseFee;
+        if (blockTime >= b) return m;
+        return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
