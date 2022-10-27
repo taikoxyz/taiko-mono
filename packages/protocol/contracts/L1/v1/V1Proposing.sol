@@ -103,11 +103,12 @@ library V1Proposing {
         returns (uint256)
     {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
+        if (blockTime <= a) return s.baseFee;
+
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
         uint256 m = (s.baseFee * 25) / 100; // 25%
-
-        if (blockTime <= a) return s.baseFee;
         if (blockTime >= b) return m;
+
         return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
     }
 
