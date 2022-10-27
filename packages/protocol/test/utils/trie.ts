@@ -1,6 +1,7 @@
 import { BaseTrie, SecureTrie } from "merkle-patricia-tree"
 import { ethers } from "ethers"
 import * as rlp from "rlp"
+import { randomBytes } from "crypto"
 
 type Node = {
     key: Buffer
@@ -43,8 +44,8 @@ class MerkleTrie<T extends BaseTrie | SecureTrie> {
 
     newRandomNode(): Node {
         return {
-            key: Buffer.alloc(this.nodeLength, 1),
-            value: Buffer.alloc(this.nodeLength, 1),
+            key: randomBytes(32),
+            value: randomBytes(32),
         }
     }
 
