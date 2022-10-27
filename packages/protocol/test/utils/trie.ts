@@ -43,8 +43,8 @@ class MerkleTrie<T extends BaseTrie | SecureTrie> {
 
     newRandomNode(): Node {
         return {
-            key: Buffer.allocUnsafe(this.nodeLength),
-            value: Buffer.allocUnsafe(this.nodeLength),
+            key: Buffer.alloc(this.nodeLength, 1),
+            value: Buffer.alloc(this.nodeLength, 1),
         }
     }
 
