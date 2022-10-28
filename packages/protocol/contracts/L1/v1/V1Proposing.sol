@@ -66,8 +66,8 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextBlockId <=
-                s.latestFinalizedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            s.nextBlockId <
+                s.latestFinalizedId + LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
             "L1:tooMany"
         );
 

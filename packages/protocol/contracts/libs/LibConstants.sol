@@ -12,11 +12,11 @@ pragma solidity ^0.8.9;
 library LibConstants {
     // https://github.com/ethereum-lists/chains/pull/1611
     uint256 public constant TAIKO_CHAIN_ID = 167;
-    uint256 public constant TAIKO_MAX_PROPOSED_BLOCKS = 2048;
+    uint256 public constant TAIKO_BLOCK_BUFFER_SIZE = 2049; // up to 2048 pending blocks
     uint256 public constant TAIKO_FEE_PREMIUM_LAMDA = 100; // TODO
     uint256 public constant TAIKO_FEE_PREMIUM_PHI =
-        (TAIKO_MAX_PROPOSED_BLOCKS + TAIKO_FEE_PREMIUM_LAMDA) *
-            (TAIKO_MAX_PROPOSED_BLOCKS + TAIKO_FEE_PREMIUM_LAMDA - 1);
+        (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
+            (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 2);
 
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
