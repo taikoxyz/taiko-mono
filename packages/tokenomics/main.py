@@ -120,8 +120,8 @@ class Protocol(sim.Component):
     def setup(self, config):
         self.config = config
         self.base_fee = config.base_fee
-        self.phi = (config.max_slots + self.config.lamda) * (
-            config.max_slots + self.config.lamda - 1
+        self.phi = (config.max_blocks + self.config.lamda) * (
+            config.max_blocks + self.config.lamda - 1
         )
         self.last_proposed_at = env.now()
         self.last_finalized_id = 0
@@ -138,19 +138,23 @@ class Protocol(sim.Component):
             proven_at=env.now(),
         )
         self.blocks = [genesis]
-       
+
         # monitors
         self.m_pending_count = sim.Monitor("m_pending_count", level=True)
-        self.m_base_fee = sim.Monitor("m_base_fee", level=True, initial_tally=self.base_fee)
+        self.m_base_fee = sim.Monitor(
+            "m_base_fee", level=True, initial_tally=self.base_fee
+        )
         self.m_premium_fee = sim.Monitor("m_premium_fee", level=True)
         self.m_premium_reward = sim.Monitor("m_premium_reward", level=True)
         self.m_supply_change = sim.Monitor("m_supply_change", level=True)
         self.m_block_time = sim.Monitor("m_block_time", level=True)
         self.m_proof_time = sim.Monitor("m_proof_time", level=True)
-        self.m_prover_bootstrap_reward = sim.Monitor("m_prover_bootstrap_reward", level=True)
+        self.m_prover_bootstrap_reward = sim.Monitor(
+            "m_prover_bootstrap_reward", level=True
+        )
 
     def apply_oversell_premium(self, fee, release_one_slot):
-        p = self.config.max_slots - self.num_pending() + self.config.lamda
+        p = self.config.max_blocks - self.num_pending() + self.config.lamda
         if release_one_slot:
             q = p + 1
         else:
@@ -166,7 +170,11 @@ class Protocol(sim.Component):
         reward = get_proof_reward(
             self.base_fee, max_ratio, self.avg_proof_time, proof_time
         )
-        premium_reward = self.apply_oversell_premium(reward, True)
+        premium_reward = (
+            self.apply_oversell_premium(reward, True)
+            * (10000.0 - self.config.prover_reward_burn_points)
+            / 10000
+        )
         return (reward, premium_reward)
 
     def print(self, st):
@@ -196,7 +204,7 @@ class Protocol(sim.Component):
         return len(self.blocks) - self.last_finalized_id - 1
 
     def can_propose(self):
-        return self.num_pending() < self.config.max_slots
+        return self.num_pending() <= self.config.max_blocks
 
     def propose_block(self):
         if self.can_propose():
@@ -213,6 +221,7 @@ class Protocol(sim.Component):
                 self.config.block_and_proof_time_maf,
             )
             self.base_fee = moving_average(self.base_fee, fee, self.config.base_fee_maf)
+            self.supply_change -= premium_fee
 
             block = Block(
                 status=Status.PENDING,
@@ -225,8 +234,10 @@ class Protocol(sim.Component):
             Prover(protocol=self, config=self.config, blockId=len(self.blocks) - 1)
             self.finalize_block()
 
-            self.m_premium_fee.tally(premium_fee)
+            self.m_base_fee.tally(self.base_fee)
             self.m_block_time.tally(block_time)
+            self.m_premium_fee.tally(premium_fee)
+            self.m_supply_change.tally(self.supply_change)
 
     def can_prove(self, id):
         return (
@@ -285,19 +296,14 @@ class Protocol(sim.Component):
                 )
 
                 self.prover_bootstrap_reward_total += prover_bootstrap_reward
-                premium_reward = (
-                    prover_bootstrap_reward
-                    + premium_reward
-                    * (10000 - self.config.prover_reward_burn_points)
-                    / 10000.0
-                )
+                premium_reward += prover_bootstrap_reward
 
-                self.supply_change += premium_reward - self.blocks[self.last_finalized_id].fee
+                self.supply_change += premium_reward
 
+                self.m_base_fee.tally(self.base_fee)
                 self.m_proof_time.tally(proof_time)
                 self.m_premium_reward.tally(premium_reward)
                 self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
-                self.m_base_fee.tally(self.base_fee)
                 self.m_supply_change.tally(self.supply_change)
 
             else:

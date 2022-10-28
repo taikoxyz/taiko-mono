@@ -13,7 +13,7 @@ the block time will recover, but the base fee remains lower than before.
 """,
     days=10,
     config=Config(
-        max_slots=2048, 
+        max_blocks=2048, 
         lamda=2048,
         base_fee=100.0,
         base_fee_maf=1024,

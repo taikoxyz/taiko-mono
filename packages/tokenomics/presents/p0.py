@@ -10,12 +10,12 @@ The most basic model where block time and proof time are both constant.
 
 **About this config**
 
-Block (proposal) fee is constant. This is achieved by settting `max_slots` and
+Block (proposal) fee is constant. This is achieved by settting `max_blocks` and
 `lamda_ratio` to large values and `block_time_sd_pctg` to 0.
 """,
     days=7,
     config=Config(
-        max_slots=2048, 
+        max_blocks=2048, 
         lamda=2048,
         base_fee=100.0,
         base_fee_maf=1024,
