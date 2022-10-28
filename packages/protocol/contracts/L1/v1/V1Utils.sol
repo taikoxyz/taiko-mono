@@ -19,11 +19,11 @@ library V1Utils {
         uint256 fee,
         bool releaseOneSlot
     ) public view returns (uint256) {
-        uint256 n = LibConstants.TAIKO_MAX_PROPOSED_BLOCKS +
+        uint256 p = LibConstants.TAIKO_MAX_PROPOSED_BLOCKS +
             1 -
             s.nextBlockId +
-            s.latestFinalizedId;
-        uint256 p = n + LibConstants.TAIKO_FEE_PREMIUM_LAMDA;
+            s.latestFinalizedId +
+            LibConstants.TAIKO_FEE_PREMIUM_LAMDA;
         uint256 q = releaseOneSlot ? p + 1 : p - 1;
         return (fee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
     }
