@@ -16,7 +16,7 @@ import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash, uint256 reward);
+    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
 
     event HeaderSynced(
         uint256 indexed height,
@@ -37,7 +37,7 @@ library V1Finalizing {
         s.baseFee = _baseFee;
         s.lastProposedAt = uint64(block.timestamp);
 
-        emit BlockFinalized(0, _genesisBlockHash, 0);
+        emit BlockFinalized(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
@@ -75,7 +75,7 @@ library V1Finalizing {
                 tkoToken.mint(fc.provers[0], reward);
 
                 _updateAvgProofTime(s, fc.provenAt - fc.proposedAt);
-                emit BlockFinalized(i, fc.blockHash, reward);
+                emit BlockFinalized(i, fc.blockHash);
             }
 
             processed += 1;
