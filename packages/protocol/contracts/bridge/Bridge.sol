@@ -51,14 +51,6 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function dothing(LibBridgeSignal.SignalProof memory sig)
-        public
-        pure
-        returns (bool)
-    {
-        return true;
-    }
-
     function sendMessage(Message calldata message)
         external
         payable

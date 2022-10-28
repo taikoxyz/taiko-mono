@@ -23,17 +23,4 @@ contract TestLibBridgeSignal {
     {
         return LibBridgeSignal.isSignalSent(sender, signal);
     }
-
-    function decode(bytes memory proof)
-        public
-        pure
-        returns (LibBridgeSignal.SignalProof memory)
-    {
-        LibBridgeSignal.SignalProof memory mkp = abi.decode(
-            proof,
-            (LibBridgeSignal.SignalProof)
-        );
-
-        return mkp;
-    }
 }
