@@ -148,13 +148,13 @@ class Protocol(sim.Component):
             q = p - 1
         return fee * self.phi / p / q
 
-    def get_block_fee(self, min_ratio, avg_block_time, block_time):
-        fee = get_block_fee(self.base_fee, min_ratio, avg_block_time, block_time)
+    def get_block_fee(self, min_ratio, block_time):
+        fee = get_block_fee(self.base_fee, min_ratio, self.avg_block_time, block_time)
         premium_fee = self.apply_oversell_premium(fee, False)
         return (fee, premium_fee)
 
-    def get_proof_reward(self, max_ratio, avg_proof_time, proof_time):
-        reward = get_proof_reward(self.base_fee, max_ratio, avg_proof_time, proof_time)
+    def get_proof_reward(self, max_ratio, proof_time):
+        reward = get_proof_reward(self.base_fee, max_ratio, self.avg_proof_time, proof_time)
         premium_reward = self.apply_oversell_premium(reward, True)
         return (reward, premium_reward)
 
@@ -185,7 +185,6 @@ class Protocol(sim.Component):
 
             (fee, premium_fee) = self.get_block_fee(
                 self.config.block_fee_min_ratio,
-                self.avg_block_time,
                 block_time)
 
             self.last_proposed_at = env.now()
@@ -254,7 +253,6 @@ class Protocol(sim.Component):
 
                 (reward, premium_reward) = self.get_proof_reward(
                     self.config.prover_reward_max_ratio,
-                    self.avg_proof_time,
                     proof_time
                 )
 
