@@ -102,6 +102,8 @@ library V1Proposing {
         view
         returns (uint256)
     {
+        if (s.avgBlockTime == 0) return s.baseFee;
+
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
         if (blockTime <= a) return s.baseFee;
 
