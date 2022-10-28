@@ -78,7 +78,7 @@ describe("integration:LibTrieProof", function () {
             const { chainId } = await ethers.provider.getNetwork()
             const srcChainId = chainId
             const destChainId = srcChainId + 1
-            await bridge.enableDestChain(destChainId, true)
+            await (await bridge.enableDestChain(destChainId, true)).wait()
 
             const message: Message = {
                 id: 1,
@@ -135,7 +135,7 @@ describe("integration:LibTrieProof", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
