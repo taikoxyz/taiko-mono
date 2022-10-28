@@ -67,7 +67,10 @@ library V1Finalizing {
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
 
-                uint256 reward = getProofReward(s, proofTime);
+                (uint256 reward, uint256 premiumReward) = getProofReward(
+                    s,
+                    proofTime
+                );
                 V1Utils.updateBaseFee(s, reward);
 
                 s.avgProofTime = V1Utils
@@ -79,8 +82,7 @@ library V1Finalizing {
                 }
 
                 // TODO(daniel): reward all provers
-                reward = V1Utils.applyOversellPremium(s, reward, true);
-                tkoToken.mint(fc.provers[0], reward);
+                tkoToken.mint(fc.provers[0], premiumReward);
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -102,15 +104,20 @@ library V1Finalizing {
     function getProofReward(LibData.State storage s, uint64 proofTime)
         public
         view
-        returns (uint256)
+        returns (uint256 reward, uint256 premiumReward)
     {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        if (proofTime <= a) return s.baseFee;
-
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
         uint256 n = (s.baseFee * 400) / 100; // 400%
-        if (proofTime >= b) return n;
 
-        return ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
+        if (proofTime <= a) {
+            reward = s.baseFee;
+        } else if (proofTime >= b) {
+            reward = n;
+        } else {
+            reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
+        }
+
+        premiumReward = V1Utils.applyOversellPremium(s, reward, true);
     }
 }
