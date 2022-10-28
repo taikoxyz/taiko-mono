@@ -19,7 +19,6 @@ import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
-import "./v1/V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
