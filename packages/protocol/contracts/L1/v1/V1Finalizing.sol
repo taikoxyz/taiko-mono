@@ -71,7 +71,8 @@ library V1Finalizing {
                     s,
                     proofTime
                 );
-                V1Utils.updateBaseFee(s, reward);
+
+                s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(s.avgProofTime, proofTime, 1024)

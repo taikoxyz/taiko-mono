@@ -88,7 +88,7 @@ library V1Proposing {
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
 
         (uint256 fee, uint256 premiumFee) = getBlockFee(s, blockTime);
-        V1Utils.updateBaseFee(s, fee);
+        s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)

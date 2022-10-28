@@ -14,10 +14,6 @@ import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Utils {
-    function updateBaseFee(LibData.State storage s, uint256 actual) public {
-        s.baseFee = movingAverage(s.baseFee, actual, 1024);
-    }
-
     function applyOversellPremium(
         LibData.State storage s,
         uint256 fee,
