@@ -119,6 +119,9 @@ library V1Finalizing {
             reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
         }
 
-        premiumReward = V1Utils.applyOversellPremium(s, reward, true);
+        premiumReward =
+            (V1Utils.applyOversellPremium(s, reward, true) *
+                (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
+            10000;
     }
 }
