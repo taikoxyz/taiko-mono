@@ -1,4 +1,5 @@
 import { expect } from "chai"
+import { randomBytes } from "crypto"
 import { ethers } from "hardhat"
 import { SecureTrie } from "merkle-patricia-tree"
 import { TestLibSecureMerkleTrie } from "../../typechain"
@@ -87,7 +88,7 @@ describe("LibSecureMerkleTrie", function () {
                 defaultSecureMerkleTrie.nodes[0].key
             )
 
-            const key = Buffer.alloc(defaultNodeLength, 1)
+            const key = randomBytes(defaultNodeLength)
             const isIncluded = await libSecureMerkleTrie.get(
                 key,
                 t.proof.proof,
