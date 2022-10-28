@@ -146,6 +146,8 @@ describe("integration:LibTrieProof", function () {
                 ]
             )
 
+            console.log(encodedProof)
+
             await testLibTreProof.verify(
                 stateRoot,
                 bridge.address,

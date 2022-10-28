@@ -3,9 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
@@ -25,13 +23,6 @@ func (svc *Service) processMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	// TODO: remove, right now cronJob messages have a destChainID of 167001
-	// so they are unprocessable
-	if event.Message.DestChainId.Cmp(big.NewInt(167)) != 0 {
-		log.Infof("skipping")
-		return nil
-	}
-	spew.Dump(event.Message)
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
@@ -48,11 +39,19 @@ func (svc *Service) processMessage(
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
 
-	log.Infof("calling eth_getProof")
-
+	log.Infof("getting proof")
 	encodedSignalProof, err := svc.getEncodedSignalProof(ctx, event.Raw.Address, key, int64(blockNumber))
 	if err != nil {
 		return errors.Wrap(err, "s.getEncodedSignalProof")
+	}
+	decode, err := contracts.NewDecode(common.HexToAddress("0x6BdBb69660E6849b98e8C524d266a0005D3655F7"), svc.crossLayerEthClient)
+	if err != nil {
+		return errors.Wrap(err, "contracts.Decode")
+	}
+
+	err = decode.DecodeBoth(&bind.CallOpts{}, encodedSignalProof)
+	if err != nil {
+		return errors.Wrap(err, "decode.Decode")
 	}
 
 	log.Info("processing message")

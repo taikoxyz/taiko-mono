@@ -220,6 +220,114 @@
     {
       "inputs": [
         {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "parentHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "ommersHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "address",
+                  "name": "beneficiary",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "stateRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "transactionsRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "receiptsRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32[8]",
+                  "name": "logsBloom",
+                  "type": "bytes32[8]"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "difficulty",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint128",
+                  "name": "height",
+                  "type": "uint128"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "gasLimit",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "gasUsed",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "timestamp",
+                  "type": "uint64"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "extraData",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "mixHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "uint64",
+                  "name": "nonce",
+                  "type": "uint64"
+                }
+              ],
+              "internalType": "struct BlockHeader",
+              "name": "header",
+              "type": "tuple"
+            },
+            {
+              "internalType": "bytes",
+              "name": "proof",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct LibBridgeSignal.SignalProof",
+          "name": "sig",
+          "type": "tuple"
+        }
+      ],
+      "name": "dothing",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint256",
           "name": "_chainId",
           "type": "uint256"
