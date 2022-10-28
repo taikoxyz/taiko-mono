@@ -22,7 +22,7 @@ touch $GENESIS_JSON
 echo '
 {
   "config": {
-    "chainId": 167001,
+    "chainId": 167,
     "homesteadBlock": 0,
     "eip150Block": 0,
     "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
