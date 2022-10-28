@@ -20,7 +20,7 @@ Block `base_fee` is set to 0.
         base_fee_maf=1024,
         block_fee_min_ratio=0.5,
         prover_reward_max_ratio=2.0,
-        prover_reward_tax_pctg=0.0,
+        prover_reward_burn_points=0.0,
         prover_reward_bootstrap=1000000.0,
         prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
