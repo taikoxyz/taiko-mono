@@ -75,23 +75,11 @@ describe("LibBridgeInvoke", function () {
 
             const signal = await libData.hashMessage(message)
 
-            console.log(
-                await libInvoke.invokeMessageCall(
-                    message,
-                    signal,
-                    message.gasLimit
-                )
+            await expect(
+                libInvoke.invokeMessageCall(message, signal, message.gasLimit)
             )
-
-            // * Why does libInvoke.invokeMessageCall return a transaction rather than a bool?
-
-            // expect(
-            //     await libInvoke.invokeMessageCall(
-            //         message,
-            //         signal,
-            //         message.gasLimit
-            //     )
-            // ).to.be.eq(true)
+                .to.emit(libInvoke, "MessageInvoked")
+                .withArgs(signal, true)
         })
     })
 })
