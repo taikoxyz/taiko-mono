@@ -100,10 +100,12 @@ library V1Finalizing {
         view
         returns (uint256)
     {
-        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
+        if (s.avgProofTime == 0) return s.baseFee;
+
+        uint64 a = (s.avgProofTime * 150) / 100; // 150%
         if (proofTime <= a) return s.baseFee;
 
-        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
+        uint64 b = (s.avgProofTime * 300) / 100; // 300%
         uint256 n = (s.baseFee * 400) / 100; // 400%
         if (proofTime >= b) return n;
 
