@@ -51,8 +51,6 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        s.lastProposedAt = meta.timestamp;
-
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
             meta.txListHash
@@ -87,12 +85,14 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+        uint64 blockTime = meta.timestamp - 
+        ;
         uint256 fee = getBlockFee(s, blockTime);
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
 
         V1Utils.updateBaseFee(s, fee);
         _updateAvgBlockTime(s, blockTime);
+        s.lastProposedAt = meta.timestamp;
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
@@ -102,6 +102,8 @@ library V1Proposing {
         view
         returns (uint256)
     {
+        if (s.avgBlockTime == 0) return s.baseFee;
+
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
         if (blockTime <= a) return s.baseFee;
 
