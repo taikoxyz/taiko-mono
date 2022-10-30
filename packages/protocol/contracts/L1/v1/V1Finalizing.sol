@@ -30,10 +30,11 @@ library V1Finalizing {
         uint256 _baseFee
     ) public {
         require(_baseFee > 0, "L1:baseFee");
+        s.genesisHeight = uint64(block.number);
+        s.genesisTimestamp = uint64(block.timestamp);
 
         s.l2Hashes[0] = _genesisBlockHash;
         s.nextBlockId = 1;
-        s.genesisHeight = uint64(block.number);
         s.baseFee = _baseFee;
         s.lastProposedAt = uint64(block.timestamp);
 
@@ -66,10 +67,14 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
+                LibData.ProposedBlock storage blk = LibData.getProposedBlock(
+                    s,
+                    i
+                );
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
                     proofTime,
-                    LibData.getProposedBlock(s, i).gasLimit
+                    blk.gasLimit
                 );
 
                 s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
@@ -82,8 +87,18 @@ library V1Finalizing {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
+                (
+                    uint256 proposerBootstrapReward,
+                    uint256 proverBootstrapReward
+                ) = _calculateBootstrapReward(s);
                 // TODO(daniel): reward all provers
-                tkoToken.mint(fc.provers[0], premiumReward);
+                tkoToken.mint(
+                    fc.provers[0],
+                    premiumReward + proverBootstrapReward
+                );
+                if (proposerBootstrapReward > 0) {
+                    tkoToken.mint(blk.proposer, proposerBootstrapReward);
+                }
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -109,7 +124,7 @@ library V1Finalizing {
     ) public view returns (uint256 reward, uint256 premiumReward) {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%
         uint64 b = (s.avgBlockTime * 400) / 100; // 400%
-        uint256 n = s.baseFee * LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
+        uint256 n = s.baseFee * LibConstants.TAIKO_REWARD_MAX_FACTOR;
 
         if (s.avgProofTime == 0 || proofTime <= a) {
             reward = s.baseFee;
@@ -127,5 +142,23 @@ library V1Finalizing {
             (V1Utils.applyOversellPremium(s, reward, true) *
                 (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
             10000;
+    }
+
+    function _calculateBootstrapReward(LibData.State storage s)
+        private
+        view
+        returns (uint256 proposerReward, uint256 proverReward)
+    {
+        uint256 e = block.timestamp - s.genesisTimestamp;
+        uint256 d = LibConstants.TAIKO_REWARD_BOOTSTRAP_DURATION;
+
+        if (e >= d) {
+            return (0, 0);
+        } else {
+            uint256 a = LibConstants.TAIKO_REWARD_BOOTSTRAP_AMOUNT;
+            uint256 b = s.avgBlockTime;
+            uint256 r = (2 * a * b * (d - e + b / 2)) / d / d;
+            return (r / 4, (r * 3) / 4);
+        }
     }
 }

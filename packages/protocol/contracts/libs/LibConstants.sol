@@ -21,7 +21,7 @@ library LibConstants {
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
     uint256 public constant TAIKO_MAX_PROOFS_PER_FORK_CHOICE = 5;
-    uint256 public constant TAIKO_BLOCK_REWARD_MAX_FACTOR = 4;
+
     uint256 public constant TAIKO_BLOCK_MIN_GAS_LIMIT = 300000; // TODO
     uint256 public constant TAIKO_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO
     uint256 public constant TAIKO_BLOCK_MAX_TXS = 20; // TODO
@@ -30,6 +30,9 @@ library LibConstants {
     uint256 public constant TAIKO_TXLIST_MAX_BYTES = 10240; // TODO
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 21000; // TODO
     uint256 public constant TAIKO_REWARD_BURN_POINTS = 100; // 1%
+    uint256 public constant TAIKO_REWARD_MAX_FACTOR = 4;
+    uint256 public constant TAIKO_REWARD_BOOTSTRAP_AMOUNT = 1000000 ether;
+    uint256 public constant TAIKO_REWARD_BOOTSTRAP_DURATION = 2 * 365 days;
 
     // Taiko L2 releated constants
     uint256 public constant V1_ANCHOR_TX_GAS_LIMIT = 250000;

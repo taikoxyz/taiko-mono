@@ -84,6 +84,7 @@ library V1Proposing {
             s.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
+                proposer: msg.sender,
                 gasLimit: meta.gasLimit
             })
         );
@@ -118,7 +119,7 @@ library V1Proposing {
     ) public view returns (uint256 fee, uint256 premiumFee) {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%
         uint64 b = (s.avgBlockTime * 400) / 100; // 400%
-        uint256 m = s.baseFee / LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
+        uint256 m = s.baseFee / LibConstants.TAIKO_REWARD_MAX_FACTOR;
 
         if (s.avgBlockTime == 0 || blockTime <= a) {
             fee = s.baseFee;
