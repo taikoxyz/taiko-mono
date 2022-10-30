@@ -84,8 +84,6 @@ library V1Finalizing {
 
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], premiumReward);
-                
-                V1Utils.updateBaseFee(s, reward);
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -107,7 +105,6 @@ library V1Finalizing {
     function getProofReward(LibData.State storage s, uint64 proofTime)
         public
         view
-
         returns (uint256 reward, uint256 premiumReward)
     {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%

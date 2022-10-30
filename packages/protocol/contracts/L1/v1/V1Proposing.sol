@@ -93,7 +93,7 @@ library V1Proposing {
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
             .toUint64();
-            
+
         s.lastProposedAt = meta.timestamp;
 
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
