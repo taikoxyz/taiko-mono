@@ -188,8 +188,9 @@ action("Generate Genesis", function () {
             console.log({
                 message:
                     "V1TaikoL2.invalidateBlock gas cost after 256 L2 blocks",
-                invalidTxListBytes: ethers.utils.arrayify(bytes).length,
+                TxListBytes: ethers.utils.arrayify(bytes).length,
                 txNums,
+                reason: "TX_INVALID_SIG",
                 gasUsed: receipt.gasUsed,
             })
         })
