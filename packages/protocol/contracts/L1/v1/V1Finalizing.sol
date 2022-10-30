@@ -13,6 +13,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../../common/AddressResolver.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
@@ -65,7 +66,8 @@ library V1Finalizing {
                     latestL2Hash = fc.blockHash;
                 }
 
-                uint256 reward = getProofReward(s);
+                uint64 proofTime = fc.provenAt - fc.proposedAt;
+                uint256 reward = getProofReward(s, proofTime);
 
                 if (address(tkoToken) == address(0)) {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
@@ -73,8 +75,9 @@ library V1Finalizing {
 
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], reward);
+                V1Utils.updateBaseFee(s, reward);
+                _updateAvgProofTime(s, proofTime);
 
-                _updateAvgProofTime(s, fc.provenAt - fc.proposedAt);
                 emit BlockFinalized(i, fc.blockHash);
             }
 
@@ -92,12 +95,21 @@ library V1Finalizing {
         }
     }
 
-    function getProofReward(LibData.State storage s)
+    function getProofReward(LibData.State storage s, uint64 proofTime)
         public
         view
         returns (uint256)
     {
-        return s.baseFee;
+        if (s.avgProofTime == 0) return s.baseFee;
+
+        uint64 a = (s.avgProofTime * 150) / 100; // 150%
+        if (proofTime <= a) return s.baseFee;
+
+        uint64 b = (s.avgProofTime * 300) / 100; // 300%
+        uint256 n = (s.baseFee * 400) / 100; // 400%
+        if (proofTime >= b) return n;
+
+        return ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
     }
 
     function _updateAvgProofTime(LibData.State storage s, uint64 proofTime)

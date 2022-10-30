@@ -85,7 +85,8 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+        uint64 blockTime = meta.timestamp - 
+        ;
         uint256 fee = getBlockFee(s, blockTime);
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
 
