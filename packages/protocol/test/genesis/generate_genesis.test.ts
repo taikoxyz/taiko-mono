@@ -170,6 +170,28 @@ action("Generate Genesis", function () {
                     })
                 }
             }
+
+            const [bytes, txNums] = await generateMaxSizeInvalidTxListBytes(
+                V1TaikoL2
+            )
+
+            const tx = await V1TaikoL2.invalidateBlock(
+                bytes,
+                5, // hint: TX_INVALID_SIG
+                0
+            )
+
+            const receipt = await tx.wait()
+
+            expect(receipt.status).to.be.equal(1)
+
+            console.log({
+                message:
+                    "V1TaikoL2.invalidateBlock gas cost after 256 L2 blocks",
+                invalidTxListBytes: ethers.utils.arrayify(bytes).length,
+                txNums,
+                gasUsed: receipt.gasUsed,
+            })
         })
 
         it("Bridge", async function () {
@@ -283,6 +305,51 @@ action("Generate Genesis", function () {
         throw new Error(`contract alloc: ${name} not found`)
     }
 })
+
+async function generateMaxSizeInvalidTxListBytes(V1TaikoL2: any) {
+    const constants = await V1TaikoL2.getConstants()
+
+    const chainId = constants[0].toNumber()
+    const blockMaxTxNums = constants[6].toNumber()
+    const txListMaxBytes = constants[8].toNumber()
+
+    const tx = {
+        type: 2,
+        chainId,
+        nonce: Math.ceil(Math.random() * 1024),
+        to: ethers.Wallet.createRandom().address,
+        value: ethers.utils.parseEther("1024"),
+        maxPriorityFeePerGas: Math.ceil(Math.random() * 1024000),
+        maxFeePerGas: Math.ceil(Math.random() * 1024000),
+        gasLimit: Math.ceil(Math.random() * 1024000),
+        accessList: [],
+        data: ethers.utils.randomBytes(
+            Math.floor(txListMaxBytes / blockMaxTxNums)
+        ),
+    }
+
+    const invalidSig = {
+        v: 75,
+        r: "0xb14e3f5eab11cd2c459b04a91a9db8bd6f5acccfbd830c9693c84f8d21187eef",
+        s: "0x5cf4b3b2b3957e7016366d180493c2c226ea8ad12aed7faddbc0ce3a6789256d",
+    }
+
+    const txs = new Array(blockMaxTxNums).fill(tx)
+
+    let txListBytes = ethers.utils.RLP.encode(
+        txs.map((tx) => ethers.utils.serializeTransaction(tx, invalidSig))
+    )
+
+    while (ethers.utils.arrayify(txListBytes).length > txListMaxBytes) {
+        txs[0] = Object.assign(txs[0], { data: txs[0].data.slice(10) })
+
+        txListBytes = ethers.utils.RLP.encode(
+            txs.map((tx) => ethers.utils.serializeTransaction(tx, invalidSig))
+        )
+    }
+
+    return [txListBytes, txs.length]
+}
 
 function sleep(ms: number) {
     return new Promise((resolve) => {
