@@ -213,7 +213,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         pure
         returns (
             uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
+            uint256, // TAIKO_BLOCK_BUFFER_SIZE
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
@@ -229,7 +229,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     {
         return (
             LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,

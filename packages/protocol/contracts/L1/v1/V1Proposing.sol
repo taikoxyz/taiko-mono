@@ -66,8 +66,8 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextBlockId <=
-                s.latestFinalizedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            s.nextBlockId <
+                s.latestFinalizedId + LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
             "L1:tooMany"
         );
 
@@ -106,6 +106,19 @@ library V1Proposing {
 
         TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
 
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+
+        (uint256 fee, uint256 premiumFee) = getBlockFee(s, blockTime);
+        s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
+
+        s.avgBlockTime = V1Utils
+            .movingAverage(s.avgBlockTime, blockTime, 1024)
+            .toUint64();
+
+        s.lastProposedAt = meta.timestamp;
+
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
+
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
@@ -114,11 +127,12 @@ library V1Proposing {
         uint64 blockTime,
         uint64 gasLimit
     ) public view returns (uint256 fee, uint256 premiumFee) {
-        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 m = (s.baseFee * 25) / 100; // 25%
+    {
+        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
+        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
+        uint256 m = s.baseFee / LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
 
-        if (blockTime <= a) {
+        if (s.avgBlockTime == 0 || blockTime <= a) {
             fee = s.baseFee;
         } else if (blockTime >= b) {
             fee = m;
@@ -129,6 +143,7 @@ library V1Proposing {
         if (s.avgGasLimit > 0) {
             fee = (fee * gasLimit) / s.avgGasLimit;
         }
+
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
     }
 
@@ -142,6 +157,16 @@ library V1Proposing {
             s.commits[hash] != 0 &&
             block.number >=
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+    }
+
+    function _updateAvgBlockTime(LibData.State storage s, uint64 blockTime)
+        private
+    {
+        if (s.avgBlockTime == 0) {
+            s.avgBlockTime = blockTime;
+        } else {
+            s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
+        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
