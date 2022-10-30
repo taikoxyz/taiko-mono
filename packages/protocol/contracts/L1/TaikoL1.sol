@@ -135,13 +135,23 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
-    function getBlockFee() public view returns (uint256) {
-        uint64 blocktime = uint64(block.timestamp - state.lastProposedAt);
-        return V1Proposing.getBlockFee(state, blocktime);
+    function getBlockFee(uint64 blockTime)
+        public
+        view
+        returns (uint256 premiumFee)
+    {
+        uint64 _blockTime = blockTime == 0
+            ? uint64(block.timestamp - state.lastProposedAt)
+            : blockTime;
+        (, premiumFee) = V1Proposing.getBlockFee(state, _blockTime);
     }
 
-    function getProofReward(uint64 proofTime) public view returns (uint256) {
-        return V1Finalizing.getProofReward(state, proofTime);
+    function getProofReward(uint64 proofTime)
+        public
+        view
+        returns (uint256 premiumReward)
+    {
+        (, premiumReward) = V1Finalizing.getProofReward(state, proofTime);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {
@@ -199,7 +209,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         pure
         returns (
             uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
+            uint256, // TAIKO_BLOCK_BUFFER_SIZE
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
@@ -215,7 +225,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     {
         return (
             LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,

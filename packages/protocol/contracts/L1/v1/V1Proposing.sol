@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
@@ -51,6 +49,8 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
+        s.lastProposedAt = meta.timestamp;
+
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
             meta.txListHash
@@ -66,8 +66,8 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextBlockId <=
-                s.latestFinalizedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            s.nextBlockId <
+                s.latestFinalizedId + LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
             "L1:tooMany"
         );
 
@@ -85,14 +85,18 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        uint64 blockTime = meta.timestamp - 
-        ;
-        uint256 fee = getBlockFee(s, blockTime);
-        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
 
-        V1Utils.updateBaseFee(s, fee);
-        _updateAvgBlockTime(s, blockTime);
+        (uint256 fee, uint256 premiumFee) = getBlockFee(s, blockTime);
+        s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
+
+        s.avgBlockTime = V1Utils
+            .movingAverage(s.avgBlockTime, blockTime, 1024)
+            .toUint64();
+
         s.lastProposedAt = meta.timestamp;
+
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
@@ -100,18 +104,20 @@ library V1Proposing {
     function getBlockFee(LibData.State storage s, uint64 blockTime)
         public
         view
-        returns (uint256)
+        returns (uint256 fee, uint256 premiumFee)
     {
-        if (s.avgBlockTime == 0) return s.baseFee;
+        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
+        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
+        uint256 m = s.baseFee / LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
 
-        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        if (blockTime <= a) return s.baseFee;
-
-        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 m = (s.baseFee * 25) / 100; // 25%
-        if (blockTime >= b) return m;
-
-        return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
+        if (s.avgBlockTime == 0 || blockTime <= a) {
+            fee = s.baseFee;
+        } else if (blockTime >= b) {
+            fee = m;
+        } else {
+            fee = ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
+        }
+        premiumFee = V1Utils.applyOversellPremium(s, fee, false);
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
