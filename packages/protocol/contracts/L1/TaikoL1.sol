@@ -135,7 +135,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
-    function getBlockFee(uint64 blockTime)
+    function getBlockFee(uint64 blockTime, uint64 gasLimit)
         public
         view
         returns (uint256 premiumFee)
@@ -143,15 +143,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint64 _blockTime = blockTime == 0
             ? uint64(block.timestamp - state.lastProposedAt)
             : blockTime;
-        (, premiumFee) = V1Proposing.getBlockFee(state, _blockTime);
+        (, premiumFee) = V1Proposing.getBlockFee(state, _blockTime, gasLimit);
     }
 
-    function getProofReward(uint64 proofTime)
+    function getProofReward(uint64 proofTime, uint64 gasLimit)
         public
         view
         returns (uint256 premiumReward)
     {
-        (, premiumReward) = V1Finalizing.getProofReward(state, proofTime);
+        (, premiumReward) = V1Finalizing.getProofReward(
+            state,
+            proofTime,
+            gasLimit
+        );
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {

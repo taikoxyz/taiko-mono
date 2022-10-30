@@ -66,10 +66,10 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
-                    proofTime
+                    proofTime,
+                    LibData.getProposedBlock(s, i).gasLimit
                 );
 
                 s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
@@ -102,11 +102,11 @@ library V1Finalizing {
         }
     }
 
-    function getProofReward(LibData.State storage s, uint64 proofTime)
-        public
-        view
-        returns (uint256 reward, uint256 premiumReward)
-    {
+    function getProofReward(
+        LibData.State storage s,
+        uint64 proofTime,
+        uint64 gasLimit
+    ) public view returns (uint256 reward, uint256 premiumReward) {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%
         uint64 b = (s.avgBlockTime * 400) / 100; // 400%
         uint256 n = s.baseFee * LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
@@ -117,6 +117,10 @@ library V1Finalizing {
             reward = n;
         } else {
             reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
+        }
+
+        if (s.avgGasLimit > 0) {
+            reward = (reward * gasLimit) / s.avgGasLimit;
         }
 
         premiumReward =

@@ -82,16 +82,26 @@ library V1Proposing {
 
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
+            LibData.ProposedBlock({
+                metaHash: LibData.hashMetadata(meta),
+                gasLimit: meta.gasLimit
+            })
         );
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
-
-        (uint256 fee, uint256 premiumFee) = getBlockFee(s, blockTime);
+        (uint256 fee, uint256 premiumFee) = getBlockFee(
+            s,
+            blockTime,
+            meta.gasLimit
+        );
         s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
+            .toUint64();
+
+        s.avgGasLimit = V1Utils
+            .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
             .toUint64();
 
         s.lastProposedAt = meta.timestamp;
@@ -101,11 +111,11 @@ library V1Proposing {
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s, uint64 blockTime)
-        public
-        view
-        returns (uint256 fee, uint256 premiumFee)
-    {
+    function getBlockFee(
+        LibData.State storage s,
+        uint64 blockTime,
+        uint64 gasLimit
+    ) public view returns (uint256 fee, uint256 premiumFee) {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%
         uint64 b = (s.avgBlockTime * 400) / 100; // 400%
         uint256 m = s.baseFee / LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
@@ -117,6 +127,11 @@ library V1Proposing {
         } else {
             fee = ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
         }
+
+        if (s.avgGasLimit > 0) {
+            fee = (fee * gasLimit) / s.avgGasLimit;
+        }
+
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
     }
 
