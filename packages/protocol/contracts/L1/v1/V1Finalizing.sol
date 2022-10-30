@@ -30,12 +30,14 @@ library V1Finalizing {
         uint256 _baseFee
     ) public {
         require(_baseFee > 0, "L1:baseFee");
+        s.genesisHeight = uint64(block.number);
+        s.genesisTimestamp = uint64(block.timestamp);
+
+        s.baseFee = _baseFee;
+        s.nextBlockId = 1;
+        s.lastProposedAt = uint64(block.timestamp);
 
         s.l2Hashes[0] = _genesisBlockHash;
-        s.nextBlockId = 1;
-        s.genesisHeight = uint64(block.number);
-        s.baseFee = _baseFee;
-        s.lastProposedAt = uint64(block.timestamp);
 
         emit BlockFinalized(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
