@@ -51,8 +51,6 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        s.lastProposedAt = meta.timestamp;
-
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
             meta.txListHash
@@ -93,6 +91,7 @@ library V1Proposing {
 
         V1Utils.updateBaseFee(s, fee);
         _updateAvgBlockTime(s, blockTime);
+        s.lastProposedAt = meta.timestamp;
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
