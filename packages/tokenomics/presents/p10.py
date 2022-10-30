@@ -1,7 +1,7 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p10: TKO token goes up",
+    title="p10: TKO token price goes up",
     desc="""
 
 **What to simulate?**

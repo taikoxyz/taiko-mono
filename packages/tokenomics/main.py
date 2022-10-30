@@ -147,6 +147,7 @@ class Protocol(sim.Component):
         self.m_premium_fee = sim.Monitor("m_premium_fee", level=True)
         self.m_premium_reward = sim.Monitor("m_premium_reward", level=True)
         self.m_supply_change = sim.Monitor("m_supply_change", level=True)
+        self.m_supply_change_perblock = sim.Monitor("m_supply_change_perblock", level=True)
         self.m_block_time = sim.Monitor("m_block_time", level=True)
         self.m_proof_time = sim.Monitor("m_proof_time", level=True)
         self.m_prover_bootstrap_reward = sim.Monitor(
@@ -180,6 +181,10 @@ class Protocol(sim.Component):
     def print(self, st):
         st.markdown("-----")
         st.markdown("##### Protocol state")
+        st.write("block fee = {}".format(self.get_block_fee(self.config.block_fee_min_ratio, self.avg_block_time)))
+        st.write("proof reward = {}".format(self.get_proof_reward(self.config.prover_reward_max_ratio, self.avg_proof_time)))
+
+
         st.write("lamda = {}".format(self.config.lamda))
         st.write("last_finalized_id = {}".format(self.last_finalized_id))
         st.write("num_blocks = {}".format(len(self.blocks)))
@@ -199,6 +204,9 @@ class Protocol(sim.Component):
                     / self.config.prover_reward_bootstrap
                 )
             )
+
+        st.write("block fee = {}".format(self.get_block_fee(self.config.block_fee_min_ratio, self.avg_block_time)))
+        st.write("proof reward = {}".format(self.get_proof_reward(self.config.prover_reward_max_ratio, self.avg_proof_time)))
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized_id - 1
@@ -221,7 +229,7 @@ class Protocol(sim.Component):
                 self.config.block_and_proof_time_maf,
             )
             self.base_fee = moving_average(self.base_fee, fee, self.config.base_fee_maf)
-            self.supply_change -= premium_fee
+            # self.supply_change -= premium_fee
 
             block = Block(
                 status=Status.PENDING,
@@ -237,7 +245,7 @@ class Protocol(sim.Component):
             self.m_base_fee.tally(self.base_fee)
             self.m_block_time.tally(block_time)
             self.m_premium_fee.tally(premium_fee)
-            self.m_supply_change.tally(self.supply_change)
+            # self.m_supply_change.tally(self.supply_change)
 
     def can_prove(self, id):
         return (
@@ -298,13 +306,15 @@ class Protocol(sim.Component):
                 self.prover_bootstrap_reward_total += prover_bootstrap_reward
                 premium_reward += prover_bootstrap_reward
 
-                self.supply_change += premium_reward
+                self.supply_change += premium_reward - self.blocks[self.last_finalized_id].fee
+
 
                 self.m_base_fee.tally(self.base_fee)
                 self.m_proof_time.tally(proof_time)
                 self.m_premium_reward.tally(premium_reward)
                 self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
                 self.m_supply_change.tally(self.supply_change)
+                self.m_supply_change_perblock.tally(premium_reward - self.blocks[self.last_finalized_id].fee)
 
             else:
                 break
@@ -400,9 +410,10 @@ def simulate(config, days):
         plot(days, [(protocol.m_premium_reward, "proof reward")])
         plot(
             days,
-            [(protocol.m_prover_bootstrap_reward, "block's prover bootstrap reward")],
+            [(protocol.m_prover_bootstrap_reward, "proof bootstrap reward")],
         )
         plot(days, [(protocol.m_supply_change, "supply change")], color="tab:red")
+        plot(days, [(protocol.m_supply_change_perblock, "supply change per block")], color="tab:red")
 
         protocol.print(st)
 

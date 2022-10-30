@@ -13,7 +13,7 @@ The most basic model where block time and proof time are both constant.
 Block (proposal) fee is constant. This is achieved by settting `max_blocks` and
 `lamda_ratio` to large values and `block_time_sd_pctg` to 0.
 """,
-    days=7,
+    days=20,
     config=Config(
         max_blocks=2048, 
         lamda=2048,

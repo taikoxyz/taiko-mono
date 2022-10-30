@@ -1,7 +1,7 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p11: TKO token goes down",
+    title="p11: TKO token price goes down",
     desc="""
 
 **What to simulate?**
@@ -29,31 +29,31 @@ the proof time willp10: TKO token goes down
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=10,
+                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=10,
+                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=80,
-                proof_time_sd_pctg=10,
+                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=10,
+                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
                 block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=10,
+                proof_time_sd_pctg=0,
             ),
         ],
     ),
