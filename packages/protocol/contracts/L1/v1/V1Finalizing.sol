@@ -66,16 +66,21 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-
+                uint64 gasLimit = LibData.getProposedBlock(s, i).gasLimit;
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
-                    proofTime
+                    proofTime,
+                    gasLimit
                 );
 
                 s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(s.avgProofTime, proofTime, 1024)
+                    .toUint64();
+
+                s.avgGasLimit = V1Utils
+                    .movingAverage(s.avgGasLimit, gasLimit, 1024)
                     .toUint64();
 
                 if (address(tkoToken) == address(0)) {
@@ -102,11 +107,11 @@ library V1Finalizing {
         }
     }
 
-    function getProofReward(LibData.State storage s, uint64 proofTime)
-        public
-        view
-        returns (uint256 reward, uint256 premiumReward)
-    {
+    function getProofReward(
+        LibData.State storage s,
+        uint64 proofTime,
+        uint64 gasLimit
+    ) public view returns (uint256 reward, uint256 premiumReward) {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
         uint256 n = (s.baseFee * 400) / 100; // 400%
@@ -117,6 +122,10 @@ library V1Finalizing {
             reward = n;
         } else {
             reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
+        }
+
+        if (s.avgGasLimit > 0) {
+            reward = (reward * gasLimit) / s.avgGasLimit;
         }
 
         premiumReward =

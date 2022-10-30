@@ -26,6 +26,7 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
+        uint64 gasLimit;
     }
 
     struct ForkChoice {
@@ -51,6 +52,7 @@ library LibData {
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
         uint64 avgProofTime; // the proof time moving average
+        uint64 avgGasLimit; // the block gas-limit moving average
     }
 
     function saveProposedBlock(

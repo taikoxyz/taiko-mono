@@ -82,12 +82,18 @@ library V1Proposing {
 
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
+            LibData.ProposedBlock({
+                metaHash: LibData.hashMetadata(meta),
+                gasLimit: meta.gasLimit
+            })
         );
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
-
-        (uint256 fee, uint256 premiumFee) = getBlockFee(s, blockTime);
+        (uint256 fee, uint256 premiumFee) = getBlockFee(
+            s,
+            blockTime,
+            meta.gasLimit
+        );
         s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
 
         s.avgBlockTime = V1Utils
@@ -99,11 +105,11 @@ library V1Proposing {
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s, uint64 blockTime)
-        public
-        view
-        returns (uint256 fee, uint256 premiumFee)
-    {
+    function getBlockFee(
+        LibData.State storage s,
+        uint64 blockTime,
+        uint64 gasLimit
+    ) public view returns (uint256 fee, uint256 premiumFee) {
         uint64 a = (s.avgBlockTime * 150) / 100; // 150%
         uint64 b = (s.avgBlockTime * 300) / 100; // 300%
         uint256 m = (s.baseFee * 25) / 100; // 25%
@@ -114,6 +120,10 @@ library V1Proposing {
             fee = m;
         } else {
             fee = ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
+        }
+
+        if (s.avgGasLimit > 0) {
+            fee = (fee * gasLimit) / s.avgGasLimit;
         }
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
     }
