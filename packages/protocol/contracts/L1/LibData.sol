@@ -28,11 +28,14 @@ library LibData {
         bytes32 metaHash;
     }
 
+    struct Prover {
+        address addr;
+        uint64 provenAt;
+    }
     struct ForkChoice {
         bytes32 blockHash;
         uint64 proposedAt;
-        uint64 provenAt;
-        address[] provers;
+        Prover[] provers;
     }
 
     struct State {

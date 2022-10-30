@@ -228,7 +228,6 @@ library V1Proving {
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
             fc.proposedAt = target.timestamp;
-            fc.provenAt = uint64(block.timestamp);
         } else {
             require(
                 fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
@@ -241,23 +240,26 @@ library V1Proving {
             );
 
             // No uncle proof can take more than 1.5x time the first proof did.
-            uint256 delay = fc.provenAt - fc.proposedAt;
-            uint256 deadline = fc.provenAt + delay / 2;
+            uint256 firstProvenAt = fc.provers[0].provenAt;
+            uint256 deadline = firstProvenAt +
+                (firstProvenAt - fc.proposedAt) /
+                2;
             require(block.timestamp <= deadline, "L1:tooLate");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
-                require(fc.provers[i] != prover, "L1:prover:dup");
+                require(fc.provers[i].addr != prover, "L1:prover:dup");
             }
         }
 
-        fc.provers.push(prover);
+        uint64 provenAt = uint64(block.timestamp);
+        fc.provers.push(LibData.Prover({addr: prover, provenAt: provenAt}));
 
         emit BlockProven(
             target.id,
             parentHash,
             blockHash,
             fc.proposedAt,
-            fc.provenAt,
+            provenAt,
             prover
         );
     }
