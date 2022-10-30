@@ -107,9 +107,9 @@ library V1Finalizing {
         view
         returns (uint256 reward, uint256 premiumReward)
     {
-        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 n = (s.baseFee * 400) / 100; // 400%
+        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
+        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
+        uint256 n = s.baseFee * LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
 
         if (proofTime <= a) {
             reward = s.baseFee;

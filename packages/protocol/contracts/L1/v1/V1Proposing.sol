@@ -104,9 +104,9 @@ library V1Proposing {
         view
         returns (uint256 fee, uint256 premiumFee)
     {
-        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
-        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
-        uint256 m = (s.baseFee * 25) / 100; // 25%
+        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
+        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
+        uint256 m = s.baseFee / LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
 
         if (blockTime <= a) {
             fee = s.baseFee;
