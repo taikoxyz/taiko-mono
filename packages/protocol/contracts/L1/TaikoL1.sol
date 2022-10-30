@@ -29,12 +29,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     LibData.State public state;
     uint256[45] private __gap;
 
-    function init(address _addressManager, bytes32 _genesisBlockHash)
-        external
-        initializer
-    {
+    function init(
+        address _addressManager,
+        bytes32 _genesisBlockHash,
+        uint256 _baseFee
+    ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash);
+        V1Finalizing.init(state, _genesisBlockHash, _baseFee);
     }
 
     /// @notice Write a _commit hash_ so a few blocks later a L2 block can be proposed
@@ -63,9 +64,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ///       the first transaction in the block -- if there are n transactions
     ///       in `txList`, then there will be up to n+1 transactions in the L2 block.
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, inputs);
+        V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -90,6 +92,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -120,6 +123,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
         V1Finalizing.finalizeBlocks(
             state,
+            AddressResolver(this),
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
     }
@@ -128,7 +132,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /// @param maxBlocks Max number of blocks to finalize.
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(state, maxBlocks);
+        V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
+    }
+
+    function getBlockFee() public view returns (uint256) {
+        return V1Proposing.getBlockFee(state);
+    }
+
+    function getProofReward() public view returns (uint256) {
+        return V1Finalizing.getProofReward(state);
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {

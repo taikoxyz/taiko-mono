@@ -14,6 +14,7 @@ import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -35,9 +36,11 @@ library V1Proposing {
         );
     }
 
-    function proposeBlock(LibData.State storage s, bytes[] calldata inputs)
-        public
-    {
+    function proposeBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        bytes[] calldata inputs
+    ) public {
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -46,6 +49,11 @@ library V1Proposing {
         bytes calldata txList = inputs[1];
 
         _validateMetadata(meta);
+
+        TkoToken(resolver.resolve("tko_token")).burn(
+            msg.sender,
+            getBlockFee(s)
+        );
 
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
@@ -81,7 +89,18 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
+        _updateAvgBlockTime(s, meta.timestamp - s.lastProposedAt);
+        s.lastProposedAt = meta.timestamp;
+
         emit BlockProposed(s.nextBlockId++, meta);
+    }
+
+    function getBlockFee(LibData.State storage s)
+        public
+        view
+        returns (uint256)
+    {
+        return s.baseFee;
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
@@ -94,6 +113,16 @@ library V1Proposing {
             s.commits[hash] != 0 &&
             block.number >=
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+    }
+
+    function _updateAvgBlockTime(LibData.State storage s, uint64 blockTime)
+        private
+    {
+        if (s.avgBlockTime == 0) {
+            s.avgBlockTime = blockTime;
+        } else {
+            s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
+        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
