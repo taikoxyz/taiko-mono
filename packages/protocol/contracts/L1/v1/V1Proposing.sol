@@ -15,6 +15,7 @@ import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
 import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -50,11 +51,6 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        TkoToken(resolver.resolve("tko_token")).burn(
-            msg.sender,
-            getBlockFee(s)
-        );
-
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
             meta.txListHash
@@ -89,18 +85,32 @@ library V1Proposing {
             LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        _updateAvgBlockTime(s, meta.timestamp - s.lastProposedAt);
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+        uint256 fee = getBlockFee(s, blockTime);
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, fee);
+
+        V1Utils.updateBaseFee(s, fee);
+        _updateAvgBlockTime(s, blockTime);
         s.lastProposedAt = meta.timestamp;
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s)
+    function getBlockFee(LibData.State storage s, uint64 blockTime)
         public
         view
         returns (uint256)
     {
-        return s.baseFee;
+        if (s.avgBlockTime == 0) return s.baseFee;
+
+        uint64 a = (s.avgBlockTime * 150) / 100; // 150%
+        if (blockTime <= a) return s.baseFee;
+
+        uint64 b = (s.avgBlockTime * 300) / 100; // 300%
+        uint256 m = (s.baseFee * 25) / 100; // 25%
+        if (blockTime >= b) return m;
+
+        return ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)
