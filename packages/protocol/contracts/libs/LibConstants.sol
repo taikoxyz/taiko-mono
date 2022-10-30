@@ -13,7 +13,6 @@ library LibConstants {
     // https://github.com/ethereum-lists/chains/pull/1611
     uint256 public constant TAIKO_CHAIN_ID = 167;
     uint256 public constant TAIKO_BLOCK_BUFFER_SIZE = 2049; // up to 2048 pending blocks
-    uint256 public constant TAIKO_REWARD_BURN_POINTS = 100; // 1%
     uint256 public constant TAIKO_FEE_PREMIUM_LAMDA = 100; // TODO
     uint256 public constant TAIKO_FEE_PREMIUM_PHI =
         (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
