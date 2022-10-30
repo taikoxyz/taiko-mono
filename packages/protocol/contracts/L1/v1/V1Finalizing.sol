@@ -66,21 +66,16 @@ library V1Finalizing {
                 }
 
                 uint64 proofTime = fc.provenAt - fc.proposedAt;
-                uint64 gasLimit = LibData.getProposedBlock(s, i).gasLimit;
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
                     proofTime,
-                    gasLimit
+                    LibData.getProposedBlock(s, i).gasLimit
                 );
 
                 s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(s.avgProofTime, proofTime, 1024)
-                    .toUint64();
-
-                s.avgGasLimit = V1Utils
-                    .movingAverage(s.avgGasLimit, gasLimit, 1024)
                     .toUint64();
 
                 if (address(tkoToken) == address(0)) {
