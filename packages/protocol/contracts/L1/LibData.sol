@@ -44,15 +44,23 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
-        uint64 genesisHeight;
-        uint64 latestFinalizedHeight;
-        uint64 latestFinalizedId;
-        uint64 nextBlockId;
+        // Never changed
+        uint64 genesisHeight; // never change
+        uint64 genesisTimestamp; // never change
+        uint64 reservedA1; // never change
+        uint64 reservedA2; // never change
+        // Changed when a block is proposed or proven/finalized
         uint256 baseFee;
+        // Changed when a block is proposed
+        uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
-        uint64 avgProofTime; // the proof time moving average
         uint64 avgGasLimit; // the block gas-limit moving average
+        // Changed when a block is proven/finalized
+        uint64 latestFinalizedHeight;
+        uint64 latestFinalizedId;
+        uint64 avgProofTime; // the proof time moving average
+        uint64 reservedC1;
     }
 
     function saveProposedBlock(
