@@ -84,6 +84,8 @@ library V1Finalizing {
 
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], premiumReward);
+                
+                V1Utils.updateBaseFee(s, reward);
 
                 emit BlockFinalized(i, fc.blockHash);
             }
@@ -105,13 +107,14 @@ library V1Finalizing {
     function getProofReward(LibData.State storage s, uint64 proofTime)
         public
         view
+
         returns (uint256 reward, uint256 premiumReward)
     {
         uint64 a = (s.avgBlockTime * 125) / 100; // 125%
         uint64 b = (s.avgBlockTime * 400) / 100; // 400%
         uint256 n = s.baseFee * LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
 
-        if (proofTime <= a) {
+        if (s.avgProofTime == 0 || proofTime <= a) {
             reward = s.baseFee;
         } else if (proofTime >= b) {
             reward = n;
