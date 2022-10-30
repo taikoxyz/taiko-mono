@@ -171,7 +171,7 @@ action("Generate Genesis", function () {
                 }
             }
 
-            const [bytes, txNums] = await generateMaxSizeInvalidTxListBytes(
+            const [bytes, txNums] = await generateMaxSizeInvalidTxList(
                 V1TaikoL2
             )
 
@@ -307,7 +307,7 @@ action("Generate Genesis", function () {
     }
 })
 
-async function generateMaxSizeInvalidTxListBytes(V1TaikoL2: any) {
+async function generateMaxSizeInvalidTxList(V1TaikoL2: any) {
     const constants = await V1TaikoL2.getConstants()
 
     const chainId = constants[0].toNumber()
