@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/ethclient/gethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 )
@@ -18,12 +18,17 @@ var (
 	ErrNoBridgeAddress = errors.Validation.NewWithKeyAndDetail("ERR_NO_BRIDGE_ADDRESS", "BridgeAddress is required")
 )
 
+var (
+	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+)
+
 type Service struct {
 	eventRepo           relayer.EventRepository
 	blockRepo           relayer.BlockRepository
 	ethClient           *ethclient.Client
 	crossLayerEthClient *ethclient.Client
-	gethClient          *gethclient.Client
+	rpc                 *rpc.Client
+	crossLayerRPC       *rpc.Client
 	ecdsaKey            *ecdsa.PrivateKey
 
 	processingBlock *relayer.Block
@@ -40,7 +45,8 @@ type NewServiceOpts struct {
 	BlockRepo               relayer.BlockRepository
 	EthClient               *ethclient.Client
 	CrossLayerEthClient     *ethclient.Client
-	GethClient              *gethclient.Client
+	RPCClient               *rpc.Client
+	CrossLayerRPCClient     *rpc.Client
 	ECDSAKey                string
 	BridgeAddress           common.Address
 	CrossLayerBridgeAddress common.Address
@@ -67,11 +73,11 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, ErrNoEthClient
 	}
 
-	if opts.BridgeAddress == common.HexToAddress("0x0000000000000000000000000000000000000000") {
+	if opts.BridgeAddress == ZeroAddress {
 		return nil, ErrNoBridgeAddress
 	}
 
-	if opts.CrossLayerBridgeAddress == common.HexToAddress("0x0000000000000000000000000000000000000000") {
+	if opts.CrossLayerBridgeAddress == ZeroAddress {
 		return nil, ErrNoBridgeAddress
 	}
 
@@ -95,7 +101,8 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		crossLayerEthClient: opts.CrossLayerEthClient,
 		eventRepo:           opts.EventRepo,
 		ethClient:           opts.EthClient,
-		gethClient:          opts.GethClient,
+		rpc:                 opts.RPCClient,
+		crossLayerRPC:       opts.CrossLayerRPCClient,
 		ecdsaKey:            privateKey,
 
 		bridge:           bridge,

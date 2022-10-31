@@ -7,6 +7,7 @@ pragma solidity ^0.8.9;
 import {LibBytesUtils} from "./LibBytesUtils.sol";
 import {LibRLPReader} from "./LibRLPReader.sol";
 import {LibRLPWriter} from "./LibRLPWriter.sol";
+import "hardhat/console.sol";
 
 /**
  * @title LibMerkleTrie
@@ -72,7 +73,7 @@ library LibMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _verified) {
+    ) internal view returns (bool _verified) {
         (bool exists, bytes memory value) = get(_key, _proof, _root);
 
         return (exists && LibBytesUtils.equal(_value, value));
@@ -90,7 +91,9 @@ library LibMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _exists, bytes memory _value) {
+    ) internal view returns (bool _exists, bytes memory _value) {
+        console.log("proof");
+        console.log(string(_proof));
         TrieNode[] memory proof = _parseProof(_proof);
         (
             uint256 pathLength,

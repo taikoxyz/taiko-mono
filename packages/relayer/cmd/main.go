@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -68,14 +67,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	l1GethClient := gethclient.New(l1RpcClient)
+	l2RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	i, err := indexer.NewService(indexer.NewServiceOpts{
-		EventRepo:               eventRepository,
-		BlockRepo:               blockRepository,
-		CrossLayerEthClient:     l2EthClient,
-		EthClient:               l1EthClient,
-		GethClient:              l1GethClient,
+		EventRepo:           eventRepository,
+		BlockRepo:           blockRepository,
+		CrossLayerEthClient: l2EthClient,
+		EthClient:           l1EthClient,
+		RPCClient:           l1RpcClient,
+		CrossLayerRPCClient: l2RpcClient,
+
 		ECDSAKey:                os.Getenv("RELAYER_ECDSA_KEY"),
 		BridgeAddress:           common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 		CrossLayerBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),

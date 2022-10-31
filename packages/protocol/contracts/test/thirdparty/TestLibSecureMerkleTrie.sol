@@ -13,7 +13,7 @@ contract TestLibSecureMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) public pure returns (bool) {
+    ) public view returns (bool) {
         return
             LibSecureMerkleTrie.verifyInclusionProof(
                 _key,
@@ -27,7 +27,7 @@ contract TestLibSecureMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) public pure returns (bool, bytes memory) {
+    ) public view returns (bool, bytes memory) {
         return LibSecureMerkleTrie.get(_key, _proof, _root);
     }
 }

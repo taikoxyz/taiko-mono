@@ -200,7 +200,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	return nil
 }
 
-// handleNoEventsRemaining is used when the batch had events, but is now finished, and wen eed to
+// handleNoEventsRemaining is used when the batch had events, but is now finished, and we need to
 // update the latest block processed
 func (svc *Service) handleNoEventsRemaining(ctx context.Context, chainID *big.Int, events *contracts.BridgeMessageSentIterator) error {
 	log.Info("no events remaining to be processed")

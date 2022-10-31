@@ -12,6 +12,8 @@ import "../thirdparty/LibRLPReader.sol";
 import "../thirdparty/LibRLPWriter.sol";
 import "../thirdparty/LibSecureMerkleTrie.sol";
 
+import "hardhat/console.sol";
+
 /// @author dantaik <dan@taiko.xyz>
 library LibTrieProof {
     /*********************
@@ -40,11 +42,20 @@ library LibTrieProof {
         bytes32 key,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure {
+    ) public view {
         (bytes memory accountProof, bytes memory storageProof) = abi.decode(
             mkproof,
             (bytes, bytes)
         );
+
+        bytes memory zero = hex"00";
+
+        require(keccak256(accountProof) != keccak256(zero), "zero bytes");
+
+        console.log("accountProof");
+        console.log(string(accountProof));
+        console.log("storageProof");
+        console.log(string(storageProof));
 
         (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
             abi.encodePacked(addr),
