@@ -5,6 +5,7 @@ import "@primitivefi/hardhat-dodoc"
 import "@typechain/hardhat"
 import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
+import "hardhat-preprocessor"
 import { HardhatUserConfig, task } from "hardhat/config"
 import "solidity-coverage"
 import "./tasks/deploy_L1"
@@ -92,6 +93,34 @@ const config: HardhatUserConfig = {
     gasReporter: {
         enabled: process.env.REPORT_GAS === "true",
         currency: "USD",
+    },
+    preprocess: {
+        eachLine: () => ({
+            transform: (line) => {
+                if (
+                    process.env.CHAIN_ID &&
+                    line.includes("uint256 public constant TAIKO_CHAIN_ID")
+                ) {
+                    line = `${line.slice(0, line.indexOf("="))}= ${
+                        process.env.CHAIN_ID
+                    };`
+                }
+
+                if (
+                    process.env.COMMIT_DELAY_CONFIRMATIONS &&
+                    line.includes(
+                        "uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS"
+                    )
+                ) {
+                    line = `${line.slice(0, line.indexOf("="))}= ${
+                        process.env.COMMIT_DELAY_CONFIRMATIONS
+                    };`
+                }
+
+                return line
+            },
+            files: "libs/LibConstants.sol",
+        }),
     },
     mocha: {
         timeout: 300000,
