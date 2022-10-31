@@ -4,24 +4,24 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/taikochain/taiko-mono/packages/relayer"
 )
 
 // blockHeader converts an ethereum block to the BlockHeader type that LibBridgeData
 // uses in our contracts
-func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (BlockHeader, error) {
+func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (relayer.BlockHeader, error) {
 	block, err := s.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
 	if err != nil {
-		return BlockHeader{}, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
+		return relayer.BlockHeader{}, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
 
-	return BlockHeader{
+	return relayer.BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
 		Beneficiary:      block.Coinbase(),
@@ -53,15 +53,14 @@ func (s *Service) getEncodedSignalProof(ctx context.Context, bridgeAddress commo
 		return nil, errors.Wrap(err, "s.blockHeader")
 	}
 
-	signalProof := SignalProof{
+	signalProof := relayer.SignalProof{
 		Header: blockHeader,
 		Proof:  encodedStorageProof,
 	}
 
-	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, signalProofAbiString)
-	inAbi, err := JSON(strings.NewReader(inDef))
+	inAbi, err := relayer.StringToABI(relayer.SignalProofAbiString)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", signalProofAbiString, err))
+		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.SignalProofAbiString, err))
 	}
 	encodedSignalProof, err := inAbi.Pack("method", signalProof)
 	if err != nil {
@@ -97,12 +96,11 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress comm
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, storageProofAbiString)
-	inAbi, err := JSON(strings.NewReader(inDef))
+	inAbi, err := relayer.StringToABI(relayer.StorageProofAbiString)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", storageProofAbiString, err))
+		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.StorageProofAbiString, err))
 	}
-	p := Proof{
+	p := relayer.Proof{
 		AccountProof: rlpEncodedAccountProof,
 		StorageProof: rlpEncodedStorageProof,
 	}

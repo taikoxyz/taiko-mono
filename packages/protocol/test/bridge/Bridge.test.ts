@@ -61,12 +61,6 @@ async function deployBridge(
         etherVault.address
     )
 
-    console.log(
-        "ether vault addy for chainID",
-        network?.chainId,
-        etherVault.address
-    )
-
     return { bridge, etherVault }
 }
 async function deployBridgeFixture() {
