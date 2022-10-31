@@ -121,7 +121,10 @@ library V1Finalizing {
             reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
         }
 
-        if (s.avgGasLimit > 0) {
+        if (
+            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
+            s.avgGasLimit > 0
+        ) {
             reward = (reward * gasLimit) / s.avgGasLimit;
         }
 

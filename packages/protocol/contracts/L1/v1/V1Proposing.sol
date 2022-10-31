@@ -128,7 +128,10 @@ library V1Proposing {
             fee = ((s.baseFee - m) * (b - blockTime)) / (b - a) + m;
         }
 
-        if (s.avgGasLimit > 0) {
+        if (
+            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
+            s.avgGasLimit > 0
+        ) {
             fee = (fee * gasLimit) / s.avgGasLimit;
         }
 
