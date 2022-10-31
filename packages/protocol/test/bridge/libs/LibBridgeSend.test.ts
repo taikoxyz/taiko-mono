@@ -10,7 +10,11 @@ describe("LibBridgeSend", function () {
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
-        await addressManager.setAddress("ether_vault", etherVault.address)
+        const blockChainId = hre.network.config.chainId ?? 0
+        await addressManager.setAddress(
+            `${blockChainId}.ether_vault`,
+            etherVault.address
+        )
 
         const libSend = await (
             await ethers.getContractFactory("TestLibBridgeSend")
@@ -34,7 +38,7 @@ describe("LibBridgeSend", function () {
         it("should throw when chainId == block.chainId", async function () {
             const { libSend } = await deployLibBridgeSendFixture()
 
-            const blockChainId = hre.network.config.chainId
+            const blockChainId = hre.network.config.chainId ?? 0
 
             await expect(
                 libSend.enableDestChain(blockChainId, true)
