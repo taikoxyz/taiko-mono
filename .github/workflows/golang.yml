@@ -23,6 +23,6 @@ jobs:
         with:
           go-version: ">=1.18.0"
 
-      - name: protocol - Unit Tests
+      - name: relayer - Unit Tests
         working-directory: ./packages/relayer
         run: go test ./... -count=1
