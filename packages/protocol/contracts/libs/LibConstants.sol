@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 /// @author dantaik <dan@taiko.xyz>
 library LibConstants {
     // https://github.com/ethereum-lists/chains/pull/1611
+    bool public constant TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING = false;
     uint256 public constant TAIKO_CHAIN_ID = 167;
     uint256 public constant TAIKO_BLOCK_BUFFER_SIZE = 2049; // up to 2048 pending blocks
     uint256 public constant TAIKO_FEE_PREMIUM_LAMDA = 100; // TODO
