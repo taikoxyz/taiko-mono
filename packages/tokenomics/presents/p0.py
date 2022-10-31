@@ -10,7 +10,7 @@ The most basic model where block time and proof time are both constant.
 
 **About this config**
 
-Block (proposal) fee is constant. This is achieved by settting `max_blocks` and
+Block fee is constant. This is achieved by settting `max_blocks` and
 `lamda_ratio` to large values and `block_time_sd_pctg` to 0.
 """,
     days=20,

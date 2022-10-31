@@ -132,9 +132,9 @@ class Protocol(sim.Component):
         )
         self.m_premium_fee = sim.Monitor("m_premium_fee", level=True)
         self.m_premium_reward = sim.Monitor("m_premium_reward", level=True)
-        self.m_supply_change = sim.Monitor("m_supply_change", level=True)
-        self.m_supply_change_perblock = sim.Monitor(
-            "m_supply_change_perblock", level=True
+        self.m_tko_supply = sim.Monitor("m_tko_supply", level=True)
+        self.m_tko_supply_perblock = sim.Monitor(
+            "m_tko_supply_perblock", level=True
         )
         self.m_block_time = sim.Monitor("m_block_time", level=True)
         self.m_proof_time = sim.Monitor("m_proof_time", level=True)
@@ -144,11 +144,11 @@ class Protocol(sim.Component):
 
     def apply_oversell_premium(self, fee, release_one_slot):
         p = self.config.max_blocks - self.num_pending() + self.config.lamda
-        if release_one_slot:
+        if release_one_slot:  # reward
             q = p + 1
-        else:
+        else:  # fee
             q = p - 1
-        return fee * self.phi / p / q
+        return fee * self.phi / (p * q)
 
     def get_block_fee(self, min_ratio, block_time):
         fee = get_block_fee(self.base_fee, min_ratio, self.avg_block_time, block_time)
@@ -219,7 +219,7 @@ class Protocol(sim.Component):
         return len(self.blocks) - self.last_finalized_id - 1
 
     def can_propose(self):
-        return self.num_pending() <= self.config.max_blocks
+        return self.num_pending() < self.config.max_blocks
 
     def propose_block(self):
         if self.can_propose():
@@ -229,7 +229,7 @@ class Protocol(sim.Component):
                 self.config.block_fee_min_ratio, block_time
             )
 
-            self.base_fee = moving_average(self.base_fee, fee, self.config.base_fee_maf)
+            # self.base_fee = moving_average(self.base_fee, fee, self.config.base_fee_maf)
             self.avg_block_time = moving_average(
                 self.avg_block_time,
                 block_time,
@@ -251,7 +251,7 @@ class Protocol(sim.Component):
             self.m_base_fee.tally(self.base_fee)
             self.m_block_time.tally(block_time)
             self.m_premium_fee.tally(premium_fee)
-            # self.m_supply_change.tally(self.supply_change)
+            # self.m_tko_supply.tally(self.supply_change)
 
     def can_prove(self, id):
         return (
@@ -276,26 +276,22 @@ class Protocol(sim.Component):
     def finalize_block(self):
         for i in range(0, 5):
             if self.can_finalize():
-                self.last_finalized_id += 1
 
-                self.blocks[self.last_finalized_id] = self.blocks[
-                    self.last_finalized_id
-                ]._replace(status=Status.FINALIZED)
+                k = self.last_finalized_id + 1
 
-                proof_time = (
-                    self.blocks[self.last_finalized_id].proven_at
-                    - self.blocks[self.last_finalized_id].proposed_at
-                )
+                self.blocks[k] = self.blocks[k]._replace(status=Status.FINALIZED)
+
+                proof_time = self.blocks[k].proven_at - self.blocks[k].proposed_at
 
                 (reward, premium_reward) = self.get_proof_reward(
                     self.config.prover_reward_max_ratio, proof_time
                 )
 
-                self.base_fee = moving_average(
-                    self.base_fee,
-                    reward,
-                    self.config.base_fee_maf,
-                )
+                # self.base_fee = moving_average(
+                #     self.base_fee,
+                #     reward,
+                #     self.config.base_fee_maf,
+                # )
 
                 self.avg_proof_time = moving_average(
                     self.avg_proof_time,
@@ -309,22 +305,20 @@ class Protocol(sim.Component):
                     self.avg_proof_time,
                 )
 
-                self.prover_bootstrap_reward_total += prover_bootstrap_reward
-                premium_reward += prover_bootstrap_reward
+                # self.prover_bootstrap_reward_total += prover_bootstrap_reward
+                # premium_reward += prover_bootstrap_reward
 
-                self.supply_change += (
-                    premium_reward - self.blocks[self.last_finalized_id].fee
-                )
+                profit = premium_reward - self.blocks[k].fee
+                self.supply_change -= profit
 
                 self.m_base_fee.tally(self.base_fee)
                 self.m_proof_time.tally(proof_time)
                 self.m_premium_reward.tally(premium_reward)
                 self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
-                self.m_supply_change.tally(self.supply_change)
-                self.m_supply_change_perblock.tally(
-                    premium_reward - self.blocks[self.last_finalized_id].fee
-                )
+                self.m_tko_supply.tally(self.supply_change)
+                # self.m_tko_supply_perblock.tally(profit)
 
+                self.last_finalized_id = k
             else:
                 break
 
@@ -367,7 +361,9 @@ class Proposer(sim.Component):
                     sim.Bounded(
                         sim.Normal(
                             _block_time_avg_second,
-                            _block_time_avg_second * self.config.block_time_sd_pctg / 100,
+                            _block_time_avg_second
+                            * self.config.block_time_sd_pctg
+                            / 100,
                         ),
                         lowerbound=1,
                     ).sample()
@@ -419,12 +415,12 @@ def simulate(config, days):
             days,
             [(protocol.m_prover_bootstrap_reward, "proof bootstrap reward")],
         )
-        plot(days, [(protocol.m_supply_change, "supply change")], color="tab:red")
-        plot(
-            days,
-            [(protocol.m_supply_change_perblock, "supply change per block")],
-            color="tab:red",
-        )
+        plot(days, [(protocol.m_tko_supply, "tko supply")], color="tab:red")
+        # plot(
+        #     days,
+        #     [(protocol.m_tko_supply_perblock, "supply change per block")],
+        #     color="tab:red",
+        # )
 
         protocol.print(st)
 
