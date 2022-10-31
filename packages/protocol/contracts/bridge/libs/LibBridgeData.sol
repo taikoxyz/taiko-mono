@@ -65,7 +65,8 @@ library LibBridgeData {
      *********************/
 
     /**
-     * @dev If messageStatus is same as in the messageStatus mapping, does nothing.
+     * @dev If messageStatus is same as in the messageStatus mapping,
+     *      does nothing.
      * @param state The current bridge state.
      * @param signal The messageHash of the message.
      * @param status The status of the message.
@@ -82,7 +83,8 @@ library LibBridgeData {
     }
 
     /**
-     * @dev Hashes messages and returns the hash signed with "TAIKO_BRIDGE_MESSAGE" for verification.
+     * @dev Hashes messages and returns the hash signed with
+     * "TAIKO_BRIDGE_MESSAGE" for verification.
      */
     function hashMessage(IBridge.Message memory message)
         internal

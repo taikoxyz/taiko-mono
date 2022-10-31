@@ -12,8 +12,8 @@ import "./IAddressManager.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
- * This abstract contract provides a name-to-address lookup. Under the hood, it uses an AddressManager to
- * manage the name-to-address mapping.
+ * This abstract contract provides a name-to-address lookup. Under the hood,
+ * it uses an AddressManager to manage the name-to-address mapping.
  *
  * @title AddressResolver
  * @author dantaik <dan@taiko.xyz>

@@ -24,12 +24,15 @@ library LibBridgeSend {
     /**
      * Initiate a bridge request.
      *
-     * @param message Specifies the `depositValue`, `callValue`, and `processingFee`. These must sum to
-     * `msg.value`. It also specifies the `destChainId` which must be first enabled via `enableDestChain`,
+     * @param message Specifies the `depositValue`, `callValue`,
+     * and `processingFee`. These must sum to `msg.value`. It also specifies the
+     * `destChainId` which must be first enabled via `enableDestChain`,
      * and differ from the current chain ID.
-     * @return signal The message is hashed, stored, and emitted as a signal. This is picked up by an
-     * off-chain relayer which indicates a bridge message has been sent and is ready to be processed on
-     * the destination chain.
+     *
+     * @return signal The message is hashed, stored, and emitted as a signal.
+     * This is picked up by an off-chain relayer which indicates a
+     * bridge message has been sent and is ready to be processed on the
+     * destination chain.
      */
     function sendMessage(
         LibBridgeData.State storage state,
@@ -60,7 +63,8 @@ library LibBridgeSend {
         message.srcChainId = block.chainid;
 
         signal = message.hashMessage();
-        // Store a key which is the hash of this contract address and the signal, with a value of 1.
+        // Store a key which is the hash of this contract address and the
+        // signal, with a value of 1.
         LibBridgeSignal.sendSignal(address(this), signal);
         emit LibBridgeData.MessageSent(signal, message);
     }

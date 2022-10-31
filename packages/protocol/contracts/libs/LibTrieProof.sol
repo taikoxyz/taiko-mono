@@ -21,8 +21,8 @@ library LibTrieProof {
      * Constants         *
      *********************/
 
-    // The consensus format representing account is RLP encoded in the following order:
-    // nonce, balance, storageHash, codeHash.
+    // The consensus format representing account is RLP encoded in the
+    // following order: nonce, balance, storageHash, codeHash.
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     /*********************
@@ -30,13 +30,15 @@ library LibTrieProof {
      *********************/
 
     /**
-     * Verifies that the value of a slot `key` in the storage tree of `addr` is `value`.
+     * Verifies that the value of a slot `key` in the storage tree of `addr`
+     * is `value`.
      *
      * @param stateRoot The merkle root of state tree.
      * @param addr The contract address.
      * @param key The slot in the contract.
      * @param value The value to be verified.
-     * @param mkproof The proof obtained by encoding state proof and storage proof.
+     * @param mkproof The proof obtained by encoding state proof and storage
+     *        proof.
      */
     function verify(
         bytes32 stateRoot,

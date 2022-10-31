@@ -24,15 +24,17 @@ library LibBridgeRetry {
     using LibBridgeData for LibBridgeData.State;
 
     /**
-     * Retry a bridge message on the destination chain. This function can be called by any address including
-     * `message.owner`. It can only be called on messages marked "RETRIABLE". It attempts to reinvoke the
-     * messageCall. If reinvoking fails and `isLastAttempt` is set to true, then the message is marked
-     * "DONE" and cannot be retried.
+     * Retry a bridge message on the destination chain. This function can be
+     * called by any address, including `message.owner`. It can only be called
+     * on messages marked "RETRIABLE". It attempts to reinvoke the messageCall.
+     * If reinvoking fails and `isLastAttempt` is set to true, then the message
+     * is marked "DONE" and cannot be retried.
      *
      * @param state The bridge state.
      * @param resolver The address resolver.
      * @param message The message to retry.
-     * @param isLastAttempt Specifies if this is the last attempt to retry the message.
+     * @param isLastAttempt Specifies if this is the last attempt to retry the
+     *                      message.
      */
     function retryMessage(
         LibBridgeData.State storage state,

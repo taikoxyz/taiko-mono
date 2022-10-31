@@ -17,8 +17,9 @@ import "./BridgedERC20.sol";
 import "./IBridge.sol";
 
 /**
- *  @dev This vault holds all ERC20 tokens (but not Ether) that users have deposited.
- *       It also manages the mapping between cannonical ERC20 tokens and their bridged tokens.
+ *  @dev This vault holds all ERC20 tokens (but not Ether) that users have
+ *       deposited. It also manages the mapping between cannonical ERC20 tokens
+ *       and their bridged tokens.
  */
 contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;
@@ -39,7 +40,7 @@ contract TokenVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    // Tracks if a token on the current chain is a cannoical token or a bridged token.
+    // Tracks if a token on the current chain is a canoncial or bridged token.
     mapping(address => bool) public isBridgedToken;
 
     // Mappings from bridged tokens to their cannonical tokens.
@@ -100,7 +101,8 @@ contract TokenVault is EssentialContract {
     /**
      * @notice Transfers Ether to this vault and sends a message to the
      *         destination chain so the user can receive Ether.
-     * @dev Ether are held by Bridges on L1 and by the EtherVault on L2, not TokenVaults.
+     * @dev Ether are held by Bridges on L1 and by the EtherVault on L2,
+     *      not TokenVaults.
      * @param destChainId The destination chain ID where the `to` address lives.
      * @param to The destination address.
      * @param processingFee @custom:see Bridge
@@ -141,13 +143,13 @@ contract TokenVault is EssentialContract {
 
     /**
      * @notice Transfers ERC20 tokens to this vault and sends a message to the
-     *         destination chain so the user can receive the same amount of tokens
-     *         by invoking the message call.
+     *         destination chain so the user can receive the same amount of
+     *         tokens by invoking the message call.
      * @param token The address of the token to be sent.
      * @param destChainId The destination chain ID where the `to` address lives.
      * @param to The destination address.
-     * @param refundAddress The fee refund address. If this address is address(0), extra
-     *        fees will be refunded back to the `to` address.
+     * @param refundAddress The fee refund address. If this address is
+     *        address(0), extra fees will be refunded back to the `to` address.
      * @param amount The amount of token to be transferred.
      * @param processingFee @custom:see Bridge
      * @param gasLimit @custom:see Bridge
@@ -220,10 +222,11 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * @dev This function can only be called by the bridge contract while invoking
-     *      a message call.
-     * @param canonicalToken The cannonical ERC20 token which may or may not live
-     *        on this chain. If not, a BridgedERC20 contract will be deployed.
+     * @dev This function can only be called by the bridge contract while
+     *      invoking a message call.
+     * @param canonicalToken The cannonical ERC20 token which may or may not
+     *        live on this chain. If not, a BridgedERC20 contract will be
+     *        deployed.
      * @param from The source address.
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
