@@ -87,16 +87,8 @@ def get_block_time_avg_second(config):
     return config.timing[get_day(config)].block_time_avg_second
 
 
-def get_block_time_sd_pctg(config):
-    return config.timing[get_day(config)].block_time_sd_pctg
-
-
 def get_proof_time_avg_second(config):
     return config.timing[get_day(config)].proof_time_avg_minute * 60
-
-
-def get_proof_time_sd_pctg(config):
-    return config.timing[get_day(config)].proof_time_sd_pctg
 
 
 def moving_average(ma, v, maf):
@@ -347,12 +339,11 @@ class Prover(sim.Component):
 
     def process(self):
         _proof_time_avg_second = get_proof_time_avg_second(self.config)
-        _proof_time_sd_pctg = get_proof_time_sd_pctg(self.config)
         yield self.hold(
             sim.Bounded(
                 sim.Normal(
                     _proof_time_avg_second,
-                    _proof_time_avg_second * _proof_time_sd_pctg / 100,
+                    _proof_time_avg_second * self.config.proof_time_sd_pctg / 100,
                 ),
                 lowerbound=1,
             ).sample()
@@ -372,12 +363,11 @@ class Proposer(sim.Component):
             else:
                 self.protocol.propose_block()
                 _block_time_avg_second = get_block_time_avg_second(self.config)
-                _block_time_sd_pctg = get_block_time_sd_pctg(self.config)
                 yield self.hold(
                     sim.Bounded(
                         sim.Normal(
                             _block_time_avg_second,
-                            _block_time_avg_second * _block_time_sd_pctg / 100,
+                            _block_time_avg_second * self.config.block_time_sd_pctg / 100,
                         ),
                         lowerbound=1,
                     ).sample()

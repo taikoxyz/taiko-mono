@@ -28,30 +28,24 @@ present = Present(
         prover_reward_bootstrap=0,
         prover_reward_bootstrap_day=10,
         block_and_proof_time_maf=1024,
+        block_time_sd_pctg=0,
+        proof_time_sd_pctg=0,
         timing=[
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=100,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=200,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=100,
                 proof_time_avg_minute=25,
-                proof_time_sd_pctg=200,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=100,
                 proof_time_avg_minute=15,
-                proof_time_sd_pctg=200,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=100,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=200,
             ),
         ],
     ),

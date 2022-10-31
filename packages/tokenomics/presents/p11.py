@@ -24,36 +24,28 @@ the proof time willp10: TKO token goes down
         prover_reward_bootstrap=0.0,
         prover_reward_bootstrap_day=0,
         block_and_proof_time_maf=1024,
+        block_time_sd_pctg=0,
+        proof_time_sd_pctg=0,
         timing=[
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=0,
                 proof_time_avg_minute=80,
-                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=0,
             ),
             Timing(
                 block_time_avg_second=15,
-                block_time_sd_pctg=0,
                 proof_time_avg_minute=45,
-                proof_time_sd_pctg=0,
             ),
         ],
     ),

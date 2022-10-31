@@ -3,9 +3,7 @@ from typing import NamedTuple
 
 class Timing(NamedTuple):
     block_time_avg_second: int
-    block_time_sd_pctg: int
     proof_time_avg_minute: int
-    proof_time_sd_pctg: int
 
 
 class Config(NamedTuple):
@@ -19,6 +17,8 @@ class Config(NamedTuple):
     prover_reward_bootstrap: int
     prover_reward_bootstrap_day: int
     block_and_proof_time_maf: int
+    block_time_sd_pctg: int
+    proof_time_sd_pctg: int
     timing: list[Timing]
 
 
