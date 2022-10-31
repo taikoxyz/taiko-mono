@@ -1,6 +1,5 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-// import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
 
 describe("LibBridgeSignal", function () {
     async function deployLibBridgeSignalFixture() {
