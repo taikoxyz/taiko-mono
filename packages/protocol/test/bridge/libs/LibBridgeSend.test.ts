@@ -24,7 +24,11 @@ describe("LibBridgeSend", function () {
 
         await libSend.init(addressManager.address)
 
-        return { owner, nonOwner, libSend }
+        const srcChainId = 1
+
+        const enabledDestChainId = 100
+
+        return { owner, nonOwner, libSend, srcChainId, enabledDestChainId }
     }
     describe("enableDestChain()", async function () {
         it("should throw when chainId <= 0", async function () {
@@ -60,14 +64,16 @@ describe("LibBridgeSend", function () {
 
     describe("sendMessage()", async function () {
         it("should throw when message.owner == address(0)", async function () {
-            const { owner, nonOwner, libSend } =
+            const { owner, nonOwner, libSend, srcChainId } =
                 await deployLibBridgeSendFixture()
+
+            const nonEnabledDestChain = 2
 
             const message: Message = {
                 id: 1,
                 sender: owner.address,
-                srcChainId: 1,
-                destChainId: 5,
+                srcChainId: srcChainId,
+                destChainId: nonEnabledDestChain,
                 owner: ethers.constants.AddressZero,
                 to: nonOwner.address,
                 refundAddress: owner.address,
@@ -85,7 +91,7 @@ describe("LibBridgeSend", function () {
         })
 
         it("should throw when destchainId == block.chainId", async function () {
-            const { owner, nonOwner, libSend } =
+            const { owner, nonOwner, libSend, srcChainId } =
                 await deployLibBridgeSendFixture()
 
             const blockChainId = hre.network.config.chainId ?? 1
@@ -93,7 +99,7 @@ describe("LibBridgeSend", function () {
             const message: Message = {
                 id: 1,
                 sender: owner.address,
-                srcChainId: 1,
+                srcChainId: srcChainId,
                 destChainId: blockChainId,
                 owner: owner.address,
                 to: nonOwner.address,
@@ -112,14 +118,16 @@ describe("LibBridgeSend", function () {
         })
 
         it("should throw when destChainId has not yet been enabled", async function () {
-            const { owner, nonOwner, libSend } =
+            const { owner, nonOwner, libSend, srcChainId } =
                 await deployLibBridgeSendFixture()
+
+            const nonEnabledDestChain = 2
 
             const message: Message = {
                 id: 1,
                 sender: owner.address,
-                srcChainId: 1,
-                destChainId: 2,
+                srcChainId: srcChainId,
+                destChainId: nonEnabledDestChain,
                 owner: owner.address,
                 to: nonOwner.address,
                 refundAddress: owner.address,
@@ -137,16 +145,16 @@ describe("LibBridgeSend", function () {
         })
 
         it("should throw when expectedAmount != msg.value", async function () {
-            const { owner, nonOwner, libSend } =
+            const { owner, nonOwner, libSend, srcChainId, enabledDestChainId } =
                 await deployLibBridgeSendFixture()
 
-            await libSend.enableDestChain(2, true)
+            await libSend.enableDestChain(enabledDestChainId, true)
 
             const message: Message = {
                 id: 1,
                 sender: owner.address,
-                srcChainId: 1,
-                destChainId: 2,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
                 owner: owner.address,
                 to: nonOwner.address,
                 refundAddress: owner.address,
@@ -164,16 +172,16 @@ describe("LibBridgeSend", function () {
         })
 
         it("should emit MessageSent() event and signal should be hashed correctly", async function () {
-            const { owner, nonOwner, libSend } =
+            const { owner, nonOwner, libSend, srcChainId, enabledDestChainId } =
                 await deployLibBridgeSendFixture()
 
-            await libSend.enableDestChain(100, true)
+            await libSend.enableDestChain(enabledDestChainId, true)
 
             const message: Message = {
                 id: 1,
                 sender: owner.address,
-                srcChainId: 1,
-                destChainId: 100,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
                 owner: owner.address,
                 to: nonOwner.address,
                 refundAddress: owner.address,
