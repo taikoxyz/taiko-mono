@@ -86,27 +86,13 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, bridgeAddress comm
 
 	log.Info("rlp encoding account proof")
 
-	accountProofSliceData := make(SliceData, 0)
-	for _, p := range proof.AccountProof {
-		accountProofSliceData = append(accountProofSliceData, []byte(p))
-	}
-
-	rlpEncodedAccountProof, err := rlp.EncodeToBytes(accountProofSliceData)
+	rlpEncodedAccountProof, err := rlp.EncodeToBytes(proof.AccountProof)
 	if err != nil {
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
 	}
 
 	log.Info("rlp encoding storage proof")
-	storageProofStorageResult := StorageResult{}
-	storageProofStorageResult.Key = QuantityBytes(proof.StorageProof[0].Key)
-	storageProofStorageResult.Value = QuantityBytes(proof.StorageProof[0].Value.Bytes())
-	storageProofSliceData := make(SliceData, 0)
-	for _, p := range proof.StorageProof[0].Proof {
-		storageProofSliceData = append(storageProofSliceData, []byte(p))
-	}
-
-	storageProofStorageResult.Proof = storageProofSliceData
-	rlpEncodedStorageProof, err := rlp.EncodeToBytes(storageProofStorageResult)
+	rlpEncodedStorageProof, err := rlp.EncodeToBytes(proof.StorageProof[0].Proof)
 	if err != nil {
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}

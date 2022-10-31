@@ -1,0 +1,28 @@
+name: Solidity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/relayer/**"
+  pull_request:
+    paths:
+      - "packages/relayer/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.18.0"
+
+      - name: protocol - Unit Tests
+        working-directory: ./packages/relayer
+        run: go test ./... -count=1

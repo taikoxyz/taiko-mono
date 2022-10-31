@@ -4,12 +4,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"gopkg.in/go-playground/assert.v1"
 	"gorm.io/gorm"
 )
 
-func Test_NewEventRepo(t *testing.T) {
+func Test_NewBlockRepo(t *testing.T) {
 	tests := []struct {
 		name    string
 		db      *gorm.DB
@@ -29,29 +30,30 @@ func Test_NewEventRepo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewEventRepository(tt.db)
+			_, err := NewBlockRepository(tt.db)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }
 
-func TestIntegration_Event_Save(t *testing.T) {
+func TestIntegration_Block_Save(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 	defer close()
-	eventRepo, err := NewEventRepository(db)
+	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
 		name    string
-		opts    relayer.SaveEventOpts
+		opts    relayer.SaveBlockOpts
 		wantErr error
 	}{
 		{
 			"success",
-			relayer.SaveEventOpts{
-				Name:    "test",
-				ChainID: big.NewInt(1),
-				Data:    "{\"data\":\"something\"}",
+			relayer.SaveBlockOpts{
+				ChainID:   big.NewInt(1),
+				Height:    100,
+				Hash:      common.HexToHash("0x1234"),
+				EventName: relayer.EventNameMessageSent,
 			},
 			nil,
 		},
@@ -59,51 +61,36 @@ func TestIntegration_Event_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err = eventRepo.Save(tt.opts)
+			err = blockRepo.Save(tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }
 
-func TestIntegration_Event_UpdateStatus(t *testing.T) {
+func TestIntegration_Block_GetLatestBlockProcessedForEvent(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 	defer close()
-	eventRepo, err := NewEventRepository(db)
+	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
-		name    string
-		id      int
-		status  relayer.EventStatus
-		wantErr bool
+		name      string
+		eventName string
+		chainID   *big.Int
+		wantErr   error
 	}{
 		{
 			"success",
-			1,
-			relayer.EventStatusDone,
-			false,
-		},
-		{
-			"errNotFound",
-			123,
-			relayer.EventStatusDone,
-			true,
+			relayer.EventNameMessageSent,
+			big.NewInt(1),
+			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "success" {
-				eventRepo.Save(
-					relayer.SaveEventOpts{
-						Name:    "test",
-						ChainID: big.NewInt(1),
-						Data:    "{\"data\":\"something\"}",
-					},
-				)
-			}
-			err := eventRepo.UpdateStatus(tt.id, tt.status)
-			assert.Equal(t, tt.wantErr, err != nil)
+			_, err := blockRepo.GetLatestBlockProcessedForEvent(tt.eventName, tt.chainID)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }
