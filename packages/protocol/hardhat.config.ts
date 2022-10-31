@@ -101,7 +101,7 @@ const config: HardhatUserConfig = {
                     process.env.CHAIN_ID &&
                     line.includes("uint256 public constant TAIKO_CHAIN_ID")
                 ) {
-                    line = `${line.slice(0, line.indexOf("="))}= ${
+                    return `${line.slice(0, line.indexOf(" ="))} = ${
                         process.env.CHAIN_ID
                     };`
                 }
@@ -112,7 +112,7 @@ const config: HardhatUserConfig = {
                         "uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS"
                     )
                 ) {
-                    line = `${line.slice(0, line.indexOf("="))}= ${
+                    return `${line.slice(0, line.indexOf(" ="))} = ${
                         process.env.COMMIT_DELAY_CONFIRMATIONS
                     };`
                 }
