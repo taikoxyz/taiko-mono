@@ -135,25 +135,23 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
-    function getBlockFee(uint64 blockTime, uint64 gasLimit)
+    function getBlockFee(uint64 gasLimit)
         public
         view
         returns (uint256 premiumFee)
     {
-        uint64 _blockTime = blockTime == 0
-            ? uint64(block.timestamp - state.lastProposedAt)
-            : blockTime;
-        (, premiumFee) = V1Proposing.getBlockFee(state, _blockTime, gasLimit);
+        (, premiumFee) = V1Proposing.getBlockFee(state, gasLimit);
     }
 
-    function getProofReward(uint64 proofTime, uint64 gasLimit)
-        public
-        view
-        returns (uint256 premiumReward)
-    {
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt,
+        uint64 gasLimit
+    ) public view returns (uint256 premiumReward) {
         (, premiumReward) = V1Finalizing.getProofReward(
             state,
-            proofTime,
+            provenAt,
+            proposedAt,
             gasLimit
         );
     }

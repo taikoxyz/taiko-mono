@@ -10,10 +10,13 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../libs/LibMath.sol";
 import "../LibData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Utils {
+    using LibMath for uint256;
+
     function applyOversellPremium(
         LibData.State storage s,
         uint256 fee,
@@ -37,5 +40,18 @@ library V1Utils {
         }
         uint256 _ma = (ma * (factor - 1) + v) / factor;
         return _ma > 0 ? _ma : ma;
+    }
+
+    function feeScale(
+        uint64 tNow,
+        uint64 tLast,
+        uint64 tAvg
+    ) internal pure returns (uint256) {
+        uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE * tAvg) / 100;
+        uint256 tMax = (LibConstants.TAIKO_FEE_MAX * tAvg) / 100;
+        uint256 a = tLast + tGrace;
+        uint256 b = tNow > a ? tNow - a : 0;
+        uint256 tRel = (b.min(tMax) * 10000) / tMax;
+        return 10000 + ((LibConstants.TAIKO_FEE_ALPHA - 100) * tRel) / 100;
     }
 }
