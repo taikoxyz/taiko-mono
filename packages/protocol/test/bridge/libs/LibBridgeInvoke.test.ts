@@ -51,7 +51,7 @@ describe("LibBridgeInvoke", function () {
             ).to.be.revertedWith("B:gasLimit")
         })
 
-        it("should return true if message has no issues", async function () {
+        it("should emit event with success false if message does not actually invoke", async function () {
             const { owner, nonOwner, libInvoke } =
                 await deployLibBridgeInvokeFixture()
 
@@ -70,6 +70,48 @@ describe("LibBridgeInvoke", function () {
                 processingFee: 1,
                 gasLimit: 100,
                 data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            const signal = await libData.hashMessage(message)
+
+            await expect(
+                libInvoke.invokeMessageCall(message, signal, message.gasLimit)
+            )
+                .to.emit(libInvoke, "MessageInvoked")
+                .withArgs(signal, false)
+        })
+
+        it.only("should emit event with success true if message invokes successfully", async function () {
+            const { owner, nonOwner, libInvoke } =
+                await deployLibBridgeInvokeFixture()
+
+            const { libData } = await deployLibBridgeDataFixture()
+
+            const testERC20Token = await (
+                await ethers.getContractFactory("TestERC20Receiver")
+            ).deploy()
+
+            const testTypes = ["string", "address"]
+
+            const data = ethers.utils.defaultAbiCoder.encode(testTypes, [
+                "receiveMessage(address)",
+                nonOwner.address,
+            ])
+
+            const message: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: 1,
+                destChainId: 5,
+                owner: owner.address,
+                to: testERC20Token.address,
+                refundAddress: owner.address,
+                depositValue: 1,
+                callValue: 1,
+                processingFee: 1,
+                gasLimit: 100,
+                data: data,
                 memo: "",
             }
 
