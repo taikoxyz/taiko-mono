@@ -22,8 +22,10 @@ func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (proof.Blo
 		return proof.BlockHeader{}, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
 
-	log.Infof("state root", block.Root())
-
+	logsBloom, err := proof.LogsBloomToBytes(block.Bloom())
+	if err != nil {
+		return proof.BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
+	}
 	return proof.BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
@@ -39,7 +41,7 @@ func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (proof.Blo
 		MixHash:          block.MixDigest(),
 		Nonce:            block.Nonce(),
 		StateRoot:        block.Root(),
-		LogsBloom:        proof.LogsBloomToBytes(block.Bloom()),
+		LogsBloom:        logsBloom,
 	}, nil
 }
 

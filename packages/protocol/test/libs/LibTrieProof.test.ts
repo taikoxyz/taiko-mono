@@ -60,7 +60,7 @@ describe("LibTrieProof", function () {
         return { owner, testLibTreProof, bridge }
     }
     describe("verify()", function () {
-        it.only("verifies", async function () {
+        it("verifies", async function () {
             const { owner, testLibTreProof, bridge } =
                 await deployLibTrieProofFixture()
 

@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func LogsBloomToBytes(logsBloom types.Bloom) [8][32]byte {
+func LogsBloomToBytes(logsBloom types.Bloom) ([8][32]byte, error) {
 	var ret = [8][32]byte{}
 	bloom := [256]byte(logsBloom)
 	index := 0
@@ -23,7 +23,7 @@ func LogsBloomToBytes(logsBloom types.Bloom) [8][32]byte {
 		ret[index] = r
 		index++
 	}
-	return ret
+	return ret, nil
 }
 
 type Bytes []byte

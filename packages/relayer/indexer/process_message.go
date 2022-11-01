@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,6 +28,18 @@ func (svc *Service) processMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	taiko, _ := contracts.NewV1TaikoL2(common.HexToAddress("0x055018077fdC2DF4966c8c96A65B004B3bd78b7F"), svc.crossLayerEthClient)
+	h, err := taiko.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "taiko.GetSyncedHeader")
+	}
+
+	// if header hasnt been synced, we are unable to process this message
+	if common.BytesToHash(h[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
+		log.Infof("header not synced, bailing")
+		return nil
+	}
+
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
@@ -44,7 +57,7 @@ func (svc *Service) processMessage(
 	}
 
 	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 200000
+	auth.GasLimit = 500000
 	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
@@ -61,6 +74,12 @@ func (svc *Service) processMessage(
 	if err != nil {
 		return errors.Wrap(err, "decode.Decode")
 	}
+
+	received, err := svc.crossLayerBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
+	if err != nil {
+		return errors.Wrap(err, "svc.crossLayerBridge.IsSignalReceived")
+	}
+	spew.Dump("received", received)
 
 	log.Info("processing message")
 	tx, err := svc.crossLayerBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
