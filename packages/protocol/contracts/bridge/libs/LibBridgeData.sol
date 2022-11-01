@@ -16,7 +16,6 @@ import "../IBridge.sol";
 /**
  * Stores message data for the bridge.
  *
- * @title LibBridgeData
  * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeData {
