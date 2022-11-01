@@ -97,8 +97,6 @@ describe("LibBridgeInvoke", function () {
             const iface = new ethers.utils.Interface(ABI)
             const data = iface.encodeFunctionData("receiveTokens", [1])
 
-            console.log("data", data)
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
