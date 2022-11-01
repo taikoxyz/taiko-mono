@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,6 +28,7 @@ func (svc *Service) processMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	spew.Dump(event.Message)
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(

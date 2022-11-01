@@ -43,19 +43,13 @@ library LibTrieProof {
         bytes32 value,
         bytes calldata mkproof
     ) public view {
+        console.log("0");
         (bytes memory accountProof, bytes memory storageProof) = abi.decode(
             mkproof,
             (bytes, bytes)
         );
 
-        bytes memory zero = hex"00";
-
-        require(keccak256(accountProof) != keccak256(zero), "zero bytes");
-
-        console.log("accountProof");
-        console.log(string(accountProof));
-        console.log("storageProof");
-        console.log(string(storageProof));
+        console.log("1");
 
         (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
             abi.encodePacked(addr),
@@ -65,19 +59,24 @@ library LibTrieProof {
 
         require(exists, "LTP:invalid account proof");
 
+        console.log("2");
         LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
             rlpAccount
         );
+        console.log("3");
         bytes32 storageRoot = LibRLPReader.readBytes32(
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );
 
+        console.log("4");
         bool verified = LibSecureMerkleTrie.verifyInclusionProof(
             abi.encodePacked(key),
             LibRLPWriter.writeBytes32(value),
             storageProof,
             storageRoot
         );
+
+        console.log(verified);
 
         require(verified, "LTP:invalid storage proof");
     }

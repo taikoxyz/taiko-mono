@@ -92,8 +92,6 @@ library LibMerkleTrie {
         bytes memory _proof,
         bytes32 _root
     ) internal view returns (bool _exists, bytes memory _value) {
-        console.log("proof");
-        console.log(string(_proof));
         TrieNode[] memory proof = _parseProof(_proof);
         (
             uint256 pathLength,

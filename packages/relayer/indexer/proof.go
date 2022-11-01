@@ -2,17 +2,15 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/proof"
 )
 
@@ -63,17 +61,108 @@ func (s *Service) getEncodedSignalProof(ctx context.Context, c *rpc.Client, brid
 		Proof:  encodedStorageProof,
 	}
 
-	inAbi, err := relayer.StringToABI(relayer.SignalProofAbiString)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.SignalProofAbiString, err))
+	// inAbi, err := relayer.StringToABI(relayer.SignalProofAbiString)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.SignalProofAbiString, err))
+	// }
+	// encodedSignalProof, err := inAbi.Pack("method", signalProof)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "inAbiPack")
+	// }
+
+	// var bytesT, _ = abi.NewType("bytes", "", nil)
+	// var bytes32T, _ = abi.NewType("bytes32", "", nil)
+	// var addressT, _ = abi.NewType("address", "", nil)
+	// var bytes328T, _ = abi.NewType("bytes32[8]", "", nil)
+	// var uint256T, _ = abi.NewType("uint256", "", nil)
+	// var uint128T, _ = abi.NewType("uint128", "", nil)
+	// var uint64T, _ = abi.NewType("uint64T", "", nil)
+	var sProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{
+			Name: "header",
+			Type: "tuple",
+			Components: []abi.ArgumentMarshaling{
+				{
+					Name: "parentHash",
+					Type: "bytes32",
+				},
+				{
+					Name: "ommersHash",
+					Type: "bytes32",
+				},
+				{
+					Name: "beneficiary",
+					Type: "address",
+				},
+				{
+					Name: "stateRoot",
+					Type: "bytes32",
+				},
+				{
+					Name: "transactionsRoot",
+					Type: "bytes32",
+				},
+				{
+					Name: "receiptsRoot",
+					Type: "bytes32",
+				},
+				{
+					Name: "logsBloom",
+					Type: "bytes32[8]",
+				},
+				{
+					Name: "difficulty",
+					Type: "uint256",
+				},
+				{
+					Name: "height",
+					Type: "uint128",
+				},
+				{
+					Name: "gasLimit",
+					Type: "uint64",
+				},
+				{
+					Name: "gasUsed",
+					Type: "uint64",
+				},
+				{
+					Name: "timestamp",
+					Type: "uint64",
+				},
+				{
+					Name: "extraData",
+					Type: "bytes",
+				},
+				{
+					Name: "mixHash",
+					Type: "bytes32",
+				},
+				{
+					Name: "nonce",
+					Type: "uint64",
+				},
+			},
+		},
+		{
+			Name: "proof",
+			Type: "bytes",
+		},
+	})
+
+	args := abi.Arguments{
+		{
+			Type: sProofT,
+		},
 	}
-	encodedSignalProof, err := inAbi.Pack("method", signalProof)
+
+	encodedSignalProof, err := args.Pack(signalProof)
 	if err != nil {
-		return nil, errors.Wrap(err, "inAbiPack")
+		return nil, errors.Wrap(err, "args.Pack")
 	}
 
 	log.Infof("signalProof: %s", hexutil.Encode(encodedSignalProof))
-	return encodedSignalProof[4:], nil
+	return encodedSignalProof, nil
 }
 
 // getEncodedStorageProof rlp and abi encodes a proof for LibBridgeSignal,
@@ -87,7 +176,6 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, c *rpc.Client, bri
 	}
 
 	log.Info("rlp encoding account proof")
-	spew.Dump(ethProof)
 
 	rlpEncodedAccountProof, err := rlp.EncodeToBytes(ethProof.AccountProof)
 	if err != nil {
@@ -104,19 +192,22 @@ func (s *Service) getEncodedStorageProof(ctx context.Context, c *rpc.Client, bri
 
 	log.Infof("rlpEncodedStorageProof: %s", hexutil.Encode(rlpEncodedStorageProof))
 
-	inAbi, err := relayer.StringToABI(relayer.StorageProofAbiString)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.StorageProofAbiString, err))
-	}
-	p := proof.Proof{
-		AccountProof: rlpEncodedAccountProof,
-		StorageProof: rlpEncodedStorageProof,
-	}
-	encodedStorageProof, err := inAbi.Pack("method", p)
-	if err != nil {
-		return nil, errors.Wrap(err, "inAbiPack")
+	var bytesT, _ = abi.NewType("bytes", "", nil)
+
+	args := abi.Arguments{
+		{
+			Type: bytesT,
+		},
+		{
+			Type: bytesT,
+		},
 	}
 
-	log.Infof("encodedStorageProof: %s", hexutil.Encode(encodedStorageProof[4:]))
-	return encodedStorageProof[4:], nil
+	encodedStorageProof, err := args.Pack(rlpEncodedAccountProof, rlpEncodedStorageProof)
+	if err != nil {
+		return nil, errors.Wrap(err, "args.Pack")
+	}
+
+	log.Infof("encodedStorageProof: %s", hexutil.Encode(encodedStorageProof))
+	return encodedStorageProof, nil
 }
