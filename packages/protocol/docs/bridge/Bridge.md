@@ -11,7 +11,7 @@ _The code hash for the same address on L1 and L2 may be different._
 struct LibBridgeData.State state
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[50] __gap
@@ -134,3 +134,4 @@ function context() public view returns (struct IBridge.Context)
 ```solidity
 function isDestChainEnabled(uint256 _chainId) public view returns (bool)
 ```
+

@@ -14,7 +14,6 @@ struct TransactionLegacy {
   uint256 r;
   uint256 s;
 }
-
 ```
 
 ### Transaction2930
@@ -61,7 +60,6 @@ struct AccessItem {
   address addr;
   bytes32[] slots;
 }
-
 ```
 
 ### Tx
@@ -77,7 +75,6 @@ struct Tx {
   uint256 s;
   bytes txData;
 }
-
 ```
 
 ### TxList
@@ -135,3 +132,4 @@ function decodeAccessList(struct LibRLPReader.RLPItem[] accessListRLP) internal 
 ```solidity
 function sumGasLimit(struct LibTxDecoder.TxList txList) internal pure returns (uint256 sum)
 ```
+

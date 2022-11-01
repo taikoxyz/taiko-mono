@@ -12,7 +12,7 @@ address srcToken
 uint256 srcChainId
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[48] __gap
@@ -77,3 +77,4 @@ function source() public view returns (address, uint256)
 ```
 
 _returns the srcToken being bridged and the srcChainId_
+

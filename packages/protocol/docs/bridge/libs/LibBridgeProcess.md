@@ -17,9 +17,10 @@ Finally, it refunds the processing fee if needed.
 
 #### Parameters
 
-| Name     | Type                       | Description                                             |
-| -------- | -------------------------- | ------------------------------------------------------- |
-| state    | struct LibBridgeData.State | The bridge state.                                       |
-| resolver | contract AddressResolver   | The address resolver.                                   |
-| message  | struct IBridge.Message     | The message to process.                                 |
-| proof    | bytes                      | The proof of the signal being sent on the source chain. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| state | struct LibBridgeData.State | The bridge state. |
+| resolver | contract AddressResolver | The address resolver. |
+| message | struct IBridge.Message | The message to process. |
+| proof | bytes | The proof of the signal being sent on the source chain. |
+

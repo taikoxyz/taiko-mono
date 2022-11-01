@@ -8,7 +8,7 @@ Vault that holds Ether.
 mapping(address => bool) authorizedAddrs
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[49] __gap
@@ -55,3 +55,4 @@ function authorize(address addr, bool authorized) public
 ```solidity
 function isAuthorized(address addr) public view returns (bool)
 ```
+

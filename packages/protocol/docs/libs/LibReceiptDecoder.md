@@ -19,7 +19,6 @@ struct Log {
   bytes32[] topics;
   bytes data;
 }
-
 ```
 
 ### decodeReceipt
@@ -45,3 +44,4 @@ function decodeLogs(struct LibRLPReader.RLPItem[] logsRlp) internal pure returns
 ```solidity
 function decodeTopics(struct LibRLPReader.RLPItem[] topicsRlp) internal pure returns (bytes32[])
 ```
+

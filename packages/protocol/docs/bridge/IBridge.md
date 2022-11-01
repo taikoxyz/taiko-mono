@@ -22,7 +22,6 @@ struct Message {
   bytes data;
   string memo;
 }
-
 ```
 
 ### Context
@@ -33,7 +32,6 @@ struct Context {
   address sender;
   uint256 srcChainId;
 }
-
 ```
 
 ### SignalSent
@@ -107,3 +105,4 @@ by the specified sender.
 ```solidity
 function context() external view returns (struct IBridge.Context context)
 ```
+

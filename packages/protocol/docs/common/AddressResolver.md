@@ -3,13 +3,13 @@
 This abstract contract provides a name-to-address lookup. Under the hood,
 it uses an AddressManager to manage the name-to-address mapping.
 
-### \_addressManager
+### _addressManager
 
 ```solidity
 contract IAddressManager _addressManager
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[49] __gap
@@ -39,15 +39,15 @@ _This function will throw if the resolved address is `address(0)`._
 
 #### Parameters
 
-| Name | Type   | Description          |
-| ---- | ------ | -------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | name | string | The name to resolve. |
 
 #### Return Values
 
-| Name | Type            | Description                       |
-| ---- | --------------- | --------------------------------- |
-| [0]  | address payable | The name's corresponding address. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | address payable | The name's corresponding address. |
 
 ### resolve
 
@@ -61,16 +61,16 @@ _This function will throw if the resolved address is `address(0)`._
 
 #### Parameters
 
-| Name    | Type    | Description          |
-| ------- | ------- | -------------------- |
-| chainId | uint256 | The chainId.         |
-| name    | string  | The name to resolve. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| chainId | uint256 | The chainId. |
+| name | string | The name to resolve. |
 
 #### Return Values
 
-| Name | Type            | Description                       |
-| ---- | --------------- | --------------------------------- |
-| [0]  | address payable | The name's corresponding address. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | address payable | The name's corresponding address. |
 
 ### addressManager
 
@@ -82,18 +82,19 @@ Returns the AddressManager's address.
 
 #### Return Values
 
-| Name | Type    | Description                   |
-| ---- | ------- | ----------------------------- |
-| [0]  | address | The AddressManager's address. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | address | The AddressManager's address. |
 
-### \_init
+### _init
 
 ```solidity
 function _init(address addressManager_) internal virtual
 ```
 
-### \_resolve
+### _resolve
 
 ```solidity
 function _resolve(uint256 chainId, string name) private view returns (address payable)
 ```
+

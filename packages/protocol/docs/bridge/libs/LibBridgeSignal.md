@@ -39,16 +39,17 @@ Check if signal has been received on the destination chain (current).
 
 #### Parameters
 
-| Name      | Type                     | Description                                                     |
-| --------- | ------------------------ | --------------------------------------------------------------- |
-| resolver  | contract AddressResolver | The address resolver.                                           |
-| srcBridge | address                  | Address of the source bridge where the bridge was initiated.    |
-| sender    | address                  | Address of the sender of the signal (also should be srcBridge). |
-| signal    | bytes32                  | The signal to check.                                            |
-| proof     | bytes                    | The proof of the signal being sent on the source chain.         |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| resolver | contract AddressResolver | The address resolver. |
+| srcBridge | address | Address of the source bridge where the bridge                  was initiated. |
+| sender | address | Address of the sender of the signal               (also should be srcBridge). |
+| signal | bytes32 | The signal to check. |
+| proof | bytes | The proof of the signal being sent on the source chain. |
 
-### \_key
+### _key
 
 ```solidity
 function _key(address sender, bytes32 signal) private pure returns (bytes32)
 ```
+

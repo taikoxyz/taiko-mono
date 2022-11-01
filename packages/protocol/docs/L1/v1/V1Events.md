@@ -23,3 +23,4 @@ event BlockProposed(uint256 id, struct LibData.BlockMetadata meta)
 ```solidity
 event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, uint64 timestamp, uint64 provenAt, address prover)
 ```
+

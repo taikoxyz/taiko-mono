@@ -18,7 +18,7 @@ mapping(uint256 => bytes32) l1Hashes
 bytes32 publicInputHash
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[47] __gap
@@ -49,10 +49,10 @@ Note: this transaction shall be the first transaction in everyL2 block.
 
 #### Parameters
 
-| Name     | Type    | Description                                              |
-| -------- | ------- | -------------------------------------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | l1Height | uint256 | The latest L1 block height when this block was proposed. |
-| l1Hash   | bytes32 | The latest L1 block hash when this block was proposed.   |
+| l1Hash | bytes32 | The latest L1 block hash when this block was proposed. |
 
 ### invalidateBlock
 
@@ -64,11 +64,11 @@ Invalidate a L2 block by verifying its txList is not intrinsically valid.
 
 #### Parameters
 
-| Name   | Type                         | Description                                                                                      |
-| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| txList | bytes                        | The L2 block's txlist.                                                                           |
-| hint   | enum LibInvalidTxList.Reason | A hint for this method to invalidate the txList.                                                 |
-| txIdx  | uint256                      | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| txList | bytes | The L2 block's txlist. |
+| hint | enum LibInvalidTxList.Reason | A hint for this method to invalidate the txList. |
+| txIdx | uint256 | If the hint is for a specific transaction in txList,        txIdx specifies which transaction to check. |
 
 ### getSyncedHeader
 
@@ -88,14 +88,15 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
 ```
 
-### \_checkPublicInputs
+### _checkPublicInputs
 
 ```solidity
 function _checkPublicInputs() private
 ```
 
-### \_hashPublicInputs
+### _hashPublicInputs
 
 ```solidity
 function _hashPublicInputs(uint256 chainId, uint256 number, uint256 baseFee, bytes32[255] ancestors) private pure returns (bytes32)
 ```
+

@@ -18,7 +18,6 @@ struct BlockHeader {
   bytes32 mixHash;
   uint64 nonce;
 }
-
 ```
 
 ## LibBlockHeader
@@ -40,3 +39,4 @@ function hashBlockHeader(struct BlockHeader header) internal pure returns (bytes
 ```solidity
 function isPartiallyValidForTaiko(struct BlockHeader header) internal pure returns (bool)
 ```
+

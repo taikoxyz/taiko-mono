@@ -14,7 +14,6 @@ struct CannonicalERC20 {
   string symbol;
   string name;
 }
-
 ```
 
 ### isBridgedToken
@@ -35,7 +34,7 @@ mapping(address => struct TokenVault.CannonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
-### \_\_gap
+### __gap
 
 ```solidity
 uint256[47] __gap
@@ -87,18 +86,18 @@ Transfers Ether to this vault and sends a message to the destination
 chain so the user can receive Ether.
 
 _Ether is held by Bridges on L1 and by the EtherVault on L2,
-not TokenVaults._
+     not TokenVaults._
 
 #### Parameters
 
-| Name          | Type    | Description                                            |
-| ------------- | ------- | ------------------------------------------------------ |
-| destChainId   | uint256 | The destination chain ID where the `to` address lives. |
-| to            | address | The destination address.                               |
-| gasLimit      | uint256 |                                                        |
-| processingFee | uint256 | @custom:see Bridge                                     |
-| refundAddress | address |                                                        |
-| memo          | string  |                                                        |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| destChainId | uint256 | The destination chain ID where the `to` address lives. |
+| to | address | The destination address. |
+| gasLimit | uint256 |  |
+| processingFee | uint256 | @custom:see Bridge |
+| refundAddress | address |  |
+| memo | string |  |
 
 ### sendERC20
 
@@ -112,16 +111,16 @@ by invoking the message call.
 
 #### Parameters
 
-| Name          | Type    | Description                                                                                                  |
-| ------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| destChainId   | uint256 | The destination chain ID where the `to` address lives.                                                       |
-| to            | address | The destination address.                                                                                     |
-| token         | address | The address of the token to be sent.                                                                         |
-| amount        | uint256 | The amount of token to be transferred.                                                                       |
-| gasLimit      | uint256 | @custom:see Bridge                                                                                           |
-| processingFee | uint256 | @custom:see Bridge                                                                                           |
-| refundAddress | address | The fee refund address. If this address is address(0), extra fees will be refunded back to the `to` address. |
-| memo          | string  |                                                                                                              |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| destChainId | uint256 | The destination chain ID where the `to` address lives. |
+| to | address | The destination address. |
+| token | address | The address of the token to be sent. |
+| amount | uint256 | The amount of token to be transferred. |
+| gasLimit | uint256 | @custom:see Bridge |
+| processingFee | uint256 | @custom:see Bridge |
+| refundAddress | address | The fee refund address. If this address is        address(0), extra fees will be refunded back to the `to` address. |
+| memo | string |  |
 
 ### receiveERC20
 
@@ -130,25 +129,26 @@ function receiveERC20(struct TokenVault.CannonicalERC20 canonicalToken, address 
 ```
 
 _This function can only be called by the bridge contract while
-invoking a message call._
+     invoking a message call._
 
 #### Parameters
 
-| Name           | Type                              | Description                                                                                                          |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| canonicalToken | struct TokenVault.CannonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
-| from           | address                           | The source address.                                                                                                  |
-| to             | address                           | The destination address.                                                                                             |
-| amount         | uint256                           | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| canonicalToken | struct TokenVault.CannonicalERC20 | The canonical ERC20 token which may or may not        live on this chain. If not, a BridgedERC20 contract will be        deployed. |
+| from | address | The source address. |
+| to | address | The destination address. |
+| amount | uint256 | The amount of tokens to be sent. 0 is a valid value. |
 
-### \_getOrDeployBridgedToken
+### _getOrDeployBridgedToken
 
 ```solidity
 function _getOrDeployBridgedToken(struct TokenVault.CannonicalERC20 canonicalToken) private returns (address)
 ```
 
-### \_deployBridgedToken
+### _deployBridgedToken
 
 ```solidity
 function _deployBridgedToken(struct TokenVault.CannonicalERC20 canonicalToken) private returns (address bridgedToken)
 ```
+

@@ -11,3 +11,4 @@ function mint(address account, uint256 amount) external
 ```solidity
 function burn(address account, uint256 amount) external
 ```
+

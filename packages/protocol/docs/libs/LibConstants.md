@@ -77,3 +77,4 @@ bytes4 V1_ANCHOR_TX_SELECTOR
 ```solidity
 bytes32 V1_INVALIDATE_BLOCK_LOG_TOPIC
 ```
+

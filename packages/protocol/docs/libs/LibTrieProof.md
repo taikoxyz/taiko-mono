@@ -17,10 +17,11 @@ is `value`.
 
 #### Parameters
 
-| Name      | Type    | Description                                                   |
-| --------- | ------- | ------------------------------------------------------------- |
-| stateRoot | bytes32 | The merkle root of state tree.                                |
-| addr      | address | The contract address.                                         |
-| key       | bytes32 | The slot in the contract.                                     |
-| value     | bytes32 | The value to be verified.                                     |
-| mkproof   | bytes   | The proof obtained by encoding state proof and storage proof. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| stateRoot | bytes32 | The merkle root of state tree. |
+| addr | address | The contract address. |
+| key | bytes32 | The slot in the contract. |
+| value | bytes32 | The value to be verified. |
+| mkproof | bytes | The proof obtained by encoding state proof and storage        proof. |
+
