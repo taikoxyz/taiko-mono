@@ -83,21 +83,21 @@ describe("LibBridgeInvoke", function () {
         })
 
         it.only("should emit event with success true if message invokes successfully", async function () {
-            const { owner, nonOwner, libInvoke } =
-                await deployLibBridgeInvokeFixture()
+            const { owner, libInvoke } = await deployLibBridgeInvokeFixture()
 
             const { libData } = await deployLibBridgeDataFixture()
 
-            const testERC20Token = await (
-                await ethers.getContractFactory("TestERC20Receiver")
+            const testReceiver = await (
+                await ethers.getContractFactory("TestReceiver")
             ).deploy()
 
-            const testTypes = ["string", "address"]
+            await testReceiver.deployed()
 
-            const data = ethers.utils.defaultAbiCoder.encode(testTypes, [
-                "receiveMessage(address)",
-                nonOwner.address,
-            ])
+            const ABI = ["function receiveTokens(uint256) payable"]
+            const iface = new ethers.utils.Interface(ABI)
+            const data = iface.encodeFunctionData("receiveTokens", [1])
+
+            console.log("data", data)
 
             const message: Message = {
                 id: 1,
@@ -105,12 +105,12 @@ describe("LibBridgeInvoke", function () {
                 srcChainId: 1,
                 destChainId: 5,
                 owner: owner.address,
-                to: testERC20Token.address,
+                to: testReceiver.address,
                 refundAddress: owner.address,
                 depositValue: 1,
                 callValue: 1,
                 processingFee: 1,
-                gasLimit: 100,
+                gasLimit: 300000,
                 data: data,
                 memo: "",
             }
@@ -118,7 +118,9 @@ describe("LibBridgeInvoke", function () {
             const signal = await libData.hashMessage(message)
 
             await expect(
-                libInvoke.invokeMessageCall(message, signal, message.gasLimit)
+                libInvoke.invokeMessageCall(message, signal, message.gasLimit, {
+                    value: message.callValue,
+                })
             )
                 .to.emit(libInvoke, "MessageInvoked")
                 .withArgs(signal, true)

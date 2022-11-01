@@ -8,17 +8,21 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../../../thirdparty/ERC20Upgradeable.sol";
+import "hardhat/console.sol";
 
-contract TestERC20Receiver is ERC20Upgradeable {
+contract TestReceiver {
+    event Received(address from, uint256 amount);
+    event Fallback(address from, uint256 amount);
 
-    function init() external initializer {
-        ERC20Upgradeable.__ERC20_init("Test Token", "TTO", 18);
-
+    fallback() external payable {
+        emit Fallback(msg.sender, msg.value);
     }
 
-    function receiveMessage(address recipient) public payable {
-        _mint(payable(recipient), msg.value);
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
     }
 
+    function receiveTokens(uint256 amt) external payable {
+        emit Received(msg.sender, amt);
+    }
 }
