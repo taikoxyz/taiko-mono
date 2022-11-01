@@ -42,9 +42,9 @@ describe("LibTxDecoder", function () {
             const randomBytes = ethers.utils.hexlify(
                 ethers.utils.randomBytes(73)
             )
-            await expect(
-                libTxDecoder.callStatic.decodeTxList(randomBytes)
-            ).to.be.revertedWith("Invalid RLP")
+
+            await expect(libTxDecoder.callStatic.decodeTxList(randomBytes)).to
+                .be.reverted
         })
 
         it("can decode txList with legacy transaction", async function () {
