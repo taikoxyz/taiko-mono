@@ -67,17 +67,21 @@ library V1Finalizing {
                     latestL2Hash = fc.blockHash;
                 }
 
-                uint64 proofTime = fc.provenAt - fc.proposedAt;
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
-                    proofTime,
+                    fc.provenAt,
+                    fc.proposedAt,
                     LibData.getProposedBlock(s, i).gasLimit
                 );
 
                 s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
-                    .movingAverage(s.avgProofTime, proofTime, 1024)
+                    .movingAverage(
+                        s.avgProofTime,
+                        fc.provenAt - fc.proposedAt,
+                        1024
+                    )
                     .toUint64();
 
                 if (address(tkoToken) == address(0)) {
@@ -106,31 +110,28 @@ library V1Finalizing {
 
     function getProofReward(
         LibData.State storage s,
-        uint64 proofTime,
+        uint64 provenAt,
+        uint64 proposedAt,
         uint64 gasLimit
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
-        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
-        uint256 n = s.baseFee * LibConstants.TAIKO_BLOCK_REWARD_MAX_FACTOR;
+        uint256 scale = V1Utils.feeScale(
+            uint64(block.timestamp),
+            provenAt,
+            proposedAt
+        );
 
-        if (s.avgProofTime == 0 || proofTime <= a) {
-            reward = s.baseFee;
-        } else if (proofTime >= b) {
-            reward = n;
-        } else {
-            reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
-        }
-
-        if (
-            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
-            s.avgGasLimit > 0
-        ) {
-            reward = (reward * gasLimit) / s.avgGasLimit;
-        }
+        reward = (s.baseFee * scale) / 10000;
 
         premiumReward =
             (V1Utils.applyOversellPremium(s, reward, true) *
                 (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
             10000;
+
+        if (
+            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
+            s.avgGasLimit > 0
+        ) {
+            premiumReward = (premiumReward * gasLimit) / s.avgGasLimit;
+        }
     }
 }
