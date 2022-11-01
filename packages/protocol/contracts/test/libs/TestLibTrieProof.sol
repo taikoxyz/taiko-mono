@@ -84,7 +84,7 @@ contract TestLibTrieProof {
         console.log("verifyStart");
         SignalProof memory mkp = abi.decode(mkproof, (SignalProof));
         console.log("hello");
-        console.logBytes32(mkp.header.parentHash);
+        console.logBytes32(mkp.header.stateRoot);
         LibTrieProof.verify(stateRoot, addr, key, value, mkp.proof);
 
         bytes32 signal = hashMessage(message);

@@ -61,22 +61,6 @@ func (s *Service) getEncodedSignalProof(ctx context.Context, c *rpc.Client, brid
 		Proof:  encodedStorageProof,
 	}
 
-	// inAbi, err := relayer.StringToABI(relayer.SignalProofAbiString)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, fmt.Sprintf("invalid ABI definition %s, %v", relayer.SignalProofAbiString, err))
-	// }
-	// encodedSignalProof, err := inAbi.Pack("method", signalProof)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "inAbiPack")
-	// }
-
-	// var bytesT, _ = abi.NewType("bytes", "", nil)
-	// var bytes32T, _ = abi.NewType("bytes32", "", nil)
-	// var addressT, _ = abi.NewType("address", "", nil)
-	// var bytes328T, _ = abi.NewType("bytes32[8]", "", nil)
-	// var uint256T, _ = abi.NewType("uint256", "", nil)
-	// var uint128T, _ = abi.NewType("uint128", "", nil)
-	// var uint64T, _ = abi.NewType("uint64T", "", nil)
 	var sProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{
 			Name: "header",
