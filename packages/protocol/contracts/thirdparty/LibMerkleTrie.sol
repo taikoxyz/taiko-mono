@@ -91,7 +91,7 @@ library LibMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) internal view returns (bool _exists, bytes memory _value) {
+    ) internal pure returns (bool _exists, bytes memory _value) {
         TrieNode[] memory proof = _parseProof(_proof);
         (
             uint256 pathLength,

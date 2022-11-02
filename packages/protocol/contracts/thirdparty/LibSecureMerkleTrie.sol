@@ -47,7 +47,7 @@ library LibSecureMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) internal view returns (bool _exists, bytes memory _value) {
+    ) internal pure returns (bool _exists, bytes memory _value) {
         bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.get(key, _proof, _root);
     }

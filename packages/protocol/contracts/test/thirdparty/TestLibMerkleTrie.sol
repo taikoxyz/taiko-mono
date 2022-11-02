@@ -21,7 +21,7 @@ contract TestLibMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) public view returns (bool, bytes memory) {
+    ) public pure returns (bool, bytes memory) {
         return LibMerkleTrie.get(_key, _proof, _root);
     }
 }

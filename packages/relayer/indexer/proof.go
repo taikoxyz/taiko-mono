@@ -22,11 +22,15 @@ func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (proof.Blo
 		return proof.BlockHeader{}, errors.Wrap(err, "s.ethClient.GetBlockByNumber")
 	}
 
+	log.Infof("state root: %v", block.Root().String())
+
 	logsBloom, err := proof.LogsBloomToBytes(block.Bloom())
 	if err != nil {
 		return proof.BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
 	}
-	return proof.BlockHeader{
+
+	log.Infof("block stuff : %v, %v, %v", block.Hash().String(), block.GasLimit(), block.GasUsed())
+	h := proof.BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
 		Beneficiary:      block.Coinbase(),
@@ -42,7 +46,9 @@ func (s *Service) blockHeader(ctx context.Context, blockNumber int64) (proof.Blo
 		Nonce:            block.Nonce(),
 		StateRoot:        block.Root(),
 		LogsBloom:        logsBloom,
-	}, nil
+	}
+	log.Infof("blockheader stuff: %v, %v", block.GasLimit(), block.GasUsed())
+	return h, nil
 }
 
 // getEncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
