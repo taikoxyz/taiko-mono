@@ -85,14 +85,22 @@ contract TestLibTrieProof {
         console.log("verifyStart");
         SignalProof memory mkp = abi.decode(mkproof, (SignalProof));
         console.log("hello");
-        console.logBytes32(mkp.header.stateRoot);
+        console.logBytes32(mkp.header.parentHash);
+        console.logBytes32(mkp.header.ommersHash);
+        console.logAddress(mkp.header.beneficiary);
         console.logBytes32(mkp.header.transactionsRoot);
         console.logBytes32(mkp.header.receiptsRoot);
-        console.logBytes32(mkp.header.parentHash);
+        console.log(mkp.header.difficulty);
+
+        console.log(mkp.header.height);
         console.log(mkp.header.gasLimit);
         console.log(mkp.header.gasUsed);
         console.log(mkp.header.timestamp);
+        console.logBytes(mkp.header.extraData);
+        console.logBytes32(mkp.header.mixHash);
         console.log(mkp.header.nonce);
+
+        console.logBytes32(mkp.header.stateRoot);
         console.log("logsbloom");
         for (uint256 i = 0; i < 8; i++) {
             console.logBytes32(mkp.header.logsBloom[i]);
@@ -105,9 +113,15 @@ contract TestLibTrieProof {
         bytes32 hashed = hashBlockHeader(mkp.header);
         console.logBytes32(hashed);
         require(
+            signal ==
+                0x92eaacf12d3a423e8d5d6dbc7ea870b0c02102923174cd711a53bbd7af12982e,
+            "fail signal"
+        );
+
+        require(
             hashed ==
-                0xdf0a64a6ee6f1d7cbda07d729155fc94356fa402d9eac564515a4e20ce74d89e,
-            "fail"
+                0x614267cdffc8ba4db9a3774568b91df8e6cd8dd908f98b035a71757f7b61e75a,
+            "fail block"
         );
     }
 

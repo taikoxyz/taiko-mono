@@ -39,6 +39,11 @@ func (p *Processor) ProcessMessage(
 		return nil
 	}
 
+	// skip these for now, use easier send ether one
+	if event.Message.Memo == "CronJob SendTokens" {
+		return nil
+	}
+
 	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
@@ -56,8 +61,8 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// uncomment to skip `eth_estimateGas`
-	// auth.GasLimit = 500000
-	// auth.GasPrice = new(big.Int).SetUint64(500000000)
+	auth.GasLimit = 100000
+	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, int64(blockNumber))
@@ -65,6 +70,8 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
+	spew.Dump("message")
+	spew.Dump(event.Message)
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
@@ -72,11 +79,9 @@ func (p *Processor) ProcessMessage(
 	spew.Dump("received", received)
 
 	// message will fail when we try to process is, theres an issue somewhere
-	if !received {
-		return errors.New("message not receved")
-	}
-
-	log.Info("processing message")
+	// if !received {
+	// 	return errors.New("message not received")
+	// }
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
@@ -90,7 +95,6 @@ func (p *Processor) ProcessMessage(
 	<-ch
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
-
 	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "bridge.GetMessageStatus")
@@ -134,8 +138,10 @@ func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error
 
 	res, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
+		log.Infof("call contract failed: %v, %v", res, err)
 		return "", err
 	}
 
+	log.Infof("reason", res)
 	return string(res), nil
 }

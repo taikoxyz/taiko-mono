@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -16,7 +17,8 @@ func (p *Prover) blockHeader(ctx context.Context, blockNumber int64) (BlockHeade
 	if err != nil {
 		return BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
 	}
-	log.Infof("state root: %v", block.Root().String())
+
+	log.Infof("block Hash: %v", hexutil.Encode(block.Hash().Bytes()))
 
 	return blockToBlockHeader(ctx, block)
 }
@@ -27,7 +29,6 @@ func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, e
 		return BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
 	}
 
-	log.Infof("block stuff : %v, %v, %v", block.Hash().String(), block.GasLimit(), block.GasUsed())
 	h := BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
@@ -45,6 +46,15 @@ func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, e
 		StateRoot:        block.Root(),
 		LogsBloom:        logsBloom,
 	}
-	log.Infof("blockheader stuff: %v, %v", block.GasLimit(), block.GasUsed())
+	log.Infof(`blockheader: parentHash: %v, 
+	ommersHash: %v, beneficiary: %v, transactionsRoot: %v, 
+	receiptsRoot: %v, difficulty: %v, height: %v, gasLimit: %v, gasUsed: %v, timestamp :%v,
+	extraData: %v, mixHash: %v, nonce: %v, stateRoot: %v`, hexutil.Encode(h.ParentHash[:]), hexutil.Encode(h.OmmersHash[:]),
+		h.Beneficiary, hexutil.Encode(h.TransactionsRoot[:]), hexutil.Encode(h.ReceiptsRoot[:]), h.Difficulty.Int64(), h.Height.Int64(), h.GasLimit, h.GasUsed,
+		h.Timestamp, hexutil.Encode(h.ExtraData), hexutil.Encode(h.MixHash[:]), h.Nonce, hexutil.Encode(h.StateRoot[:]))
+
+	for _, bloom := range logsBloom {
+		log.Infof("bloom: %v", hexutil.Encode(bloom[:]))
+	}
 	return h, nil
 }
