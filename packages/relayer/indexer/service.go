@@ -72,6 +72,10 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, relayer.ErrNoBridgeAddress
 	}
 
+	if opts.RPCClient == nil {
+		return nil, relayer.ErrNoRPCClient
+	}
+
 	privateKey, err := crypto.HexToECDSA(opts.ECDSAKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "crypto.HexToECDSA")

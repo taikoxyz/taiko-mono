@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gopkg.in/go-playground/assert.v1"
@@ -24,6 +25,7 @@ func Test_NewService(t *testing.T) {
 			NewServiceOpts{
 				EventRepo:               &repo.EventRepository{},
 				BlockRepo:               &repo.BlockRepository{},
+				RPCClient:               &rpc.Client{},
 				EthClient:               &ethclient.Client{},
 				CrossLayerEthClient:     &ethclient.Client{},
 				ECDSAKey:                dummyEcdsaKey,
@@ -33,6 +35,19 @@ func Test_NewService(t *testing.T) {
 			nil,
 		},
 		{
+			"noRpcClien",
+			NewServiceOpts{
+				EventRepo:               &repo.EventRepository{},
+				BlockRepo:               &repo.BlockRepository{},
+				EthClient:               &ethclient.Client{},
+				CrossLayerEthClient:     &ethclient.Client{},
+				ECDSAKey:                dummyEcdsaKey,
+				BridgeAddress:           common.HexToAddress(dummyAddress),
+				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
+			},
+			relayer.ErrNoRPCClient,
+		},
+		{
 			"noBridgeAddress",
 			NewServiceOpts{
 				EventRepo:               &repo.EventRepository{},
@@ -40,6 +55,7 @@ func Test_NewService(t *testing.T) {
 				EthClient:               &ethclient.Client{},
 				CrossLayerEthClient:     &ethclient.Client{},
 				ECDSAKey:                dummyEcdsaKey,
+				RPCClient:               &rpc.Client{},
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
 			relayer.ErrNoBridgeAddress,
@@ -52,6 +68,7 @@ func Test_NewService(t *testing.T) {
 				EthClient:           &ethclient.Client{},
 				CrossLayerEthClient: &ethclient.Client{},
 				ECDSAKey:            dummyEcdsaKey,
+				RPCClient:           &rpc.Client{},
 				BridgeAddress:       common.HexToAddress(dummyAddress),
 			},
 			relayer.ErrNoBridgeAddress,
@@ -61,6 +78,7 @@ func Test_NewService(t *testing.T) {
 			NewServiceOpts{
 				EventRepo:               &repo.EventRepository{},
 				BlockRepo:               &repo.BlockRepository{},
+				RPCClient:               &rpc.Client{},
 				EthClient:               &ethclient.Client{},
 				CrossLayerEthClient:     &ethclient.Client{},
 				BridgeAddress:           common.HexToAddress(dummyAddress),
@@ -76,6 +94,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:                dummyEcdsaKey,
 				CrossLayerEthClient:     &ethclient.Client{},
 				BridgeAddress:           common.HexToAddress(dummyAddress),
+				RPCClient:               &rpc.Client{},
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
 			relayer.ErrNoEventRepository,
@@ -86,6 +105,7 @@ func Test_NewService(t *testing.T) {
 				EventRepo:               &repo.EventRepository{},
 				EthClient:               &ethclient.Client{},
 				ECDSAKey:                dummyEcdsaKey,
+				RPCClient:               &rpc.Client{},
 				CrossLayerEthClient:     &ethclient.Client{},
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
@@ -98,6 +118,7 @@ func Test_NewService(t *testing.T) {
 				EventRepo:               &repo.EventRepository{},
 				BlockRepo:               &repo.BlockRepository{},
 				ECDSAKey:                dummyEcdsaKey,
+				RPCClient:               &rpc.Client{},
 				CrossLayerEthClient:     &ethclient.Client{},
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
@@ -111,6 +132,7 @@ func Test_NewService(t *testing.T) {
 				BlockRepo:               &repo.BlockRepository{},
 				ECDSAKey:                dummyEcdsaKey,
 				EthClient:               &ethclient.Client{},
+				RPCClient:               &rpc.Client{},
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},

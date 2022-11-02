@@ -19,9 +19,9 @@ import (
 )
 
 // Process prepares and calls `processMessage` on the bridge.
-// the proof must be generated from the gethclient's eth_getProof,
+// the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
-// then abi encoded into a relayer.SignalProof struct as the contract
+// then abi encoded into a  SsignalProof struct as the contract
 // expects
 func (p *Processor) ProcessMessage(
 	ctx context.Context,
