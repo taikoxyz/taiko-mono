@@ -6,7 +6,7 @@
 struct LibData.State state
 ```
 
-### __gap
+### \_\_gap
 
 ```solidity
 uint256[45] __gap
@@ -30,9 +30,9 @@ to this commit hash.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| commitHash | bytes32 | Calculated with:                  `calculateCommitHash(beneficiary, txListHash)`. |
+| Name       | Type    | Description                                                      |
+| ---------- | ------- | ---------------------------------------------------------------- |
+| commitHash | bytes32 | Calculated with: `calculateCommitHash(beneficiary, txListHash)`. |
 
 ### proposeBlock
 
@@ -44,9 +44,9 @@ Propose a Taiko L2 block.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| inputs | bytes[] | A list of data input:        - inputs[0] is abi-encoded BlockMetadata that the actual L2 block          header must satisfy.          Note the following fields in the provided meta object must          be zeros -- their actual values will be provisioned by Ethereum.            - id            - l1Height            - l1Hash            - mixHash            - timestamp        - inputs[1] is a list of transactions in this block, encoded with          RLP. Note, in the corresponding L2 block an _anchor transaction_          will be the first transaction in the block -- if there are          n transactions in `txList`, then there will be up to n+1          transactions in the L2 block. |
+| Name   | Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| inputs | bytes[] | A list of data input: - inputs[0] is abi-encoded BlockMetadata that the actual L2 block header must satisfy. Note the following fields in the provided meta object must be zeros -- their actual values will be provisioned by Ethereum. - id - l1Height - l1Hash - mixHash - timestamp - inputs[1] is a list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are n transactions in `txList`, then there will be up to n+1 transactions in the L2 block. |
 
 ### proveBlock
 
@@ -59,10 +59,10 @@ merkel proof, and a receipt merkel proof.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| blockIndex | uint256 | The index of the block to prove. This is also used        to select the right implementation version. |
-| inputs | bytes[] | A list of data input:        - inputs[0] is an abi-encoded object with various information          regarding  the block to be proven and the actual proofs.        - inputs[1] is the actual anchor transaction in this L2 block.          Note that the anchor transaction is always the first transaction          in the block.        - inputs[2] is the receipt of the anchor transaction. |
+| Name       | Type    | Description                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| blockIndex | uint256 | The index of the block to prove. This is also used to select the right implementation version.                                                                                                                                                                                                                                                  |
+| inputs     | bytes[] | A list of data input: - inputs[0] is an abi-encoded object with various information regarding the block to be proven and the actual proofs. - inputs[1] is the actual anchor transaction in this L2 block. Note that the anchor transaction is always the first transaction in the block. - inputs[2] is the receipt of the anchor transaction. |
 
 ### proveBlockInvalid
 
@@ -75,10 +75,10 @@ merkel proof.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| blockIndex | uint256 | The index of the block to prove. This is also used to        select the right implementation version. |
-| inputs | bytes[] | A list of data input:        - inputs[0] An Evidence object with various information regarding          the block to be proven and the actual proofs.        - inputs[1] The target block to be proven invalid.        - inputs[2] The receipt for the `invalidBlock` transaction          on L2. Note that the `invalidBlock` transaction is supposed to          be the only transaction in the L2 block. |
+| Name       | Type    | Description                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| blockIndex | uint256 | The index of the block to prove. This is also used to select the right implementation version.                                                                                                                                                                                                                                                              |
+| inputs     | bytes[] | A list of data input: - inputs[0] An Evidence object with various information regarding the block to be proven and the actual proofs. - inputs[1] The target block to be proven invalid. - inputs[2] The receipt for the `invalidBlock` transaction on L2. Note that the `invalidBlock` transaction is supposed to be the only transaction in the L2 block. |
 
 ### finalizeBlocks
 
@@ -90,8 +90,8 @@ Finalize up to N blocks.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                       |
+| --------- | ------- | --------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to finalize. |
 
 ### isCommitValid
@@ -135,4 +135,3 @@ function signWithGoldFinger(bytes32 hash, uint8 k) public view returns (uint8 v,
 ```solidity
 function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
 ```
-

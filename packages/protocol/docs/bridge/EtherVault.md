@@ -8,7 +8,7 @@ Vault that holds Ether.
 mapping(address => bool) authorizedAddrs
 ```
 
-### __gap
+### \_\_gap
 
 ```solidity
 uint256[49] __gap
@@ -44,11 +44,28 @@ function init(address addressManager) external
 function receiveEther(uint256 amount) public
 ```
 
+Send Ether from EtherVault to the sender, checking they are authorized.
+
+#### Parameters
+
+| Name   | Type    | Description              |
+| ------ | ------- | ------------------------ |
+| amount | uint256 | Amount of ether to send. |
+
 ### authorize
 
 ```solidity
 function authorize(address addr, bool authorized) public
 ```
+
+Set the authorized status of an address, only the owner can call this.
+
+#### Parameters
+
+| Name       | Type    | Description                              |
+| ---------- | ------- | ---------------------------------------- |
+| addr       | address | Address to set the authorized status of. |
+| authorized | bool    | Authorized status to set.                |
 
 ### isAuthorized
 
@@ -56,3 +73,10 @@ function authorize(address addr, bool authorized) public
 function isAuthorized(address addr) public view returns (bool)
 ```
 
+Get the authorized status of an address.
+
+#### Parameters
+
+| Name | Type    | Description                              |
+| ---- | ------- | ---------------------------------------- |
+| addr | address | Address to get the authorized status of. |

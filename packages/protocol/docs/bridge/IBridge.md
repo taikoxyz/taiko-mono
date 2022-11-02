@@ -22,6 +22,7 @@ struct Message {
   bytes data;
   string memo;
 }
+
 ```
 
 ### Context
@@ -32,6 +33,7 @@ struct Context {
   address sender;
   uint256 srcChainId;
 }
+
 ```
 
 ### SignalSent
@@ -106,3 +108,4 @@ by the specified sender.
 function context() external view returns (struct IBridge.Context context)
 ```
 
+Returns the bridge state context.

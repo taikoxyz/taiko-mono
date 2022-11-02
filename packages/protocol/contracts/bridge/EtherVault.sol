@@ -15,8 +15,6 @@ import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 /**
  * Vault that holds Ether.
- *
- * @title EtherVault
  * @author dantaik <dan@taiko.xyz>
  */
 contract EtherVault is EssentialContract {
@@ -64,10 +62,19 @@ contract EtherVault is EssentialContract {
      * Public Functions  *
      *********************/
 
+    /**
+     * Send Ether from EtherVault to the sender, checking they are authorized.
+     * @param amount Amount of ether to send.
+     */
     function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
     }
 
+    /**
+     * Set the authorized status of an address, only the owner can call this.
+     * @param addr Address to set the authorized status of.
+     * @param authorized Authorized status to set.
+     */
     function authorize(address addr, bool authorized) public onlyOwner {
         require(
             addr != address(0) && authorizedAddrs[addr] != authorized,
@@ -77,6 +84,10 @@ contract EtherVault is EssentialContract {
         emit Authorized(addr, authorized);
     }
 
+    /**
+     * Get the authorized status of an address.
+     * @param addr Address to get the authorized status of.
+     */
     function isAuthorized(address addr) public view returns (bool) {
         return authorizedAddrs[addr];
     }

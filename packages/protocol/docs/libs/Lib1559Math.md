@@ -1,7 +1,7 @@
 ## Lib1559Math
 
 This library offers two functions for EIP-1559-style math.
-     See more at https://dankradfeist.de/ethereum/2022/03/16/exponential-eip1559.html
+See more at https://dankradfeist.de/ethereum/2022/03/16/exponential-eip1559.html
 
 ### adjustTarget
 
@@ -17,17 +17,17 @@ Calculates and returns the next round's target value using the equation below:
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| prevTarget | uint256 | The previous round's target value. |
-| prevMeasured | uint256 | The previous round's measured value. It must be in the same unit as `T`. |
-| T | uint256 | The base target value. It must be in the same unit as `prevMeasured`. |
-| A | uint256 | The adjustment factor. Bigger values change the next round's target more slowly. |
+| Name         | Type    | Description                                                                      |
+| ------------ | ------- | -------------------------------------------------------------------------------- |
+| prevTarget   | uint256 | The previous round's target value.                                               |
+| prevMeasured | uint256 | The previous round's measured value. It must be in the same unit as `T`.         |
+| T            | uint256 | The base target value. It must be in the same unit as `prevMeasured`.            |
+| A            | uint256 | The adjustment factor. Bigger values change the next round's target more slowly. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name       | Type    | Description                    |
+| ---------- | ------- | ------------------------------ |
 | nextTarget | uint256 | The next round's target value. |
 
 ### adjustTargetReverse
@@ -44,16 +44,15 @@ Calculates and returns the next round's target value using the equation below:
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| prevTarget | uint256 | The previous round's target value. |
-| prevMeasured | uint256 | The previous round's measured value. It must be in the same unit as `T`. |
-| T | uint256 | The base target value. It must be in the same unit as `prevMeasured`. |
-| A | uint256 | The adjustment factor. Bigger values change the next round's target more slowly. |
+| Name         | Type    | Description                                                                      |
+| ------------ | ------- | -------------------------------------------------------------------------------- |
+| prevTarget   | uint256 | The previous round's target value.                                               |
+| prevMeasured | uint256 | The previous round's measured value. It must be in the same unit as `T`.         |
+| T            | uint256 | The base target value. It must be in the same unit as `prevMeasured`.            |
+| A            | uint256 | The adjustment factor. Bigger values change the next round's target more slowly. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name       | Type    | Description                    |
+| ---------- | ------- | ------------------------------ |
 | nextTarget | uint256 | The next round's target value. |
-

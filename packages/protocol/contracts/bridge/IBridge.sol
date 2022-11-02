@@ -10,10 +10,8 @@ pragma solidity ^0.8.9;
 
 /**
  * Bridge interface.
- *
- * @title IBridge
- * @author dantaik <dan@taiko.xyz>
  * @dev Cross-chain Ether is held by Bridges, not TokenVaults.
+ * @author dantaik <dan@taiko.xyz>
  */
 interface IBridge {
     struct Message {
@@ -81,6 +79,6 @@ interface IBridge {
         bytes calldata proof
     ) external view returns (bool);
 
-    // Returns the bridge state context.
+    /// Returns the bridge state context.
     function context() external view returns (Context memory context);
 }

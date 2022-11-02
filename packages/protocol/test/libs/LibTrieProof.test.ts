@@ -1,4 +1,3 @@
-// import { expect } from "chai"
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import RLP from "rlp"

@@ -83,8 +83,8 @@ Group documentation under one of the four categories:
 
 In general, you should follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documentating smart contract source code. Please adhere to a few additional standards:
 
-- Use `/** */` over `///` for multiline NatSpec comments
-- Omit the usage of `@notice`, this should be automatically picked up so it will save space and improve readability
+- Use `/** */` over `///` for multiline NatSpec comments, to save column space
+- Omit the usage of `@notice`, this will be automatically picked up so it will save column space and improve readability
 - Take advantage of inheritance for docs (such as documenting the interface), if you need to specify inherited docs use `@inheritdoc`
 
 ### Sources

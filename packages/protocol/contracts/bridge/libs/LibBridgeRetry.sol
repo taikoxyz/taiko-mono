@@ -34,7 +34,7 @@ library LibBridgeRetry {
      * @param resolver The address resolver.
      * @param message The message to retry.
      * @param isLastAttempt Specifies if this is the last attempt to retry the
-     *                      message.
+     *        message.
      */
     function retryMessage(
         LibBridgeData.State storage state,

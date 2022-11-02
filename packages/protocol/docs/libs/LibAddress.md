@@ -14,9 +14,9 @@ https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| to | address | The target address. |
+| Name   | Type    | Description                  |
+| ------ | ------- | ---------------------------- |
+| to     | address | The target address.          |
 | amount | uint256 | The amount of Ether to send. |
 
 ### codeHash
@@ -24,4 +24,3 @@ https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now.
 ```solidity
 function codeHash(address addr) internal view returns (bytes32 codehash)
 ```
-

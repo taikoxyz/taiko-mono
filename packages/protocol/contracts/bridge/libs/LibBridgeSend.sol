@@ -69,6 +69,9 @@ library LibBridgeSend {
         emit LibBridgeData.MessageSent(signal, message);
     }
 
+    /**
+     * Enable a destination chain ID for bridge transactions.
+     */
     function enableDestChain(
         LibBridgeData.State storage state,
         uint256 chainId,

@@ -12,16 +12,16 @@ Returns the smaller value between the two given values.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| a | uint256 | One of the two values. |
-| b | uint256 | The other one of the two values. |
+| Name | Type    | Description                      |
+| ---- | ------- | -------------------------------- |
+| a    | uint256 | One of the two values.           |
+| b    | uint256 | The other one of the two values. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The smaller value. |
+| Name | Type    | Description        |
+| ---- | ------- | ------------------ |
+| [0]  | uint256 | The smaller value. |
 
 ### max
 
@@ -33,16 +33,16 @@ Returns the larger value between the two given values.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| a | uint256 | One of the two values. |
-| b | uint256 | The other one of the two values. |
+| Name | Type    | Description                      |
+| ---- | ------- | -------------------------------- |
+| a    | uint256 | One of the two values.           |
+| b    | uint256 | The other one of the two values. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The larger value. |
+| Name | Type    | Description       |
+| ---- | ------- | ----------------- |
+| [0]  | uint256 | The larger value. |
 
 ### divceil
 
@@ -54,16 +54,16 @@ Returns the ceil value.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| a | uint256 | The numerator. |
-| b | uint256 | The denominator. |
+| Name | Type    | Description      |
+| ---- | ------- | ---------------- |
+| a    | uint256 | The numerator.   |
+| b    | uint256 | The denominator. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| c | uint256 | The ceil value of (a/b). |
+| Name | Type    | Description              |
+| ---- | ------- | ------------------------ |
+| c    | uint256 | The ceil value of (a/b). |
 
 ### sqrt
 
@@ -79,13 +79,12 @@ https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_metho
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| y | uint256 | The given number. |
+| Name | Type    | Description       |
+| ---- | ------- | ----------------- |
+| y    | uint256 | The given number. |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| z | uint256 | The square root of y. |
-
+| Name | Type    | Description           |
+| ---- | ------- | --------------------- |
+| z    | uint256 | The square root of y. |

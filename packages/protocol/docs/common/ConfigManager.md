@@ -29,4 +29,3 @@ function setValue(string name, bytes val) external
 ```solidity
 function getValue(string name) public view returns (bytes)
 ```
-

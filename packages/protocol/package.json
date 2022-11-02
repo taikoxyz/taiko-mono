@@ -5,7 +5,7 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "export:abi": "npx hardhat clear-abi && npx hardhat export-abi",
-    "export:docs": "npx hardhat docgen && rm -rf ./docs/elin ./docs/test ./docs/thirdparty ./docs/console.md",
+    "export:docs": "npx hardhat docgen && rm -rf ./docs/elin ./docs/test ./docs/thirdparty ./docs/console.md && npx prettier --write ./docs/**/*.md",
     "clean": "rm -rf abis cache && npx hardhat clean",
     "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
     "eslint": "npx eslint --ignore-path .eslintignore --ext .js,.ts .",

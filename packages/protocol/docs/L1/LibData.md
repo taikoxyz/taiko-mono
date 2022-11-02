@@ -14,6 +14,7 @@ struct BlockMetadata {
   bytes32 mixHash;
   bytes extraData;
 }
+
 ```
 
 ### ProposedBlock
@@ -22,6 +23,7 @@ struct BlockMetadata {
 struct ProposedBlock {
   bytes32 metaHash;
 }
+
 ```
 
 ### ForkChoice
@@ -33,6 +35,7 @@ struct ForkChoice {
   uint64 provenAt;
   address[] provers;
 }
+
 ```
 
 ### State
@@ -79,4 +82,3 @@ function getStateVariables(struct LibData.State s) internal view returns (uint64
 ```solidity
 function hashMetadata(struct LibData.BlockMetadata meta) internal pure returns (bytes32)
 ```
-

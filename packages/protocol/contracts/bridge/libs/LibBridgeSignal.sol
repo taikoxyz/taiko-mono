@@ -33,6 +33,12 @@ library LibBridgeSignal {
         _;
     }
 
+    /**
+     * Send a signal by storing the key with a value of 1.
+     *
+     * @param sender The address sending the signal.
+     * @param signal The signal to send.
+     */
     function sendSignal(address sender, bytes32 signal)
         internal
         onlyValidSenderAndSignal(sender, signal)
@@ -43,6 +49,12 @@ library LibBridgeSignal {
         }
     }
 
+    /**
+     * Check if a signal has been sent (key stored with a value of 1).
+     *
+     * @param sender The sender of the signal.
+     * @param signal The signal to check.
+     */
     function isSignalSent(address sender, bytes32 signal)
         internal
         view
@@ -96,6 +108,9 @@ library LibBridgeSignal {
             syncedHeaderHash == mkp.header.hashBlockHeader();
     }
 
+    /**
+     * Generate the storage key for a signal.
+     */
     function _key(address sender, bytes32 signal)
         private
         pure

@@ -1,7 +1,7 @@
 ## Bridge
 
 Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
-which calls the library implementations.
+which calls the library implementations. See {IBridge} for more details.
 
 _The code hash for the same address on L1 and L2 may be different._
 
@@ -11,7 +11,7 @@ _The code hash for the same address on L1 and L2 may be different._
 struct LibBridgeData.State state
 ```
 
-### __gap
+### \_\_gap
 
 ```solidity
 uint256[50] __gap
@@ -129,9 +129,10 @@ function getMessageStatus(bytes32 signal) public view virtual returns (enum LibB
 function context() public view returns (struct IBridge.Context)
 ```
 
+Returns the bridge state context.
+
 ### isDestChainEnabled
 
 ```solidity
 function isDestChainEnabled(uint256 _chainId) public view returns (bool)
 ```
-

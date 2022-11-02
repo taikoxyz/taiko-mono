@@ -9,12 +9,12 @@
 pragma solidity ^0.8.9;
 
 /**
+ * This library offers address-related methods.
  * @author dantaik <dan@taiko.xyz>
- * @notice This library offers address-related methods.
  */
 library LibAddress {
     /**
-     * @notice Sends Ether to an address. Zero-value will also be sent.
+     * Sends Ether to an address. Zero-value will also be sent.
      * See more information at:
      * https://consensys.net/diligence/blog/2019/09/stop-using-soliditys-transfer-now.
      * @param to The target address.
