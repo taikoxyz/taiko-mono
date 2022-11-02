@@ -50,7 +50,7 @@ library LibData {
         uint64 reservedA1; // never change
         uint64 reservedA2; // never change
         // Changed when a block is proposed or proven/finalized
-        uint256 baseFee;
+        uint256 incentive;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.

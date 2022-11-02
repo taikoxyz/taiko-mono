@@ -22,12 +22,12 @@ library V1Utils {
         uint256 fee,
         bool releaseOneSlot
     ) public view returns (uint256) {
-        uint256 p = LibConstants.TAIKO_FEE_PREMIUM_LAMDA +
+        uint256 p = LibConstants.TAIKO_INCENTIVE_PREMIUM_LAMDA +
             LibConstants.TAIKO_BLOCK_BUFFER_SIZE +
             s.latestFinalizedId -
             s.nextBlockId;
         uint256 q = releaseOneSlot ? p + 1 : p - 1;
-        return (fee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
+        return (fee * LibConstants.TAIKO_INCENTIVE_PREMIUM_PHI) / p / q;
     }
 
     function movingAverage(
@@ -45,19 +45,21 @@ library V1Utils {
     function feeScale(
         uint64 tNow,
         uint64 tLast,
-        uint64 tAvg
+        uint64 tAvg,
+        uint256 gracePerid,
+        uint256 maxPeriod
     ) internal pure returns (uint256) {
         if (tAvg == 0) {
             return 10000;
         }
-        uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE_PERIOD * tAvg) / 100;
-        uint256 tMax = (LibConstants.TAIKO_FEE_MAX_PERIOD * tAvg) / 100;
+        uint256 tGrace = (gracePerid * tAvg) / 100;
+        uint256 tMax = (maxPeriod * tAvg) / 100;
         uint256 a = tLast + tGrace;
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax;
         return
             10000 +
-            ((LibConstants.TAIKO_FEE_MAX_MULTIPLIER - 100) * tRel) /
+            ((LibConstants.TAIKO_INCENTIVE_MULTIPLIER - 100) * tRel) /
             100;
     }
 }

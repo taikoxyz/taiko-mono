@@ -90,7 +90,7 @@ library V1Proposing {
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
         (uint256 fee, uint256 premiumFee) = getBlockFee(s, meta.gasLimit);
-        s.baseFee = V1Utils.movingAverage(s.baseFee, fee, 1024);
+        s.incentive = V1Utils.movingAverage(s.incentive, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
@@ -115,9 +115,11 @@ library V1Proposing {
         uint256 scale = V1Utils.feeScale(
             uint64(block.timestamp),
             s.lastProposedAt,
-            s.avgProofTime
+            s.avgProofTime,
+            LibConstants.TAIKO_GRACE_PERIOD_FEE,
+            LibConstants.TAIKO_MAX_PERIOD_FEE
         );
-        fee = (s.baseFee * 10000) / scale;
+        fee = (s.incentive * 10000) / scale;
 
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
         if (

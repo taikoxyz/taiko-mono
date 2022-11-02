@@ -14,14 +14,16 @@ library LibConstants {
     bool public constant TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING = false;
     uint256 public constant TAIKO_CHAIN_ID = 167;
     uint256 public constant TAIKO_BLOCK_BUFFER_SIZE = 2049; // up to 2048 pending blocks
-    uint256 public constant TAIKO_FEE_PREMIUM_LAMDA = 100; // TODO
-    uint256 public constant TAIKO_FEE_PREMIUM_PHI =
-        (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
-            (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 2);
+    uint256 public constant TAIKO_INCENTIVE_PREMIUM_LAMDA = 100; // TODO
+    uint256 public constant TAIKO_INCENTIVE_PREMIUM_PHI =
+        (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_INCENTIVE_PREMIUM_LAMDA - 1) *
+            (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_INCENTIVE_PREMIUM_LAMDA - 2);
 
-    uint64 public constant TAIKO_FEE_MAX_MULTIPLIER = 400; // 400%
-    uint64 public constant TAIKO_FEE_GRACE_PERIOD = 125; // 125%
-    uint64 public constant TAIKO_FEE_MAX_PERIOD = 375; // 375%
+    uint64 public constant TAIKO_INCENTIVE_MULTIPLIER = 400; // 400%
+    uint64 public constant TAIKO_GRACE_PERIOD_FEE = 125; // 125%
+    uint64 public constant TAIKO_MAX_PERIOD_FEE = 375; // 375%
+    uint64 public constant TAIKO_GRACE_PERIOD_REWARD = 125; // 125%
+    uint64 public constant TAIKO_MAX_PERIOD_REWARD = 375; // 375%
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
     uint256 public constant TAIKO_MAX_PROOFS_PER_FORK_CHOICE = 5;

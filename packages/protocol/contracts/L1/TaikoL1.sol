@@ -32,10 +32,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _baseFee
+        uint256 _incentive
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash, _baseFee);
+        V1Finalizing.init(state, _genesisBlockHash, _incentive);
     }
 
     /// @notice Write a _commit hash_ so a few blocks later a L2 block can be proposed
