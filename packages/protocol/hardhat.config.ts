@@ -6,9 +6,10 @@ import "@primitivefi/hardhat-dodoc"
 import "@typechain/hardhat"
 import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
+import "hardhat-preprocessor"
 import "solidity-coverage"
 import "solidity-docgen"
-import { HardhatUserConfig } from "hardhat/config"
+import { HardhatUserConfig, task } from "hardhat/config"
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
@@ -87,6 +88,34 @@ const config: HardhatUserConfig = {
             },
         },
         version: "0.8.9",
+    },
+    preprocess: {
+        eachLine: () => ({
+            transform: (line) => {
+                if (
+                    process.env.CHAIN_ID &&
+                    line.includes("uint256 public constant TAIKO_CHAIN_ID")
+                ) {
+                    return `${line.slice(0, line.indexOf(" ="))} = ${
+                        process.env.CHAIN_ID
+                    };`
+                }
+
+                if (
+                    process.env.COMMIT_DELAY_CONFIRMATIONS &&
+                    line.includes(
+                        "uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS"
+                    )
+                ) {
+                    return `${line.slice(0, line.indexOf(" ="))} = ${
+                        process.env.COMMIT_DELAY_CONFIRMATIONS
+                    };`
+                }
+
+                return line
+            },
+            files: "libs/LibConstants.sol",
+        }),
     },
 }
 
