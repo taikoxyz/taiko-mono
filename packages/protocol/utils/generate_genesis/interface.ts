@@ -1,6 +1,5 @@
 export interface Config {
     contractOwner: string
-    ethDepositor: string
     chainId: number
     seedAccounts: Array<{
         [key: string]: number
