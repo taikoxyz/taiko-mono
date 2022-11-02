@@ -1,8 +1,9 @@
 import React from "react";
 import { useNetwork, useSwitchNetwork } from "wagmi";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faAngleDown, faAngleUp } from "@fortawesome/free-solid-svg-icons";
 
 import { DEFAULT_FROM_CHAIN_ID } from "../config/defaults";
-import { Chain } from "../types";
 
 import ChainSelector from "./chainSelector";
 import TokenSelector from "./tokenSelector";
@@ -12,6 +13,7 @@ const BridgeForm: React.FC<{}> = () => {
   const [fromChainId, setFromChainId] = React.useState(
     chain?.id ?? DEFAULT_FROM_CHAIN_ID
   );
+  const [openAdvanced, setOpenAdvanced] = React.useState<boolean>(false);
 
   const { isLoading, switchNetwork } = useSwitchNetwork({
     chainId: fromChainId,
@@ -77,6 +79,38 @@ const BridgeForm: React.FC<{}> = () => {
           {isLoading ? "Switching..." : "Switch Network"}
         </button>
       )}
+      <fieldset className="my-4 flex items-center justify-center border-t overflow-hidden">
+        <legend
+          className="text-center px-3 cursor-pointer"
+          onClick={() => setOpenAdvanced((val) => !val)}
+        >
+          Advanced{" "}
+          <FontAwesomeIcon
+            icon={openAdvanced ? faAngleUp : faAngleDown}
+            size="sm"
+          />
+        </legend>
+        <div
+          className={`px-2 flex flex-col w-full justify-center transition-all duration-300  ${
+            openAdvanced ? "py-2 h-content" : "h-0"
+          }`}
+        >
+          <label htmlFor="data">Data</label>
+          <input
+            id="data"
+            name="data"
+            placeholder="Enter data"
+            className="border bg-none p-2 my-1 w-full rounded-md"
+          />
+          <label htmlFor="data">Memo</label>
+          <input
+            id="memo"
+            name="memo"
+            placeholder="Enter memo"
+            className="border bg-none p-2 my-1 w-full rounded-md"
+          />
+        </div>
+      </fieldset>
       <button
         type="submit"
         className={`bg-taiko-pink text-white w-[100px] m-auto rounded-md py-2 mt-6 ${

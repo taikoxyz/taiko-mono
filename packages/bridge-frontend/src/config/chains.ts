@@ -22,7 +22,7 @@ export const mainnet: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://34.132.67.34:8545",
+    default: "http://34.132.67.34:8545",
   },
   blockExplorers: {
     default: {
@@ -45,7 +45,7 @@ export const taiko: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://rpc.a1.testnet.taiko.xyz",
+    default: "http://rpc.a1.testnet.taiko.xyz",
   },
   blockExplorers: {
     default: {
