@@ -7,7 +7,7 @@ present = Present(
 **About this config**
 
 - slot fee now varies
-- `prover_reward_burn_points` set to non-zero
+- `# prover_reward_burn_points` set to non-zero
 - block time varies (100%  ocsliaction) but eventually changes back to the initial value.
 - proof time varies (100%  ocsliaction) but eventually changes back to the initial value.
 
@@ -22,9 +22,9 @@ present = Present(
         base_fee=100.0,
         base_fee_maf=1024,
         fee_max_multiplier=4.0,
-        prover_reward_burn_points=100,
-        prover_reward_bootstrap=0,
-        prover_reward_bootstrap_days=10,
+        # prover_reward_burn_points=100,
+        # prover_reward_bootstrap=0,
+        # prover_reward_bootstrap_days=10,
         block_and_proof_time_maf=1024,
         block_time_sd_pctg=0,
         proof_time_sd_pctg=0,

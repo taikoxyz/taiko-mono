@@ -62,18 +62,18 @@ def get_proof_reward(base_fee, max_multiplier, avg_proof_time, proven_at, propos
     return base_fee * scale / 10000
 
 
-def calc_bootstrap_reward(
-    prover_reward_bootstrap, prover_reward_bootstrap_days, avg_block_time
-):
-    if prover_reward_bootstrap == 0:
-        return 0
-    s = prover_reward_bootstrap * 1.0
-    t = prover_reward_bootstrap_days * 24 * 3600
-    b = avg_block_time
-    if env.now() >= t:
-        return 0
-    else:
-        return 2 * s * b * (t - env.now() + b / 2) / t / t
+# def calc_bootstrap_reward(
+#     prover_reward_bootstrap, prover_reward_bootstrap_days, avg_block_time
+# ):
+#     if prover_reward_bootstrap == 0:
+#         return 0
+#     s = prover_reward_bootstrap * 1.0
+#     t = prover_reward_bootstrap_days * 24 * 3600
+#     b = avg_block_time
+#     if env.now() >= t:
+#         return 0
+#     else:
+#         return 2 * s * b * (t - env.now() + b / 2) / t / t
 
 
 def get_day(config):
@@ -135,9 +135,9 @@ class Protocol(sim.Component):
         self.m_tko_supply = sim.Monitor("m_tko_supply", level=True)
         self.m_block_time = sim.Monitor("m_block_time", level=True)
         self.m_proof_time = sim.Monitor("m_proof_time", level=True)
-        self.m_prover_bootstrap_reward = sim.Monitor(
-            "m_prover_bootstrap_reward", level=True
-        )
+        # self.m_prover_bootstrap_reward = sim.Monitor(
+        #     "m_prover_bootstrap_reward", level=True
+        # )
 
     def apply_oversell_premium(self, fee, release_one_slot):
         p = self.config.max_blocks - self.num_pending() + self.config.lamda
@@ -166,11 +166,12 @@ class Protocol(sim.Component):
             proven_at,
             proposed_at,
         )
-        premium_reward = (
-            self.apply_oversell_premium(reward, True)
-            * (10000.0 - self.config.prover_reward_burn_points)
-            / 10000
-        )
+        # premium_reward = (
+        #     self.apply_oversell_premium(reward, True)
+        #     * (10000.0 - self.config.prover_reward_burn_points)
+        #     / 10000
+        # )
+        premium_reward = self.apply_oversell_premium(reward, True)
         return (reward, premium_reward)
 
     def print_me(self, st):
@@ -180,20 +181,20 @@ class Protocol(sim.Component):
         st.write("num_blocks = {}".format(self.num_pending()))
         st.write("base_fee = {}".format(self.base_fee))
         st.write("tko_supply = {}".format(self.tko_supply))
-        st.write(
-            "prover_bootstrap_reward_total = {}".format(
-                self.prover_bootstrap_reward_total
-            )
-        )
+        # st.write(
+        #     "prover_bootstrap_reward_total = {}".format(
+        #         self.prover_bootstrap_reward_total
+        #     )
+        # )
 
-        if self.config.prover_reward_bootstrap > 0:
-            st.write(
-                "prover_bootstrap_reward_total/config.prover_reward_bootstrap = {}".format(
-                    self.prover_bootstrap_reward_total
-                    * 1.0
-                    / self.config.prover_reward_bootstrap
-                )
-            )
+        # if self.config.prover_reward_bootstrap > 0:
+        #     st.write(
+        #         "prover_bootstrap_reward_total/config.prover_reward_bootstrap = {}".format(
+        #             self.prover_bootstrap_reward_total
+        #             * 1.0
+        #             / self.config.prover_reward_bootstrap
+        #         )
+        #     )
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized_id - 1
@@ -276,14 +277,14 @@ class Protocol(sim.Component):
                     self.config.block_and_proof_time_maf,
                 )
 
-                prover_bootstrap_reward = calc_bootstrap_reward(
-                    self.config.prover_reward_bootstrap,
-                    self.config.prover_reward_bootstrap_days,
-                    self.avg_proof_time,
-                )
+                # prover_bootstrap_reward = calc_bootstrap_reward(
+                #     self.config.prover_reward_bootstrap,
+                #     self.config.prover_reward_bootstrap_days,
+                #     self.avg_proof_time,
+                # )
 
-                self.prover_bootstrap_reward_total += prover_bootstrap_reward
-                premium_reward += prover_bootstrap_reward
+                # self.prover_bootstrap_reward_total += prover_bootstrap_reward
+                # premium_reward += prover_bootstrap_reward
 
                 profit = premium_reward - self.blocks[k].fee
                 self.tko_supply -= profit
@@ -291,7 +292,7 @@ class Protocol(sim.Component):
                 self.m_base_fee.tally(self.base_fee)
                 self.m_proof_time.tally(proof_time)
                 self.m_premium_reward.tally(premium_reward)
-                self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
+                # self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
                 self.m_tko_supply.tally(self.tko_supply)
 
                 self.last_finalized_id = k
@@ -387,10 +388,10 @@ def simulate(config, days):
         plot(days, [(protocol.m_base_fee, "base_fee")])
         plot(days, [(protocol.m_premium_fee, "block fee")], color="tab:green")
         plot(days, [(protocol.m_premium_reward, "proof reward")])
-        plot(
-            days,
-            [(protocol.m_prover_bootstrap_reward, "proof bootstrap reward")],
-        )
+        # plot(
+        #     days,
+        #     [(protocol.m_prover_bootstrap_reward, "proof bootstrap reward")],
+        # )
         plot(days, [(protocol.m_tko_supply, "tko supply")], color="tab:red")
         # plot(
         #     days,
