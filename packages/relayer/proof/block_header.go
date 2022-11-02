@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -15,10 +16,13 @@ func (p *Prover) blockHeader(ctx context.Context, blockNumber int64) (BlockHeade
 	if err != nil {
 		return BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
 	}
-
 	log.Infof("state root: %v", block.Root().String())
 
-	logsBloom, err := LogsBloomToBytes(block.Bloom())
+	return blockToBlockHeader(ctx, block)
+}
+
+func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, error) {
+	logsBloom, err := logsBloomToBytes(block.Bloom())
 	if err != nil {
 		return BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
 	}

@@ -91,7 +91,7 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
-	r, err := GetFailingMessage(*p.crossLayerEthClient, tx.Hash())
+	r, err := getFailingMessage(*p.crossLayerEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "GetFailingMessage")
 	}
@@ -107,7 +107,7 @@ func (p *Processor) ProcessMessage(
 	return nil
 }
 
-func GetFailingMessage(client ethclient.Client, hash common.Hash) (string, error) {
+func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error) {
 	tx, _, err := client.TransactionByHash(context.Background(), hash)
 	if err != nil {
 		return "", err
