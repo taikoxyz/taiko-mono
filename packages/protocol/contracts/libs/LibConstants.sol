@@ -19,9 +19,9 @@ library LibConstants {
         (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
             (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 2);
 
-    uint64 public constant TAIKO_FEE_ALPHA = 400; // 400%
-    uint64 public constant TAIKO_FEE_GRACE = 125; // 125%
-    uint64 public constant TAIKO_FEE_MAX = 375; // 375%
+    uint64 public constant TAIKO_FEE_MAX_MULTIPLIER = 400; // 400%
+    uint64 public constant TAIKO_FEE_GRACE_PERIOD = 125; // 125%
+    uint64 public constant TAIKO_FEE_MAX_PERIOD = 375; // 375%
 
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
