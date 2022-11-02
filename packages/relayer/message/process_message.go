@@ -61,8 +61,8 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 100000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
+	// auth.GasLimit = 100000
+	// auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, int64(blockNumber))
