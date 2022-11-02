@@ -31,7 +31,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     bytes32 public publicInputHash;
     bytes32 public latestSyncedHeader;
 
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *
