@@ -168,7 +168,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 		return nil
 	}
 
-	messageStatus, err := svc.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	messageStatus, err := svc.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}

@@ -73,17 +73,17 @@ func main() {
 	}
 
 	i, err := indexer.NewService(indexer.NewServiceOpts{
-		EventRepo:           eventRepository,
-		BlockRepo:           blockRepository,
-		CrossLayerEthClient: l2EthClient,
-		EthClient:           l1EthClient,
-		RPCClient:           l1RpcClient,
-		CrossLayerRPCClient: l2RpcClient,
+		EventRepo:     eventRepository,
+		BlockRepo:     blockRepository,
+		DestEthClient: l2EthClient,
+		EthClient:     l1EthClient,
+		RPCClient:     l1RpcClient,
+		DestRPCClient: l2RpcClient,
 
-		ECDSAKey:                os.Getenv("RELAYER_ECDSA_KEY"),
-		BridgeAddress:           common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-		CrossLayerBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-		CrossLayerTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+		ECDSAKey:          os.Getenv("RELAYER_ECDSA_KEY"),
+		BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+		DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+		DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 	})
 	if err != nil {
 		log.Fatal(err)

@@ -17,30 +17,30 @@ var (
 )
 
 type Service struct {
-	eventRepo     relayer.EventRepository
-	blockRepo     relayer.BlockRepository
-	ethClient     *ethclient.Client
-	crossLayerRPC *rpc.Client
+	eventRepo relayer.EventRepository
+	blockRepo relayer.BlockRepository
+	ethClient *ethclient.Client
+	destRPC   *rpc.Client
 
 	processingBlock *relayer.Block
 
-	bridge           *contracts.Bridge
-	crossLayerBridge *contracts.Bridge
+	bridge     *contracts.Bridge
+	destBridge *contracts.Bridge
 
 	processor *message.Processor
 }
 
 type NewServiceOpts struct {
-	EventRepo               relayer.EventRepository
-	BlockRepo               relayer.BlockRepository
-	EthClient               *ethclient.Client
-	CrossLayerEthClient     *ethclient.Client
-	RPCClient               *rpc.Client
-	CrossLayerRPCClient     *rpc.Client
-	ECDSAKey                string
-	BridgeAddress           common.Address
-	CrossLayerBridgeAddress common.Address
-	CrossLayerTaikoAddress  common.Address
+	EventRepo         relayer.EventRepository
+	BlockRepo         relayer.BlockRepository
+	EthClient         *ethclient.Client
+	DestEthClient     *ethclient.Client
+	RPCClient         *rpc.Client
+	DestRPCClient     *rpc.Client
+	ECDSAKey          string
+	BridgeAddress     common.Address
+	DestBridgeAddress common.Address
+	DestTaikoAddress  common.Address
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -60,7 +60,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, relayer.ErrNoECDSAKey
 	}
 
-	if opts.CrossLayerEthClient == nil {
+	if opts.DestEthClient == nil {
 		return nil, relayer.ErrNoEthClient
 	}
 
@@ -68,7 +68,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, relayer.ErrNoBridgeAddress
 	}
 
-	if opts.CrossLayerBridgeAddress == ZeroAddress {
+	if opts.DestBridgeAddress == ZeroAddress {
 		return nil, relayer.ErrNoBridgeAddress
 	}
 
@@ -86,7 +86,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
 
-	crossLayerBridge, err := contracts.NewBridge(opts.CrossLayerBridgeAddress, opts.CrossLayerEthClient)
+	destBridge, err := contracts.NewBridge(opts.DestBridgeAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
@@ -96,33 +96,33 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "proof.New")
 	}
 
-	// todo: cchange this to crossLayerHeaderSyncer
-	taikoL2, err := contracts.NewV1TaikoL2(opts.CrossLayerTaikoAddress, opts.CrossLayerEthClient)
+	// todo: cchange this to destHeaderSyncer
+	taikoL2, err := contracts.NewV1TaikoL2(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewV1TaikoL2")
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
-		Prover:              prover,
-		ECDSAKey:            privateKey,
-		RPCClient:           opts.RPCClient,
-		CrossLayerETHClient: opts.CrossLayerEthClient,
-		CrossLayerBridge:    crossLayerBridge,
-		EventRepo:           opts.EventRepo,
-		TaikoL2:             taikoL2,
+		Prover:        prover,
+		ECDSAKey:      privateKey,
+		RPCClient:     opts.RPCClient,
+		DestETHClient: opts.DestEthClient,
+		DestBridge:    destBridge,
+		EventRepo:     opts.EventRepo,
+		TaikoL2:       taikoL2,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
 	}
 
 	return &Service{
-		blockRepo:     opts.BlockRepo,
-		eventRepo:     opts.EventRepo,
-		ethClient:     opts.EthClient,
-		crossLayerRPC: opts.CrossLayerRPCClient,
+		blockRepo: opts.BlockRepo,
+		eventRepo: opts.EventRepo,
+		ethClient: opts.EthClient,
+		destRPC:   opts.DestRPCClient,
 
-		bridge:           bridge,
-		crossLayerBridge: crossLayerBridge,
+		bridge:     bridge,
+		destBridge: destBridge,
 
 		processor: processor,
 	}, nil

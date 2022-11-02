@@ -12,25 +12,25 @@ import (
 )
 
 type Processor struct {
-	eventRepo           relayer.EventRepository
-	crossLayerEthClient *ethclient.Client
-	rpc                 *rpc.Client
-	ecdsaKey            *ecdsa.PrivateKey
+	eventRepo     relayer.EventRepository
+	destEthClient *ethclient.Client
+	rpc           *rpc.Client
+	ecdsaKey      *ecdsa.PrivateKey
 
-	crossLayerBridge *contracts.Bridge
-	taikoL2          *contracts.V1TaikoL2
+	destBridge *contracts.Bridge
+	taikoL2    *contracts.V1TaikoL2
 
 	prover *proof.Prover
 }
 
 type NewProcessorOpts struct {
-	Prover              *proof.Prover
-	ECDSAKey            *ecdsa.PrivateKey
-	RPCClient           *rpc.Client
-	CrossLayerETHClient *ethclient.Client
-	CrossLayerBridge    *contracts.Bridge
-	EventRepo           relayer.EventRepository
-	TaikoL2             *contracts.V1TaikoL2
+	Prover        *proof.Prover
+	ECDSAKey      *ecdsa.PrivateKey
+	RPCClient     *rpc.Client
+	DestETHClient *ethclient.Client
+	DestBridge    *contracts.Bridge
+	EventRepo     relayer.EventRepository
+	TaikoL2       *contracts.V1TaikoL2
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -43,10 +43,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 	if opts.RPCClient == nil {
 		return nil, relayer.ErrNoRPCClient
 	}
-	if opts.CrossLayerETHClient == nil {
+	if opts.DestETHClient == nil {
 		return nil, relayer.ErrNoEthClient
 	}
-	if opts.CrossLayerBridge == nil {
+	if opts.DestBridge == nil {
 		return nil, relayer.ErrNoBridge
 	}
 	if opts.EventRepo == nil {
@@ -56,12 +56,12 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrNoTaikoL2
 	}
 	return &Processor{
-		eventRepo:           opts.EventRepo,
-		prover:              opts.Prover,
-		ecdsaKey:            opts.ECDSAKey,
-		rpc:                 opts.RPCClient,
-		crossLayerEthClient: opts.CrossLayerETHClient,
-		crossLayerBridge:    opts.CrossLayerBridge,
-		taikoL2:             opts.TaikoL2,
+		eventRepo:     opts.EventRepo,
+		prover:        opts.Prover,
+		ecdsaKey:      opts.ECDSAKey,
+		rpc:           opts.RPCClient,
+		destEthClient: opts.DestETHClient,
+		destBridge:    opts.DestBridge,
+		taikoL2:       opts.TaikoL2,
 	}, nil
 }

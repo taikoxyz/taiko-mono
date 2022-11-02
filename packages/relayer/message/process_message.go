@@ -56,8 +56,8 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 500000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
+	// auth.GasLimit = 500000
+	// auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, int64(blockNumber))
@@ -65,14 +65,19 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
-	received, err := p.crossLayerBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.crossLayerBridge.IsSignalReceived")
+		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
 	}
 	spew.Dump("received", received)
 
+	// message will fail when we try to process is, theres an issue somewhere
+	if !received {
+		return errors.New("message not receved")
+	}
+
 	log.Info("processing message")
-	tx, err := p.crossLayerBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
+	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
 	}
@@ -80,18 +85,18 @@ func (p *Processor) ProcessMessage(
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
 	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
-	ch := relayer.WaitForTx(ctx, p.crossLayerEthClient, tx.Hash())
+	ch := relayer.WaitForTx(ctx, p.destEthClient, tx.Hash())
 	// wait for tx until mined
 	<-ch
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := p.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
-	r, err := getFailingMessage(*p.crossLayerEthClient, tx.Hash())
+	r, err := getFailingMessage(*p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "GetFailingMessage")
 	}
