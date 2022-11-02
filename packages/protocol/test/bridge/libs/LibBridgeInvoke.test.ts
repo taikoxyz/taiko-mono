@@ -16,7 +16,9 @@ describe("LibBridgeInvoke", function () {
 
         const libInvoke = await (
             await ethers.getContractFactory("TestLibBridgeInvoke")
-        ).deploy()
+        )
+            .connect(owner)
+            .deploy()
 
         return { owner, nonOwner, libInvoke }
     }
@@ -82,7 +84,7 @@ describe("LibBridgeInvoke", function () {
                 .withArgs(signal, false)
         })
 
-        it.only("should emit event with success true if message invokes successfully", async function () {
+        it("should emit event with success true if message invokes successfully", async function () {
             const { owner, libInvoke } = await deployLibBridgeInvokeFixture()
 
             const { libData } = await deployLibBridgeDataFixture()
