@@ -3,12 +3,7 @@ package relayer
 import (
 	"math/big"
 
-	"github.com/cyberhorsey/errors"
 	"gorm.io/datatypes"
-)
-
-var (
-	ErrNoEventRepository = errors.Validation.NewWithKeyAndDetail("ERR_NO_EVENT_REPOSITORY", "EventRepository is required")
 )
 
 var (

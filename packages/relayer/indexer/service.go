@@ -1,8 +1,6 @@
 package indexer
 
 import (
-	"crypto/ecdsa"
-
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -10,12 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
-)
-
-var (
-	ErrNoEthClient     = errors.Validation.NewWithKeyAndDetail("ERR_NO_ETH_CLIENT", "EthClient is required")
-	ErrNoECDSAKey      = errors.Validation.NewWithKeyAndDetail("ERR_NO_ECDSA_KEY", "ECDSAKey is required")
-	ErrNoBridgeAddress = errors.Validation.NewWithKeyAndDetail("ERR_NO_BRIDGE_ADDRESS", "BridgeAddress is required")
+	"github.com/taikochain/taiko-mono/packages/relayer/message"
+	"github.com/taikochain/taiko-mono/packages/relayer/proof"
 )
 
 var (
@@ -23,21 +17,17 @@ var (
 )
 
 type Service struct {
-	eventRepo           relayer.EventRepository
-	blockRepo           relayer.BlockRepository
-	ethClient           *ethclient.Client
-	crossLayerEthClient *ethclient.Client
-	rpc                 *rpc.Client
-	crossLayerRPC       *rpc.Client
-	ecdsaKey            *ecdsa.PrivateKey
+	eventRepo     relayer.EventRepository
+	blockRepo     relayer.BlockRepository
+	ethClient     *ethclient.Client
+	crossLayerRPC *rpc.Client
 
 	processingBlock *relayer.Block
 
 	bridge           *contracts.Bridge
 	crossLayerBridge *contracts.Bridge
 
-	bridgeAddress           common.Address
-	crossLayerBridgeAddress common.Address
+	processor *message.Processor
 }
 
 type NewServiceOpts struct {
@@ -50,6 +40,7 @@ type NewServiceOpts struct {
 	ECDSAKey                string
 	BridgeAddress           common.Address
 	CrossLayerBridgeAddress common.Address
+	CrossLayerTaikoAddress  common.Address
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -62,23 +53,23 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	if opts.EthClient == nil {
-		return nil, ErrNoEthClient
+		return nil, relayer.ErrNoEthClient
 	}
 
 	if opts.ECDSAKey == "" {
-		return nil, ErrNoECDSAKey
+		return nil, relayer.ErrNoECDSAKey
 	}
 
 	if opts.CrossLayerEthClient == nil {
-		return nil, ErrNoEthClient
+		return nil, relayer.ErrNoEthClient
 	}
 
 	if opts.BridgeAddress == ZeroAddress {
-		return nil, ErrNoBridgeAddress
+		return nil, relayer.ErrNoBridgeAddress
 	}
 
 	if opts.CrossLayerBridgeAddress == ZeroAddress {
-		return nil, ErrNoBridgeAddress
+		return nil, relayer.ErrNoBridgeAddress
 	}
 
 	privateKey, err := crypto.HexToECDSA(opts.ECDSAKey)
@@ -96,19 +87,39 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
 
+	prover, err := proof.New(opts.EthClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "proof.New")
+	}
+
+	// todo: cchange this to crossLayerHeaderSyncer
+	taikoL2, err := contracts.NewV1TaikoL2(opts.CrossLayerTaikoAddress, opts.CrossLayerEthClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "contracts.NewV1TaikoL2")
+	}
+
+	processor, err := message.NewProcessor(message.NewProcessorOpts{
+		Prover:              prover,
+		ECDSAKey:            privateKey,
+		RPCClient:           opts.RPCClient,
+		CrossLayerETHClient: opts.CrossLayerEthClient,
+		CrossLayerBridge:    crossLayerBridge,
+		EventRepo:           opts.EventRepo,
+		TaikoL2:             taikoL2,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "message.NewProcessor")
+	}
+
 	return &Service{
-		blockRepo:           opts.BlockRepo,
-		crossLayerEthClient: opts.CrossLayerEthClient,
-		eventRepo:           opts.EventRepo,
-		ethClient:           opts.EthClient,
-		rpc:                 opts.RPCClient,
-		crossLayerRPC:       opts.CrossLayerRPCClient,
-		ecdsaKey:            privateKey,
+		blockRepo:     opts.BlockRepo,
+		eventRepo:     opts.EventRepo,
+		ethClient:     opts.EthClient,
+		crossLayerRPC: opts.CrossLayerRPCClient,
 
 		bridge:           bridge,
 		crossLayerBridge: crossLayerBridge,
 
-		bridgeAddress:           opts.BridgeAddress,
-		crossLayerBridgeAddress: opts.CrossLayerBridgeAddress,
+		processor: processor,
 	}, nil
 }

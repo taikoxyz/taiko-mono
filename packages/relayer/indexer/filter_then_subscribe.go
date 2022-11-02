@@ -37,30 +37,6 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 	}
 	log.Infof("latest processed block: %v", latestProcessedBlock.Height)
 
-	// taiko, _ := contracts.NewV1TaikoL2(common.HexToAddress("0x055018077fdC2DF4966c8c96A65B004B3bd78b7F"), svc.crossLayerEthClient)
-	// var end uint64 = latestProcessedBlock.Height + 500
-	// events, err := taiko.FilterHeaderSynced(&bind.FilterOpts{
-	// 	Start:   latestProcessedBlock.Height + uint64(1),
-	// 	End:     &end,
-	// 	Context: ctx,
-	// }, nil, nil)
-	// if err != nil {
-	// 	return errors.Wrap(err, "taiko.FilterHeaderSynced")
-	// }
-
-	// for {
-	// 	if !events.Next() || events.Event == nil {
-	// 		fmt.Println("no events")
-	// 	}
-	// 	spew.Dump("srcheight", events.Event.SrcHeight.Int64())
-	// 	spew.Dump("srchash", common.BytesToHash(events.Event.SrcHash[:]).Hex())
-	// 	h, err := taiko.GetSyncedHeader(&bind.CallOpts{}, events.Event.SrcHeight)
-	// 	if err != nil {
-	// 		return errors.Wrap(err, "taiko.GetSyncedHeader")
-	// 	}
-
-	// 	spew.Dump("syncedheader", common.BytesToHash(h[:]).Hex())
-	// }
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
@@ -200,7 +176,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	if messageStatus == uint8(relayer.EventStatusNew) {
 		log.Info("message not processed yet, attempting processing")
 		// process the message
-		if err := svc.processMessage(ctx, event, e); err != nil {
+		if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
 			return errors.Wrap(err, "s.processMessage")
 		}
 	}

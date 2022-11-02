@@ -42,7 +42,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:                dummyEcdsaKey,
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
-			ErrNoBridgeAddress,
+			relayer.ErrNoBridgeAddress,
 		},
 		{
 			"noCrossLayerBridgeAddress",
@@ -54,7 +54,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:            dummyEcdsaKey,
 				BridgeAddress:       common.HexToAddress(dummyAddress),
 			},
-			ErrNoBridgeAddress,
+			relayer.ErrNoBridgeAddress,
 		},
 		{
 			"noECDSAKey",
@@ -66,7 +66,7 @@ func Test_NewService(t *testing.T) {
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
-			ErrNoECDSAKey,
+			relayer.ErrNoECDSAKey,
 		},
 		{
 			"noEventRepo",
@@ -102,7 +102,7 @@ func Test_NewService(t *testing.T) {
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
-			ErrNoEthClient,
+			relayer.ErrNoEthClient,
 		},
 		{
 			"noCrossLayerEthClient",
@@ -114,7 +114,7 @@ func Test_NewService(t *testing.T) {
 				BridgeAddress:           common.HexToAddress(dummyAddress),
 				CrossLayerBridgeAddress: common.HexToAddress(dummyAddress),
 			},
-			ErrNoEthClient,
+			relayer.ErrNoEthClient,
 		},
 	}
 

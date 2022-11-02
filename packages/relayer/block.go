@@ -3,15 +3,7 @@ package relayer
 import (
 	"math/big"
 
-	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
-)
-
-var (
-	ErrNoBlockRepository = errors.Validation.NewWithKeyAndDetail(
-		"ERR_NO_BLOCK_REPOSITORY",
-		"BlockRepository is required",
-	)
 )
 
 // Block is a database model representing simple header types

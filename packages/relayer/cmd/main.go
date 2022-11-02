@@ -83,6 +83,7 @@ func main() {
 		ECDSAKey:                os.Getenv("RELAYER_ECDSA_KEY"),
 		BridgeAddress:           common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 		CrossLayerBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+		CrossLayerTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -126,6 +127,7 @@ func loadAndValidateEnv() error {
 		"HTTP_PORT",
 		"L1_BRIDGE_ADDRESS",
 		"L2_BRIDGE_ADDRESS",
+		"L2_TAIKO_ADDRESS",
 		"L1_RPC_URL",
 		"L2_RPC_URL",
 		"MYSQL_USER",

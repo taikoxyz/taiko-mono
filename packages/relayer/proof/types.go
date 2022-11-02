@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -116,3 +117,78 @@ type SignalProof struct {
 	Header BlockHeader `abi:"header"`
 	Proof  []byte      `abi:"proof"`
 }
+
+var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+	{
+		Name: "header",
+		Type: "tuple",
+		Components: []abi.ArgumentMarshaling{
+			{
+				Name: "parentHash",
+				Type: "bytes32",
+			},
+			{
+				Name: "ommersHash",
+				Type: "bytes32",
+			},
+			{
+				Name: "beneficiary",
+				Type: "address",
+			},
+			{
+				Name: "stateRoot",
+				Type: "bytes32",
+			},
+			{
+				Name: "transactionsRoot",
+				Type: "bytes32",
+			},
+			{
+				Name: "receiptsRoot",
+				Type: "bytes32",
+			},
+			{
+				Name: "logsBloom",
+				Type: "bytes32[8]",
+			},
+			{
+				Name: "difficulty",
+				Type: "uint256",
+			},
+			{
+				Name: "height",
+				Type: "uint128",
+			},
+			{
+				Name: "gasLimit",
+				Type: "uint64",
+			},
+			{
+				Name: "gasUsed",
+				Type: "uint64",
+			},
+			{
+				Name: "timestamp",
+				Type: "uint64",
+			},
+			{
+				Name: "extraData",
+				Type: "bytes",
+			},
+			{
+				Name: "mixHash",
+				Type: "bytes32",
+			},
+			{
+				Name: "nonce",
+				Type: "uint64",
+			},
+		},
+	},
+	{
+		Name: "proof",
+		Type: "bytes",
+	},
+})
+
+var bytesT, _ = abi.NewType("bytes", "", nil)

@@ -1,4 +1,4 @@
-package indexer
+package message
 
 import (
 	"context"
@@ -18,18 +18,17 @@ import (
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 )
 
-// processMessage prepares and calls `processMessage` on the bridge.
+// Process prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof,
 // then rlp-encoded and combined as a singular byte slice,
 // then abi encoded into a relayer.SignalProof struct as the contract
 // expects
-func (svc *Service) processMessage(
+func (p *Processor) ProcessMessage(
 	ctx context.Context,
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	taiko, _ := contracts.NewV1TaikoL2(common.HexToAddress("0x055018077fdC2DF4966c8c96A65B004B3bd78b7F"), svc.crossLayerEthClient)
-	h, err := taiko.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	h, err := p.taikoL2.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetUint64(event.Raw.BlockNumber))
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
@@ -51,7 +50,7 @@ func (svc *Service) processMessage(
 
 	log.Infof("processing message for signal: %v, key: %v", common.Hash(event.Signal).Hex(), key)
 
-	auth, err := bind.NewKeyedTransactorWithChainID(svc.ecdsaKey, event.Message.DestChainId)
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
 	if err != nil {
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
@@ -61,28 +60,19 @@ func (svc *Service) processMessage(
 	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
-	encodedSignalProof, err := svc.getEncodedSignalProof(ctx, svc.rpc, event.Raw.Address, key, int64(blockNumber))
+	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, int64(blockNumber))
 	if err != nil {
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
-	decode, err := contracts.NewDecode(common.HexToAddress("0x6BdBb69660E6849b98e8C524d266a0005D3655F7"), svc.crossLayerEthClient)
-	if err != nil {
-		return errors.Wrap(err, "contracts.Decode")
-	}
 
-	err = decode.DecodeBoth(&bind.CallOpts{}, encodedSignalProof)
+	received, err := p.crossLayerBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "decode.Decode")
-	}
-
-	received, err := svc.crossLayerBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
-	if err != nil {
-		return errors.Wrap(err, "svc.crossLayerBridge.IsSignalReceived")
+		return errors.Wrap(err, "p.crossLayerBridge.IsSignalReceived")
 	}
 	spew.Dump("received", received)
 
 	log.Info("processing message")
-	tx, err := svc.crossLayerBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
+	tx, err := p.crossLayerBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
 	}
@@ -90,18 +80,18 @@ func (svc *Service) processMessage(
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
 	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
-	ch := relayer.WaitForTx(ctx, svc.crossLayerEthClient, tx.Hash())
+	ch := relayer.WaitForTx(ctx, p.crossLayerEthClient, tx.Hash())
 	// wait for tx until mined
 	<-ch
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := svc.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	messageStatus, err := p.crossLayerBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
-	r, err := GetFailingMessage(*svc.crossLayerEthClient, tx.Hash())
+	r, err := GetFailingMessage(*p.crossLayerEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "GetFailingMessage")
 	}
@@ -111,7 +101,7 @@ func (svc *Service) processMessage(
 	log.Infof("updating message status to %s", relayer.EventStatus(messageStatus).String())
 
 	// update message status
-	if err := svc.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
+	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
 	return nil
