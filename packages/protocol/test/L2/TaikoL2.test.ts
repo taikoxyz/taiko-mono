@@ -1,14 +1,10 @@
 import { expect } from "chai"
-const hre = require("hardhat")
-const ethers = hre.ethers
+import { ethers } from "hardhat"
 
 describe("V1TaikoL2", function () {
-    let v1TaikoL2: any
-    let addressManager: any
-
-    before(async function () {
+    async function deployV1TaikoL2Fixture() {
         // Deploying addressManager Contract
-        addressManager = await (
+        const addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
@@ -23,17 +19,36 @@ describe("V1TaikoL2", function () {
                 LibTxDecoder: libTxDecoder.address,
             },
         })
-        v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
-    })
+        const v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
+
+        return { v1TaikoL2 }
+    }
 
     describe("anchor()", async function () {
         it("should revert since ancestor hashes not written", async function () {
+            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
             await expect(
                 v1TaikoL2.anchor(
                     Math.ceil(Math.random() * 1024),
                     randomBytes32()
                 )
             ).to.be.revertedWith("L2:publicInputHash")
+        })
+    })
+
+    describe("getLatestSyncedHeader()", async function () {
+        it("should be 0 because no headers have been synced", async function () {
+            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
+            const hash = await v1TaikoL2.getLatestSyncedHeader()
+            expect(hash).to.be.eq(ethers.constants.HashZero)
+        })
+    })
+
+    describe("getSyncedHeader()", async function () {
+        it("should be 0 because header number has not been synced", async function () {
+            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
+            const hash = await v1TaikoL2.getSyncedHeader(1)
+            expect(hash).to.be.eq(ethers.constants.HashZero)
         })
     })
 })
