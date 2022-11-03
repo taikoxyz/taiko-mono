@@ -96,20 +96,19 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "proof.New")
 	}
 
-	// todo: cchange this to destHeaderSyncer
-	taikoL2, err := contracts.NewV1TaikoL2(opts.DestTaikoAddress, opts.DestEthClient)
+	destHeaderSyncer, err := contracts.NewIHeaderSync(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewV1TaikoL2")
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
-		Prover:        prover,
-		ECDSAKey:      privateKey,
-		RPCClient:     opts.RPCClient,
-		DestETHClient: opts.DestEthClient,
-		DestBridge:    destBridge,
-		EventRepo:     opts.EventRepo,
-		TaikoL2:       taikoL2,
+		Prover:           prover,
+		ECDSAKey:         privateKey,
+		RPCClient:        opts.RPCClient,
+		DestETHClient:    opts.DestEthClient,
+		DestBridge:       destBridge,
+		EventRepo:        opts.EventRepo,
+		DestHeaderSyncer: destHeaderSyncer,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

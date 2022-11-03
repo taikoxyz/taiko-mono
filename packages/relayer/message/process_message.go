@@ -3,7 +3,6 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
@@ -28,23 +27,16 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	h, err := p.taikoL2.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
 	// if header hasnt been synced, we are unable to process this message
-	if common.BytesToHash(h[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
+	if common.BytesToHash(latestSyncedHeader[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
 		log.Infof("header not synced, bailing")
 		return nil
 	}
-
-	// skip these for now, use easier send ether one
-	if event.Message.Memo == "CronJob SendTokens" {
-		return nil
-	}
-
-	blockNumber := event.Raw.BlockNumber
 
 	hashed := solsha3.SoliditySHA3(
 		solsha3.Address(event.Raw.Address),
@@ -65,7 +57,7 @@ func (p *Processor) ProcessMessage(
 	// auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
-	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, int64(blockNumber))
+	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}

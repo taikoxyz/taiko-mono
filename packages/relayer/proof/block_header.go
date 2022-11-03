@@ -2,8 +2,8 @@ package proof
 
 import (
 	"context"
-	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -12,8 +12,8 @@ import (
 
 // blockHeader converts an ethereum block to the BlockHeader type that LibBridgeData
 // uses in our contracts
-func (p *Prover) blockHeader(ctx context.Context, blockNumber int64) (BlockHeader, error) {
-	block, err := p.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
+func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (BlockHeader, error) {
+	block, err := p.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
 	}

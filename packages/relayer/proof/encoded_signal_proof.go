@@ -16,15 +16,15 @@ import (
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
 // in our contracts
-func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
-	encodedStorageProof, err := p.encodedStorageProof(ctx, c, bridgeAddress, key, int64(blockNumber))
-	if err != nil {
-		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
-	}
-
-	blockHeader, err := p.blockHeader(ctx, int64(blockNumber))
+func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAddress common.Address, key string, blockHash common.Hash) ([]byte, error) {
+	blockHeader, err := p.blockHeader(ctx, blockHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.blockHeader")
+	}
+
+	encodedStorageProof, err := p.encodedStorageProof(ctx, c, bridgeAddress, key, blockHeader.Height.Int64())
+	if err != nil {
+		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
 
 	signalProof := SignalProof{
@@ -64,7 +64,7 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
 	}
 
-	log.Infof("rlpEncodedAccountProof: %s", common.Bytes2Hex(rlpEncodedAccountProof))
+	//log.Infof("rlpEncodedAccountProof: %s", common.Bytes2Hex(rlpEncodedAccountProof))
 
 	log.Info("rlp encoding storage proof")
 	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
@@ -72,7 +72,7 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	log.Infof("rlpEncodedStorageProof: %s", hexutil.Encode(rlpEncodedStorageProof))
+	//log.Infof("rlpEncodedStorageProof: %s", hexutil.Encode(rlpEncodedStorageProof))
 
 	args := abi.Arguments{
 		{
