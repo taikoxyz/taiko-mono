@@ -1,6 +1,7 @@
 // import { expect } from "chai"
 import { ethers } from "hardhat"
 import { Message } from "../../utils/message"
+const Web3 = require("web3")
 
 describe("LibBridgeRetry", function () {
     async function deployLibBridgeRetryFixture() {
@@ -27,6 +28,8 @@ describe("LibBridgeRetry", function () {
             .deploy()
         await libRetry.init(addressManager.address)
 
+        await libRetry.deployed()
+
         const libData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
@@ -35,10 +38,28 @@ describe("LibBridgeRetry", function () {
     }
 
     async function getSlot(signal: any) {
+        const mappingSlot =
+            "0000000000000000000000000000000000000000000000000000000000000002"
         return ethers.utils.solidityKeccak256(
-            ["bytes32", "uint256"],
-            [signal, 1]
+            ["bytes", "uint256"],
+            [signal, mappingSlot]
         )
+    }
+
+    async function getSlot2(signal: any) {
+        const web3 = new Web3("http://localhost:8545")
+        const mappingSlot =
+            "0000000000000000000000000000000000000000000000000000000000000002"
+        const balanceSlot = web3.utils.soliditySha3({
+            t: "bytes",
+            v: signal + mappingSlot,
+        })
+        return balanceSlot
+    }
+
+    async function decode(type: string, data: any) {
+        const web3 = new Web3("http://localhost:8545")
+        return await web3.eth.abi.decodeParameter(type, data)
     }
 
     describe("retryMessage()", async function () {
@@ -67,12 +88,31 @@ describe("LibBridgeRetry", function () {
                 memo: "",
             }
 
-            const signal = await libData.hashMessage(message)
-            console.log(signal)
             console.log(
-                await ethers.provider.getStorageAt(
-                    libRetry.address,
-                    getSlot(signal)
+                "buf: ",
+                await decode(
+                    "uint256",
+                    await ethers.provider.getStorageAt(libRetry.address, 0)
+                )
+            )
+            const signal = await libData.hashMessage(message)
+            console.log("signal: ", signal)
+            console.log(
+                await decode(
+                    "uint256",
+                    await ethers.provider.getStorageAt(
+                        libRetry.address,
+                        getSlot(signal)
+                    )
+                )
+            )
+            console.log(
+                await decode(
+                    "uint256",
+                    await ethers.provider.getStorageAt(
+                        libRetry.address,
+                        getSlot2(signal)
+                    )
                 )
             )
             // console.log(await web3.eth.getStorageAt(libRetry.address, 0))
