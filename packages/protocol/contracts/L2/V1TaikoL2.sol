@@ -29,8 +29,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     mapping(uint256 => bytes32) private l2Hashes;
     mapping(uint256 => bytes32) private l1Hashes;
     bytes32 public publicInputHash;
+    bytes32 public latestSyncedHeader;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *
@@ -75,6 +76,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         _checkPublicInputs();
 
         l1Hashes[l1Height] = l1Hash;
+        latestSyncedHeader = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
@@ -111,6 +113,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         returns (bytes32)
     {
         return l1Hashes[number];
+    }
+
+    function getLatestSyncedHeader() public view override returns (bytes32) {
+        return latestSyncedHeader;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {

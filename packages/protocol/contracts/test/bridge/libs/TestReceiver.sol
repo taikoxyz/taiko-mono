@@ -8,18 +8,21 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-/**
- * @author dantaik <dan@taiko.xyz>
- * @notice Interface to set and get an address for a name.
- */
-interface IHeaderSync {
-    event HeaderSynced(
-        uint256 indexed height,
-        uint256 indexed srcHeight,
-        bytes32 srcHash
-    );
+import "hardhat/console.sol";
 
-    function getSyncedHeader(uint256 number) external view returns (bytes32);
+contract TestReceiver {
+    event Received(address from, uint256 amount);
+    event Fallback(address from, uint256 amount);
 
-    function getLatestSyncedHeader() external view returns (bytes32);
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    fallback() external payable {
+        emit Fallback(msg.sender, msg.value);
+    }
+
+    function receiveTokens(uint256 amt) external payable {
+        emit Received(msg.sender, amt);
+    }
 }

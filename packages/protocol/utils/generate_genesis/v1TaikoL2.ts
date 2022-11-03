@@ -14,7 +14,7 @@ export async function deployV1TaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts, ethDepositor } = config
+    const { contractOwner, chainId, seedAccounts } = config
 
     const alloc: any = {}
 
@@ -39,8 +39,7 @@ export async function deployV1TaikoL2(
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
-        chainId,
-        ethDepositor
+        chainId
     )
 
     const storageLayouts: any = {}
@@ -89,8 +88,7 @@ export async function deployV1TaikoL2(
 // and initialized variables.
 async function generateContractConfigs(
     contractOwner: string,
-    chainId: number,
-    ethDepositor: string
+    chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
         // Libraries

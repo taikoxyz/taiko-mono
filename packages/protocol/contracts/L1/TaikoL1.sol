@@ -156,6 +156,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.getL2BlockHash(number);
     }
 
+    function getLatestSyncedHeader() public view override returns (bytes32) {
+        return state.getL2BlockHash(state.latestFinalizedHeight);
+    }
+
     function getStateVariables()
         public
         view

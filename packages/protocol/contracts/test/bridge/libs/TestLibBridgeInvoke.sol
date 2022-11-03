@@ -8,18 +8,24 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-/**
- * @author dantaik <dan@taiko.xyz>
- * @notice Interface to set and get an address for a name.
- */
-interface IHeaderSync {
-    event HeaderSynced(
-        uint256 indexed height,
-        uint256 indexed srcHeight,
-        bytes32 srcHash
-    );
+import "../../../bridge/libs/LibBridgeInvoke.sol";
 
-    function getSyncedHeader(uint256 number) external view returns (bytes32);
+contract TestLibBridgeInvoke {
+    LibBridgeData.State public state;
 
-    function getLatestSyncedHeader() external view returns (bytes32);
+    event MessageInvoked(bytes32 signal, bool success);
+
+    function invokeMessageCall(
+        IBridge.Message memory message,
+        bytes32 signal,
+        uint256 gasLimit
+    ) public payable {
+        bool success = LibBridgeInvoke.invokeMessageCall(
+            state,
+            message,
+            signal,
+            gasLimit
+        );
+        emit MessageInvoked(signal, success);
+    }
 }
