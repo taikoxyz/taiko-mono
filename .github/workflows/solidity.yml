@@ -57,7 +57,7 @@ jobs:
 
       - name: protocol - Export Docs
         working-directory: ./packages/protocol
-        run: yarn export:docs
+        run: pnpm export:docs
 
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
