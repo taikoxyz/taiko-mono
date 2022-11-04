@@ -22,18 +22,38 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "16.15"
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          version: 7
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: yarn && yarn clean && yarn test && yarn test:integration && yarn export:abi
+        run: pnpm install && pnpm clean && pnpm test && pnpm test:integration && pnpm export:abi
 
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
-        run: yarn test:genesis
+        run: pnpm test:genesis
 
       - name: protocol - Export ABIs
         working-directory: ./packages/protocol
-        run: yarn export:abi
+        run: pnpm export:abi
 
       - name: protocol - Export Docs
         working-directory: ./packages/protocol
@@ -45,4 +65,4 @@ jobs:
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
-        run: yarn deploy:hardhat
+        run: pnpm deploy:hardhat
