@@ -1,0 +1,12 @@
+{
+  "semi": false,
+  "overrides": [
+    {
+      "files": ["*.sol", "*.ts"],
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ],
+  "plugins": ["prettier-plugin-solidity"]
+}

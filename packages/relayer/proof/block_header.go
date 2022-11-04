@@ -2,6 +2,7 @@ package proof
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -22,9 +23,9 @@ func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (BlockH
 	log.Infof(`blockheader: parentHash: %v, 
 	ommersHash: %v, beneficiary: %v, transactionsRoot: %v, 
 	receiptsRoot: %v, difficulty: %v, height: %v, gasLimit: %v, gasUsed: %v, timestamp :%v,
-	extraData: %v, mixHash: %v, nonce: %v, stateRoot: %v`, hexutil.Encode(h.ParentHash().Bytes()[:]), hexutil.Encode(h.UncleHash().Bytes()[:]),
+	extraData: %v, mixHash: %v, nonce: %v, stateRoot: %v, baseFee: %v`, hexutil.Encode(h.ParentHash().Bytes()[:]), hexutil.Encode(h.UncleHash().Bytes()[:]),
 		h.Coinbase().String(), hexutil.Encode(h.TxHash().Bytes()[:]), hexutil.Encode(h.ReceiptHash().Bytes()[:]), h.Difficulty().Int64(), h.NumberU64(), h.GasLimit(), h.GasUsed(),
-		h.Time(), hexutil.Encode(h.Extra()), hexutil.Encode(h.MixDigest().Bytes()[:]), h.Nonce(), hexutil.Encode(h.Root().Bytes()[:]))
+		h.Time(), hexutil.Encode(h.Extra()), hexutil.Encode(h.MixDigest().Bytes()[:]), h.Nonce(), hexutil.Encode(h.Root().Bytes()[:]), h.BaseFee().Int64())
 
 	m, _ := h.Bloom().MarshalText()
 	log.Infof("logsBloom: %v", string(m))
@@ -38,6 +39,10 @@ func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, e
 		return BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
 	}
 
+	baseFee := block.BaseFee()
+	if baseFee == nil {
+		baseFee = new(big.Int).SetInt64(0)
+	}
 	h := BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),
@@ -54,6 +59,7 @@ func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, e
 		Nonce:            block.Nonce(),
 		StateRoot:        block.Root(),
 		LogsBloom:        logsBloom,
+		BaseFeePerGas:    baseFee,
 	}
 
 	return h, nil

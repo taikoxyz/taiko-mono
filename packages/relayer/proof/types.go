@@ -95,6 +95,7 @@ type BlockHeader struct {
 	ExtraData        []byte         `abi:"extraData"`
 	MixHash          [32]byte       `abi:"mixHash"`
 	Nonce            uint64         `abi:"nonce"`
+	BaseFeePerGas    *big.Int       `abi:"baseFeePerGas"`
 }
 
 type SignalProof struct {
@@ -166,6 +167,10 @@ var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 			{
 				Name: "nonce",
 				Type: "uint64",
+			},
+			{
+				Name: "baseFeePerGas",
+				Type: "uint256",
 			},
 		},
 	},

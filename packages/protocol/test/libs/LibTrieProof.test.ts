@@ -145,7 +145,7 @@ describe("LibTrieProof", function () {
                     RLP.encode(proof.storageProof[0].proof),
                 ]
             )
-
+            // proof verifies the storageValue at key is 1
             await testLibTreProof.verify(
                 stateRoot,
                 bridge.address,

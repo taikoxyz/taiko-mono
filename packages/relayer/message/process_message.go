@@ -3,7 +3,6 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
@@ -29,12 +28,10 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	latestSyncedHeader, err := p.destHeaderSyncer.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetInt64(134))
+	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
-
-	log.Infof("latestSyncedHeader: %v", hexutil.Encode(latestSyncedHeader[:]))
 
 	// if header hasnt been synced, we are unable to process this message
 	if common.BytesToHash(latestSyncedHeader[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
@@ -69,7 +66,9 @@ func (p *Processor) ProcessMessage(
 	spew.Dump("message")
 	spew.Dump(event.Message)
 	log.Infof("message data: %v", hexutil.Encode(event.Message.Data))
-	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
+		Pending: true,
+	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
 	}
@@ -97,14 +96,14 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
+	log.Infof("updating message status to %s", relayer.EventStatus(messageStatus).String())
+
 	r, err := getFailingMessage(*p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "GetFailingMessage")
 	}
 
 	log.Infof("reason: %s", r)
-
-	log.Infof("updating message status to %s", relayer.EventStatus(messageStatus).String())
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {

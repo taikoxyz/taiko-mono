@@ -61,6 +61,4 @@ PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat node --port 28545 &
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "^integration"
-
-trap "kill -9 $(lsof -ti:28545)"
+pnpm hardhat test --network l1_test --grep "^integration"
