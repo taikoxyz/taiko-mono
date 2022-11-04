@@ -2,6 +2,9 @@
  * CSS files with the .module.css suffix will be treated as CSS modules
  * and scoped locally.
  */
+:root {
+  --ifm-font-family-base: "Oxanium";
+}
 
 .heroBanner {
   padding: 4rem 0;
