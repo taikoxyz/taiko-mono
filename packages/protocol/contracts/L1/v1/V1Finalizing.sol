@@ -27,13 +27,13 @@ library V1Finalizing {
     function init(
         LibData.State storage s,
         bytes32 _genesisBlockHash,
-        uint256 _incentive
+        uint256 _baseFee
     ) public {
-        require(_incentive > 0, "L1:incentive");
+        require(_baseFee > 0, "L1:baseFee");
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
 
-        s.incentive = _incentive;
+        s.baseFee = _baseFee;
         s.nextBlockId = 1;
         s.lastProposedAt = uint64(block.timestamp);
 
@@ -74,7 +74,7 @@ library V1Finalizing {
                     LibData.getProposedBlock(s, i).gasLimit
                 );
 
-                s.incentive = V1Utils.movingAverage(s.incentive, reward, 1024);
+                s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(
@@ -117,12 +117,10 @@ library V1Finalizing {
         uint256 scale = V1Utils.feeScale(
             uint64(block.timestamp),
             provenAt,
-            proposedAt,
-            LibConstants.TAIKO_GRACE_PERIOD_REWARD,
-            LibConstants.TAIKO_MAX_PERIOD_REWARD
+            proposedAt
         );
 
-        reward = (s.incentive * scale) / 10000;
+        reward = (s.baseFee * scale) / 10000;
 
         premiumReward =
             (V1Utils.applyOversellPremium(s, reward, true) *
