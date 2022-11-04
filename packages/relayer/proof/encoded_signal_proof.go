@@ -66,7 +66,7 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	encodedStorageProof, err := encoding.EncodeStroageProof(rlpEncodedAccountProof, rlpEncodedStorageProof)
+	encodedStorageProof, err := encoding.EncodeStorageProof(rlpEncodedAccountProof, rlpEncodedStorageProof)
 	if err != nil {
 		return nil, errors.Wrap(err, "encoding.EncodeStorageProof")
 	}

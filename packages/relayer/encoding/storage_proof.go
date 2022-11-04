@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func EncodeStroageProof(accountProof []byte, storageProof []byte) ([]byte, error) {
+func EncodeStorageProof(accountProof []byte, storageProof []byte) ([]byte, error) {
 	args := abi.Arguments{
 		{
 			Type: bytesT,
