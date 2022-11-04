@@ -18,10 +18,16 @@ mapping(uint256 => bytes32) l1Hashes
 bytes32 publicInputHash
 ```
 
+### latestSyncedHeader
+
+```solidity
+bytes32 latestSyncedHeader
+```
+
 ### \_\_gap
 
 ```solidity
-uint256[47] __gap
+uint256[46] __gap
 ```
 
 ### BlockInvalidated
@@ -76,6 +82,12 @@ Invalidate a L2 block by verifying its txList is not intrinsically valid.
 function getSyncedHeader(uint256 number) public view returns (bytes32)
 ```
 
+### getLatestSyncedHeader
+
+```solidity
+function getLatestSyncedHeader() public view returns (bytes32)
+```
+
 ### getBlockHash
 
 ```solidity
@@ -85,7 +97,7 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 ### getConstants
 
 ```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
+function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
 ```
 
 ### \_checkPublicInputs
