@@ -1,13 +1,14 @@
 {
-    "extends": "solhint:recommended",
-    "rules": {
-        "avoid-low-level-calls": "off",
-        "no-inline-assembly": "off",
-        "not-rely-on-time": "off",
-        "no-empty-blocks": "off",
-        "ordering": "warn",
-        "payable-fallback": "off",
-        "compiler-version": ["error", "^0.8.0"],
-        "func-visibility": ["warn", { "ignoreConstructors": true }]
-    }
+  "extends": "solhint:recommended",
+  "rules": {
+    "avoid-low-level-calls": "off",
+    "compiler-version": ["error", "^0.8.0"],
+    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "max-line-length": ["warn", 80],
+    "no-empty-blocks": "off",
+    "no-inline-assembly": "off",
+    "not-rely-on-time": "off",
+    "ordering": "warn",
+    "payable-fallback": "off"
+  }
 }
