@@ -6,38 +6,88 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #e28bfd;
-  --ifm-color-primary-dark: #cb7de4;
-  --ifm-color-primary-darker: #b56fca;
-  --ifm-color-primary-darkest: #9e61b1;
-  --ifm-color-primary-light: #e597fd;
-  --ifm-color-primary-lighter: #e8a2fd;
-  --ifm-color-primary-lightest: #ebaefe;
+  --ifm-color-primary: #e30ead;
+  --ifm-color-primary-dark: #ca0c9a;
+  --ifm-color-primary-darker: #b00b86;
+  --ifm-color-primary-darkest: #970973;
+  --ifm-color-primary-light: #fc0fc0;
+  --ifm-color-primary-lighter: #fc27c6;
+  --ifm-color-primary-lightest: #fd3fcd;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
-  --ifm-color-primary: #e8a2fd;
-  --ifm-color-primary-dark: #e597fd;
-  --ifm-color-primary-darker: #e28bfd;
-  --ifm-color-primary-darkest: #cb7de4;
-  --ifm-color-primary-light: #ebaefe;
-  --ifm-color-primary-lighter: #eeb9fe;
-  --ifm-color-primary-lightest: #f1c5fe;
+  --ifm-color-primary: #fc0fc0;
+  --ifm-color-primary-dark: #e30ead;
+  --ifm-color-primary-darker: #ca0c9a;
+  --ifm-color-primary-darkest: #b00b86;
+  --ifm-color-primary-light: #fc27c6;
+  --ifm-color-primary-lighter: #fd3fcd;
+  --ifm-color-primary-lightest: #fd57d3;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+.footer {
+  background-color: #242526;
 }
 
 .navbar__logo {
   margin-right: 0;
+  opacity: 0.6;
 }
 
-html[data-theme="dark"] footer {
-  background-color: #242526;
+/* Social icons */
+
+.header-discord-link:hover {
+  opacity: 0.6;
 }
 
-html[data-theme="light"] footer {
-  background-color: #ffffff;
-  color: #000000;
+.header-discord-link::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("@site/static/img/social-icons/discord-black.svg") no-repeat;
+  background-size: contain;
+  background-position: center;
+}
+
+[data-theme="dark"] .header-discord-link::before {
+  background: url("@site/static/img/social-icons/discord-white.svg") no-repeat;
+  background-size: contain;
+  background-position: center;
+}
+
+.header-github-link:hover {
+  opacity: 0.6;
+}
+
+.header-github-link::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("@site/static/img/social-icons/github-black.svg") no-repeat;
+}
+
+[data-theme="dark"] .header-github-link::before {
+  background: url("@site/static/img/social-icons/github-white.svg") no-repeat;
+}
+
+.header-twitter-link:hover {
+  opacity: 0.6;
+}
+
+.header-twitter-link::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("@site/static/img/social-icons/twitter-black.svg") no-repeat;
+}
+
+[data-theme="dark"] .header-twitter-link::before {
+  background: url("@site/static/img/social-icons/twitter-white.svg") no-repeat;
 }
