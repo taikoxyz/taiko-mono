@@ -50,6 +50,7 @@ library V1Utils {
         if (tAvg == 0) {
             return 10000;
         }
+
         uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE_PERIOD * tAvg) / 100;
         uint256 tMax = (LibConstants.TAIKO_FEE_MAX_PERIOD * tAvg) / 100;
         uint256 a = tLast + tGrace;
@@ -57,7 +58,7 @@ library V1Utils {
         uint256 tRel = (b.min(tMax) * 10000) / tMax;
         return
             10000 +
-            ((LibConstants.TAIKO_FEE_MAX_MULTIPLIER - 100) * tRel) /
+            ((LibConstants.TAIKO_FEE_MAX_PERIOD_MULTIPLIER - 100) * tRel) /
             100;
     }
 }
