@@ -13,3 +13,9 @@ event HeaderSynced(uint256 height, uint256 srcHeight, bytes32 srcHash)
 ```solidity
 function getSyncedHeader(uint256 number) external view returns (bytes32)
 ```
+
+### getLatestSyncedHeader
+
+```solidity
+function getLatestSyncedHeader() external view returns (bytes32)
+```

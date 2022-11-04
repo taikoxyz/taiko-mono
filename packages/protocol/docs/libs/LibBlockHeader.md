@@ -17,6 +17,7 @@ struct BlockHeader {
   bytes extraData;
   bytes32 mixHash;
   uint64 nonce;
+  uint256 baseFeePerGas;
 }
 
 ```

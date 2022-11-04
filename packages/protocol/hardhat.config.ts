@@ -8,7 +8,7 @@ import "hardhat-gas-reporter"
 import "hardhat-preprocessor"
 import "solidity-coverage"
 import "solidity-docgen"
-import { HardhatUserConfig, task } from "hardhat/config"
+import { HardhatUserConfig } from "hardhat/config"
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
