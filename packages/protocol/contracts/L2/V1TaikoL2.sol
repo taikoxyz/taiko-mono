@@ -203,9 +203,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     function _hashPublicInputs(
         uint256 chainId,
         uint256 number,
-        uint256 baseFee,
+        uint256 feeBase,
         bytes32[255] memory ancestors
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
+        return keccak256(abi.encodePacked(chainId, number, feeBase, ancestors));
     }
 }
