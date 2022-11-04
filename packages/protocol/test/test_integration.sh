@@ -59,4 +59,4 @@ trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_
 
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "^integration"
+  pnpm hardhat test --network l1_test --grep "^integration"
