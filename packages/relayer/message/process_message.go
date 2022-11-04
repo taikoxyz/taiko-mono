@@ -5,11 +5,9 @@ import (
 	"encoding/hex"
 	"math/big"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
@@ -73,16 +71,12 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
-	spew.Dump("message")
-	spew.Dump(event.Message)
-	log.Infof("message data: %v", hexutil.Encode(event.Message.Data))
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
 		Context: ctx,
 	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
 	}
-	spew.Dump("received", received)
 
 	// message will fail when we try to process is, theres an issue somewhere
 	if !received {
@@ -149,6 +143,5 @@ func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error
 		return "", err
 	}
 
-	log.Infof("reason: %v", string(res))
 	return string(res), nil
 }
