@@ -3,31 +3,27 @@
   "version": "1.0.0",
   "description": "Taiko L2 Protocol",
   "scripts": {
-    "compile": "npx hardhat preprocess && npx hardhat compile",
-    "export:abi": "npx hardhat clear-abi && npx hardhat export-abi",
-    "export:docs": "npx hardhat docgen && rm -rf ./docs/elin ./docs/test ./docs/thirdparty ./docs/console.md && npx prettier --write ./docs/**/*.md",
-    "clean": "rm -rf abis cache && npx hardhat clean",
-    "lint:sol": "npx prettier '**/*.sol' --write && npx solhint 'contracts/**/*.sol' --fix",
-    "eslint": "npx eslint --ignore-path .eslintignore --ext .js,.ts .",
-    "eslint:fix": "npx eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
-    "test": "npx hardhat test --grep '^[^integration]'",
-    "coverage": "npx hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
+    "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
+    "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
+    "export:docs": "pnpm hardhat docgen && rm -rf ./docs/elin ./docs/test ./docs/thirdparty ./docs/console.md && pnpm prettier --write ./docs/**/*.md",
+    "clean": "rm -rf abis cache && pnpm hardhat clean",
+    "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
+    "eslint": "pnpm eslint --ignore-path .eslintignore --ext .js,.ts .",
+    "eslint:fix": "pnpm eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
+    "test": "pnpm hardhat test --grep '^[^integration]'",
+    "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "npm run test && npm run coverage",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "test:integration": "./test/test_integration.sh",
-    "deploy:hardhat": "LOG_LEVEL=debug npx hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --confirmations 1"
+    "deploy:hardhat": "LOG_LEVEL=debug pnpm hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --confirmations 1",
+    "lint-staged": "lint-staged"
   },
   "lint-staged": {
-    "*.sol": "yarn lint:sol",
-    "*.md": "npx prettier '**/*.md' --write",
-    "*.json": "npx prettier '**/*.json' --write",
-    "*.ts": "yarn eslint:fix"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "*.sol": "pnpm lint:sol",
+    "*.md": "pnpm prettier '**/*.md' --write",
+    "*.json": "pnpm prettier '**/*.json' --write",
+    "*.ts": "pnpm eslint:fix"
   },
   "keywords": [
     "Ethereum",
@@ -67,7 +63,6 @@
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.7",
     "hardhat-preprocessor": "^0.1.5",
-    "husky": "^4.3.8",
     "lint-staged": "^12.3.4",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.5.1",

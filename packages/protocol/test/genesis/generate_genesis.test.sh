@@ -50,10 +50,10 @@ echo '
 echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
-yarn clean && yarn compile
+pnpm clean && pnpm compile
 
 # run the task
-yarn run generate:genesis $DIR/test_config.json
+pnpm run generate:genesis $DIR/test_config.json
 
 # generate complete genesis json
 cat $DIR/../../deployments/genesis_alloc.json >> $GENESIS_JSON
@@ -70,6 +70,6 @@ docker compose -f $TESTNET_CONFIG up -d
 echo ""
 echo "Start testing..."
 
-TEST_L2_GENESIS=true npx hardhat test --grep "Generate Genesis"
+TEST_L2_GENESIS=true pnpm hardhat test --grep "Generate Genesis"
 
 docker compose -f $TESTNET_CONFIG down

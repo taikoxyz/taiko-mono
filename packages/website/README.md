@@ -3,7 +3,7 @@
 ## Installation
 
 ```sh
-yarn
+pnpm install
 ```
 
 ## Local development
@@ -11,7 +11,7 @@ yarn
 Start a local development server:
 
 ```sh
-yarn start
+pnpm start
 ```
 
 ## Contributing
