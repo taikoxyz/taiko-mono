@@ -95,6 +95,13 @@ describe("LibBridgeRetry", function () {
                     await ethers.provider.getStorageAt(libRetry.address, 0)
                 )
             )
+            console.log(
+                "buf: ",
+                await decode(
+                    "uint256",
+                    await ethers.provider.getStorageAt(libRetry.address, 1)
+                )
+            )
             const signal = await libData.hashMessage(message)
             console.log("signal: ", signal)
             console.log(
