@@ -56,9 +56,6 @@ library V1Utils {
         uint256 a = tLast + tGrace;
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax;
-        return
-            10000 +
-            ((LibConstants.TAIKO_FEE_MAX_PERIOD_MULTIPLIER - 100) * tRel) /
-            100;
+        return 10000 + ((LibConstants.TAIKO_FEE_MULTIPLIER - 100) * tRel) / 100;
     }
 }
