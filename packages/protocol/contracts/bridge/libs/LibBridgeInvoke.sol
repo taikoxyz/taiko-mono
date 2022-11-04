@@ -10,7 +10,9 @@ pragma solidity ^0.8.9;
 
 import "./LibBridgeData.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibBridgeInvoke {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;

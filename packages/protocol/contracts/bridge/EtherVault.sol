@@ -8,14 +8,15 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../common/EssentialContract.sol";
+import "../libs/LibAddress.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../libs/LibAddress.sol";
-
-/// @dev This vault holds Ether.
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * Vault that holds Ether.
+ * @author dantaik <dan@taiko.xyz>
+ */
 contract EtherVault is EssentialContract {
     using LibAddress for address;
 
@@ -61,10 +62,19 @@ contract EtherVault is EssentialContract {
      * Public Functions  *
      *********************/
 
+    /**
+     * Send Ether from EtherVault to the sender, checking they are authorized.
+     * @param amount Amount of ether to send.
+     */
     function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
     }
 
+    /**
+     * Set the authorized status of an address, only the owner can call this.
+     * @param addr Address to set the authorized status of.
+     * @param authorized Authorized status to set.
+     */
     function authorize(address addr, bool authorized) public onlyOwner {
         require(
             addr != address(0) && authorizedAddrs[addr] != authorized,
@@ -74,6 +84,10 @@ contract EtherVault is EssentialContract {
         emit Authorized(addr, authorized);
     }
 
+    /**
+     * Get the authorized status of an address.
+     * @param addr Address to get the authorized status of.
+     */
     function isAuthorized(address addr) public view returns (bool) {
         return authorizedAddrs[addr];
     }

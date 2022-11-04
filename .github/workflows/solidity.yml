@@ -35,6 +35,14 @@ jobs:
         working-directory: ./packages/protocol
         run: yarn export:abi
 
+      - name: protocol - Export Docs
+        working-directory: ./packages/protocol
+        run: yarn export:docs
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update auto-generated docs
+
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: yarn deploy:hardhat

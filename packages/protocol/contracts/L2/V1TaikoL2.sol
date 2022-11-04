@@ -29,8 +29,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     mapping(uint256 => bytes32) private l2Hashes;
     mapping(uint256 => bytes32) private l1Hashes;
     bytes32 public publicInputHash;
+    bytes32 public latestSyncedHeader;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events             *
@@ -63,26 +64,31 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * External Functions *
      **********************/
 
-    /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
-    ///         bridging. This function will also check certain block-level global
-    ///         variables because they are not part of the Trie structure.
-    ///
-    ///         Note that this transaction shall be the first transaction in every L2 block.
-    ///
-    /// @param l1Height The latest L1 block height when this block was proposed.
-    /// @param l1Hash The latest L1 block hash when this block was proposed.
+    /**
+     * Persist the latest L1 block height and hash to L2 for cross-layer
+     * bridging. This function will also check certain block-level global
+     * variables because they are not part of the Trie structure.
+     * Note: this transaction shall be the first transaction in everyL2 block.
+     *
+     * @param l1Height The latest L1 block height when this block was proposed.
+     * @param l1Hash The latest L1 block hash when this block was proposed.
+     */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
         _checkPublicInputs();
 
         l1Hashes[l1Height] = l1Hash;
+        latestSyncedHeader = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
-    /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
-    /// @param txList The L2 block's txList.
-    /// @param hint A hint for this method to invalidate the txList.
-    /// @param txIdx If the hint is for a specific transaction in txList, txIdx specifies
-    ///        which transaction to check.
+    /**
+     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
+     *
+     * @param txList The L2 block's txlist.
+     * @param hint A hint for this method to invalidate the txList.
+     * @param txIdx If the hint is for a specific transaction in txList,
+     *        txIdx specifies which transaction to check.
+     */
     function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
@@ -111,6 +117,10 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         returns (bytes32)
     {
         return l1Hashes[number];
+    }
+
+    function getLatestSyncedHeader() public view override returns (bytes32) {
+        return latestSyncedHeader;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {

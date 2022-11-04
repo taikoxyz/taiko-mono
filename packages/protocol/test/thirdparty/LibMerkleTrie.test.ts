@@ -28,7 +28,12 @@ describe("LibMerkleTrie", function () {
         )
         await defaultMerkleTrie.init()
 
-        return { owner, libMerkleTrie, defaultMerkleTrie, LibMerkleTrieFactory }
+        return {
+            owner,
+            libMerkleTrie,
+            defaultMerkleTrie,
+            LibMerkleTrieFactory,
+        }
     }
 
     describe("verifyInclusionProof()", () => {
