@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/taikochain/taiko-mono/packages/relayer/encoding"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -27,20 +27,14 @@ func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAd
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
 
-	signalProof := SignalProof{
+	signalProof := encoding.SignalProof{
 		Header: blockHeader,
 		Proof:  encodedStorageProof,
 	}
 
-	args := abi.Arguments{
-		{
-			Type: signalProofT,
-		},
-	}
-
-	encodedSignalProof, err := args.Pack(signalProof)
+	encodedSignalProof, err := encoding.EncodeSignalProof(signalProof)
 	if err != nil {
-		return nil, errors.Wrap(err, "args.Pack")
+		return nil, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
 
 	log.Infof("signalProof: %s", hexutil.Encode(encodedSignalProof))
@@ -72,20 +66,9 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	//log.Infof("rlpEncodedStorageProof: %s", hexutil.Encode(rlpEncodedStorageProof))
-
-	args := abi.Arguments{
-		{
-			Type: bytesT,
-		},
-		{
-			Type: bytesT,
-		},
-	}
-
-	encodedStorageProof, err := args.Pack(rlpEncodedAccountProof, rlpEncodedStorageProof)
+	encodedStorageProof, err := encoding.EncodeStroageProof(rlpEncodedAccountProof, rlpEncodedStorageProof)
 	if err != nil {
-		return nil, errors.Wrap(err, "args.Pack")
+		return nil, errors.Wrap(err, "encoding.EncodeStorageProof")
 	}
 
 	log.Infof("encodedStorageProof: %s", hexutil.Encode(encodedStorageProof))

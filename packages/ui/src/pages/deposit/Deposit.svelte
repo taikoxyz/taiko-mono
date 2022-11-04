@@ -58,7 +58,7 @@
         amount: ethers.utils.parseUnits(amount, 18).toString(),
         tokenAddress: "",
         tokenId: "",
-        destChainId: 167,
+        destChainId: 167001,
         bridgeAddress: import.meta.env.VITE_L1_BRIDGE_ADDRESS,
       });
 

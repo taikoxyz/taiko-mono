@@ -1,3 +1,5 @@
+import { BigNumber } from "ethers"
+
 type StorageEntry = {
     key: string
     value: string
@@ -53,6 +55,7 @@ type BlockHeader = {
     extraData: string
     mixHash: string
     nonce: number
+    baseFeePerGas: BigNumber
 }
 
 export { Block, BlockHeader, StorageEntry, EthGetProofResponse }

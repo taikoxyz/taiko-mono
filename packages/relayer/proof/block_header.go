@@ -2,21 +2,20 @@ package proof
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/taikochain/taiko-mono/packages/relayer/encoding"
 )
 
-// blockHeader converts an ethereum block to the BlockHeader type that LibBridgeData
+// blockHeader fetches block via rpc, then converts an ethereum block to the BlockHeader type that LibBridgeData
 // uses in our contracts
-func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (BlockHeader, error) {
+func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (encoding.BlockHeader, error) {
 	h, err := p.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
-		return BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
+		return encoding.BlockHeader{}, errors.Wrap(err, "p.ethClient.GetBlockByNumber")
 	}
 
 	log.Infof("block Hash: %v", hexutil.Encode(h.Hash().Bytes()))
@@ -30,37 +29,5 @@ func (p *Prover) blockHeader(ctx context.Context, blockHash common.Hash) (BlockH
 	m, _ := h.Bloom().MarshalText()
 	log.Infof("logsBloom: %v", string(m))
 
-	return blockToBlockHeader(ctx, h)
-}
-
-func blockToBlockHeader(ctx context.Context, block *types.Block) (BlockHeader, error) {
-	logsBloom, err := logsBloomToBytes(block.Bloom())
-	if err != nil {
-		return BlockHeader{}, errors.Wrap(err, "proof.LogsBloomToBytes")
-	}
-
-	baseFee := block.BaseFee()
-	if baseFee == nil {
-		baseFee = new(big.Int).SetInt64(0)
-	}
-	h := BlockHeader{
-		ParentHash:       block.ParentHash(),
-		OmmersHash:       block.UncleHash(),
-		Beneficiary:      block.Coinbase(),
-		TransactionsRoot: block.TxHash(),
-		ReceiptsRoot:     block.ReceiptHash(),
-		Difficulty:       block.Difficulty(),
-		Height:           block.Number(),
-		GasLimit:         block.GasLimit(),
-		GasUsed:          block.GasUsed(),
-		Timestamp:        block.Time(),
-		ExtraData:        block.Extra(),
-		MixHash:          block.MixDigest(),
-		Nonce:            block.Nonce(),
-		StateRoot:        block.Root(),
-		LogsBloom:        logsBloom,
-		BaseFeePerGas:    baseFee,
-	}
-
-	return h, nil
+	return encoding.BlockToBlockHeader(h), nil
 }

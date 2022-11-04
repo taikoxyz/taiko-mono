@@ -33,13 +33,13 @@ class ETHBridge implements Bridge {
       srcChainId: await opts.signer.getChainId(),
       destChainId: opts.destChainId,
       owner: owner,
-      to: owner,
+      to: ethers.constants.AddressZero,
       refundAddress: owner,
       depositValue: opts.amount,
-      callValue: 1,
-      processingFee: 1,
-      gasLimit: 100000000,
-      data: ethers.constants.HashZero,
+      callValue: 0,
+      processingFee: 10,
+      gasLimit: 10000,
+      data: "0x",
       memo: "sent by bad UI bridge!",
     };
 

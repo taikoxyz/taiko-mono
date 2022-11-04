@@ -27,7 +27,7 @@ contract TestLibSecureMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) public view returns (bool, bytes memory) {
+    ) public pure returns (bool, bytes memory) {
         return LibSecureMerkleTrie.get(_key, _proof, _root);
     }
 }

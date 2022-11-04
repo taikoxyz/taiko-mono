@@ -35,6 +35,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
 	}
+	latestProcessedBlock.Height = 6150
 	log.Infof("latest processed block: %v", latestProcessedBlock.Height)
 
 	if err != nil {

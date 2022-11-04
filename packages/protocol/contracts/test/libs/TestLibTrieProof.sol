@@ -64,52 +64,14 @@ contract TestLibTrieProof {
     }
 
     function verify2(
-        bytes32 stateRoot,
-        address addr,
-        bytes32 key,
-        bytes32 value,
-        bytes calldata mkproof
+        Message calldata message
     ) public view {
-        console.log("verifyStart");
-        SignalProof memory mkp = abi.decode(mkproof, (SignalProof));
-        console.log("hello");
-        console.logBytes32(mkp.header.parentHash);
-        console.logBytes32(mkp.header.ommersHash);
-        console.logAddress(mkp.header.beneficiary);
-        console.logBytes32(mkp.header.transactionsRoot);
-        console.logBytes32(mkp.header.receiptsRoot);
-        console.log(mkp.header.difficulty);
-
-        console.log(mkp.header.height);
-        console.log(mkp.header.gasLimit);
-        console.log(mkp.header.gasUsed);
-        console.log(mkp.header.timestamp);
-        console.logBytes(mkp.header.extraData);
-        console.logBytes32(mkp.header.mixHash);
-        console.log(mkp.header.nonce);
-
-        console.logBytes32(mkp.header.stateRoot);
-        console.log("logsbloom");
-        for (uint256 i = 0; i < 8; i++) {
-            console.logBytes32(mkp.header.logsBloom[i]);
-        }
-        console.log("hashes");
-        LibTrieProof.verify(stateRoot, addr, key, value, mkp.proof);
-
-        // bytes32 signal = hashMessage(message);
-        // console.logBytes32(signal);
-        bytes32 hashed = hashBlockHeader(mkp.header);
-        console.logBytes32(hashed);
-        // require(
-        //     signal ==
-        //         0x7581698b77abb2bb210045218e8a6000a1bdc968e5659746c1de1d3e2f1db1cc,
-        //     "fail signal"
-        // );
-
+        bytes32 signal = hashMessage(message);
+        console.logBytes32(signal);
         require(
-            hashed ==
-                0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e,
-            "fail block"
+            signal ==
+                0x5f9b2ff0ad41fcf4955b9cfcc6543f4fca4361d5fedf5532e673daef063a1272,
+            "fail signal"
         );
     }
 

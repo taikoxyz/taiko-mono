@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
@@ -28,6 +29,14 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
+		return errors.New("only user can process this, gasLimit set to 0")
+	}
+
+	if event.Raw.TxHash != common.HexToHash("0x5eb43610f63b37250cf6f6cdfc01fc57c7990562722348f79da09f12fc2a5d5a") {
+		return nil
+	}
+
 	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
@@ -54,8 +63,9 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// uncomment to skip `eth_estimateGas`
-	// auth.GasLimit = 100000
-	// auth.GasPrice = new(big.Int).SetUint64(500000000)
+	auth.GasLimit = 100000
+	auth.GasPrice = new(big.Int).SetUint64(500000000)
+	auth.Context = ctx
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
@@ -67,7 +77,7 @@ func (p *Processor) ProcessMessage(
 	spew.Dump(event.Message)
 	log.Infof("message data: %v", hexutil.Encode(event.Message.Data))
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
-		Pending: true,
+		Context: ctx,
 	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
@@ -75,9 +85,10 @@ func (p *Processor) ProcessMessage(
 	spew.Dump("received", received)
 
 	// message will fail when we try to process is, theres an issue somewhere
-	// if !received {
-	// 	return errors.New("message not received")
-	// }
+	if !received {
+		return errors.New("message not received")
+	}
+
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
