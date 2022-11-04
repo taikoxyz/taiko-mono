@@ -1,3 +1,0 @@
-# LibMerkleTrie
-
-> LibMerkleTrie

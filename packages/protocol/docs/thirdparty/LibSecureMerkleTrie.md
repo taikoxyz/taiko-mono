@@ -1,3 +1,0 @@
-# LibSecureMerkleTrie
-
-> LibSecureMerkleTrie
