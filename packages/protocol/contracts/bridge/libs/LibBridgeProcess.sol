@@ -9,11 +9,16 @@
 pragma solidity ^0.8.9;
 
 import "../EtherVault.sol";
-import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
+import "./LibBridgeInvoke.sol";
 import "./LibBridgeSignal.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * Process bridge messages on the destination chain.
+ *
+ * @title LibBridgeProcess
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibBridgeProcess {
     using LibMath for uint256;
     using LibAddress for address;
@@ -21,10 +26,17 @@ library LibBridgeProcess {
     using LibBridgeData for LibBridgeData.State;
 
     /**
-     * @dev This function can be called by any address, including `message. owner`.
-     * It "processes" the message, i.e. takes custody of the attached ether,
-     * attempts to invoke the messageCall, changes the message's status accordingly.
-     * Also refunds processing fee if necessary.
+     * Process the bridge message on the destination chain. It can be called by
+     * any address, including `message.owner`. It starts by hashing the message,
+     * and doing a lookup in the bridge state to see if the status is "NEW". It
+     * then takes custody of the ether from the EtherVault and attempts to
+     * invoke the messageCall, changing the message's status accordingly.
+     * Finally, it refunds the processing fee if needed.
+     *
+     * @param state The bridge state.
+     * @param resolver The address resolver.
+     * @param message The message to process.
+     * @param proof The proof of the signal being sent on the source chain.
      */
     function processMessage(
         LibBridgeData.State storage state,

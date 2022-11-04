@@ -15,8 +15,8 @@ import "./AddressResolver.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
- * @dev This abstract contract serves as the base contract for many core components in
- *      this package.
+ * @dev This abstract contract serves as the base contract for many core
+ *      components in this package.
  */
 abstract contract EssentialContract is
     ReentrancyGuardUpgradeable,
