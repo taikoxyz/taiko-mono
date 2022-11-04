@@ -3,11 +3,13 @@ package message
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
@@ -27,10 +29,12 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
+	latestSyncedHeader, err := p.destHeaderSyncer.GetSyncedHeader(&bind.CallOpts{}, new(big.Int).SetInt64(134))
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
+
+	log.Infof("latestSyncedHeader: %v", hexutil.Encode(latestSyncedHeader[:]))
 
 	// if header hasnt been synced, we are unable to process this message
 	if common.BytesToHash(latestSyncedHeader[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
@@ -64,6 +68,7 @@ func (p *Processor) ProcessMessage(
 
 	spew.Dump("message")
 	spew.Dump(event.Message)
+	log.Infof("message data: %v", hexutil.Encode(event.Message.Data))
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
@@ -134,6 +139,6 @@ func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error
 		return "", err
 	}
 
-	log.Infof("reason", res)
+	log.Infof("reason: %v", string(res))
 	return string(res), nil
 }
