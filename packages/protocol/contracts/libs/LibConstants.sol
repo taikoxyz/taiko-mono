@@ -19,7 +19,7 @@ library LibConstants {
         (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
             (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 2);
 
-    uint64 public constant TAIKO_FEE_MAX_PERIOD_MULTIPLIER = 400; // 400%
+    uint64 public constant TAIKO_FEE_MULTIPLIER = 400; // 400%
     uint64 public constant TAIKO_FEE_GRACE_PERIOD = 125; // 125%
     uint64 public constant TAIKO_FEE_MAX_PERIOD = 375; // 375%
 
