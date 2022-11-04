@@ -1,13 +1,13 @@
-name: Solidity
+name: Website
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/protocol/**"
+      - "packages/website/**"
   pull_request:
     paths:
-      - "packages/protocol/**"
+      - "packages/website/**"
 
 jobs:
   build:
@@ -43,26 +43,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: protocol - Unit Tests
-        working-directory: ./packages/protocol
-        run: pnpm install && pnpm clean && pnpm test && pnpm test:integration && pnpm export:abi
+      - name: Install Packages
+        working-directory: ./packages/website
+        run: pnpm install
 
-      - name: protocol - Generate Genesis
-        working-directory: ./packages/protocol
-        run: pnpm test:genesis
-
-      - name: protocol - Export ABIs
-        working-directory: ./packages/protocol
-        run: pnpm export:abi
-
-      - name: protocol - Export Docs
-        working-directory: ./packages/protocol
-        run: pnpm export:docs
-
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: Update auto-generated docs
-
-      - name: protocol - Deploy L1 Contracts
-        working-directory: ./packages/protocol
-        run: pnpm deploy:hardhat
+      - name: Build Website
+        working-directory: ./packages/website
+        run: pnpm build

@@ -7,7 +7,7 @@ This package contains rollup contracts on both L1 and L2, along with other assis
 Deploy TaikoL1 on hardhat network:
 
 ```sh
-yarn deploy:hardhat
+pnpm deploy:hardhat
 ```
 
 ## Test
@@ -15,13 +15,13 @@ yarn deploy:hardhat
 Run test cases on hardhat network:
 
 ```sh
-yarn test
+pnpm test
 ```
 
 Run test cases that require a running go-ethereum node:
 
 ```sh
-yarn test:integration
+pnpm test:integration
 ```
 
 ## Generate L2 genesis JSON's `alloc` field
@@ -50,7 +50,7 @@ Start by creating a `config.json`, for example:
 Next, run the generation script:
 
 ```sh
-yarn compile && yarn generate:genesis config.json
+pnpm compile && pnpm generate:genesis config.json
 ```
 
 The script will output two JSON files under `./deployments`:
