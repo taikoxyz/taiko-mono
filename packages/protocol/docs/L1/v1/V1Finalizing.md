@@ -23,4 +23,3 @@ function init(struct LibData.State s, bytes32 _genesisBlockHash) public
 ```solidity
 function finalizeBlocks(struct LibData.State s, uint256 maxBlocks) public
 ```
-
