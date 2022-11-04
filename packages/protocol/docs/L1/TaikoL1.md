@@ -9,13 +9,13 @@ struct LibData.State state
 ### \_\_gap
 
 ```solidity
-uint256[45] __gap
+uint256[42] __gap
 ```
 
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
 ```
 
 ### commitBlock
@@ -94,6 +94,18 @@ Finalize up to N blocks.
 | --------- | ------- | --------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to finalize. |
 
+### getBlockFee
+
+```solidity
+function getBlockFee(uint64 gasLimit) public view returns (uint256 premiumFee)
+```
+
+### getProofReward
+
+```solidity
+function getProofReward(uint64 provenAt, uint64 proposedAt, uint64 gasLimit) public view returns (uint256 premiumReward)
+```
+
 ### isCommitValid
 
 ```solidity
@@ -116,6 +128,12 @@ function getProposedBlock(uint256 id) public view returns (struct LibData.Propos
 
 ```solidity
 function getSyncedHeader(uint256 number) public view returns (bytes32)
+```
+
+### getLatestSyncedHeader
+
+```solidity
+function getLatestSyncedHeader() public view returns (bytes32)
 ```
 
 ### getStateVariables
