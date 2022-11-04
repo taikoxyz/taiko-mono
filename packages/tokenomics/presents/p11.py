@@ -16,13 +16,13 @@ the proof time willp10: TKO token goes down
     config=Config(
         max_blocks=2048, 
         lamda=2048,
-        base_fee=100.0,
-        base_fee_maf=1024,
-        fee_max_multiplier=4.0,
+        fee_base=100.0,
+        fee_maf=1024,
+        fee_multiplier=4.0,
         # prover_reward_burn_points=0.0,
         # prover_reward_bootstrap=0.0,
         # prover_reward_bootstrap_days=0,
-        block_and_proof_time_maf=1024,
+        time_avg_maf=1024,
         block_time_sd_pctg=0,
         proof_time_sd_pctg=0,
         timing=[
