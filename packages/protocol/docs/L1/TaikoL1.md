@@ -118,6 +118,12 @@ function getProposedBlock(uint256 id) public view returns (struct LibData.Propos
 function getSyncedHeader(uint256 number) public view returns (bytes32)
 ```
 
+### getLatestSyncedHeader
+
+```solidity
+function getLatestSyncedHeader() public view returns (bytes32)
+```
+
 ### getStateVariables
 
 ```solidity
