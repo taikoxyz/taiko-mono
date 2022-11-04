@@ -91,4 +91,52 @@ describe("LibBlockHeader tests", function () {
 
         expect(headerComputed).to.equal(blockHash)
     })
+
+    it.only("can calculate L1 block correctly", async function () {
+        const blockHash =
+            "0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e"
+        // block 0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e on our L1 testnet
+
+        const parentHash =
+            "0xaafe1871246cecd3ff9b0025f731f227bad9f63525f46e83a6f140b5bd6bca00"
+
+        const logsBloom =
+            "00400008000000000000000000000000000000000000000000000010000000000000000000000000000000040000000000000000000000010000000000200100008000000000000000100008002100200000000080200000000400000000000000000000100000000800000000080000000000000000000000000010000104004000000200000000000000000002000000000000000000000000000040000000020000000000000200000000000000000000000000000000418000000000008000000002800000100000000000000000000000400000100000000000000000000010000000004000000000000000000000000000000000000000000000000000"
+                .match(/.{1,64}/g)!
+                .map((s) => "0x" + s)
+
+        console.log(logsBloom)
+
+        const l2BlockHeader: any = {
+            parentHash: parentHash,
+            ommersHash:
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            beneficiary: ethers.constants.AddressZero,
+            stateRoot:
+                "0x68a10652e4fc8882bef0ff34ffad17e881cf5eb373dc216d5764b55880df4372",
+            transactionsRoot:
+                "0x916f8cf89455136b6f8d091dc95ecc601b1956a936636aa38ec164a1dad15072",
+            receiptsRoot:
+                "0x7c82f5a7cc81af5227f325c42cf4cd742ff27da40109962be91903d702625273",
+            logsBloom: logsBloom,
+            difficulty: EBN.from("0x2"),
+            height: EBN.from("0x86"),
+            gasLimit: EBN.from("0xade80c"),
+            gasUsed: EBN.from("0x430a3"),
+            timestamp: EBN.from("0x63637091"),
+            extraData:
+                "0xd883010b00846765746888676f312e31382e37856c696e757800000000000000497f0b2bfaa230713df47bc5340b8e325171c8e9d1aeb9b26c930b1ce5013b9955046e7a8af532b38a7344a152c5ac816e115ff8c8d65306cfe784154a221ed600",
+            mixHash:
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+            nonce: "0x0",
+            baseFeePerGas: EBN.from("0x37"),
+        }
+
+        const headerComputed = await libBlockHeader.hashBlockHeader(
+            l2BlockHeader
+        )
+        log.debug("headerComputed:", headerComputed)
+
+        expect(headerComputed).to.equal(blockHash)
+    })
 })

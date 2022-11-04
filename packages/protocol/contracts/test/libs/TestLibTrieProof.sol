@@ -60,18 +60,7 @@ contract TestLibTrieProof {
         bytes32 value,
         bytes calldata mkproof
     ) public view {
-        (bytes memory accountProof, bytes memory storageProof) = abi.decode(
-            mkproof,
-            (bytes, bytes)
-        );
-        (bool exists, bytes memory rlpAccount) = LibSecureMerkleTrie.get(
-            abi.encodePacked(addr),
-            accountProof,
-            stateRoot
-        );
-
-        require(exists, "LTP:invalid account proof");
-        // LibTrieProof.verify(stateRoot, addr, key, value, mkproof);
+        LibTrieProof.verify(stateRoot, addr, key, value, mkproof);
     }
 
     function verify2(
@@ -79,8 +68,7 @@ contract TestLibTrieProof {
         address addr,
         bytes32 key,
         bytes32 value,
-        bytes calldata mkproof,
-        Message calldata message
+        bytes calldata mkproof
     ) public view {
         console.log("verifyStart");
         SignalProof memory mkp = abi.decode(mkproof, (SignalProof));
@@ -108,19 +96,19 @@ contract TestLibTrieProof {
         console.log("hashes");
         LibTrieProof.verify(stateRoot, addr, key, value, mkp.proof);
 
-        bytes32 signal = hashMessage(message);
-        console.logBytes32(signal);
+        // bytes32 signal = hashMessage(message);
+        // console.logBytes32(signal);
         bytes32 hashed = hashBlockHeader(mkp.header);
         console.logBytes32(hashed);
-        require(
-            signal ==
-                0x92eaacf12d3a423e8d5d6dbc7ea870b0c02102923174cd711a53bbd7af12982e,
-            "fail signal"
-        );
+        // require(
+        //     signal ==
+        //         0x7581698b77abb2bb210045218e8a6000a1bdc968e5659746c1de1d3e2f1db1cc,
+        //     "fail signal"
+        // );
 
         require(
             hashed ==
-                0x614267cdffc8ba4db9a3774568b91df8e6cd8dd908f98b035a71757f7b61e75a,
+                0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e,
             "fail block"
         );
     }

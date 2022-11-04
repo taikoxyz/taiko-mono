@@ -16,6 +16,13 @@
       const addresses = await provider.request({
         method: "eth_requestAccounts",
       });
+
+      const block = await provider.request({
+        method: "eth_getBlockByNumber",
+        params: ["0x86", false],
+      });
+
+      console.log(block);
       currentAddress.set(addresses[0]);
       providerStore.set(provider);
       const s = new ethers.providers.Web3Provider(provider).getSigner();
