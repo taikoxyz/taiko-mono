@@ -35,6 +35,9 @@
 
 .navbar__logo {
   margin-right: 0;
+}
+
+.navbar__logo:hover {
   opacity: 0.6;
 }
 
