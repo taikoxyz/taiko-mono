@@ -47,6 +47,9 @@ library V1Utils {
         uint64 tLast,
         uint64 tAvg
     ) internal pure returns (uint256) {
+        if (tAvg == 0) {
+            return 10000;
+        }
         uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE_PERIOD * tAvg) / 100;
         uint256 tMax = (LibConstants.TAIKO_FEE_MAX_PERIOD * tAvg) / 100;
         uint256 a = tLast + tGrace;
