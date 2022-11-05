@@ -15,7 +15,7 @@ uint256[42] __gap
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _avgFee) external
 ```
 
 ### commitBlock

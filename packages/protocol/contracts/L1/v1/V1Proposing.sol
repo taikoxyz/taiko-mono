@@ -90,7 +90,7 @@ library V1Proposing {
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
         (uint256 fee, uint256 premiumFee) = getBlockFee(s, meta.gasLimit);
-        s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
+        s.avgFee = V1Utils.movingAverage(s.avgFee, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
@@ -117,7 +117,7 @@ library V1Proposing {
             s.lastProposedAt,
             s.avgProofTime
         );
-        fee = (s.feeBase * 10000) / scale;
+        fee = (s.avgFee * 10000) / scale;
 
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
         if (
