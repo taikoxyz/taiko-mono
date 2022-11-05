@@ -63,13 +63,6 @@ library LibInvalidTxList {
             }
 
             if (
-                LibTxDecoder.sumGasLimit(txList) <
-                LibConstants.TAIKO_BLOCK_MIN_GAS_LIMIT
-            ) {
-                return Reason.BLOCK_GAS_LIMIT_TOO_SMALL;
-            }
-
-            if (
                 LibTxDecoder.sumGasLimit(txList) >
                 LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT
             ) {

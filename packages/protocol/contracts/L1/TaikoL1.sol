@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -17,7 +19,6 @@ import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -145,24 +146,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
-    function getBlockFee(uint64 gasLimit)
-        public
-        view
-        returns (uint256 premiumFee)
-    {
-        (, premiumFee) = V1Proposing.getBlockFee(state, gasLimit);
+    function getBlockFee() public view returns (uint256 premiumFee) {
+        (, premiumFee) = V1Proposing.getBlockFee(state);
     }
 
-    function getProofReward(
-        uint64 provenAt,
-        uint64 proposedAt,
-        uint64 gasLimit
-    ) public view returns (uint256 premiumReward) {
+    function getProofReward(uint64 provenAt, uint64 proposedAt)
+        public
+        view
+        returns (uint256 premiumReward)
+    {
         (, premiumReward) = V1Finalizing.getProofReward(
             state,
             provenAt,
-            proposedAt,
-            gasLimit
+            proposedAt
         );
     }
 
