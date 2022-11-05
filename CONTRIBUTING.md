@@ -1,4 +1,25 @@
-# Contributing
+# Contribution guide
+
+## Table of contents
+
+1. [Coding style guide](#coding-style-guide)
+2. [Documentation style guide](#documentation-style-guide)
+
+## Coding style guide
+
+### Source code comments
+
+Follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documentating smart contract source code. Please adhere to a few additional standards:
+
+- Choose `/** */` over `///` for multi-line NatSpec comments, to save column space
+- Omit the usage of `@notice`, this will be automatically picked up so it will save column space and improve readability
+- Take advantage of inheritance for docs (such as documenting the interface), if you need to specify inherited docs use `@inheritdoc`
+
+### Git standards
+
+#### Commits
+
+Try to specify the scope of your change via a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) (eg. `enhance(docs): improve some section`) or specifying the scope in brackets (eg. `[docs] improve some section`).
 
 ## Documentation style guide
 
@@ -79,15 +100,7 @@ Group documentation under one of the four categories:
   && echo "looks good when copy pastad"
   ```
 
-#### Source code comments
-
-In general, you should follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documentating smart contract source code. Please adhere to a few additional standards:
-
-- Use `/** */` over `///` for multiline NatSpec comments, to save column space
-- Omit the usage of `@notice`, this will be automatically picked up so it will save column space and improve readability
-- Take advantage of inheritance for docs (such as documenting the interface), if you need to specify inherited docs use `@inheritdoc`
-
-### Sources
+## References
 
 - [Diátaxis](https://diataxis.fr/)
 - [Google dev docs highlights](https://developers.google.com/style/highlights)
