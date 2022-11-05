@@ -30,13 +30,12 @@ library V1Finalizing {
         uint256 _avgFee
     ) public {
         require(_avgFee > 0, "L1:avgFee");
+
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
-
         s.avgFee = _avgFee;
         s.nextBlockId = 1;
         s.lastProposedAt = uint64(block.timestamp);
-
         s.l2Hashes[0] = _genesisBlockHash;
 
         emit BlockFinalized(0, _genesisBlockHash);
@@ -70,8 +69,7 @@ library V1Finalizing {
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
                     fc.provenAt,
-                    fc.proposedAt,
-                    LibData.getProposedBlock(s, i).gasLimit
+                    fc.proposedAt
                 );
 
                 s.avgFee = V1Utils.movingAverage(s.avgFee, reward, 1024);
@@ -111,8 +109,7 @@ library V1Finalizing {
     function getProofReward(
         LibData.State storage s,
         uint64 provenAt,
-        uint64 proposedAt,
-        uint64 gasLimit
+        uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
         uint256 scale = V1Utils.feeScale(
             uint64(block.timestamp),

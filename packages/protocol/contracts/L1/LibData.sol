@@ -26,6 +26,7 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
+        address proposer;
         uint64 gasLimit;
     }
 
