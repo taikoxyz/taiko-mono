@@ -1,0 +1,101 @@
+import { expect } from "chai"
+import { ethers } from "hardhat"
+import { BigNumber } from "ethers"
+
+describe("TaikoL1", function () {
+    async function deployTaikoL1Fixture() {
+        // Deploying addressManager Contract
+        const addressManager = await (
+            await ethers.getContractFactory("AddressManager")
+        ).deploy()
+        await addressManager.init()
+
+        const uint512 = await (
+            await ethers.getContractFactory("Uint512")
+        ).deploy()
+
+        const libReceiptDecoder = await (
+            await ethers.getContractFactory("LibReceiptDecoder")
+        ).deploy()
+
+        const libTxDecoder = await (
+            await ethers.getContractFactory("LibTxDecoder")
+        ).deploy()
+
+        const libZKP = await (
+            await ethers.getContractFactory("LibZKP")
+        ).deploy()
+
+        const v1Utils = await (
+            await ethers.getContractFactory("V1Utils")
+        ).deploy()
+
+        const v1Proposing = await (
+            await ethers.getContractFactory("V1Proposing", {
+                libraries: {
+                    V1Utils: v1Utils.address,
+                },
+            })
+        ).deploy()
+
+        const v1Proving = await (
+            await ethers.getContractFactory("V1Proving", {
+                libraries: {
+                    LibReceiptDecoder: libReceiptDecoder.address,
+                    LibTxDecoder: libTxDecoder.address,
+                    LibZKP: libZKP.address,
+                    Uint512: uint512.address,
+                },
+            })
+        ).deploy()
+
+        const v1Finalizing = await (
+            await ethers.getContractFactory("V1Finalizing", {
+                libraries: {
+                    V1Utils: v1Utils.address,
+                },
+            })
+        ).deploy()
+
+        const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
+            libraries: {
+                V1Finalizing: v1Finalizing.address,
+                V1Proposing: v1Proposing.address,
+                V1Proving: v1Proving.address,
+                Uint512: uint512.address,
+            },
+        })
+
+        const genesisHash = randomBytes32()
+        const taikoL1 = await TaikoL1Factory.deploy()
+        const avgFee = BigNumber.from(10).pow(18)
+        await taikoL1.init(addressManager.address, genesisHash, avgFee)
+
+        return { taikoL1, genesisHash }
+    }
+
+    describe("getLatestSyncedHeader()", async function () {
+        it("should be genesisHash because no headers have been synced", async function () {
+            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
+            const hash = await taikoL1.getLatestSyncedHeader()
+            expect(hash).to.be.eq(genesisHash)
+        })
+    })
+
+    describe("getSyncedHeader()", async function () {
+        it("should revert because header number has not been synced", async function () {
+            const { taikoL1 } = await deployTaikoL1Fixture()
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:id")
+        })
+
+        it("should return appropraite hash for header", async function () {
+            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
+            const hash = await taikoL1.getSyncedHeader(0)
+            expect(hash).to.be.eq(genesisHash)
+        })
+    })
+})
+
+function randomBytes32() {
+    return ethers.utils.hexlify(ethers.utils.randomBytes(32))
+}

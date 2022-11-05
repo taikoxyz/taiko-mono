@@ -18,11 +18,14 @@ library LibConstants {
         (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 1) *
             (TAIKO_BLOCK_BUFFER_SIZE + TAIKO_FEE_PREMIUM_LAMDA - 2);
 
+    uint64 public constant TAIKO_FEE_MULTIPLIER = 400; // 400%
+    uint64 public constant TAIKO_FEE_GRACE_PERIOD = 125; // 125%
+    uint64 public constant TAIKO_FEE_MAX_PERIOD = 375; // 375%
+
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
     uint256 public constant TAIKO_MAX_PROOFS_PER_FORK_CHOICE = 5;
-
-    uint256 public constant TAIKO_BLOCK_MIN_GAS_LIMIT = 300000; // TODO
+    uint256 public constant TAIKO_BLOCK_REWARD_MAX_FACTOR = 4;
     uint256 public constant TAIKO_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO
     uint256 public constant TAIKO_BLOCK_MAX_TXS = 20; // TODO
     bytes32 public constant TAIKO_BLOCK_DEADEND_HASH = bytes32(uint256(1));

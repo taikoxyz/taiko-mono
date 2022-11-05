@@ -27,16 +27,15 @@ library V1Finalizing {
     function init(
         LibData.State storage s,
         bytes32 _genesisBlockHash,
-        uint256 _baseFee
+        uint256 _avgFee
     ) public {
-        require(_baseFee > 0, "L1:baseFee");
+        require(_avgFee > 0, "L1:avgFee");
+
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
-
-        s.baseFee = _baseFee;
+        s.avgFee = _avgFee;
         s.nextBlockId = 1;
         s.lastProposedAt = uint64(block.timestamp);
-
         s.l2Hashes[0] = _genesisBlockHash;
 
         emit BlockFinalized(0, _genesisBlockHash);
@@ -67,21 +66,21 @@ library V1Finalizing {
                     latestL2Hash = fc.blockHash;
                 }
 
-                uint64 proofTime = fc.provenAt - fc.proposedAt;
-                LibData.ProposedBlock storage blk = LibData.getProposedBlock(
-                    s,
-                    i
-                );
                 (uint256 reward, uint256 premiumReward) = getProofReward(
                     s,
-                    proofTime,
-                    blk.gasLimit
+                    fc.provenAt,
+                    fc.proposedAt,
+                    LibData.getProposedBlock(s, i).gasLimit
                 );
 
-                s.baseFee = V1Utils.movingAverage(s.baseFee, reward, 1024);
+                s.avgFee = V1Utils.movingAverage(s.avgFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
-                    .movingAverage(s.avgProofTime, proofTime, 1024)
+                    .movingAverage(
+                        s.avgProofTime,
+                        fc.provenAt - fc.proposedAt,
+                        1024
+                    )
                     .toUint64();
 
                 if (address(tkoToken) == address(0)) {
@@ -120,24 +119,17 @@ library V1Finalizing {
 
     function getProofReward(
         LibData.State storage s,
-        uint64 proofTime,
+        uint64 provenAt,
+        uint64 proposedAt,
         uint64 gasLimit
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        uint64 a = (s.avgBlockTime * 125) / 100; // 125%
-        uint64 b = (s.avgBlockTime * 400) / 100; // 400%
-        uint256 n = s.baseFee * LibConstants.TAIKO_REWARD_MAX_FACTOR;
+        uint256 scale = V1Utils.feeScale(
+            uint64(block.timestamp),
+            provenAt,
+            proposedAt
+        );
 
-        if (s.avgProofTime == 0 || proofTime <= a) {
-            reward = s.baseFee;
-        } else if (proofTime >= b) {
-            reward = n;
-        } else {
-            reward = ((n - s.baseFee) * (proofTime - a)) / (b - a) + n;
-        }
-
-        if (s.avgGasLimit > 0) {
-            reward = (reward * gasLimit) / s.avgGasLimit;
-        }
+        reward = (s.avgFee * scale) / 10000;
 
         premiumReward =
             (V1Utils.applyOversellPremium(s, reward, true) *

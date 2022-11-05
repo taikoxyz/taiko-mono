@@ -28,6 +28,7 @@ struct BlockHeader {
     bytes extraData;
     bytes32 mixHash;
     uint64 nonce;
+    uint256 baseFeePerGas;
 }
 
 library LibBlockHeader {
@@ -39,7 +40,14 @@ library LibBlockHeader {
         pure
         returns (bytes32)
     {
-        bytes[] memory list = new bytes[](15);
+        bytes[] memory list;
+        if (header.baseFeePerGas == 0) {
+            // non-EIP11559 transaction
+            list = new bytes[](15);
+        } else {
+            // EIP1159 transaction
+            list = new bytes[](16);
+        }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
         list[2] = LibRLPWriter.writeAddress(header.beneficiary);
@@ -57,6 +65,10 @@ library LibBlockHeader {
         // According to the ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
+        if (header.baseFeePerGas != 0) {
+            // non-EIP11559 transaction
+            list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
+        }
 
         bytes memory rlpHeader = LibRLPWriter.writeList(list);
         return keccak256(rlpHeader);
@@ -70,7 +82,6 @@ library LibBlockHeader {
         return
             header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit >= LibConstants.TAIKO_BLOCK_MIN_GAS_LIMIT &&
             header.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
