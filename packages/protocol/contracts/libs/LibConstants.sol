@@ -33,7 +33,6 @@ library LibConstants {
     uint256 public constant TAIKO_TXLIST_MAX_BYTES = 10240; // TODO
     uint256 public constant TAIKO_TX_MIN_GAS_LIMIT = 21000; // TODO
     uint256 public constant TAIKO_REWARD_BURN_POINTS = 100; // 1%
-    uint256 public constant TAIKO_REWARD_MAX_FACTOR = 4;
     uint256 public constant TAIKO_REWARD_BOOTSTRAP_AMOUNT = 1000000 ether;
     uint256 public constant TAIKO_REWARD_BOOTSTRAP_DURATION = 2 * 365 days;
 
