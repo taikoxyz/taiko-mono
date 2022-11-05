@@ -45,7 +45,7 @@ jobs:
 
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: pnpm clean && pnpm compile
+        run: pnpm install && pnpm clean && pnpm compile
 
       # - name: protocol - Generate Genesis
       #   working-directory: ./packages/protocol
