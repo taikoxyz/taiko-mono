@@ -27,7 +27,7 @@ function proposeBlock(struct LibData.State s, contract AddressResolver resolver,
 ### getBlockFee
 
 ```solidity
-function getBlockFee(struct LibData.State s, uint64 gasLimit) public view returns (uint256 fee, uint256 premiumFee)
+function getBlockFee(struct LibData.State s) public view returns (uint256 fee, uint256 premiumFee)
 ```
 
 ### isCommitValid
@@ -36,21 +36,26 @@ function getBlockFee(struct LibData.State s, uint64 gasLimit) public view return
 function isCommitValid(struct LibData.State s, bytes32 hash) public view returns (bool)
 ```
 
-### _updateAvgBlockTime
+### \_updateAvgBlockTime
 
 ```solidity
 function _updateAvgBlockTime(struct LibData.State s, uint64 blockTime) private
 ```
 
-### _validateMetadata
+### \_calcProposerBootstrapReward
+
+```solidity
+function _calcProposerBootstrapReward(struct LibData.State s) private view returns (uint256 proposerReward)
+```
+
+### \_validateMetadata
 
 ```solidity
 function _validateMetadata(struct LibData.BlockMetadata meta) private pure
 ```
 
-### _calculateCommitHash
+### \_calculateCommitHash
 
 ```solidity
 function _calculateCommitHash(address beneficiary, bytes32 txListHash) private pure returns (bytes32)
 ```
-

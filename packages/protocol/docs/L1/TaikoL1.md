@@ -97,13 +97,13 @@ Finalize up to N blocks.
 ### getBlockFee
 
 ```solidity
-function getBlockFee(uint64 gasLimit) public view returns (uint256 premiumFee)
+function getBlockFee() public view returns (uint256 premiumFee)
 ```
 
 ### getProofReward
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt, uint64 gasLimit) public view returns (uint256 premiumReward)
+function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 premiumReward)
 ```
 
 ### isCommitValid
