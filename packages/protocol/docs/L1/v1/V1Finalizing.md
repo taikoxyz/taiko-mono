@@ -27,6 +27,5 @@ function finalizeBlocks(struct LibData.State s, contract AddressResolver resolve
 ### getProofReward
 
 ```solidity
-function getProofReward(struct LibData.State s, uint64 provenAt, uint64 proposedAt, uint64 gasLimit) public view returns (uint256 reward, uint256 premiumReward)
+function getProofReward(struct LibData.State s, uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward, uint256 premiumReward)
 ```
-

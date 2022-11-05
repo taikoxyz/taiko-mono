@@ -35,6 +35,9 @@ import "../thirdparty/LibRLPWriter.sol";
  * @author david <david@taiko.xyz>
  */
 library LibInvalidTxList {
+    // NOTE: If the order of this enum changes, then some test cases that using
+    // this enum in generate_genesis.test.ts may also needs to be
+    // modified accordingly.
     enum Reason {
         OK,
         BINARY_TOO_LARGE,

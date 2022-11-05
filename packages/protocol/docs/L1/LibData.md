@@ -22,6 +22,7 @@ struct BlockMetadata {
 ```solidity
 struct ProposedBlock {
   bytes32 metaHash;
+  address proposer;
   uint64 gasLimit;
 }
 

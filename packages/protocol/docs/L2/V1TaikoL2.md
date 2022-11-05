@@ -97,7 +97,7 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 ### getConstants
 
 ```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
+function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
 ```
 
 ### \_checkPublicInputs
