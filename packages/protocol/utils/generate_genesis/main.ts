@@ -44,6 +44,7 @@ async function main() {
     }
 
     console.log("config: %o", config)
+
     console.log("start deploy V1TaikoL2 contract")
 
     let result = await deployV1TaikoL2(config, {
