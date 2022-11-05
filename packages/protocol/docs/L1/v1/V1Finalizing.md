@@ -15,7 +15,7 @@ event HeaderSynced(uint256 height, uint256 srcHeight, bytes32 srcHash)
 ### init
 
 ```solidity
-function init(struct LibData.State s, bytes32 _genesisBlockHash, uint256 _feeBase) public
+function init(struct LibData.State s, bytes32 _genesisBlockHash, uint256 _avgFee) public
 ```
 
 ### finalizeBlocks

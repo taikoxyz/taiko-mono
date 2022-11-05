@@ -27,13 +27,13 @@ library V1Finalizing {
     function init(
         LibData.State storage s,
         bytes32 _genesisBlockHash,
-        uint256 _feeBase
+        uint256 _avgFee
     ) public {
-        require(_feeBase > 0, "L1:feeBase");
+        require(_avgFee > 0, "L1:avgFee");
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
 
-        s.feeBase = _feeBase;
+        s.avgFee = _avgFee;
         s.nextBlockId = 1;
         s.lastProposedAt = uint64(block.timestamp);
 
@@ -74,7 +74,7 @@ library V1Finalizing {
                     LibData.getProposedBlock(s, i).gasLimit
                 );
 
-                s.feeBase = V1Utils.movingAverage(s.feeBase, reward, 1024);
+                s.avgFee = V1Utils.movingAverage(s.avgFee, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(
@@ -120,7 +120,7 @@ library V1Finalizing {
             proposedAt
         );
 
-        reward = (s.feeBase * scale) / 10000;
+        reward = (s.avgFee * scale) / 10000;
 
         premiumReward =
             (V1Utils.applyOversellPremium(s, reward, true) *
