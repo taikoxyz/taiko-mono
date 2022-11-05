@@ -177,7 +177,7 @@ action("Generate Genesis", function () {
 
             const tx = await V1TaikoL2.invalidateBlock(
                 bytes,
-                5, // hint: TX_INVALID_SIG
+                6, // hint: TX_INVALID_SIG
                 0
             )
 
