@@ -20,4 +20,6 @@ interface IHeaderSync {
     );
 
     function getSyncedHeader(uint256 number) external view returns (bytes32);
+
+    function getLatestSyncedHeader() external view returns (bytes32);
 }

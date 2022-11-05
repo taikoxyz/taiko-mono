@@ -11,7 +11,9 @@ pragma solidity ^0.8.9;
 import "../thirdparty/LibBytesUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
 
-/// @author david <david@taiko.xyz>
+/**
+ * @author david <david@taiko.xyz>
+ */
 library LibReceiptDecoder {
     struct Receipt {
         uint64 status;
@@ -31,7 +33,7 @@ library LibReceiptDecoder {
         pure
         returns (Receipt memory receipt)
     {
-        // Non-legacy transaction receipts should remove the type prefix at first.
+        // Non-legacy transaction receipts should first remove the type prefix.
         LibRLPReader.RLPItem[] memory rlpItems = LibRLPReader.readList(
             encoded[0] >= 0x0 && encoded[0] <= 0x7f
                 ? LibBytesUtils.slice(encoded, 1)
