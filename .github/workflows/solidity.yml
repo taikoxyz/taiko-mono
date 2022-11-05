@@ -43,13 +43,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: protocol - Unit Tests
-        working-directory: ./packages/protocol
-        run: pnpm install && pnpm clean && pnpm test && pnpm test:integration && pnpm export:abi
+      # - name: protocol - Unit Tests
+      #   working-directory: ./packages/protocol
+      #   run: pnpm install && pnpm clean && pnpm test && pnpm test:integration && pnpm export:abi
 
-      - name: protocol - Generate Genesis
-        working-directory: ./packages/protocol
-        run: pnpm test:genesis
+      # - name: protocol - Generate Genesis
+      #   working-directory: ./packages/protocol
+      #   run: pnpm test:genesis
 
       - name: protocol - Export ABIs
         working-directory: ./packages/protocol
@@ -59,11 +59,15 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
-      - uses: tj-actions/changed-files@v34
-        id: changed-files-specific
-        with:
-          files: |
-            ./packages/protocol/docs/**
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v34
+
+      - name: List all changed files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "$file was changed"
+          done
 
       - uses: stefanzweifel/git-auto-commit-action@v4
         if: steps.changed-files-specific.outputs.any_changed == 'true'
