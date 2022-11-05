@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+// solhint-disable-next-line max-line-length
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "./AddressResolver.sol";
