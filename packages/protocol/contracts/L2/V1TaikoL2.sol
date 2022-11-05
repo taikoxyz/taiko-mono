@@ -137,6 +137,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
+    // NOTE: If the order of the return values of this function changes, then some test cases
+    // that using this function in generate_genesis.test.ts may also needs to be modified accordingly.
     function getConstants()
         public
         pure
