@@ -9,14 +9,14 @@ present = Present(
 Give prover per-block bootstrap reward based on the current block time average.
 
 **About this config**
-Block `fee_base` is set to 0.
+Block `fee_avg` is set to 0.
 
 """,
     days=12,
     config=Config(
         max_blocks=2048, 
         lamda=2048,
-        fee_base=0.0,
+        fee_avg=0.0,
         fee_maf=1024,
         fee_multiplier=4.0,
         # prover_reward_burn_points=0.0,

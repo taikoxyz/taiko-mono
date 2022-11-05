@@ -9,7 +9,7 @@ class Timing(NamedTuple):
 class Config(NamedTuple):
     max_blocks: int
     lamda: float
-    fee_base: int
+    fee_avg: int
     fee_maf: int
     fee_multiplier: float
     # prover_reward_burn_points: float
