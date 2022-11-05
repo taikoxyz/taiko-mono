@@ -56,12 +56,17 @@ jobs:
         run: pnpm export:abi
 
       - name: protocol - Export Docs
-        id: export-docs
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
+      - uses: tj-actions/changed-files@v34
+        id: changed-files-specific
+        with:
+          files: |
+            ./packages/protocol/docs/**
+
       - uses: stefanzweifel/git-auto-commit-action@v4
-        if: steps.export-docs.outputs.changes_detected == 'true'
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         with:
           commit_message: Update auto-generated docs
 
