@@ -59,9 +59,12 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
-      - name: Get changed files
-        id: changed-files
+      - name: Get changed files in the docs folder
+        id: changed-files-specific
         uses: tj-actions/changed-files@v34
+        with:
+          files: |
+            ./packages/protocol/docs/**
 
       - name: List all changed files
         run: |
