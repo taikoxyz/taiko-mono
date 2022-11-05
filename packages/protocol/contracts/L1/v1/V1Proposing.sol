@@ -155,13 +155,17 @@ library V1Proposing {
         view
         returns (uint256 proposerReward)
     {
+        uint256 a = LibConstants.TAIKO_REWARD_BOOTSTRAP_AMOUNT;
+        if (a == 0) {
+            return 0;
+        }
+
         uint256 e = block.timestamp - s.genesisTimestamp;
         uint256 d = LibConstants.TAIKO_REWARD_BOOTSTRAP_DURATION;
 
         if (e >= d) {
             return 0;
         } else {
-            uint256 a = LibConstants.TAIKO_REWARD_BOOTSTRAP_AMOUNT;
             uint256 b = block.timestamp - s.lastProposedAt;
             return (2 * a * b * (d - e + b / 2)) / d / d;
         }
