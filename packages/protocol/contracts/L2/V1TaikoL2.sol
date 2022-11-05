@@ -146,7 +146,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
             uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MIN_GAS_LIMIT
             uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
             uint256, // TAIKO_BLOCK_MAX_TXS
             bytes32, // TAIKO_BLOCK_DEADEND_HASH
@@ -163,7 +162,6 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
             LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MIN_GAS_LIMIT,
             LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
             LibConstants.TAIKO_BLOCK_MAX_TXS,
             LibConstants.TAIKO_BLOCK_DEADEND_HASH,

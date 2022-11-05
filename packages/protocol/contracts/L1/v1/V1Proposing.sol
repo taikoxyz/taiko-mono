@@ -120,12 +120,6 @@ library V1Proposing {
         fee = (s.avgFee * 10000) / scale;
 
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
-        if (
-            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
-            s.avgGasLimit > 0
-        ) {
-            premiumFee = (premiumFee * gasLimit) / s.avgGasLimit;
-        }
     }
 
     function isCommitValid(LibData.State storage s, bytes32 hash)

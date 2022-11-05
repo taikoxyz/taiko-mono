@@ -126,12 +126,5 @@ library V1Finalizing {
             (V1Utils.applyOversellPremium(s, reward, true) *
                 (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
             10000;
-
-        if (
-            LibConstants.TAIKO_ENABLE_GAS_LIMIT_BASED_TUNING &&
-            s.avgGasLimit > 0
-        ) {
-            premiumReward = (premiumReward * gasLimit) / s.avgGasLimit;
-        }
     }
 }
