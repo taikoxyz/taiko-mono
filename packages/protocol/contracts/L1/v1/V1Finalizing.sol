@@ -30,7 +30,6 @@ library V1Finalizing {
         uint256 _avgFee
     ) public {
         require(_avgFee > 0, "L1:avgFee");
-
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
         s.avgFee = _avgFee;
