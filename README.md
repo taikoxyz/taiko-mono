@@ -5,9 +5,9 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <img src="./packages/branding/Logo/Vector/SVG/Taiko_Icon_Pink.svg" alt="Logo" width="80" height="80">
+  <img src="./packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" alt="Logo" width="80" height="80">
 
-  <h3>Taiko</h3>
+  <h3>TAIKO</h3>
 
   <p>
     A decentralized Ethereum equivalent ZK rollup
