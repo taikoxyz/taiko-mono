@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../../../common/EssentialContract.sol";
 import "../../../bridge/libs/LibBridgeData.sol";
 import "../../../bridge/libs/LibBridgeRetry.sol";
 
