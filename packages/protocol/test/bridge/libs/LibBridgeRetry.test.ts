@@ -7,17 +7,33 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 describe("LibBridgeRetry", function () {
     async function deployLibBridgeRetryFixture() {
-        const [owner, nonOwner, etherVault] = await ethers.getSigners()
+        const [owner, refundAddress, nonOwner, etherVaultOwner] =
+            await ethers.getSigners()
 
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
+
+        const etherVault = await (await ethers.getContractFactory("EtherVault"))
+            .connect(etherVaultOwner)
+            .deploy()
+
+        await etherVault.deployed()
+
+        await etherVault.init(addressManager.address)
+
+        await etherVault.connect(etherVaultOwner).authorize(owner.address, true)
         const blockChainId = hre.network.config.chainId ?? 0
         await addressManager.setAddress(
             `${blockChainId}.ether_vault`,
             etherVault.address
         )
+
+        await owner.sendTransaction({
+            to: etherVault.address,
+            value: ethers.utils.parseEther("10.0"), // Sends exactly 1.0 ether
+        })
 
         const libRetryLink = await (
             await ethers.getContractFactory("LibBridgeRetry")
@@ -36,7 +52,11 @@ describe("LibBridgeRetry", function () {
         await libRetry.init(addressManager.address)
         await libRetry.deployed()
 
-        const libData = await (
+        await etherVault
+            .connect(etherVaultOwner)
+            .authorize(libRetry.address, true)
+
+        const testLibData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
 
@@ -46,7 +66,14 @@ describe("LibBridgeRetry", function () {
             DONE: 2,
         }
 
-        return { owner, nonOwner, libRetry, libData, MessageStatus }
+        return {
+            owner,
+            refundAddress,
+            nonOwner,
+            libRetry,
+            testLibData,
+            MessageStatus,
+        }
     }
 
     async function getSlot(signal: any, mappingSlot: any) {
@@ -63,7 +90,7 @@ describe("LibBridgeRetry", function () {
 
     describe("retryMessage()", async function () {
         it.skip("testing setStorageAt", async function () {
-            const { owner, nonOwner, libRetry, libData } =
+            const { owner, nonOwner, libRetry, testLibData } =
                 await deployLibBridgeRetryFixture()
 
             // mapping state.messageStatus is in slot 1 of TestLibBridgeRetry's contract storage
@@ -101,7 +128,7 @@ describe("LibBridgeRetry", function () {
             //         await ethers.provider.getStorageAt(libRetry.address, 1)
             //     )
             // )
-            const signal = await libData.hashMessage(message)
+            const signal = await testLibData.hashMessage(message)
             console.log("signal: ", signal)
             console.log(
                 await decode(
@@ -199,9 +226,77 @@ describe("LibBridgeRetry", function () {
             ).to.be.revertedWith("B:notFound")
         })
 
+        it.only("should succeed, set message status to done, invoke message succesfsully", async function () {
+            // TODO: set message.to to be a unique address, check its balance, confirm
+            // it received message.callValue.
+            const {
+                owner,
+                libRetry,
+                refundAddress,
+                testLibData,
+                MessageStatus,
+            } = await deployLibBridgeRetryFixture()
+
+            const testBadReceiver = await (
+                await ethers.getContractFactory("TestBadReceiver")
+            ).deploy()
+
+            await testBadReceiver.deployed()
+
+            const destChainId = 5
+            const message: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: 1,
+                destChainId: destChainId,
+                owner: owner.address,
+                to: testBadReceiver.address,
+                refundAddress: refundAddress.address,
+                depositValue: 1,
+                callValue: 1,
+                processingFee: 1,
+                gasLimit: 300000,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            const signal = await testLibData.hashMessage(message)
+
+            await helpers.setStorageAt(
+                libRetry.address,
+                await getSlot(signal, 202),
+                MessageStatus.RETRIABLE
+            )
+
+            const originalBalance = await refundAddress.getBalance()
+            await libRetry.retryMessage(message, true)
+
+            // can also check for refund to go to the right place, with right amount
+            expect(
+                await decode(
+                    "uint256",
+                    await ethers.provider.getStorageAt(
+                        libRetry.address,
+                        getSlot(signal, 202)
+                    )
+                )
+            ).to.equal(MessageStatus.DONE.toString())
+
+            const balancePlusRefund = await refundAddress.getBalance()
+
+            expect(balancePlusRefund).to.be.equal(
+                originalBalance.add(message.callValue)
+            )
+        })
+
         it("should fail, but since lastAttempt == true messageStatus should be set to DONE", async function () {
-            const { owner, libRetry, libData, MessageStatus } =
-                await deployLibBridgeRetryFixture()
+            const {
+                owner,
+                libRetry,
+                refundAddress,
+                testLibData,
+                MessageStatus,
+            } = await deployLibBridgeRetryFixture()
 
             const testReceiver = await (
                 await ethers.getContractFactory("TestReceiver")
@@ -217,16 +312,16 @@ describe("LibBridgeRetry", function () {
                 destChainId: destChainId,
                 owner: owner.address,
                 to: testReceiver.address,
-                refundAddress: owner.address,
+                refundAddress: refundAddress.address,
                 depositValue: 1,
                 callValue: 1,
                 processingFee: 1,
-                gasLimit: 300000,
-                data: ethers.constants.HashZero,
+                gasLimit: 1,
+                data: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                 memo: "",
             }
 
-            const signal = await libData.hashMessage(message)
+            const signal = await testLibData.hashMessage(message)
 
             await helpers.setStorageAt(
                 libRetry.address,
@@ -245,59 +340,63 @@ describe("LibBridgeRetry", function () {
                         getSlot(signal, 202)
                     )
                 )
-            ).to.equal(MessageStatus.DONE)
+            ).to.equal(MessageStatus.DONE.toString())
+
+            // TODO: make sure message.refundAddress balance
+            // ws incremented by message.callValue amount
+            // after messge status being sent to done.
         })
 
-        it("should successfully pass (maybe add event for this case)", async function () {
-            const { owner, libRetry, libData, MessageStatus } =
-                await deployLibBridgeRetryFixture()
+        // it("should successfully pass (maybe add event for this case)", async function () {
+        //     const { owner, libRetry, libData, MessageStatus } =
+        //         await deployLibBridgeRetryFixture()
 
-            const testReceiver = await (
-                await ethers.getContractFactory("TestReceiver")
-            ).deploy()
+        //     const testReceiver = await (
+        //         await ethers.getContractFactory("TestReceiver")
+        //     ).deploy()
 
-            await testReceiver.deployed()
+        //     await testReceiver.deployed()
 
-            const ABI = ["function receiveTokens(uint256) payable"]
-            const iface = new ethers.utils.Interface(ABI)
-            const data = iface.encodeFunctionData("receiveTokens", [1])
+        //     const ABI = ["function receiveTokens(uint256) payable"]
+        //     const iface = new ethers.utils.Interface(ABI)
+        //     const data = iface.encodeFunctionData("receiveTokens", [1])
 
-            const destChainId = 5
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: destChainId,
-                owner: owner.address,
-                to: testReceiver.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 300000,
-                data: data,
-                memo: "",
-            }
+        //     const destChainId = 5
+        //     const message: Message = {
+        //         id: 1,
+        //         sender: owner.address,
+        //         srcChainId: 1,
+        //         destChainId: destChainId,
+        //         owner: owner.address,
+        //         to: testReceiver.address,
+        //         refundAddress: owner.address,
+        //         depositValue: 1,
+        //         callValue: 1,
+        //         processingFee: 1,
+        //         gasLimit: 300000,
+        //         data: data,
+        //         memo: "",
+        //     }
 
-            const signal = await libData.hashMessage(message)
+        //     const signal = await libData.hashMessage(message)
 
-            await helpers.setStorageAt(
-                libRetry.address,
-                await getSlot(signal, 202),
-                MessageStatus.RETRIABLE
-            )
+        //     await helpers.setStorageAt(
+        //         libRetry.address,
+        //         await getSlot(signal, 202),
+        //         MessageStatus.RETRIABLE
+        //     )
 
-            await libRetry.retryMessage(message, false)
+        //     await libRetry.retryMessage(message, false)
 
-            await expect(
-                await decode(
-                    "uint256",
-                    await ethers.provider.getStorageAt(
-                        libRetry.address,
-                        getSlot(signal, 202)
-                    )
-                )
-            ).to.equal(MessageStatus.DONE)
-        })
+        //     await expect(
+        //         await decode(
+        //             "uint256",
+        //             await ethers.provider.getStorageAt(
+        //                 libRetry.address,
+        //                 getSlot(signal, 202)
+        //             )
+        //         )
+        //     ).to.equal(MessageStatus.DONE)
+        // })
     })
 })
