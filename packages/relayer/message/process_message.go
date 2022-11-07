@@ -98,7 +98,6 @@ func (p *Processor) ProcessMessage(
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
-	// TODO: needs to be cross-layer ethclient, not layer we sent the message on.
 	ch := relayer.WaitForTx(ctx, p.destEthClient, tx.Hash())
 	// wait for tx until mined
 	<-ch
