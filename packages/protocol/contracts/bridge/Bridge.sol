@@ -74,26 +74,24 @@ contract Bridge is EssentialContract, IBridge {
         external
         nonReentrant
     {
-        return
-            LibBridgeProcess.processMessage(
-                state,
-                AddressResolver(this),
-                message,
-                proof
-            );
+        LibBridgeProcess.processMessage(
+            state,
+            AddressResolver(this),
+            message,
+            proof
+        );
     }
 
     function retryMessage(Message calldata message, bool isLastAttempt)
         external
         nonReentrant
     {
-        return
-            LibBridgeRetry.retryMessage(
-                state,
-                AddressResolver(this),
-                message,
-                isLastAttempt
-            );
+        LibBridgeRetry.retryMessage(
+            state,
+            AddressResolver(this),
+            message,
+            isLastAttempt
+        );
     }
 
     function enableDestChain(uint256 _chainId, bool enabled)

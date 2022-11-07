@@ -3,7 +3,7 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,21 +20,22 @@ import (
 // Process prepares and calls `processMessage` on the bridge.
 // the proof must be generated from the gethclient's eth_getProof via the Prover,
 // then rlp-encoded and combined as a singular byte slice,
-// then abi encoded into a  SsignalProof struct as the contract
+// then abi encoded into a SignalProof struct as the contract
 // expects
 func (p *Processor) ProcessMessage(
 	ctx context.Context,
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	// TODO: if relayer can not process, save this to DB with status Unprocessable so
+	// when we reiterate over blocks, we do not attempt to reprocess given it
+	// will definitely fail.
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
-	if event.Raw.TxHash != common.HexToHash("0x5eb43610f63b37250cf6f6cdfc01fc57c7990562722348f79da09f12fc2a5d5a") {
-		return nil
-	}
-
+	// get latest synced header since not every header is synced from L1 => L2,
+	// and later blocks still have the storage trie proof from previous blocks.
 	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
@@ -47,7 +48,7 @@ func (p *Processor) ProcessMessage(
 	}
 
 	hashed := solsha3.SoliditySHA3(
-		solsha3.Address(event.Raw.Address),
+		solsha3.Address(event.Raw.Address), // L1 bridge address
 		solsha3.Bytes32(event.Signal),
 	)
 
@@ -59,11 +60,11 @@ func (p *Processor) ProcessMessage(
 	if err != nil {
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
+	auth.Context = ctx
 
 	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 100000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
-	auth.Context = ctx
+	// auth.GasLimit = 2000000
+	// auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
@@ -71,6 +72,9 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "s.getEncodedSignalProof")
 	}
 
+	// check if message is received first. if not, it will definitely fail,
+	// so we can exit early on this one. there is most likely
+	// an issue with the signal generation.
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
 		Context: ctx,
 	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
@@ -78,11 +82,15 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
 	}
 
-	// message will fail when we try to process is, theres an issue somewhere
+	log.Infof("isMessageReceived: %v", received)
+
+	// message will fail when we try to process is
+	// TODO: update status in db
 	if !received {
 		return errors.New("message not received")
 	}
 
+	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "bridge.ProcessMessage")
@@ -101,14 +109,15 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "bridge.GetMessageStatus")
 	}
 
-	log.Infof("updating message status to %s", relayer.EventStatus(messageStatus).String())
-
 	r, err := getFailingMessage(*p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "GetFailingMessage")
 	}
 
-	log.Infof("reason: %s", r)
+	if r != "" {
+		log.Infof("tx failed, reason: %s", r)
+		return errors.New(fmt.Sprintf("transaction failed, reason: %v", r))
+	}
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
@@ -131,7 +140,6 @@ func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error
 	msg := ethereum.CallMsg{
 		From:     from,
 		To:       tx.To(),
-		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
 		Value:    tx.Value(),
 		Data:     tx.Data(),
@@ -139,7 +147,6 @@ func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error
 
 	res, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
-		log.Infof("call contract failed: %v, %v", res, err)
 		return "", err
 	}
 

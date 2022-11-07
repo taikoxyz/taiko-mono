@@ -38,7 +38,7 @@ class ETHBridge implements Bridge {
       depositValue: opts.amount,
       callValue: 0,
       processingFee: 10,
-      gasLimit: 10000,
+      gasLimit: 1000000,
       data: "0x",
       memo: "sent by bad UI bridge!",
     };
