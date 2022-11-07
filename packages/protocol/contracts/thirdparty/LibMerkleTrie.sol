@@ -73,7 +73,7 @@ library LibMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) internal view returns (bool _verified) {
+    ) internal pure returns (bool _verified) {
         (bool exists, bytes memory value) = get(_key, _proof, _root);
 
         return (exists && LibBytesUtils.equal(_value, value));

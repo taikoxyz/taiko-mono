@@ -46,7 +46,7 @@ library LibTrieProof {
         bytes32 key,
         bytes32 value,
         bytes calldata mkproof
-    ) public view {
+    ) public pure {
         (bytes memory accountProof, bytes memory storageProof) = abi.decode(
             mkproof,
             (bytes, bytes)

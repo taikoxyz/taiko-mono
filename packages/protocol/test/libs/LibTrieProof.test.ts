@@ -152,7 +152,7 @@ describe("integration:LibTrieProof", function () {
                 stateRoot,
                 bridge.address,
                 key,
-                "1",
+                "0x0000000000000000000000000000000000000000000000000000000000000001",
                 encodedProof
             )
         })
