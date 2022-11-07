@@ -93,7 +93,7 @@ func (p *Processor) ProcessMessage(
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "bridge.ProcessMessage")
+		return errors.Wrap(err, "p.destBridge.ProcessMessage")
 	}
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
@@ -106,7 +106,7 @@ func (p *Processor) ProcessMessage(
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
-		return errors.Wrap(err, "bridge.GetMessageStatus")
+		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
 	r, err := getFailingMessage(*p.destEthClient, tx.Hash())
