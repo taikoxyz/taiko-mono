@@ -43,7 +43,7 @@ describe("LibBridgeRetry", function () {
 
         await owner.sendTransaction({
             to: etherVault.address,
-            value: ethers.utils.parseEther("10.0"), // Sends exactly 1.0 ether
+            value: ethers.utils.parseEther("10.0"),
         })
 
         const libRetryLink = await (
