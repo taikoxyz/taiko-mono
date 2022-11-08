@@ -92,18 +92,6 @@ describe("LibBridgeRetry", function () {
         }
     }
 
-    // async function getSlot(signal: any, mappingSlot: any) {
-    //     return ethers.utils.solidityKeccak256(
-    //         ["bytes", "uint256"],
-    //         [signal, mappingSlot]
-    //     )
-    // }
-
-    // async function decode(type: string, data: any) {
-    //     const web3 = new Web3("http://localhost:8545")
-    //     return await web3.eth.abi.decodeParameter(type, data)
-    // }
-
     describe("retryMessage()", async function () {
         it("should throw if message.gaslimit == 0 && msg.sender != message.owner", async function () {
             const { owner, nonOwner, libRetry } =
