@@ -21,7 +21,7 @@ contract TestLibBridgeProcess is EssentialContract {
     function processMessage(
         IBridge.Message calldata message,
         bytes calldata proof
-    ) public {
+    ) public payable {
         LibBridgeProcess.processMessage(
             state,
             AddressResolver(this),
