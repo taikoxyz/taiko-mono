@@ -1,9 +1,20 @@
 // import { expect } from "chai"
 import hre, { ethers } from "hardhat"
+// import { getSlot, decode } from "../../../tasks/utils"
+// ethers.provider.getBalance(address)
 
 describe("LibBridgeProcess", function () {
     async function deployLibBridgeProcessFixture() {
-        const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
+        const [libOwner, etherVaultOwner] = await ethers.getSigners()
+
+        // slot number of IBridge.State for TestLibBridgeProcess.
+        // mapping destChains is at position 0 (201)
+        // mapping messageStatus is at position 1 (202)
+        // nextMessageId is at position 2 (203)
+        // Context takes up 3 slots, starts at position 3 (204)
+        const stateSlot = 201
+
+        const owner = ethers.Wallet.createRandom()
 
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
@@ -33,7 +44,7 @@ describe("LibBridgeProcess", function () {
         const libProcess = await (
             await ethers.getContractFactory("TestLibBridgeProcess")
         )
-            .connect(owner)
+            .connect(libOwner)
             .deploy()
 
         await libProcess.init(addressManager.address)
@@ -42,7 +53,13 @@ describe("LibBridgeProcess", function () {
             .connect(etherVaultOwner)
             .authorize(libProcess.address, true)
 
-        return { owner, nonOwner, libProcess }
+        const MessageStatus = {
+            NEW: 0,
+            RETRIABLE: 1,
+            DONE: 2,
+        }
+
+        return { owner, libOwner, libProcess, MessageStatus, stateSlot }
     }
 
     describe("processMessage()", async function () {
