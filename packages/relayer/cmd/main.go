@@ -72,18 +72,35 @@ func main() {
 		log.Fatal(err)
 	}
 
-	i, err := indexer.NewService(indexer.NewServiceOpts{
+	// l1Indexer, err := indexer.NewService(indexer.NewServiceOpts{
+	// 	EventRepo:     eventRepository,
+	// 	BlockRepo:     blockRepository,
+	// 	DestEthClient: l2EthClient,
+	// 	EthClient:     l1EthClient,
+	// 	RPCClient:     l1RpcClient,
+	// 	DestRPCClient: l2RpcClient,
+
+	// 	ECDSAKey:          os.Getenv("RELAYER_ECDSA_KEY"),
+	// 	BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+	// 	DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+	// 	DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+	// })
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	l2Indexer, err := indexer.NewService(indexer.NewServiceOpts{
 		EventRepo:     eventRepository,
 		BlockRepo:     blockRepository,
-		DestEthClient: l2EthClient,
-		EthClient:     l1EthClient,
-		RPCClient:     l1RpcClient,
-		DestRPCClient: l2RpcClient,
+		DestEthClient: l1EthClient,
+		EthClient:     l2EthClient,
+		RPCClient:     l2RpcClient,
+		DestRPCClient: l1RpcClient,
 
 		ECDSAKey:          os.Getenv("RELAYER_ECDSA_KEY"),
-		BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-		DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-		DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+		BridgeAddress:     common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+		DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+		DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -92,7 +109,10 @@ func main() {
 	forever := make(chan struct{})
 
 	go func() {
-		if err := i.FilterThenSubscribe(context.Background()); err != nil {
+		// if err := l1Indexer.FilterThenSubscribe(context.Background()); err != nil {
+		// 	log.Fatal(err)
+		// }
+		if err := l2Indexer.FilterThenSubscribe(context.Background()); err != nil {
 			log.Fatal(err)
 		}
 	}()

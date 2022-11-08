@@ -177,6 +177,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 		log.Info("message not processed yet, attempting processing")
 		// process the message
 		if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
+			// TODO: handle error here, update in eventRepo, continue on in processing
 			return errors.Wrap(err, "s.processMessage")
 		}
 	}

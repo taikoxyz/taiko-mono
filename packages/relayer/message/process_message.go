@@ -3,13 +3,10 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -63,13 +60,13 @@ func (p *Processor) ProcessMessage(
 	auth.Context = ctx
 
 	// uncomment to skip `eth_estimateGas`
-	// auth.GasLimit = 2000000
-	// auth.GasPrice = new(big.Int).SetUint64(500000000)
+	auth.GasLimit = 2000000
+	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
-		return errors.Wrap(err, "s.getEncodedSignalProof")
+		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
 	}
 
 	// check if message is received first. if not, it will definitely fail,
@@ -79,7 +76,7 @@ func (p *Processor) ProcessMessage(
 		Context: ctx,
 	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.IsSignalReceived")
+		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
 	log.Infof("isMessageReceived: %v", received)
@@ -108,46 +105,11 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
-	r, err := getFailingMessage(*p.destEthClient, tx.Hash())
-	if err != nil {
-		return errors.Wrap(err, "GetFailingMessage")
-	}
-
-	if r != "" {
-		log.Infof("tx failed, reason: %s", r)
-		return errors.New(fmt.Sprintf("transaction failed, reason: %v", r))
-	}
+	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
 	return nil
-}
-
-func getFailingMessage(client ethclient.Client, hash common.Hash) (string, error) {
-	tx, _, err := client.TransactionByHash(context.Background(), hash)
-	if err != nil {
-		return "", err
-	}
-
-	from, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
-	if err != nil {
-		return "", err
-	}
-
-	msg := ethereum.CallMsg{
-		From:     from,
-		To:       tx.To(),
-		GasPrice: tx.GasPrice(),
-		Value:    tx.Value(),
-		Data:     tx.Data(),
-	}
-
-	res, err := client.CallContract(context.Background(), msg, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(res), nil
 }

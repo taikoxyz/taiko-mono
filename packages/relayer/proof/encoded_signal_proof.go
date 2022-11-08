@@ -51,16 +51,11 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
-	log.Info("rlp encoding account proof")
-
 	rlpEncodedAccountProof, err := rlp.EncodeToBytes(ethProof.AccountProof)
 	if err != nil {
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
 	}
 
-	//log.Infof("rlpEncodedAccountProof: %s", common.Bytes2Hex(rlpEncodedAccountProof))
-
-	log.Info("rlp encoding storage proof")
 	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
 	if err != nil {
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
@@ -71,6 +66,5 @@ func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeA
 		return nil, errors.Wrap(err, "encoding.EncodeStorageProof")
 	}
 
-	log.Infof("encodedStorageProof: %s", hexutil.Encode(encodedStorageProof))
 	return encodedStorageProof, nil
 }
