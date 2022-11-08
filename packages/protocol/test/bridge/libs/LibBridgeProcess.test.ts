@@ -5,7 +5,7 @@ import hre, { ethers } from "hardhat"
 
 describe("LibBridgeProcess", function () {
     async function deployLibBridgeProcessFixture() {
-        const [libOwner, etherVaultOwner] = await ethers.getSigners()
+        const [owner, etherVaultOwner] = await ethers.getSigners()
 
         // slot number of IBridge.State for TestLibBridgeProcess.
         // mapping destChains is at position 0 (201)
@@ -14,7 +14,7 @@ describe("LibBridgeProcess", function () {
         // Context takes up 3 slots, starts at position 3 (204)
         const stateSlot = 201
 
-        const owner = ethers.Wallet.createRandom()
+        const messageOwner = ethers.Wallet.createRandom()
 
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
@@ -44,7 +44,7 @@ describe("LibBridgeProcess", function () {
         const libProcess = await (
             await ethers.getContractFactory("TestLibBridgeProcess")
         )
-            .connect(libOwner)
+            .connect(owner)
             .deploy()
 
         await libProcess.init(addressManager.address)
@@ -59,7 +59,7 @@ describe("LibBridgeProcess", function () {
             DONE: 2,
         }
 
-        return { owner, libOwner, libProcess, MessageStatus, stateSlot }
+        return { owner, messageOwner, libProcess, MessageStatus, stateSlot }
     }
 
     describe("processMessage()", async function () {
