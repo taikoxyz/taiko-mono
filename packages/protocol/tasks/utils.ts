@@ -1,5 +1,6 @@
 import * as fs from "fs"
 import * as log from "./log"
+const Web3 = require("web3")
 
 async function deployContract(
     hre: any,
@@ -66,6 +67,18 @@ function getDeployments(_fileName: string) {
     return JSON.parse(`${json}`)
 }
 
+async function getSlot(hre: any, signal: any, mappingSlot: any) {
+    return hre.ethers.utils.solidityKeccak256(
+        ["bytes", "uint256"],
+        [signal, mappingSlot]
+    )
+}
+
+async function decode(type: string, data: any) {
+    const web3 = new Web3("http://localhost:8545")
+    return await web3.eth.abi.decodeParameter(type, data)
+}
+
 export {
     deployContract,
     getDeployer,
@@ -73,4 +86,6 @@ export {
     getContract,
     saveDeployments,
     getDeployments,
+    getSlot,
+    decode,
 }

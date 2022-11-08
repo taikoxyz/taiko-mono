@@ -9,7 +9,6 @@
 pragma solidity ^0.8.9;
 
 import "./LibBridgeData.sol";
-import "hardhat/console.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibBridgeInvoke {

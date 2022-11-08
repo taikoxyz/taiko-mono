@@ -19,7 +19,7 @@ contract TestBadReceiver {
         revert("can not send to this contract");
     }
 
-    function transfer(uint256 amount) public {
+    function transfer() public pure {
         revert("this fails");
     }
 }
