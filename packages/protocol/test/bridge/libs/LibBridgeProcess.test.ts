@@ -26,23 +26,41 @@ describe("LibBridgeProcess", function () {
             .deploy()
 
         await etherVault.deployed()
-        await etherVault.connect(etherVaultOwner).authorize(owner.address, true)
+
         await etherVault.init(addressManager.address)
 
+        await etherVault.connect(etherVaultOwner).authorize(owner.address, true)
+        const blockChainId = hre.network.config.chainId ?? 0
+        await addressManager.setAddress(
+            `${blockChainId}.ether_vault`,
+            etherVault.address
+        )
         // Sends initial value of 10 ether to EtherVault for receiveEther calls
         await owner.sendTransaction({
             to: etherVault.address,
             value: ethers.utils.parseEther("10.0"),
         })
 
-        const blockChainId = hre.network.config.chainId ?? 0
-        await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
-            etherVault.address
-        )
+        const libTrieLink = await (
+            await ethers.getContractFactory("LibTrieProof")
+        ).deploy()
+        await libTrieLink.deployed()
+
+        const libProcessLink = await (
+            await ethers.getContractFactory("LibBridgeProcess", {
+                libraries: {
+                    LibTrieProof: libTrieLink.address,
+                },
+            })
+        ).deploy()
+        await libProcessLink.deployed()
 
         const libProcess = await (
-            await ethers.getContractFactory("TestLibBridgeProcess")
+            await ethers.getContractFactory("TestLibBridgeProcess", {
+                libraries: {
+                    LibBridgeProcess: libProcessLink.address,
+                },
+            })
         )
             .connect(owner)
             .deploy()
