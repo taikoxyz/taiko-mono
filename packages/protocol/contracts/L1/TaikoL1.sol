@@ -95,10 +95,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *        - inputs[2] is the receipt of the anchor transaction.
      */
 
-    function proveBlock(uint256 blockIndex, bytes[] calldata inputs)
-        external
-        nonReentrant
-    {
+    function proveBlock(
+        uint256 blockIndex,
+        bytes[] calldata inputs
+    ) external nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
@@ -122,10 +122,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          be the only transaction in the L2 block.
      */
 
-    function proveBlockInvalid(uint256 blockIndex, bytes[] calldata inputs)
-        external
-        nonReentrant
-    {
+    function proveBlockInvalid(
+        uint256 blockIndex,
+        bytes[] calldata inputs
+    ) external nonReentrant {
         V1Proving.proveBlockInvalid(
             state,
             AddressResolver(this),
@@ -150,11 +150,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         (, premiumFee) = V1Proposing.getBlockFee(state);
     }
 
-    function getProofReward(uint64 provenAt, uint64 proposedAt)
-        public
-        view
-        returns (uint256 premiumReward)
-    {
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt
+    ) public view returns (uint256 premiumReward) {
         (, premiumReward) = V1Finalizing.getProofReward(
             state,
             provenAt,
@@ -170,20 +169,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.commits[commitHash];
     }
 
-    function getProposedBlock(uint256 id)
-        public
-        view
-        returns (LibData.ProposedBlock memory)
-    {
+    function getProposedBlock(
+        uint256 id
+    ) public view returns (LibData.ProposedBlock memory) {
         return state.getProposedBlock(id);
     }
 
-    function getSyncedHeader(uint256 number)
-        public
-        view
-        override
-        returns (bytes32)
-    {
+    function getSyncedHeader(
+        uint256 number
+    ) public view override returns (bytes32) {
         return state.getL2BlockHash(number);
     }
 
@@ -195,24 +189,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         view
         returns (
-            uint64, /*genesisHeight*/
-            uint64, /*latestFinalizedHeight*/
-            uint64, /*latestFinalizedId*/
+            uint64 /*genesisHeight*/,
+            uint64 /*latestFinalizedHeight*/,
+            uint64 /*latestFinalizedId*/,
             uint64 /*nextBlockId*/
         )
     {
         return state.getStateVariables();
     }
 
-    function signWithGoldFinger(bytes32 hash, uint8 k)
-        public
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
+    function signWithGoldFinger(
+        bytes32 hash,
+        uint8 k
+    ) public view returns (uint8 v, uint256 r, uint256 s) {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 

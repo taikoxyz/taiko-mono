@@ -260,10 +260,9 @@ library V1Proving {
         );
     }
 
-    function _validateAnchorTxSignature(LibTxDecoder.Tx memory _tx)
-        private
-        view
-    {
+    function _validateAnchorTxSignature(
+        LibTxDecoder.Tx memory _tx
+    ) private view {
         require(
             _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
             "L1:sig:r"
