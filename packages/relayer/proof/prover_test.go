@@ -17,12 +17,12 @@ func newTestProver() *Prover {
 
 func Test_New(t *testing.T) {
 	tests := []struct {
-		name      string
-		ethClient *ethclient.Client
-		wantErr   error
+		name    string
+		blocker blocker
+		wantErr error
 	}{
 		{
-			"succcess",
+			"success",
 			&ethclient.Client{},
 			nil,
 		},
@@ -35,7 +35,7 @@ func Test_New(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.ethClient)
+			_, err := New(tt.blocker)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
