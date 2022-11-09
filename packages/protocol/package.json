@@ -83,6 +83,8 @@
     "dependencies": {
         "@gnosis.pm/zodiac": "^1.0.7",
         "@openzeppelin/contracts": "^4.5.0",
-        "@openzeppelin/contracts-upgradeable": "^4.5.1"
+        "@openzeppelin/contracts-upgradeable": "^4.5.1",
+        "pnpm": "^7.14.2",
+        "solidity-docgen": "^0.6.0-beta.29"
     }
 }
