@@ -57,24 +57,24 @@ library LibData {
         s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS] = blk;
     }
 
-    function getProposedBlock(State storage s, uint256 id)
-        internal
-        view
-        returns (ProposedBlock storage)
-    {
+    function getProposedBlock(
+        State storage s,
+        uint256 id
+    ) internal view returns (ProposedBlock storage) {
         return s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS];
     }
 
-    function getL2BlockHash(State storage s, uint256 number)
-        internal
-        view
-        returns (bytes32)
-    {
+    function getL2BlockHash(
+        State storage s,
+        uint256 number
+    ) internal view returns (bytes32) {
         require(number <= s.latestFinalizedHeight, "L1:id");
         return s.l2Hashes[number];
     }
 
-    function getStateVariables(State storage s)
+    function getStateVariables(
+        State storage s
+    )
         internal
         view
         returns (
@@ -90,11 +90,9 @@ library LibData {
         nextBlockId = s.nextBlockId;
     }
 
-    function hashMetadata(BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashMetadata(
+        BlockMetadata memory meta
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode(meta));
     }
 }

@@ -30,15 +30,14 @@ function proposeBlock(struct LibData.State s, bytes[] inputs) public
 function isCommitValid(struct LibData.State s, bytes32 hash) public view returns (bool)
 ```
 
-### _validateMetadata
+### \_validateMetadata
 
 ```solidity
 function _validateMetadata(struct LibData.BlockMetadata meta) private pure
 ```
 
-### _calculateCommitHash
+### \_calculateCommitHash
 
 ```solidity
 function _calculateCommitHash(address beneficiary, bytes32 txListHash) private pure returns (bytes32)
 ```
-

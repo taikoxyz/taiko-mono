@@ -14,7 +14,7 @@ const config = {
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/taiko_icon.png",
+  favicon: "img/Taiko_Token_Fluo.png",
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -65,40 +65,55 @@ const config = {
       navbar: {
         logo: {
           alt: "Taiko Logo",
-          src: "img/Taiko_Icon_Pink.svg",
-          srcDark: "img/Taiko_Icon_Pink.svg",
+          src: "img/Taiko_Logo_Fluo.svg",
         },
         items: [
           {
-            href: "./docs/intro",
+            to: "docs/intro",
             label: "Docs",
             position: "left",
           },
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
-            position: "right",
+            position: "left",
           },
           {
             href: "https://discord.gg/tnSra3aFfg",
-            label: "Discord",
             position: "right",
+            className: "header-discord-link",
+            "aria-label": "Discord",
           },
           {
             href: "https://github.com/taikochain",
-            label: "GitHub",
             position: "right",
+            className: "header-github-link",
+            "aria-label": "GitHub",
           },
           {
             href: "https://twitter.com/taikoxyz",
-            label: "Twitter",
             position: "right",
+            className: "header-twitter-link",
+            "aria-label": "Twitter",
           },
         ],
       },
       footer: {
         style: "dark",
-        links: [],
+        links: [
+          {
+            label: "Discord",
+            href: "https://discord.gg/tnSra3aFfg",
+          },
+          {
+            label: "GitHub",
+            href: "https://github.com/taikochain",
+          },
+          {
+            label: "Twitter",
+            href: "https://twitter.com/taikoxyz",
+          },
+        ],
         copyright: `© Taiko Labs ${new Date().getFullYear()}`,
       },
       prism: {

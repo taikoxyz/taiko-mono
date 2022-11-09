@@ -20,19 +20,15 @@ contract TestLibBridgeData {
         LibBridgeData.updateMessageStatus(state, signal, status);
     }
 
-    function getMessageStatus(bytes32 signal)
-        public
-        view
-        returns (LibBridgeData.MessageStatus)
-    {
+    function getMessageStatus(
+        bytes32 signal
+    ) public view returns (LibBridgeData.MessageStatus) {
         return state.messageStatus[signal];
     }
 
-    function hashMessage(IBridge.Message memory message)
-        public
-        pure
-        returns (bytes32)
-    {
+    function hashMessage(
+        IBridge.Message memory message
+    ) public pure returns (bytes32) {
         return LibBridgeData.hashMessage(message);
     }
 }

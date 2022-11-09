@@ -19,10 +19,10 @@ contract ConfigManager is OwnableUpgradeable {
         OwnableUpgradeable.__Ownable_init();
     }
 
-    function setValue(string calldata name, bytes calldata val)
-        external
-        onlyOwner
-    {
+    function setValue(
+        string calldata name,
+        bytes calldata val
+    ) external onlyOwner {
         bytes32 k = keccak256(abi.encodePacked(name));
         bytes memory oldVal = kv[k];
         if (keccak256(oldVal) != keccak256(val)) {
