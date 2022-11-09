@@ -7,7 +7,6 @@ pragma solidity ^0.8.9;
 import {LibBytesUtils} from "./LibBytesUtils.sol";
 import {LibRLPReader} from "./LibRLPReader.sol";
 import {LibRLPWriter} from "./LibRLPWriter.sol";
-import "hardhat/console.sol";
 
 /**
  * @title LibMerkleTrie
