@@ -208,6 +208,27 @@ action("Generate Genesis", function () {
             expect(owner).to.be.equal(testConfig.contractOwner)
 
             await expect(Bridge.enableDestChain(1, true)).not.to.reverted
+
+            await expect(
+                Bridge.processMessage(
+                    {
+                        id: 0,
+                        sender: ethers.Wallet.createRandom().address,
+                        srcChainId: Math.floor(Math.random() * 1024),
+                        destChainId: testConfig.chainId,
+                        owner: ethers.Wallet.createRandom().address,
+                        to: ethers.Wallet.createRandom().address,
+                        refundAddress: ethers.constants.AddressZero,
+                        depositValue: 0,
+                        callValue: 0,
+                        processingFee: 0,
+                        gasLimit: 0,
+                        data: ethers.utils.randomBytes(1024),
+                        memo: "",
+                    },
+                    ethers.utils.randomBytes(1024)
+                )
+            ).to.be.revertedWith("B:forbidden")
         })
 
         it("TokenVault", async function () {
