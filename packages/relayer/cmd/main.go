@@ -1,172 +1,37 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"os"
+	"flag"
+	"log"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/joho/godotenv"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/indexer"
-	"github.com/taikochain/taiko-mono/packages/relayer/repo"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"github.com/taikochain/taiko-mono/packages/relayer/cli"
 )
 
 func main() {
-	if err := loadAndValidateEnv(); err != nil {
-		log.Fatal(err)
+	modePtr := flag.String("mode", string(cli.SyncMode), `mode to run in. 
+	options:
+	  sync: continue syncing from previous block
+	  resync: restart syncing from block 0
+	  fromBlock: restart syncing from specified block number
+	`)
+
+	layersPtr := flag.String("layers", string(cli.Both), `layers to watch and process. 
+	options:
+	  l1: only watch l1 => l2 bridge messages
+	  l2: only watch l2 => l1 bridge messages
+	  both: watch l1 => l2 and l2 => l1 bridge messages
+	`)
+
+	flag.Parse()
+
+	if !relayer.IsInSlice(cli.Mode(*modePtr), cli.Modes) {
+		log.Fatal("mode not valid")
 	}
 
-	log.SetFormatter(&log.JSONFormatter{})
-
-	db := openDBConnection(relayer.DBConnectionOpts{
-		Name:     os.Getenv("MYSQL_USER"),
-		Password: os.Getenv("MYSQL_PASSWORD"),
-		Database: os.Getenv("MYSQL_DATABASE"),
-		Host:     os.Getenv("MYSQL_HOST"),
-	})
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer sqlDB.Close()
-
-	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		log.Fatal(err)
+	if !relayer.IsInSlice(cli.Layer(*layersPtr), cli.Layers) {
+		log.Fatal("mode not valid")
 	}
 
-	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer l1EthClient.Close()
-
-	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer l2EthClient.Close()
-
-	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	l2RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L2_RPC_URL"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// l1Indexer, err := indexer.NewService(indexer.NewServiceOpts{
-	// 	EventRepo:     eventRepository,
-	// 	BlockRepo:     blockRepository,
-	// 	DestEthClient: l2EthClient,
-	// 	EthClient:     l1EthClient,
-	// 	RPCClient:     l1RpcClient,
-	// 	DestRPCClient: l2RpcClient,
-
-	// 	ECDSAKey:          os.Getenv("RELAYER_ECDSA_KEY"),
-	// 	BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-	// 	DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-	// 	DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
-	// })
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	l2Indexer, err := indexer.NewService(indexer.NewServiceOpts{
-		EventRepo:     eventRepository,
-		BlockRepo:     blockRepository,
-		DestEthClient: l1EthClient,
-		EthClient:     l2EthClient,
-		RPCClient:     l2RpcClient,
-		DestRPCClient: l1RpcClient,
-
-		ECDSAKey:          os.Getenv("RELAYER_ECDSA_KEY"),
-		BridgeAddress:     common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-		DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-		DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	forever := make(chan struct{})
-
-	go func() {
-		// if err := l1Indexer.FilterThenSubscribe(context.Background()); err != nil {
-		// 	log.Fatal(err)
-		// }
-		if err := l2Indexer.FilterThenSubscribe(context.Background()); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	<-forever
-}
-
-func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
-	dsn := fmt.Sprintf(
-		"%v:%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
-		opts.Name,
-		opts.Password,
-		opts.Host,
-		opts.Database,
-	)
-
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return db
-}
-
-func loadAndValidateEnv() error {
-	_ = godotenv.Load()
-
-	missing := make([]string, 0)
-	envVars := []string{
-		"HTTP_PORT",
-		"L1_BRIDGE_ADDRESS",
-		"L2_BRIDGE_ADDRESS",
-		"L2_TAIKO_ADDRESS",
-		"L1_RPC_URL",
-		"L2_RPC_URL",
-		"MYSQL_USER",
-		"MYSQL_DATABASE",
-		"MYSQL_PASSWORD",
-		"MYSQL_HOST",
-		"RELAYER_ECDSA_KEY",
-	}
-
-	for _, v := range envVars {
-		e := os.Getenv(v)
-		if e == "" {
-			missing = append(missing, v)
-		}
-	}
-
-	if len(missing) == 0 {
-		return nil
-	}
-
-	return errors.Errorf("Missing env vars: %v", missing)
+	cli.Run(cli.Mode(*modePtr), cli.Layer(*layersPtr))
 }
