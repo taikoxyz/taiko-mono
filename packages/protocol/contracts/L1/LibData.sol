@@ -56,7 +56,7 @@ library LibData {
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
-        uint64 avgGasLimit; // the block gas-limit moving average
+        uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
         // Changed when a block is proven/finalized
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;

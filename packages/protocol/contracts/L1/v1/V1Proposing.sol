@@ -96,9 +96,9 @@ library V1Proposing {
             .movingAverage(s.avgBlockTime, blockTime, 1024)
             .toUint64();
 
-        s.avgGasLimit = V1Utils
-            .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
-            .toUint64();
+        // s.avgGasLimit = V1Utils
+        //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+        //     .toUint64();
 
         s.lastProposedAt = meta.timestamp;
 
