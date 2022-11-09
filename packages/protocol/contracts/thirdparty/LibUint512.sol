@@ -10,11 +10,10 @@ library Uint512 {
     /// @param b A uint256 representing the second factor.
     /// @return r0 The result as an uint512. r0 contains the lower bits.
     /// @return r1 The higher bits of the result.
-    function mul256x256(uint256 a, uint256 b)
-        public
-        pure
-        returns (uint256 r0, uint256 r1)
-    {
+    function mul256x256(
+        uint256 a,
+        uint256 b
+    ) public pure returns (uint256 r0, uint256 r1) {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)
@@ -53,15 +52,7 @@ library Uint512 {
         uint256 a,
         uint256 b,
         uint256 c
-    )
-        public
-        pure
-        returns (
-            uint256 r0,
-            uint256 r1,
-            uint256 r2
-        )
-    {
+    ) public pure returns (uint256 r0, uint256 r1, uint256 r2) {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)

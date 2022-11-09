@@ -10,6 +10,7 @@ enum MessageStatus {
   RETRIABLE,
   DONE
 }
+
 ```
 
 ### State
@@ -67,15 +68,15 @@ function updateMessageStatus(struct LibBridgeData.State state, bytes32 signal, e
 ```
 
 _If messageStatus is same as in the messageStatus mapping,
-     does nothing._
+does nothing._
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| state | struct LibBridgeData.State | The current bridge state. |
-| signal | bytes32 | The messageHash of the message. |
-| status | enum LibBridgeData.MessageStatus | The status of the message. |
+| Name   | Type                             | Description                     |
+| ------ | -------------------------------- | ------------------------------- |
+| state  | struct LibBridgeData.State       | The current bridge state.       |
+| signal | bytes32                          | The messageHash of the message. |
+| status | enum LibBridgeData.MessageStatus | The status of the message.      |
 
 ### hashMessage
 
@@ -85,4 +86,3 @@ function hashMessage(struct IBridge.Message message) internal pure returns (byte
 
 _Hashes messages and returns the hash signed with
 "TAIKO_BRIDGE_MESSAGE" for verification._
-

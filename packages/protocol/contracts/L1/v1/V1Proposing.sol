@@ -35,9 +35,10 @@ library V1Proposing {
         );
     }
 
-    function proposeBlock(LibData.State storage s, bytes[] calldata inputs)
-        public
-    {
+    function proposeBlock(
+        LibData.State storage s,
+        bytes[] calldata inputs
+    ) public {
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -84,11 +85,10 @@ library V1Proposing {
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function isCommitValid(LibData.State storage s, bytes32 hash)
-        public
-        view
-        returns (bool)
-    {
+    function isCommitValid(
+        LibData.State storage s,
+        bytes32 hash
+    ) public view returns (bool) {
         return
             hash != 0 &&
             s.commits[hash] != 0 &&
@@ -115,11 +115,10 @@ library V1Proposing {
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 
-    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _calculateCommitHash(
+        address beneficiary,
+        bytes32 txListHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 }

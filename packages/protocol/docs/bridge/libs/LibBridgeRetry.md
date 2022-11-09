@@ -16,10 +16,9 @@ is marked "DONE" and cannot be retried.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| state | struct LibBridgeData.State | The bridge state. |
-| resolver | contract AddressResolver | The address resolver. |
-| message | struct IBridge.Message | The message to retry. |
-| isLastAttempt | bool | Specifies if this is the last attempt to retry the        message. |
-
+| Name          | Type                       | Description                                                 |
+| ------------- | -------------------------- | ----------------------------------------------------------- |
+| state         | struct LibBridgeData.State | The bridge state.                                           |
+| resolver      | contract AddressResolver   | The address resolver.                                       |
+| message       | struct IBridge.Message     | The message to retry.                                       |
+| isLastAttempt | bool                       | Specifies if this is the last attempt to retry the message. |

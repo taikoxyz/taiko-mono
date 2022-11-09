@@ -42,10 +42,9 @@ interface IBridge {
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(Message memory message)
-        external
-        payable
-        returns (bytes32 signal);
+    function sendMessage(
+        Message memory message
+    ) external payable returns (bytes32 signal);
 
     /// Stores a signal on the bridge contract and emits an event for the
     /// relayer to pick up.
@@ -65,10 +64,10 @@ interface IBridge {
 
     /// Checks if a signal has been stored on the bridge contract by the
     /// specified address.
-    function isSignalSent(address sender, bytes32 signal)
-        external
-        view
-        returns (bool);
+    function isSignalSent(
+        address sender,
+        bytes32 signal
+    ) external view returns (bool);
 
     /// Check if a signal has been received on the destination chain and sent
     /// by the specified sender.

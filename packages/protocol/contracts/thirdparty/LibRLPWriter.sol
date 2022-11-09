@@ -35,11 +35,9 @@ library LibRLPWriter {
      * @param _in The list of RLP encoded byte strings.
      * @return The RLP encoded list of items in bytes.
      */
-    function writeList(bytes[] memory _in)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function writeList(
+        bytes[] memory _in
+    ) internal pure returns (bytes memory) {
         bytes memory list = _flatten(_in);
         return abi.encodePacked(_writeLength(list.length, 192), list);
     }
@@ -49,11 +47,9 @@ library LibRLPWriter {
      * @param _in The string to encode.
      * @return The RLP encoded string in bytes.
      */
-    function writeString(string memory _in)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function writeString(
+        string memory _in
+    ) internal pure returns (bytes memory) {
         return writeBytes(bytes(_in));
     }
 
@@ -115,11 +111,10 @@ library LibRLPWriter {
      * @param _offset 128 if item is string, 192 if item is list.
      * @return RLP encoded bytes.
      */
-    function _writeLength(uint256 _len, uint256 _offset)
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _writeLength(
+        uint256 _len,
+        uint256 _offset
+    ) private pure returns (bytes memory) {
         bytes memory encoded;
 
         if (_len < 56) {
@@ -136,7 +131,9 @@ library LibRLPWriter {
             encoded = new bytes(lenLen + 1);
             encoded[0] = bytes1(uint8(lenLen) + uint8(_offset) + 55);
             for (i = 1; i <= lenLen; i++) {
-                encoded[i] = bytes1(uint8((_len / (256**(lenLen - i))) % 256));
+                encoded[i] = bytes1(
+                    uint8((_len / (256 ** (lenLen - i))) % 256)
+                );
             }
         }
 
@@ -173,11 +170,9 @@ library LibRLPWriter {
      * @param _x The integer to encode.
      * @return RLP encoded bytes.
      */
-    function _toBinaryWithLeadingZeros(uint256 _x)
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _toBinaryWithLeadingZeros(
+        uint256 _x
+    ) private pure returns (bytes memory) {
         bytes memory b = abi.encodePacked(_x);
 
         uint256 i = 0;
@@ -197,11 +192,7 @@ library LibRLPWriter {
      * @param _src Source location.
      * @param _len Length of memory to copy.
      */
-    function _memcpy(
-        uint256 _dest,
-        uint256 _src,
-        uint256 _len
-    ) private pure {
+    function _memcpy(uint256 _dest, uint256 _src, uint256 _len) private pure {
         uint256 dest = _dest;
         uint256 src = _src;
         uint256 len = _len;
@@ -216,7 +207,7 @@ library LibRLPWriter {
 
         uint256 mask;
         unchecked {
-            mask = 256**(32 - len) - 1;
+            mask = 256 ** (32 - len) - 1;
         }
         assembly {
             let srcpart := and(mload(src), not(mask))
@@ -231,11 +222,9 @@ library LibRLPWriter {
      * @param _list List of byte strings to flatten.
      * @return The flattened byte string.
      */
-    function _flatten(bytes[] memory _list)
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _flatten(
+        bytes[] memory _list
+    ) private pure returns (bytes memory) {
         if (_list.length == 0) {
             return new bytes(0);
         }
