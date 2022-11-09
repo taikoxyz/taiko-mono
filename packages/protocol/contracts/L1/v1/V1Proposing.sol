@@ -131,17 +131,6 @@ library V1Proposing {
             s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
-    function _updateAvgBlockTime(
-        LibData.State storage s,
-        uint64 blockTime
-    ) private {
-        if (s.avgBlockTime == 0) {
-            s.avgBlockTime = blockTime;
-        } else {
-            s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
-        }
-    }
-
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
         require(
             meta.id == 0 &&

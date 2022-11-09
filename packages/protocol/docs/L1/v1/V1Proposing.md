@@ -36,12 +36,6 @@ function getBlockFee(struct LibData.State s) public view returns (uint256 fee, u
 function isCommitValid(struct LibData.State s, bytes32 hash) public view returns (bool)
 ```
 
-### \_updateAvgBlockTime
-
-```solidity
-function _updateAvgBlockTime(struct LibData.State s, uint64 blockTime) private
-```
-
 ### \_calcProposerBootstrapReward
 
 ```solidity
