@@ -66,6 +66,17 @@ function getDeployments(_fileName: string) {
     return JSON.parse(`${json}`)
 }
 
+async function getSlot(hre: any, signal: any, mappingSlot: any) {
+    return hre.ethers.utils.solidityKeccak256(
+        ["bytes", "uint256"],
+        [signal, mappingSlot]
+    )
+}
+
+async function decode(hre: any, type: any, data: any) {
+    return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString()
+}
+
 export {
     deployContract,
     getDeployer,
@@ -73,4 +84,6 @@ export {
     getContract,
     saveDeployments,
     getDeployments,
+    getSlot,
+    decode,
 }
