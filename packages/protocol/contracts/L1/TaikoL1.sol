@@ -34,10 +34,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _avgFee
+        uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash, _avgFee);
+        V1Finalizing.init(state, _genesisBlockHash, _feeBase);
     }
 
     /**
@@ -76,7 +76,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(
             state,
             AddressResolver(this),
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -95,15 +95,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *        - inputs[2] is the receipt of the anchor transaction.
      */
 
-    function proveBlock(uint256 blockIndex, bytes[] calldata inputs)
-        external
-        nonReentrant
-    {
+    function proveBlock(
+        uint256 blockIndex,
+        bytes[] calldata inputs
+    ) external nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
             AddressResolver(this),
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -122,10 +122,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          be the only transaction in the L2 block.
      */
 
-    function proveBlockInvalid(uint256 blockIndex, bytes[] calldata inputs)
-        external
-        nonReentrant
-    {
+    function proveBlockInvalid(
+        uint256 blockIndex,
+        bytes[] calldata inputs
+    ) external nonReentrant {
         V1Proving.proveBlockInvalid(
             state,
             AddressResolver(this),
@@ -135,7 +135,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(
             state,
             AddressResolver(this),
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -150,11 +150,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         (, premiumFee) = V1Proposing.getBlockFee(state);
     }
 
-    function getProofReward(uint64 provenAt, uint64 proposedAt)
-        public
-        view
-        returns (uint256 premiumReward)
-    {
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt
+    ) public view returns (uint256 premiumReward) {
         (, premiumReward) = V1Finalizing.getProofReward(
             state,
             provenAt,
@@ -170,20 +169,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.commits[commitHash];
     }
 
-    function getProposedBlock(uint256 id)
-        public
-        view
-        returns (LibData.ProposedBlock memory)
-    {
+    function getProposedBlock(
+        uint256 id
+    ) public view returns (LibData.ProposedBlock memory) {
         return state.getProposedBlock(id);
     }
 
-    function getSyncedHeader(uint256 number)
-        public
-        view
-        override
-        returns (bytes32)
-    {
+    function getSyncedHeader(
+        uint256 number
+    ) public view override returns (bytes32) {
         return state.getL2BlockHash(number);
     }
 
@@ -195,24 +189,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         view
         returns (
-            uint64, /*genesisHeight*/
-            uint64, /*latestFinalizedHeight*/
-            uint64, /*latestFinalizedId*/
+            uint64 /*genesisHeight*/,
+            uint64 /*latestFinalizedHeight*/,
+            uint64 /*latestFinalizedId*/,
             uint64 /*nextBlockId*/
         )
     {
         return state.getStateVariables();
     }
 
-    function signWithGoldFinger(bytes32 hash, uint8 k)
-        public
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
+    function signWithGoldFinger(
+        bytes32 hash,
+        uint8 k
+    ) public view returns (uint8 v, uint256 r, uint256 s) {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
@@ -220,35 +209,35 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         pure
         returns (
-            uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_BLOCK_BUFFER_SIZE
-            uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
-            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
-            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
-            uint256, // TAIKO_BLOCK_MAX_TXS
-            bytes32, // TAIKO_BLOCK_DEADEND_HASH
-            uint256, // TAIKO_TXLIST_MAX_BYTES
-            uint256, // TAIKO_TX_MIN_GAS_LIMIT
-            uint256, // V1_ANCHOR_TX_GAS_LIMIT
-            bytes4, // V1_ANCHOR_TX_SELECTOR
-            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256, // K_CHAIN_ID
+            uint256, // K_MAX_NUM_BLOCKS
+            uint256, // K_MAX_FINALIZATIONS_PER_TX
+            uint256, // K_COMMIT_DELAY_CONFIRMS
+            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // K_BLOCK_MAX_GAS_LIMIT
+            uint256, // K_BLOCK_MAX_TXS
+            bytes32, // K_BLOCK_DEADEND_HASH
+            uint256, // K_TXLIST_MAX_BYTES
+            uint256, // K_TX_MIN_GAS_LIMIT
+            uint256, // K_ANCHOR_TX_GAS_LIMIT
+            bytes4, // K_ANCHOR_TX_SELECTOR
+            bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
         )
     {
         return (
-            LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
-            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
-            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.TAIKO_BLOCK_MAX_TXS,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
-            LibConstants.TAIKO_TXLIST_MAX_BYTES,
-            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_SELECTOR,
-            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_CHAIN_ID,
+            LibConstants.K_MAX_NUM_BLOCKS,
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_COMMIT_DELAY_CONFIRMS,
+            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.K_BLOCK_MAX_TXS,
+            LibConstants.K_BLOCK_DEADEND_HASH,
+            LibConstants.K_TXLIST_MAX_BYTES,
+            LibConstants.K_TX_MIN_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_SELECTOR,
+            LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
         );
     }
 }

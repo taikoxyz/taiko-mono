@@ -39,10 +39,10 @@ library LibBridgeSignal {
      * @param sender The address sending the signal.
      * @param signal The signal to send.
      */
-    function sendSignal(address sender, bytes32 signal)
-        internal
-        onlyValidSenderAndSignal(sender, signal)
-    {
+    function sendSignal(
+        address sender,
+        bytes32 signal
+    ) internal onlyValidSenderAndSignal(sender, signal) {
         bytes32 key = _key(sender, signal);
         assembly {
             sstore(key, 1)
@@ -55,12 +55,10 @@ library LibBridgeSignal {
      * @param sender The sender of the signal.
      * @param signal The signal to check.
      */
-    function isSignalSent(address sender, bytes32 signal)
-        internal
-        view
-        onlyValidSenderAndSignal(sender, signal)
-        returns (bool)
-    {
+    function isSignalSent(
+        address sender,
+        bytes32 signal
+    ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
         bytes32 key = _key(sender, signal);
         uint256 v;
         assembly {
@@ -111,11 +109,10 @@ library LibBridgeSignal {
     /**
      * Generate the storage key for a signal.
      */
-    function _key(address sender, bytes32 signal)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _key(
+        address sender,
+        bytes32 signal
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(sender, signal));
     }
 }

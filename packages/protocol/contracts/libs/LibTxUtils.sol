@@ -18,7 +18,9 @@ import "../thirdparty/LibRLPWriter.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxUtils {
-    function hashUnsignedTx(LibTxDecoder.Tx memory transaction)
+    function hashUnsignedTx(
+        LibTxDecoder.Tx memory transaction
+    )
         internal
         pure
         returns (
@@ -70,9 +72,7 @@ library LibTxUtils {
             // For legacy transactions, there are three more RLP items to
             // encode defined in EIP-155.
             if (transaction.txType == 0 && i == list.length - 4) {
-                list[i + 1] = LibRLPWriter.writeUint(
-                    LibConstants.TAIKO_CHAIN_ID
-                );
+                list[i + 1] = LibRLPWriter.writeUint(LibConstants.K_CHAIN_ID);
                 list[i + 2] = LibRLPWriter.writeUint64(0);
                 list[i + 3] = LibRLPWriter.writeUint64(0);
                 break;
@@ -92,11 +92,9 @@ library LibTxUtils {
         hash = keccak256(unsignedTxRlp);
     }
 
-    function recoverSender(LibTxDecoder.Tx memory transaction)
-        internal
-        pure
-        returns (address)
-    {
+    function recoverSender(
+        LibTxDecoder.Tx memory transaction
+    ) internal pure returns (address) {
         return
             ecrecover(
                 hashUnsignedTx(transaction),

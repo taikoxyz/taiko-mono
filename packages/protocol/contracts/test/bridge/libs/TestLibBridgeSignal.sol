@@ -16,11 +16,10 @@ contract TestLibBridgeSignal {
         LibBridgeSignal.sendSignal(sender, signal);
     }
 
-    function isSignalSent(address sender, bytes32 signal)
-        public
-        view
-        returns (bool)
-    {
+    function isSignalSent(
+        address sender,
+        bytes32 signal
+    ) public view returns (bool) {
         return LibBridgeSignal.isSignalSent(sender, signal);
     }
 }

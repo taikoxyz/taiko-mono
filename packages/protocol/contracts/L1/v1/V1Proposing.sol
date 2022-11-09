@@ -31,7 +31,7 @@ library V1Proposing {
 
         emit BlockCommitted(
             commitHash,
-            block.number + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            block.number + LibConstants.K_COMMIT_DELAY_CONFIRMS
         );
     }
 
@@ -61,13 +61,12 @@ library V1Proposing {
 
         require(
             txList.length > 0 &&
-                txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
+                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
                 meta.txListHash == txList.hashTxList(),
             "L1:txList"
         );
         require(
-            s.nextBlockId <
-                s.latestFinalizedId + LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
+            s.nextBlockId < s.latestFinalizedId + LibConstants.K_MAX_NUM_BLOCKS,
             "L1:tooMany"
         );
 
@@ -91,7 +90,7 @@ library V1Proposing {
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
         (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-        s.avgFee = V1Utils.movingAverage(s.avgFee, fee, 1024);
+        s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
@@ -103,71 +102,43 @@ library V1Proposing {
 
         s.lastProposedAt = meta.timestamp;
 
-        uint256 proposerBootstrapReward = _calcProposerBootstrapReward(s);
-        TkoToken tkoToken = TkoToken(resolver.resolve("tko_token"));
-        if (proposerBootstrapReward > premiumFee) {
-            tkoToken.mint(msg.sender, proposerBootstrapReward - premiumFee);
-        } else {
-            tkoToken.burn(msg.sender, premiumFee - proposerBootstrapReward);
-        }
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s)
-        public
-        view
-        returns (uint256 fee, uint256 premiumFee)
-    {
-        uint256 scale = V1Utils.feeScale(
+    function getBlockFee(
+        LibData.State storage s
+    ) public view returns (uint256 fee, uint256 premiumFee) {
+        uint256 alpha = V1Utils.feeScaleAlpha(
             uint64(block.timestamp),
             s.lastProposedAt,
-            s.avgProofTime
+            s.avgProofTime,
+            LibConstants.K_BLOCK_TIME_CAP
         );
-        fee = (s.avgFee * 10000) / scale;
-        premiumFee = V1Utils.applyOversellPremium(s, fee, false);
+        fee = (s.feeBase * 10000) / alpha;
+        premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
     }
 
-    function isCommitValid(LibData.State storage s, bytes32 hash)
-        public
-        view
-        returns (bool)
-    {
+    function isCommitValid(
+        LibData.State storage s,
+        bytes32 hash
+    ) public view returns (bool) {
         return
             hash != 0 &&
             s.commits[hash] != 0 &&
             block.number >=
-            s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+            s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
-    function _updateAvgBlockTime(LibData.State storage s, uint64 blockTime)
-        private
-    {
+    function _updateAvgBlockTime(
+        LibData.State storage s,
+        uint64 blockTime
+    ) private {
         if (s.avgBlockTime == 0) {
             s.avgBlockTime = blockTime;
         } else {
             s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
-        }
-    }
-
-    function _calcProposerBootstrapReward(LibData.State storage s)
-        private
-        view
-        returns (uint256 proposerReward)
-    {
-        uint256 a = LibConstants.TAIKO_REWARD_BOOTSTRAP_AMOUNT;
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 e = block.timestamp - s.genesisTimestamp;
-        uint256 d = LibConstants.TAIKO_REWARD_BOOTSTRAP_DURATION;
-
-        if (e >= d) {
-            return 0;
-        } else {
-            uint256 b = block.timestamp - s.lastProposedAt;
-            return (2 * a * b * (d - e + b / 2)) / d / d;
         }
     }
 
@@ -184,17 +155,16 @@ library V1Proposing {
         );
 
         require(
-            meta.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
             "L1:gasLimit"
         );
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 
-    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _calculateCommitHash(
+        address beneficiary,
+        bytes32 txListHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 }

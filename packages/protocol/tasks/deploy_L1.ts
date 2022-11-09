@@ -83,11 +83,6 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${l2ChainId}.taiko`, v1TaikoL2Address)
     )
-    // Used by LibBridgeRead
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(`${chainId}.taiko`, v1TaikoL2Address)
-    )
 
     // TkoToken
     const TkoToken = await utils.deployContract(hre, "TkoToken")
@@ -117,11 +112,17 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
-    const avgFee = hre.ethers.BigNumber.from(10).pow(18)
+    const feeBase = hre.ethers.BigNumber.from(10).pow(18)
 
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, avgFee)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
+    )
+
+    // Used by LibBridgeRead
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(`${chainId}.taiko`, TaikoL1.address)
     )
 
     // Bridge

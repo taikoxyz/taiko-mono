@@ -109,5 +109,5 @@ function _checkPublicInputs() private
 ### \_hashPublicInputs
 
 ```solidity
-function _hashPublicInputs(uint256 chainId, uint256 number, uint256 avgFee, bytes32[255] ancestors) private pure returns (bytes32)
+function _hashPublicInputs(uint256 chainId, uint256 number, uint256 feeBase, bytes32[255] ancestors) private pure returns (bytes32)
 ```

@@ -48,10 +48,10 @@ library LibData {
         // Never changed
         uint64 genesisHeight; // never change
         uint64 genesisTimestamp; // never change
-        uint64 reservedA1; // never change
-        uint64 reservedA2; // never change
+        uint64 __reservedA1; // never change
+        uint64 __reservedA2; // never change
         // Changed when a block is proposed or proven/finalized
-        uint256 avgFee;
+        uint256 feeBase;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
@@ -61,7 +61,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 avgProofTime; // the proof time moving average
-        uint64 reservedC1;
+        uint64 __reservedC1;
     }
 
     function saveProposedBlock(
@@ -69,27 +69,27 @@ library LibData {
         uint256 id,
         ProposedBlock memory blk
     ) internal {
-        s.proposedBlocks[id % LibConstants.TAIKO_BLOCK_BUFFER_SIZE] = blk;
+        s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
     }
 
-    function getProposedBlock(State storage s, uint256 id)
-        internal
-        view
-        returns (ProposedBlock storage)
-    {
-        return s.proposedBlocks[id % LibConstants.TAIKO_BLOCK_BUFFER_SIZE];
+    function getProposedBlock(
+        State storage s,
+        uint256 id
+    ) internal view returns (ProposedBlock storage) {
+        return s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
     }
 
-    function getL2BlockHash(State storage s, uint256 number)
-        internal
-        view
-        returns (bytes32)
-    {
+    function getL2BlockHash(
+        State storage s,
+        uint256 number
+    ) internal view returns (bytes32) {
         require(number <= s.latestFinalizedHeight, "L1:id");
         return s.l2Hashes[number];
     }
 
-    function getStateVariables(State storage s)
+    function getStateVariables(
+        State storage s
+    )
         internal
         view
         returns (
@@ -105,11 +105,9 @@ library LibData {
         nextBlockId = s.nextBlockId;
     }
 
-    function hashMetadata(BlockMetadata memory meta)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashMetadata(
+        BlockMetadata memory meta
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode(meta));
     }
 }
