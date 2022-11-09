@@ -103,22 +103,14 @@ library V1Proposing {
 
         s.lastProposedAt = meta.timestamp;
 
-        uint256 proposerBootstrapReward = _calcProposerBootstrapReward(s);
-        TkoToken tkoToken = TkoToken(resolver.resolve("tko_token"));
-        if (proposerBootstrapReward > premiumFee) {
-            tkoToken.mint(msg.sender, proposerBootstrapReward - premiumFee);
-        } else {
-            tkoToken.burn(msg.sender, premiumFee - proposerBootstrapReward);
-        }
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function getBlockFee(LibData.State storage s)
-        public
-        view
-        returns (uint256 fee, uint256 premiumFee)
-    {
+    function getBlockFee(
+        LibData.State storage s
+    ) public view returns (uint256 fee, uint256 premiumFee) {
         uint256 scale = V1Utils.feeScale(
             uint64(block.timestamp),
             s.lastProposedAt,
@@ -128,11 +120,10 @@ library V1Proposing {
         premiumFee = V1Utils.applyOversellPremium(s, fee, false);
     }
 
-    function isCommitValid(LibData.State storage s, bytes32 hash)
-        public
-        view
-        returns (bool)
-    {
+    function isCommitValid(
+        LibData.State storage s,
+        bytes32 hash
+    ) public view returns (bool) {
         return
             hash != 0 &&
             s.commits[hash] != 0 &&
@@ -140,34 +131,14 @@ library V1Proposing {
             s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
 
-    function _updateAvgBlockTime(LibData.State storage s, uint64 blockTime)
-        private
-    {
+    function _updateAvgBlockTime(
+        LibData.State storage s,
+        uint64 blockTime
+    ) private {
         if (s.avgBlockTime == 0) {
             s.avgBlockTime = blockTime;
         } else {
             s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
-        }
-    }
-
-    function _calcProposerBootstrapReward(LibData.State storage s)
-        private
-        view
-        returns (uint256 proposerReward)
-    {
-        uint256 a = LibConstants.TAIKO_REWARD_BOOTSTRAP_AMOUNT;
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 e = block.timestamp - s.genesisTimestamp;
-        uint256 d = LibConstants.TAIKO_REWARD_BOOTSTRAP_DURATION;
-
-        if (e >= d) {
-            return 0;
-        } else {
-            uint256 b = block.timestamp - s.lastProposedAt;
-            return (2 * a * b * (d - e + b / 2)) / d / d;
         }
     }
 
@@ -190,11 +161,10 @@ library V1Proposing {
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 
-    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _calculateCommitHash(
+        address beneficiary,
+        bytes32 txListHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 }
