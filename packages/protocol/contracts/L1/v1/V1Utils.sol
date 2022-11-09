@@ -29,18 +29,6 @@ library V1Utils {
         return (10000 * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
     }
 
-    function movingAverage(
-        uint256 ma,
-        uint256 v,
-        uint256 factor
-    ) internal pure returns (uint256) {
-        if (ma == 0) {
-            return v;
-        }
-        uint256 _ma = (ma * (factor - 1) + v) / factor;
-        return _ma > 0 ? _ma : ma;
-    }
-
     function feeScaleAlpha(
         uint64 tNow,
         uint64 tLast,
@@ -55,5 +43,17 @@ library V1Utils {
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax;
         return 10000 + ((LibConstants.TAIKO_FEE_MULTIPLIER - 100) * tRel) / 100;
+    }
+
+    function movingAverage(
+        uint256 ma,
+        uint256 v,
+        uint256 factor
+    ) internal pure returns (uint256) {
+        if (ma == 0) {
+            return v;
+        }
+        uint256 _ma = (ma * (factor - 1) + v) / factor;
+        return _ma > 0 ? _ma : ma;
     }
 }
