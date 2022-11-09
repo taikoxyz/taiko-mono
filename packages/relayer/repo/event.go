@@ -1,6 +1,9 @@
 package repo
 
 import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
@@ -47,4 +50,12 @@ func (r *EventRepository) UpdateStatus(id int, status relayer.EventStatus) error
 	}
 
 	return nil
+}
+
+func (r *EventRepository) FindAllByAddress(chainID *big.Int, address common.Address) ([]*relayer.Event, error) {
+	e := make([]*relayer.Event, 0)
+	if err := r.db.Where("chain_id = ?", chainID.Int64()).Find(&e, datatypes.JSONQuery("data").Equals(address.Hex(), "Owner")).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+	return e, nil
 }
