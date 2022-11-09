@@ -12,6 +12,7 @@ importers:
     specifiers:
       '@defi-wonderland/smock': ^2.3.3
       '@gnosis.pm/zodiac': ^1.0.7
+      '@nomicfoundation/hardhat-network-helpers': ^1.0.6
       '@nomiclabs/hardhat-ethers': ^2.0.0
       '@nomiclabs/hardhat-etherscan': ^3.1.0
       '@nomiclabs/hardhat-waffle': ^2.0.0
@@ -59,6 +60,7 @@ importers:
       '@openzeppelin/contracts-upgradeable': 4.7.3
     devDependencies:
       '@defi-wonderland/smock': 2.3.3_z67mwh6jmxdufyguqgtbmr6rba
+      '@nomicfoundation/hardhat-network-helpers': 1.0.6_hardhat@2.12.2
       '@nomiclabs/hardhat-ethers': 2.2.1_3uaf6nt3qt6cyh5fx3fc5i4mn4
       '@nomiclabs/hardhat-etherscan': 3.1.2_hardhat@2.12.2
       '@nomiclabs/hardhat-waffle': 2.0.3_wzgqb2xh4egjkdzuv52bfmbi24
@@ -3322,6 +3324,15 @@ packages:
       - supports-color
     dev: true
 
+  /@nomicfoundation/hardhat-network-helpers/1.0.6_hardhat@2.12.2:
+    resolution: {integrity: sha512-a35iVD4ycF6AoTfllAnKm96IPIzzHpgKX/ep4oKc2bsUKFfMlacWdyntgC/7d5blyCTXfFssgNAvXDZfzNWVGQ==}
+    peerDependencies:
+      hardhat: ^2.9.5
+    dependencies:
+      ethereumjs-util: 7.1.5
+      hardhat: 2.12.2_mwhvu7sfp6vq5ryuwb6hlbjfka
+    dev: true
+
   /@nomicfoundation/solidity-analyzer-darwin-arm64/0.1.0:
     resolution: {integrity: sha512-vEF3yKuuzfMHsZecHQcnkUrqm8mnTWfJeEVFHpg+cO+le96xQA4lAJYdUan8pXZohQxv1fSReQsn4QGNuBNuCw==}
     engines: {node: '>= 10'}
@@ -4224,7 +4235,7 @@ packages:
   /@types/resolve/0.0.8:
     resolution: {integrity: sha512-auApPaJf3NPfe18hSoJkp8EbZzer2ISk7o8mCC3M9he/a04+gbMF97NkpD2S8riMGvm4BMRI59/SZQSaLTKpsQ==}
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 18.11.9
     dev: true
 
   /@types/responselike/1.0.0:
