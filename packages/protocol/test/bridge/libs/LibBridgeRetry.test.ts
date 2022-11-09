@@ -3,7 +3,6 @@ import { expect } from "chai"
 import hre, { ethers } from "hardhat"
 import { Message } from "../../utils/message"
 import { getSlot, decode } from "../../../tasks/utils"
-// const Web3 = require("web3")
 const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 describe("LibBridgeRetry", function () {
