@@ -48,8 +48,8 @@ library LibData {
         // Never changed
         uint64 genesisHeight; // never change
         uint64 genesisTimestamp; // never change
-        uint64 reservedA1; // never change
-        uint64 reservedA2; // never change
+        uint64 __reservedA1; // never change
+        uint64 __reservedA2; // never change
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
         // Changed when a block is proposed
@@ -61,7 +61,7 @@ library LibData {
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 avgProofTime; // the proof time moving average
-        uint64 reservedC1;
+        uint64 __reservedC1;
     }
 
     function saveProposedBlock(
