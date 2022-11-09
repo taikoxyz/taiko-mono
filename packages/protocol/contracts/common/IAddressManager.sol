@@ -25,8 +25,8 @@ interface IAddressManager {
     /**
      * @notice Returns the address associated with the given name.
      * @param name The name for which an address will be returned.
-     * @return The address associated with the given name. If no address is found,
-     *        `address(0)` will be returned.
+     * @return The address associated with the given name. If no address is
+     *        found, `address(0)` will be returned.
      */
     function getAddress(string memory name) external view returns (address);
 }

@@ -3,7 +3,6 @@ node_modules
 coverage
 coverage.json
 typechain
-docs
 abis
 abi
 deployments/*.json

@@ -12,10 +12,11 @@ import "./IAddressManager.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
+ * This abstract contract provides a name-to-address lookup. Under the hood,
+ * it uses an AddressManager to manage the name-to-address mapping.
+ *
+ * @title AddressResolver
  * @author dantaik <dan@taiko.xyz>
- * @notice This abstract contract provides a name-to-address lookup.
- *         Under the hood, it uses an AddressManager to manage the
- *         name-to-address mapping.
  */
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;
@@ -36,38 +37,36 @@ abstract contract AddressResolver {
     }
 
     /**
-     * @notice Resolves a name to an address.
-     * @dev This funcition will throw if the resolved address is `address(0)`.
-     * @param name The name to resolve
-     * @return  The name's corresponding address
+     * Resolves a name to an address on the current chain.
+     *
+     * @dev This function will throw if the resolved address is `address(0)`.
+     * @param name The name to resolve.
+     * @return The name's corresponding address.
      */
-    function resolve(string memory name)
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(
+        string memory name
+    ) public view virtual returns (address payable) {
         return _resolve(block.chainid, name);
     }
 
     /**
-     * @notice Resolves a name to an address.
-     * @dev This funcition will throw if the resolved address is `address(0)`.
-     * @param chainId The chainId
-     * @param name The name to resolve
-     * @return The name's corresponding address
+     * Resolves a name to an address on the specified chain.
+     *
+     * @dev This function will throw if the resolved address is `address(0)`.
+     * @param chainId The chainId.
+     * @param name The name to resolve.
+     * @return The name's corresponding address.
      */
-    function resolve(uint256 chainId, string memory name)
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(
+        uint256 chainId,
+        string memory name
+    ) public view virtual returns (address payable) {
         return _resolve(chainId, name);
     }
 
     /**
-     * @notice Returns the AddressManager's address.
+     * Returns the AddressManager's address.
+     *
      * @return The AddressManager's address.
      */
     function addressManager() public view returns (address) {
@@ -79,11 +78,10 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(uint256 chainId, string memory name)
-        private
-        view
-        returns (address payable)
-    {
+    function _resolve(
+        uint256 chainId,
+        string memory name
+    ) private view returns (address payable) {
         bytes memory key = abi.encodePacked(
             Strings.toString(chainId),
             ".",

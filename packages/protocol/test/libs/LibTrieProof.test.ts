@@ -1,4 +1,3 @@
-// import { expect } from "chai"
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import RLP from "rlp"
@@ -157,7 +156,7 @@ describe("integration:LibTrieProof", function () {
                     RLP.encode(proof.storageProof[0].proof),
                 ]
             )
-
+            // proof verifies the storageValue at key is 1
             await testLibTreProof.verify(
                 stateRoot,
                 bridge.address,

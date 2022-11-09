@@ -8,8 +8,11 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-/// @author dantaik <dan@taiko.xyz>
-/// @dev Cross-chain Ether are held by Bridges, not TokenVaults.
+/**
+ * Bridge interface.
+ * @dev Cross-chain Ether is held by Bridges, not TokenVaults.
+ * @author dantaik <dan@taiko.xyz>
+ */
 interface IBridge {
     struct Message {
         uint256 id; // auto filled
@@ -18,7 +21,7 @@ interface IBridge {
         uint256 destChainId;
         address owner;
         address to; // target address on destChain
-        address refundAddress; // address to refund gas/ether to, if address(0), refunds to owner
+        address refundAddress; // if address(0), refunds to owner
         uint256 depositValue; // value to be deposited at "to" address
         uint256 callValue; // value to be called on destChain
         uint256 processingFee; // processing fee sender is willing to pay
@@ -37,28 +40,37 @@ interface IBridge {
 
     event MessageSent(bytes32 indexed signal, Message message);
 
-    /// @dev Sends a message to the destination chain and takes custody
+    /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
-    function sendMessage(Message memory message)
-        external
-        payable
-        returns (bytes32 signal);
+    function sendMessage(
+        Message memory message
+    ) external payable returns (bytes32 signal);
 
+    /// Stores a signal on the bridge contract and emits an event for the
+    /// relayer to pick up.
     function sendSignal(bytes32 signal) external;
 
+    /// Checks if a signal has been stored on the bridge contract by the
+    /// current address.
     function isMessageSent(bytes32 signal) external view returns (bool);
 
+    /// Checks if a signal has been received on the destination chain and
+    /// sent by the src chain.
     function isMessageReceived(
         bytes32 signal,
         uint256 srcChainId,
         bytes calldata proof
     ) external view returns (bool);
 
-    function isSignalSent(address sender, bytes32 signal)
-        external
-        view
-        returns (bool);
+    /// Checks if a signal has been stored on the bridge contract by the
+    /// specified address.
+    function isSignalSent(
+        address sender,
+        bytes32 signal
+    ) external view returns (bool);
 
+    /// Check if a signal has been received on the destination chain and sent
+    /// by the specified sender.
     function isSignalReceived(
         bytes32 signal,
         uint256 srcChainId,
@@ -66,5 +78,6 @@ interface IBridge {
         bytes calldata proof
     ) external view returns (bool);
 
+    /// Returns the bridge state context.
     function context() external view returns (Context memory context);
 }
