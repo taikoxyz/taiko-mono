@@ -69,14 +69,14 @@ library LibData {
         uint256 id,
         ProposedBlock memory blk
     ) internal {
-        s.proposedBlocks[id % LibConstants.TAIKO_BLOCK_BUFFER_SIZE] = blk;
+        s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
     }
 
     function getProposedBlock(
         State storage s,
         uint256 id
     ) internal view returns (ProposedBlock storage) {
-        return s.proposedBlocks[id % LibConstants.TAIKO_BLOCK_BUFFER_SIZE];
+        return s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
     }
 
     function getL2BlockHash(

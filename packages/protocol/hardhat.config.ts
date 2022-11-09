@@ -93,7 +93,7 @@ const config: HardhatUserConfig = {
             transform: (line) => {
                 if (
                     process.env.CHAIN_ID &&
-                    line.includes("uint256 public constant TAIKO_CHAIN_ID")
+                    line.includes("uint256 public constant K_CHAIN_ID")
                 ) {
                     return `${line.slice(0, line.indexOf(" ="))} = ${
                         process.env.CHAIN_ID
@@ -103,7 +103,7 @@ const config: HardhatUserConfig = {
                 if (
                     process.env.COMMIT_DELAY_CONFIRMATIONS &&
                     line.includes(
-                        "uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS"
+                        "uint256 public constant K_COMMIT_DELAY_CONFIRMS"
                     )
                 ) {
                     return `${line.slice(0, line.indexOf(" ="))} = ${

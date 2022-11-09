@@ -61,7 +61,7 @@ library V1Finalizing {
             if (fc.blockHash == 0) {
                 break;
             } else {
-                if (fc.blockHash != LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
+                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
                     latestL2Height += 1;
                     latestL2Hash = fc.blockHash;
                 }
@@ -122,7 +122,7 @@ library V1Finalizing {
 
         premiumReward = (reward * V1Utils.feeScaleBeta(s, true)) / 10000;
         premiumReward =
-            (premiumReward * (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
+            (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
     }
 }

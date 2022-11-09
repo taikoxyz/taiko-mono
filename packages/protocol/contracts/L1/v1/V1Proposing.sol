@@ -31,7 +31,7 @@ library V1Proposing {
 
         emit BlockCommitted(
             commitHash,
-            block.number + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            block.number + LibConstants.K_COMMIT_DELAY_CONFIRMS
         );
     }
 
@@ -61,13 +61,12 @@ library V1Proposing {
 
         require(
             txList.length > 0 &&
-                txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
+                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
                 meta.txListHash == txList.hashTxList(),
             "L1:txList"
         );
         require(
-            s.nextBlockId <
-                s.latestFinalizedId + LibConstants.TAIKO_BLOCK_BUFFER_SIZE,
+            s.nextBlockId < s.latestFinalizedId + LibConstants.K_MAX_NUM_BLOCKS,
             "L1:tooMany"
         );
 
@@ -129,7 +128,7 @@ library V1Proposing {
             hash != 0 &&
             s.commits[hash] != 0 &&
             block.number >=
-            s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+            s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _updateAvgBlockTime(
@@ -156,7 +155,7 @@ library V1Proposing {
         );
 
         require(
-            meta.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
             "L1:gasLimit"
         );
         require(meta.extraData.length <= 32, "L1:extraData");
