@@ -28,18 +28,24 @@ struct BlockHeader {
     bytes extraData;
     bytes32 mixHash;
     uint64 nonce;
+    uint256 baseFeePerGas;
 }
 
 library LibBlockHeader {
     bytes32 private constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(BlockHeader memory header)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes[] memory list = new bytes[](15);
+    function hashBlockHeader(
+        BlockHeader memory header
+    ) internal pure returns (bytes32) {
+        bytes[] memory list;
+        if (header.baseFeePerGas == 0) {
+            // non-EIP11559 transaction
+            list = new bytes[](15);
+        } else {
+            // EIP1159 transaction
+            list = new bytes[](16);
+        }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
         list[2] = LibRLPWriter.writeAddress(header.beneficiary);
@@ -57,16 +63,18 @@ library LibBlockHeader {
         // According to the ethereum yellow paper, we should treat `nonce`
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
+        if (header.baseFeePerGas != 0) {
+            // non-EIP11559 transaction
+            list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
+        }
 
         bytes memory rlpHeader = LibRLPWriter.writeList(list);
         return keccak256(rlpHeader);
     }
 
-    function isPartiallyValidForTaiko(BlockHeader calldata header)
-        internal
-        pure
-        returns (bool)
-    {
+    function isPartiallyValidForTaiko(
+        BlockHeader calldata header
+    ) internal pure returns (bool) {
         return
             header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&

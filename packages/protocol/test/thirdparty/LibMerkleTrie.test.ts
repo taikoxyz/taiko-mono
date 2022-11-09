@@ -3,6 +3,7 @@ import { ethers } from "hardhat"
 import { BaseTrie } from "merkle-patricia-tree"
 import { TestLibMerkleTrie } from "../../typechain"
 import { MerkleTrie } from "../utils/trie"
+import { randomBytes } from "crypto"
 
 const defaultAmountOfNodes = 32
 const defaultNodeLength = 32
@@ -27,7 +28,12 @@ describe("LibMerkleTrie", function () {
         )
         await defaultMerkleTrie.init()
 
-        return { owner, libMerkleTrie, defaultMerkleTrie, LibMerkleTrieFactory }
+        return {
+            owner,
+            libMerkleTrie,
+            defaultMerkleTrie,
+            LibMerkleTrieFactory,
+        }
     }
 
     describe("verifyInclusionProof()", () => {
@@ -83,7 +89,7 @@ describe("LibMerkleTrie", function () {
                 defaultMerkleTrie.nodes[0].key
             )
 
-            const key = Buffer.alloc(defaultNodeLength, 1)
+            const key = randomBytes(defaultNodeLength)
             const isIncluded = await libMerkleTrie.get(
                 key,
                 t.proof.proof,

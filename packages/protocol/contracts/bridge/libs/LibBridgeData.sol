@@ -13,7 +13,11 @@ import "../../libs/LibAddress.sol";
 import "../../libs/LibMath.sol";
 import "../IBridge.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * Stores message data for the bridge.
+ *
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibBridgeData {
     /*********************
      * Structs           *
@@ -60,10 +64,11 @@ library LibBridgeData {
      *********************/
 
     /**
-     * @dev If messageStatus is same as in the messageStatus mapping, does nothing
-     * @param state The current bridge State
-     * @param signal The messageHash of the message
-     * @param status The status of the message
+     * @dev If messageStatus is same as in the messageStatus mapping,
+     *      does nothing.
+     * @param state The current bridge state.
+     * @param signal The messageHash of the message.
+     * @param status The status of the message.
      */
     function updateMessageStatus(
         State storage state,
@@ -77,13 +82,12 @@ library LibBridgeData {
     }
 
     /**
-     * @dev Hashes messages and returns the hash signed with "TAIKO_BRIDGE_MESSAGE" for verification
+     * @dev Hashes messages and returns the hash signed with
+     * "TAIKO_BRIDGE_MESSAGE" for verification.
      */
-    function hashMessage(IBridge.Message memory message)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashMessage(
+        IBridge.Message memory message
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
     }
 }

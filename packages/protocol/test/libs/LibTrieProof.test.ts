@@ -1,4 +1,3 @@
-// import { expect } from "chai"
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import RLP from "rlp"
@@ -78,7 +77,7 @@ describe("integration:LibTrieProof", function () {
             const { chainId } = await ethers.provider.getNetwork()
             const srcChainId = chainId
             const destChainId = srcChainId + 1
-            await bridge.enableDestChain(destChainId, true)
+            await (await bridge.enableDestChain(destChainId, true)).wait()
 
             const message: Message = {
                 id: 1,
@@ -135,7 +134,7 @@ describe("integration:LibTrieProof", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
@@ -157,7 +156,7 @@ describe("integration:LibTrieProof", function () {
                     RLP.encode(proof.storageProof[0].proof),
                 ]
             )
-
+            // proof verifies the storageValue at key is 1
             await testLibTreProof.verify(
                 stateRoot,
                 bridge.address,

@@ -49,8 +49,10 @@ library LibMath {
 
     /**
      * @notice Returns the square root of a given uint256.
-     *      This method is taken from https://github.com/Uniswap/v2-core/blob/v1.0.1/contracts/libraries/Math.sol
-     *      which is based on babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method).
+     * This method is taken from:
+     * https://github.com/Uniswap/v2-core/blob/v1.0.1/contracts/libraries/Math.sol.
+     * It is based on the Babylonian method:
+     * https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method).
      * @param y The given number.
      * @return z The square root of y.
      */

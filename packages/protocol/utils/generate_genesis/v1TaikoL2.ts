@@ -14,7 +14,7 @@ export async function deployV1TaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts, ethDepositor } = config
+    const { contractOwner, chainId, seedAccounts } = config
 
     const alloc: any = {}
 
@@ -39,8 +39,7 @@ export async function deployV1TaikoL2(
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
-        chainId,
-        ethDepositor
+        chainId
     )
 
     const storageLayouts: any = {}
@@ -89,8 +88,7 @@ export async function deployV1TaikoL2(
 // and initialized variables.
 async function generateContractConfigs(
     contractOwner: string,
-    chainId: number,
-    ethDepositor: string
+    chainId: number
 ): Promise<any> {
     const contractArtifacts: any = {
         // Libraries
@@ -143,13 +141,16 @@ async function generateContractConfigs(
                 throw new Error("LibTxDecoder not initialized")
             }
 
-            bytecode = linkV1TaikoL2Bytecode(bytecode, addressMap)
+            bytecode = linkContractLibs(contractArtifacts.V1TaikoL2, addressMap)
         } else if (contractName === "LibBridgeProcess") {
             if (!addressMap.LibTrieProof) {
                 throw new Error("LibTrieProof not initialized")
             }
 
-            bytecode = linkLibBridgeProcessBytecode(bytecode, addressMap)
+            bytecode = linkContractLibs(
+                contractArtifacts.LibBridgeProcess,
+                addressMap
+            )
         } else if (contractName === "Bridge") {
             if (
                 !addressMap.LibTrieProof ||
@@ -161,7 +162,7 @@ async function generateContractConfigs(
                 )
             }
 
-            bytecode = linkBridgeBytecode(bytecode, addressMap)
+            bytecode = linkContractLibs(contractArtifacts.Bridge, addressMap)
         }
 
         addressMap[contractName] = ethers.utils.getCreate2Address(
@@ -190,8 +191,8 @@ async function generateContractConfigs(
         },
         LibBridgeProcess: {
             address: addressMap.LibBridgeProcess,
-            deployedBytecode: linkLibBridgeProcessBytecode(
-                contractArtifacts.LibBridgeProcess.deployedBytecode,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.LibBridgeProcess,
                 addressMap
             ),
             variables: {},
@@ -234,8 +235,8 @@ async function generateContractConfigs(
         },
         V1TaikoL2: {
             address: addressMap.V1TaikoL2,
-            deployedBytecode: linkV1TaikoL2Bytecode(
-                contractArtifacts.V1TaikoL2.deployedBytecode,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.V1TaikoL2,
                 addressMap
             ),
             variables: {
@@ -258,8 +259,8 @@ async function generateContractConfigs(
         },
         Bridge: {
             address: addressMap.Bridge,
-            deployedBytecode: linkBridgeBytecode(
-                contractArtifacts.Bridge.deployedBytecode,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.Bridge,
                 addressMap
             ),
             variables: {
@@ -312,80 +313,42 @@ async function generateContractConfigs(
     }
 }
 
-// linkL2RollupBytecode tries to link V1TaikoL2 deployedBytecode to its library.
+// linkContractLibs tries to link contract deployedBytecode to its libraries.
 // Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkV1TaikoL2Bytecode(byteCode: string, addressMap: any): string {
-    const refs = linker.findLinkReferences(byteCode)
-
-    if (Object.keys(refs).length !== 1) {
-        throw new Error(
-            `wrong link references amount, expected: 1, get: ${
-                Object.keys(refs).length
-            }`
+function linkContractLibs(artifact: any, addressMap: any) {
+    const linkedBytecode: string = linker.linkBytecode(
+        artifact.deployedBytecode,
+        getLinkLibs(
+            artifact,
+            linker.findLinkReferences(artifact.deployedBytecode),
+            addressMap
         )
-    }
-
-    const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTxDecoder,
-    })
-
-    if (linkedBytecode.includes("$__")) {
-        throw new Error("failed to link")
-    }
-
-    return linkedBytecode
-}
-
-// linkLibBridgeProcessBytecode tries to link LibBridgeProcess deployedBytecode
-// to its libraries.
-// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkLibBridgeProcessBytecode(
-    byteCode: string,
-    addressMap: any
-): string {
-    const refs = linker.findLinkReferences(byteCode)
-
-    if (Object.keys(refs).length !== 1) {
-        throw new Error(
-            `wrong link references amount, expected: 1, get: ${
-                Object.keys(refs).length
-            }`
-        )
-    }
-
-    const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibTrieProof,
-    })
-
-    if (linkedBytecode.includes("$__")) {
-        throw new Error("failed to link")
-    }
-
-    return linkedBytecode
-}
-
-// linkBridgeBytecode tries to link Bridge deployedBytecode to its libraries.
-// Ref: https://docs.soliditylang.org/en/latest/using-the-compiler.html#library-linking
-function linkBridgeBytecode(byteCode: string, addressMap: any): string {
-    const refs = linker.findLinkReferences(byteCode)
-
-    if (Object.keys(refs).length !== 3) {
-        throw new Error(
-            `wrong link references amount, expected: 3, get: ${
-                Object.keys(refs).length
-            }`
-        )
-    }
-
-    const linkedBytecode: string = linker.linkBytecode(byteCode, {
-        [Object.keys(refs)[0]]: addressMap.LibBridgeProcess,
-        [Object.keys(refs)[1]]: addressMap.LibBridgeRetry,
-        [Object.keys(refs)[2]]: addressMap.LibTrieProof,
-    })
+    )
 
     if (ethers.utils.toUtf8Bytes(linkedBytecode).includes("$__")) {
         throw new Error("failed to link")
     }
 
     return linkedBytecode
+}
+
+// getLinkLibs tries to get all linked libraries addresses from the given address map, and then
+// assembles a `libraries` param of `linker.linkBytecode(bytecode, libraries)`.
+function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
+    const result: any = {}
+
+    Object.values(artifact.deployedLinkReferences).forEach(
+        (linkReference: any) => {
+            const contractName = Object.keys(linkReference)[0]
+            const linkRefKey: any = Object.keys(linkRefs).find(
+                (key) =>
+                    linkRefs[key][0].start ===
+                    linkReference[contractName][0].start + 1
+            )
+
+            result[linkRefKey] = addressMap[contractName]
+        }
+    )
+
+    return result
 }
