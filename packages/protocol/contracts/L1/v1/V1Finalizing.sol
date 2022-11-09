@@ -114,7 +114,8 @@ library V1Finalizing {
         uint256 alpha = V1Utils.feeScaleAlpha(
             uint64(block.timestamp),
             provenAt,
-            proposedAt
+            proposedAt,
+            LibConstants.K_PROOF_TIME_CAP
         );
 
         reward = (s.feeBase * alpha) / 10000;

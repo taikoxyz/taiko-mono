@@ -32,13 +32,15 @@ library V1Utils {
     function feeScaleAlpha(
         uint64 tNow,
         uint64 tLast,
-        uint64 tAvg
+        uint64 tAvg,
+        uint64 tCap
     ) internal pure returns (uint256) {
         if (tAvg == 0) {
             return 10000;
         }
-        uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE_PERIOD * tAvg) / 100;
-        uint256 tMax = (LibConstants.TAIKO_FEE_MAX_PERIOD * tAvg) / 100;
+        uint256 _avg = tAvg > tCap ? tCap : tAvg;
+        uint256 tGrace = (LibConstants.TAIKO_FEE_GRACE_PERIOD * _avg) / 100;
+        uint256 tMax = (LibConstants.TAIKO_FEE_MAX_PERIOD * _avg) / 100;
         uint256 a = tLast + tGrace;
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax;

@@ -21,6 +21,8 @@ library LibConstants {
     uint64 public constant TAIKO_FEE_MULTIPLIER = 400; // 400%
     uint64 public constant TAIKO_FEE_GRACE_PERIOD = 125; // 125%
     uint64 public constant TAIKO_FEE_MAX_PERIOD = 375; // 375%
+    uint64 public constant K_BLOCK_TIME_CAP = 48 seconds;
+    uint64 public constant K_PROOF_TIME_CAP = 60 minutes;
 
     uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;

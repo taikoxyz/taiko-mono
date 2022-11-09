@@ -114,7 +114,8 @@ library V1Proposing {
         uint256 alpha = V1Utils.feeScaleAlpha(
             uint64(block.timestamp),
             s.lastProposedAt,
-            s.avgProofTime
+            s.avgProofTime,
+            LibConstants.K_BLOCK_TIME_CAP
         );
         fee = (s.feeBase * 10000) / alpha;
         premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
