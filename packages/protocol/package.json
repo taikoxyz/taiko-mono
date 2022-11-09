@@ -83,7 +83,6 @@
     "dependencies": {
         "@gnosis.pm/zodiac": "^1.0.7",
         "@openzeppelin/contracts": "^4.5.0",
-        "@openzeppelin/contracts-upgradeable": "^4.5.1",
-        "web3": "^1.8.0"
+        "@openzeppelin/contracts-upgradeable": "^4.5.1"
     }
 }

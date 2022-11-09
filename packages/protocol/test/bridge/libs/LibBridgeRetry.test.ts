@@ -213,6 +213,7 @@ describe("LibBridgeRetry", function () {
             const newToBalance = await testReceiver.getBalance()
             expect(
                 await decode(
+                    hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
                         badLibRetry.address,
@@ -270,6 +271,7 @@ describe("LibBridgeRetry", function () {
 
             expect(
                 await decode(
+                    hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
                         libRetry.address,
@@ -329,6 +331,7 @@ describe("LibBridgeRetry", function () {
 
             expect(
                 await decode(
+                    hre,
                     "uint256",
                     await ethers.provider.getStorageAt(
                         libRetry.address,

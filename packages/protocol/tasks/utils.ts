@@ -1,6 +1,5 @@
 import * as fs from "fs"
 import * as log from "./log"
-const Web3 = require("web3")
 
 async function deployContract(
     hre: any,
@@ -74,9 +73,8 @@ async function getSlot(hre: any, signal: any, mappingSlot: any) {
     )
 }
 
-async function decode(type: string, data: any) {
-    const web3 = new Web3("http://localhost:8545")
-    return await web3.eth.abi.decodeParameter(type, data)
+async function decode(hre: any, type: any, data: any) {
+    return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString()
 }
 
 export {
