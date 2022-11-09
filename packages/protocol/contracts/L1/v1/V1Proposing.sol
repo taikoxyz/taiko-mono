@@ -91,7 +91,7 @@ library V1Proposing {
 
         uint64 blockTime = meta.timestamp - s.lastProposedAt;
         (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-        s.avgFee = V1Utils.movingAverage(s.avgFee, fee, 1024);
+        s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
 
         s.avgBlockTime = V1Utils
             .movingAverage(s.avgBlockTime, blockTime, 1024)
@@ -111,13 +111,13 @@ library V1Proposing {
     function getBlockFee(
         LibData.State storage s
     ) public view returns (uint256 fee, uint256 premiumFee) {
-        uint256 scale = V1Utils.feeScale(
+        uint256 alpha = V1Utils.feeScaleAlpha(
             uint64(block.timestamp),
             s.lastProposedAt,
             s.avgProofTime
         );
-        fee = (s.avgFee * 10000) / scale;
-        premiumFee = V1Utils.applyOversellPremium(s, fee, false);
+        fee = (s.feeBase * 10000) / alpha;
+        premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
     }
 
     function isCommitValid(

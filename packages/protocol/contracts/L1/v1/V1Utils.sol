@@ -17,9 +17,8 @@ import "../LibData.sol";
 library V1Utils {
     using LibMath for uint256;
 
-    function applyOversellPremium(
+    function feeScaleBeta(
         LibData.State storage s,
-        uint256 fee,
         bool releaseOneSlot
     ) public view returns (uint256) {
         uint256 p = LibConstants.TAIKO_FEE_PREMIUM_LAMDA +
@@ -27,7 +26,7 @@ library V1Utils {
             s.latestFinalizedId -
             s.nextBlockId;
         uint256 q = releaseOneSlot ? p + 1 : p - 1;
-        return (fee * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
+        return (10000 * LibConstants.TAIKO_FEE_PREMIUM_PHI) / p / q;
     }
 
     function movingAverage(
@@ -42,7 +41,7 @@ library V1Utils {
         return _ma > 0 ? _ma : ma;
     }
 
-    function feeScale(
+    function feeScaleAlpha(
         uint64 tNow,
         uint64 tLast,
         uint64 tAvg

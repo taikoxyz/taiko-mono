@@ -112,11 +112,11 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
-    const avgFee = hre.ethers.BigNumber.from(10).pow(18)
+    const feeBase = hre.ethers.BigNumber.from(10).pow(18)
 
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, avgFee)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
     )
 
     // Used by LibBridgeRead

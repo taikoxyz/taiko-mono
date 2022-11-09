@@ -52,7 +52,7 @@ struct State {
   uint64 genesisTimestamp;
   uint64 reservedA1;
   uint64 reservedA2;
-  uint256 avgFee;
+  uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;

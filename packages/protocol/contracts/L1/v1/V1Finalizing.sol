@@ -27,13 +27,13 @@ library V1Finalizing {
     function init(
         LibData.State storage s,
         bytes32 _genesisBlockHash,
-        uint256 _avgFee
+        uint256 _feeBase
     ) public {
-        require(_avgFee > 0, "L1:avgFee");
+        require(_feeBase > 0, "L1:feeBase");
 
         s.genesisHeight = uint64(block.number);
         s.genesisTimestamp = uint64(block.timestamp);
-        s.avgFee = _avgFee;
+        s.feeBase = _feeBase;
         s.nextBlockId = 1;
         s.lastProposedAt = uint64(block.timestamp);
         s.l2Hashes[0] = _genesisBlockHash;
@@ -72,7 +72,7 @@ library V1Finalizing {
                     fc.proposedAt
                 );
 
-                s.avgFee = V1Utils.movingAverage(s.avgFee, reward, 1024);
+                s.feeBase = V1Utils.movingAverage(s.feeBase, reward, 1024);
 
                 s.avgProofTime = V1Utils
                     .movingAverage(
@@ -111,17 +111,17 @@ library V1Finalizing {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        uint256 scale = V1Utils.feeScale(
+        uint256 alpha = V1Utils.feeScaleAlpha(
             uint64(block.timestamp),
             provenAt,
             proposedAt
         );
 
-        reward = (s.avgFee * scale) / 10000;
+        reward = (s.feeBase * alpha) / 10000;
 
+        premiumReward = (reward * V1Utils.feeScaleBeta(s, true)) / 10000;
         premiumReward =
-            (V1Utils.applyOversellPremium(s, reward, true) *
-                (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
+            (premiumReward * (10000 - LibConstants.TAIKO_REWARD_BURN_POINTS)) /
             10000;
     }
 }
