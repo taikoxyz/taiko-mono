@@ -9,6 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+var (
+	ZeroHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+)
+
 // IsInSlice determines whether v is in slice s
 func IsInSlice[T comparable](v T, s []T) bool {
 	for _, e := range s {

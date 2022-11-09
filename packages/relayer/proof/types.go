@@ -2,13 +2,19 @@ package proof
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 )
+
+type caller interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
 
 type Bytes []byte
 
@@ -23,7 +29,7 @@ func (q *Bytes) UnmarshalText(input []byte) error {
 	input = bytes.TrimPrefix(input, []byte("0x"))
 	v, ok := new(big.Int).SetString(string(input), 16)
 	if !ok {
-		return fmt.Errorf("invalid hex input")
+		return errors.New("invalid hex input")
 	}
 	*q = v.Bytes()
 	return nil

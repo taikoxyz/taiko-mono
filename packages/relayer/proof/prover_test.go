@@ -5,8 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/mock"
 	"gopkg.in/go-playground/assert.v1"
 )
+
+func newTestProver() *Prover {
+	return &Prover{
+		blocker: &mock.Blocker{},
+	}
+}
 
 func Test_New(t *testing.T) {
 	tests := []struct {

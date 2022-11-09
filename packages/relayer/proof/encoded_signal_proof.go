@@ -44,7 +44,7 @@ func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAd
 // getEncodedStorageProof rlp and abi encodes a proof for LibBridgeSignal,
 // where `proof` is an rlp and abi encoded (bytes, bytes) consisting of the accountProof and storageProof.Proofs[0]
 // response from `eth_getProof`
-func (p *Prover) encodedStorageProof(ctx context.Context, c *rpc.Client, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
+func (p *Prover) encodedStorageProof(ctx context.Context, c caller, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
 	var ethProof StorageProof
 	err := c.CallContext(ctx, &ethProof, "eth_getProof", bridgeAddress, []string{key}, hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)))
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {

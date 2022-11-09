@@ -1,20 +1,26 @@
 package proof
 
 import (
-	"github.com/ethereum/go-ethereum/ethclient"
+	"context"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 )
 
+type blocker interface {
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+}
 type Prover struct {
-	ethClient *ethclient.Client
+	blocker blocker
 }
 
-func New(ethClient *ethclient.Client) (*Prover, error) {
-	if ethClient == nil {
+func New(blocker blocker) (*Prover, error) {
+	if blocker == nil {
 		return nil, relayer.ErrNoEthClient
 	}
 
 	return &Prover{
-		ethClient: ethClient,
+		blocker: blocker,
 	}, nil
 }
