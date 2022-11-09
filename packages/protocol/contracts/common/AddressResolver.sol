@@ -43,12 +43,9 @@ abstract contract AddressResolver {
      * @param name The name to resolve.
      * @return The name's corresponding address.
      */
-    function resolve(string memory name)
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(
+        string memory name
+    ) public view virtual returns (address payable) {
         return _resolve(block.chainid, name);
     }
 
@@ -60,12 +57,10 @@ abstract contract AddressResolver {
      * @param name The name to resolve.
      * @return The name's corresponding address.
      */
-    function resolve(uint256 chainId, string memory name)
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(
+        uint256 chainId,
+        string memory name
+    ) public view virtual returns (address payable) {
         return _resolve(chainId, name);
     }
 
@@ -83,11 +78,10 @@ abstract contract AddressResolver {
         _addressManager = IAddressManager(addressManager_);
     }
 
-    function _resolve(uint256 chainId, string memory name)
-        private
-        view
-        returns (address payable)
-    {
+    function _resolve(
+        uint256 chainId,
+        string memory name
+    ) private view returns (address payable) {
         bytes memory key = abi.encodePacked(
             Strings.toString(chainId),
             ".",

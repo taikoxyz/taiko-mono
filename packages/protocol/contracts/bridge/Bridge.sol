@@ -56,12 +56,9 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(Message calldata message)
-        external
-        payable
-        nonReentrant
-        returns (bytes32 signal)
-    {
+    function sendMessage(
+        Message calldata message
+    ) external payable nonReentrant returns (bytes32 signal) {
         return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
     }
 
@@ -70,10 +67,10 @@ contract Bridge is EssentialContract, IBridge {
         emit SignalSent(msg.sender, signal);
     }
 
-    function processMessage(Message calldata message, bytes calldata proof)
-        external
-        nonReentrant
-    {
+    function processMessage(
+        Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
         return
             LibBridgeProcess.processMessage(
                 state,
@@ -83,10 +80,10 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function retryMessage(Message calldata message, bool isLastAttempt)
-        external
-        nonReentrant
-    {
+    function retryMessage(
+        Message calldata message,
+        bool isLastAttempt
+    ) external nonReentrant {
         return
             LibBridgeRetry.retryMessage(
                 state,
@@ -96,10 +93,10 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function enableDestChain(uint256 _chainId, bool enabled)
-        external
-        nonReentrant
-    {
+    function enableDestChain(
+        uint256 _chainId,
+        bool enabled
+    ) external nonReentrant {
         LibBridgeSend.enableDestChain(state, _chainId, enabled);
     }
 
@@ -127,13 +124,10 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function isSignalSent(address sender, bytes32 signal)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function isSignalSent(
+        address sender,
+        bytes32 signal
+    ) public view virtual override returns (bool) {
         return LibBridgeSignal.isSignalSent(sender, signal);
     }
 
@@ -154,12 +148,9 @@ contract Bridge is EssentialContract, IBridge {
             );
     }
 
-    function getMessageStatus(bytes32 signal)
-        public
-        view
-        virtual
-        returns (LibBridgeData.MessageStatus)
-    {
+    function getMessageStatus(
+        bytes32 signal
+    ) public view virtual returns (LibBridgeData.MessageStatus) {
         return state.messageStatus[signal];
     }
 
