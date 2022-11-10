@@ -125,7 +125,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 
 // subscribe subscribes to latest events
 func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
-	sink := make(chan *contracts.BridgeMessageSent, 0)
+	sink := make(chan *contracts.BridgeMessageSent)
 
 	sub, err := svc.bridge.WatchMessageSent(&bind.WatchOpts{}, sink, nil)
 	if err != nil {

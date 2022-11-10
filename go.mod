@@ -1,6 +1,6 @@
 module github.com/taikochain/taiko-mono
 
-go 1.18
+go 1.19
 
 replace github.com/umbracle/ethgo => ../../ethgo
 
