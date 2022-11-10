@@ -15,12 +15,12 @@ jobs:
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
-
+          
       - name: Set up repository
         uses: actions/checkout@v2
 
       - name: Compile main.tex
-        working-directory: ./packages/whitepaper
+        working_directory: ./packages/whitepaper
         uses: xu-cheng/latex-action@v2
         with:
           root_file: main.tex
