@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "../../libs/LibTrieProof.sol";
+
 contract TestLibTrieProof {
     function verify(
         bytes32 stateRoot,
