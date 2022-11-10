@@ -1,0 +1,175 @@
+\documentclass[9pt,oneside]{amsart}
+%\usepackage{tweaklist}
+\usepackage{cancel}
+\usepackage{xspace}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{subfig}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[a4paper,width=170mm,top=18mm,bottom=22mm,includeheadfoot]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{verbatim}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{pdflscape}
+\usepackage{mathtools}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{afterpage}
+\usepackage{tikz}
+\usepackage[bookmarks=true, unicode=true, pdftitle={Taiko: A Type-1 ETHEREUM ZK-ROLLUP}, pdfauthor={Taiko Labs},pdfkeywords={Ethereum, White Paper, blockchain,EVM, zkEVM, ZK-Rollup, Layer 2},pdfborder={0 0 0.5 [1 3]}]{hyperref}
+%,pagebackref=true
+% \usepackage{easy-todo}
+\usepackage{todonotes}
+\newcommand{\todoMev}{\todo[color=green!40, inline]}
+
+\usepackage{tabu} %requires array.
+
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+
+
+\makeatletter
+ \newcommand{\linkdest}[1]{\Hy@raisedlink{\hypertarget{#1}{}}}
+\makeatother
+\usepackage{seqsplit}
+
+\usepackage{soul}
+\usepackage[english]{babel}
+\usepackage[autostyle]{csquotes}
+\MakeOuterQuote{"}
+
+\usepackage[final]{microtype} % 
+% Default rendering options
+\definecolor{pagecolor}{rgb}{1,1,1}
+\setul{0.1ex}{0.05ex}
+\def\VersionNumber{0.1.0}
+\IfFileExists{Options.tex}{\input{Options.tex}}
+
+\newcommand{\hcancel}[1]{%
+    \tikz[baseline=(tocancel.base)]{
+        \node[inner sep=0pt,outer sep=0pt] (tocancel) {#1};
+        \draw[black] (tocancel.south west) -- (tocancel.north east);
+    }%
+}%
+
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\newcommand*\eg{e.g.\@\xspace}
+\newcommand*\Eg{e.g.\@\xspace}
+\newcommand*\ie{i.e.\@\xspace}
+\newcommand{\thedate}{\today}
+%\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
+
+\begin{document}
+\setlength{\columnsep}{20pt}
+\begin{multicols}{2}
+
+
+\section{Taiko Block Fees}
+We assume EIP-1559 will be enabled on L2 to adjust L2 block gas price and gas limit.
+
+Let $K_{\mathrm{MaxSlots}}$ be the max number of slots for proposed blocks; $m$ be the current number of available slots; $K_{\mathrm{InitialProposingFee}}$ be the fee for proposing the first L2 block. we maintain two internal variables $\boldsymbol{m}$ and $\boldsymbol{k}$, whose values are initialized to $K_{\mathrm{MaxSlots}}$ and $(K_{\mathrm{InitialProposingFee}} \times K_{\mathrm{MaxSlots}})$, respectively.
+
+We adopt the idea from \textit{Automatic Market Making}, and require that when $m$ changes to a new value $m'$, $k$ must also change to a new value $k'$ such that:
+
+\begin{eqnarray}
+k'(m'+K_{\mathrm{FeeFactor}}) \equiv k(m+K_{\mathrm{FeeFactor}})
+\end{eqnarray}
+
+$K_{\mathrm{FeeFactor}}$ must be no smaller than 1. A bigger value enables smaller fee oscillation.
+
+\subsection{Proposing Fees}
+If $n$, ($n \leq m$), blocks are proposed in one batch:
+
+\begin{eqnarray}
+k'(m+K_{\mathrm{FeeFactor}}-n)  &  \equiv  &  k(m+K_{\mathrm{FeeFactor}}) \\
+k'  & \equiv & \frac{(m+K_{\mathrm{FeeFactor}})}{(m+K_{\mathrm{FeeFactor}}-n)}k
+\end{eqnarray}
+
+The difference between $k$ and $k'$ is the total proposing fee for these $n$ blocks:
+
+\begin{eqnarray}
+f(n)  \equiv  k' - k  \equiv   \frac{nk}{(m+K_{\mathrm{FeeFactor}}-n)}
+\end{eqnarray}
+
+therefore, the average proposal fee per block in this batch is:
+
+\begin{eqnarray}
+\bar{f}(n)   \equiv \frac{f(n)}{n} \equiv \frac{k}{(m+K_{\mathrm{FeeFactor}}-n)}
+\end{eqnarray}
+
+
+Usually, blocks are proposed one after another, therefore, the fee for proposing a single block is:
+
+\begin{eqnarray}
+f(1)  \equiv \bar{f}(1)  \equiv \frac{k}{m}
+\end{eqnarray}
+
+
+
+The proposal fee for the very first block is:
+
+
+
+\begin{eqnarray}
+f_1  & \equiv & \frac{k}{m}  \\
+\nonumber & \equiv & \frac{ (K_{\mathrm{InitialProposingFee}} \times K_{\mathrm{MaxSlots}})}{K_{\mathrm{MaxSlots}}}  \\
+\nonumber & \equiv &K_{\mathrm{InitialProposingFee}}
+\end{eqnarray}
+
+
+\subsection{Proving Fees}
+
+Provers are paid a proving fee when their blocks are finalized. Suppose $n$ blocks are finalized in one batch, then we have:
+
+\begin{eqnarray}
+k'  (m+K_{\mathrm{MaxSlots}}+n) & \equiv  & (m+K_{\mathrm{MaxSlots}}) \\
+\nonumber k'  & \equiv & \frac{(m+K_{\mathrm{FeeFactor}})}{(m+K_{\mathrm{FeeFactor}}+n)} k
+\end{eqnarray}
+
+
+
+The total proving fee is:
+
+\begin{eqnarray}
+f(n)  \equiv  k - k'  \equiv \frac{nk}{(m+K_{\mathrm{FeeFactor}}+n)}
+\end{eqnarray}
+
+
+Each block's prover receive proving fee:
+
+
+\begin{eqnarray}
+\bar{f}(n)  \equiv \frac{f(n)}{n}  \equiv \frac{k}{(m+K_{\mathrm{FeeFactor}}+n)}
+\end{eqnarray}
+
+Note that proving fees are calculated and paid when blocks are finalized, not when they are proven.
+
+\subsection{Adjusting fees based on proving time}
+when a block is proven, we update two proving delay moving average:  $\boldsymbol{a^L}$ and $\boldsymbol{a^S}$, formally:
+
+\begin{eqnarray}
+a^L_{i+1} & \equiv & \frac{(1024-1) a^L_{i} + d}{1024} \\
+a^S_{i+1} & \equiv & \frac{(64-1) a^S_{i} + d} {64}
+\end{eqnarray}
+
+Where $d$ is the latest block's proving delay.
+
+
+Then we update $k$ as:
+\begin{eqnarray}
+\mu & \equiv & \min(\max( \frac{a^S}{a^L}, \frac{100}{0.95}), 0.95) \\
+k' & \equiv  & \mu k
+\end{eqnarray}
+
+$\mu$ is called the fee market \textit{Amplification Factor}.
+
+\subsection{TKO as the Block-Level Fee Token}
+
+We use Ether as the L2 transaction fee token; but on L1, I strongly suggest to use TKO, Taiko's governance token,  as the block proposing and proving fee token. When a block is proposed, TKO is burned from the proposer address; when a block is finalized, TKO is minted to the prover address, which features a dynamic token supply determined by the open ZKP computation market.
+
+For a tokenomic design to work for the long run, there must be both demands and supplies. This model offers such a property.
+\end{multicols}
+
+\end{document}

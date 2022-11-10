@@ -1,0 +1,37 @@
+name: Whitepaper
+on:
+  push:
+    # branches: [main]
+    paths:
+      - "packages/whitepaper/**"
+  pull_request:
+    paths:
+      - "packages/whitepaper/**"
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+    steps:
+      - name: Set up repository
+        uses: actions/checkout@v2
+
+      - name: Compile main.tex
+        working-directory: ./packages/whitepaper
+        uses: xu-cheng/latex-action@v2
+        with:
+          root_file: main.tex
+
+      - name: Rename
+        working-directory: ./packages/whitepaper
+        run:  mv main.pdf taiko-whitepaper.pdf
+
+      - name: Release
+        working-directory: ./packages/whitepaper
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.2
+          files: taiko-whitepaper.pdf

@@ -1,0 +1,571 @@
+\documentclass[9pt,oneside]{amsart}
+%\usepackage{tweaklist}
+\usepackage{cancel}
+\usepackage{xspace}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{subfig}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[a4paper,width=170mm,top=18mm,bottom=22mm,includeheadfoot]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{verbatim}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{pdflscape}
+\usepackage{mathtools}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{afterpage}
+\usepackage{tikz}
+\usepackage[bookmarks=true, unicode=true, pdftitle={Taiko: A Type-1 ETHEREUM ZK-ROLLUP}, pdfauthor={Taiko Labs},pdfkeywords={Ethereum, White Paper, blockchain,EVM, ZK-EVM, ZK-Rollup, Layer-2},pdfborder={0 0 0.5 [1 3]}]{hyperref}
+%,pagebackref=true
+% \usepackage{easy-todo}
+\usepackage{todonotes}
+\newcommand{\todoMev}{\todo[color=green!40, inline]}
+
+\usepackage{tabu} %requires array.
+
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+
+
+\makeatletter
+ \newcommand{\linkdest}[1]{\Hy@raisedlink{\hypertarget{#1}{}}}
+\makeatother
+\usepackage{seqsplit}
+\usepackage{soul}
+\usepackage[english]{babel}
+\usepackage[autostyle]{csquotes}
+\MakeOuterQuote{"}
+
+\usepackage[final]{microtype} % 
+% Default rendering options
+\definecolor{pagecolor}{rgb}{1,1,1}
+\setul{0.1ex}{0.05ex}
+\def\VersionNumber{0.1.0}
+\IfFileExists{Options.tex}{\input{Options.tex}}
+
+\newcommand{\hcancel}[1]{%
+    \tikz[baseline=(tocancel.base)]{
+        \node[inner sep=0pt,outer sep=0pt] (tocancel) {#1};
+        \draw[black] (tocancel.south west) -- (tocancel.north east);
+    }%
+}%
+
+
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\newcommand*\eg{e.g.\@\xspace}
+\newcommand*\Eg{e.g.\@\xspace}
+\newcommand*\ie{i.e.\@\xspace}
+\newcommand{\thedate}{\today}
+%\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
+
+\title[TAIKO: A Type-1 Ethereum ZK-Rollup\\ \smaller
+\textbf{{1.0.0}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.0.0 (\thedate)}}}
+
+\author{
+  Daniel WANG \texttt{dan@taiko.xyz} \\
+  Brecht Devos \texttt{brecht@taiko.xyz}\\
+  Mevlana Gemici \texttt{mcg@taiko.xyz} \\
+  Matthew Finestone \texttt{matthew@taiko.xyz}
+}
+
+\begin{document}
+
+\pagecolor{pagecolor}
+
+\begin{abstract}
+An EVM-equivalent ZK-Rollup would allow for scaling Ethereum without sacrificing security or compatibility. Advancements in Zero-Knowledge Proof cryptography have led to a flourishing of ZK-EVMs, now with further design decisions to choose from. Taiko aims to be a "type-1" ZK-Rollup, prioritizing EVM-equivalence, and even Ethereum-equivalence. Supporting all existing Ethereum applications, tools, and infrastructure is a primary goal and benefit of this path. Besides the maximally compatible ZK-EVM component, which proves the correctness of EVM computation on the rollup, Taiko must implement a Layer-2 blockchain architecture to support it. This architecture seeks to be as lightweight, decentralized, and permissionless as possible, and consists of Taiko nodes, provers, and smart contracts. Taiko nodes construct rollup blocks from user’s L2 transactions and commit them to L1; any willing participant can run a Taiko node. Provers generate ZK-SNARK proofs asserting the validity of L2 transactions and blocks; any willing participant can run a prover. A set of smart contracts deployed on Ethereum L1 acts as the data availability mechanism, verifier of the ZKPs, and part of the bridge for moving assets between L1 and L2. 
+
+\end{abstract}
+
+\maketitle
+
+\setlength{\columnsep}{20pt}
+\begin{multicols}{2}
+
+
+\section{Introduction}
+Ethereum is well on its way into executing its rollup-centric roadmap to achieve scalability. This progress has been shared by the independent rollup projects, as well as Ethereum itself which has coordinated to accommodate rollup-friendly upgrades. 
+
+At its base layer, facing the blockchain scalability trilemma, Ethereum has always been unwilling to sacrifice decentralization or security in favour of scalability - principles which make it the most compelling network to secure value. Its popularity, however, has often congested the network, led to prohibitively expensive transaction fees, and crowded out certain users and use cases. The activity that Ethereum settles will increasingly be executed on rollups - layer-2 environments tightly coupled to and secured by Ethereum.
+
+Rollups have shifted the tradeoff space: scaling to serve all users who seek to transact on Ethereum - and enabling lesser-value, non-financial applications - without subordinating the core principles which have led to Ethereum's strong claim of credible neutrality. There exists new tradeoff space, though, now among different rollup constructions, and there exists a hope to again move the solution curve, rather than move along it. Taiko attempts to do exactly that, by implementing a ZK-Rollup that stays as true to the EVM and Ethereum specification as possible, while mitigating drawbacks of non-ZK-optimized facets of the specification itself.
+
+Taiko aims for full Ethereum-equivalence, allowing our rollup to support all existing smart contracts and applications, developer tooling, and infrastructure. Complete compatibility benefits developers who can easily deploy their existing solidity contracts and continue using the tools they are familiar with. This convenience of compatibility extends to network participants and builders of Taiko's L2 blockchain as well, who can, for example, run Ethereum execution clients out-of-the-box as Taiko nodes. Finally, it extends to end-users, too, who can experience the same usage patterns and continue using their preferred Ethereum products. We have seen the strong demand for cheaper EVM environments empirically, with application developers and users often migrating to sidechains or alternative L1s which run the EVM, even if it meant much weaker security guarantees.
+
+To be Ethereum-equivalent means to emulate Ethereum along further dimensions, too. Prioritizing permissionlessness and decentralization within the layer-2 architecture ensures there is no dissonance between the environments, and the Ethereum community’s core principles are upheld. With calldata cost reductions in the past [Istanbul hardfork], and EIP4844 and others in the future, Ethereum's commitment to rollups is strong and credible; rollups' commitment to Ethereum ought to be the same.
+
+\color{black}
+
+\section{Previous Work}
+
+\color{black}
+The Ethereum ecosystem began looking above for its scalability needs, towards layer-2 solutions beginning in 2017 [Plasma; Poon, Buterin]. Layer-2s move computation off-chain, and keep data either on Ethereum, or also off-chain.
+
+Rollups, which keep some data per transaction on Ethereum, emerged as the leading scalability path for Ethereum over the past four years or so, drawing more interest and excitement versus other layer-2 solutions (Plasma and State Channels) due primarily to the strong security guarantees they offer. Initially designed and proposed by Barry Whitehat and other Ethereum researchers in 2018, ZK-Rollups were implemented on Ethereum mainnet since 2019, beginning with Loopring. 
+
+A drawback of ZK-Rollups back then was that due to constraints on ZKP capability, they were application-specific and not generalizable, thus precluding many Ethereum use cases and interoperability. The full power of the EVM could not be wielded within such an environment. An alternate form of rollup, Optimistic rollups, such as those implemented by Optimism and Arbitrum (beginning in 2021), were able to achieve EVM-compatibility, relying on crypto-economic games to validate state transitions with fraud proofs, as opposed to ZK validity proofs. Among the downsides of relying on fraud proofs instead of validity proofs is a relatively long time period necessary for the crypto-economic game to play out, which can inhibit withdrawing from the L2 without delay. 
+
+The holy grail was widely recognized to be the best of both worlds: EVM rollups, with computation verified by ZK proofs. These ZK-EVMs have been in the works for a few years now, with projects such as zkSync, Starkware, and Scroll building implementations, and the Ethereum Foundation playing a critical role in the R\&D, with their Privacy and Scaling Explorations unit. Advancements by other foundations and researchers, such as the ZCash Foundation, have also greatly advanced the ZK proving systems required. The differences in these implementations mainly exist in how closely the rollups will support the EVM, versus make adjustments towards a ZK-favourable VM. The primary tradeoff today is thus between EVM-compatibility, and ZK-efficiency for proving. As mentioned, Taiko’s aim is to prioritize EVM and Ethereum-equivalence down to the opcode level, and mitigate any proving performance drawbacks via protocol design. 
+
+
+\color{black}
+
+\section{Design Principles}
+
+Taiko's ZK-Rollup design follows a few principles:
+
+\begin{enumerate}
+\item \textbf{Secure.} The design should prioritize security above all else.
+\item \textbf{Minimal.} The design should be simple and focus only on the core ZK-Rollup protocol, not its upgradeability, governance, low-level optimizations, non-core bridging functionality, etc.
+\item  \textbf{Robust.} The design should not depend on game theory for security. All security assumptions should be directly or indirectly enforced by Ethereum and the protocol. For example, there should be no need to use a Proof-of-Stake-like system to slash participants for bad behavior.
+\item \textbf{Decentralized.} The design should encourage a high degree of decentralization in terms of block proposing and proving. No single party should be able to control all transaction ordering or be solely responsible for proving blocks. Being sufficiently decentralized implies that the protocol should keep working in a reliable manner in adversarial situations.
+\item \textbf{Permissionless.} Anyone willing should be able to join and leave the network at any time, without causing significant disturbance to the network or being detrimental to the party in question. No single entity should have the power to allowlist or blocklist participants.
+\item \textbf{Ethereum-Aligned.} The goal is to help Ethereum scale in the best possible way. Ether is used to pay the L2 transaction fees.
+\item \textbf{Ethereum-Equivalent.} The design should stick to the design of Ethereum as closely as possible, not only for compatibility reasons but also for the expectations and demands of users of Ethereum L2 solutions.
+\end{enumerate}
+
+With these principles, our objective is to design and implement a fully Ethereum-equivalent (type-1) ZK-Rollup \cite{vitalik-zkevm}. This not only means that Taiko can directly interpret EVM bytecode, but also uses the same hash functions, state trees, transaction trees, precompiled contracts, and other in-consensus logic. We do however disable certain EIPs in the initial implementation\cite{taikoprotogithub} that will be re-enabled later (see \ref{sec:eips}).
+
+\section{Overview}\label{sec:properties}
+
+Taiko aims to build a secure, decentralized and permissionless rollup on Ethereum. These requirements dictate the following properties:
+\begin{enumerate}
+\item All block data required to reconstruct the post-block state needs to be put on Ethereum so it is publicly available. If this would not be the case, Taiko would not only fail to be a rollup but would also fail to be fully decentralized. This data is required so that anyone can know the latest chain state and so that useful new blocks can be appended to the chain. For the decentralization of the proof generation Taiko requires an even stronger requirement: all block data needed to be able to re-execute all work in a block in a step-by-step fashion needs to be made public. This makes it possible for provers to generate a proof for a block using only publicly known data.
+\item Creating and proposing blocks should be a fast and efficient process. Anyone should be able to add blocks to the chain on a level playing field, having access to the same chain data at all times. Proposers, of course, should be able to compete on e.g. transaction fees and \emph{Maximal Extractable Value} (MEV) \cite{mev}.
+\end{enumerate}
+
+We achieve this by splitting the block submission process in two parts:
+\begin{description}
+\item[Block proposal] When a block gets proposed the block data is published on Ethereum and the block is appended to the proposed blocks list stored in the \underline{TaikoL1} contract. Once registered, the protocol ensures that \emph{all} block properties are immutable. This makes the block execution \emph{deterministic}: the post-block state can now be calculated by anyone. As such, the block is immediately \emph{finalized}. This also ensures that no one knows more about the latest state than anyone else, as that would create an unfair advantage.
+\item[Block verification] Because the block should already be finalized once proposed, it should \emph{not} be possible for the prover to have any impact on how the block is executed and what the post-block state is. All relevant inputs for the proof generation are verified on L1 directly or indirectly to achieve deterministic block transitions. As all proposed blocks are deterministic, they can be proven in parallel, because all intermediate states between blocks are known and unique. Once a proof is submitted for the block and its parent block, we call the block \emph{on-chain finalized}.
+\end{description}
+
+\section{The Taiko Blockchain}
+The Taiko blockchain is, as you'd expect, made up of blocks. A block is a collection of transactions that are executed sequentially with some shared property values \ref{metadata}. New blocks can be appended to the chain to update its state, which can be calculated by anyone by following the protocol rules for the execution of the transactions.
+
+\subsection{Core Contracts}
+The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2, respectively.
+
+\subsubsection{TaikoL1} Deployed on Ethereum. This contract on L1 is used to propose, prove, and finalize L2 blocks. \underline{TaikoL1} maintains the following state variables:
+
+\begin{description}
+\item[numProposedBlocks] The total number of proposed blocks, and the ID for the next proposed block, formally $R_\mathrm{i}$.
+\item[proposedBlocks] The list of proposed blocks, formally $R_\mathrm{b}$.
+\item[lastFinalizedBlockId] The ID of the last finalized block, formally $R_\mathrm{f}$.
+\item [blockCommits] The mapping from the committed blocks' \emph{commit hashes} to their enclosed L1 blocks' block numbers, formally $R_\mathrm{c}$. If a block's commit hash is $h$, its number is $R_\mathrm{c}[h]$. See \ref{sec:commit} for more information.
+\item[forkChoices] The mapping from proposed block IDs to their \emph{Fork Choices}, formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork Choices are discussed in detail in \ref{sec:proving}.
+\end{description}
+
+\subsubsection{{TaikoL2}} Deployed on Taiko. This contract on L2 allows us to reuse the programmability of the EVM to enforce certain protocol properties without having to extend other Taiko subsystems. This contract currently facilitates:
+\begin{enumerate}
+\item \emph{Anchoring}, an important concept in Taiko's design, which is discussed in \ref{sec:anchoring}.
+\item Proving that a proposed block is invalid, which is explained in \ref{sec:proving-invalid}.
+\end{enumerate}
+
+\subsection{Proposing Blocks}
+Any willing entity can propose new Taiko blocks using the {\underline{TaikoL1}} contract. Blocks are appended to a list in the order they come in (which is dictated by Ethereum). Once the block is in the list it is finalized and nodes can apply its state to the latest L2 state \ref{sec:properties}. Certain blocks however are deemed invalid by the protocol and these blocks will be ignored \ref{sec:proving-invalid}.
+
+\subsubsection{Proposed Block} A proposed block in Taiko is the collection of information (known as the block's \emph{Metadata}), $C$, and a list of transactions, $L$,  (known as the block \emph{txList}). Formally, we can refer to a proposed block as $\dot{B}$:
+
+\begin{equation}
+\dot{B} \equiv (\dot{B}_{\mathrm{C}}, \dot{B}_{\mathbf{L}}) \equiv (C, L)
+\end{equation}
+
+\subsubsection{Block Metadata}\label{metadata} The block metadata, $C$, is a tuple of 9 items comprising:
+
+\begin{description}
+\item[id] A value equal to the number of proposed blocks. The genesis block has an id of zero; formally $C_{\mathrm{i}}$.
+\item[beneficiary] The 20-byte address to which all transaction fees in the block will be transferred; formally $C_{\mathrm{c}}$.
+\item[gasLimit] The total gas limit used by the block; formally $C_{\mathrm{l}}$.
+\item[timestamp] The timestamp used in the block, set to the enclosing L1 timestamp; formally $C_{\mathrm{s}}$.
+\item[mixHash] The mixHash value used in the block, set to the enclosing L1 mixHash; formally $C_{\mathrm{m}}$.
+\item[extraData] The extraData value for the L2 block. This must be 32 bytes or fewer; formally $C_{\mathrm{x}}$.
+\item[txListHash] The Keccak-256 hash of this block's txList; formally $C_{\mathrm{t}}$. 
+\item[l1Height] The enclosing L1 block's parent block number; formally $C_{\mathrm{a}}$.
+\item[l1Hash] The enclosing L1 block's parent block hash; formally $C_{\mathrm{h}}$.
+\end{description}
+
+\subsubsection{txList}\label{sec:txlist}
+The txList is the RLP-serialised list of all the transactions in an L2 block. As future improvements like data sharding \ref{sec:datablobs} and compression \ref{sec:compression} will make this data less accessible from L1 smart contracts, we make sure not to depend on the actual data itself (except currently to calculate its hash). This will allow us to easily switch to other, more efficient, methods of storing this data on Ethereum. It is likely that it will be difficult to even bring this data back to an L1 smart contract because this is severely limited by the transaction data gas cost and the Ethereum block gas limit.
+
+\subsubsection{Proposed Block Intrinsic Validity}
+The proposed block must pass an \emph{Intrinsic Validity} test before it is accepted by the \underline{TaikoL1} contract. 
+
+We are able to define the Intrinsic Validity function as:
+
+\begin{eqnarray}
+V^{b}(\dot{B}) & \equiv &   V^{b}(C,L)  \\
+\nonumber & \equiv &   R_\mathbf{i} \le R_\mathbf{f} + K_\mathrm{MaxProposedBlocks}   \quad \wedge \\
+\nonumber& & \lVert L \rVert > 0 \quad \wedge \\
+\nonumber & & \lVert L \rVert \le K_{\mathrm{TxListMaxBytes}} \quad \wedge \\
+\nonumber& & C_{\mathbf{c}} \ne 0   \quad \wedge \\
+\nonumber& & C_{\mathbf{i}} = R_\mathbf{i}   \quad \wedge \\
+\nonumber& & C_{\mathbf{s}} = \texttt{TIMESTAMP}   \quad \wedge \\
+\nonumber& & C_{\mathbf{m}} = \texttt{DIFFICULTY}   \quad \wedge \\
+\nonumber& & C_{\mathbf{t}} \ne 0   \quad \wedge \\
+\nonumber& & C_{\mathbf{t}} = \texttt{KEC}(L)   \quad \wedge \\
+\nonumber& & C_{\mathbf{a}} = \texttt{NUMBER} - 1   \quad \wedge \\
+\nonumber& & C_{\mathbf{h}} = \texttt{BLOCKHASH}(C_{\mathbf{a}})   \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))] \ne 0  \quad \wedge \\
+\nonumber& & R_{\mathbf{c}}[\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))] \le  \\
+\nonumber& &  \texttt{NUMBER}   -  K_{\mathrm{CommitDelayConfirmations}}
+\end{eqnarray}
+
+Where $\texttt{KEC}((C_{\mathbf{c}}, C_{\mathbf{t}}))$ is called the block's \emph{Commit Hash}.
+
+After passing the test, the proposed block is appended to the proposed block list $R_\mathrm{b}$ and $R_\mathrm{i}$ is incremented by one.
+
+\subsubsection{Commit Hash}\label{sec:commit} The commit hash is the Keccak-256 hash of a proposed block's \textbf{beneficiary} and \textbf{txListHash}. The protocol requires that a block can be proposed only $K_{\mathrm{CommitDelayConfirmations}}$ confirmations after its commit hash has been committed to \underline{TaikoL1}, which prevents other parties from inspecting the L1 mempool and submitting the same or a similar block, allowing them to collect the transaction fees and/or MEV \cite{mev}.
+
+\subsection{Block Validation and Mapping } \label{sec:filtermap}
+The protocol filters proposed blocks using a \emph{txList Intrinsic Validity Function} $V^l$ on each block's txList $L$. If $V^l(L)$ returns \texttt{False}, the proposed block is dropped and ignored by L2 nodes; otherwise, the proposed block will map to an actual Taiko L2 block using the \emph{Block Mapping Function} $M(\dot{B})$.
+
+\subsubsection{Validation} The txList Intrinsic Validity function requires:
+
+\begin{enumerate}
+\item The txList is RLP decodable into a list of transactions, and;
+\item The number of transactions is no larger than the protocol constant $ K_{\mathrm{BlockMaxTxs}}$, and;
+\item The sum of all transactions' gasLimit is no larger than the protocol constant $K_{\mathrm{BlockMaxGasLimit}}$, and;
+\item Each and every transaction's signature is valid, i.e. it does not recover to the zero address.
+\end{enumerate}
+
+Formally, $V^l(L)$ is defined as:
+
+\begin{eqnarray}
+V^l(L) & \equiv & \texttt{NOERR}(T \equiv \texttt{RLP}'(L))  \quad \wedge  \\
+\nonumber& & \lVert T \rVert \le K_{\mathrm{BlockMaxTxs}} \quad \wedge \\
+\nonumber & & (\sum_{j = 0}^{\lVert T \rVert - 1}T[j]_g) \le K_{\mathrm{BlockMaxGasLimit}} \quad \wedge \\
+\nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (T[j]_g \ge K_{\mathrm{TxMinGasLimit}})\quad \wedge \\
+\nonumber & & \prod_{j = 0}^{\lVert T \rVert - 1} (\texttt{NOERR}(\texttt{ECRECOVER}(T[j]) \ne 0) )
+\end{eqnarray}
+
+Where $\texttt{NOERR}(S)$ is a catch-error function that returns \texttt{False} if statement $S$ throws an error; $\texttt{RLP}'$ is the RLP decoding function;  $T_g$ is a transaction's gasLimit; 
+
+The txList Intrinsic Validity function will be called on L2 and not on L1 because of the reasons explained in \ref{sec:txlist}.
+
+\subsubsection{Mapping}
+
+A proposed block where both $V^b(\dot{B})$ and $V^l(\dot{B}_L)$ hold true will map to an actual Taiko block.
+
+Taiko blocks are identical to Ethereum blocks, as defined by the Ethereum Yellow Paper\cite{yellow-paper}:
+
+\begin{eqnarray}
+B_H & \equiv & (H_p, H_o, H_c, H_r, H_t, H_e, H_b, H_d, \\
+\nonumber & & H_i, H_l,H_g, H_s, H_x, H_m, H_n) \\
+B_U  & \equiv & [] \\
+B & \equiv & (B_H, B_T, B_U)
+\end{eqnarray}
+
+Where $H_p$ is the block's parentHash, $H_o$ is the ommersHash, $H_c$ is the beneficiary, $H_r$ is the stateRoot, $H_t$ is the transactionsRoot, $H_e$ is the receiptsRoot, $H_b$ is the logsBloom, $H_d$ is the difficulty, $H_i$ is the block number, $H_l$ is the gasLimit, $H_g$ is the gasUsed, $H_s$ is the timestamp, $H_x$ is the extraData, $H_m$ is the mixHash, $H_n$ is the nonce; $B_T$ a series of the transactions; and $B_U$ is a list of ommer block headers but this list will always be empty for Taiko because there is no Proof-of-Work.
+
+Transactions are identical to Ethereum transactions as defined by the Ethereum Yellow Paper\cite{yellow-paper}. However, only type 0 (legacy) transactions will be supported initially while EIP-1559 is disabled (but will be enabled in future versions).
+
+A proposed block can only be mapped to a Taiko block in a \emph{Mapping Metadata} which is the world state $\boldsymbol{\sigma}$:
+
+$$\boldsymbol{\sigma} \equiv (\boldsymbol{\delta}, h[1..256], d, i, \theta)$$
+
+Where $\boldsymbol{\delta}$ is the state trie, $h[1..256]$ are the most recent 256 ancestor block hashes, $d$ is Taiko's chain ID, $\theta$ is the anchor transaction, and $i$ is the block number.
+
+Now we can define the block mapping function $M$ as:
+
+\begin{eqnarray}
+M(B) & \equiv & M(H, T, U), \\
+\nonumber & \equiv &  M(\boldsymbol{\delta}, h[1..256], {d}, i, \theta, \dot{B}, )  \\
+\nonumber & \equiv & M(\boldsymbol{\delta}, h[1..256], {d}, i, \theta, C, L)
+\end{eqnarray}
+
+such that:
+
+\begin{eqnarray}
+& & \texttt{CHAINID}  = \quad \wedge \\
+\nonumber& & \texttt{NUMBER} = {i} \quad \wedge \\
+\nonumber& & U = [] \quad \wedge \\
+\nonumber& & T =  \theta::V^t(\texttt{RLP}'(L)) \quad \wedge  \\
+\nonumber& & H_p =  h(1) \quad \wedge \\
+\nonumber& & H_o =   K_{\mathrm{EmptyOmersHash}} \quad \wedge \\
+\nonumber& & H_c =   C_c \quad \wedge \\
+\nonumber& & H_d =   0 \quad \wedge \\
+\nonumber& & H_i =   i \quad \wedge \\
+\nonumber& & H_l =   C_l + K_{\mathrm{AnchorTxGasLimit}} \quad \wedge \\
+\nonumber& & H_s =   C_s \quad \wedge \\
+\nonumber& & H_x =   C_x \quad \wedge \\
+\nonumber& & H_m =   C_m \quad \wedge \\
+\nonumber& & (H_r, H_t, H_e, H_l, H_g) =   \Pi(\boldsymbol{\sigma}, (T_0, T_1, ...))
+\end{eqnarray}
+
+Where $\Pi$ is the block transition function; $::$ is the list concatenation operator; $V^t$ is the \emph{"Initial Tests of Intrinsic Validity"} function defined in the Transaction Execution section of the Ethereum Yellow Paper. To avoid confusion, in this document, we call $V^t$ the \emph{Metadata Validity} function.
+
+$V^t(\texttt{RLP}'(L))$ yields a list of transactions that pass the tests; transactions that don't pass the tests are ignored and will not be part of the actual L2 block. Note that it is perfectly valid for $V^t(\texttt{RLP}'(L))$ to return an empty list.
+
+\subsection{Anchor Transaction} \label{sec:anchoring}
+
+The anchor transaction is a way for the protocol to make use of the programmability of the EVM (which we already need to be able to proof) to enforce certain protocol behavior. We can add additional tasks to anchor transactions to enrich Taiko's functionalities by writing standard smart contract code (instead of requiring more complicated changes to Taiko's ZK-EVM and node subsystems).
+
+The anchor transaction is required to be the first transaction in a Taiko block (which is important to make the block deterministic). The anchor transaction is currently used as follows:
+
+\begin{enumerate}
+\item Persisting l1Height $C_a$ and l1Hash $C_h$, data inherited from L1, to the storage trie. These values can be used by bridges to validate cross-chain messages \ref{sec:bridges}.
+\item Comparing $\rho_{i-1}$, the \textit{public input hash} stored by the previous block, with $\texttt{KEC}(i-1, d, h[2..256])$. The anchor transaction will throw an exception if such comparison fails. The protocol requires the anchor transaction to execute successfully and will not accept a proof for a block that fails to do so. Note that the genesis block has $\rho_0 \equiv \texttt{KEC}(0, d, [0,...,0])$.
+\item Persisting a new public input hash
+
+$$\rho_i \equiv \texttt{KEC}(i, d, h[1..255])$$ 
+
+to the storage trie for the next block to use. This allows transactions, in the current and all following blocks, to access these public input data with confidence as their values are now covered by ZK-EVM's storage proof.
+\end{enumerate}
+
+With anchoring, the block mapping function $M$ can be simplified to:
+\begin{eqnarray}
+B & \equiv & (H, T, U), \\
+\nonumber & \equiv &  M(\boldsymbol{\delta}, \theta, \dot{B}, )  \\
+\nonumber & \equiv & M(\boldsymbol{\delta},  \theta, C, L)
+\end{eqnarray}
+
+\subsubsection{Construction of Anchor Transactions} All anchor transactions are signed by a \textit{Golden Touch} address with a revealed private key. 
+
+Anchor transactions are constructed by Taiko L2 nodes as follows:
+
+\begin{eqnarray}
+& & \theta_x = 0 \quad \wedge \\
+\nonumber& & \theta_n = \boldsymbol{\delta}[K_{\mathrm{GoldenTouchAddress}}]_n + 1 \quad \wedge \\
+\nonumber& & \theta_p = 0 \quad \wedge \\
+\nonumber& & \theta_g = K_{\mathrm{AnchorTxGasLimit}} \quad \wedge \\
+\nonumber& & \theta_t = K_{\mathrm{GoldenTouchAddress}} \quad \wedge  \\
+\nonumber& & \theta_v = 0 \quad \wedge  \\
+\nonumber& & \theta_d = K_{\mathrm{AnchorTxSelector}}::C_a::C_h \quad \wedge  \\
+\nonumber& & (\theta_r,\boldsymbol{\delta}_s) = \texttt{K1ECDSA}(\boldsymbol{\delta}, K_{\mathrm{GoldenTouchPrivateKey}})
+\end{eqnarray}
+
+Where \texttt{K1ECDSA} is the ECDSA\cite{ecdsa} signing function with the internal variable $k$ set to $1$, which guarantees the transaction's signature to only depend on the transaction data itself and is therefore deterministic.
+
+According to the ECDSA's spec, when $k$ is $1$, $\theta_r$ must equal $\mathrm{G_x}$, the value of the x-coordinate of the base point on the SECP-256k1 curve. The \underline{TaikoL1} contract verifies this assertion.
+
+\subsection{Proving Blocks} \label{sec:proving}
+
+A proof needs to be submitted to Ethereum so that a block can be on-chain finalized. We stress again that all proposed blocks are finalized immediately because proposed blocks are deterministic and cannot be reverted. The prover has \emph{no} impact on the post-block state. The proof is only required to prove to the \underline{TaikoL1} smart contract that the protocol rules were followed to correctly calculate the block hash for the block. These on-chain verified L2 states are made accessible to other smart contracts (and indirectly to other L2s) so they can have access to the full L2 state, which is critical for e.g. bridges \ref{sec:bridges}.
+
+Blocks can be proven in parallel and so proofs may be submitted out-of-order. As a result, when proofs are submitted for blocks where the parent block is not yet finalized, we cannot know if the proof is for the correct state transition. A proof on its own can only verify that the state transition from one state to another state is done correctly, not that the initial state is the correct one. As such, proving a block can create a Fork Choice which is an attestation that the block in question transits from a prover-selected parent block to a correctly calculated new world state. It is important to note that there is only a single valid fork choice per block: the fork choice that transitions from the last on-chain finalized block to the next \emph{valid} proposed block. All other fork choices use an incorrect pre-block state.
+
+A Fork Choice is a tuple of 3 elements:
+
+\begin{equation}
+E \equiv (H_p, H_h, [(a_1, p^{z}_1, [p^{m_1}_1,...]),...])
+\end{equation}
+
+where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block, and $(a_i, p^{z}_i, [p^{m_1}_i,...])$ are the $i$-th prover's address and the proofs. $p^{z}$ is a proof that shows the state transition from the parent hash to the block hash is correct, and [$p^{m_1}$,...] are Merkle proofs in the storage, transaction, and/or receipt trie that prove the anchor transaction has been executed successfully as the first transaction of the L2 block.
+
+Taiko accepts up to $K_{\mathrm{MaxProofsPerForkChoice}}$ proofs per fork choice. Proofs for the correct fork choice will be eligible for compensation. No limit is set on the number of fork choices as the protocol does not know which fork choice for a block is the correct one until the parent block is on-chain finalized.
+
+\subsubsection{Invalid Blocks} \label{sec:proving-invalid}
+
+If a block fails to pass the Intrinsic Validity Function $V^l$, the block can be proven to be invalid using a valid throw-away L2 block $\dot{B}$ whose first transaction is an \texttt{invalidateBlock} transaction on the \underline{TaikoL2} smart contract with the target block's txList as the sole input. \texttt{invalidateBlock} will emit an \texttt{BlockInvalidated} event with the target block's txList hash as a topic. On L1, we only need to verify that:
+
+\begin{enumerate}
+\item The throw-away block $\dot{B}$ is valid, and;
+\item The first event emitted in the block is a \texttt{BlockInvalidated} event with the expected txList hash. 
+\end{enumerate}
+
+The Fork Choice for an invalid block is:
+
+\begin{eqnarray}
+E \equiv (H_p, H_h, [(a_1, p^{z}_1, p^{m}_1),...]) \\
+H_h \equiv K_{\mathrm{BlockDeadEndHash}}
+\end{eqnarray}
+
+Where $K_{\mathrm{BlockDeadEndHash}}$ is a special value marking this Fork Choice is for an invalid block; $p^{z}$ and  $p^{m}$ prove the throw-away block is invalid, not the target proposed block.
+
+It's important to note that these throw-away blocks are never a part of the Taiko chain. The only purpose of the block is to be able reuse the EVM proving subsystem so that we can create proofs for blocks with unexpected transaction data.
+
+\subsection{On-chain Finalization of Blocks}\label{sec:finalizing}
+
+Assuming the $j$-th block is the last finalized valid block. The $i$-th block ($i > j$) can be finalized if 1) the $(i-1)$-th block has been finalized, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the $j$-th block's hash.
+
+If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as finalized but $j$ is not updated (otherwise $j$ changes to $i$ and so the $i$-th block would become the last finalized valid block while the block is not valid). So on L1, because each block needs to handled, valid or invalid, all blocks are part of the block chain through the Fork Choices. In Taiko nodes invalid blocks can be immediately dropped and are never part of Taiko's canonical chain.
+
+\section{ZK-EVM Circuits}
+
+The ZK-EVM circuits is the core subsystem which allows Taiko to prove an Ethereum-equivalent chain in sub-linear time. This key property allows Taiko to be a scalability solution for Ethereum without additional security assumptions, except that the cryptography and code used in the implementation is secure.
+
+\subsection{Proof Generation} The proof computation function $\hat{C}$ for address $a$ is defined as:
+
+\begin{equation}
+    p^z(a) \equiv \hat{C}(a, H,\theta, L, \Delta(\theta::V^t(L)) )
+\end{equation}
+Where $H$ is the block header, $\theta$ is the anchor transaction, $L$ is the block's RLP-encoded txList, and $\Delta$ is the EVM trace logs generated from running $\theta$ and all transactions in $L$ that the \textit{Contextual Validity} $V^t$ function returns \texttt{True}.
+
+We assume:
+\begin{enumerate}
+\item The ZK-EVM always generates a different proof if an input is changed.
+\item The ZK-EVM is unable to generate a proof if the txList fails to pass the Block Intrinsic Validity test or any transaction (including the anchor transaction) fails to pass the transaction Contextual Validity test.
+\item The ZK-EVM disables the same set of Ethereum upgrades listed in Appendix \ref{sec:eips}
+\end{enumerate}
+
+By making the prover address $a$ an input we can ensure a proof is directly linked to a specific address. This prevents proofs from being stolen while their enclosing transactions are pending in Ethereum's mempool as changing the address requires regenerating the complete proof.
+
+\subsection{Proof Verification} To verify a validity proof $p^z$ generated by address $a$ for the $i$-th block, we have the verification function defined as:
+
+\begin{equation}
+    \hat{V}(p^z, a, h[i], \texttt{KEC}(L), \kappa)
+\end{equation}
+Where $h[i]$ is the block's block hash, $\kappa$ is  ZK-EVM's verification key.
+
+\section{Cross-Chain Communication}\label{sec:bridges}
+Taiko enables third parties to develop cross-chain bridges. To facilitate this, the protocol ensures that a subset of L1 block hashes are accessible from L2 smart contracts and a subset of  L2 block hashes are also accessible from the \underline{TaikoL1} smart contract. These block hashes can be used to verify the validity of cross-chain messages in standard smart contracts. Taiko does not have to provide any bridging solutions itself, as the supporting core functionality are ready for others to build upon. An exception to this is the Ether bridge which requires special handling, see \ref{eth-bridge}. 
+
+On Ethereum, the \underline{TaikoL1} contract persists the height and hash of the L2 blocks. On Taiko, the anchor function in the \emph{\underline{TaikoL2}} contract is used to persist the height and block hash of the previous Ethereum block (from when the L2 block was proposed), as well as the previous L2 block hash (which allows L2 smart contracts to easily fetch the full history of L2 block hashes).
+
+\subsection{Ether on L2}\label{eth-bridge}
+The Taiko Ether bridge will allow users to bridge Ether from and to Taiko. $2^{128}$ Ether is minted to a special vault contract called the \underline{TokenVault} in the genesis block. When a user deposits Ether to L2, the same amount of Ether will be transferred from the \underline{TokenVault} to the user on L2. When a user withdraws some Ether from L2, Ether on L2 will be transferred back to \underline{TokenVault} (no L2 Ether will ever be burnt).
+
+A small amount of Ether will also be minted to a few EOAs to bootstrap the L2 network, otherwise nobody would be able to transact. To make sure the Ether bridge is solvent, a corresponding amount of Ether will be deposited to the Ether bridge on L1.
+
+\section{Future Improvements}\label{sec:improvements}
+
+\subsection{Ethereum Data Blobs}\label{sec:datablobs}
+EIP-4844 \cite{eip4844} (or similar) on Ethereum will, once enabled, allow data to be stored on L1 in a more efficient manner. Instead of storing the txList data in the L1 transaction data we will instead be able to store the data in a data blob. This data will be read directly from the KZG commitment in the ZK-EVM circuits without ever needing to access the data in an L1 smart contract.
+
+\subsection{VDF instead of Block Commitments}\label{sec:vdf}
+A \emph{Verifiable Delay Function} (VDF) can be used to protect pending block proposals \ref{sec:commit}. This achieves the same goal as the block commitment scheme but without requiring an additional Ethereum transaction. Instead, some computational work is required before the block can be proposed.
+
+\subsection{Block Validity Verification at Proposal Time}\label{sec:propose-proof}
+Currently we accept blocks at proposal time even if the transaction data is invalid. Afterwards, we depend on provers to generate a proof that shows the block is invalid \ref{sec:proving-invalid}. We do this because the work required to verify all requirements imposed on the transaction data is expensive to verify on L1. Instead, we can require a proof together with the proposed block attesting that the block data is valid. This requires computing a proof, and so the requirement for this improvement is that this proof can be generated efficiently enough so that it is not a potential bottleneck for proposing blocks. Because verifying a proof is still quite expensive, this proof should not be verified immediately at block proposal time but should be verified as part of the block proof.
+
+\subsection{Signature Compression}\label{sec:signature-opt}
+Signatures can be removed from the block data as long as the proposer can show that all transactions in the proposed block have valid signatures. This can be achieved with the help of an accompanying proof when a block is proposed. As such, the burden of having to verify the signatures is shifted solely to the block proposer, so it needs to be possible to generate this proof efficiently. The block prover can then simply assume all transactions are valid and so there is no need for the prover to know the signatures. Note that this could have a very small impact on the transaction trie of a block as the signature data is not part of the transaction data anymore. If we want to keep the transaction trie the same with the signatures included the transaction trie will also have to be built by the block proposer.
+
+\subsection{Block Data Compression}\label{sec:compression}
+A big part of the cost of a rollup block is the data that is required to be stored on L1. It has been shown that standard general compression schemes like DEFLATE \cite{deflate} work well on transaction data. It is possible to implement these schemes efficiently in a circuit and so the data published on L1 can be compressed while the circuits can decompress the data again. This will make it possible to reduce the amount of data that needs to be published on L1, significantly reducing costs.
+
+\subsection{Batched Proof Verification}\label{sec:proof-opt}
+Verifying a proof on L1 is quite expensive. Instead of verifying each proof for each block separately we instead let block provers submit their proof for a block to L1 without the protocol immediately verifying it. Other provers can batch verify one or more of these block proofs in another proof which can then be submitted and verified on L1. This significantly reduces the proof verification gas cost in exchange of the cost of generating this extra proof and an extra delay in on-chain finalization. Note that there is no need for the protocol to impose any limitations on the number or the range of block proofs being verified. Any number of blocks at any positions in the chain are allowed to be batch verified. The proving fee system should automatically steer provers towards a system that is the most efficient while not significantly increasing the on-chain finalization time.
+
+\subsection{Rate Limiting using EIP-1559}\label{sec:eip1559-propose}
+Although rollups can have significantly higher network capacity than L1s, this capacity is not without limit. As such the protocol needs to be able to limit how much work the L2 network needs to do to keep up with the tip of the chain. Ethereum already has a mechanism in place to do just that with \cite{eip1559} that we can use as well. 
+
+At block proposal we keep track of how much work (measured in gas) is required to process the block, while subtracting the amount of work the Taiko network can handle. This effectively creates a market for network capacity (in gas) per ETH. This will impact how expensive Taiko block space is (paid by the block proposer), the higher the demand the higher the network fee (a fee paid to the Taiko DAO). This way, rate limiting is achieved in a way that does not simply impose a hard and inefficient cap on the network, instead this mechanism allows users to utilize the network in a fair way while allowing the Taiko network to capture the created value. And because the same mechanism is used on Ethereum it allows Taiko to be Ethereum-equivalent (with some small implementation detail changes) even for this part of its network, which is not obviously the case for L2s.
+
+\subsection{EIP-1559 Powered Prover fees}\label{sec:eip1559-proof}
+Proving blocks requires significant compute power to calculate the proof to submit and verify the proof on Ethereum. Provers need to be compensated for this work as the network needs to attract provers that are willing to do this work. How much to pay for a proof is not obvious however:
+\begin{enumerate}
+\item The Ethereum gas cost to publish/verify a proof on Ethereum is unpredictable.
+\item The proof generation cost does not necessarily match perfectly with the gas cost.
+\item The proof generation cost keeps changing as proving software is optimized and the hardware used gets faster and cheaper.
+\item The proof generation cost depends on how fast a proof needs to be generated.
+\end{enumerate}
+
+Because the proving cost impacts the transaction fees paid by the users, the goal is to pay only as much as required for the network to function well. This means not underpaying provers because blocks may remain unproven, but certainly also not overpaying provers so that it doesn't make sense to incur very high costs to try and generate proofs as quickly as absolutely possible. A good balance is key to a well working solution that takes into account the needs of the different network participants.
+
+It's clear that a fixed proving fee does not work. The protocol should also not be dependent on a single prover for a block because this will put too much power in the hands of a single entity that can impact the stable progress of the chain. 
+
+It can be observed that this problem is very similar to the rate limiting problem \ref{sec:eip1559-propose}. The network, somehow, has to find the correct price between two resources where the demand/supply is ever changing. We can model this problem as a market between the proving fee (per gas) per proof delay (per time unit), striking a dynamic balance between proving cost and proof delay.
+
+An additional complication is that the protocol expects the block proposer to pay the proving fee at block proposal time. As such, the \emph{baseFee} of this model is used to charge the proposer of a block using the total gas used in the block. This is only an estimate of the actual cost because the actual cost is only known when the proof is submitted. If the estimated cost was too high the difference is returned to the block proposer and the \emph{baseFee} is decreased. If the estimated cost was too low extra Taiko tokens are minted to make up the difference and the \emph{baseFee} is increased. To lower the chance that the estimated cost is too low and extra Taiko tokens need to be minted, a slightly higher \emph{baseFee} can be charged to the proposer than the one predicted by the model.
+
+\subsection{Leverage Staking Withdrawal Support for the Ether Bridge}\label{sec:withdrawals}
+Once withdrawing staked Ether is supported by Ethereum we will be able to use the same infrastructure to bridge Ether. Although this is still a work in progress and the final spec is still unknown, this should provide a more standard solution than the system described in \ref{eth-bridge}.
+
+\end{multicols}
+
+\begin{thebibliography}{9}
+\bibitem{vitalik-zkevm}
+\url{https://vitalik.ca/general/2022/08/04/zkevm.html}
+\bibitem{yellow-paper}
+\url{https://ethereum.github.io/yellowpaper/paper.pdf}
+\bibitem{ecdsa}
+\url{https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm}
+\bibitem{eip4844}
+\url{https://eips.ethereum.org/EIPS/eip-4844}
+\bibitem{eip1559}
+\url{https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md}
+\bibitem{deflate}
+\url{https://en.wikipedia.org/wiki/Deflate}
+\bibitem{mev}
+\url{https://ethereum.org/en/developers/docs/mev}
+\bibitem{taikoprotogithub}
+\url{https://github.com/taikochain/taiko-mono/tree/main/packages/protocol}
+\bibitem{pse}
+\url{https://github.com/privacy-scaling-explorations}
+\end{thebibliography}
+
+\appendix
+
+\section{Terminology} \label{ch:Terminology}
+
+\begin{description}
+\item[Anchor Transaction] The first transaction in every Taiko L2 block to perform data validation and L1-to-L2 communication.
+
+
+\item[Fork Choice] A data structure to capture a block's proving result based on a prover-chosen parent block.
+
+\item[Golden Touch Address] An address with a revealed private key to transact all anchor transactions.
+
+\item[ZK-EVM] Zero-knowledge proof powered EVM proving systems. \textbf{zkEVM} is one of such projects initiated and led by 
+Privacy \& Scaling Explorations (formerly known as AppliedZKP)\cite{pse} and is the one Taiko will use and contribute to.
+\end{description}
+
+
+\section{Ethereum Upgrades on Taiko}\label{sec:eips}
+
+\begin{tabu}{l r }
+\toprule
+Name & Status \\
+\midrule
+EIP-606 -- Hardfork Meta: Homestead & \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad  Enabled \\
+EIP-779 -- Hardfork Meta: DAO Fork & Disabled \\
+EIP-150 -- Gas cost changes for IO-heavy operations & Enabled \\
+EIP-155 -- Simple replay attack protection &  Enabled \\
+EIP-158 -- State clearing) & Enabled \\
+EIP-609 -- Hardfork Meta: Byzantium & Enabled \\
+EIP-1013 -- Hardfork Meta: Constantinople & Enabled \\
+EIP-1716 -- Hardfork Meta: Petersburg & Enabled \\
+EIP-1679 -- Hardfork Meta: Istanbul & Enabled \\
+EIP-2387 -- Hardfork Meta: Muir Glacier & Disabled \\
+Berlin Network Upgrade & Enabled \\
+London Network Upgrade & Disabled \\
+Arrow Glacier Network Upgrade & Disabled \\
+EIP-3675 -- Upgrade consensus to Proof-of-Stake & Enabled \\
+Shanghai Network Upgrade & Disabled (future) \\
+Cancun Network Upgrade & Disabled (future)  \\
+\bottomrule
+\end{tabu}
+
+
+
+\section{Protocol Constants}\label{sec:constants1}
+
+\begin{tabu}{l r l}
+\toprule
+Name & Value & Description \\
+\midrule
+$K_{\mathrm{ChainID}}$ & 167 & Taiko's chain ID. \\
+$K_{\mathrm{MaxProposedBlocks}}$ & 2048 & The maximum number of proposed blocks. \\
+$K_{\mathrm{MaxFinalizationsPerTx}}$ & 5 & The number of proven blocks that can be finalized when a new block is\\
+& & proposed or a block is proven. \\
+$K_{\mathrm{CommitDelayConfirmations}}$ & 4 & The number of confirmations to wait for before a block can be proposed\\
+& &  after its commit-hash has been written on Ethereum.\\
+$K_{\mathrm{MaxProofsPerForkChoice}}$ & 5 & The maximum number of proofs per fork choice. \\
+$K_{\mathrm{BlockMaxGasLimit}}$ & TBD & A Taiko block's max gas limit besides $K_{\mathrm{AnchorTxGasLimit}}$.  \\
+$K_{\mathrm{BlockMaxTxs}}$ & TBD & The maximum number of transactions in a Taiko block besides the anchor\\
+& & transaction. \\
+$K_{\mathrm{BlockDeadEndHash}}$ & 0x1 & A special value to mark blocks proven invalid. \\
+$K_{\mathrm{TxListMaxBytes}}$ & TBD & A txList's maximum number of bytes. \\
+$K_{\mathrm{TxMinGasLimit}}$ & TBD & A transaction's minimum gas limit. \\
+$K_{\mathrm{AnchorTxGasLimit}}$ & TBD & Anchor transaction's fixed gas limit. \\
+\bottomrule
+\end{tabu}
+
+\begin{tabu}{l l}
+\toprule
+Name &  \quad \quad Value \\
+\midrule
+$K_{\mathrm{AnchorTxSelector}}$ &  \quad \quad 0xa0ca2d08 \\
+$K_{\mathrm{GoldenTouchAddress}}$ &  \quad \quad 0x0000777735367b36bC9B61C50022d9D0700dB4Ec  \\
+$K_{\mathrm{GoldenTouchPrivateKey}}$ & \quad \quad 0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38 \\
+$K_{\mathrm{InvalidateBlockLogTopic}}$ & \quad \quad 0x64b299ff9f8ba674288abb53380419048a4271dda03b837ecba6b40e6ddea4a2 \\
+$K_{\mathrm{EmptyOmersHash}}$ & \quad \quad 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347   \quad \quad \quad \quad \\
+\bottomrule
+\end{tabu}
+
+
+\end{document}
