@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,4 +40,29 @@ func WaitForTx(ctx context.Context, client *ethclient.Client, hash common.Hash) 
 		}
 	}()
 	return ch
+}
+
+// WaitReceipt keeps waiting until the given transaction has an execution
+// receipt to know whether it was reverted or not.
+func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transaction) (*types.Receipt, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+			if err != nil {
+				continue
+			}
+
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, fmt.Errorf("transaction reverted, hash: %s", tx.Hash())
+			}
+
+			return receipt, nil
+		}
+	}
 }

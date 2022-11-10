@@ -95,9 +95,14 @@ func (p *Processor) ProcessMessage(
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
-	ch := relayer.WaitForTx(ctx, p.destEthClient, tx.Hash())
-	// wait for tx until mined
-	<-ch
+	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx)
+	if err != nil {
+		return errors.Wrap(err, "relayer.WaitReceipt")
+	}
+
+	if receipt.Status != 1 {
+		return errors.New("transaction reverted")
+	}
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
