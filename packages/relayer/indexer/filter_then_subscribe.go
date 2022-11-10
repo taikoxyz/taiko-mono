@@ -149,7 +149,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	log.Info("saving event to database")
 	eventStatus := relayer.EventStatusNew
 	// if gasLimit is 0, relayer can not process this.
-	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(big.NewInt(0)) == 0 {
+	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		eventStatus = relayer.EventStatusNewOnlyOwner
 	}
 	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
