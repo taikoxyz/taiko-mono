@@ -57,8 +57,6 @@ docker run -d \
 
 trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME" EXIT INT KILL ERR
 
-# PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-#   npx hardhat node --port 28545 &
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
 pnpm hardhat test --network l1_test --grep "^integration"
