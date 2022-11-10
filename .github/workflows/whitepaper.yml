@@ -27,10 +27,9 @@ jobs:
 
       - name: Rename
         working-directory: ./packages/whitepaper
-        run:  mv main.pdf taiko-whitepaper.pdf
+        run:  mkdir -p build && mv main.pdf build/taiko-whitepaper.pdf
 
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          tag_name: whitepaper-1.2
-          files: ./packages/whitepaper/taiko-whitepaper.pdf
+          folder: ./packages/whitepaper/build
