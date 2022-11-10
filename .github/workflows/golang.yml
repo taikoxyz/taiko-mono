@@ -26,7 +26,7 @@ jobs:
 
           # Optional: working directory, useful for monorepos
           working-directory: ./packages/relayer
-        run: golangci-lint -c ./packages/relayer/.golangci.yml
+          args: --config=./packages/relayer/.golangci.yml
 
   build:
     runs-on: ubuntu-latest
