@@ -25,7 +25,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <a
             className="button button--secondary button--lg"
-            href="./taiko-whitepaper.pdf"
+            href="https://taikochain.github.io/taiko-mono/taiko-whitepaper.pdf"
             target="_blank"
           >
             Read the whitepaper
