@@ -158,13 +158,23 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 }
 
 func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
-	dsn := fmt.Sprintf(
-		"%v:%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
-		opts.Name,
-		opts.Password,
-		opts.Host,
-		opts.Database,
-	)
+	dsn := ""
+	if opts.Password == "" {
+		dsn = fmt.Sprintf(
+			"%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
+			opts.Name,
+			opts.Host,
+			opts.Database,
+		)
+	} else {
+		dsn = fmt.Sprintf(
+			"%v:%v@tcp(%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
+			opts.Name,
+			opts.Password,
+			opts.Host,
+			opts.Database,
+		)
+	}
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
