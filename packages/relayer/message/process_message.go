@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	solsha3 "github.com/miguelmota/go-solidity-sha3"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
@@ -44,9 +44,9 @@ func (p *Processor) ProcessMessage(
 		return nil
 	}
 
-	hashed := solsha3.SoliditySHA3(
-		solsha3.Address(event.Raw.Address), // L1 bridge address
-		solsha3.Bytes32(event.Signal),
+	hashed := crypto.Keccak256(
+		event.Raw.Address.Bytes(), // L1 bridge address
+		event.Signal[:],
 	)
 
 	key := hex.EncodeToString(hashed)
