@@ -29,6 +29,7 @@ func IsInSlice[T comparable](v T, s []T) bool {
 // when the transaction is no longer pending.
 func WaitForTx(ctx context.Context, client *ethclient.Client, hash common.Hash) chan *types.Transaction {
 	ch := make(chan *types.Transaction)
+
 	go func() {
 		for {
 			tx, pending, _ := client.TransactionByHash(ctx, hash)
@@ -39,6 +40,7 @@ func WaitForTx(ctx context.Context, client *ethclient.Client, hash common.Hash) 
 			time.Sleep(time.Millisecond * 500)
 		}
 	}()
+
 	return ch
 }
 
