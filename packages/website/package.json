@@ -3,12 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "pnpm import:whitepaper && docusaurus build",
+    "build": "docusaurus build",
     "clear": "docusaurus clear",
     "deploy": "docusaurus deploy",
     "docusaurus": "docusaurus",
     "import:docs": "./scripts/import-docs.sh",
-    "import:whitepaper": "./scripts/import-whitepaper.sh",
     "serve": "docusaurus serve",
     "start": "docusaurus start",
     "swizzle": "docusaurus swizzle",
