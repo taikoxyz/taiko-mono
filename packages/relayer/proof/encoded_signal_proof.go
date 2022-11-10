@@ -47,6 +47,10 @@ func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAd
 func (p *Prover) encodedStorageProof(ctx context.Context, c caller, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
 	var ethProof StorageProof
 	err := c.CallContext(ctx, &ethProof, "eth_getProof", bridgeAddress, []string{key}, hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)))
+	if err != nil {
+		return nil, errors.Wrap(err, "c.CallContext")
+	}
+
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {
 		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}

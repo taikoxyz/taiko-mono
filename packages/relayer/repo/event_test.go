@@ -97,13 +97,14 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.name == "success" {
-				eventRepo.Save(
+				_, err := eventRepo.Save(
 					relayer.SaveEventOpts{
 						Name:    "test",
 						ChainID: big.NewInt(1),
 						Data:    "{\"data\":\"something\"}",
 					},
 				)
+				assert.Equal(t, nil, err)
 			}
 			err := eventRepo.UpdateStatus(tt.id, tt.status)
 			assert.Equal(t, tt.wantErr, err != nil)
