@@ -8,25 +8,17 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
 
-contract TestReceiver {
-    event Received(address from, uint256 amount);
-    event Fallback(address from, uint256 amount);
-
+contract TestBadReceiver {
     receive() external payable {
-        emit Received(msg.sender, msg.value);
+        revert("can not send to this contract");
     }
 
     fallback() external payable {
-        emit Fallback(msg.sender, msg.value);
+        revert("can not send to this contract");
     }
 
-    function receiveTokens(uint256 amt) external payable {
-        emit Received(msg.sender, amt);
-    }
-
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
+    function transfer() public pure {
+        revert("this fails");
     }
 }
