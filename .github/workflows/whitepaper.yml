@@ -32,5 +32,5 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.2
-          files: taiko-whitepaper.pdf
+          tag_name: whitepaper-1.2
+          files: ./packages/whitepaper/taiko-whitepaper.pdf
