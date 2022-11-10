@@ -38,5 +38,6 @@ func (b *Blocker) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	if hash == relayer.ZeroHash {
 		return nil, errors.New("cant find block")
 	}
+
 	return types.NewBlockWithHeader(Header), nil
 }

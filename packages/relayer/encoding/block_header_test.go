@@ -51,7 +51,6 @@ func Test_BlockToBlockHeader_Legacy(t *testing.T) {
 	}
 
 	assert.Equal(t, e, h)
-
 }
 
 func Test_BlockToBlockHeader_EIP1159(t *testing.T) {
@@ -97,5 +96,4 @@ func Test_BlockToBlockHeader_EIP1159(t *testing.T) {
 	}
 
 	assert.Equal(t, e, h)
-
 }

@@ -14,6 +14,7 @@ func EncodeStorageProof(accountProof []byte, storageProof []byte) ([]byte, error
 			Type: bytesT,
 		},
 	}
+
 	encodedStorageProof, err := args.Pack(accountProof, storageProof)
 	if err != nil {
 		return nil, errors.Wrap(err, "args.Pack")

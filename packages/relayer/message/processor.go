@@ -37,24 +37,31 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 	if opts.Prover == nil {
 		return nil, relayer.ErrNoProver
 	}
+
 	if opts.ECDSAKey == nil {
 		return nil, relayer.ErrNoECDSAKey
 	}
+
 	if opts.RPCClient == nil {
 		return nil, relayer.ErrNoRPCClient
 	}
+
 	if opts.DestETHClient == nil {
 		return nil, relayer.ErrNoEthClient
 	}
+
 	if opts.DestBridge == nil {
 		return nil, relayer.ErrNoBridge
 	}
+
 	if opts.EventRepo == nil {
 		return nil, relayer.ErrNoEventRepository
 	}
+
 	if opts.DestHeaderSyncer == nil {
 		return nil, relayer.ErrNoTaikoL2
 	}
+
 	return &Processor{
 		eventRepo:        opts.EventRepo,
 		prover:           opts.Prover,

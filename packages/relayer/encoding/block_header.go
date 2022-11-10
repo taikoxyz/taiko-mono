@@ -10,6 +10,7 @@ func BlockToBlockHeader(block *types.Block) BlockHeader {
 	if baseFee == nil {
 		baseFee = common.Big0
 	}
+
 	return BlockHeader{
 		ParentHash:       block.ParentHash(),
 		OmmersHash:       block.UncleHash(),

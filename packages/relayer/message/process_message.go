@@ -24,9 +24,7 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	// TODO: if relayer can not process, save this to DB with status Unprocessable so
-	// when we reiterate over blocks, we do not attempt to reprocess given it
-	// will definitely fail.
+	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
@@ -39,7 +37,7 @@ func (p *Processor) ProcessMessage(
 	}
 
 	// if header hasnt been synced, we are unable to process this message
-	if common.BytesToHash(latestSyncedHeader[:]).String() == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000").String() {
+	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
 		log.Infof("header not synced, bailing")
 		return nil
 	}
@@ -57,6 +55,7 @@ func (p *Processor) ProcessMessage(
 	if err != nil {
 		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
 	}
+
 	auth.Context = ctx
 
 	// uncomment to skip `eth_estimateGas`
@@ -64,6 +63,7 @@ func (p *Processor) ProcessMessage(
 	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	log.Infof("getting proof")
+
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -105,6 +105,7 @@ func (p *Processor) ProcessMessage(
 	}
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
+
 	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
@@ -116,5 +117,6 @@ func (p *Processor) ProcessMessage(
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
+
 	return nil
 }

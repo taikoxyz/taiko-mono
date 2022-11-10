@@ -27,11 +27,14 @@ func (q Bytes) MarshalText() ([]byte, error) {
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (q *Bytes) UnmarshalText(input []byte) error {
 	input = bytes.TrimPrefix(input, []byte("0x"))
+
 	v, ok := new(big.Int).SetString(string(input), 16)
 	if !ok {
 		return errors.New("invalid hex input")
 	}
+
 	*q = v.Bytes()
+
 	return nil
 }
 
@@ -43,6 +46,7 @@ func (s Slice) MarshalJSON() ([]byte, error) {
 	for i, b := range s {
 		bs[i] = b
 	}
+
 	return json.Marshal(bs)
 }
 
@@ -52,10 +56,13 @@ func (s *Slice) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &bs); err != nil {
 		return err
 	}
+
 	*s = make([][]byte, len(bs))
+
 	for i, b := range bs {
 		(*s)[i] = b
 	}
+
 	return nil
 }
 

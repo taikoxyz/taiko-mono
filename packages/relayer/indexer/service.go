@@ -86,6 +86,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	publicKey := privateKey.Public()
+
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
 		return nil, errors.Wrap(err, "publicKey.(*ecdsa.PublicKey)")

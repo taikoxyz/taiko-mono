@@ -14,10 +14,8 @@ output:
 linters:
   enable:
     - funlen
-    # - exportloopref
     - gocognit
     - gocritic
-    - godox
     - gofmt
     - golint
     - gosec
@@ -28,9 +26,9 @@ linters:
 linters-settings:
   funlen:
     lines: 100
-    statements: 40
+    statements: 45
   gocognit:
-    min-complexity: 25
+    min-complexity: 32
 
 issues:
   exclude-rules:

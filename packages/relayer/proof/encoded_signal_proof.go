@@ -16,7 +16,13 @@ import (
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
 // in our contracts
-func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAddress common.Address, key string, blockHash common.Hash) ([]byte, error) {
+func (p *Prover) EncodedSignalProof(
+	ctx context.Context,
+	c *rpc.Client,
+	bridgeAddress common.Address,
+	key string,
+	blockHash common.Hash,
+) ([]byte, error) {
 	blockHeader, err := p.blockHeader(ctx, blockHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.blockHeader")
@@ -38,15 +44,29 @@ func (p *Prover) EncodedSignalProof(ctx context.Context, c *rpc.Client, bridgeAd
 	}
 
 	log.Infof("signalProof: %s", hexutil.Encode(encodedSignalProof))
+
 	return encodedSignalProof, nil
 }
 
 // getEncodedStorageProof rlp and abi encodes a proof for LibBridgeSignal,
 // where `proof` is an rlp and abi encoded (bytes, bytes) consisting of the accountProof and storageProof.Proofs[0]
 // response from `eth_getProof`
-func (p *Prover) encodedStorageProof(ctx context.Context, c caller, bridgeAddress common.Address, key string, blockNumber int64) ([]byte, error) {
+func (p *Prover) encodedStorageProof(
+	ctx context.Context,
+	c caller,
+	bridgeAddress common.Address,
+	key string,
+	blockNumber int64,
+) ([]byte, error) {
 	var ethProof StorageProof
-	err := c.CallContext(ctx, &ethProof, "eth_getProof", bridgeAddress, []string{key}, hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)))
+
+	err := c.CallContext(ctx,
+		&ethProof,
+		"eth_getProof",
+		bridgeAddress,
+		[]string{key},
+		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "c.CallContext")
 	}

@@ -54,12 +54,14 @@ func Run(mode Mode, layer Layer) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sqlDB.Close()
 
 	indexers, closeFunc, err := makeIndexers(layer, db)
 	if err != nil {
+		sqlDB.Close()
 		log.Fatal(err)
 	}
+
+	defer sqlDB.Close()
 	defer closeFunc()
 
 	forever := make(chan struct{})
@@ -107,6 +109,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 	}
 
 	indexers := make([]*indexer.Service, 0)
+
 	if layer == L1 || layer == Both {
 		l1Indexer, err := indexer.NewService(indexer.NewServiceOpts{
 			EventRepo:     eventRepository,
@@ -124,6 +127,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		indexers = append(indexers, l1Indexer)
 	}
 
@@ -144,6 +148,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		indexers = append(indexers, l2Indexer)
 	}
 

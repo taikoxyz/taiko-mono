@@ -39,7 +39,9 @@ func Test_NewBlockRepo(t *testing.T) {
 func TestIntegration_Block_Save(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
+
 	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -70,7 +72,9 @@ func TestIntegration_Block_Save(t *testing.T) {
 func TestIntegration_Block_GetLatestBlockProcessedForEvent(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
+
 	blockRepo, err := NewBlockRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {

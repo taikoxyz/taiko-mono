@@ -41,7 +41,9 @@ func Test_NewEventRepo(t *testing.T) {
 func TestIntegration_Event_Save(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
+
 	eventRepo, err := NewEventRepository(db)
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -71,9 +73,12 @@ func TestIntegration_Event_Save(t *testing.T) {
 func TestIntegration_Event_UpdateStatus(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
+
 	eventRepo, err := NewEventRepository(db)
 	assert.Equal(t, nil, err)
+
 	tests := []struct {
 		name    string
 		id      int
@@ -115,9 +120,12 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
+
 	defer close()
+
 	eventRepo, err := NewEventRepository(db)
 	assert.Equal(t, nil, err)
+
 	addr := common.HexToAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
 
 	_, err = eventRepo.Save(relayer.SaveEventOpts{
