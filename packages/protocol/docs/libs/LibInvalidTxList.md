@@ -4,11 +4,11 @@ A library to invalidate a txList using the following rules:
 
 A txList is valid if and only if:
 
-1. The txList's length is no more than `TAIKO_TXLIST_MAX_BYTES`.
+1. The txList's length is no more than `K_TXLIST_MAX_BYTES`.
 2. The txList is well-formed RLP, with no additional trailing bytes.
-3. The total number of transactions is no more than `TAIKO_BLOCK_MAX_TXS`.
+3. The total number of transactions is no more than `K_BLOCK_MAX_TXS`.
 4. The sum of all transaction gas limit is no more than
-   `TAIKO_BLOCK_MAX_GAS_LIMIT`.
+   `K_BLOCK_MAX_GAS_LIMIT`.
 
 A transaction is valid if and only if:
 
@@ -16,7 +16,7 @@ A transaction is valid if and only if:
    (rule #1 in Ethereum yellow paper).
 2. The transaction's signature is valid (rule #2 in Ethereum yellow paper).
 3. The transaction's the gas limit is no smaller than the intrinsic gas
-   `TAIKO_TX_MIN_GAS_LIMIT` (rule #5 in Ethereum yellow paper).
+   `K_TX_MIN_GAS_LIMIT` (rule #5 in Ethereum yellow paper).
 
 ### Reason
 
@@ -26,6 +26,7 @@ enum Reason {
   BINARY_TOO_LARGE,
   BINARY_NOT_DECODABLE,
   BLOCK_TOO_MANY_TXS,
+  BLOCK_GAS_LIMIT_TOO_SMALL,
   BLOCK_GAS_LIMIT_TOO_LARGE,
   TX_INVALID_SIG,
   TX_GAS_LIMIT_TOO_SMALL

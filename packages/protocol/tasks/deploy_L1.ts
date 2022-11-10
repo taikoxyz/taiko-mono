@@ -112,9 +112,11 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
+    const feeBase = hre.ethers.BigNumber.from(10).pow(18)
+
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
     )
 
     // Used by LibBridgeRead
@@ -164,8 +166,13 @@ async function deployBaseLibs(hre: any) {
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
     const libUint512 = await utils.deployContract(hre, "Uint512")
 
-    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing")
-    const v1Proposing = await utils.deployContract(hre, "V1Proposing")
+    const v1Utils = await utils.deployContract(hre, "V1Utils")
+    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing", {
+        V1Utils: v1Utils.address,
+    })
+    const v1Proposing = await utils.deployContract(hre, "V1Proposing", {
+        V1Utils: v1Utils.address,
+    })
     const v1Proving = await utils.deployContract(hre, "V1Proving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,

@@ -1,5 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { BigNumber } from "ethers"
 
 describe("TaikoL1", function () {
     async function deployTaikoL1Fixture() {
@@ -25,8 +26,16 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibZKP")
         ).deploy()
 
+        const v1Utils = await (
+            await ethers.getContractFactory("V1Utils")
+        ).deploy()
+
         const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
+            await ethers.getContractFactory("V1Proposing", {
+                libraries: {
+                    V1Utils: v1Utils.address,
+                },
+            })
         ).deploy()
 
         const v1Proving = await (
@@ -41,7 +50,11 @@ describe("TaikoL1", function () {
         ).deploy()
 
         const v1Finalizing = await (
-            await ethers.getContractFactory("V1Finalizing")
+            await ethers.getContractFactory("V1Finalizing", {
+                libraries: {
+                    V1Utils: v1Utils.address,
+                },
+            })
         ).deploy()
 
         const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
@@ -55,7 +68,8 @@ describe("TaikoL1", function () {
 
         const genesisHash = randomBytes32()
         const taikoL1 = await TaikoL1Factory.deploy()
-        await taikoL1.init(addressManager.address, genesisHash)
+        const feeBase = BigNumber.from(10).pow(18)
+        await taikoL1.init(addressManager.address, genesisHash, feeBase)
 
         return { taikoL1, genesisHash }
     }

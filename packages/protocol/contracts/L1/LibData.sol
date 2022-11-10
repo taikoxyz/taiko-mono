@@ -26,6 +26,8 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
+        address proposer;
+        uint64 gasLimit;
     }
 
     struct ForkChoice {
@@ -43,10 +45,23 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
-        uint64 genesisHeight;
+        // Never changed
+        uint64 genesisHeight; // never change
+        uint64 genesisTimestamp; // never change
+        uint64 __reservedA1; // never change
+        uint64 __reservedA2; // never change
+        // Changed when a block is proposed or proven/finalized
+        uint256 feeBase;
+        // Changed when a block is proposed
+        uint64 nextBlockId;
+        uint64 lastProposedAt; // Timestamp when the last block is proposed.
+        uint64 avgBlockTime; // The block time moving average
+        uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
+        // Changed when a block is proven/finalized
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
-        uint64 nextBlockId;
+        uint64 avgProofTime; // the proof time moving average
+        uint64 __reservedC1;
     }
 
     function saveProposedBlock(
@@ -54,14 +69,14 @@ library LibData {
         uint256 id,
         ProposedBlock memory blk
     ) internal {
-        s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS] = blk;
+        s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
     }
 
     function getProposedBlock(
         State storage s,
         uint256 id
     ) internal view returns (ProposedBlock storage) {
-        return s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS];
+        return s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
     }
 
     function getL2BlockHash(

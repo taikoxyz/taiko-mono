@@ -177,7 +177,7 @@ action("Generate Genesis", function () {
 
             const tx = await V1TaikoL2.invalidateBlock(
                 bytes,
-                5, // hint: TX_INVALID_SIG
+                6, // hint: TX_INVALID_SIG
                 0
             )
 
@@ -331,9 +331,9 @@ action("Generate Genesis", function () {
 async function generateMaxSizeInvalidTxList(V1TaikoL2: any) {
     const constants = await V1TaikoL2.getConstants()
 
-    const chainId = constants[0].toNumber()
-    const blockMaxTxNums = constants[6].toNumber()
-    const txListMaxBytes = constants[8].toNumber()
+    const chainId = constants[0].toNumber() // K_CHAIN_ID
+    const blockMaxTxNums = constants[6].toNumber() // K_BLOCK_MAX_TXS
+    const txListMaxBytes = constants[8].toNumber() // K_TXLIST_MAX_BYTES
 
     const tx = {
         type: 2,

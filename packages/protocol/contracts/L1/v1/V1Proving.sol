@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../common/AddressResolver.sol";
 import "../../common/ConfigManager.sol";
 import "../../libs/LibAnchorSignature.sol";
@@ -67,11 +65,11 @@ library V1Proving {
         require(_tx.txType == 0, "L1:anchor:type");
         require(
             _tx.destination ==
-                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
+                resolver.resolve(LibConstants.K_CHAIN_ID, "taiko"),
             "L1:anchor:dest"
         );
         require(
-            _tx.gasLimit == LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
+            _tx.gasLimit == LibConstants.K_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
 
@@ -83,7 +81,7 @@ library V1Proving {
             LibBytesUtils.equal(
                 _tx.data,
                 bytes.concat(
-                    LibConstants.V1_ANCHOR_TX_SELECTOR,
+                    LibConstants.K_ANCHOR_TX_SELECTOR,
                     bytes32(evidence.meta.l1Height),
                     evidence.meta.l1Hash
                 )
@@ -150,13 +148,13 @@ library V1Proving {
         LibReceiptDecoder.Log memory log = receipt.logs[0];
         require(
             log.contractAddress ==
-                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
+                resolver.resolve(LibConstants.K_CHAIN_ID, "taiko"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
         require(
             log.topics.length == 2 &&
-                log.topics[0] == LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC &&
+                log.topics[0] == LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC &&
                 log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );
@@ -178,7 +176,7 @@ library V1Proving {
             resolver,
             evidence,
             target,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH
+            LibConstants.K_BLOCK_DEADEND_HASH
         );
     }
 
@@ -235,8 +233,7 @@ library V1Proving {
                 "L1:proof:conflict"
             );
             require(
-                fc.provers.length <
-                    LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
+                fc.provers.length < LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
                 "L1:proof:tooMany"
             );
 
@@ -303,7 +300,7 @@ library V1Proving {
                 header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
-                meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
+                meta.gasLimit + LibConstants.K_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
                 header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&

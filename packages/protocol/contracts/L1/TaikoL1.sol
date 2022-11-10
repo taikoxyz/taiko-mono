@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -17,7 +19,6 @@ import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -28,14 +29,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[45] private __gap;
+    uint256[42] private __gap;
 
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash);
+        V1Finalizing.init(state, _genesisBlockHash, _feeBase);
     }
 
     /**
@@ -70,10 +72,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, inputs);
+        V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            AddressResolver(this),
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -99,7 +102,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            AddressResolver(this),
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -130,7 +134,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
         V1Finalizing.finalizeBlocks(
             state,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
+            AddressResolver(this),
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX
         );
     }
 
@@ -138,7 +143,22 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /// @param maxBlocks Max number of blocks to finalize.
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(state, maxBlocks);
+        V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
+    }
+
+    function getBlockFee() public view returns (uint256 premiumFee) {
+        (, premiumFee) = V1Proposing.getBlockFee(state);
+    }
+
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt
+    ) public view returns (uint256 premiumReward) {
+        (, premiumReward) = V1Finalizing.getProofReward(
+            state,
+            provenAt,
+            proposedAt
+        );
     }
 
     function isCommitValid(bytes32 hash) public view returns (bool) {
@@ -189,35 +209,35 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         pure
         returns (
-            uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
-            uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
-            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
-            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
-            uint256, // TAIKO_BLOCK_MAX_TXS
-            bytes32, // TAIKO_BLOCK_DEADEND_HASH
-            uint256, // TAIKO_TXLIST_MAX_BYTES
-            uint256, // TAIKO_TX_MIN_GAS_LIMIT
-            uint256, // V1_ANCHOR_TX_GAS_LIMIT
-            bytes4, // V1_ANCHOR_TX_SELECTOR
-            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256, // K_CHAIN_ID
+            uint256, // K_MAX_NUM_BLOCKS
+            uint256, // K_MAX_FINALIZATIONS_PER_TX
+            uint256, // K_COMMIT_DELAY_CONFIRMS
+            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // K_BLOCK_MAX_GAS_LIMIT
+            uint256, // K_BLOCK_MAX_TXS
+            bytes32, // K_BLOCK_DEADEND_HASH
+            uint256, // K_TXLIST_MAX_BYTES
+            uint256, // K_TX_MIN_GAS_LIMIT
+            uint256, // K_ANCHOR_TX_GAS_LIMIT
+            bytes4, // K_ANCHOR_TX_SELECTOR
+            bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
         )
     {
         return (
-            LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
-            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
-            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.TAIKO_BLOCK_MAX_TXS,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
-            LibConstants.TAIKO_TXLIST_MAX_BYTES,
-            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_SELECTOR,
-            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_CHAIN_ID,
+            LibConstants.K_MAX_NUM_BLOCKS,
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_COMMIT_DELAY_CONFIRMS,
+            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.K_BLOCK_MAX_TXS,
+            LibConstants.K_BLOCK_DEADEND_HASH,
+            LibConstants.K_TXLIST_MAX_BYTES,
+            LibConstants.K_TX_MIN_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_SELECTOR,
+            LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
         );
     }
 }
