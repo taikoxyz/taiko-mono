@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"crypto/ecdsa"
+
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -28,6 +30,8 @@ type Service struct {
 	destBridge *contracts.Bridge
 
 	processor *message.Processor
+
+	relayerAddr common.Address
 }
 
 type NewServiceOpts struct {
@@ -81,6 +85,14 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "crypto.HexToECDSA")
 	}
 
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.Wrap(err, "publicKey.(*ecdsa.PublicKey)")
+	}
+
+	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
+
 	bridge, err := contracts.NewBridge(opts.BridgeAddress, opts.EthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
@@ -124,5 +136,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		destBridge: destBridge,
 
 		processor: processor,
+
+		relayerAddr: relayerAddr,
 	}, nil
 }

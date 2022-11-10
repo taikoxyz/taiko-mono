@@ -144,6 +144,12 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	}
 	raw := event.Raw
 
+	// handle chain re-org by checking Removed property, no need to
+	// return error, just continue and do not process.
+	if raw.Removed {
+		return nil
+	}
+
 	// save event to database for later processing outside
 	// the indexer
 	log.Info("saving event to database")
@@ -163,8 +169,8 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	}
 
 	// we can not process, exit early
-	if eventStatus == relayer.EventStatusNewOnlyOwner {
-		log.Infof("gasLimit == 0, can not process. continuing loop")
+	if eventStatus == relayer.EventStatusNewOnlyOwner && event.Message.Owner != svc.relayerAddr {
+		log.Infof("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
 		return nil
 	}
 
