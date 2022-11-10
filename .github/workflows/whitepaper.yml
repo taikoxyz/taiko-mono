@@ -16,8 +16,10 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Set up repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "16.15"
 
       - name: Compile main.tex
         uses: xu-cheng/latex-action@v2
