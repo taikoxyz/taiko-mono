@@ -10,7 +10,7 @@ on:
       - "packages/relayer/**"
 
 jobs:
-  golangci:
+  lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
@@ -26,8 +26,11 @@ jobs:
 
           # Optional: working directory, useful for monorepos
           working-directory: ./packages/relayer
+        run: golangci-lint -c ./packages/relayer/.golangci.yml
+
   build:
     runs-on: ubuntu-latest
+    needs: lint
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.11.0
