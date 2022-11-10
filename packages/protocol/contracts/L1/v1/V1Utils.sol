@@ -44,7 +44,16 @@ library V1Utils {
         uint256 a = tLast + tGrace;
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax;
-        return 10000 + ((LibConstants.TAIKO_FEE_MULTIPLIER - 100) * tRel) / 100;
+        return 10000 + ((LibConstants.K_FEE_MULTIPLIER - 100) * tRel) / 100;
+    }
+
+    function feeScaleGamma(
+        uint64 tNow,
+        uint64 tGenesis
+    ) internal pure returns (uint256) {
+        return
+            10000 -
+            (10000 >> (uint256(tNow - tGenesis) / LibConstants.K_HALVING));
     }
 
     function movingAverage(

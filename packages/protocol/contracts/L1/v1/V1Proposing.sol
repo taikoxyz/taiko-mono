@@ -118,6 +118,13 @@ library V1Proposing {
         );
         fee = (s.feeBase * 10000) / alpha;
         premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
+        premiumFee =
+            (premiumFee *
+                V1Utils.feeScaleGamma(
+                    uint64(block.timestamp),
+                    s.genesisTimestamp
+                )) /
+            10000;
     }
 
     function isCommitValid(
