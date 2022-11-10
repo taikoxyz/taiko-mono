@@ -5,7 +5,7 @@
 # "go.lintTool": "golangci-lint",
 # "go.lintFlags": [
 #   "--fast",
-#   "--config=${workspaceFolder}/.golangci_lint.yaml"
+#   "--config=${workspaceFolder}/.golangci.yml"
 # ],
 
 output:
@@ -38,3 +38,7 @@ issues:
     - path: _test\.go
       linters:
         - funlen
+
+run:
+  skip-dirs:
+    - contracts/*
