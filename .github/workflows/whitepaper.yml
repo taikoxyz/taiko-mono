@@ -30,7 +30,6 @@ jobs:
         run:  mv main.pdf taiko-whitepaper.pdf
 
       - name: Release
-        working-directory: ./packages/whitepaper
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.2
