@@ -96,9 +96,9 @@ library V1Proposing {
             .movingAverage(s.avgBlockTime, blockTime, 1024)
             .toUint64();
 
-        s.avgGasLimit = V1Utils
-            .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
-            .toUint64();
+        // s.avgGasLimit = V1Utils
+        //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+        //     .toUint64();
 
         s.lastProposedAt = meta.timestamp;
 
@@ -118,6 +118,13 @@ library V1Proposing {
         );
         fee = (s.feeBase * 10000) / alpha;
         premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
+        premiumFee =
+            (premiumFee *
+                V1Utils.feeScaleGamma(
+                    uint64(block.timestamp),
+                    s.genesisTimestamp
+                )) /
+            10000;
     }
 
     function isCommitValid(
@@ -129,17 +136,6 @@ library V1Proposing {
             s.commits[hash] != 0 &&
             block.number >=
             s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
-    }
-
-    function _updateAvgBlockTime(
-        LibData.State storage s,
-        uint64 blockTime
-    ) private {
-        if (s.avgBlockTime == 0) {
-            s.avgBlockTime = blockTime;
-        } else {
-            s.avgBlockTime = (1023 * s.avgBlockTime + blockTime) / 1024;
-        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
