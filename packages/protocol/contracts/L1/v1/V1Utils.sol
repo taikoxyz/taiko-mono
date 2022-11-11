@@ -36,7 +36,7 @@ library V1Utils {
         uint256 b = tNow > a ? tNow - a : 0;
         uint256 tRel = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
         uint256 alpha = 10000 +
-            ((LibConstants.K_reward_multiplier - 100) * tRel) /
+            ((LibConstants.K_REWARD_MULTIPLIER - 100) * tRel) /
             100;
         if (isProposal) {
             return (s.feeBase * 10000) / alpha; // fee

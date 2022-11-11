@@ -24,10 +24,10 @@ uint256 K_FEE_PREMIUM_LAMDA
 uint256 K_FEE_PREMIUM_PHI
 ```
 
-### K_reward_multiplier
+### K_REWARD_MULTIPLIER
 
 ```solidity
-uint64 K_reward_multiplier
+uint64 K_REWARD_MULTIPLIER
 ```
 
 ### K_FEE_GRACE_PERIOD
@@ -58,12 +58,6 @@ uint256 K_COMMIT_DELAY_CONFIRMS
 
 ```solidity
 uint256 K_MAX_PROOFS_PER_FORK_CHOICE
-```
-
-### K_REWARD_MULTIPLIER
-
-```solidity
-uint256 K_REWARD_MULTIPLIER
 ```
 
 ### K_BLOCK_MAX_GAS_LIMIT
