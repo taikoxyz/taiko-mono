@@ -124,7 +124,7 @@ library V1Proposing {
                     uint64(block.timestamp),
                     s.genesisTimestamp
                 )) /
-            10000;
+            1024;
     }
 
     function isCommitValid(

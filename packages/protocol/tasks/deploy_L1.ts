@@ -21,13 +21,13 @@ task("deploy_L1")
     .addOptionalParam(
         "l2ChainId",
         "L2 chain id",
-        config.TAIKO_CHAINID,
+        config.K_CHAIN_ID,
         types.int
     )
     .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
-        config.DEFAULT_DEPLOY_CONFIRMATIONS,
+        config.K_DEPLOY_CONFIRMATIONS,
         types.int
     )
     .setAction(async (args, hre: any) => {

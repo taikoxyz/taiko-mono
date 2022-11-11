@@ -52,8 +52,8 @@ library V1Utils {
         uint64 tGenesis
     ) internal pure returns (uint256) {
         return
-            10000 -
-            (10000 >> (uint256(tNow - tGenesis) / LibConstants.K_HALVING));
+            1024 -
+            (1024 >> (uint256(tNow - tGenesis) / LibConstants.K_HALVING));
     }
 
     function movingAverage(
