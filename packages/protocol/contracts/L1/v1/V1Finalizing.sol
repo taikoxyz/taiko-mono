@@ -111,16 +111,15 @@ library V1Finalizing {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        uint256 alpha = V1Utils.feeScaleAlpha(
-            uint64(block.timestamp),
+        reward = V1Utils.getTimeAdjustedFee(
+            s,
+            false,
             provenAt,
             proposedAt,
+            s.avgProofTime,
             LibConstants.K_PROOF_TIME_CAP
         );
-
-        reward = (s.feeBase * alpha) / 10000;
-
-        premiumReward = (reward * V1Utils.feeScaleBeta(s, true)) / 10000;
+        premiumReward = V1Utils.getSlotsAdjustedFee(s, false, reward);
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
