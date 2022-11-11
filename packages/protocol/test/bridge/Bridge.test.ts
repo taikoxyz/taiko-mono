@@ -61,101 +61,38 @@ async function deployBridge(
         etherVault.address
     )
 
-    console.log(
-        "ether vault addy for chainID",
-        network?.chainId,
-        etherVault.address
-    )
-
     return { bridge, etherVault }
 }
-async function deployBridgeFixture() {
-    const [owner, nonOwner] = await ethers.getSigners()
-
-    const { chainId } = await ethers.provider.getNetwork()
-
-    const srcChainId = chainId
-
-    // seondary node to deploy L2 on
-    const l2Provider = new ethers.providers.JsonRpcProvider(
-        "http://localhost:28545"
-    )
-
-    const l2Signer = await l2Provider.getSigner(
-        "0x4D9E82AC620246f6782EAaBaC3E3c86895f3f0F8"
-    )
-
-    const l2Network = await l2Provider.getNetwork()
-    const enabledDestChainId = l2Network.chainId
-
-    const addressManager: AddressManager = await (
-        await ethers.getContractFactory("AddressManager")
-    ).deploy()
-    await addressManager.init()
-
-    const l2AddressManager: AddressManager = await (
-        await ethers.getContractFactory("AddressManager")
-    )
-        .connect(l2Signer)
-        .deploy()
-    await l2AddressManager.init()
-
-    const { bridge: l1Bridge, etherVault: l1EtherVault } = await deployBridge(
-        owner,
-        addressManager,
-        enabledDestChainId
-    )
-
-    const { bridge: l2Bridge, etherVault: l2EtherVault } = await deployBridge(
-        l2Signer,
-        l2AddressManager,
-        srcChainId
-    )
-
-    await addressManager.setAddress(
-        `${enabledDestChainId}.bridge`,
-        l2Bridge.address
-    )
-
-    await l2AddressManager
-        .connect(l2Signer)
-        .setAddress(`${srcChainId}.bridge`, l1Bridge.address)
-
-    // deploy protocol contract
-
-    const libTxDecoder = await (await ethers.getContractFactory("LibTxDecoder"))
-        .connect(l2Signer)
-        .deploy()
-
-    const TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
-        libraries: {
-            LibTxDecoder: libTxDecoder.address,
-        },
-    })
-
-    const taikoL2 = await TaikoL2Factory.connect(l2Signer).deploy(
-        l2AddressManager.address
-    )
-
-    await l2AddressManager
-        .connect(l2Signer)
-        .setAddress(`${enabledDestChainId}.taiko`, taikoL2.address)
-
-    return {
-        owner,
-        l2Signer,
-        nonOwner,
-        l1Bridge,
-        l2Bridge,
-        addressManager,
-        enabledDestChainId,
-        l1EtherVault,
-        l2EtherVault,
-        srcChainId,
-    }
-}
-
 describe("Bridge", function () {
+    async function deployBridgeFixture() {
+        const [owner, nonOwner] = await ethers.getSigners()
+
+        const { chainId } = await ethers.provider.getNetwork()
+
+        const srcChainId = chainId
+
+        const enabledDestChainId = srcChainId + 1
+
+        const addressManager: AddressManager = await (
+            await ethers.getContractFactory("AddressManager")
+        ).deploy()
+        await addressManager.init()
+
+        const { bridge: l1Bridge, etherVault: l1EtherVault } =
+            await deployBridge(owner, addressManager, enabledDestChainId)
+
+        // deploy protocol contract
+        return {
+            owner,
+            nonOwner,
+            l1Bridge,
+            addressManager,
+            enabledDestChainId,
+            l1EtherVault,
+            srcChainId,
+        }
+    }
+
     describe("sendMessage()", function () {
         it("throws when owner is the zero address", async () => {
             const { owner, nonOwner, l1Bridge } = await deployBridgeFixture()
@@ -466,6 +403,90 @@ describe("Bridge", function () {
 })
 
 describe("integration:Bridge", function () {
+    async function deployBridgeFixture() {
+        const [owner, nonOwner] = await ethers.getSigners()
+
+        const { chainId } = await ethers.provider.getNetwork()
+
+        const srcChainId = chainId
+
+        // seondary node to deploy L2 on
+        const l2Provider = new ethers.providers.JsonRpcProvider(
+            "http://localhost:28545"
+        )
+
+        const l2Signer = await l2Provider.getSigner(
+            "0x4D9E82AC620246f6782EAaBaC3E3c86895f3f0F8"
+        )
+
+        const l2Network = await l2Provider.getNetwork()
+        const enabledDestChainId = l2Network.chainId
+
+        const addressManager: AddressManager = await (
+            await ethers.getContractFactory("AddressManager")
+        ).deploy()
+        await addressManager.init()
+
+        const l2AddressManager: AddressManager = await (
+            await ethers.getContractFactory("AddressManager")
+        )
+            .connect(l2Signer)
+            .deploy()
+        await l2AddressManager.init()
+
+        const { bridge: l1Bridge, etherVault: l1EtherVault } =
+            await deployBridge(owner, addressManager, enabledDestChainId)
+
+        const { bridge: l2Bridge, etherVault: l2EtherVault } =
+            await deployBridge(l2Signer, l2AddressManager, srcChainId)
+
+        await addressManager.setAddress(
+            `${enabledDestChainId}.bridge`,
+            l2Bridge.address
+        )
+
+        await l2AddressManager
+            .connect(l2Signer)
+            .setAddress(`${srcChainId}.bridge`, l1Bridge.address)
+
+        // deploy protocol contract
+
+        const libTxDecoder = await (
+            await ethers.getContractFactory("LibTxDecoder")
+        )
+            .connect(l2Signer)
+            .deploy()
+
+        const TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
+            libraries: {
+                LibTxDecoder: libTxDecoder.address,
+            },
+        })
+
+        // TODO: Roger, you can replace this with the custom IHeaderSync implementation.
+        // we do not need to deploy a TaikoL2 for these tests.
+        const taikoL2 = await TaikoL2Factory.connect(l2Signer).deploy(
+            l2AddressManager.address
+        )
+
+        await l2AddressManager
+            .connect(l2Signer)
+            .setAddress(`${enabledDestChainId}.taiko`, taikoL2.address)
+
+        return {
+            owner,
+            l2Signer,
+            nonOwner,
+            l1Bridge,
+            l2Bridge,
+            addressManager,
+            enabledDestChainId,
+            l1EtherVault,
+            l2EtherVault,
+            srcChainId,
+        }
+    }
+
     describe("processMessage()", function () {
         it("processes a message when the signal has been verified from the sending chain", async () => {
             const {
@@ -580,6 +601,8 @@ describe("integration:Bridge", function () {
                 [{ header: blockHeader, proof: encodedProof }]
             )
 
+            // ROGER: this is where we at, we need now to deploy a custom TestHeaderSync that implements
+            // IHeaderSync where we can manually save synced headers.
             await l2Bridge.processMessage(message, encodedProof)
         })
     })
