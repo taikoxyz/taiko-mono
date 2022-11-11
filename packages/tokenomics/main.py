@@ -8,8 +8,10 @@ from present import Config, Present
 from presents.p0 import present as p0
 from presents.cbvp1 import present as cbvp1
 from presents.cbvp2 import present as cbvp2
-# from presents.p4 import present as p4
-# from presents.p6 import present as p6
+from presents.vbcp1 import present as vbcp1
+from presents.vbcp2 import present as vbcp2
+from presents.vbvps1 import present as vbvps1
+from presents.vbvps2 import present as vbvps2
 # from presents.p7 import present as p7
 # from presents.p8 import present as p8
 # from presents.p9 import present as p9
@@ -376,7 +378,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p0, cbvp1, cbvp2]
+    presents = [p0, cbvp1, cbvp2, vbcp1, vbcp2, vbvps1, vbvps2]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",
