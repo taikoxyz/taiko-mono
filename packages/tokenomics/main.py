@@ -99,7 +99,7 @@ class Protocol(sim.Component):
         #     "m_prover_bootstrap_reward", level=True
         # )
 
-    def get_incentivized_fee(self, is_proposal, t_now, t_last, t_avg, t_cap):
+    def get_time_adjusted_fee(self, is_proposal, t_now, t_last, t_avg, t_cap):
         if t_avg == 0:
             return self.fee_base
 
@@ -117,7 +117,7 @@ class Protocol(sim.Component):
             return self.fee_base * alpha / 10000
 
 
-    def apply_slot_based_adjustment(self, is_proposal, fee):
+    def get_slots_adjusted_fee(self, is_proposal, fee):
         p = self.config.max_blocks - self.num_pending() + self.config.lamda
         if is_proposal:  # fee
             q = p - 1
@@ -127,7 +127,7 @@ class Protocol(sim.Component):
 
     def get_block_fee(self):
 
-        fee = self.get_incentivized_fee(
+        fee = self.get_time_adjusted_fee(
             True,
             env.now(),
             self.last_proposed_at,
@@ -135,19 +135,19 @@ class Protocol(sim.Component):
             K_BLOCK_TIME_CAP
         )
 
-        premium_fee = self.apply_slot_based_adjustment(True, fee)
+        premium_fee = self.get_slots_adjusted_fee(True, fee)
         # bootstrap discount not simulated
         return (fee, premium_fee)
 
     def get_proof_reward(self, proven_at, proposed_at):
-        reward = self.get_incentivized_fee(
+        reward = self.get_time_adjusted_fee(
             False,
             proven_at,
             proposed_at,
             self.avg_proof_time,
             K_PROOF_TIME_CAP
         )
-        premium_reward = self.apply_slot_based_adjustment(True, reward)
+        premium_reward = self.get_slots_adjusted_fee(True, reward)
         return (reward, premium_reward)
 
     def print_me(self, st):
