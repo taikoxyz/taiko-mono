@@ -17,8 +17,8 @@ from presents.p10 import present as p10
 from presents.p11 import present as p11
 
 DAY = 24 * 3600
-K_FEE_GRACE_PERIOD = 25.0
-K_FEE_MAX_PERIOD = 375.0
+K_FEE_GRACE_PERIOD = 125
+K_FEE_MAX_PERIOD = 375
 K_BLOCK_TIME_CAP = 48 # 48 seconds
 K_PROOF_TIME_CAP = 3600 # 1 hour
 

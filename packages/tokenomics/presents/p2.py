@@ -41,42 +41,42 @@ present = Present(
                 block_time_avg_second=15,
                 proof_time_avg_minute=75,
             ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=65,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=55,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=45,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=35,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=25,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=15,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=25,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=35,
-            # ),
-            # Timing(
-            #     block_time_avg_second=15,
-            #     proof_time_avg_minute=45,
-            # ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=65,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=55,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=45,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=35,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=25,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=15,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=25,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=35,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=45,
+            ),
         ],
     ),
 )
