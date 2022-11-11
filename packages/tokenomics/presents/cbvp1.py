@@ -1,30 +1,26 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p6: provers left Taiko then rejoined",
+    title="cbvp1: constant block time, proof time goes down, up, then restores",
     desc="""
 
 **About this config**
 
-- slot fee now varies
-- `# prover_reward_burn_points` set to non-zero
-- block time varies (100%  ocsliaction) but eventually changes back to the initial value.
-- proof time varies (100%  ocsliaction) but eventually changes back to the initial value.
+- the block time average set to a constant.
+- the proof time average varies but eventually changes back to the initial value.
 
 **What to verify**
-- proof reward adapts to proof time changes.
+- fee_base will become smaller if proof time becomes larger.
+- fee_base remains the same if proof time becomes smaller.
 
 """,
-    days=20,
+    days=21,
     config=Config(
         max_blocks=2048, 
         lamda=590,
         fee_base=100.0,
         fee_maf=1024,
         reward_multiplier=4.0,
-        # prover_reward_burn_points=100,
-        # prover_reward_bootstrap=0,
-        # prover_reward_bootstrap_days=10,
         time_avg_maf=1024,
         block_time_sd_pctg=0,
         proof_time_sd_pctg=0,
@@ -35,23 +31,31 @@ present = Present(
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=35,
+                proof_time_avg_minute=45/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=25,
+                proof_time_avg_minute=45/1.3/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=15,
+                proof_time_avg_minute=45/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=25,
+                proof_time_avg_minute=45,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=35,
+                proof_time_avg_minute=45*1.3,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=45*1.3*1.3,
+            ),
+            Timing(
+                block_time_avg_second=15,
+                proof_time_avg_minute=45*1.3,
             ),
             Timing(
                 block_time_avg_second=15,

@@ -6,15 +6,15 @@ from typing import NamedTuple
 from plots import plot
 from present import Config, Present
 from presents.p0 import present as p0
-from presents.p1 import present as p1
-from presents.p2 import present as p2
-from presents.p4 import present as p4
-from presents.p6 import present as p6
-from presents.p7 import present as p7
-from presents.p8 import present as p8
-from presents.p9 import present as p9
-from presents.p10 import present as p10
-from presents.p11 import present as p11
+from presents.cbvp1 import present as cbvp1
+from presents.cbvp2 import present as cbvp2
+# from presents.p4 import present as p4
+# from presents.p6 import present as p6
+# from presents.p7 import present as p7
+# from presents.p8 import present as p8
+# from presents.p9 import present as p9
+# from presents.p10 import present as p10
+# from presents.p11 import present as p11
 
 DAY = 24 * 3600
 K_FEE_GRACE_PERIOD = 125
@@ -376,7 +376,7 @@ if __name__ == "__main__":
     env = sim.Environment(trace=False)
     st.title("Taiko Block Fee/Reward Simulation")
 
-    presents = [p0, p1, p2, p4, p6, p7, p8, p9, p10, p11]
+    presents = [p0, cbvp1, cbvp2]
     st.markdown("## Configs")
     selected = st.radio(
         "Please choose one of the following predefined configs:",

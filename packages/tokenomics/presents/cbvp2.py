@@ -1,7 +1,7 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p1: constant block time, proof time goes down, up, then restores",
+    title="cbvp2: constant block time, proof time goes up, down, then restores",
     desc="""
 
 **About this config**
@@ -31,23 +31,15 @@ present = Present(
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=35,
+                proof_time_avg_minute=45*1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=25,
+                proof_time_avg_minute=45*1.3*1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=15,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                proof_time_avg_minute=25,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                proof_time_avg_minute=35,
+                proof_time_avg_minute=45*1.3,
             ),
             Timing(
                 block_time_avg_second=15,
@@ -55,23 +47,15 @@ present = Present(
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=55,
+                proof_time_avg_minute=45/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=65,
+                proof_time_avg_minute=45/1.3/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
-                proof_time_avg_minute=75,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                proof_time_avg_minute=65,
-            ),
-            Timing(
-                block_time_avg_second=15,
-                proof_time_avg_minute=55,
+                proof_time_avg_minute=45/1.3,
             ),
             Timing(
                 block_time_avg_second=15,
