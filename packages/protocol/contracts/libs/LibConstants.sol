@@ -28,7 +28,7 @@ library LibConstants {
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
 
     uint64 public constant K_REWARD_MULTIPLIER = 400; // 400%
-    uint64 public constant K_FEE_GRACE_PERIOD = 25; // 25%
+    uint64 public constant K_FEE_GRACE_PERIOD = 125; // 125%
     uint64 public constant K_FEE_MAX_PERIOD = 375; // 375%
     uint64 public constant K_BLOCK_TIME_CAP = 48 seconds;
     uint64 public constant K_PROOF_TIME_CAP = 60 minutes;
