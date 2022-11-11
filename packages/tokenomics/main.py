@@ -19,7 +19,10 @@ from presents.p10 import present as p10
 from presents.p11 import present as p11
 
 DAY = 24 * 3600
-
+K_FEE_GRACE_PERIOD = 125
+K_FEE_MAX_PERIOD = 375
+K_BLOCK_TIME_CAP = 48 # 48 seconds
+K_PROOF_TIME_CAP = 3600 # 1 hour
 
 class Status(Enum):
     PENDING = 1
@@ -32,49 +35,6 @@ class Block(NamedTuple):
     fee: int
     proposed_at: int
     proven_at: int
-
-
-def fee_scale(max_multiplier, t_now, t_last, t_avg):
-    if t_avg == 0:
-        return 10000
-
-    t_grace = 1.25 * t_avg
-    t_max = 3.75 * t_avg
-    a = t_last + t_grace
-    if t_now > a:
-        b = t_now - a
-    else:
-        b = 0
-    if b > t_max:
-        b = t_max
-
-    t_rel = 10000 * b / t_max
-    return 10000 + (max_multiplier - 1) * t_rel
-
-
-def get_block_fee(fee_avg, max_multiplier, avg_block_time, t_now, last_proposed_at):
-    scale = fee_scale(max_multiplier, t_now, last_proposed_at, avg_block_time)
-    return fee_avg * 10000 / scale
-
-
-def get_proof_reward(fee_avg, max_multiplier, avg_proof_time, proven_at, proposed_at):
-    scale = fee_scale(max_multiplier, proven_at, proposed_at, avg_proof_time)
-    return fee_avg * scale / 10000
-
-
-# def calc_bootstrap_reward(
-#     prover_reward_bootstrap, prover_reward_bootstrap_days, avg_block_time
-# ):
-#     if prover_reward_bootstrap == 0:
-#         return 0
-#     s = prover_reward_bootstrap * 1.0
-#     t = prover_reward_bootstrap_days * 24 * 3600
-#     b = avg_block_time
-#     if env.now() >= t:
-#         return 0
-#     else:
-#         return 2 * s * b * (t - env.now() + b / 2) / t / t
-
 
 def get_day(config):
     day = int(env.now() / DAY)
@@ -105,7 +65,7 @@ def moving_average(ma, v, maf):
 class Protocol(sim.Component):
     def setup(self, config):
         self.config = config
-        self.fee_avg = config.fee_avg
+        self.fee_base = config.fee_base
         self.phi = (config.max_blocks + self.config.lamda) * (
             config.max_blocks + self.config.lamda - 1
         )
@@ -127,8 +87,8 @@ class Protocol(sim.Component):
 
         # monitors
         self.m_pending_count = sim.Monitor("m_pending_count", level=True)
-        self.m_fee_avg = sim.Monitor(
-            "m_fee_avg", level=True, initial_tally=self.fee_avg
+        self.m_fee_base = sim.Monitor(
+            "m_fee_base", level=True, initial_tally=self.fee_base
         )
         self.m_premium_fee = sim.Monitor("m_premium_fee", level=True)
         self.m_premium_reward = sim.Monitor("m_premium_reward", level=True)
@@ -139,39 +99,55 @@ class Protocol(sim.Component):
         #     "m_prover_bootstrap_reward", level=True
         # )
 
-    def apply_oversell_premium(self, fee, release_one_slot):
+    def get_incentivized_fee(self, is_proposal, t_now, t_last, t_avg, t_cap):
+        if t_avg == 0:
+            return self.fee_base
+
+        _avg = min(t_avg, t_cap)
+        t_grace = K_FEE_GRACE_PERIOD * _avg / 100.0
+        t_max = K_FEE_MAX_PERIOD * _avg / 100.0
+        a = t_last + t_grace
+        b = max(0, t_now - a)
+        t_rel = min(b, t_max) * 10000 / t_max
+
+        alpha = 10000 + ((self.config.fee_multiplier - 100) * t_rel) / 100
+        if is_proposal:
+            return self.fee_base * 10000 / alpha
+        else:
+            return self.fee_base * alpha / 10000
+
+
+    def apply_slot_based_adjustment(self, is_proposal, fee):
         p = self.config.max_blocks - self.num_pending() + self.config.lamda
-        if release_one_slot:  # reward
-            q = p + 1
-        else:  # fee
+        if is_proposal:  # fee
             q = p - 1
-        return fee * self.phi / (p * q)
+        else:  # reward
+            q = p + 1
+        return fee * self.phi / p / q
 
     def get_block_fee(self):
-        fee = get_block_fee(
-            self.fee_avg,
-            self.config.fee_multiplier,
-            self.avg_block_time,
+
+        fee = self.get_incentivized_fee(
+            True,
             env.now(),
             self.last_proposed_at,
+            self.avg_block_time,
+            K_BLOCK_TIME_CAP
         )
-        premium_fee = self.apply_oversell_premium(fee, False)
+
+        premium_fee = self.apply_slot_based_adjustment(True, fee)
+        # bootstrap discount not simulated
         return (fee, premium_fee)
 
     def get_proof_reward(self, proven_at, proposed_at):
-        reward = get_proof_reward(
-            self.fee_avg,
-            self.config.fee_multiplier,
-            self.avg_proof_time,
+        reward = self.get_incentivized_fee(
+            False,
             proven_at,
             proposed_at,
+            self.avg_proof_time,
+            K_PROOF_TIME_CAP
         )
-        # premium_reward = (
-        #     self.apply_oversell_premium(reward, True)
-        #     * (10000.0 - self.config.prover_reward_burn_points)
-        #     / 10000
-        # )
-        premium_reward = self.apply_oversell_premium(reward, True)
+        premium_reward = self.apply_slot_based_adjustment(True, reward)
         return (reward, premium_reward)
 
     def print_me(self, st):
@@ -179,22 +155,8 @@ class Protocol(sim.Component):
         st.markdown("##### Protocol state")
         st.write("last_finalized_id = {}".format(self.last_finalized_id))
         st.write("num_blocks = {}".format(self.num_pending()))
-        st.write("fee_avg = {}".format(self.fee_avg))
+        st.write("fee_base = {}".format(self.fee_base))
         st.write("tko_supply = {}".format(self.tko_supply))
-        # st.write(
-        #     "prover_bootstrap_reward_total = {}".format(
-        #         self.prover_bootstrap_reward_total
-        #     )
-        # )
-
-        # if self.config.prover_reward_bootstrap > 0:
-        #     st.write(
-        #         "prover_bootstrap_reward_total/config.prover_reward_bootstrap = {}".format(
-        #             self.prover_bootstrap_reward_total
-        #             * 1.0
-        #             / self.config.prover_reward_bootstrap
-        #         )
-        #     )
 
     def num_pending(self):
         return len(self.blocks) - self.last_finalized_id - 1
@@ -208,7 +170,7 @@ class Protocol(sim.Component):
 
             (fee, premium_fee) = self.get_block_fee()
 
-            self.fee_avg = moving_average(self.fee_avg, fee, self.config.fee_maf)
+            self.fee_base = moving_average(self.fee_base, fee, self.config.fee_maf)
             self.avg_block_time = moving_average(
                 self.avg_block_time,
                 block_time,
@@ -227,7 +189,7 @@ class Protocol(sim.Component):
             Prover(protocol=self, config=self.config, blockId=len(self.blocks) - 1)
             self.finalize_block()
 
-            self.m_fee_avg.tally(self.fee_avg)
+            self.m_fee_base.tally(self.fee_base)
             self.m_block_time.tally(block_time)
             self.m_premium_fee.tally(premium_fee)
 
@@ -265,8 +227,8 @@ class Protocol(sim.Component):
                     self.blocks[k].proven_at, self.blocks[k].proposed_at
                 )
 
-                self.fee_avg = moving_average(
-                    self.fee_avg,
+                self.fee_base = moving_average(
+                    self.fee_base,
                     reward,
                     self.config.fee_maf,
                 )
@@ -289,7 +251,7 @@ class Protocol(sim.Component):
                 profit = premium_reward - self.blocks[k].fee
                 self.tko_supply -= profit
 
-                self.m_fee_avg.tally(self.fee_avg)
+                self.m_fee_base.tally(self.fee_base)
                 self.m_proof_time.tally(proof_time)
                 self.m_premium_reward.tally(premium_reward)
                 # self.m_prover_bootstrap_reward.tally(prover_bootstrap_reward)
@@ -385,7 +347,7 @@ def simulate(config, days):
         st.markdown("-----")
         st.markdown("##### Result")
         plot(days, [(protocol.m_pending_count, "num pending blocks")])
-        plot(days, [(protocol.m_fee_avg, "fee_avg")])
+        plot(days, [(protocol.m_fee_base, "fee_base")])
         plot(days, [(protocol.m_premium_fee, "block fee")], color="tab:green")
         plot(days, [(protocol.m_premium_reward, "proof reward")])
         # plot(
