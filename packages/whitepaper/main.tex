@@ -490,7 +490,7 @@ We discuss the state update at the end of the section, after discussing fee and 
 \subsection{Incentive Multipliers} Given a constant $\gamma > 1$, 
 $\alpha_f \in [1, \gamma]$ and $\alpha_r \in [ \nicefrac{1}{\gamma},1]$ are time sensitive multipliers that can decrease fees and increase rewards. 
 
-Their purpose is to incentivize (to a certain degree) proposals and proofs when there are unpredictable deterrents acting against the engagement of proposers or provers, such as imbalances in the pricing that favor one side of the protocol at the expense of the other (internal);  competing L2 marketplaces that offer better deals at the moment or price fluctuations of the TKO token (external) [\textbf{Improve this}].
+Their purpose is to incentivize (to a certain degree) proposals and proofs when there are unpredictable deterrents acting against the engagement of proposers or provers, such as imbalances in the pricing that favor one side of the protocol at the expense of the other (internal);  competing L2 marketplaces that offer better deals at the moment or price fluctuations of the TKO token (external).
 
 Incentive multipliers can gradually change the state variable $f_\textnormal{base}$, as will be explained in Section \ref{sec:priceStateUpdate}.
 
@@ -704,10 +704,10 @@ Unlike block provers, proposers are directly affected by the number of active L2
  \label{fig:discount}
 \end{Figure}
 
-Given an initial discount rate constant $0 < d_\textnormal{init} \leq 1$ and a halving period constant $t_\textnormal{halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
+Given an initial discount rate constant $0 < d_\textnormal{init} \leq 1$ and a halving period constant $K_\textnormal{Halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
 
 \begin{align}
-d(t) &= d_\textnormal{init}\cdot (\nicefrac{1}{2})^{\lfloor \nicefrac{t}{t_\textnormal{halving}}\rfloor}
+d(t) &= d_\textnormal{init}\cdot (\nicefrac{1}{2})^{\lfloor \nicefrac{t}{K_\textnormal{Halving}}\rfloor}
 \\
 \gamma_f(t)  &= 1-d(t).
 \end{align}
@@ -736,7 +736,7 @@ The discount multiplier is applied to the overall proposal fee computation as fo
 f(t) = f_\textnormal{base} \cdot \alpha_f(t) \cdot \beta_f(n) \cdot \gamma_f(t)
 \end{align}
 
-Bootstrapping support is applicable only to proposer fees in order to safeguard the normal market order conditions between proposers and provers [Improve this].
+Bootstrapping support is applicable only to proposer fees in order to safeguard the normal market order conditions between proposers and provers.
 
 \subsection{State Update}
 Given a momentum constant $ 0\leq \mu \leq 1$, we update state variables in the following order after each successful block proposal or proof at time $t$:

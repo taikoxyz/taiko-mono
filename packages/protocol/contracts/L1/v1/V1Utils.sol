@@ -29,19 +29,19 @@ library V1Utils {
         if (tAvg == 0) {
             return s.feeBase;
         }
-        uint256 _avg = tAvg > tCap ? tCap : tAvg;
-        uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _avg) / 100;
-        uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD * _avg) / 100;
+        uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
+        uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _tAvg) / 100;
+        uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD * _tAvg) / 100;
         uint256 a = tLast + tGrace;
         uint256 b = tNow > a ? tNow - a : 0;
-        uint256 tRel = (b.min(tMax) * 10000) / tMax; // 0 - 10000
+        uint256 tRel = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
         uint256 alpha = 10000 +
             ((LibConstants.K_FEE_MULTIPLIER - 100) * tRel) /
             100;
         if (isProposal) {
-            return (s.feeBase * 10000) / alpha;
+            return (s.feeBase * 10000) / alpha; // fee
         } else {
-            return (s.feeBase * alpha) / 10000;
+            return (s.feeBase * alpha) / 10000; // reward
         }
     }
 
@@ -51,12 +51,15 @@ library V1Utils {
         bool isProposal,
         uint256 fee
     ) public view returns (uint256) {
-        uint256 p = LibConstants.K_FEE_PREMIUM_LAMDA +
-            LibConstants.K_MAX_NUM_BLOCKS +
-            s.latestFinalizedId -
-            s.nextBlockId;
-        uint256 q = isProposal ? p - 1 : p + 1;
-        return (fee * LibConstants.K_FEE_PREMIUM_PHI) / p / q;
+        // m is the `n'` in the whitepaper
+        uint256 m = LibConstants.K_MAX_NUM_BLOCKS -
+            1 +
+            LibConstants.K_FEE_PREMIUM_LAMDA;
+        // n is the number of unverified blocks
+        uint256 n = s.latestFinalizedId - s.nextBlockId - 1;
+        // k is `m − n + 1` or `m − n - 1`in the whitepaper
+        uint256 k = isProposal ? m - n - 1 : m - n + 1;
+        return (fee * (m - 1) * m) / (m - n) / k;
     }
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
