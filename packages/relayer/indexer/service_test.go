@@ -14,6 +14,23 @@ import (
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
 var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 
+func newTestService(t *testing.T) *Service {
+	svc, err := NewService(NewServiceOpts{
+		EventRepo:         &repo.EventRepository{},
+		BlockRepo:         &repo.BlockRepository{},
+		RPCClient:         &rpc.Client{},
+		EthClient:         &ethclient.Client{},
+		DestEthClient:     &ethclient.Client{},
+		ECDSAKey:          dummyEcdsaKey,
+		BridgeAddress:     common.HexToAddress(dummyAddress),
+		DestBridgeAddress: common.HexToAddress(dummyAddress),
+	})
+
+	assert.Equal(t, nil, err)
+
+	return svc
+}
+
 func Test_NewService(t *testing.T) {
 	tests := []struct {
 		name    string
