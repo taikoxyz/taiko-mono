@@ -20,7 +20,6 @@ library LibConstants {
     uint256 public constant K_MAX_FINALIZATIONS_PER_TX = 20;
     uint256 public constant K_COMMIT_DELAY_CONFIRMS = 4;
     uint256 public constant K_MAX_PROOFS_PER_FORK_CHOICE = 5;
-    uint256 public constant K_REWARD_MULTIPLIER = 4;
     uint256 public constant K_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO
     uint256 public constant K_BLOCK_MAX_TXS = 20; // TODO
     uint256 public constant K_TXLIST_MAX_BYTES = 10240; // TODO
@@ -28,7 +27,7 @@ library LibConstants {
     uint256 public constant K_REWARD_BURN_POINTS = 100; // 1%
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
 
-    uint64 public constant K_FEE_MULTIPLIER = 400; // 400%
+    uint64 public constant K_REWARD_MULTIPLIER = 400; // 400%
     uint64 public constant K_FEE_GRACE_PERIOD = 125; // 125%
     uint64 public constant K_FEE_MAX_PERIOD = 375; // 375%
     uint64 public constant K_BLOCK_TIME_CAP = 48 seconds;
