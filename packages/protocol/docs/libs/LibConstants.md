@@ -24,10 +24,10 @@ uint256 K_FEE_PREMIUM_LAMDA
 uint256 K_FEE_PREMIUM_PHI
 ```
 
-### K_FEE_MULTIPLIER
+### K_reward_multiplier
 
 ```solidity
-uint64 K_FEE_MULTIPLIER
+uint64 K_reward_multiplier
 ```
 
 ### K_FEE_GRACE_PERIOD

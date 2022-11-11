@@ -11,7 +11,7 @@ class Config(NamedTuple):
     lamda: float
     fee_base: int
     fee_maf: int
-    fee_multiplier: float
+    reward_multiplier: float
     block_time_sd_pctg: int
     proof_time_sd_pctg: int
     time_avg_maf: int

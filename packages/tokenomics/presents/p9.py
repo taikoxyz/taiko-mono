@@ -15,9 +15,9 @@ Block `fee_base` is set to 0.
     days=12,
     config=Config(
         max_blocks=2048, 
-        lamda=2048,
+        lamda=590,
         fee_base=0.0,
-        fee_multiplier=4.0,
+        reward_multiplier=4.0,
         # prover_reward_burn_points=0.0,
         # prover_reward_bootstrap=1000000.0,
         # prover_reward_bootstrap_days=8,

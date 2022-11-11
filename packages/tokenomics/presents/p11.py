@@ -15,10 +15,10 @@ the proof time willp10: TKO token goes down
     days=20,
     config=Config(
         max_blocks=2048, 
-        lamda=2048,
+        lamda=590,
         fee_base=100.0,
         fee_maf=1024,
-        fee_multiplier=4.0,
+        reward_multiplier=4.0,
         # prover_reward_burn_points=0.0,
         # prover_reward_bootstrap=0.0,
         # prover_reward_bootstrap_days=0,

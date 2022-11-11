@@ -110,7 +110,7 @@ class Protocol(sim.Component):
         b = max(0, t_now - a)
         t_rel = min(b, t_max) * 10000 / t_max
 
-        alpha = 10000 + ((self.config.fee_multiplier - 100) * t_rel) / 100
+        alpha = 10000 + ((self.config.reward_multiplier - 100) * t_rel) / 100
         if is_proposal:
             return self.fee_base * 10000 / alpha
         else:
