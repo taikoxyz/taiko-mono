@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -112,7 +113,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 	}
 
 	blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
-	if err != nil {
+	if err != nil || blockBatchSize == 0 {
 		blockBatchSize = defaultBlockBatchSize
 	}
 
@@ -154,6 +155,8 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 			BridgeAddress:     common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+
+			BlockBatchSize: uint64(blockBatchSize),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -197,6 +200,45 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var (
+		defaultMaxIdleConns    = 50
+		defaultMaxOpenConns    = 200
+		defaultConnMaxLifetime = time.Hour
+	)
+
+	maxIdleConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_IDLE_CONNS"))
+	if err != nil || maxIdleConns == 0 {
+		maxIdleConns = defaultMaxIdleConns
+	}
+
+	maxOpenConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_OPEN_CONNS"))
+	if err != nil || maxOpenConns == 0 {
+		maxOpenConns = defaultMaxOpenConns
+	}
+
+	var maxLifetime time.Duration
+
+	connMaxLifetime, err := strconv.Atoi(os.Getenv("MYSQL_CONN_MAX_LIFETIME_IN_MS"))
+	if err != nil || connMaxLifetime == 0 {
+		maxLifetime = defaultConnMaxLifetime
+	} else {
+		maxLifetime = time.Duration(connMaxLifetime)
+	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	sqlDB.SetConnMaxLifetime(maxLifetime)
 
 	return db
 }
