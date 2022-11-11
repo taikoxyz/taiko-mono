@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -33,6 +34,8 @@ var (
 		"MYSQL_HOST",
 		"RELAYER_ECDSA_KEY",
 	}
+
+	defaultBlockBatchSize = 2
 )
 
 // TODO: implement `resync` mode to wipe DB and restart from block 0
@@ -108,6 +111,11 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 		return nil, nil, err
 	}
 
+	blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
+	if err != nil {
+		blockBatchSize = defaultBlockBatchSize
+	}
+
 	indexers := make([]*indexer.Service, 0)
 
 	if layer == L1 || layer == Both {
@@ -123,6 +131,8 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 			BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+
+			BlockBatchSize: uint64(blockBatchSize),
 		})
 		if err != nil {
 			log.Fatal(err)

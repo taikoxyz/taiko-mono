@@ -17,6 +17,7 @@ require (
 	gorm.io/datatypes v1.0.7
 	gorm.io/driver/mysql v1.4.3
 	gorm.io/gorm v1.24.0
+	modernc.org/libc v1.16.19
 )
 
 require (

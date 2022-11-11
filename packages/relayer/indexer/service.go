@@ -32,6 +32,10 @@ type Service struct {
 	processor *message.Processor
 
 	relayerAddr common.Address
+
+	errChan chan error
+
+	blockBatchSize uint64
 }
 
 type NewServiceOpts struct {
@@ -45,6 +49,7 @@ type NewServiceOpts struct {
 	BridgeAddress     common.Address
 	DestBridgeAddress common.Address
 	DestTaikoAddress  common.Address
+	BlockBatchSize    uint64
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -122,6 +127,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		DestBridge:       destBridge,
 		EventRepo:        opts.EventRepo,
 		DestHeaderSyncer: destHeaderSyncer,
+		RelayerAddress:   relayerAddr,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
@@ -139,5 +145,9 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		processor: processor,
 
 		relayerAddr: relayerAddr,
+
+		errChan: make(chan error),
+
+		blockBatchSize: opts.BlockBatchSize,
 	}, nil
 }
