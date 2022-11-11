@@ -704,10 +704,10 @@ Unlike block provers, proposers are directly affected by the number of active L2
  \label{fig:discount}
 \end{Figure}
 
-Given an initial discount rate constant $0 < d_\textnormal{init} \leq 1$ and a halving period constant $t_\textnormal{halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
+Given an initial discount rate constant $0 < d_\textnormal{init} \leq 1$ and a halving period constant $K_\textnormal{Halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
 
 \begin{align}
-d(t) &= d_\textnormal{init}\cdot (\nicefrac{1}{2})^{\lfloor \nicefrac{t}{t_\textnormal{halving}}\rfloor}
+d(t) &= d_\textnormal{init}\cdot (\nicefrac{1}{2})^{\lfloor \nicefrac{t}{K_\textnormal{Halving}}\rfloor}
 \\
 \gamma_f(t)  &= 1-d(t).
 \end{align}
