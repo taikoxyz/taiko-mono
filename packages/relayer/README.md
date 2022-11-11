@@ -36,6 +36,9 @@ A message processor that can act on a specific event and attempt to process them
 
 Contains database migrations. They are created and ran with the `goose` binary.
 
+Install goose: `go install github.com/pressly/goose/v3/cmd/goose@latest`
+
+Then:
 `cd migrations`
 
 `GOOSE_DRIVER=mysql GOOSE_DBSTRING="username:password@/dbname" goose up`
