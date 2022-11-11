@@ -49,7 +49,6 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
             meta.txListHash
