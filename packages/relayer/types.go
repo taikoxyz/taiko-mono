@@ -25,25 +25,6 @@ func IsInSlice[T comparable](v T, s []T) bool {
 	return false
 }
 
-// WaitForTx starts an async goroutine and will fill the returning channel
-// when the transaction is no longer pending.
-func WaitForTx(ctx context.Context, client *ethclient.Client, hash common.Hash) chan *types.Transaction {
-	ch := make(chan *types.Transaction)
-
-	go func() {
-		for {
-			tx, pending, _ := client.TransactionByHash(ctx, hash)
-			if !pending {
-				ch <- tx
-			}
-
-			time.Sleep(time.Millisecond * 500)
-		}
-	}()
-
-	return ch
-}
-
 // WaitReceipt keeps waiting until the given transaction has an execution
 // receipt to know whether it was reverted or not.
 func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transaction) (*types.Receipt, error) {
