@@ -209,7 +209,7 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 	var (
 		defaultMaxIdleConns    = 50
 		defaultMaxOpenConns    = 200
-		defaultConnMaxLifetime = time.Hour
+		defaultConnMaxLifetime = 10 * time.Second
 	)
 
 	maxIdleConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_IDLE_CONNS"))
@@ -231,11 +231,11 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 		maxLifetime = time.Duration(connMaxLifetime)
 	}
 
-	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
-	sqlDB.SetMaxIdleConns(maxIdleConns)
-
 	// SetMaxOpenConns sets the maximum number of open connections to the database.
 	sqlDB.SetMaxOpenConns(maxOpenConns)
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	sqlDB.SetMaxIdleConns(maxIdleConns)
 
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
 	sqlDB.SetConnMaxLifetime(maxLifetime)

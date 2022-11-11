@@ -19,6 +19,7 @@ linters:
     - gofmt
     - golint
     - gosec
+    - gosimple
     - lll
     - whitespace
     - wsl
