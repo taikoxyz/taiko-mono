@@ -118,12 +118,13 @@ class Protocol(sim.Component):
 
 
     def get_slots_adjusted_fee(self, is_proposal, fee):
-        p = self.config.max_blocks - self.num_pending() + self.config.lamda
+        m = self.config.max_blocks - 1 + self.config.lamda
+        n = self.num_pending()
         if is_proposal:  # fee
-            q = p - 1
+            k = m - n - 1
         else:  # reward
-            q = p + 1
-        return fee * self.phi / p / q
+            k = m - n + 1
+        return fee * (m - 1) * m / (m - n) / k
 
     def get_block_fee(self):
 
