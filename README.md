@@ -22,6 +22,7 @@
 - [branding](./packages/branding/): branding materials
 - [protocol](./packages/protocol/): L1 and L2 smart contracts
 - [website](./packages/website/): main documentation website
+- [whitepaper](./packages/whitepaper): Latex source files for Taiko's whitepaper. A PDF will be published automatically to: https://taikochain.github.io/taiko-mono/taiko-whitepaper.pdf (linked from https://taiko.xyz).
 
 ## Github Actions
 
