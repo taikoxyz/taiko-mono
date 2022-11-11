@@ -49,7 +49,6 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        s.lastProposedAt = meta.timestamp;
 
         bytes32 commitHash = _calculateCommitHash(
             meta.beneficiary,
