@@ -1,21 +1,11 @@
 import { expect } from "chai"
+import { ENOBUFS } from "constants"
+import { BigNumber } from "ethers"
 import { ethers } from "hardhat"
 import RLP from "rlp"
 import { Message } from "../utils/message"
+import { EthGetProofResponse } from "../utils/rpc"
 
-type StorageEntry = {
-    key: string
-    value: string
-    proof: string[] // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node,
-}
-type EthGetProofResponse = {
-    balance: string
-    codeHash: string
-    nonce: string
-    storageHash: string
-    accountProof: string[] // array of rlp-serialized merkle nodes beginning with stateRoot-node
-    storageProof: StorageEntry[]
-}
 describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
@@ -39,7 +29,7 @@ describe("integration:LibTrieProof", function () {
 
         await addressManager.setAddress(
             `${chainId}.ether_vault`,
-            "0x02E725B7e99091Bd4cCBf15228384e160eCdf78f"
+            "0xEA3dD11036f668F08940E13e3bcB097C93b09E07"
         )
 
         const libBridgeRetry = await (
@@ -67,6 +57,7 @@ describe("integration:LibTrieProof", function () {
         await bridge.init(addressManager.address)
 
         const [owner] = await ethers.getSigners()
+
         return { owner, testLibTreProof, bridge }
     }
     describe("verify()", function () {
