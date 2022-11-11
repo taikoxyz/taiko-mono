@@ -19,13 +19,14 @@ from presents.p11 import present as p11
 DAY = 24 * 3600
 K_FEE_GRACE_PERIOD = 125
 K_FEE_MAX_PERIOD = 375
-K_BLOCK_TIME_CAP = 48 # 48 seconds
-K_PROOF_TIME_CAP = 3600 # 1 hour
+K_BLOCK_TIME_CAP = 48  # 48 seconds
+K_PROOF_TIME_CAP = 3600 * 1.5  # 1.5 hour
+
 
 class Status(Enum):
     PENDING = 1
     PROVEN = 2
-    FINALIZED = 3
+    VERIFIED = 3
 
 
 class Block(NamedTuple):
@@ -33,6 +34,7 @@ class Block(NamedTuple):
     fee: int
     proposed_at: int
     proven_at: int
+
 
 def get_day(config):
     day = int(env.now() / DAY)
@@ -65,13 +67,13 @@ class Protocol(sim.Component):
         self.config = config
         self.fee_base = config.fee_base
         self.last_proposed_at = env.now()
-        self.last_finalized_id = 0
+        self.last_VERIFIED_id = 0
         self.tko_supply = 0
         self.avg_block_time = 0
         self.avg_proof_time = 0
 
         genesis = Block(
-            status=Status.FINALIZED,
+            status=Status.VERIFIED,
             fee=0,
             proposed_at=env.now(),
             proven_at=env.now(),
@@ -90,15 +92,45 @@ class Protocol(sim.Component):
         self.m_proof_time = sim.Monitor("m_proof_time", level=True)
 
     def get_time_adjusted_fee(self, is_proposal, t_now, t_last, t_avg, t_cap):
+        #  if (tAvg == 0) {
+        #      return s.feeBase;
+        #  }
+        #  uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
+        #  uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _tAvg) / 100;
+        #  uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD * _tAvg) / 100;
+        #  uint256 a = tLast + tGrace;
+        #  uint256 b = tNow > a ? tNow - a : 0;
+        #  uint256 tRel = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
+        #  uint256 alpha = 10000 +
+        #      ((LibConstants.K_REWARD_MULTIPLIER - 100) * tRel) /
+        #      100;
+        #  if (isProposal) {
+        #      return (s.feeBase * 10000) / alpha; // fee
+        #  } else {
+        #      return (s.feeBase * alpha) / 10000; // reward
+        #  }
+
         if t_avg == 0:
             return self.fee_base
 
-        _avg = min(t_avg, t_cap)
+        if t_avg > t_cap:
+            _avg = t_cap
+        else:
+            _avg = t_avg
+
         t_grace = K_FEE_GRACE_PERIOD * _avg / 100.0
         t_max = K_FEE_MAX_PERIOD * _avg / 100.0
         a = t_last + t_grace
-        b = max(0, t_now - a)
-        t_rel = min(b, t_max) * 10000 / t_max
+
+        if t_now > a:
+            b = t_now - a
+        else:
+            b = 0
+
+        if b > t_max:
+            b = t_max
+
+        t_rel = 10000 * b / t_max
 
         alpha = 10000 + (self.config.reward_multiplier - 1) * t_rel
 
@@ -107,8 +139,14 @@ class Protocol(sim.Component):
         else:
             return self.fee_base * alpha / 10000
 
-
     def get_slots_adjusted_fee(self, is_proposal, fee):
+        # uint256 m = LibConstants.K_MAX_NUM_BLOCKS -
+        #     1 +
+        #     LibConstants.K_FEE_PREMIUM_LAMDA;
+        # uint256 n = s.latestVERIFIEDId - s.nextBlockId - 1;
+        # uint256 k = isProposal ? m - n - 1 : m - n + 1;
+        # return (fee * (m - 1) * m) / (m - n) / k;
+
         m = self.config.max_blocks - 1 + self.config.lamda
         n = self.num_pending()
         if is_proposal:  # fee
@@ -123,7 +161,7 @@ class Protocol(sim.Component):
             env.now(),
             self.last_proposed_at,
             self.avg_block_time,
-            K_BLOCK_TIME_CAP
+            K_BLOCK_TIME_CAP,
         )
 
         premium_fee = self.get_slots_adjusted_fee(True, fee)
@@ -132,11 +170,7 @@ class Protocol(sim.Component):
 
     def get_proof_reward(self, proven_at, proposed_at):
         reward = self.get_time_adjusted_fee(
-            False,
-            proven_at,
-            proposed_at,
-            self.avg_proof_time,
-            K_PROOF_TIME_CAP
+            False, proven_at, proposed_at, self.avg_proof_time, K_PROOF_TIME_CAP
         )
         premium_reward = self.get_slots_adjusted_fee(False, reward)
         return (reward, premium_reward)
@@ -144,13 +178,13 @@ class Protocol(sim.Component):
     def print_me(self, st):
         st.markdown("-----")
         st.markdown("##### Protocol state")
-        st.write("last_finalized_id = {}".format(self.last_finalized_id))
+        st.write("last_VERIFIED_id = {}".format(self.last_VERIFIED_id))
         st.write("num_blocks = {}".format(self.num_pending()))
         st.write("fee_base = {}".format(self.fee_base))
         st.write("tko_supply = {}".format(self.tko_supply))
 
     def num_pending(self):
-        return len(self.blocks) - self.last_finalized_id - 1
+        return len(self.blocks) - self.last_VERIFIED_id - 1
 
     def can_propose(self):
         return self.num_pending() < self.config.max_blocks
@@ -191,7 +225,7 @@ class Protocol(sim.Component):
 
     def can_prove(self, id):
         return (
-            id > self.last_finalized_id
+            id > self.last_VERIFIED_id
             and len(self.blocks) > id
             and self.blocks[id].status == Status.PENDING
         )
@@ -205,17 +239,17 @@ class Protocol(sim.Component):
 
     def can_finalize(self):
         return (
-            len(self.blocks) > self.last_finalized_id + 1
-            and self.blocks[self.last_finalized_id + 1].status == Status.PROVEN
+            len(self.blocks) > self.last_VERIFIED_id + 1
+            and self.blocks[self.last_VERIFIED_id + 1].status == Status.PROVEN
         )
 
     def finalize_block(self):
         for i in range(0, 5):
             if self.can_finalize():
 
-                k = self.last_finalized_id + 1
+                k = self.last_VERIFIED_id + 1
 
-                self.blocks[k] = self.blocks[k]._replace(status=Status.FINALIZED)
+                self.blocks[k] = self.blocks[k]._replace(status=Status.VERIFIED)
 
                 proof_time = self.blocks[k].proven_at - self.blocks[k].proposed_at
 
@@ -241,7 +275,7 @@ class Protocol(sim.Component):
                 self.m_tko_supply.tally(self.tko_supply)
                 self.m_proof_time.tally(proof_time)
 
-                self.last_finalized_id = k
+                self.last_VERIFIED_id = k
             else:
                 break
 
@@ -296,9 +330,7 @@ class Proposer(sim.Component):
 def simulate(config, days):
     st.markdown("-----")
     st.markdown("##### Block & proof time and deviation settings")
-    st.caption(
-        "[block_time_avg_second, block_time_sd_pctg, proof_time_avg_minute, proof_time_sd_pctg]"
-    )
+    st.caption("[block_time (seconds), proof_time (minutes)]")
     time_str = ""
     for t in config.timing:
         time_str += str(t._asdict().values())
@@ -334,7 +366,7 @@ def simulate(config, days):
         plot(days, [(protocol.m_fee_base, "fee_base")])
         plot(days, [(protocol.m_block_fee, "block fee")], color="tab:green")
         plot(days, [(protocol.m_proof_reward, "proof reward")])
-  
+
         plot(days, [(protocol.m_tko_supply, "tko supply")], color="tab:red")
 
         protocol.print_me(st)

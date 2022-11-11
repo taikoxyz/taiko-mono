@@ -14,7 +14,7 @@ present = Present(
 - fee_base remains the same if proof time becomes smaller.
 
 """,
-    days=14,
+    days=21,
     config=Config(
         max_blocks=2048, 
         lamda=590,
