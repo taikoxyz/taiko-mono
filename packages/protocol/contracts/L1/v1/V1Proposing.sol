@@ -8,12 +8,12 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -31,13 +31,15 @@ library V1Proposing {
 
         emit BlockCommitted(
             commitHash,
-            block.number + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            block.number + LibConstants.K_COMMIT_DELAY_CONFIRMS
         );
     }
 
-    function proposeBlock(LibData.State storage s, bytes[] calldata inputs)
-        public
-    {
+    function proposeBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        bytes[] calldata inputs
+    ) public {
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -57,13 +59,12 @@ library V1Proposing {
 
         require(
             txList.length > 0 &&
-                txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
+                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
                 meta.txListHash == txList.hashTxList(),
             "L1:txList"
         );
         require(
-            s.nextBlockId <=
-                s.latestFinalizedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
+            s.nextBlockId < s.latestFinalizedId + LibConstants.K_MAX_NUM_BLOCKS,
             "L1:tooMany"
         );
 
@@ -78,22 +79,56 @@ library V1Proposing {
 
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
+            LibData.ProposedBlock({
+                metaHash: LibData.hashMetadata(meta),
+                proposer: msg.sender,
+                gasLimit: meta.gasLimit
+            })
         );
+
+        uint64 blockTime = meta.timestamp - s.lastProposedAt;
+        (uint256 fee, uint256 premiumFee) = getBlockFee(s);
+        s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
+
+        s.avgBlockTime = V1Utils
+            .movingAverage(s.avgBlockTime, blockTime, 1024)
+            .toUint64();
+
+        // s.avgGasLimit = V1Utils
+        //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+        //     .toUint64();
+
+        s.lastProposedAt = meta.timestamp;
+
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
 
         emit BlockProposed(s.nextBlockId++, meta);
     }
 
-    function isCommitValid(LibData.State storage s, bytes32 hash)
-        public
-        view
-        returns (bool)
-    {
+    function getBlockFee(
+        LibData.State storage s
+    ) public view returns (uint256 fee, uint256 premiumFee) {
+        fee = V1Utils.getTimeAdjustedFee(
+            s,
+            true,
+            uint64(block.timestamp),
+            s.lastProposedAt,
+            s.avgBlockTime,
+            LibConstants.K_BLOCK_TIME_CAP
+        );
+        premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
+        premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
+    }
+
+    function isCommitValid(
+        LibData.State storage s,
+        bytes32 hash
+    ) public view returns (bool) {
         return
             hash != 0 &&
             s.commits[hash] != 0 &&
             block.number >=
-            s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+            s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
@@ -109,17 +144,16 @@ library V1Proposing {
         );
 
         require(
-            meta.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
+            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
             "L1:gasLimit"
         );
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 
-    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _calculateCommitHash(
+        address beneficiary,
+        bytes32 txListHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 }

@@ -75,11 +75,9 @@ library LibTxDecoder {
         Tx[] items;
     }
 
-    function decodeTxList(bytes calldata encoded)
-        public
-        pure
-        returns (TxList memory txList)
-    {
+    function decodeTxList(
+        bytes calldata encoded
+    ) public pure returns (TxList memory txList) {
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
         require(txs.length > 0, "empty txList");
 
@@ -91,11 +89,9 @@ library LibTxDecoder {
         txList = TxList(_txList);
     }
 
-    function decodeTx(bytes memory txBytes)
-        public
-        pure
-        returns (Tx memory _tx)
-    {
+    function decodeTx(
+        bytes memory txBytes
+    ) public pure returns (Tx memory _tx) {
         uint8 txType;
         assembly {
             txType := byte(0, mload(add(txBytes, 32)))
@@ -147,19 +143,15 @@ library LibTxDecoder {
         }
     }
 
-    function hashTxList(bytes calldata encoded)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashTxList(
+        bytes calldata encoded
+    ) internal pure returns (bytes32) {
         return keccak256(encoded);
     }
 
-    function decodeLegacyTx(LibRLPReader.RLPItem[] memory body)
-        internal
-        pure
-        returns (TransactionLegacy memory txLegacy)
-    {
+    function decodeLegacyTx(
+        LibRLPReader.RLPItem[] memory body
+    ) internal pure returns (TransactionLegacy memory txLegacy) {
         require(body.length == 9, "invalid items length");
 
         txLegacy.nonce = LibRLPReader.readUint256(body[0]);
@@ -170,20 +162,15 @@ library LibTxDecoder {
         txLegacy.data = LibRLPReader.readBytes(body[5]);
         // EIP-155 is enabled on L2
         txLegacy.v = uint8(
-            LibRLPReader.readUint256(body[6]) -
-                LibConstants.TAIKO_CHAIN_ID *
-                2 +
-                35
+            LibRLPReader.readUint256(body[6]) - LibConstants.K_CHAIN_ID * 2 + 35
         );
         txLegacy.r = LibRLPReader.readUint256(body[7]);
         txLegacy.s = LibRLPReader.readUint256(body[8]);
     }
 
-    function decodeTx2930(LibRLPReader.RLPItem[] memory body)
-        internal
-        pure
-        returns (Transaction2930 memory tx2930)
-    {
+    function decodeTx2930(
+        LibRLPReader.RLPItem[] memory body
+    ) internal pure returns (Transaction2930 memory tx2930) {
         require(body.length == 11, "invalid items length");
 
         tx2930.chainId = LibRLPReader.readUint256(body[0]);
@@ -199,11 +186,9 @@ library LibTxDecoder {
         tx2930.signatureS = LibRLPReader.readUint256(body[10]);
     }
 
-    function decodeTx1559(LibRLPReader.RLPItem[] memory body)
-        internal
-        pure
-        returns (Transaction1559 memory tx1559)
-    {
+    function decodeTx1559(
+        LibRLPReader.RLPItem[] memory body
+    ) internal pure returns (Transaction1559 memory tx1559) {
         require(body.length == 12, "invalid items length");
 
         tx1559.chainId = LibRLPReader.readUint256(body[0]);
@@ -220,11 +205,9 @@ library LibTxDecoder {
         tx1559.signatureS = LibRLPReader.readUint256(body[11]);
     }
 
-    function decodeAccessList(LibRLPReader.RLPItem[] memory accessListRLP)
-        internal
-        pure
-        returns (AccessItem[] memory accessList)
-    {
+    function decodeAccessList(
+        LibRLPReader.RLPItem[] memory accessListRLP
+    ) internal pure returns (AccessItem[] memory accessList) {
         accessList = new AccessItem[](accessListRLP.length);
         for (uint256 i = 0; i < accessListRLP.length; i++) {
             LibRLPReader.RLPItem[] memory items = LibRLPReader.readList(
@@ -242,11 +225,9 @@ library LibTxDecoder {
         }
     }
 
-    function sumGasLimit(TxList memory txList)
-        internal
-        pure
-        returns (uint256 sum)
-    {
+    function sumGasLimit(
+        TxList memory txList
+    ) internal pure returns (uint256 sum) {
         Tx[] memory items = txList.items;
         for (uint256 i = 0; i < items.length; i++) {
             sum += items[i].gasLimit;

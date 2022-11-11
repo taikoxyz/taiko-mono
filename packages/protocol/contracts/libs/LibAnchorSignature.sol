@@ -11,9 +11,9 @@ import "../thirdparty/LibUint512.sol";
 
 /// @author david <david@taiko.xyz>
 library LibAnchorSignature {
-    address public constant TAIKO_GOLDEN_TOUCH_ADDRESS =
+    address public constant K_GOLDEN_TOUCH_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant TAIKO_GOLDEN_TOUCH_PRIVATEKEY =
+    uint256 public constant K_GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
     uint256 public constant GX =
@@ -32,7 +32,7 @@ library LibAnchorSignature {
     // (
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX, LibConstants.TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX, LibConstants.K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
@@ -41,7 +41,7 @@ library LibAnchorSignature {
     // (
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX2, LibConstants.TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX2, LibConstants.K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
@@ -51,15 +51,10 @@ library LibAnchorSignature {
     uint256 public constant K_2_INVM_N =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
-    function signTransaction(bytes32 digest, uint8 k)
-        internal
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
+    function signTransaction(
+        bytes32 digest,
+        uint8 k
+    ) internal view returns (uint8 v, uint256 r, uint256 s) {
         require(k == 1 || k == 2, "invalid k value");
 
         r = k == 1 ? GX : GX2;

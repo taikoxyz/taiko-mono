@@ -25,4 +25,8 @@ contract TestReceiver {
     function receiveTokens(uint256 amt) external payable {
         emit Received(msg.sender, amt);
     }
+
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
 }

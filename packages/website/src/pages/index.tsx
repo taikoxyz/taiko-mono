@@ -16,8 +16,8 @@ function HomepageHeader() {
         <ThemedImage
           alt="Taiko homepage logo"
           sources={{
-            light: "./img/Taiko_Logo-Original_Pink_Black.svg",
-            dark: "./img/Taiko_Logo-Original_Pink_White.svg",
+            light: "./img/Taiko_Horiz_1_Fluo_Black.png",
+            dark: "./img/Taiko_Horiz_1_Fluo_White.png",
           }}
           width="200px"
         />
@@ -25,7 +25,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <a
             className="button button--secondary button--lg"
-            href="./taiko-whitepaper.pdf"
+            href="https://taikochain.github.io/taiko-mono/taiko-whitepaper.pdf"
             target="_blank"
           >
             Read the whitepaper

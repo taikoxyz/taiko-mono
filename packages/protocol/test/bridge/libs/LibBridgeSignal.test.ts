@@ -1,11 +1,12 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { TestLibBridgeSignal } from "../../../typechain"
 
-describe("LibBridgeSignal", function () {
+describe("integration:LibBridgeSignal", function () {
     async function deployLibBridgeSignalFixture() {
         const [owner, nonOwner] = await ethers.getSigners()
 
-        const libSignal = await (
+        const libSignal: TestLibBridgeSignal = await (
             await ethers.getContractFactory("TestLibBridgeSignal")
         ).deploy()
 
@@ -15,7 +16,7 @@ describe("LibBridgeSignal", function () {
             srcChainId: 1,
             destChainId: 2,
             owner: owner.address,
-            to: nonOwner.address,
+            to: owner.address,
             refundAddress: owner.address,
             depositValue: 0,
             callValue: 0,

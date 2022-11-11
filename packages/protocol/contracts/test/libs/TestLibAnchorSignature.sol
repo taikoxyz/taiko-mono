@@ -11,15 +11,10 @@ pragma solidity ^0.8.9;
 import "../../libs/LibAnchorSignature.sol";
 
 library TestLibAnchorSignature {
-    function signTransaction(bytes32 digest, uint8 k)
-        public
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
+    function signTransaction(
+        bytes32 digest,
+        uint8 k
+    ) public view returns (uint8 v, uint256 r, uint256 s) {
         return LibAnchorSignature.signTransaction(digest, k);
     }
 
@@ -34,8 +29,8 @@ library TestLibAnchorSignature {
 
     function goldenTouchAddress() public pure returns (address, uint256) {
         return (
-            LibAnchorSignature.TAIKO_GOLDEN_TOUCH_ADDRESS,
-            LibAnchorSignature.TAIKO_GOLDEN_TOUCH_PRIVATEKEY
+            LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
+            LibAnchorSignature.K_GOLDEN_TOUCH_PRIVATEKEY
         );
     }
 }

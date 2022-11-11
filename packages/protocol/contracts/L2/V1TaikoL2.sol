@@ -64,14 +64,15 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * External Functions *
      **********************/
 
-    /// @notice Persist the latest L1 block height and hash to L2 for cross-layer
-    ///         bridging. This function will also check certain block-level global
-    ///         variables because they are not part of the Trie structure.
-    ///
-    ///         Note that this transaction shall be the first transaction in every L2 block.
-    ///
-    /// @param l1Height The latest L1 block height when this block was proposed.
-    /// @param l1Hash The latest L1 block hash when this block was proposed.
+    /**
+     * Persist the latest L1 block height and hash to L2 for cross-layer
+     * bridging. This function will also check certain block-level global
+     * variables because they are not part of the Trie structure.
+     * Note: this transaction shall be the first transaction in everyL2 block.
+     *
+     * @param l1Height The latest L1 block height when this block was proposed.
+     * @param l1Hash The latest L1 block hash when this block was proposed.
+     */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
         _checkPublicInputs();
 
@@ -80,11 +81,14 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
-    /// @notice Invalidate a L2 block by verifying its txList is not intrinsically valid.
-    /// @param txList The L2 block's txList.
-    /// @param hint A hint for this method to invalidate the txList.
-    /// @param txIdx If the hint is for a specific transaction in txList, txIdx specifies
-    ///        which transaction to check.
+    /**
+     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
+     *
+     * @param txList The L2 block's txlist.
+     * @param hint A hint for this method to invalidate the txList.
+     * @param txIdx If the hint is for a specific transaction in txList,
+     *        txIdx specifies which transaction to check.
+     */
     function invalidateBlock(
         bytes calldata txList,
         LibInvalidTxList.Reason hint,
@@ -106,12 +110,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Public Functions   *
      **********************/
 
-    function getSyncedHeader(uint256 number)
-        public
-        view
-        override
-        returns (bytes32)
-    {
+    function getSyncedHeader(
+        uint256 number
+    ) public view override returns (bytes32) {
         return l1Hashes[number];
     }
 
@@ -133,39 +134,42 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
+    // NOTE: If the order of the return values of this function changes, then
+    // some test cases that using this function in generate_genesis.test.ts
+    // may also needs to be modified accordingly.
     function getConstants()
         public
         pure
         returns (
-            uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
-            uint256, // TAIKO_MAX_FINALIZATIONS_PER_TX
-            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
-            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
-            uint256, // TAIKO_BLOCK_MAX_TXS
-            bytes32, // TAIKO_BLOCK_DEADEND_HASH
-            uint256, // TAIKO_TXLIST_MAX_BYTES
-            uint256, // TAIKO_TX_MIN_GAS_LIMIT
-            uint256, // V1_ANCHOR_TX_GAS_LIMIT
-            bytes4, // V1_ANCHOR_TX_SELECTOR
-            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256, // K_CHAIN_ID
+            uint256, // K_MAX_NUM_BLOCKS
+            uint256, // K_MAX_FINALIZATIONS_PER_TX
+            uint256, // K_COMMIT_DELAY_CONFIRMS
+            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // K_BLOCK_MAX_GAS_LIMIT
+            uint256, // K_BLOCK_MAX_TXS
+            bytes32, // K_BLOCK_DEADEND_HASH
+            uint256, // K_TXLIST_MAX_BYTES
+            uint256, // K_TX_MIN_GAS_LIMIT
+            uint256, // K_ANCHOR_TX_GAS_LIMIT
+            bytes4, // K_ANCHOR_TX_SELECTOR
+            bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
         )
     {
         return (
-            LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
-            LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX,
-            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
-            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.TAIKO_BLOCK_MAX_TXS,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
-            LibConstants.TAIKO_TXLIST_MAX_BYTES,
-            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_SELECTOR,
-            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_CHAIN_ID,
+            LibConstants.K_MAX_NUM_BLOCKS,
+            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_COMMIT_DELAY_CONFIRMS,
+            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.K_BLOCK_MAX_TXS,
+            LibConstants.K_BLOCK_DEADEND_HASH,
+            LibConstants.K_TXLIST_MAX_BYTES,
+            LibConstants.K_TX_MIN_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_SELECTOR,
+            LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
         );
     }
 
@@ -197,9 +201,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     function _hashPublicInputs(
         uint256 chainId,
         uint256 number,
-        uint256 baseFee,
+        uint256 feeBase,
         bytes32[255] memory ancestors
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
+        return keccak256(abi.encodePacked(chainId, number, feeBase, ancestors));
     }
 }
