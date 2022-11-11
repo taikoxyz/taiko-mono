@@ -110,21 +110,16 @@ library V1Proposing {
     function getBlockFee(
         LibData.State storage s
     ) public view returns (uint256 fee, uint256 premiumFee) {
-        uint256 alpha = V1Utils.feeScaleAlpha(
+        fee = V1Utils.getTimeAdjustedFee(
+            s,
+            true,
             uint64(block.timestamp),
             s.lastProposedAt,
-            s.avgProofTime,
+            s.avgBlockTime,
             LibConstants.K_BLOCK_TIME_CAP
         );
-        fee = (s.feeBase * 10000) / alpha;
-        premiumFee = (fee * V1Utils.feeScaleBeta(s, false)) / 10000;
-        premiumFee =
-            (premiumFee *
-                V1Utils.feeScaleGamma(
-                    uint64(block.timestamp),
-                    s.genesisTimestamp
-                )) /
-            1024;
+        premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
+        premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
     }
 
     function isCommitValid(
