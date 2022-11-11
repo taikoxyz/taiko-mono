@@ -1,28 +1,26 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p0: constant block time and proof time",
+    title="p0: block time and proof time both constant",
     desc="""
 
 **What to simulate?**
 
-The most basic model where block time and proof time are both constant.
+The most basic model where the block time average and proof time average are both constant.
 
 **About this config**
 
-Block fee is constant. This is achieved by settting `max_blocks` and
-`lamda_ratio` to large values and `block_time_sd_pctg` to 0.
+- TKO supply changes initially but stablizes.
+- fee_base remains constant
+
 """,
-    days=20,
+    days=7,
     config=Config(
         max_blocks=2048, 
         lamda=590,
         fee_base=100.0,
         fee_maf=1024,
         reward_multiplier=4.0,
-        # prover_reward_burn_points=0.0,
-        # prover_reward_bootstrap=0,
-        # prover_reward_bootstrap_days=10,
         time_avg_maf=1024,
         block_time_sd_pctg=0,
         proof_time_sd_pctg=0,

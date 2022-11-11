@@ -1,13 +1,8 @@
 from present import Config, Timing, Present
 
 present = Present(
-    title="p4: varying block time (100% ocsliaction), varying proof time (200% ocsliaction)",
+    title="p4: varying block time, varying proof time",
     desc="""
-
-**About this config**
-
-- block time varies (100%  ocsliaction)
-- proof time varies (200%  ocsliaction) but eventually changes back to the initial value.
 
 **What to verify**
 - block fee stays constant.
@@ -23,9 +18,6 @@ present = Present(
         fee_base=100.0,
         fee_maf=1024,
         reward_multiplier=4.0,
-        # prover_reward_burn_points=0.0,
-        # prover_reward_bootstrap=0,
-        # prover_reward_bootstrap_days=10,
         time_avg_maf=1024,
         block_time_sd_pctg=0,
         proof_time_sd_pctg=0,
