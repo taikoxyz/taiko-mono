@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -32,6 +33,7 @@ var (
 		"MYSQL_DATABASE",
 		"MYSQL_HOST",
 		"RELAYER_ECDSA_KEY",
+		"CONFIRMATIONS_BEFORE_PROCESSING",
 	}
 )
 
@@ -108,6 +110,11 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 		return nil, nil, err
 	}
 
+	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
+	if err != nil {
+		return nil, nil, err
+	}
+
 	indexers := make([]*indexer.Service, 0)
 
 	if layer == L1 || layer == Both {
@@ -123,6 +130,8 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 			BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+
+			Confirmations: uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -144,6 +153,8 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 			BridgeAddress:     common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+
+			Confirmations: uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)

@@ -29,6 +29,15 @@ func (p *Processor) ProcessMessage(
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
+	if err := relayer.WaitConfirmations(
+		ctx,
+		p.srcEthClient,
+		p.confirmations,
+		event.Raw.BlockNumber,
+	); err != nil {
+		return errors.Wrap(err, "relayer.WaitConfirmations")
+	}
+
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
 	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})

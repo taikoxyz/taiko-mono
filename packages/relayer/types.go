@@ -49,3 +49,28 @@ func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transa
 		}
 	}
 }
+
+// WaitConfirmations won't return before N blocks confirmations have been seen
+// on destination chain.
+func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmations uint64, begin uint64) error {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			latest, err := client.BlockNumber(ctx)
+			if err != nil {
+				return err
+			}
+
+			if latest < begin+confirmations {
+				continue
+			}
+
+			return nil
+		}
+	}
+}

@@ -45,6 +45,7 @@ type NewServiceOpts struct {
 	BridgeAddress     common.Address
 	DestBridgeAddress common.Address
 	DestTaikoAddress  common.Address
+	Confirmations     uint64
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -122,6 +123,8 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		DestBridge:       destBridge,
 		EventRepo:        opts.EventRepo,
 		DestHeaderSyncer: destHeaderSyncer,
+		Confirmations:    opts.Confirmations,
+		SrcETHClient:     opts.EthClient,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
