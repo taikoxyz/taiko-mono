@@ -71,6 +71,9 @@ library V1Proposing {
         meta.id = s.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
+
+        // Taiko client requires parent.timestamp >= block.timestamp, which
+        // is different from the Ethereum specification.
         meta.timestamp = uint64(block.timestamp);
 
         // if multiple L2 blocks included in the same L1 block,

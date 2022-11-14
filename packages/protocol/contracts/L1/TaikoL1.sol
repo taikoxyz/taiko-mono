@@ -29,7 +29,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 
     function init(
         address _addressManager,
@@ -81,6 +81,33 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
+     * Auction for the right to prove a block exclusively with a deposit.
+     *         Auctions must happen within 10 minutes after a block is proposed, each
+     *         new winning auction must deposit 50% more than the previous winner.
+     * merkel proof, and a receipt merkel proof.
+     *
+     * @param blockIndex The index of the block to aucton for. This is also used to select
+     *        the right implementation version.
+     * @param inputs A list of data input:
+     *     - inputs[0] is an abi-encoded object with various information regarding
+     *       the block to be auctoned for.
+     * @param deposit The deposit to make.
+     */
+    function auctionBlock(
+        uint256 blockIndex,
+        bytes[] calldata inputs,
+        uint256 deposit
+    ) external nonReentrant {
+        V1Proving.auctionBlock(
+            state,
+            AddressResolver(this),
+            blockIndex,
+            inputs,
+            deposit
+        );
+    }
+
+    /**
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.
      *
@@ -94,7 +121,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          in the block.
      *        - inputs[2] is the receipt of the anchor transaction.
      */
-
     function proveBlock(
         uint256 blockIndex,
         bytes[] calldata inputs
@@ -220,6 +246,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             uint256, // K_TXLIST_MAX_BYTES
             uint256, // K_TX_MIN_GAS_LIMIT
             uint256, // K_ANCHOR_TX_GAS_LIMIT
+            uint256, // K_PROVER_AUCTION_WINDOW
             bytes4, // K_ANCHOR_TX_SELECTOR
             bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
         )
@@ -236,6 +263,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             LibConstants.K_TXLIST_MAX_BYTES,
             LibConstants.K_TX_MIN_GAS_LIMIT,
             LibConstants.K_ANCHOR_TX_GAS_LIMIT,
+            LibConstants.K_PROVER_AUCTION_WINDOW,
             LibConstants.K_ANCHOR_TX_SELECTOR,
             LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
         );

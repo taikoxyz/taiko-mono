@@ -37,6 +37,13 @@ library LibData {
         address[] provers;
     }
 
+    struct Auction {
+        uint256 deposit;
+        address prover;
+        uint64 expiry;
+        uint8 forceRefund;
+    }
+
     struct State {
         // block id => block hash
         mapping(uint256 => bytes32) l2Hashes;
@@ -45,6 +52,7 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
+        mapping(uint256 => Auction) auctions;
         // Never changed
         uint64 genesisHeight; // never change
         uint64 genesisTimestamp; // never change

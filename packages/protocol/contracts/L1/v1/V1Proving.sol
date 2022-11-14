@@ -21,6 +21,7 @@ import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibMerkleTrie.sol";
 import "../../thirdparty/LibRLPWriter.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
@@ -35,6 +36,8 @@ library V1Proving {
         bytes[] proofs;
     }
 
+    event BlockAuctioned(uint256 indexed id, LibData.Auction auction);
+
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -43,6 +46,59 @@ library V1Proving {
         uint64 provenAt,
         address prover
     );
+
+    function auctionBlock(
+        LibData.State storage s,
+        AddressResolver resolver,
+        uint256 blockIndex,
+        bytes[] calldata inputs,
+        uint256 deposit
+    ) public {
+        require(inputs.length == 1, "L1:inputs:size");
+        LibData.BlockMetadata memory meta = abi.decode(
+            inputs[0],
+            (LibData.BlockMetadata)
+        );
+
+        require(blockIndex == meta.id, "L1:blockIndex");
+        _checkMetadata(s, meta);
+
+        require(
+            block.timestamp <=
+                meta.timestamp + LibConstants.K_PROVER_AUCTION_WINDOW,
+            "L1:auctionEnded"
+        );
+
+        LibData.Auction storage auction = s.auctions[blockIndex];
+
+        // TODO(daniel): check the deposit is no smaller than an stats value.
+        uint256 minDeposit;
+        require(
+            deposit >= minDeposit && deposit >= (auction.deposit * 150) / 100,
+            "L1:tooSmall"
+        );
+
+        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, deposit);
+
+        if (auction.deposit > 0) {
+            // Refund the previous winner's deposit
+            TkoToken(resolver.resolve("tko_token")).mint(
+                auction.prover,
+                auction.deposit
+            );
+        }
+
+        auction.deposit = deposit;
+        auction.prover = msg.sender;
+
+        if (auction.expiry == 0) {
+            // The expiry is only set once
+            uint64 expiry = 30 minutes; // TODO(daniel): use stats
+            auction.expiry = expiry;
+        }
+
+        emit BlockAuctioned(blockIndex, auction);
+    }
 
     function proveBlock(
         LibData.State storage s,
@@ -55,6 +111,32 @@ library V1Proving {
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
+
+        LibData.Auction storage auction = s.auctions[blockIndex];
+
+        if (
+            auction.prover == address(0) || // not reserved
+            auction.prover == msg.sender // reserved by msg.sender
+        ) {
+            // This block is not reserved or reserved by msg.sender, do nothing,
+            // the auction record shall be kept as is.
+            //
+            // Auction deposit will be refunded when the block is finalized.
+        } else if (
+            block.timestamp < evidence.meta.timestamp + auction.expiry / 2
+        ) {
+            // reserved but this prove is very early
+            auction.forceRefund = 0;
+        } else if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
+            // Other prover's auction expired, we delete the auction
+            // so refund of deposit is no longer possible.
+            auction.deposit = 0;
+            auction.prover = address(0);
+            auction.expiry = 0;
+            auction.forceRefund = 0;
+        } else {
+            revert("L1:reserved");
+        }
 
         // Check evidence
         require(evidence.meta.id == blockIndex, "L1:id");

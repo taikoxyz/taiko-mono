@@ -19,6 +19,8 @@ abstract contract V1Events {
 
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
+    event BlockAuctioned(uint256 indexed id, LibData.Auction auction);
+
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,

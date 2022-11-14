@@ -58,6 +58,8 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
+            LibData.Auction storage auction = s.auctions[i];
+
             if (fc.blockHash == 0) {
                 break;
             } else {
@@ -89,10 +91,44 @@ library V1Finalizing {
                 // TODO(daniel): reward all provers
                 tkoToken.mint(fc.provers[0], premiumReward);
 
+                // Refund auction winner
+                bool refund = auction.forceRefund == uint8(1);
+                if (!refund && auction.prover != address(0)) {
+                    for (uint256 j = 0; j < fc.provers.length; j++) {
+                        if (fc.provers[j] == auction.prover) {
+                            refund = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (refund) {
+                    TkoToken(resolver.resolve("tko_token")).mint(
+                        auction.prover,
+                        auction.deposit
+                    );
+                }
+
                 emit BlockFinalized(i, fc.blockHash);
             }
 
             processed += 1;
+
+            auction.deposit = 0;
+            auction.prover = address(0);
+            auction.expiry = 0;
+            auction.forceRefund = 0;
+
+            fc.blockHash = 0;
+            fc.proposedAt = 0;
+            fc.provenAt = 0;
+            address[] storage provers = fc.provers;
+            for (uint256 j = 0; j <= provers.length; j++) {
+                provers[j] = address(0);
+            }
+            assembly {
+                sstore(provers.slot, 0)
+            }
         }
 
         if (processed > 0) {
