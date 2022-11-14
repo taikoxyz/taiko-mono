@@ -94,10 +94,15 @@ library V1Finalizing {
 
                 for (uint k = 0; k < fc.provers.length; k++) {
                     uint weight = (1 << (fc.provers.length - k - 1));
-                    tkoToken.mint(
-                        fc.provers[k],
-                        (premiumReward * weight) / sum
-                    );
+
+                    // Only reward a prover address if it already has TKO token
+                    // this will reduce the tx gas cost.
+                    if (tkoToken.balanceOf(fc.provers[k]) > 0) {
+                        tkoToken.mint(
+                            fc.provers[k],
+                            (premiumReward * weight) / sum
+                        );
+                    }
                 }
 
                 emit BlockFinalized(i, fc.blockHash);
