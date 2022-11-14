@@ -246,7 +246,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             uint256, // K_TXLIST_MAX_BYTES
             uint256, // K_TX_MIN_GAS_LIMIT
             uint256, // K_ANCHOR_TX_GAS_LIMIT
-            uint256, // K_PROVER_AUCTION_WINDOW
+            uint256, // K_PROVER_AUCTION_WINDOW_MAX
             bytes4, // K_ANCHOR_TX_SELECTOR
             bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
         )
@@ -263,7 +263,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             LibConstants.K_TXLIST_MAX_BYTES,
             LibConstants.K_TX_MIN_GAS_LIMIT,
             LibConstants.K_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.K_PROVER_AUCTION_WINDOW,
+            LibConstants.K_PROVER_AUCTION_WINDOW_MAX,
             LibConstants.K_ANCHOR_TX_SELECTOR,
             LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
         );

@@ -63,11 +63,13 @@ library V1Proving {
         require(blockIndex == meta.id, "L1:blockIndex");
         _checkMetadata(s, meta);
 
-        require(
-            block.timestamp <=
-                meta.timestamp + LibConstants.K_PROVER_AUCTION_WINDOW,
-            "L1:auctionEnded"
-        );
+        uint256 window = (s.avgProofTime *
+            LibConstants.K_PROVER_AUCTION_WINDOW) / 100;
+        if (window > LibConstants.K_PROVER_AUCTION_WINDOW_MAX) {
+            window = LibConstants.K_PROVER_AUCTION_WINDOW_MAX;
+        }
+
+        require(block.timestamp <= meta.timestamp + window, "L1:auctionEnded");
 
         LibData.Auction storage auction = s.auctions[blockIndex];
 
