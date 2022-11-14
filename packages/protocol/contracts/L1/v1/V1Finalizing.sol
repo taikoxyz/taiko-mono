@@ -88,8 +88,22 @@ library V1Finalizing {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
-                // TODO(daniel): reward all provers
-                tkoToken.mint(fc.provers[0], premiumReward);
+                // Reward multiple provers
+                uint sum = 0;
+                for (uint k = 0; k < fc.provers.length; k++) {
+                    sum += 1 << k; // sum = 1 + 2 + 4 ...
+                }
+
+                for (uint k = 0; k < fc.provers.length; k++) {
+                    uint weight = (1 << (fc.provers.length - k - 1));
+                    uint proverReward = (premiumReward * weight) / sum;
+
+                    if (tkoToken.balanceOf(fc.provers[k]) == 0) {
+                        // reduce reward if the prover has 0 TKO balance.
+                        proverReward /= 2;
+                    }
+                    tkoToken.mint(fc.provers[k], proverReward);
+                }
 
                 // Refund auction winner
                 bool refund = auction.forceRefund == uint8(1);

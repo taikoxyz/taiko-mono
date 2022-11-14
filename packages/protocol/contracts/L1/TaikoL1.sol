@@ -84,7 +84,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Auction for the right to prove a block exclusively with a deposit.
      *         Auctions must happen within 10 minutes after a block is proposed, each
      *         new winning auction must deposit 50% more than the previous winner.
-     * merkel proof, and a receipt merkel proof.
      *
      * @param blockIndex The index of the block to aucton for. This is also used to select
      *        the right implementation version.
