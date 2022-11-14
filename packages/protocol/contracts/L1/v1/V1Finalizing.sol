@@ -87,7 +87,18 @@ library V1Finalizing {
                 }
 
                 // TODO(daniel): reward all provers
-                tkoToken.mint(fc.provers[0], premiumReward);
+                uint sum = 0;
+                for (uint k = 0; k < fc.provers.length; k++) {
+                    sum += 1 << k; // sum = 1 + 2 + 4 ...
+                }
+
+                for (uint k = 0; k < fc.provers.length; k++) {
+                    uint weight = (1 << (fc.provers.length - k - 1));
+                    tkoToken.mint(
+                        fc.provers[k],
+                        (premiumReward * weight) / sum
+                    );
+                }
 
                 emit BlockFinalized(i, fc.blockHash);
             }
