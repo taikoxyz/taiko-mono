@@ -86,7 +86,7 @@ library V1Finalizing {
                     tkoToken = TkoToken(resolver.resolve("tko_token"));
                 }
 
-                // TODO(daniel): reward all provers
+                // Reward multiple provers
                 uint sum = 0;
                 for (uint k = 0; k < fc.provers.length; k++) {
                     sum += 1 << k; // sum = 1 + 2 + 4 ...
