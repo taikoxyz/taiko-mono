@@ -172,6 +172,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
     }
 
+    function getAuctionWindow() public view returns (uint256) {
+        return V1Proving.getAuctionWindow(state);
+    }
+
     function getBlockFee() public view returns (uint256 premiumFee) {
         (, premiumFee) = V1Proposing.getBlockFee(state);
     }

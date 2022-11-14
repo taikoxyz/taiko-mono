@@ -47,6 +47,21 @@ library V1Proving {
         address prover
     );
 
+    function getAuctionWindow(
+        LibData.State storage s
+    ) internal view returns (uint256) {
+        if (s.avgProofTime == 0) {
+            return LibConstants.K_PROVER_AUCTION_WINDOW_MAX;
+        }
+
+        uint256 window = (s.avgProofTime *
+            LibConstants.K_PROVER_AUCTION_WINDOW) / 100;
+        if (window > LibConstants.K_PROVER_AUCTION_WINDOW_MAX) {
+            window = LibConstants.K_PROVER_AUCTION_WINDOW_MAX;
+        }
+        return window;
+    }
+
     function auctionBlock(
         LibData.State storage s,
         AddressResolver resolver,
@@ -63,13 +78,10 @@ library V1Proving {
         require(blockIndex == meta.id, "L1:blockIndex");
         _checkMetadata(s, meta);
 
-        uint256 window = (s.avgProofTime *
-            LibConstants.K_PROVER_AUCTION_WINDOW) / 100;
-        if (window > LibConstants.K_PROVER_AUCTION_WINDOW_MAX) {
-            window = LibConstants.K_PROVER_AUCTION_WINDOW_MAX;
-        }
-
-        require(block.timestamp <= meta.timestamp + window, "L1:auctionEnded");
+        require(
+            block.timestamp <= meta.timestamp + getAuctionWindow(s),
+            "L1:auctionEnded"
+        );
 
         LibData.Auction storage auction = s.auctions[blockIndex];
 
