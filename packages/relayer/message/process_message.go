@@ -110,7 +110,7 @@ func (p *Processor) ProcessMessage(
 	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
 
 	// update message status
-	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
+	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
 

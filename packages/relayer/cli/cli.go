@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/labstack/echo/v4"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/http"
 	"github.com/taikochain/taiko-mono/packages/relayer/indexer"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gorm.io/driver/mysql"
@@ -54,6 +57,15 @@ func Run(mode Mode, layer Layer) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	srv, err := newHTTPServer(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		srv.Start(fmt.Sprintf(":%v", os.Getenv("HTTP_PORT")))
+	}()
 
 	indexers, closeFunc, err := makeIndexers(layer, db)
 	if err != nil {
@@ -208,4 +220,22 @@ func loadAndValidateEnv() error {
 	}
 
 	return errors.Errorf("Missing env vars: %v", missing)
+}
+
+func newHTTPServer(db *gorm.DB) (*http.Server, error) {
+	eventRepo, err := repo.NewEventRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	srv, err := http.NewServer(http.NewServerOpts{
+		EventRepo:   eventRepo,
+		Echo:        echo.New(),
+		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
 }

@@ -173,7 +173,7 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 		eventStatus = relayer.EventStatusNewOnlyOwner
 	}
 
-	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
+	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
 		Name:    eventName,
 		Data:    string(marshaled),
 		ChainID: chainID,

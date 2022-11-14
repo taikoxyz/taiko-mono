@@ -11,8 +11,9 @@ var (
 		"ERR_NO_BLOCK_REPOSITORY",
 		"BlockRepository is required",
 	)
-	ErrNoProver    = errors.Validation.NewWithKeyAndDetail("ERR_NO_PROVER", "Prover is required")
-	ErrNoRPCClient = errors.Validation.NewWithKeyAndDetail("ERR_NO_RPC_CLIENT", "RPCClient is required")
-	ErrNoBridge    = errors.Validation.NewWithKeyAndDetail("ERR_NO_BRIDGE", "Bridge is required")
-	ErrNoTaikoL2   = errors.Validation.NewWithKeyAndDetail("ERR_NO_TAIKO_L2", "TaikoL2 is required")
+	ErrNoProver      = errors.Validation.NewWithKeyAndDetail("ERR_NO_PROVER", "Prover is required")
+	ErrNoRPCClient   = errors.Validation.NewWithKeyAndDetail("ERR_NO_RPC_CLIENT", "RPCClient is required")
+	ErrNoBridge      = errors.Validation.NewWithKeyAndDetail("ERR_NO_BRIDGE", "Bridge is required")
+	ErrNoTaikoL2     = errors.Validation.NewWithKeyAndDetail("ERR_NO_TAIKO_L2", "TaikoL2 is required")
+	ErrNoCORSOrigins = errors.Validation.NewWithKeyAndDetail("ERR_NO_CORS_ORIGINS", "CORS Origins are required")
 )

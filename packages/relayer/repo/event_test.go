@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -64,7 +65,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err = eventRepo.Save(tt.opts)
+			_, err = eventRepo.Save(context.Background(), tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
@@ -102,7 +103,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.name == "success" {
-				_, err := eventRepo.Save(
+				_, err := eventRepo.Save(context.Background(),
 					relayer.SaveEventOpts{
 						Name:    "test",
 						ChainID: big.NewInt(1),
@@ -111,7 +112,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 				)
 				assert.Equal(t, nil, err)
 			}
-			err := eventRepo.UpdateStatus(tt.id, tt.status)
+			err := eventRepo.UpdateStatus(context.Background(), tt.id, tt.status)
 			assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
@@ -128,7 +129,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 
 	addr := common.HexToAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
 
-	_, err = eventRepo.Save(relayer.SaveEventOpts{
+	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
 		Name:    "name",
 		Data:    fmt.Sprintf(`{"Owner":"%s"}`, addr.Hex()),
 		ChainID: big.NewInt(1),
@@ -175,7 +176,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.FindAllByAddress(tt.chainID, tt.address)
+			resp, err := eventRepo.FindAllByAddress(context.Background(), tt.chainID, tt.address)
 			assert.Equal(t, tt.wantResp, resp)
 			assert.Equal(t, tt.wantErr, err)
 		})
