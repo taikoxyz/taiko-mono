@@ -274,34 +274,3 @@ func (svc *Service) handleNoEventsInBatch(ctx context.Context, chainID *big.Int,
 
 	return nil
 }
-
-func (svc *Service) setInitialProcessingBlockByMode(
-	ctx context.Context,
-	mode relayer.Mode,
-	chainID *big.Int,
-) error {
-	if mode == relayer.SyncMode {
-		// get most recently processed block height from the DB
-		latestProcessedBlock, err := svc.blockRepo.GetLatestBlockProcessedForEvent(
-			eventName,
-			chainID,
-		)
-		if err != nil {
-			return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
-		}
-
-		svc.processingBlock = latestProcessedBlock
-	} else if mode == relayer.ResyncMode {
-		block, err := svc.ethClient.BlockByNumber(ctx, big.NewInt(0))
-		if err != nil {
-			return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
-		}
-
-		svc.processingBlock = &relayer.Block{
-			Height: block.NumberU64(),
-			Hash:   block.Hash().Hex(),
-		}
-	}
-
-	return nil
-}
