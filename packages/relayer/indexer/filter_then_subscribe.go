@@ -83,6 +83,9 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 
 		wg := &sync.WaitGroup{}
 
+		// TODO: do we want to limit the number of possible goroutines in the waitgroup?
+		// right now it is dependent on how many events are found in the
+		// block range. the main concern would be exceeding DB connection pooling limits.
 		for {
 			go svc.handleEvent(ctx, wg, svc.errChan, chainID, events.Event)
 

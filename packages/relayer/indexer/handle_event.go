@@ -34,15 +34,15 @@ func (svc *Service) handleEvent(
 		return
 	}
 
-	eventStatus := relayer.EventStatusNew
-	// if gasLimit is 0, relayer can not process this.
-	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
-		eventStatus = relayer.EventStatusNewOnlyOwner
+	eventStatus, err := svc.eventStatusFromSignal(ctx, event.Message.GasLimit, event.Signal)
+	if err != nil {
+		errChan <- errors.Wrap(err, "svc.eventStatusFromSignal")
 	}
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		errChan <- errors.Wrap(err, "json.Marshal(event)")
+		return
 	}
 
 	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
@@ -56,27 +56,14 @@ func (svc *Service) handleEvent(
 		return
 	}
 
-	// we can not process, exit early
-	if eventStatus == relayer.EventStatusNewOnlyOwner && event.Message.Owner != svc.relayerAddr {
-		log.Infof("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
-		errChan <- nil
-	}
-
-	messageStatus, err := svc.destBridge.GetMessageStatus(nil, event.Signal)
-	if err != nil {
-		errChan <- errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
 		return
 	}
 
-	if messageStatus == uint8(relayer.EventStatusNew) {
-		// ctx, cancelFunc := context.WithTimeout(ctx, 90*time.Second)
-		// defer cancelFunc()
-		log.Info("message not processed yet, attempting processing")
-		// process the message
-		if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
-			errChan <- errors.Wrap(err, "svc.processMessage")
-			return
-		}
+	// process the message
+	if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
+		errChan <- errors.Wrap(err, "svc.processMessage")
+		return
 	}
 
 	// if the block number of the event is higher than the block we are processing,
@@ -100,4 +87,49 @@ func (svc *Service) handleEvent(
 			Hash:   raw.BlockHash.Hex(),
 		}
 	}
+}
+
+func canProcessMessage(
+	ctx context.Context,
+	eventStatus relayer.EventStatus,
+	messageOwner common.Address,
+	relayerAddress common.Address,
+) bool {
+	// we can not process, exit early
+	if eventStatus == relayer.EventStatusNewOnlyOwner {
+		if messageOwner != relayerAddress {
+			log.Infof("gasLimit == 0 and owner is not the current relayer key, can not process. continuing loop")
+			return false
+		}
+
+		return true
+	}
+
+	if eventStatus == relayer.EventStatusNew {
+		return true
+	}
+
+	return false
+}
+
+func (svc *Service) eventStatusFromSignal(
+	ctx context.Context,
+	gasLimit *big.Int,
+	signal [32]byte,
+) (relayer.EventStatus, error) {
+	var eventStatus relayer.EventStatus
+
+	// if gasLimit is 0, relayer can not process this.
+	if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
+		eventStatus = relayer.EventStatusNewOnlyOwner
+	} else {
+		messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
+		if err != nil {
+			return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+		}
+
+		eventStatus = relayer.EventStatus(messageStatus)
+	}
+
+	return eventStatus, nil
 }
