@@ -27,12 +27,12 @@ library LibAnchorSignature {
         0x1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a;
 
     uint256 public constant N =
-        115792089237316195423570985008687907852837564279074904382605163141518161494337;
+        0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141;
 
     // (
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX, LibConstants.K_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX, K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
@@ -41,7 +41,7 @@ library LibAnchorSignature {
     // (
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = Uint512.mul256x256(GX2, LibConstants.K_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = Uint512.mul256x256(GX2, K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =

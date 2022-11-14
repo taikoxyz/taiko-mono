@@ -198,7 +198,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.getStateVariables();
     }
 
-    function signWithGoldFinger(
+    function signWithGoldenTouch(
         bytes32 hash,
         uint8 k
     ) public view returns (uint8 v, uint256 r, uint256 s) {
