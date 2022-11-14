@@ -64,7 +64,9 @@ func Run(mode Mode, layer Layer) {
 	}
 
 	go func() {
-		srv.Start(fmt.Sprintf(":%v", os.Getenv("HTTP_PORT")))
+		if err := srv.Start(fmt.Sprintf(":%v", os.Getenv("HTTP_PORT"))); err != nil {
+			log.Fatal(err)
+		}
 	}()
 
 	indexers, closeFunc, err := makeIndexers(layer, db)

@@ -14,8 +14,6 @@ import (
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 )
 
-var includeTokens = []string{"1INCH"}
-
 func newTestServer(url string) *Server {
 	_ = godotenv.Load("../.test.env")
 
