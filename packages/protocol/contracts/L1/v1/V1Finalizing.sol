@@ -103,10 +103,7 @@ library V1Finalizing {
                 }
 
                 if (refund) {
-                    TkoToken(resolver.resolve("tko_token")).mint(
-                        auction.prover,
-                        auction.deposit
-                    );
+                    tkoToken.mint(auction.prover, auction.deposit);
                 }
 
                 emit BlockFinalized(i, fc.blockHash);
