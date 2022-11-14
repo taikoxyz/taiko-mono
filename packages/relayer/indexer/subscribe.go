@@ -23,7 +23,7 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	for {
 		select {
 		case err := <-sub.Err():
-			svc.errChan <- err
+			return errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go svc.handleEvent(ctx, nil, svc.errChan, chainID, event)
 		}
