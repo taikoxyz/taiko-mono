@@ -89,8 +89,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param blockIndex The index of the block to aucton for. This is also used to select
      *        the right implementation version.
      * @param inputs A list of data input:
-     *     - inputs[0] is an abi-encoded object with various information regarding
-     *       the block to be auctoned for.
+     *        - inputs[0] is an abi-encoded object with various information regarding
+     *          the block to be auctoned for.
      * @param deposit The deposit to make.
      */
     function auctionBlock(
