@@ -13,7 +13,8 @@ func (svc *Service) setInitialProcessingBlockByMode(
 	mode relayer.Mode,
 	chainID *big.Int,
 ) error {
-	if mode == relayer.SyncMode {
+	switch mode {
+	case relayer.SyncMode:
 		// get most recently processed block height from the DB
 		latestProcessedBlock, err := svc.blockRepo.GetLatestBlockProcessedForEvent(
 			eventName,
@@ -24,7 +25,9 @@ func (svc *Service) setInitialProcessingBlockByMode(
 		}
 
 		svc.processingBlock = latestProcessedBlock
-	} else if mode == relayer.ResyncMode {
+
+		return nil
+	case relayer.ResyncMode:
 		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(0))
 		if err != nil {
 			return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
@@ -34,7 +37,9 @@ func (svc *Service) setInitialProcessingBlockByMode(
 			Height: header.Number.Uint64(),
 			Hash:   header.Hash().Hex(),
 		}
-	}
 
-	return nil
+		return nil
+	default:
+		return relayer.ErrInvalidMode
+	}
 }

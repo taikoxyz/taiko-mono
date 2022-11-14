@@ -39,6 +39,13 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 			true,
 			0,
 		},
+		{
+			"invalidMode",
+			relayer.Mode("fake"),
+			mock.MockChainID,
+			true,
+			0,
+		},
 	}
 
 	for _, tt := range tests {
