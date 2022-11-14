@@ -142,10 +142,10 @@ function getLatestSyncedHeader() public view returns (bytes32)
 function getStateVariables() public view returns (uint64, uint64, uint64, uint64)
 ```
 
-### signWithGoldFinger
+### signWithGoldenTouch
 
 ```solidity
-function signWithGoldFinger(bytes32 hash, uint8 k) public view returns (uint8 v, uint256 r, uint256 s)
+function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v, uint256 r, uint256 s)
 ```
 
 ### getConstants
