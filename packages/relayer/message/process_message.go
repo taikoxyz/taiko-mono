@@ -30,7 +30,7 @@ func (p *Processor) ProcessMessage(
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
-	if err := p.waitForConfirmations(ctx, event.Raw.BlockNumber); err != nil {
+	if err := p.waitForConfirmations(ctx, event.Raw.TxHash, event.Raw.BlockNumber); err != nil {
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
@@ -122,7 +122,7 @@ func (p *Processor) ProcessMessage(
 	return nil
 }
 
-func (p *Processor) waitForConfirmations(ctx context.Context, blockNumber uint64) error {
+func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
 	// TODO: make timeout a config var
 	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
 
@@ -132,7 +132,7 @@ func (p *Processor) waitForConfirmations(ctx context.Context, blockNumber uint64
 		ctx,
 		p.srcEthClient,
 		p.confirmations,
-		blockNumber,
+		txHash,
 	); err != nil {
 		return errors.Wrap(err, "relayer.WaitConfirmations")
 	}
