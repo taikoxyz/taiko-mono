@@ -101,17 +101,15 @@ library V1Finalizing {
                 // Refund auction winner
                 if (auction.forceRefund == 1) {
                     V1Utils.mintTko(tkoToken, auction.prover, auction.deposit);
-                } else {
-                    if (auction.prover != address(0)) {
-                        for (uint256 j = 0; j < fc.provers.length; j++) {
-                            if (fc.provers[j] == auction.prover) {
-                                V1Utils.mintTko(
-                                    tkoToken,
-                                    auction.prover,
-                                    auction.deposit
-                                );
-                                break;
-                            }
+                } else if (auction.prover != address(0)) {
+                    for (uint256 j = 0; j < fc.provers.length; j++) {
+                        if (fc.provers[j] == auction.prover) {
+                            V1Utils.mintTko(
+                                tkoToken,
+                                auction.prover,
+                                auction.deposit
+                            );
+                            break;
                         }
                     }
                 }
