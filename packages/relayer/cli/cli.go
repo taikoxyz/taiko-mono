@@ -212,19 +212,19 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 	)
 
 	maxIdleConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_IDLE_CONNS"))
-	if err != nil || maxIdleConns == 0 {
+	if err != nil || maxIdleConns <= 0 {
 		maxIdleConns = defaultMaxIdleConns
 	}
 
 	maxOpenConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_OPEN_CONNS"))
-	if err != nil || maxOpenConns == 0 {
+	if err != nil || maxOpenConns <= 0 {
 		maxOpenConns = defaultMaxOpenConns
 	}
 
 	var maxLifetime time.Duration
 
 	connMaxLifetime, err := strconv.Atoi(os.Getenv("MYSQL_CONN_MAX_LIFETIME_IN_MS"))
-	if err != nil || connMaxLifetime == 0 {
+	if err != nil || connMaxLifetime <= 0 {
 		maxLifetime = defaultConnMaxLifetime
 	} else {
 		maxLifetime = time.Duration(connMaxLifetime)
