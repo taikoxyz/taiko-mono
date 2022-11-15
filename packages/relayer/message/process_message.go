@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,13 +30,8 @@ func (p *Processor) ProcessMessage(
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
-	if err := relayer.WaitConfirmations(
-		ctx,
-		p.srcEthClient,
-		p.confirmations,
-		event.Raw.BlockNumber,
-	); err != nil {
-		return errors.Wrap(err, "relayer.WaitConfirmations")
+	if err := p.waitForConfirmations(ctx, event.Raw.BlockNumber); err != nil {
+		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
 	// get latest synced header since not every header is synced from L1 => L2,
@@ -121,6 +117,23 @@ func (p *Processor) ProcessMessage(
 	// update message status
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
+	}
+
+	return nil
+}
+
+func (p *Processor) waitForConfirmations(ctx context.Context, blockNumber uint64) error {
+	ctx, cancelFunc := context.WithTimeout(ctx, 1*time.Minute)
+
+	defer cancelFunc()
+
+	if err := relayer.WaitConfirmations(
+		ctx,
+		p.srcEthClient,
+		p.confirmations,
+		blockNumber,
+	); err != nil {
+		return errors.Wrap(err, "relayer.WaitConfirmations")
 	}
 
 	return nil
