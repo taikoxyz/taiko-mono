@@ -9,7 +9,8 @@ import RLP from "rlp"
 async function deployBridge(
     signer: Signer,
     addressManager: AddressManager,
-    destChain: number
+    destChain: number,
+    srcChain: number
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
     const libTrieProof = await (await ethers.getContractFactory("LibTrieProof"))
         .connect(signer)
@@ -55,11 +56,18 @@ async function deployBridge(
 
     await etherVault.connect(signer).authorize(bridge.address, true)
 
-    const network = await signer.provider?.getNetwork()
+    await etherVault.connect(signer).authorize(await signer.getAddress(), true)
+
     await addressManager.setAddress(
-        `${network?.chainId}.ether_vault`,
+        `${srcChain}.ether_vault`,
         etherVault.address
     )
+
+    await signer.sendTransaction({
+        to: etherVault.address,
+        value: BigNumber.from(100000000),
+        gasLimit: 1000000,
+    })
 
     return { bridge, etherVault }
 }
@@ -79,7 +87,12 @@ describe("Bridge", function () {
         await addressManager.init()
 
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
-            await deployBridge(owner, addressManager, enabledDestChainId)
+            await deployBridge(
+                owner,
+                addressManager,
+                enabledDestChainId,
+                srcChainId
+            )
 
         // deploy protocol contract
         return {
@@ -435,10 +448,20 @@ describe("integration:Bridge", function () {
         await l2AddressManager.init()
 
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
-            await deployBridge(owner, addressManager, enabledDestChainId)
+            await deployBridge(
+                owner,
+                addressManager,
+                enabledDestChainId,
+                srcChainId
+            )
 
         const { bridge: l2Bridge, etherVault: l2EtherVault } =
-            await deployBridge(l2Signer, l2AddressManager, srcChainId)
+            await deployBridge(
+                l2Signer,
+                l2AddressManager,
+                srcChainId,
+                enabledDestChainId
+            )
 
         await addressManager.setAddress(
             `${enabledDestChainId}.bridge`,
@@ -449,26 +472,6 @@ describe("integration:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address)
 
-        // deploy protocol contract
-
-        // const libTxDecoder = await (
-        //     await ethers.getContractFactory("LibTxDecoder")
-        // )
-        //     .connect(l2Signer)
-        //     .deploy()
-
-        // const TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
-        //     libraries: {
-        //         LibTxDecoder: libTxDecoder.address,
-        //     },
-        // })
-
-        // TODO: Roger, you can replace this with the custom IHeaderSync implementation.
-        // we do not need to deploy a TaikoL2 for these tests.
-        // const taikoL2 = await TaikoL2Factory.connect(l2Signer).deploy(
-        //     l2AddressManager.address
-        // )
-
         const headerSync = await (
             await ethers.getContractFactory("TestHeaderSync")
         )
@@ -478,13 +481,6 @@ describe("integration:Bridge", function () {
         await l2AddressManager
             .connect(l2Signer)
             .setAddress(`${enabledDestChainId}.taiko`, headerSync.address)
-
-        await l2AddressManager
-            .connect(l2Signer)
-            .setAddress(`${srcChainId}.taiko`, headerSync.address)
-        // await l2AddressManager
-        //     .connect(l2Signer)
-        //     .setAddress(`${enabledDestChainId}.taiko`, taikoL2.address)
 
         return {
             owner,
@@ -502,7 +498,7 @@ describe("integration:Bridge", function () {
     }
 
     describe("processMessage()", function () {
-        it("processes a message when the signal has been verified from the sending chain", async () => {
+        it.only("processes a message when the signal has been verified from the sending chain", async () => {
             const {
                 owner,
                 l1Bridge,
@@ -584,6 +580,9 @@ describe("integration:Bridge", function () {
                 extraData: block.extraData,
                 mixHash: block.mixHash,
                 nonce: block.nonce,
+                baseFeePerGas: block.baseFeePerGas
+                    ? parseInt(block.baseFeePerGas)
+                    : 0,
             }
 
             // get storageValue for the key
@@ -611,16 +610,18 @@ describe("integration:Bridge", function () {
                 ]
             )
             // encode the SignalProof struct from LibBridgeSignal
-            ethers.utils.defaultAbiCoder.encode(
+            const signalProof = ethers.utils.defaultAbiCoder.encode(
                 [
-                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce) header, bytes proof)",
+                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
                 ],
                 [{ header: blockHeader, proof: encodedProof }]
             )
 
             // ROGER: this is where we at, we need now to deploy a custom TestHeaderSync that implements
             // IHeaderSync where we can manually save synced headers.
-            await l2Bridge.processMessage(message, encodedProof)
+            await l2Bridge.processMessage(message, signalProof, {
+                gasLimit: BigNumber.from(2000000),
+            })
         })
     })
 })

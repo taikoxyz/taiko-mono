@@ -96,11 +96,9 @@ library LibBridgeSignal {
             bytes32(uint256(1)),
             mkp.proof
         );
-        console.log("before header");
         // get synced header hash of the header height specified in the proof
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);
-        console.log("after header");
         // check header hash specified in the proof matches the current chain
         return
             syncedHeaderHash != 0 &&

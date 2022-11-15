@@ -53,6 +53,7 @@ type BlockHeader = {
     extraData: string
     mixHash: string
     nonce: number
+    baseFeePerGas: number
 }
 
 export { Block, BlockHeader, StorageEntry, EthGetProofResponse }
