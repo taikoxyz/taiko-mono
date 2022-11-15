@@ -35,8 +35,7 @@ var (
 	}
 )
 
-// TODO: implement `resync` mode to wipe DB and restart from block 0
-func Run(mode Mode, layer Layer) {
+func Run(mode relayer.Mode, layer relayer.Layer) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +67,7 @@ func Run(mode Mode, layer Layer) {
 
 	for _, i := range indexers {
 		go func(i *indexer.Service) {
-			if err := i.FilterThenSubscribe(context.Background()); err != nil {
+			if err := i.FilterThenSubscribe(context.Background(), mode); err != nil {
 				log.Fatal(err)
 			}
 		}(i)
@@ -77,7 +76,7 @@ func Run(mode Mode, layer Layer) {
 	<-forever
 }
 
-func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) {
+func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, nil, err
@@ -110,7 +109,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 
 	indexers := make([]*indexer.Service, 0)
 
-	if layer == L1 || layer == Both {
+	if layer == relayer.L1 || layer == relayer.Both {
 		l1Indexer, err := indexer.NewService(indexer.NewServiceOpts{
 			EventRepo:     eventRepository,
 			BlockRepo:     blockRepository,
@@ -131,7 +130,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 		indexers = append(indexers, l1Indexer)
 	}
 
-	if layer == L2 || layer == Both {
+	if layer == relayer.L2 || layer == relayer.Both {
 		l2Indexer, err := indexer.NewService(indexer.NewServiceOpts{
 			EventRepo:     eventRepository,
 			BlockRepo:     blockRepository,
