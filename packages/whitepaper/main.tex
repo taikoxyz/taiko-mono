@@ -433,23 +433,24 @@ Taiko users pay Ether (ETH) as their transaction fees; block \emph{proposers} re
 We design price dynamics that evolve with respect to a number of different factors (without the use of any price oracles):
 \begin{enumerate}
 \item The L2 block space. Although block space is much cheaper than on L1, it is still necessary to adjust its price in a way to avoid L2 space being abused. We will enable EIP-1559 on Taiko L2 to dynamically adjust the block space price in a later release (see Section \ref{sec:eip1559-propose}).
-\item Protection against external factors, such as the TKO token price fluctuations and competing L2 solutions, that can deter proposer and prover engagement with the protocol. Our design enables a dynamic system for determining the grace period for incentive based prices that incorporate average proposal/proof delay statistics. 
+\item Protection against external factors, such as TKO token price fluctuations and competing L2 solutions, that can deter proposer and prover engagement with the protocol. Our design enables a dynamic system that introduces fee discounts and reward premiums as incentives, when current engagement falls below average proposal/proof delay statistics. 
 
-\item The current number of unverified blocks. The Taiko protocol has a fixed number of slots, $n_\textnormal{slot}$, for block proposals to allow for parallel proof computation. When there are more unverified blocks, the fees and rewards will increase to prevent slots from being over-sold -- this is due to the asynchronous nature of proposals and proofs, therefore, the adjustment of fees and rewards doesn't happen after each block proposal or proof.
+\item The current number of unverified blocks. The Taiko protocol has a fixed number of slots, $n_\textnormal{slot}$, for block proposals to allow for parallel proof computation. When there are more unverified blocks occupying the available slots, fees (and rewards) will increase to adjust for the competition within the group of proposers (and similarly for provers).
+% (MEV: REMOVED THIS PART BUT HAPPY TO DISCUSS AND INCLUDE WHAT THIS IS TRYING TO SAY.)
+% % prevent slots from being over-sold 
+% -- this is due to the asynchronous nature of proposals and proofs, therefore, the adjustment of fees and rewards doesn't happen after each block proposal or proof.
 
-Our design enables a dynamic system for determining minimum proposing fees and proving rewards that incorporates engagement statistics.
-\item A system that benefits early-adaptors, working as base discounts for proposal fees that diminish over time.
+\item A system that benefits early-adaptors, working as base discounts for proposal fees that diminish over time, as proposers may be more vulnerable at the initial stages of the protocol compared to provers.
 \end{enumerate}
 
 % Our overall fees for proposers and rewards for provers will be a summation of these four components. In this section, we will focus on the last three building blocks.
 
-At time $t$, the proposal fee $f(t)$ and proof reward $r(t)$ are calculated as a product of a \textit{base fee} $f_\textnormal{base}$, time-based \emph{incentive multipliers} $\alpha_f(t)$ and $\alpha_r(t)$, and \emph{slot-availability multipliers}, $\beta_f(n)$ and $\beta_r(n)$, which are based on the number of unverified blocks $n$. 
+At the time of submission of a proposal or a proof, referred to as $t$, a proposal fee $f(t)$ or a proof reward $r(t)$ respectively, is calculated as a product of a \textit{base fee} $f_\textnormal{base}$, time-based \emph{incentive multipliers}, $\alpha_f(t)$ and $\alpha_r(t)$, and \emph{slot-availability multipliers}, $\beta_f(n)$ and $\beta_r(n)$, that are based on the number of unverified blocks $n$.
 % \begin{align}
 % f(t) = f_\textnormal{base} \cdot \beta_\textnormal{icv}^+ \cdot \beta_\textnormal{slot}^+
 % \\
 % r(t) = f_\textnormal{base} \cdot \beta_\textnormal{icv}^- \cdot \beta_\textnormal{slot}^-
 % \end{align}
-
 \begin{align}
 f(t) = f_\textnormal{base} \cdot \alpha_f(t) \cdot \beta_f(n)
 \\
@@ -457,6 +458,7 @@ r(t) = f_\textnormal{base}
 \cdot \alpha_r(t) \cdot \beta_r(n)
 \end{align}
 
+Although $t$ is determined from the moment of submission of a proof, similar to a proposal, the actual moment of issuing the reward to a prover is potentially much later, when the proof is validated through a series of other proofs that connect it to the genesis block. In other words, proof rewards are determined at the time of submission and minted at the time of validation. 
 
 % \subsection{Base Fee}
 % The Taiko protocol maintains an internal state variable $f_\textnormal{base}$ called the \textit{Base Fee}. 
@@ -466,14 +468,17 @@ r(t) = f_\textnormal{base}
 % Taiko protocol maintains a number of internal constants $(n, f_\textnormal{base}, t_\textnormal{avg}, t_\textnormal{last})$
 
 \subsection{State Variables}
-Taiko protocol maintains a number of internal state variables $(n, f_\textnormal{base}, t_\textnormal{avg}, t_\textnormal{last})$ that get updated after every successful block proposal or proof.
+Taiko protocol maintains a number of internal state variables $(n, f_\textnormal{base}, t^\textnormal{prop}_\textnormal{ave}, t^\textnormal{proof}_\textnormal{ave}, t^\textnormal{prop}_\textnormal{last}, t^\textnormal{proof}_\textnormal{last})$ that get updated after every successful block proposal or validated proof.
 \begin{itemize}
     \item $n$ is the current number of unverified blocks. Initially, $n$ is set to $0$.
     \item $f_\textnormal{base}$ is the base fee, computed as a moving average of its product with incentive multipliers. Initially $f_\textnormal{base}$ is set to a constant $f_\textnormal{init}$.
-    \item $t_\textnormal{ave}$ is the average duration between proposals or proofs, computed as a moving average of the gap between the current transaction and the previous transaction.
-    \item $t_\textnormal{last}$ is the last point in time a proposal or proof was successful. Initially $t_\textnormal{last}$ is set to $0$. 
+    \item $t^\textnormal{prop}_\textnormal{ave}$ is the average duration between proposal submissions conditioned on they are successful.
+    % , computed as a moving average of the gap between the current successful submission and the previous successful submission.
+    \item $t^\textnormal{proof}_\textnormal{ave}$ is the average duration between proof submissions conditioned on they are eventually validated.
+    % , computed as a moving average of the gap between the current validated submission and the previous validated submission.
+    \item $t^\textnormal{prop}_\textnormal{last}$ is the submission time of the last successful proposal. Initially $t^\textnormal{prop}_\textnormal{last}$ is set to $0$.
+    \item $t^\textnormal{proof}_\textnormal{last}$ is the submission time of the last validated proof. Initially $t^\textnormal{proof}_\textnormal{last}$ is set to $0$. 
 \end{itemize}
-% At any point in time $t$, we can refer to their current value using the function notation, e.g. $f_\textnormal{base}(t)$. 
 We discuss the state update at the end of the section, after discussing fee and reward computations in a particular state (see Section \ref{sec:priceStateUpdate}). 
 
 
@@ -487,34 +492,61 @@ We discuss the state update at the end of the section, after discussing fee and 
 % \end{itemize}
 
 
-\subsection{Incentive Multipliers} Given a constant $\gamma > 1$, 
-$\alpha_f \in [1, \gamma]$ and $\alpha_r \in [ \nicefrac{1}{\gamma},1]$ are time sensitive multipliers that can decrease fees and increase rewards. 
+\subsection{Incentive Multipliers}
+\label{sec:incentive_mult}
+Given a constant $\gamma > 1$, 
+$\alpha_f(t): \mathbb{R}^+\rightarrow [1, \gamma]$ and $\alpha_r(t): \mathbb{R}^+\rightarrow  [ \nicefrac{1}{\gamma},1]$ are time sensitive multipliers that can decrease fees and increase rewards. 
 
 Their purpose is to incentivize (to a certain degree) proposals and proofs when there are unpredictable deterrents acting against the engagement of proposers or provers, such as imbalances in the pricing that favor one side of the protocol at the expense of the other (internal);  competing L2 marketplaces that offer better deals at the moment or price fluctuations of the TKO token (external).
 
 Incentive multipliers can gradually change the state variable $f_\textnormal{base}$, as will be explained in Section \ref{sec:priceStateUpdate}.
 
+In order to simplify exposition, in the rest of this section, we drop the superscripts of $t^\textnormal{prop}_\textnormal{ave}, t^\textnormal{proof}_\textnormal{ave}, t^\textnormal{prop}_\textnormal{last}, t^\textnormal{proof}_\textnormal{last}$ and refer to them as $t_\textnormal{ave}, t_\textnormal{last}$ depending on the context, i.e. when computing $\alpha_f(t)$, $t_\textnormal{ave}, t_\textnormal{last}$ will refer to $t^\textnormal{prop}_\textnormal{ave}, t^\textnormal{prop}_\textnormal{last}$ respectively; and when computing $\alpha_r(t)$, $t_\textnormal{ave}, t_\textnormal{last}$ will refer to $t^\textnormal{proof}_\textnormal{ave}, t^\textnormal{proof}_\textnormal{last}$ respectively. 
 \subsubsection{Intermediate Time Variables} 
 \label{sec:intermediateTimeVar}
-Time-based incentives begin when there are no successful proposals or proofs for a period longer than a multiple of either; (1) the average delay between transactions, (2) $K_\textnormal{BlockTimeCap}$ for proposals or $K_\textnormal{ProofTimeCap}$ for proofs.
+% Time-based incentives begin when there is not any successful proposals or proofs for a period longer than 
+% a multiple of either; (1) the average duration between proposals or proofs, (2) $T_\textnormal{prop}$ for proposals or $T_\textnormal{proof}$ for proofs.
 
-Given constants $K_\textnormal{GracePeriod} \geq 0$ and $K_\textnormal{MaxPeriod} > 0$, we can compute the following intermediate time variables, $t_\textnormal{grace}$ and $t_\textnormal{max}$, 
-using the state variables $t_\textnormal{ave}, t_\textnormal{last}$:
-
+Given constants $K_\textnormal{grace} \geq 0$,
+$K_\textnormal{activation} > 0$, $K_\textnormal{max}^\textnormal{prop}>0$ and $K_\textnormal{max}^\textnormal{proof}>0$ and state variables, we can compute the following intermediate time variables, $t_\textnormal{grace}$ and $t_\textnormal{activation}$:
 \begin{align}
-t_\textnormal{grace}  \equiv  K_\textnormal{GracePeriod} \cdot \min(t_\textnormal{ave}, K_\textnormal{BlockTimeCap})
+    t_\textnormal{grace} \equiv 
+ \begin{dcases}
+ K_\textnormal{grace} \cdot \min(t^\textnormal{prop}_\textnormal{ave}, K_\textnormal{max}^\textnormal{prop}), &\text{if a \emph{proposal}} \\
+K_\textnormal{grace} \cdot \min(t^\textnormal{proof}_\textnormal{ave}, K_\textnormal{max}^\textnormal{proof}), &\text{if a \emph{proof}}
+\end{dcases}
 \end{align}
-$t_\textnormal{grace}$ is the grace period starting at $t_\textnormal{last}$ in which there are no incentives yet.
+or, omitting the superscripts,
+\begin{align}
+    t_\textnormal{grace} \equiv 
+ K_\textnormal{grace} \cdot \min(t_\textnormal{ave}, K_\textnormal{max}).
+\end{align}
+% \begin{align}
+% t_\textnormal{grace}  \equiv  K_\textnormal{GracePeriod} \cdot \min(t^\textnormal{proof}_\textnormal{ave}, K_\textnormal{BlockTimeCap})
+% \end{align}
+$t_\textnormal{grace}$ is the grace period starting at $t_\textnormal{last}$ (omitting the superscript again) in which there are no incentives yet.
 % do not activate and $f_\textnormal{min}$ remains unchanged. It is related to $t_\textnormal{ave}$ through $t_\textnormal{grace} = k_{\textnormal{grace}} \cdot t_\textnormal{ave}$.
+% \begin{align}
+%     t_\textnormal{max} \equiv 
+%  \begin{dcases}
+%  K_\textnormal{max} \cdot \min(t^\textnormal{prop}_\textnormal{ave}, T_\textnormal{prop}), &\text{if a \emph{proposal}} \\
+% K_\textnormal{max} \cdot \min(t^\textnormal{proof}_\textnormal{ave}, T_\textnormal{proof}), &\text{if a \emph{proof}}
+% \end{dcases}
+% \end{align}
 \begin{align}
-t_\textnormal{max}  \equiv   K_{\mathrm{MaxPeriod}} \cdot \min(t_\textnormal{ave}, K_\textnormal{ProofTimeCap}) 
+t_\textnormal{activation} \equiv 
+ K_\textnormal{activation} \cdot \min(t_\textnormal{ave}, K_\textnormal{max}).
 \end{align}
-$t_\textnormal{max}$ is the time period after which incentives reach their maximum effects from the time they first start to take effect at $t_\textnormal{last}+t_\textnormal{grace}$. 
+% \begin{align}
+% t_\textnormal{max}  \equiv   K_{\mathrm{MaxPeriod}} \cdot \min(t_\textnormal{ave}, K_\textnormal{ProofTimeCap}) 
+% \end{align}
+
+$t_\textnormal{activation}$ is the time period after which incentives reach their maximum effects from the time they first start to take effect at $t_\textnormal{last}+t_\textnormal{grace}$. 
 \begin{Figure}
  \centering
 \includegraphics[width=\linewidth]{fig/relative_time_graph.png}
  \vspace{-0.2in}
- \captionof{figure}{The graph of $t_\textnormal{rel}$ (red) with respect to time $t$ given $t_\textnormal{last}$, $t_\textnormal{grace}$, $t_\textnormal{max}$.}
+ \captionof{figure}{The graph of $t_\textnormal{rel}$ (red) with respect to time $t$ given $t_\textnormal{last}$, $t_\textnormal{grace}$, $t_\textnormal{activation}$.}
 \label{fig:relativetime}
 \end{Figure}
 
@@ -531,7 +563,9 @@ $t_\textnormal{rel}$ indicates \emph{relative normalized time}, and determines t
 
 \subsubsection{Multipliers}
 % Parameters of incentives and averaging computations are $\{\alpha, \mu, t_\textnormal{init}, f_\textnormal{init}\}$. 
-Given a parameter $\psi \geq 1$ (initialized as $K_{\mathrm{RewardMultiplier}}$) and the relative normalized time function $t_\textnormal{rel}(t)$ established using the state variables, we compute incentive multipliers $\alpha_f(t)$ and $\alpha_r(t)$ simply as
+Given a constant $\psi \geq 1$  % does not make sense to initialize it as this is not a variable, we can just change all the constants to K_something later if desired.
+% (initialized as $K_{\mathrm{RewardMultiplier}}$)
+and the relative normalized time function $t_\textnormal{rel}(t)$ established using the state variables, we compute incentive multipliers $\alpha_f(t)$, $\alpha_r(t)$ as
 \begin{align}
 % \beta & \equiv  1 + (\alpha - 1)\cdot t_\textnormal{rel}(t, t_\textnormal{last},
 %  t_\textnormal{avg})\\
@@ -544,7 +578,7 @@ Given a parameter $\psi \geq 1$ (initialized as $K_{\mathrm{RewardMultiplier}}$)
 %      \beta, &\text{if a \emph{proof}}
 % \end{dcases}
 \alpha_r(t) &= 1 + (\psi - 1)\cdot t_\textnormal{rel}(t) \\ 
-\alpha_f(t) &= \nicefrac{1}{\alpha_r(t)}.
+\alpha_f(t) &= \nicefrac{1}{1 + (\psi - 1)\cdot t_\textnormal{rel}(t)}.
 \end{align}
 
 
@@ -573,7 +607,7 @@ As shown in Figure \ref{fig:incentive_multiplier_graphs}, the incentive multipli
 \begin{Figure}
  \centering
  \includegraphics[width=\linewidth]{fig/incentive_graph.png}
- \captionof{figure}{The graphs of $\alpha_f(t)$ (blue) and $\alpha_r(t)$ (red), which bifurcate at $t_\textnormal{last}+t_\textnormal{grace}$ and are multiplicative inverses of each other throughout all time.}
+ \captionof{figure}{The graphs of $\alpha_f(t)$ (blue) and $\alpha_r(t)$ (red), which deviate at $t_\textnormal{last}+t_\textnormal{grace}$ and are multiplicative inverses of each other throughout all time.}
  \label{fig:incentive_multiplier_graphs}
  
 \end{Figure}
@@ -591,9 +625,9 @@ As shown in Figure \ref{fig:incentive_multiplier_graphs}, the incentive multipli
 % Instead of relying on the comparison with $\nicefrac{t^\textnormal{p}_\textnormal{ave}}{t^\textnormal{b}_\textnormal{ave}}$, this can be accomplished using the \emph{constant-product} pricing mechanism as used by Uniswap V1. 
 Slot-availability multipliers are computed solely from the current number of unverified blocks $n$ and they are independent of time given a particular state. 
 
-These multipliers capture the idea of offering the lowest fees and rewards when there are only a few unverified blocks and a surplus of available slots, $n_\textnormal{slots}-n$. In this case, parallel proof computation can accommodate many proposers, which leads to low competition and consequently lower fees. 
+These multipliers capture the idea of offering the lowest fees and rewards when there are only a few unverified blocks and a surplus of available slots, $n_\textnormal{slots}-n$. In this case, parallel proof computation can accommodate many proposers, which leads to low competition and consequently lower fees. Further, there is a shortage of unverified blocks to prove, which means that provers must compete with each other to get the rewards (which allows lower rewards). 
 
-Further, there is a shortage of unverified blocks to prove, which means that provers must compete with each other to get the rewards (which allows lower rewards). In the opposite case, the level of competition for proposers and provers are reversed when there are many unverified blocks. 
+In the opposite case, the level of competition for proposers and provers are reversed when there are many unverified blocks. 
 
 % In the opposite case of many unverified blocks, fees are higher as new proposers must compete to get the last few available slots. Similarly, the rewards are higher because there are plenty of unverified blocks to go around for provers. 
 
@@ -622,8 +656,9 @@ we define $\beta_f(n): \{n\in \mathbb{Z} \hspace{0.02in}|\hspace{0.02in}  0 \leq
 % \end{align}
 
 \begin{align}
-\beta_f(n) &= \frac{(n_\textnormal{slots}- 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)}{(n_\textnormal{slots}-n-1 + \lambda)\cdot (n_\textnormal{slots}-n + \lambda)}\\
-\beta_r(n) &= \frac{(n_\textnormal{slots}- 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)}{(n_\textnormal{slots}-n + 1 + \lambda)\cdot (n_\textnormal{slots}-n + \lambda)}.
+n'_\textnormal{slots} &= n_\textnormal{slots} + \lambda \\
+\beta_f(n) &= \frac{(n'_\textnormal{slots}- 1) \cdot n'_\textnormal{slots}}{(n'_\textnormal{slots}-n-1)\cdot (n'_\textnormal{slots}-n)}\\
+\beta_r(n) &= \frac{(n'_\textnormal{slots}- 1 ) \cdot n'_\textnormal{slots}}{(n'_\textnormal{slots}-n + 1)\cdot (n'_\textnormal{slots}-n)}.
 \end{align}
 % (n_\textnormal{slots}- 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)
 % \begin{align}
@@ -641,8 +676,8 @@ It is easy to see that for $n=0$, which corresponds to the case of not having an
 % \beta_f(0) &= \frac{\Phi}{(n_\textnormal{slots}-1 + \lambda)\cdot (n_\textnormal{slots} + \lambda)}=1
 % \end{align}
 \begin{align}
-\beta_f(0) &= \frac{(n_\textnormal{slots}- 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)
-}{(n_\textnormal{slots}-1 + \lambda)\cdot (n_\textnormal{slots} + \lambda)}=1.
+\beta_f(0) &= \frac{(n'_\textnormal{slots}- 1 ) \cdot n'_\textnormal{slots}
+}{(n'_\textnormal{slots}-1)\cdot n'_\textnormal{slots}}=1.
 \end{align}
 % (n_\textnormal{slots}- 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)
 % simply from the definition of $\Phi$.
@@ -679,7 +714,7 @@ which ensures that the multiplier of the reward for a proven block equals the mu
 
 \begin{Figure}
  \centering
- \includegraphics[width=\linewidth]{fig/lambda10.png}
+ \includegraphics[width=0.8\linewidth]{fig/lambda10.png}
  \captionof{figure}{Progression of the multiplier for fees $\beta_f(n)$ (blue) and the multiplier for rewards $\beta_r(n)$ (red), when $n_{\textnormal{slots}}=50$ and $\lambda=10$. The maximum value of the multiplier is $\frac{(n_\textnormal{slots} - 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)}{\lambda\cdot (1+\lambda)}=32.182$.}
  \label{fig:f_slot_lambda1}
 \end{Figure}
@@ -688,7 +723,7 @@ Finally, in Figures \ref{fig:f_slot_lambda1} and \ref{fig:f_slot_lambda50}, we d
 
 \begin{Figure}
  \centering
- \includegraphics[width=\linewidth]{fig/lambda20.png}
+ \includegraphics[width=0.8\linewidth]{fig/lambda20.png}
  \captionof{figure}{Progression of the multiplier for fees $\beta_f(n)$ (blue) and the multiplier for rewards $\beta_r(n)$ (red), when $n_{\textnormal{slots}}=50$ and $\lambda=20$. The maximum value of the multiplier is $\frac{(n_\textnormal{slots} - 1 + \lambda ) \cdot (n_\textnormal{slots} + \lambda)}{\lambda\cdot (1+\lambda)}=11.5$.}
  \label{fig:f_slot_lambda50}
  
@@ -704,7 +739,7 @@ Unlike block provers, proposers are directly affected by the number of active L2
  \label{fig:discount}
 \end{Figure}
 
-Given an initial discount rate constant $0 < d_\textnormal{init} \leq 1$ and a halving period constant $K_\textnormal{Halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
+Given an initial discount rate constant $d_\textnormal{init} \in (0, 1]$ and a halving period constant $K_\textnormal{Halving}$, we can compute a discount function $d(t)$ and a discount multiplier $\gamma_f(t)$ as functions of time:
 
 \begin{align}
 d(t) &= d_\textnormal{init}\cdot (\nicefrac{1}{2})^{\lfloor \nicefrac{t}{K_\textnormal{Halving}}\rfloor}
@@ -739,7 +774,7 @@ f(t) = f_\textnormal{base} \cdot \alpha_f(t) \cdot \beta_f(n) \cdot \gamma_f(t)
 Bootstrapping support is applicable only to proposer fees in order to safeguard the normal market order conditions between proposers and provers.
 
 \subsection{State Update}
-Given a momentum constant $ 0\leq \mu \leq 1$, we update state variables in the following order after each successful block proposal or proof at time $t$:
+Given a momentum constant $ 0\leq \mu \leq 1$, we update state variables in the following order after each successful (validated in the case of proofs) block proposal or proof submitted at time $t$:
 \begin{gather}
     n \equiv 
  \begin{dcases}
