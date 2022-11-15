@@ -52,7 +52,7 @@ func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transa
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain.
-func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmations uint64, begin uint64) error {
+func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmations uint64, txHash common.Hash) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -61,12 +61,17 @@ func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmati
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			receipt, err := client.TransactionReceipt(ctx, txHash)
+			if err != nil {
+				return err
+			}
+
 			latest, err := client.BlockNumber(ctx)
 			if err != nil {
 				return err
 			}
 
-			if latest < begin+confirmations {
+			if latest < receipt.BlockNumber.Uint64()+confirmations {
 				continue
 			}
 
