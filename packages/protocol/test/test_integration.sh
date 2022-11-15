@@ -29,7 +29,7 @@ docker run -d \
   --http.api debug,eth,net,web3,txpool,miner
 
 # Wait till the test node fully started
-RETRIES=30
+RETRIES=200
 i=0
 until curl \
     --silent \
@@ -64,3 +64,4 @@ PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat test --network l1_test --grep "^integration"
 
 trap "kill -9 $(lsof -ti:28545)"
+trap "lsof -t -i tcp:28545 | xargs kill -9"

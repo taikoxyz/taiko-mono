@@ -146,8 +146,15 @@ describe("LibBridgeProcess", function () {
 
         await bridge.init(addressManager.address)
 
+        const headerSync = await (
+            await ethers.getContractFactory("TestHeaderSync")
+        ).deploy()
+
+        await addressManager.setAddress(`${chainId}.taiko`, headerSync.address)
+
         return {
             bridge,
+            headerSync,
         }
     }
 
@@ -249,7 +256,7 @@ describe("LibBridgeProcess", function () {
                 blockChainId,
                 addressManager,
             } = await deployLibBridgeProcessFixture()
-            const { bridge } = await deployBridgeFixture()
+            const { bridge, headerSync } = await deployBridgeFixture()
 
             await addressManager.setAddress(
                 `${srcChainId}.bridge`,

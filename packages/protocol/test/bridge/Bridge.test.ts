@@ -451,27 +451,40 @@ describe("integration:Bridge", function () {
 
         // deploy protocol contract
 
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
+        // const libTxDecoder = await (
+        //     await ethers.getContractFactory("LibTxDecoder")
+        // )
+        //     .connect(l2Signer)
+        //     .deploy()
+
+        // const TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
+        //     libraries: {
+        //         LibTxDecoder: libTxDecoder.address,
+        //     },
+        // })
+
+        // TODO: Roger, you can replace this with the custom IHeaderSync implementation.
+        // we do not need to deploy a TaikoL2 for these tests.
+        // const taikoL2 = await TaikoL2Factory.connect(l2Signer).deploy(
+        //     l2AddressManager.address
+        // )
+
+        const headerSync = await (
+            await ethers.getContractFactory("TestHeaderSync")
         )
             .connect(l2Signer)
             .deploy()
 
-        const TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
-            libraries: {
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
-
-        // TODO: Roger, you can replace this with the custom IHeaderSync implementation.
-        // we do not need to deploy a TaikoL2 for these tests.
-        const taikoL2 = await TaikoL2Factory.connect(l2Signer).deploy(
-            l2AddressManager.address
-        )
+        await l2AddressManager
+            .connect(l2Signer)
+            .setAddress(`${enabledDestChainId}.taiko`, headerSync.address)
 
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, taikoL2.address)
+            .setAddress(`${srcChainId}.taiko`, headerSync.address)
+        // await l2AddressManager
+        //     .connect(l2Signer)
+        //     .setAddress(`${enabledDestChainId}.taiko`, taikoL2.address)
 
         return {
             owner,
@@ -484,6 +497,7 @@ describe("integration:Bridge", function () {
             l1EtherVault,
             l2EtherVault,
             srcChainId,
+            headerSync,
         }
     }
 
@@ -495,6 +509,7 @@ describe("integration:Bridge", function () {
                 srcChainId,
                 enabledDestChainId,
                 l2Bridge,
+                headerSync,
             } = await deployBridgeFixture()
 
             const m: Message = {
@@ -546,6 +561,8 @@ describe("integration:Bridge", function () {
                 "eth_getBlockByNumber",
                 ["latest", false]
             )
+
+            await headerSync.setSyncedHeader(block.hash)
 
             const logsBloom = block.logsBloom.toString().substring(2)
 
