@@ -6,7 +6,7 @@ import (
 )
 
 func Test_watchErrors(t *testing.T) {
-	svc := newTestService(t)
+	svc := newTestService()
 
 	go svc.watchErrors()
 
