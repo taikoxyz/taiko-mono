@@ -119,6 +119,7 @@ func (p *Processor) sendProcessMessageCall(
 	auth.GasPrice = new(big.Int).SetUint64(500000000)
 
 	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	err = p.getLatestNonce(ctx, auth)
 	if err != nil {
@@ -131,8 +132,6 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	p.setLatestNonce(tx.Nonce())
-
-	p.mu.Unlock()
 
 	return tx, nil
 }
