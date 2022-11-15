@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../../libs/LibMath.sol";
 import "../LibData.sol";
+import "../TkoToken.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Utils {
@@ -83,5 +84,16 @@ library V1Utils {
         }
         uint256 _ma = (ma * (factor - 1) + v) / factor;
         return _ma > 0 ? _ma : ma;
+    }
+
+    function mintTkoTo(TkoToken tkoToken, address addr, uint amount) internal {
+        uint _amount = amount;
+        if (tkoToken.balanceOf(addr) == 0) {
+            // to reduce the finalization gas cost, we disencourage
+            // using proof fee receipt address with zero TKO balance
+            // by reducing the reward by half.
+            _amount /= 2;
+        }
+        tkoToken.mint(addr, _amount);
     }
 }

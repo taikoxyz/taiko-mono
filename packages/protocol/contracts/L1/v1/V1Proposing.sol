@@ -11,8 +11,6 @@ pragma solidity ^0.8.9;
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
-import "../LibData.sol";
-import "../TkoToken.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>

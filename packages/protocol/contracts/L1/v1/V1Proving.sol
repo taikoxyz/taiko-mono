@@ -20,8 +20,7 @@ import "../../libs/LibZKP.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibMerkleTrie.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "../LibData.sol";
-import "../TkoToken.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
@@ -96,7 +95,8 @@ library V1Proving {
 
         if (auction.deposit > 0) {
             // Refund the previous winner's deposit
-            TkoToken(resolver.resolve("tko_token")).mint(
+            V1Utils.mintTkoTo(
+                TkoToken(resolver.resolve("tko_token")),
                 auction.prover,
                 auction.deposit
             );
@@ -139,10 +139,11 @@ library V1Proving {
         } else if (
             block.timestamp < evidence.meta.timestamp + auction.expiry / 2
         ) {
-            // reserved but this proof is very early
-            auction.forceRefund = 0;
+            // if this proof is submitted earlier than 50% of the expiry,
+            // we refund the auction fund.
+            auction.forceRefund = 1;
         } else if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
-            // Other prover's auction expired, we delete the auction
+            // auction expired, we delete the auction,
             // so refund of deposit is no longer possible.
             auction.deposit = 0;
             auction.prover = address(0);
