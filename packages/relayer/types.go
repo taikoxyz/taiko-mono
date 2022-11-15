@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -63,6 +64,10 @@ func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmati
 		case <-ticker.C:
 			receipt, err := client.TransactionReceipt(ctx, txHash)
 			if err != nil {
+				if err == ethereum.NotFound {
+					continue
+				}
+
 				return err
 			}
 
