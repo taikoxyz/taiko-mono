@@ -28,10 +28,18 @@ const config = {
     [
       "content-docs",
       {
-        id: "community",
-        path: "community",
-        routeBasePath: "community",
+        id: "talks",
+        path: "talks",
+        routeBasePath: "talks",
         sidebarPath: require.resolve("./sidebars.js"),
+      },
+    ],
+    [
+      "content-docs",
+      {
+        id: "faq",
+        path: "faq",
+        routeBasePath: "faq",
       },
     ],
   ],
@@ -82,7 +90,7 @@ const config = {
         items: [
           {
             to: "docs/intro",
-            label: "Docs",
+            label: "Learn",
             position: "left",
           },
           {
@@ -91,8 +99,13 @@ const config = {
             position: "left",
           },
           {
-            to: "community/talks",
-            label: "Community",
+            to: "talks",
+            label: "Talks",
+            position: "left",
+          },
+          {
+            to: "faq",
+            label: "FAQ",
             position: "left",
           },
           {
