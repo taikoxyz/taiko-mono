@@ -139,7 +139,7 @@ library V1Proving {
         } else if (
             block.timestamp < evidence.meta.timestamp + auction.expiry / 2
         ) {
-            // reserved but this prove is very early
+            // reserved but this proof is very early
             auction.forceRefund = 0;
         } else if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
             // Other prover's auction expired, we delete the auction
