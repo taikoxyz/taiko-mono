@@ -9,14 +9,14 @@ import (
 )
 
 func main() {
-	modePtr := flag.String("mode", string(cli.SyncMode), `mode to run in. 
+	modePtr := flag.String("mode", string(relayer.SyncMode), `mode to run in. 
 	options:
 	  sync: continue syncing from previous block
 	  resync: restart syncing from block 0
 	  fromBlock: restart syncing from specified block number
 	`)
 
-	layersPtr := flag.String("layers", string(cli.Both), `layers to watch and process. 
+	layersPtr := flag.String("layers", string(relayer.Both), `layers to watch and process. 
 	options:
 	  l1: only watch l1 => l2 bridge messages
 	  l2: only watch l2 => l1 bridge messages
@@ -25,13 +25,13 @@ func main() {
 
 	flag.Parse()
 
-	if !relayer.IsInSlice(cli.Mode(*modePtr), cli.Modes) {
+	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
 		log.Fatal("mode not valid")
 	}
 
-	if !relayer.IsInSlice(cli.Layer(*layersPtr), cli.Layers) {
+	if !relayer.IsInSlice(relayer.Layer(*layersPtr), relayer.Layers) {
 		log.Fatal("mode not valid")
 	}
 
-	cli.Run(cli.Mode(*modePtr), cli.Layer(*layersPtr))
+	cli.Run(relayer.Mode(*modePtr), relayer.Layer(*layersPtr))
 }
