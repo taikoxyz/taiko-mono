@@ -86,6 +86,22 @@
   background: url("@site/static/img/social-icons/github-white.svg") no-repeat;
 }
 
+.header-reddit-link:hover {
+  opacity: 0.6;
+}
+
+.header-reddit-link::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("@site/static/img/social-icons/reddit-black.svg") no-repeat;
+}
+
+[data-theme="dark"] .header-reddit-link::before {
+  background: url("@site/static/img/social-icons/reddit-white.svg") no-repeat;
+}
+
 .header-twitter-link:hover {
   opacity: 0.6;
 }

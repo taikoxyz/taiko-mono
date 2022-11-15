@@ -9,7 +9,7 @@ const katex = require("rehype-katex");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Taiko",
-  tagline: "A decentralized Ethereum equivalent ZK rollup",
+  tagline: "A decentralized Ethereum-equivalent ZK-rollup",
   url: "https://taiko.xyz",
   baseUrl: "/",
   onBrokenLinks: "throw",
@@ -121,6 +121,12 @@ const config = {
             "aria-label": "GitHub",
           },
           {
+            href: "https://www.reddit.com/r/taiko_xyz/",
+            position: "right",
+            className: "header-reddit-link",
+            "aria-label": "Reddit",
+          },
+          {
             href: "https://twitter.com/taikoxyz",
             position: "right",
             className: "header-twitter-link",
@@ -138,6 +144,10 @@ const config = {
           {
             label: "GitHub",
             href: "https://github.com/taikochain",
+          },
+          {
+            label: "Reddit",
+            href: "https://www.reddit.com/r/taiko_xyz/",
           },
           {
             label: "Twitter",
