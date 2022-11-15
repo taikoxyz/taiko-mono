@@ -113,7 +113,7 @@ func makeIndexers(layer Layer, db *gorm.DB) ([]*indexer.Service, func(), error) 
 	}
 
 	blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
-	if err != nil || blockBatchSize == 0 {
+	if err != nil || blockBatchSize <= 0 {
 		blockBatchSize = defaultBlockBatchSize
 	}
 
