@@ -498,7 +498,7 @@ describe("integration:Bridge", function () {
     }
 
     describe("processMessage()", function () {
-        it.only("processes a message when the signal has been verified from the sending chain", async () => {
+        it("processes a message when the signal has been verified from the sending chain", async () => {
             const {
                 owner,
                 l1Bridge,
