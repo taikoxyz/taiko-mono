@@ -6,7 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+	"golang.org/x/sync/errgroup"
 )
 
 // subscribe subscribes to latest events
@@ -20,12 +22,23 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	defer sub.Unsubscribe()
 
+	group, ctx := errgroup.WithContext(ctx)
+
+	group.SetLimit(svc.numGoroutines)
+
 	for {
 		select {
 		case err := <-sub.Err():
 			return errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			go svc.handleEvent(ctx, nil, svc.errChan, chainID, event)
+			group.Go(func() error {
+				err := svc.handleEvent(ctx, chainID, event)
+				if err != nil {
+					log.Errorf("svc.handleEvent: %v", err)
+				}
+
+				return nil
+			})
 		}
 	}
 }

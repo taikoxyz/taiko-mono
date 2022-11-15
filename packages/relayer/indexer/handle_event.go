@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -16,33 +15,25 @@ import (
 // handleEvent handles an individual MessageSent event
 func (svc *Service) handleEvent(
 	ctx context.Context,
-	wg *sync.WaitGroup,
-	errChan chan error,
 	chainID *big.Int,
 	event *contracts.BridgeMessageSent,
-) {
-	if wg != nil {
-		wg.Add(1)
-		defer wg.Done()
-	}
-
+) error {
 	raw := event.Raw
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
 	if raw.Removed {
-		return
+		return nil
 	}
 
 	eventStatus, err := svc.eventStatusFromSignal(ctx, event.Message.GasLimit, event.Signal)
 	if err != nil {
-		errChan <- errors.Wrap(err, "svc.eventStatusFromSignal")
+		return errors.Wrap(err, "svc.eventStatusFromSignal")
 	}
 
 	marshaled, err := json.Marshal(event)
 	if err != nil {
-		errChan <- errors.Wrap(err, "json.Marshal(event)")
-		return
+		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
 	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
@@ -52,18 +43,16 @@ func (svc *Service) handleEvent(
 		Status:  eventStatus,
 	})
 	if err != nil {
-		errChan <- errors.Wrap(err, "svc.eventRepo.Save")
-		return
+		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
 
 	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
-		return
+		return nil
 	}
 
 	// process the message
 	if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
-		errChan <- errors.Wrap(err, "svc.processMessage")
-		return
+		return errors.Wrap(err, "svc.processMessage")
 	}
 
 	// if the block number of the event is higher than the block we are processing,
@@ -78,8 +67,7 @@ func (svc *Service) handleEvent(
 			ChainID:   chainID,
 			EventName: eventName,
 		}); err != nil {
-			errChan <- errors.Wrap(err, "svc.blockRepo.Save")
-			return
+			return errors.Wrap(err, "svc.blockRepo.Save")
 		}
 
 		svc.processingBlock = &relayer.Block{
@@ -87,6 +75,8 @@ func (svc *Service) handleEvent(
 			Hash:   raw.BlockHash.Hex(),
 		}
 	}
+
+	return nil
 }
 
 func canProcessMessage(

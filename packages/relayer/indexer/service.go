@@ -44,6 +44,7 @@ type Service struct {
 	errChan chan error
 
 	blockBatchSize uint64
+	numGoroutines  int
 }
 
 type NewServiceOpts struct {
@@ -58,6 +59,7 @@ type NewServiceOpts struct {
 	DestBridgeAddress common.Address
 	DestTaikoAddress  common.Address
 	BlockBatchSize    uint64
+	NumGoroutines     int
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -157,5 +159,6 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		errChan: make(chan error),
 
 		blockBatchSize: opts.BlockBatchSize,
+		numGoroutines:  opts.NumGoroutines,
 	}, nil
 }

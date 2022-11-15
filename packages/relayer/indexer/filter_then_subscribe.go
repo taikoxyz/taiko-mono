@@ -2,12 +2,12 @@ package indexer
 
 import (
 	"context"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -18,8 +18,6 @@ var (
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
 func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) error {
-	go svc.watchErrors()
-
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
 		return errors.Wrap(err, "svc.ethClient.ChainID()")
@@ -72,18 +70,28 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) 
 			continue
 		}
 
-		log.Info("found events")
+		group, ctx := errgroup.WithContext(ctx)
 
-		wg := &sync.WaitGroup{}
+		group.SetLimit(svc.numGoroutines)
 
 		// TODO: do we want to limit the number of possible goroutines in the waitgroup?
 		// right now it is dependent on how many events are found in the
 		// block range. the main concern would be exceeding DB connection pooling limits.
 		for {
-			go svc.handleEvent(ctx, wg, svc.errChan, chainID, events.Event)
+			group.Go(func() error {
+				err := svc.handleEvent(ctx, chainID, events.Event)
+				if err != nil {
+					// log error but alwys return nil to keep other goroutines active
+					log.Error(err.Error())
+				}
+
+				return nil
+			})
 
 			if !events.Next() {
-				wg.Wait()
+				if err := group.Wait(); err != nil {
+					return errors.Wrap(err, "group.Wait")
+				}
 
 				if err := svc.handleNoEventsRemaining(ctx, chainID, events); err != nil {
 					return errors.Wrap(err, "svc.handleNoEventsRemaining")

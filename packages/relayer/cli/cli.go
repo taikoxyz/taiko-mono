@@ -37,6 +37,7 @@ var (
 	}
 
 	defaultBlockBatchSize = 2
+	defaultNumGoroutines  = 10
 )
 
 func Run(mode relayer.Mode, layer relayer.Layer) {
@@ -116,6 +117,11 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 		blockBatchSize = defaultBlockBatchSize
 	}
 
+	numGoroutines, err := strconv.Atoi(os.Getenv("NUM_GOROUTINES"))
+	if err != nil || numGoroutines <= 0 {
+		numGoroutines = defaultNumGoroutines
+	}
+
 	indexers := make([]*indexer.Service, 0)
 
 	if layer == relayer.L1 || layer == relayer.Both {
@@ -133,6 +139,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 
 			BlockBatchSize: uint64(blockBatchSize),
+			NumGoroutines:  numGoroutines,
 		})
 		if err != nil {
 			log.Fatal(err)
