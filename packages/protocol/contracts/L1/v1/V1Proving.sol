@@ -128,27 +128,23 @@ library V1Proving {
 
         LibData.Auction storage auction = s.auctions[blockIndex];
 
-        if (
-            auction.prover == address(0) || // not reserved
-            auction.prover == msg.sender // reserved by msg.sender
-        ) {
-            // This block is not reserved or reserved by msg.sender, do nothing,
-            // the auction record shall be kept as is.
-            //
-            // Auction deposit will be refunded when the block is finalized.
+        if (auction.prover == address(0)) {
+            // there is no auction for this proof
+        } else if (auction.prover == msg.sender) {
+            // msg.sender won the auciton
+            if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
+                // but if auction time out, we disable the refund
+                auction.deposit = 0;
+                auction.prover = address(0);
+                auction.expiry = 0;
+                auction.forceRefund = 0;
+            }
         } else if (
             block.timestamp < evidence.meta.timestamp + auction.expiry / 2
         ) {
             // if this proof is submitted earlier than 50% of the expiry,
-            // we refund the auction fund.
+            // we refund the original auction winner.
             auction.forceRefund = 1;
-        } else if (block.timestamp > evidence.meta.timestamp + auction.expiry) {
-            // auction expired, we delete the auction,
-            // so refund of deposit is no longer possible.
-            auction.deposit = 0;
-            auction.prover = address(0);
-            auction.expiry = 0;
-            auction.forceRefund = 0;
         } else {
             revert("L1:reserved");
         }
