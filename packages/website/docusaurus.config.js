@@ -24,6 +24,18 @@ const config = {
     locales: ["en"],
   },
 
+  plugins: [
+    [
+      "content-docs",
+      {
+        id: "community",
+        path: "community",
+        routeBasePath: "community",
+        sidebarPath: require.resolve("./sidebars.js"),
+      },
+    ],
+  ],
+
   presets: [
     [
       "classic",
@@ -76,6 +88,11 @@ const config = {
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
+            position: "left",
+          },
+          {
+            to: "community/talks",
+            label: "Community",
             position: "left",
           },
           {
