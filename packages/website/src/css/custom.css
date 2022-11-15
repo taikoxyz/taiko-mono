@@ -5,6 +5,13 @@
  */
 
 /* You can override the default Infima variables here. */
+
+.hero__subtitle,
+.navbar,
+.footer {
+  font-family: "Oxanium";
+}
+
 :root {
   --ifm-color-primary: #e30ead;
   --ifm-color-primary-dark: #ca0c9a;
