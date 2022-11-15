@@ -138,6 +138,10 @@ const config = {
         style: "dark",
         links: [
           {
+            label: "Careers",
+            href: "https://taikochain.notion.site/Taiko-Jobs",
+          },
+          {
             label: "Discord",
             href: "https://discord.gg/tnSra3aFfg",
           },
