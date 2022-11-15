@@ -1,10 +1,13 @@
 package indexer
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"math/big"
 
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -18,10 +21,15 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+type ethClient interface {
+	ChainID(ctx context.Context) (*big.Int, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+}
+
 type Service struct {
 	eventRepo relayer.EventRepository
 	blockRepo relayer.BlockRepository
-	ethClient *ethclient.Client
+	ethClient ethClient
 	destRPC   *rpc.Client
 
 	processingBlock *relayer.Block
