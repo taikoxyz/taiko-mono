@@ -123,6 +123,7 @@ func (p *Processor) ProcessMessage(
 }
 
 func (p *Processor) waitForConfirmations(ctx context.Context, blockNumber uint64) error {
+	// TODO: make timeout a config var
 	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancelFunc()
