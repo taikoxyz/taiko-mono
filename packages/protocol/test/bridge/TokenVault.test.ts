@@ -76,7 +76,7 @@ describe("TokenVault", function () {
     })
 
     describe("sendEther()", async () => {
-        it("throws when named msg.value is 0", async () => {
+        it("throws when msg.value is 0", async () => {
             const { owner, tokenVault } = await deployTokenVaultFixture()
 
             const processingFee = 10
@@ -93,7 +93,7 @@ describe("TokenVault", function () {
             ).to.be.revertedWith("V:msgValue")
         })
 
-        it("throws when named msg.value - processing fee is 0", async () => {
+        it("throws when msg.value - processing fee is 0", async () => {
             const { owner, tokenVault } = await deployTokenVaultFixture()
 
             const processingFee = 10
@@ -113,7 +113,7 @@ describe("TokenVault", function () {
             ).to.be.revertedWith("V:msgValue")
         })
 
-        it("throws when named msg.value is < processingFee", async () => {
+        it("throws when msg.value is < processingFee", async () => {
             const { owner, tokenVault } = await deployTokenVaultFixture()
 
             const processingFee = 10
