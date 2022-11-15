@@ -2,21 +2,44 @@ import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAngleDown } from "@fortawesome/free-solid-svg-icons";
 
+import Token from "./Token";
 import { tokensByChain } from "../../config/tokens";
-import { Token } from "../../types";
+import { Token as TokenType } from "../../types";
+import { DEFAULT_TOKEN } from "../../config/defaults";
 
 interface Props {
   filterByChainId: number;
+  onTokenSelected?: (token: TokenType) => void;
 }
 
-const TokenSelector: React.FC<Props> = ({ filterByChainId }) => {
+const TokenSelector: React.FC<Props> = ({
+  filterByChainId,
+  onTokenSelected,
+}) => {
   const [showTokenSelector, setShowTokenSelector] = React.useState<boolean>();
-  const [tokenSelected, setTokenSelected] = React.useState<Token>();
+  const tokenAddressesByChain = Object.keys(tokensByChain[filterByChainId]);
+  const [tokenSelected, setTokenSelected] = React.useState<TokenType>(
+    tokensByChain[filterByChainId][tokenAddressesByChain[0]] ?? DEFAULT_TOKEN
+  );
+
+  React.useEffect(() => {
+    if (onTokenSelected) {
+      onTokenSelected(tokensByChain[filterByChainId][tokenAddressesByChain[0]]);
+    }
+  }, [onTokenSelected, tokenAddressesByChain, filterByChainId]);
+
+  const onSelectToken = (token: TokenType) => {
+    setTokenSelected(token);
+    setShowTokenSelector(false);
+    if (onTokenSelected) {
+      onTokenSelected(token);
+    }
+  };
 
   return (
     <div>
       <div className="relative border rounded-md px-4 py-2 flex items-center">
-        <input type="text" value={"USDC"} readOnly />
+        <input type="text" value={tokenSelected.name} readOnly />
         <FontAwesomeIcon icon={faAngleDown} size="sm" />
         {/* <span className="text-lg font-bold">&#8964;</span> */}
         <button
@@ -52,21 +75,12 @@ const TokenSelector: React.FC<Props> = ({ filterByChainId }) => {
             {Object.keys(tokensByChain[filterByChainId]).map((address) => {
               const token = tokensByChain[filterByChainId][address];
               return (
-                <div
-                  className={`flex items-center p-2 hover:bg-slate-100 cursor-pointer ${
-                    token.address === tokenSelected?.address
-                      ? "!bg-slate-200"
-                      : ""
-                  }`}
+                <Token
                   key={token.address}
-                  onClick={() => {
-                    setTokenSelected(token);
-                    setShowTokenSelector(false);
-                  }}
-                >
-                  <span className="flex-1">{token.symbol}</span>
-                  <span>0.0</span>
-                </div>
+                  token={token}
+                  isSelected={token.address === tokenSelected?.address}
+                  onSelect={onSelectToken}
+                />
               );
             })}
           </div>
