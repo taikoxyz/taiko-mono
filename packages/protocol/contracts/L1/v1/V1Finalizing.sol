@@ -95,7 +95,7 @@ library V1Finalizing {
                 for (uint k = 0; k < fc.provers.length; k++) {
                     uint weight = (1 << (fc.provers.length - k - 1));
                     uint proverReward = (premiumReward * weight) / sum;
-                    V1Utils.mintTkoTo(tkoToken, fc.provers[k], proverReward);
+                    V1Utils.mintTko(tkoToken, fc.provers[k], proverReward);
                 }
 
                 // Refund auction winner
@@ -110,11 +110,7 @@ library V1Finalizing {
                 }
 
                 if (refund) {
-                    V1Utils.mintTkoTo(
-                        tkoToken,
-                        auction.prover,
-                        auction.deposit
-                    );
+                    V1Utils.mintTko(tkoToken, auction.prover, auction.deposit);
                 }
 
                 emit BlockFinalized(i, fc.blockHash);

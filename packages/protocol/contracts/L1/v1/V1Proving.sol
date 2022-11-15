@@ -95,7 +95,7 @@ library V1Proving {
 
         if (auction.deposit > 0) {
             // Refund the previous winner's deposit
-            V1Utils.mintTkoTo(
+            V1Utils.mintTko(
                 TkoToken(resolver.resolve("tko_token")),
                 auction.prover,
                 auction.deposit

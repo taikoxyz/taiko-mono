@@ -86,7 +86,10 @@ library V1Utils {
         return _ma > 0 ? _ma : ma;
     }
 
-    function mintTkoTo(TkoToken tkoToken, address addr, uint amount) internal {
+    function mintTko(TkoToken tkoToken, address addr, uint amount) internal {
+        if (amount == 0) {
+            return;
+        }
         uint _amount = amount;
         if (tkoToken.balanceOf(addr) == 0) {
             // to reduce the finalization gas cost, we disencourage
