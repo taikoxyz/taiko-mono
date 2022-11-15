@@ -20,4 +20,5 @@ var (
 		"ERR_INVALID_CONFIRMATIONS",
 		"Confirmations amount is invalid, must be numerical and > 0",
 	)
+	ErrInvalidMode = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
 )

@@ -20,22 +20,17 @@ var (
 // FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
-func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
+func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) error {
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
-		return errors.Wrap(err, "s.ethClient.ChainID()")
+		return errors.Wrap(err, "svc.ethClient.ChainID()")
 	}
 
-	// get most recently processed block height from the DB
-	latestProcessedBlock, err := svc.blockRepo.GetLatestBlockProcessedForEvent(
-		eventName,
-		chainID,
-	)
-	if err != nil {
-		return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
+	if err := svc.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
+		return errors.Wrap(err, "svc.setInitialProcessingBlockByMode")
 	}
 
-	log.Infof("latest processed block: %v", latestProcessedBlock.Height)
+	log.Infof("processing from block height: %v", svc.processingBlock.Height)
 
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
@@ -43,18 +38,15 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 
 	header, err := svc.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "s.ethClient.HeaderByNumber")
+		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
 	}
 
-	// if we have already done the latest block, exit early
-	// TODO: call SubscribeMessageSent, as we can now just watch the chain for new blocks
-	if latestProcessedBlock.Height == header.Number.Uint64() {
+	if svc.processingBlock.Height == header.Number.Uint64() {
+		log.Info("caught up, subscribing to new incoming events")
 		return svc.subscribe(ctx, chainID)
 	}
 
 	const batchSize = 1000
-
-	svc.processingBlock = latestProcessedBlock
 
 	log.Infof("getting events between %v and %v in batches of %v",
 		svc.processingBlock.Height,
@@ -65,7 +57,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 	// todo: parallelize/concurrently catch up. don't think we need to do this in order.
 	// use WaitGroup.
 	// we get a timeout/EOF if we don't batch.
-	for i := latestProcessedBlock.Height; i < header.Number.Uint64(); i += batchSize {
+	for i := svc.processingBlock.Height; i < header.Number.Uint64(); i += batchSize {
 		var end uint64 = svc.processingBlock.Height + batchSize
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
@@ -76,7 +68,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 		log.Infof("batch from %v to %v", i, end)
 
 		events, err := svc.bridge.FilterMessageSent(&bind.FilterOpts{
-			Start:   latestProcessedBlock.Height + uint64(1),
+			Start:   svc.processingBlock.Height,
 			End:     &end,
 			Context: ctx,
 		}, nil)
@@ -117,7 +109,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context) error {
 	}
 
 	if svc.processingBlock.Height < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx)
+		return svc.FilterThenSubscribe(ctx, relayer.SyncMode)
 	}
 
 	return svc.subscribe(ctx, chainID)
@@ -207,7 +199,6 @@ func (svc *Service) handleEvent(ctx context.Context, chainID *big.Int, event *co
 	// we can now consider that previous block processed. save it to the DB
 	// and bump the block number.
 	if raw.BlockNumber > svc.processingBlock.Height {
-		log.Info("raw blockNumber > processingBlock.height")
 		log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
 
 		if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
