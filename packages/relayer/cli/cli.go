@@ -110,7 +110,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 	}
 
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
-	if err != nil {
+	if err != nil || confirmations <= 0 {
 		return nil, nil, err
 	}
 
