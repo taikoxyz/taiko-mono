@@ -36,8 +36,9 @@ var (
 		"RELAYER_ECDSA_KEY",
 	}
 
-	defaultBlockBatchSize = 2
-	defaultNumGoroutines  = 10
+	defaultBlockBatchSize      = 2
+	defaultNumGoroutines       = 10
+	defaultSubscriptionBackoff = 2 * time.Second
 )
 
 func Run(mode relayer.Mode, layer relayer.Layer) {
@@ -122,6 +123,15 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 		numGoroutines = defaultNumGoroutines
 	}
 
+	var subscriptionBackoff time.Duration
+
+	subscriptionBackoffInSeconds, err := strconv.Atoi(os.Getenv("SUBSCRIPTION_BACKOFF_IN_SECONDS"))
+	if err != nil || numGoroutines <= 0 {
+		subscriptionBackoff = defaultSubscriptionBackoff
+	} else {
+		subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
+	}
+
 	indexers := make([]*indexer.Service, 0)
 
 	if layer == relayer.L1 || layer == relayer.Both {
@@ -138,8 +148,9 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 
-			BlockBatchSize: uint64(blockBatchSize),
-			NumGoroutines:  numGoroutines,
+			BlockBatchSize:      uint64(blockBatchSize),
+			NumGoroutines:       numGoroutines,
+			SubscriptionBackoff: subscriptionBackoff,
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -162,7 +173,9 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 
-			BlockBatchSize: uint64(blockBatchSize),
+			BlockBatchSize:      uint64(blockBatchSize),
+			NumGoroutines:       numGoroutines,
+			SubscriptionBackoff: subscriptionBackoff,
 		})
 		if err != nil {
 			log.Fatal(err)

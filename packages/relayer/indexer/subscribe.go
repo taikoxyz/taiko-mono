@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/event"
@@ -17,7 +16,7 @@ import (
 func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	sink := make(chan *contracts.BridgeMessageSent)
 
-	sub := event.ResubscribeErr(3*time.Second, func(ctx context.Context, err error) (event.Subscription, error) {
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
 			log.Errorf("svc.bridge.WatchMessageSent: %v", err)
 		}
