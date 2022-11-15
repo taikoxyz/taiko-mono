@@ -7,7 +7,7 @@ func (svc *Service) watchErrors() {
 	for {
 		select {
 		case err := <-svc.errChan:
-			log.Infof("svc.watchErrors: %v", err)
+			log.Errorf("svc.watchErrors: %v", err)
 		}
 	}
 }
