@@ -256,7 +256,7 @@ describe("LibBridgeProcess", function () {
                 blockChainId,
                 addressManager,
             } = await deployLibBridgeProcessFixture()
-            const { bridge, headerSync } = await deployBridgeFixture()
+            const { bridge } = await deployBridgeFixture()
 
             await addressManager.setAddress(
                 `${srcChainId}.bridge`,

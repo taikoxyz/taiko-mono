@@ -55,13 +55,15 @@ docker run -d \
   ethereum/client-go:latest \
   --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
-trap "docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME" EXIT INT KILL ERR
+function cleanup { 
+  docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
+  kill -9 $(lsof -ti:28545) &> /dev/null
+}
+
+trap cleanup EXIT INT KILL ERR
 
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat node --port 28545 &
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat test --network l1_test --grep "^integration"
-
-trap "kill -9 $(lsof -ti:28545)"
-trap "lsof -t -i tcp:28545 | xargs kill -9"
