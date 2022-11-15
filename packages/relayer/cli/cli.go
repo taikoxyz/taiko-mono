@@ -35,6 +35,8 @@ var (
 		"RELAYER_ECDSA_KEY",
 		"CONFIRMATIONS_BEFORE_PROCESSING",
 	}
+
+	defaultConfirmations = 15
 )
 
 func Run(mode relayer.Mode, layer relayer.Layer) {
@@ -111,7 +113,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
 	if err != nil || confirmations <= 0 {
-		return nil, nil, err
+		confirmations = defaultConfirmations
 	}
 
 	indexers := make([]*indexer.Service, 0)
