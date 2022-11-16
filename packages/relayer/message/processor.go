@@ -13,6 +13,7 @@ import (
 
 type Processor struct {
 	eventRepo     relayer.EventRepository
+	srcEthClient  *ethclient.Client
 	destEthClient *ethclient.Client
 	rpc           *rpc.Client
 	ecdsaKey      *ecdsa.PrivateKey
@@ -21,16 +22,20 @@ type Processor struct {
 	destHeaderSyncer *contracts.IHeaderSync
 
 	prover *proof.Prover
+
+	confirmations uint64
 }
 
 type NewProcessorOpts struct {
 	Prover           *proof.Prover
 	ECDSAKey         *ecdsa.PrivateKey
 	RPCClient        *rpc.Client
+	SrcETHClient     *ethclient.Client
 	DestETHClient    *ethclient.Client
 	DestBridge       *contracts.Bridge
 	EventRepo        relayer.EventRepository
 	DestHeaderSyncer *contracts.IHeaderSync
+	Confirmations    uint64
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -50,6 +55,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrNoEthClient
 	}
 
+	if opts.SrcETHClient == nil {
+		return nil, relayer.ErrNoEthClient
+	}
+
 	if opts.DestBridge == nil {
 		return nil, relayer.ErrNoBridge
 	}
@@ -62,13 +71,22 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrNoTaikoL2
 	}
 
+	if opts.Confirmations == 0 {
+		return nil, relayer.ErrInvalidConfirmations
+	}
+
 	return &Processor{
-		eventRepo:        opts.EventRepo,
-		prover:           opts.Prover,
-		ecdsaKey:         opts.ECDSAKey,
-		rpc:              opts.RPCClient,
+		eventRepo: opts.EventRepo,
+		prover:    opts.Prover,
+		ecdsaKey:  opts.ECDSAKey,
+		rpc:       opts.RPCClient,
+
+		srcEthClient: opts.SrcETHClient,
+
 		destEthClient:    opts.DestETHClient,
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
+
+		confirmations: opts.Confirmations,
 	}, nil
 }
