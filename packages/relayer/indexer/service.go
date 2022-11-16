@@ -63,6 +63,7 @@ type NewServiceOpts struct {
 	BlockBatchSize      uint64
 	NumGoroutines       int
 	SubscriptionBackoff time.Duration
+	Confirmations       uint64
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -141,6 +142,8 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		EventRepo:        opts.EventRepo,
 		DestHeaderSyncer: destHeaderSyncer,
 		RelayerAddress:   relayerAddr,
+		Confirmations:    opts.Confirmations,
+		SrcETHClient:     opts.EthClient,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

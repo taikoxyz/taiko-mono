@@ -34,11 +34,13 @@ var (
 		"MYSQL_DATABASE",
 		"MYSQL_HOST",
 		"RELAYER_ECDSA_KEY",
+		"CONFIRMATIONS_BEFORE_PROCESSING",
 	}
 
 	defaultBlockBatchSize      = 2
 	defaultNumGoroutines       = 10
 	defaultSubscriptionBackoff = 2 * time.Second
+	defaultConfirmations       = 15
 )
 
 func Run(mode relayer.Mode, layer relayer.Layer) {
@@ -132,6 +134,11 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 		subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
 	}
 
+	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
+	if err != nil || confirmations <= 0 {
+		confirmations = defaultConfirmations
+	}
+
 	indexers := make([]*indexer.Service, 0)
 
 	if layer == relayer.L1 || layer == relayer.Both {
@@ -151,6 +158,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			BlockBatchSize:      uint64(blockBatchSize),
 			NumGoroutines:       numGoroutines,
 			SubscriptionBackoff: subscriptionBackoff,
+			Confirmations:       uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -176,6 +184,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			BlockBatchSize:      uint64(blockBatchSize),
 			NumGoroutines:       numGoroutines,
 			SubscriptionBackoff: subscriptionBackoff,
+			Confirmations:       uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,6 +29,10 @@ func (p *Processor) ProcessMessage(
 	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
+	}
+
+	if err := p.waitForConfirmations(ctx, event.Raw.TxHash, event.Raw.BlockNumber); err != nil {
+		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
 	// get latest synced header since not every header is synced from L1 => L2,
@@ -151,6 +156,24 @@ func (p *Processor) getLatestNonce(ctx context.Context, auth *bind.TransactOpts)
 	}
 
 	auth.Nonce = big.NewInt(int64(p.destNonce))
+
+	return nil
+}
+
+func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
+	// TODO: make timeout a config var
+	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
+
+	defer cancelFunc()
+
+	if err := relayer.WaitConfirmations(
+		ctx,
+		p.srcEthClient,
+		p.confirmations,
+		txHash,
+	); err != nil {
+		return errors.Wrap(err, "relayer.WaitConfirmations")
+	}
 
 	return nil
 }
