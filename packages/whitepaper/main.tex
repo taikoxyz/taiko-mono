@@ -68,7 +68,7 @@
 %\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
 
 \title[TAIKO: A Type-1 Ethereum ZK-Rollup\\ \smaller
-\textbf{{1.2.1}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.2.1 (\thedate)}}}
+\textbf{{1.2.0}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.2.0 (\thedate)}}}
 
 \author{Taiko Labs (info@taiko.xyz)}
 
@@ -581,7 +581,7 @@ $t_\textnormal{rel}$ indicates \emph{relative normalized time}, and determines t
 \begin{Figure}
  \centering
  \includegraphics[width=0.9\linewidth]{fig/incentive_graph.png}
- \captionof{figure}{The graphs of $\alpha^+(t)$ (blue) and $\alpha^-(t)$ (red), which are multiplicative inverses of each other.}
+ \captionof{figure}{The graphs of $\alpha^+(t)$ (blue) and $\alpha^-(t)$ (red), which are multiplicative inverses of each other if $t^+_\textnormal{rel}(t)=t^-_\textnormal{rel}(t)$.}
 \label{fig:incentive_multiplier_graphs}
 \end{Figure}
 \subsubsection{Multipliers}
@@ -600,8 +600,8 @@ and the relative normalized time functions $t^+_\textnormal{rel}(t), t^-_\textno
 %     \frac{1}{\beta}, &\text{if a \emph{proposal}} \\
 %      \beta, &\text{if a \emph{proof}}
 % \end{dcases}
-\alpha^+(t) &= 1 + (K_\textnormal{inc} - 1)\cdot t_\textnormal{rel}^+(t) \\ 
-\alpha^-(t) &= \nicefrac{1}{1 + (K_\textnormal{inc} - 1)\cdot t_\textnormal{rel}^-(t)}.
+\alpha^+(t) &= \nicefrac{1}{1 + (K_\textnormal{inc} - 1)\cdot t_\textnormal{rel}^+(t)}\\
+\alpha^-(t) &= 1 + (K_\textnormal{inc} - 1)\cdot t_\textnormal{rel}^-(t). 
 \end{align}
 % We initialize $t_\textnormal{last} \equiv 0$ , $t_\textnormal{ave} \equiv t_\textnormal{init}$ and $f_\textnormal{avg}\equiv f_\textnormal{init}$. $\alpha$ is the maximum incentive ratio. $\mu$ is the momentum parameter for the moving average (higher $\mu$ makes the effects of individual updates smaller). $t_\textnormal{init}$ is the initial time gap average before any transactions. $f_\textnormal{init}$ is the initial multiplier for slot based prices.
 % At every new transaction at time $t$, we compute the following in sequence: 
