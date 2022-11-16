@@ -17,6 +17,8 @@ const Token: React.FC<Props> = ({ token, isSelected, onSelect }) => {
     ...(token.symbol !== "ETH" ? { token: token.address } : {}),
   });
 
+  console.log("hello world");
+
   return (
     <div
       className={`flex items-center p-2 hover:bg-slate-100 cursor-pointer ${
