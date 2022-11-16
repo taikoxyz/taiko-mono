@@ -12,7 +12,7 @@ interface Props {
 
 const Token: React.FC<Props> = ({ token, isSelected, onSelect }) => {
   const { address } = useAccount();
-  const { data, isError, isLoading } = useBalance({
+  const { data } = useBalance({
     addressOrName: address,
     ...(token.symbol !== "ETH" ? { token: token.address } : {}),
   });

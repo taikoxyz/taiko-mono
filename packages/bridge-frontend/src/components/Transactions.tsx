@@ -1,7 +1,7 @@
 import React from "react";
 
 const Transactions: React.FC<{}> = () => {
-  const [transactions, setTransactions] = React.useState<Array<any>>([]);
+  const [transactions] = React.useState<Array<any>>([]);
 
   const headingElement = <h3 className="text-3xl">Transactions</h3>;
 
