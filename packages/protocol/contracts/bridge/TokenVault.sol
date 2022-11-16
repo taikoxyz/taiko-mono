@@ -122,7 +122,7 @@ contract TokenVault is EssentialContract {
             to != address(0) && to != resolve(destChainId, "token_vault"),
             "V:to"
         );
-        require(msg.value > processingFee && msg.value - processingFee > 0, "V:msgValue");
+        require(msg.value > processingFee, "V:msgValue");
 
         IBridge.Message memory message;
         message.destChainId = destChainId;
