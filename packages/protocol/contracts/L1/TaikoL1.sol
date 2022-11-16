@@ -30,6 +30,16 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     LibData.State public state;
     uint256[45] private __gap;
 
+    modifier ifCanProposeBlock() {
+        require(canProposeBlock(msg.sender), "L1:denied");
+        _;
+    }
+
+    modifier ifCanProveBlock() {
+        require(canProveBlock(msg.sender), "L1:denied");
+        _;
+    }
+
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash
@@ -46,7 +56,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(bytes32 commitHash) external {
+    function commitBlock(bytes32 commitHash) external ifCanProposeBlock {
         V1Proposing.commitBlock(state, commitHash);
     }
 
@@ -69,7 +79,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
      */
-    function proposeBlock(bytes[] calldata inputs) external nonReentrant {
+    function proposeBlock(
+        bytes[] calldata inputs
+    ) external ifCanProposeBlock nonReentrant {
         V1Proposing.proposeBlock(state, inputs);
         V1Finalizing.finalizeBlocks(
             state,
@@ -95,7 +107,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function proveBlock(
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external ifCanProveBlock nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Finalizing.finalizeBlocks(
             state,
@@ -121,7 +133,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function proveBlockInvalid(
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external ifCanProveBlock nonReentrant {
         V1Proving.proveBlockInvalid(
             state,
             AddressResolver(this),
@@ -183,6 +195,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint8 k
     ) public view returns (uint8 v, uint256 r, uint256 s) {
         return LibAnchorSignature.signTransaction(hash, k);
+    }
+
+    function canProposeBlock(address) public pure returns (bool) {
+        return true;
+    }
+
+    function canProveBlock(address) public pure returns (bool) {
+        return true;
     }
 
     function getConstants()
