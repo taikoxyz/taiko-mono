@@ -9,7 +9,7 @@ const katex = require("rehype-katex");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Taiko",
-  tagline: "A decentralized Ethereum-equivalent ZK-rollup",
+  tagline: "A decentralized Ethereum-equivalent ZK-Rollup",
   url: "https://taiko.xyz",
   baseUrl: "/",
   onBrokenLinks: "throw",
