@@ -13,7 +13,11 @@ then
   exit 1
 fi
 
-rm -rf build
-mkdir -p build
-pdflatex -output-directory=build -interaction=errorstopmode -halt-on-error main.tex
-mv build/main.pdf build/taiko-whitepaper.pdf
+rm -rf temp.*
+rm -rf main.pdf
+cp main.tex temp.tex
+pdflatex  -interaction=errorstopmode -halt-on-error temp.tex
+bibtex temp || true
+pdflatex  -interaction=errorstopmode -halt-on-error temp.tex
+mv temp.pdf main.pdf
+rm -rf temp.*

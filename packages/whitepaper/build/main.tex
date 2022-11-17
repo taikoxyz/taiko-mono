@@ -10,7 +10,6 @@
 \usepackage[a4paper,width=170mm,top=18mm,bottom=22mm,includeheadfoot]{geometry}
 \usepackage{booktabs}
 \usepackage{nicefrac}
-\usepackage{datetime2}
 \usepackage{array}
 \usepackage{verbatim}
 \usepackage{caption}
@@ -64,12 +63,12 @@
 \newcommand*\eg{e.g.\@\xspace}
 \newcommand*\Eg{e.g.\@\xspace}
 \newcommand*\ie{i.e.\@\xspace}
-\date{\today}
+\newcommand{\thedate}{October 6, 2022}
 
 %\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
 
 \title[TAIKO: A Type-1 Ethereum ZK-Rollup\\ \smaller
-\textbf{{1.2.1}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.2.1 (\today)}}}
+\textbf{{1.2.0}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.2.0 (\thedate)}}}
 
 \author{Taiko Labs (info@taiko.xyz)}
 
@@ -411,8 +410,7 @@ Taiko enables third parties to develop cross-chain bridges. To facilitate this, 
 
 On Ethereum, the \underline{TaikoL1} contract persists the height and hash of the L2 blocks. On Taiko, the anchor function in the \emph{\underline{TaikoL2}} contract is used to persist the height and block hash of the previous Ethereum block (from when the L2 block was proposed), as well as the previous L2 block hash (which allows L2 smart contracts to easily fetch the full history of L2 block hashes).
 
-\subsection{Ether on L2}
-\label{eth-bridge}
+\subsection{Ether on L2}\label{eth-bridge}
 The Taiko Ether bridge will allow users to bridge Ether from and to Taiko. $2^{128}$ Ether is minted to a special vault contract called the \underline{TokenVault} in the genesis block. When a user deposits Ether to L2, the same amount of Ether will be transferred from the \underline{TokenVault} to the user on L2. When a user withdraws some Ether from L2, Ether on L2 will be transferred back to \underline{TokenVault} (no L2 Ether will ever be burnt).
 
 A small amount of Ether will also be minted to a few EOAs to bootstrap the L2 network, otherwise nobody would be able to transact. To make sure the Ether bridge is solvent, a corresponding amount of Ether will be deposited to the Ether bridge on L1.
