@@ -60,7 +60,7 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm deploy:hardhat
 
-      - name: relayer - Upload coverage to Codecov
+      - name: protocol - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/protocol/coverage
