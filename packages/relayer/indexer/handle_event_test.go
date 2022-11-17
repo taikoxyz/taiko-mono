@@ -2,11 +2,12 @@ package indexer
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikochain/taiko-mono/packages/relayer"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 var (
@@ -68,6 +69,49 @@ func Test_canProcessMessage(t *testing.T) {
 			)
 
 			assert.Equal(t, tt.want, canProcess)
+		})
+	}
+}
+
+func Test_eventStatusFromSignal(t *testing.T) {
+	tests := []struct {
+		name       string
+		ctx        context.Context
+		gasLimit   *big.Int
+		signal     [32]byte
+		wantErr    error
+		wantStatus relayer.EventStatus
+	}{
+		{
+			"eventStatusNewOnlyOwner, nilGasLimit",
+			context.Background(),
+			nil,
+			[32]byte{},
+			nil,
+			relayer.EventStatusNewOnlyOwner,
+		},
+		{
+			"eventStatusNewOnlyOwner, 0GasLimit",
+			context.Background(),
+			common.Big0,
+			[32]byte{},
+			nil,
+			relayer.EventStatusNewOnlyOwner,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newTestService()
+
+			status, err := svc.eventStatusFromSignal(tt.ctx, tt.gasLimit, tt.signal)
+			if tt.wantErr != nil {
+				assert.EqualError(t, tt.wantErr, err.Error())
+			} else {
+				assert.Nil(t, err)
+			}
+
+			assert.Equal(t, tt.wantStatus, status)
 		})
 	}
 }
