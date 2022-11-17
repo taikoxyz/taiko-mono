@@ -4,7 +4,9 @@ import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
 import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
+// import { getSlot, MessageStatus } from "../../tasks/utils"
 import RLP from "rlp"
+// const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 async function deployBridge(
     signer: Signer,
@@ -432,6 +434,8 @@ describe("integration:Bridge", function () {
             "0x4D9E82AC620246f6782EAaBaC3E3c86895f3f0F8"
         )
 
+        const l2NonOwner = await l2Provider.getSigner()
+
         const l2Network = await l2Provider.getNetwork()
         const enabledDestChainId = l2Network.chainId
 
@@ -486,6 +490,7 @@ describe("integration:Bridge", function () {
             owner,
             l2Signer,
             nonOwner,
+            l2NonOwner,
             l1Bridge,
             l2Bridge,
             addressManager,
@@ -498,6 +503,111 @@ describe("integration:Bridge", function () {
     }
 
     describe("processMessage()", function () {
+        it.skip("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+            const {
+                owner,
+                l2NonOwner,
+                srcChainId,
+                enabledDestChainId,
+                l2Bridge,
+            } = await deployBridgeFixture()
+
+            const m: Message = {
+                id: 1,
+                sender: await l2NonOwner.getAddress(),
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
+                owner: owner.address,
+                to: owner.address,
+                refundAddress: owner.address,
+                depositValue: 1000,
+                callValue: 1000,
+                processingFee: 1000,
+                gasLimit: 0,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            await expect(
+                l2Bridge.processMessage(m, ethers.constants.HashZero)
+            ).to.be.revertedWith("B:forbidden")
+        })
+
+        it.skip("should throw if message.destChainId is not equal to current block.chainId", async function () {
+            const { owner, srcChainId, enabledDestChainId, l2Bridge } =
+                await deployBridgeFixture()
+
+            const m: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId + 1,
+                owner: owner.address,
+                to: owner.address,
+                refundAddress: owner.address,
+                depositValue: 1000,
+                callValue: 1000,
+                processingFee: 1000,
+                gasLimit: 10000,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            await expect(
+                l2Bridge.processMessage(m, ethers.constants.HashZero)
+            ).to.be.revertedWith("B:destChainId")
+        })
+
+        it.skip("should throw if messageStatus of message is != NEW", async function () {
+            const {
+                owner,
+                // l1Bridge,
+                srcChainId,
+                enabledDestChainId,
+                l2Bridge,
+            } = await deployBridgeFixture()
+
+            const m: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
+                owner: owner.address,
+                to: owner.address,
+                refundAddress: owner.address,
+                depositValue: 1000,
+                callValue: 1000,
+                processingFee: 1000,
+                gasLimit: 10000,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            // const expectedAmount =
+            //     m.depositValue + m.callValue + m.processingFee
+            // const tx = await l1Bridge.sendMessage(m, {
+            //     value: expectedAmount,
+            // })
+
+            // const receipt = await tx.wait()
+
+            // const [messageSentEvent] = receipt.events as any as Event[]
+
+            // const { signal } = (messageSentEvent as any).args
+
+            await expect(
+                l2Bridge.processMessage(m, ethers.constants.HashZero)
+            ).to.be.revertedWith("B:status")
+        })
+
+        it("should throw if message has not been received", async function () {
+            deployBridgeFixture()
+        })
+
+        it("even if etherVault does not resolve, should reach somewhere? unsure", async function () {
+            deployBridgeFixture()
+        })
+
         it("processes a message when the signal has been verified from the sending chain", async () => {
             const {
                 owner,
