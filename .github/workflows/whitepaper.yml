@@ -1,12 +1,12 @@
 name: Whitepaper
-on:
-  push:
-    branches: [fix_whitepaper_build]
-    paths:
-      - "packages/whitepaper/**"
-  pull_request:
-    paths:
-      - "packages/whitepaper/**"
+# on:
+#   push:
+#     branches: [fix_whitepaper_build]
+#     paths:
+#       - "packages/whitepaper/**"
+#   pull_request:
+#     paths:
+#       - "packages/whitepaper/**"
 jobs:
   build_latex:
     runs-on: ubuntu-latest
