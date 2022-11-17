@@ -73,8 +73,16 @@ func Test_WaitReceipt(t *testing.T) {
 			succeedTxHash,
 			nil,
 			&types.Receipt{
-				Status: types.ReceiptStatusSuccessful,
+				Status:      types.ReceiptStatusSuccessful,
+				BlockNumber: new(big.Int).Sub(big.NewInt(int64(blockNum)), big.NewInt(1)),
 			},
+		},
+		{
+			"receiptStatusUnsuccessful",
+			context.Background(),
+			failTxHash,
+			fmt.Errorf("transaction reverted, hash: %s", failTxHash),
+			nil,
 		},
 		{
 			"ticker timeout",
@@ -115,13 +123,6 @@ func Test_WaitConfirmations(t *testing.T) {
 			1,
 			succeedTxHash,
 			nil,
-		},
-		{
-			"receiptStatusUnsuccessful",
-			context.Background(),
-			1,
-			failTxHash,
-			fmt.Errorf("transaction reverted, hash: %s", failTxHash),
 		},
 		{
 			"ticker timeout",
