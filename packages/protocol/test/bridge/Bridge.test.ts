@@ -503,7 +503,7 @@ describe("integration:Bridge", function () {
     }
 
     describe("processMessage()", function () {
-        it.skip("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+        it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const {
                 owner,
                 l2NonOwner,
@@ -533,7 +533,7 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:forbidden")
         })
 
-        it.skip("should throw if message.destChainId is not equal to current block.chainId", async function () {
+        it("should throw if message.destChainId is not equal to current block.chainId", async function () {
             const { owner, srcChainId, enabledDestChainId, l2Bridge } =
                 await deployBridgeFixture()
 
@@ -558,7 +558,7 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:destChainId")
         })
 
-        it.only("should throw if messageStatus of message is != NEW", async function () {
+        it("should throw if messageStatus of message is != NEW", async function () {
             const {
                 owner,
                 l1Bridge,
