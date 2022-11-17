@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
@@ -42,8 +41,6 @@ func (p *Prover) EncodedSignalProof(
 	if err != nil {
 		return nil, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
-
-	log.Infof("signalProof: %s", hexutil.Encode(encodedSignalProof))
 
 	return encodedSignalProof, nil
 }

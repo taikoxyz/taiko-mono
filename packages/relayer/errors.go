@@ -15,4 +15,10 @@ var (
 	ErrNoRPCClient = errors.Validation.NewWithKeyAndDetail("ERR_NO_RPC_CLIENT", "RPCClient is required")
 	ErrNoBridge    = errors.Validation.NewWithKeyAndDetail("ERR_NO_BRIDGE", "Bridge is required")
 	ErrNoTaikoL2   = errors.Validation.NewWithKeyAndDetail("ERR_NO_TAIKO_L2", "TaikoL2 is required")
+
+	ErrInvalidConfirmations = errors.Validation.NewWithKeyAndDetail(
+		"ERR_INVALID_CONFIRMATIONS",
+		"Confirmations amount is invalid, must be numerical and > 0",
+	)
+	ErrInvalidMode = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
 )
