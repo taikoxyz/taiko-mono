@@ -1,7 +1,7 @@
 name: Whitepaper
 # on:
 #   push:
-#     branches: [main]
+#     branches: [fix_whitepaper_build]
 #     paths:
 #       - "packages/whitepaper/**"
 #   pull_request:
