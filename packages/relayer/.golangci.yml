@@ -19,16 +19,17 @@ linters:
     - gofmt
     - golint
     - gosec
+    - gosimple
     - lll
     - whitespace
     - wsl
 
 linters-settings:
   funlen:
-    lines: 100
-    statements: 45
+    lines: 116
+    statements: 48
   gocognit:
-    min-complexity: 32
+    min-complexity: 35
 
 issues:
   exclude-rules:

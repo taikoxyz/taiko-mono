@@ -23,6 +23,7 @@ func newTestService() *Service {
 		processingBlock: &relayer.Block{},
 	}
 }
+
 func Test_NewService(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -40,6 +41,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:          dummyEcdsaKey,
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			nil,
 		},
@@ -53,6 +55,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:          dummyEcdsaKey,
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoRPCClient,
 		},
@@ -66,6 +69,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:          dummyEcdsaKey,
 				RPCClient:         &rpc.Client{},
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoBridgeAddress,
 		},
@@ -79,6 +83,7 @@ func Test_NewService(t *testing.T) {
 				ECDSAKey:      dummyEcdsaKey,
 				RPCClient:     &rpc.Client{},
 				BridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations: 1,
 			},
 			relayer.ErrNoBridgeAddress,
 		},
@@ -92,6 +97,7 @@ func Test_NewService(t *testing.T) {
 				DestEthClient:     &ethclient.Client{},
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoECDSAKey,
 		},
@@ -105,6 +111,7 @@ func Test_NewService(t *testing.T) {
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				RPCClient:         &rpc.Client{},
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoEventRepository,
 		},
@@ -118,6 +125,7 @@ func Test_NewService(t *testing.T) {
 				DestEthClient:     &ethclient.Client{},
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoBlockRepository,
 		},
@@ -131,6 +139,7 @@ func Test_NewService(t *testing.T) {
 				DestEthClient:     &ethclient.Client{},
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoEthClient,
 		},
@@ -144,6 +153,7 @@ func Test_NewService(t *testing.T) {
 				RPCClient:         &rpc.Client{},
 				BridgeAddress:     common.HexToAddress(dummyAddress),
 				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
 			},
 			relayer.ErrNoEthClient,
 		},
