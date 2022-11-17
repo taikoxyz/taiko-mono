@@ -1,4 +1,5 @@
-ignore:
-  - "contracts"
-  - "mock"
-  - "cmd"
+coverage:
+  ignore:
+    - "contracts"
+    - "mock"
+    - "cmd"
