@@ -2,8 +2,7 @@
 .env
 .test.env
 main
-coverage/profile.cov
-coverage/gitlab.xml
+coverage.txt
 
 # Local .terraform directories
 .terraform
