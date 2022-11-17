@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -56,19 +57,6 @@ func (p *Processor) ProcessMessage(
 
 	log.Infof("processing message for signal: %v, key: %v", common.Hash(event.Signal).Hex(), key)
 
-	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
-	if err != nil {
-		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-
-	auth.Context = ctx
-
-	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 2000000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
-
-	log.Infof("getting proof")
-
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -84,18 +72,15 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
-	log.Infof("isMessageReceived: %v", received)
-
 	// message will fail when we try to process is
 	// TODO: update status in db
 	if !received {
 		return errors.New("message not received")
 	}
 
-	// process the message on the destination bridge.
-	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
+	tx, err := p.sendProcessMessageCall(ctx, event, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.ProcessMessage")
+		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
@@ -118,6 +103,59 @@ func (p *Processor) ProcessMessage(
 	if err := p.eventRepo.UpdateStatus(e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
 	}
+
+	return nil
+}
+
+func (p *Processor) sendProcessMessageCall(
+	ctx context.Context,
+	event *contracts.BridgeMessageSent,
+	proof []byte,
+) (*types.Transaction, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
+	if err != nil {
+		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
+	auth.Context = ctx
+
+	// uncomment to skip `eth_estimateGas`
+	auth.GasLimit = 2000000
+	auth.GasPrice = new(big.Int).SetUint64(500000000)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	err = p.getLatestNonce(ctx, auth)
+	if err != nil {
+		return nil, errors.New("p.getLatestNonce")
+	}
+	// process the message on the destination bridge.
+	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
+	}
+
+	p.setLatestNonce(tx.Nonce())
+
+	return tx, nil
+}
+
+func (p *Processor) setLatestNonce(nonce uint64) {
+	p.destNonce = nonce
+}
+
+func (p *Processor) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
+	pendingNonce, err := p.destEthClient.PendingNonceAt(ctx, p.relayerAddr)
+	if err != nil {
+		return err
+	}
+
+	if pendingNonce > p.destNonce {
+		p.setLatestNonce(pendingNonce)
+	}
+
+	auth.Nonce = big.NewInt(int64(p.destNonce))
 
 	return nil
 }

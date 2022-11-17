@@ -2,7 +2,9 @@ package message
 
 import (
 	"crypto/ecdsa"
+	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -23,6 +25,10 @@ type Processor struct {
 
 	prover *proof.Prover
 
+	mu *sync.Mutex
+
+	destNonce     uint64
+	relayerAddr   common.Address
 	confirmations uint64
 }
 
@@ -35,6 +41,7 @@ type NewProcessorOpts struct {
 	DestBridge       *contracts.Bridge
 	EventRepo        relayer.EventRepository
 	DestHeaderSyncer *contracts.IHeaderSync
+	RelayerAddress   common.Address
 	Confirmations    uint64
 }
 
@@ -87,6 +94,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
 
+		mu: &sync.Mutex{},
+
+		destNonce:     0,
+		relayerAddr:   opts.RelayerAddress,
 		confirmations: opts.Confirmations,
 	}, nil
 }

@@ -23,6 +23,7 @@ func newTestService() *Service {
 		processingBlock: &relayer.Block{},
 	}
 }
+
 func Test_NewService(t *testing.T) {
 	tests := []struct {
 		name    string
