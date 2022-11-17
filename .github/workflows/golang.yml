@@ -51,3 +51,4 @@ jobs:
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
+          ignore: ./packages/relayer/contracts
