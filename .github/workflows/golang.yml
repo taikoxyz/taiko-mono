@@ -44,7 +44,7 @@ jobs:
 
       - name: relayer - Unit Tests
         working-directory: ./packages/relayer
-        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock` -coverprofile=coverage.txt -covermode=atomic
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
