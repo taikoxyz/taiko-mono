@@ -42,11 +42,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     /**
      * Write a _commit hash_ so a few blocks later a L2 block can be proposed
-     * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)` equals
-     * to this commit hash.
+     * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)`
+     * equals to this commit hash.
      *
      * @param commitHash Calculated with:
-     *                  `calculateCommitHash(beneficiary, txListHash)`.
+     *        `calculateCommitHash(beneficiary, txListHash)`.
      */
     function commitBlock(bytes32 commitHash) external {
         V1Proposing.commitBlock(state, commitHash);
@@ -58,8 +58,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param inputs A list of data input:
      *        - inputs[0] is abi-encoded BlockMetadata that the actual L2 block
      *          header must satisfy.
-     *          Note the following fields in the provided meta object must
-     *          be zeros -- their actual values will be provisioned by Ethereum.
+     *          Note the following fields in the provided meta object must be
+     *          zeros -- their actual values will be provisioned by Ethereum.
      *            - id
      *            - l1Height
      *            - l1Hash
@@ -82,14 +82,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     /**
      * Auction for the right to prove a block exclusively with a deposit.
-     *         Auctions must happen within 10 minutes after a block is proposed, each
-     *         new winning auction must deposit 50% more than the previous winner.
+     * Auctions must happen within 10 minutes after a block is proposed, each
+     * new winning auction must deposit 50% more than the previous winner.
      *
-     * @param blockIndex The index of the block to aucton for. This is also used to select
-     *        the right implementation version.
+     * @param blockIndex The index of the block to aucton for. This is also
+     *        used to select the right implementation version.
      * @param inputs A list of data input:
-     *        - inputs[0] is an abi-encoded object with various information regarding
-     *          the block to be auctoned for.
+     *        - inputs[0] is an abi-encoded object with various information
+     *          regarding the block to be auctoned for.
      * @param deposit The deposit to make.
      */
     function auctionBlock(
@@ -116,8 +116,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *        - inputs[0] is an abi-encoded object with various information
      *          regarding  the block to be proven and the actual proofs.
      *        - inputs[1] is the actual anchor transaction in this L2 block.
-     *          Note that the anchor transaction is always the first transaction
-     *          in the block.
+     *          Note that the anchor transaction is always the first
+     *          transaction in the block.
      *        - inputs[2] is the receipt of the anchor transaction.
      */
     function proveBlock(
@@ -164,8 +164,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
     }
 
-    /// @notice Finalize up to N blocks.
-    /// @param maxBlocks Max number of blocks to finalize.
+    /**
+     * Finalize up to N blocks.
+     * @param maxBlocks Max number of blocks to finalize.
+     */
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Finalizing.finalizeBlocks(state, AddressResolver(this), maxBlocks);
