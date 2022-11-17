@@ -600,8 +600,103 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:status")
         })
 
-        it("should throw if message has not been received", async function () {
-            deployBridgeFixture()
+        it.skip("should throw if message has not been received", async function () {
+            const {
+                owner,
+                l1Bridge,
+                srcChainId,
+                enabledDestChainId,
+                l2Bridge,
+                headerSync,
+            } = await deployBridgeFixture()
+
+            const m: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
+                owner: owner.address,
+                to: owner.address,
+                refundAddress: owner.address,
+                depositValue: 1000,
+                callValue: 1000,
+                processingFee: 1000,
+                gasLimit: 10000,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            const block: Block = await ethers.provider.send(
+                "eth_getBlockByNumber",
+                ["latest", false]
+            )
+
+            const libData = await (
+                await ethers.getContractFactory("TestLibBridgeData")
+            ).deploy()
+
+            const signal = await libData.hashMessage(m)
+
+            const sender = l1Bridge.address
+
+            const key = ethers.utils.keccak256(
+                ethers.utils.solidityPack(
+                    ["address", "bytes32"],
+                    [sender, signal]
+                )
+            )
+
+            await headerSync.setSyncedHeader(ethers.constants.HashZero)
+
+            const logsBloom = block.logsBloom.toString().substring(2)
+
+            const blockHeader: BlockHeader = {
+                parentHash: block.parentHash,
+                ommersHash: block.sha3Uncles,
+                beneficiary: block.miner,
+                stateRoot: block.stateRoot,
+                transactionsRoot: block.transactionsRoot,
+                receiptsRoot: block.receiptsRoot,
+                logsBloom: logsBloom
+                    .match(/.{1,64}/g)!
+                    .map((s: string) => "0x" + s),
+                difficulty: block.difficulty,
+                height: block.number,
+                gasLimit: block.gasLimit,
+                gasUsed: block.gasUsed,
+                timestamp: block.timestamp,
+                extraData: block.extraData,
+                mixHash: block.mixHash,
+                nonce: block.nonce,
+                baseFeePerGas: block.baseFeePerGas
+                    ? parseInt(block.baseFeePerGas)
+                    : 0,
+            }
+
+            const proof: EthGetProofResponse = await ethers.provider.send(
+                "eth_getProof",
+                [l1Bridge.address, [key], block.hash]
+            )
+
+            // RLP encode the proof together for LibTrieProof to decode
+            const encodedProof = ethers.utils.defaultAbiCoder.encode(
+                ["bytes", "bytes"],
+                [
+                    RLP.encode(proof.accountProof),
+                    RLP.encode(proof.storageProof[0].proof),
+                ]
+            )
+            // encode the SignalProof struct from LibBridgeSignal
+            const signalProof = ethers.utils.defaultAbiCoder.encode(
+                [
+                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
+                ],
+                [{ header: blockHeader, proof: encodedProof }]
+            )
+
+            await expect(
+                l2Bridge.processMessage(m, signalProof)
+            ).to.be.revertedWith("B:notReceived")
         })
 
         it("even if etherVault does not resolve, should reach somewhere? unsure", async function () {
