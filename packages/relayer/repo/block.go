@@ -8,10 +8,10 @@ import (
 )
 
 type BlockRepository struct {
-	db *gorm.DB
+	db relayer.DB
 }
 
-func NewBlockRepository(db *gorm.DB) (*BlockRepository, error) {
+func NewBlockRepository(db relayer.DB) (*BlockRepository, error) {
 	if db == nil {
 		return nil, relayer.ErrNoDB
 	}
@@ -22,7 +22,7 @@ func NewBlockRepository(db *gorm.DB) (*BlockRepository, error) {
 }
 
 func (r *BlockRepository) startQuery() *gorm.DB {
-	return r.db.Table("processed_blocks")
+	return r.db.GormDB().Table("processed_blocks")
 }
 
 func (r *BlockRepository) Save(opts relayer.SaveBlockOpts) error {

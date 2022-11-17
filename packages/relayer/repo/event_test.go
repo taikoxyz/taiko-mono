@@ -7,20 +7,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/db"
 	"gopkg.in/go-playground/assert.v1"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 func Test_NewEventRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      *gorm.DB
+		db      relayer.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&gorm.DB{},
+			&db.DB{},
 			nil,
 		},
 		{
