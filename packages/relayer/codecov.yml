@@ -1,0 +1,4 @@
+ignore:
+  - "contracts"
+  - "mock"
+  - "cmd"
