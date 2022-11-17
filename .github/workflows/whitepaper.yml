@@ -25,11 +25,12 @@ jobs:
         uses: xu-cheng/latex-action@v2
         with:
           working_directory: ./packages/whitepaper
+          pre_compile: pdflatex  -interaction=errorstopmode -halt-on-error main.tex && (bibtex main || true)
           root_file: main.tex
 
       - name: Rename
         working-directory: ./packages/whitepaper
-        run:  mkdir -p build && mv main.pdf build/taiko-whitepaper.pdf
+        run:  rm -rf build/ && mkdir build && mv main.pdf build/taiko-whitepaper.pdf
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
