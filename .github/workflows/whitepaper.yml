@@ -29,7 +29,7 @@ jobs:
 
       - name: Rename
         working-directory: ./packages/whitepaper
-        run:  mkdir -p build && mv main.pdf build/taiko-whitepaper.pdf
+        run:  rm -rf build/ && mkdir build && mv main.pdf build/taiko-whitepaper.pdf
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
