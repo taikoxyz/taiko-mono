@@ -25,6 +25,7 @@ jobs:
         uses: xu-cheng/latex-action@v2
         with:
           working_directory: ./packages/whitepaper
+          pre_compile: pdflatex  -interaction=errorstopmode -halt-on-error main.tex && (bibtex main || true)
           root_file: main.tex
 
       - name: Rename
