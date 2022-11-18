@@ -123,7 +123,7 @@ contract TokenVault is EssentialContract {
             to != address(0) && to != resolve(destChainId, "token_vault"),
             "V:to"
         );
-        require(msg.value > 0, "V:msgValue");
+        require(msg.value > processingFee, "V:msgValue");
 
         IBridge.Message memory message;
         message.destChainId = destChainId;
@@ -132,7 +132,7 @@ contract TokenVault is EssentialContract {
 
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
-        message.depositValue = msg.value;
+        message.depositValue = msg.value - processingFee;
         message.refundAddress = refundAddress;
         message.memo = memo;
 
@@ -142,7 +142,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        emit EtherSent(to, destChainId, msg.value, signal);
+        emit EtherSent(to, destChainId, message.depositValue, signal);
     }
 
     /**

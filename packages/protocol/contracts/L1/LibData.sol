@@ -45,6 +45,7 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
+        mapping(address => bool) provers; // Whitelisted provers
         // Never changed
         uint64 genesisHeight; // never change
         uint64 genesisTimestamp; // never change

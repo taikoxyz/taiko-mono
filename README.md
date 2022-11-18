@@ -1,6 +1,9 @@
 <!-- BADGES -->
 
 [![Solidity](https://github.com/taikochain/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikochain/taiko-mono/actions/workflows/solidity.yml)
+[![Protocol](https://codecov.io/gh/taikochain/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikochain/taiko-mono)
+
+[![Golang](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml) [![Relayer](https://codecov.io/gh/taikochain/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikochain/taiko-mono)
 
 <!-- PROJECT LOGO -->
 <br />
@@ -21,8 +24,13 @@
 
 - [branding](./packages/branding/): branding materials
 - [protocol](./packages/protocol/): L1 and L2 smart contracts
+- [relayer](./packages/relayer/): bridge relayer
 - [website](./packages/website/): main documentation website
 - [whitepaper](./packages/whitepaper): Latex source files for Taiko's whitepaper. A PDF will be published automatically to: https://taikochain.github.io/taiko-mono/taiko-whitepaper.pdf (linked from https://taiko.xyz).
+
+## Contributing
+
+Refer to the [Contribution guide](./CONTRIBUTING.md) to contribute.
 
 ## Github Actions
 
