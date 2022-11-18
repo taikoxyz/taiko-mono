@@ -16,13 +16,18 @@ import (
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
 var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 
-func newTestService() *Service {
+func newTestService() (*Service, relayer.Bridge) {
+	b := &mock.Bridge{}
+
 	return &Service{
-		blockRepo: &mock.BlockRepository{},
-		ethClient: &mock.EthClient{},
+		blockRepo:     &mock.BlockRepository{},
+		eventRepo:     &mock.EventRepository{},
+		bridge:        b,
+		ethClient:     &mock.EthClient{},
+		numGoroutines: 10,
 
 		processingBlock: &relayer.Block{},
-	}
+	}, b
 }
 
 func Test_NewService(t *testing.T) {

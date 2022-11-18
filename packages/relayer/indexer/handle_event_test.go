@@ -102,7 +102,7 @@ func Test_eventStatusFromSignal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newTestService()
+			svc, _ := newTestService()
 
 			status, err := svc.eventStatusFromSignal(tt.ctx, tt.gasLimit, tt.signal)
 			if tt.wantErr != nil {

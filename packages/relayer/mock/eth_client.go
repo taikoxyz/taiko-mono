@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	MockChainID = big.NewInt(167001)
+	MockChainID       = big.NewInt(167001)
+	LatestBlockNumber = big.NewInt(10)
 )
 
 type EthClient struct {
@@ -19,6 +20,10 @@ func (c *EthClient) ChainID(ctx context.Context) (*big.Int, error) {
 }
 
 func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	if number == nil {
+		number = LatestBlockNumber
+	}
+
 	return &types.Header{
 		Number: number,
 	}, nil

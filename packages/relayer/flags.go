@@ -16,3 +16,12 @@ var (
 	Both   Layer = "both"
 	Layers       = []Layer{L1, L2, Both}
 )
+
+type WatchMode string
+
+var (
+	FilterWatchMode             WatchMode = "filter"
+	SubscribeWatchMode          WatchMode = "subscribe"
+	FilterAndSubscribeWatchMode WatchMode = "filter-and-subscribe"
+	WatchModes                            = []WatchMode{FilterWatchMode, SubscribeWatchMode}
+)

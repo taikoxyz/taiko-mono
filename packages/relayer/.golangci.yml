@@ -29,7 +29,7 @@ linters-settings:
     lines: 116
     statements: 48
   gocognit:
-    min-complexity: 35
+    min-complexity: 37
 
 issues:
   exclude-rules:

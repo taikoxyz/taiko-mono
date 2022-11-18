@@ -20,7 +20,7 @@ type Processor struct {
 	rpc           *rpc.Client
 	ecdsaKey      *ecdsa.PrivateKey
 
-	destBridge       *contracts.Bridge
+	destBridge       relayer.Bridge
 	destHeaderSyncer *contracts.IHeaderSync
 
 	prover *proof.Prover
@@ -38,7 +38,7 @@ type NewProcessorOpts struct {
 	RPCClient        *rpc.Client
 	SrcETHClient     *ethclient.Client
 	DestETHClient    *ethclient.Client
-	DestBridge       *contracts.Bridge
+	DestBridge       relayer.Bridge
 	EventRepo        relayer.EventRepository
 	DestHeaderSyncer *contracts.IHeaderSync
 	RelayerAddress   common.Address
