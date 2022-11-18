@@ -197,13 +197,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
-    function canProposeBlock(address) public pure returns (bool) {
-        // return TAIKO_PROPOSE_PERMISSIONLESS ||
-    }
+    function canProposeBlock(address) public pure returns (bool) {}
 
-    function canProveBlock(address) public pure returns (bool) {
-        return LibConstants.TAIKO_PERMISSIONLESS;
-    }
+    function canProveBlock(address) public pure returns (bool) {}
 
     function getConstants()
         public

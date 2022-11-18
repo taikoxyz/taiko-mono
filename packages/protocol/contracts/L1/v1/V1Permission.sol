@@ -17,16 +17,16 @@ library V1Permission {
         LibData.State storage s,
         address addr
     ) public view returns (bool) {
-        return
-            LibConstants.TAIKO_PROPOSE_PERMISSIONLESS ||
-            permittedProposers[addr];
+        // return
+        // LibConstants.TAIKO_PROPOSE_PERMISSIONLESS ||
+        // s.permittedProposers[addr];
     }
 
     function canProveBlock(
         LibData.State storage s,
         address addr
     ) public pure returns (bool) {
-        return
-            LibConstants.TAIKO_PROVER_PERMISSIONLESS || permittedProvers[addr];
+        // return
+        // LibConstants.TAIKO_PROVER_PERMISSIONLESS || s.permittedProvers[addr];
     }
 }
