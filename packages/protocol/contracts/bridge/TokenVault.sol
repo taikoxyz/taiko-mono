@@ -141,7 +141,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        emit EtherSent(to, destChainId, msg.value, signal);
+        emit EtherSent(to, destChainId, message.depositValue, signal);
     }
 
     /**
