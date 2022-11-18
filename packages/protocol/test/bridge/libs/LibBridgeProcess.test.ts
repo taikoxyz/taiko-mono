@@ -4,7 +4,6 @@ import { Message } from "../../utils/message"
 import { AddressManager, Bridge } from "../../../typechain"
 import { getSlot } from "../../../tasks/utils"
 const helpers = require("@nomicfoundation/hardhat-network-helpers")
-// ethers.provider.getBalance(address)
 
 describe("LibBridgeProcess", function () {
     async function deployLibBridgeProcessFixture() {
