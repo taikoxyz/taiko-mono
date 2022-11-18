@@ -5,11 +5,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/message"
 	"github.com/taikochain/taiko-mono/packages/relayer/mock"
+	"github.com/taikochain/taiko-mono/packages/relayer/proof"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 )
 
@@ -19,14 +22,33 @@ var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 func newTestService() (*Service, relayer.Bridge) {
 	b := &mock.Bridge{}
 
+	privateKey, _ := crypto.HexToECDSA(dummyEcdsaKey)
+
+	prover, _ := proof.New(
+		&mock.Blocker{},
+	)
+
+	processor, _ := message.NewProcessor(message.NewProcessorOpts{
+		EventRepo:        &mock.EventRepository{},
+		DestBridge:       &mock.Bridge{},
+		SrcETHClient:     &mock.EthClient{},
+		DestETHClient:    &mock.EthClient{},
+		ECDSAKey:         privateKey,
+		DestHeaderSyncer: &mock.HeaderSyncer{},
+		Prover:           prover,
+		RPCClient:        &mock.Caller{},
+	})
+
 	return &Service{
 		blockRepo:     &mock.BlockRepository{},
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
+		destBridge:    b,
 		ethClient:     &mock.EthClient{},
 		numGoroutines: 10,
 
 		processingBlock: &relayer.Block{},
+		processor:       processor,
 	}, b
 }
 

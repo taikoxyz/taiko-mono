@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikochain/taiko-mono/packages/relayer"
@@ -16,6 +17,8 @@ var (
 	SuccessSignal = [32]byte{0x1}
 	FailSignal    = [32]byte{0x2}
 )
+
+var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 
 type Bridge struct {
 	MessagesSent int
@@ -81,7 +84,14 @@ func (b *Bridge) ProcessMessage(
 	message contracts.IBridgeMessage,
 	proof []byte,
 ) (*types.Transaction, error) {
-	return &types.Transaction{}, nil
+	return types.NewTransaction(
+		PendingNonce,
+		common.HexToAddress(dummyAddress),
+		big.NewInt(1),
+		100,
+		big.NewInt(10),
+		nil,
+	), nil
 }
 
 func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, signal [32]byte, srcChainId *big.Int, proof []byte) (bool, error) { // nolint
