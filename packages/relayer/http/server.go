@@ -6,33 +6,22 @@ import (
 	"os"
 
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/taikochain/taiko-mono/packages/relayer"
 
 	echo "github.com/labstack/echo/v4"
 )
 
 type Server struct {
-	echo      *echo.Echo
-	eventRepo relayer.EventRepository
+	echo *echo.Echo
 }
 
 type NewServerOpts struct {
 	Echo        *echo.Echo
-	EventRepo   relayer.EventRepository
 	CorsOrigins []string
 }
 
 func (opts NewServerOpts) Validate() error {
 	if opts.Echo == nil {
 		return ErrNoHTTPFramework
-	}
-
-	if opts.EventRepo == nil {
-		return relayer.ErrNoEventRepository
-	}
-
-	if opts.CorsOrigins == nil {
-		return relayer.ErrNoCORSOrigins
 	}
 
 	return nil
@@ -44,12 +33,15 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		echo:      opts.Echo,
-		eventRepo: opts.EventRepo,
+		echo: opts.Echo,
 	}
 
-	srv.configureRoutes()
-	srv.configureMiddleware(opts.CorsOrigins)
+	corsOrigins := opts.CorsOrigins
+	if corsOrigins == nil {
+		corsOrigins = []string{"*"}
+	}
+
+	srv.configureMiddleware(corsOrigins)
 
 	return srv, nil
 }
@@ -75,7 +67,14 @@ func (srv *Server) Health(c echo.Context) error {
 }
 
 func LogSkipper(c echo.Context) bool {
-	return c.Request().URL.Path == "/health"
+	switch c.Request().URL.Path {
+	case "/health":
+		return true
+	case "/metrics":
+		return true
+	default:
+		return false
+	}
 }
 
 func (srv *Server) configureMiddleware(corsOrigins []string) {
