@@ -18,11 +18,13 @@ func Test_FilterThenSubscribe(t *testing.T) {
 		Height: 0,
 	}
 
-	go svc.FilterThenSubscribe(
-		context.Background(),
-		relayer.Mode(relayer.SyncMode),
-		relayer.FilterAndSubscribeWatchMode,
-	)
+	go func() {
+		_ = svc.FilterThenSubscribe(
+			context.Background(),
+			relayer.Mode(relayer.SyncMode),
+			relayer.FilterAndSubscribeWatchMode,
+		)
+	}()
 
 	<-time.After(6 * time.Second)
 
@@ -34,11 +36,13 @@ func Test_FilterThenSubscribe_subscribeWatchMode(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
-	go svc.FilterThenSubscribe(
-		context.Background(),
-		relayer.Mode(relayer.SyncMode),
-		relayer.SubscribeWatchMode,
-	)
+	go func() {
+		_ = svc.FilterThenSubscribe(
+			context.Background(),
+			relayer.Mode(relayer.SyncMode),
+			relayer.SubscribeWatchMode,
+		)
+	}()
 
 	<-time.After(6 * time.Second)
 
@@ -54,11 +58,13 @@ func Test_FilterThenSubscribe_alreadyCaughtUp(t *testing.T) {
 		Height: mock.LatestBlockNumber.Uint64(),
 	}
 
-	go svc.FilterThenSubscribe(
-		context.Background(),
-		relayer.Mode(relayer.SyncMode),
-		relayer.FilterAndSubscribeWatchMode,
-	)
+	go func() {
+		_ = svc.FilterThenSubscribe(
+			context.Background(),
+			relayer.Mode(relayer.SyncMode),
+			relayer.FilterAndSubscribeWatchMode,
+		)
+	}()
 
 	<-time.After(6 * time.Second)
 

@@ -13,6 +13,7 @@ output:
 
 linters:
   enable:
+    - errcheck
     - funlen
     - gocognit
     - gocritic
