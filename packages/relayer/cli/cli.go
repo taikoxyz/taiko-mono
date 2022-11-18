@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -13,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/db"
 	"github.com/taikochain/taiko-mono/packages/relayer/indexer"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gorm.io/driver/mysql"
@@ -32,7 +35,13 @@ var (
 		"MYSQL_DATABASE",
 		"MYSQL_HOST",
 		"RELAYER_ECDSA_KEY",
+		"CONFIRMATIONS_BEFORE_PROCESSING",
 	}
+
+	defaultBlockBatchSize      = 2
+	defaultNumGoroutines       = 10
+	defaultSubscriptionBackoff = 2 * time.Second
+	defaultConfirmations       = 15
 )
 
 func Run(mode relayer.Mode, layer relayer.Layer) {
@@ -42,12 +51,26 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 
 	log.SetFormatter(&log.JSONFormatter{})
 
-	db := openDBConnection(relayer.DBConnectionOpts{
+	db, err := openDBConnection(relayer.DBConnectionOpts{
 		Name:     os.Getenv("MYSQL_USER"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
 		Database: os.Getenv("MYSQL_DATABASE"),
 		Host:     os.Getenv("MYSQL_HOST"),
+		OpenFunc: func(dsn string) (relayer.DB, error) {
+			gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return db.New(gormDB), nil
+		},
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -76,7 +99,7 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 	<-forever
 }
 
-func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(), error) {
+func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, nil, err
@@ -85,6 +108,30 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 	blockRepository, err := repo.NewBlockRepository(db)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	blockBatchSize, err := strconv.Atoi(os.Getenv("BLOCK_BATCH_SIZE"))
+	if err != nil || blockBatchSize <= 0 {
+		blockBatchSize = defaultBlockBatchSize
+	}
+
+	numGoroutines, err := strconv.Atoi(os.Getenv("NUM_GOROUTINES"))
+	if err != nil || numGoroutines <= 0 {
+		numGoroutines = defaultNumGoroutines
+	}
+
+	var subscriptionBackoff time.Duration
+
+	subscriptionBackoffInSeconds, err := strconv.Atoi(os.Getenv("SUBSCRIPTION_BACKOFF_IN_SECONDS"))
+	if err != nil || numGoroutines <= 0 {
+		subscriptionBackoff = defaultSubscriptionBackoff
+	} else {
+		subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
+	}
+
+	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
+	if err != nil || confirmations <= 0 {
+		confirmations = defaultConfirmations
 	}
 
 	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
@@ -122,6 +169,11 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+
+			BlockBatchSize:      uint64(blockBatchSize),
+			NumGoroutines:       numGoroutines,
+			SubscriptionBackoff: subscriptionBackoff,
+			Confirmations:       uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -143,6 +195,11 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 			BridgeAddress:     common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+
+			BlockBatchSize:      uint64(blockBatchSize),
+			NumGoroutines:       numGoroutines,
+			SubscriptionBackoff: subscriptionBackoff,
+			Confirmations:       uint64(confirmations),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -161,7 +218,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 	return indexers, closeFunc, nil
 }
 
-func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
+func openDBConnection(opts relayer.DBConnectionOpts) (relayer.DB, error) {
 	dsn := ""
 	if opts.Password == "" {
 		dsn = fmt.Sprintf(
@@ -180,14 +237,51 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 		)
 	}
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
+	db, err := opts.OpenFunc(dsn)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return db
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		defaultMaxIdleConns    = 50
+		defaultMaxOpenConns    = 200
+		defaultConnMaxLifetime = 10 * time.Second
+	)
+
+	maxIdleConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_IDLE_CONNS"))
+	if err != nil || maxIdleConns <= 0 {
+		maxIdleConns = defaultMaxIdleConns
+	}
+
+	maxOpenConns, err := strconv.Atoi(os.Getenv("MYSQL_MAX_OPEN_CONNS"))
+	if err != nil || maxOpenConns <= 0 {
+		maxOpenConns = defaultMaxOpenConns
+	}
+
+	var maxLifetime time.Duration
+
+	connMaxLifetime, err := strconv.Atoi(os.Getenv("MYSQL_CONN_MAX_LIFETIME_IN_MS"))
+	if err != nil || connMaxLifetime <= 0 {
+		maxLifetime = defaultConnMaxLifetime
+	} else {
+		maxLifetime = time.Duration(connMaxLifetime)
+	}
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	sqlDB.SetConnMaxLifetime(maxLifetime)
+
+	return db, nil
 }
 
 func loadAndValidateEnv() error {

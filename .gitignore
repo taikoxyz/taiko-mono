@@ -108,3 +108,5 @@ dist
 
 # vscode
 .vscode/
+
+.pdf

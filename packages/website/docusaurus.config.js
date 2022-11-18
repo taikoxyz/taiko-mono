@@ -9,12 +9,12 @@ const katex = require("rehype-katex");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Taiko",
-  tagline: "A decentralized Ethereum equivalent ZK rollup",
+  tagline: "A decentralized Ethereum-equivalent ZK-Rollup",
   url: "https://taiko.xyz",
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/Taiko_Token_Fluo.png",
+  favicon: "img/Taiko_Favicon_Fluo.png",
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -23,6 +23,26 @@ const config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  plugins: [
+    [
+      "content-docs",
+      {
+        id: "talks",
+        path: "talks",
+        routeBasePath: "talks",
+        sidebarPath: require.resolve("./sidebars.js"),
+      },
+    ],
+    [
+      "content-docs",
+      {
+        id: "faq",
+        path: "faq",
+        routeBasePath: "faq",
+      },
+    ],
+  ],
 
   presets: [
     [
@@ -70,12 +90,22 @@ const config = {
         items: [
           {
             to: "docs/intro",
-            label: "Docs",
+            label: "Learn",
             position: "left",
           },
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
+            position: "left",
+          },
+          {
+            to: "talks",
+            label: "Talks",
+            position: "left",
+          },
+          {
+            to: "faq",
+            label: "FAQ",
             position: "left",
           },
           {
@@ -91,6 +121,12 @@ const config = {
             "aria-label": "GitHub",
           },
           {
+            href: "https://www.reddit.com/r/taiko_xyz/",
+            position: "right",
+            className: "header-reddit-link",
+            "aria-label": "Reddit",
+          },
+          {
             href: "https://twitter.com/taikoxyz",
             position: "right",
             className: "header-twitter-link",
@@ -102,12 +138,20 @@ const config = {
         style: "dark",
         links: [
           {
+            label: "Careers",
+            href: "https://taikochain.notion.site/Taiko-Jobs",
+          },
+          {
             label: "Discord",
             href: "https://discord.gg/tnSra3aFfg",
           },
           {
             label: "GitHub",
             href: "https://github.com/taikochain",
+          },
+          {
+            label: "Reddit",
+            href: "https://www.reddit.com/r/taiko_xyz/",
           },
           {
             label: "Twitter",

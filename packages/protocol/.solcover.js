@@ -6,4 +6,7 @@ module.exports = {
     "test/libs/TestLibReceiptDecoder.sol", //integration tests
     "test/thirdparty/TestLibBlockHeaderDecoder.sol", // assembly too long
   ],
+  mocha:{
+    grep: '^[^integration]'
+  }
 };
