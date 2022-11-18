@@ -177,7 +177,12 @@ describe("TokenVault", function () {
                 )
             )
                 .to.emit(tokenVault, "EtherSent")
-                .withArgs(owner.address, destChainId, depositValue, testSignal)
+                .withArgs(
+                    owner.address,
+                    destChainId,
+                    depositValue - processingFee,
+                    testSignal
+                )
         })
 
         it("succeeds with 0 processingFee", async () => {
@@ -204,7 +209,12 @@ describe("TokenVault", function () {
                 )
             )
                 .to.emit(tokenVault, "EtherSent")
-                .withArgs(owner.address, destChainId, depositValue, testSignal)
+                .withArgs(
+                    owner.address,
+                    destChainId,
+                    depositValue - processingFee,
+                    testSignal
+                )
         })
     })
 })
