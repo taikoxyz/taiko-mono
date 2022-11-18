@@ -46,7 +46,7 @@ library V1Proving {
         address prover
     );
 
-    event ProverWhitelisted(address prover, bool whitelisted);
+    event ProverWhitelisted(address indexed prover, bool whitelisted);
 
     modifier onlyWhitelistedProver(LibData.State storage s) {
         if (LibConstants.TAIKO_WHITELIST_PROVERS) {
