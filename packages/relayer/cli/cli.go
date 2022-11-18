@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikochain/taiko-mono/packages/relayer/db"
 	"github.com/taikochain/taiko-mono/packages/relayer/indexer"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gorm.io/driver/mysql"
@@ -50,12 +51,26 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 
 	log.SetFormatter(&log.JSONFormatter{})
 
-	db := openDBConnection(relayer.DBConnectionOpts{
+	db, err := openDBConnection(relayer.DBConnectionOpts{
 		Name:     os.Getenv("MYSQL_USER"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
 		Database: os.Getenv("MYSQL_DATABASE"),
 		Host:     os.Getenv("MYSQL_HOST"),
+		OpenFunc: func(dsn string) (relayer.DB, error) {
+			gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return db.New(gormDB), nil
+		},
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -84,33 +99,13 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 	<-forever
 }
 
-func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(), error) {
+func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	blockRepository, err := repo.NewBlockRepository(db)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	l2RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L2_RPC_URL"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,6 +132,26 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
 	if err != nil || confirmations <= 0 {
 		confirmations = defaultConfirmations
+	}
+
+	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	l2RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		return nil, nil, err
 	}
 
 	indexers := make([]*indexer.Service, 0)
@@ -203,7 +218,7 @@ func makeIndexers(layer relayer.Layer, db *gorm.DB) ([]*indexer.Service, func(),
 	return indexers, closeFunc, nil
 }
 
-func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
+func openDBConnection(opts relayer.DBConnectionOpts) (relayer.DB, error) {
 	dsn := ""
 	if opts.Password == "" {
 		dsn = fmt.Sprintf(
@@ -222,16 +237,14 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 		)
 	}
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
+	db, err := opts.OpenFunc(dsn)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var (
@@ -268,7 +281,7 @@ func openDBConnection(opts relayer.DBConnectionOpts) *gorm.DB {
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
 	sqlDB.SetConnMaxLifetime(maxLifetime)
 
-	return db
+	return db, nil
 }
 
 func loadAndValidateEnv() error {

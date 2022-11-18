@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 var (
@@ -26,9 +25,14 @@ func IsInSlice[T comparable](v T, s []T) bool {
 	return false
 }
 
+type confirmer interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+}
+
 // WaitReceipt keeps waiting until the given transaction has an execution
 // receipt to know whether it was reverted or not.
-func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transaction) (*types.Receipt, error) {
+func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (*types.Receipt, error) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -37,13 +41,13 @@ func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transa
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
-			receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+			receipt, err := confirmer.TransactionReceipt(ctx, txHash)
 			if err != nil {
 				continue
 			}
 
 			if receipt.Status != types.ReceiptStatusSuccessful {
-				return nil, fmt.Errorf("transaction reverted, hash: %s", tx.Hash())
+				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
 			return receipt, nil
@@ -53,7 +57,7 @@ func WaitReceipt(ctx context.Context, client *ethclient.Client, tx *types.Transa
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain.
-func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmations uint64, txHash common.Hash) error {
+func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -62,7 +66,7 @@ func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmati
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			receipt, err := client.TransactionReceipt(ctx, txHash)
+			receipt, err := confirmer.TransactionReceipt(ctx, txHash)
 			if err != nil {
 				if err == ethereum.NotFound {
 					continue
@@ -71,7 +75,7 @@ func WaitConfirmations(ctx context.Context, client *ethclient.Client, confirmati
 				return err
 			}
 
-			latest, err := client.BlockNumber(ctx)
+			latest, err := confirmer.BlockNumber(ctx)
 			if err != nil {
 				return err
 			}
