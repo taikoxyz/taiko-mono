@@ -29,7 +29,7 @@ docker run -d \
   --http.api debug,eth,net,web3,txpool,miner
 
 # Wait till the test node fully started
-RETRIES=200
+RETRIES=30
 i=0
 until curl \
     --silent \
