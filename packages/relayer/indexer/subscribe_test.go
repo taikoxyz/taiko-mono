@@ -13,7 +13,9 @@ import (
 func Test_subscribe(t *testing.T) {
 	svc, bridge := newTestService()
 
-	go svc.subscribe(context.Background(), big.NewInt(1))
+	go func() {
+		_ = svc.subscribe(context.Background(), big.NewInt(1))
+	}()
 
 	<-time.After(6 * time.Second)
 
