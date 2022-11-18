@@ -74,9 +74,6 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) 
 
 		group.SetLimit(svc.numGoroutines)
 
-		// TODO: do we want to limit the number of possible goroutines in the waitgroup?
-		// right now it is dependent on how many events are found in the
-		// block range. the main concern would be exceeding DB connection pooling limits.
 		for {
 			group.Go(func() error {
 				err := svc.handleEvent(ctx, chainID, events.Event)

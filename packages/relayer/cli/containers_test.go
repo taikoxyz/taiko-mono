@@ -1,11 +1,11 @@
-package repo
+package cli
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/db"
 	"github.com/testcontainers/testcontainers-go"

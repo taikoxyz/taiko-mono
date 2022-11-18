@@ -1,15 +1,16 @@
 package indexer
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/assert"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/mock"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
@@ -46,7 +47,22 @@ func Test_NewService(t *testing.T) {
 			nil,
 		},
 		{
-			"noRpcClien",
+			"invalidECDSAKey",
+			NewServiceOpts{
+				EventRepo:         &repo.EventRepository{},
+				BlockRepo:         &repo.BlockRepository{},
+				RPCClient:         &rpc.Client{},
+				EthClient:         &ethclient.Client{},
+				DestEthClient:     &ethclient.Client{},
+				ECDSAKey:          ">>>",
+				BridgeAddress:     common.HexToAddress(dummyAddress),
+				DestBridgeAddress: common.HexToAddress(dummyAddress),
+				Confirmations:     1,
+			},
+			errors.New("crypto.HexToECDSA: invalid hex character '>' in private key"),
+		},
+		{
+			"noRpcClient",
 			NewServiceOpts{
 				EventRepo:         &repo.EventRepository{},
 				BlockRepo:         &repo.BlockRepository{},
@@ -162,7 +178,11 @@ func Test_NewService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewService(tt.opts)
-			assert.Equal(t, tt.wantErr, err)
+			if tt.wantErr != nil {
+				assert.EqualError(t, tt.wantErr, err.Error())
+			} else {
+				assert.Nil(t, err)
+			}
 		})
 	}
 }
