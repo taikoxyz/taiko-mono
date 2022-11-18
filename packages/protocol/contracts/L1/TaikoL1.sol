@@ -117,7 +117,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          on L2. Note that the `invalidBlock` transaction is supposed to
      *          be the only transaction in the L2 block.
      */
-
     function proveBlockInvalid(
         uint256 blockIndex,
         bytes[] calldata inputs
@@ -134,6 +133,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
     }
 
+    /**
+     * Suspend or resume the chain.
+     *
+     * @param suspended True to suspend, false to resume.
+     */
     function suspend(bool suspended) public onlyOwner {
         require(state.suspended == !suspended, "L1:precondition");
         state.suspended = suspended;
