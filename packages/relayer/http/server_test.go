@@ -18,6 +18,10 @@ func newTestServer(url string) *Server {
 		echo: echo.New(),
 	}
 
+	srv.configureMiddleware([]string{"*"})
+	srv.configureRoutes()
+	srv.configureAndStartPrometheus()
+
 	return srv
 }
 
@@ -32,6 +36,13 @@ func Test_NewServer(t *testing.T) {
 			NewServerOpts{
 				Echo:        echo.New(),
 				CorsOrigins: make([]string, 0),
+			},
+			nil,
+		},
+		{
+			"noCorsOrigins",
+			NewServerOpts{
+				Echo: echo.New(),
 			},
 			nil,
 		},
@@ -60,6 +71,19 @@ func Test_Health(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Test_Health expected code %v, got %v", http.StatusOK, rec.Code)
+	}
+}
+
+func Test_Metrics(t *testing.T) {
+	srv := newTestServer("")
+
+	req, _ := http.NewRequest(echo.GET, "/metrics", nil)
+	rec := httptest.NewRecorder()
+
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Test_Metrics expected code %v, got %v", http.StatusOK, rec.Code)
 	}
 }
 
