@@ -3,9 +3,34 @@ import hre, { ethers } from "hardhat"
 import { Message } from "../../utils/message"
 import { AddressManager, Bridge } from "../../../typechain"
 import { getSlot } from "../../../tasks/utils"
+import * as fs from "fs"
+import * as path from "path"
 const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 describe("LibBridgeProcess", function () {
+    function getStateSlot() {
+        const buildInfoDir = path.join(
+            __dirname,
+            "../../../artifacts/build-info"
+        )
+        const contractPath =
+            "contracts/test/bridge/libs/TestLibBridgeProcess.sol"
+        const contractName = "TestLibBridgeProcess"
+
+        for (const buildInfoJson of fs.readdirSync(buildInfoDir)) {
+            const { output } = require(path.join(buildInfoDir, buildInfoJson))
+
+            if (!output.contracts[contractPath]) continue
+
+            const slotInfo = output.contracts[contractPath][
+                contractName
+            ].storageLayout.storage.find(({ label }: any) => label === "state")
+
+            if (slotInfo) return Number(slotInfo.slot)
+        }
+
+        throw new Error("TestLibBridgeProcess.state slot number not found")
+    }
     async function deployLibBridgeProcessFixture() {
         const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
 
@@ -14,7 +39,7 @@ describe("LibBridgeProcess", function () {
         // mapping messageStatus is at position 1 (202)
         // nextMessageId is at position 2 (203)
         // Context takes up 3 slots, starts at position 3 (204)
-        const stateSlot = 201
+        const stateSlot = getStateSlot()
 
         const srcChainId = 1
 

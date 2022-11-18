@@ -71,7 +71,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     *        Note that this transaction shall be the first transaction in every L2 block.
     *
     * @param l1Height The latest L1 block height when this block was proposed.
-    */ @param l1Hash The latest L1 block hash when this block was proposed.
+    * @param l1Hash The latest L1 block hash when this block was proposed.
+    */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
         _checkPublicInputs();
 
