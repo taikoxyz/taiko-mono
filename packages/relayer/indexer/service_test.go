@@ -49,6 +49,7 @@ func newTestService() (*Service, relayer.Bridge) {
 
 		processingBlock: &relayer.Block{},
 		processor:       processor,
+		blockBatchSize:  100,
 	}, b
 }
 
