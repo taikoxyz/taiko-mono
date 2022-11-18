@@ -4,21 +4,19 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikochain/taiko-mono/packages/relayer/encoding"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // EncodedSignalProof rlp and abi encodes the SignalProof struct expected by LibBridgeSignal
 // in our contracts
 func (p *Prover) EncodedSignalProof(
 	ctx context.Context,
-	c *rpc.Client,
+	caller caller,
 	bridgeAddress common.Address,
 	key string,
 	blockHash common.Hash,
@@ -28,7 +26,7 @@ func (p *Prover) EncodedSignalProof(
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, err := p.encodedStorageProof(ctx, c, bridgeAddress, key, blockHeader.Height.Int64())
+	encodedStorageProof, err := p.encodedStorageProof(ctx, caller, bridgeAddress, key, blockHeader.Height.Int64())
 	if err != nil {
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
@@ -42,8 +40,6 @@ func (p *Prover) EncodedSignalProof(
 	if err != nil {
 		return nil, errors.Wrap(err, "enoding.EncodeSignalProof")
 	}
-
-	log.Infof("signalProof: %s", hexutil.Encode(encodedSignalProof))
 
 	return encodedSignalProof, nil
 }

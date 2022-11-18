@@ -1,0 +1,8 @@
+coverage:
+  ignore:
+    - "packages/relayer/contracts/**/*"
+    - "packages/relayer/mock/**/*"
+    - "packages/relayer/cmd/**/*"
+
+comment:
+  show_carryforward_flags: true
