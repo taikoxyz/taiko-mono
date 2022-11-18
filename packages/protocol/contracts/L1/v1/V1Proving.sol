@@ -46,12 +46,16 @@ library V1Proving {
         address prover
     );
 
+    event Suspended(bool suspended);
+
     function proveBlock(
         LibData.State storage s,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
+        require(!s.suspended, "L1:suspended");
+
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -127,6 +131,8 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public {
+        require(!s.suspended, "L1:suspended");
+
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -231,9 +237,18 @@ library V1Proving {
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
-                "L1:proof:conflict"
+                fc.proposedAt == target.timestamp,
+                "L1:proposedAt:conflict"
             );
+
+            if (fc.blockHash != blockHash) {
+                // We have a problem here: two proofs are both valid but claims
+                // the new block has different hashes.
+                s.suspended = true;
+                emit Suspended(true);
+                return;
+            }
+
             require(
                 fc.provers.length <
                     LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,

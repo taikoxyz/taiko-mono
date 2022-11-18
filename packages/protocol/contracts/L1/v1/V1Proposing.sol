@@ -25,6 +25,8 @@ library V1Proposing {
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+        require(!s.suspended, "L1:suspended");
+
         require(commitHash != 0, "L1:hash");
         require(s.commits[commitHash] == 0, "L1:committed");
         s.commits[commitHash] = block.number;
@@ -39,6 +41,8 @@ library V1Proposing {
         LibData.State storage s,
         bytes[] calldata inputs
     ) public {
+        require(!s.suspended, "L1:suspended");
+
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],

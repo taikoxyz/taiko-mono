@@ -28,7 +28,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 
     function init(
         address _addressManager,
@@ -132,6 +132,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             state,
             LibConstants.TAIKO_MAX_FINALIZATIONS_PER_TX
         );
+    }
+
+    function resume(bool suspended) public onlyOwner {
+        require(state.suspended == !suspended, "L1:precondition");
+        state.suspended = suspended;
+        emit Suspended(suspended);
     }
 
     /// @notice Finalize up to N blocks.

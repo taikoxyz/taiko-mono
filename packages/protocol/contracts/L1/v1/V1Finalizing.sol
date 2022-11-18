@@ -32,6 +32,8 @@ library V1Finalizing {
     }
 
     function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
+        require(!s.suspended, "L1:suspended");
+
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;

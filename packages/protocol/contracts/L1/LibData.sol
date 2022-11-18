@@ -43,6 +43,7 @@ library LibData {
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
+        bool suspended;
         uint64 genesisHeight;
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;

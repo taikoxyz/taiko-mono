@@ -27,4 +27,6 @@ abstract contract V1Events {
         uint64 provenAt,
         address prover
     );
+
+    event Suspended(bool suspended);
 }
