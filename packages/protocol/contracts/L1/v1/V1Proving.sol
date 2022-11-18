@@ -49,7 +49,7 @@ library V1Proving {
     event ProverWhitelisted(address indexed prover, bool whitelisted);
 
     modifier onlyWhitelistedProver(LibData.State storage s) {
-        if (LibConstants.TAIKO_WHITELIST_PROVERS) {
+        if (LibConstants.K_WHITELIST_PROVERS) {
             require(s.provers[msg.sender], "L1:whitelist");
         }
         _;
@@ -196,7 +196,7 @@ library V1Proving {
         address prover,
         bool enabled
     ) public {
-        require(LibConstants.TAIKO_WHITELIST_PROVERS, "L1:featureDisabled");
+        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
         require(
             prover != address(0) && s.provers[prover] != enabled,
             "L1:precondition"
@@ -210,7 +210,7 @@ library V1Proving {
         LibData.State storage s,
         address prover
     ) public view returns (bool) {
-        require(LibConstants.TAIKO_WHITELIST_PROVERS, "L1:featureDisabled");
+        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
         return s.provers[prover];
     }
 
