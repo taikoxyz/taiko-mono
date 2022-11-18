@@ -22,6 +22,7 @@ linters:
     - gosec
     - gosimple
     - lll
+    - unused
     - whitespace
     - wsl
 
