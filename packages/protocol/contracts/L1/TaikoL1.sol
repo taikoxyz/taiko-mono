@@ -134,7 +134,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         );
     }
 
-    function resume(bool suspended) public onlyOwner {
+    function suspend(bool suspended) public onlyOwner {
         require(state.suspended == !suspended, "L1:precondition");
         state.suspended = suspended;
         emit Suspended(suspended);
