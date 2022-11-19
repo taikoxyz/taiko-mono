@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/encoding"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +17,7 @@ import (
 // in our contracts
 func (p *Prover) EncodedSignalProof(
 	ctx context.Context,
-	caller caller,
+	caller relayer.Caller,
 	bridgeAddress common.Address,
 	key string,
 	blockHash common.Hash,
@@ -49,7 +50,7 @@ func (p *Prover) EncodedSignalProof(
 // response from `eth_getProof`
 func (p *Prover) encodedStorageProof(
 	ctx context.Context,
-	c caller,
+	c relayer.Caller,
 	bridgeAddress common.Address,
 	key string,
 	blockNumber int64,

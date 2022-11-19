@@ -13,6 +13,7 @@ output:
 
 linters:
   enable:
+    - errcheck
     - funlen
     - gocognit
     - gocritic
@@ -21,6 +22,7 @@ linters:
     - gosec
     - gosimple
     - lll
+    - unused
     - whitespace
     - wsl
 
@@ -29,7 +31,7 @@ linters-settings:
     lines: 116
     statements: 48
   gocognit:
-    min-complexity: 35
+    min-complexity: 37
 
 issues:
   exclude-rules:
