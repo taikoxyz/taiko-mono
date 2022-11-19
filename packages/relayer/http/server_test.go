@@ -64,7 +64,7 @@ func Test_NewServer(t *testing.T) {
 func Test_Health(t *testing.T) {
 	srv := newTestServer("")
 
-	req, _ := http.NewRequest(echo.GET, "/health", nil)
+	req, _ := http.NewRequest(echo.GET, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
 	srv.ServeHTTP(rec, req)

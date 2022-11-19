@@ -70,7 +70,7 @@ func (srv *Server) Health(c echo.Context) error {
 
 func LogSkipper(c echo.Context) bool {
 	switch c.Request().URL.Path {
-	case "/health":
+	case "/healthz":
 		return true
 	case "/metrics":
 		return true
