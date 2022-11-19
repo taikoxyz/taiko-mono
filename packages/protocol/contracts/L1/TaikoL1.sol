@@ -136,7 +136,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     * Suspend or resume the chain.
+     * Halt or resume the chain.
      *
      * @param toHalt True to halt, false to resume.
      */
