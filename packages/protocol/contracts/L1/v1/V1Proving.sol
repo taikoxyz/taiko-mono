@@ -208,7 +208,7 @@ library V1Proving {
         for (uint i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
             LibZKP.verify(
                 ConfigManager(resolver.resolve("config_manager")).getValue(
-                    string(abi.encode("zk_vkey_", i))
+                    string(abi.encodePacked("zk_vkey_", i))
                 ),
                 evidence.proofs[i],
                 blockHash,
