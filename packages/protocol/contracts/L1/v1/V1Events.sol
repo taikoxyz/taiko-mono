@@ -28,5 +28,7 @@ abstract contract V1Events {
         address prover
     );
 
+    event ProverWhitelisted(address indexed prover, bool whitelisted);
+    
     event Halted(bool halted);
 }

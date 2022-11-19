@@ -139,16 +139,28 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     * @notice Finalize up to N blocks.
+     * Finalize up to N blocks.
      * @param maxBlocks Max number of blocks to finalize.
      */
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Finalizing.finalizeBlocks(state, maxBlocks, true);
     }
+    
+    /* Add or remove a prover from the whitelist.
+     *
+     * @param prover The prover to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProver(
+        address prover,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Proving.whitelistProver(state, prover, whitelisted);
+    }
 
     /**
-     * @notice Halt or resume the chain.
+     * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
@@ -156,7 +168,17 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     * @notice Return if the L1 is halted.
+     * Check whether a prover is whitelisted.
+     *
+     * @param prover The prover.
+     * @return True if the prover is whitelisted, false otherwise.
+     */
+    function isProverWhitelisted(address prover) public view returns (bool) {
+        return V1Proving.isProverWhitelisted(state, prover);
+    }
+
+    /**
+     * Check if the L1 is halted.
      * @return True if halted, false otherwise.
      */
     function isHalted() public view returns (bool) {
