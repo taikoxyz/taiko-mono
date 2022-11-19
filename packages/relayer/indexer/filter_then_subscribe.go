@@ -116,7 +116,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode, 
 	}
 
 	// we are caught up and specified not to subscribe, we can return now
-	if watchMode == relayer.WatchMode(relayer.FilterWatchMode) {
+	if watchMode == relayer.FilterWatchMode {
 		return nil
 	}
 
