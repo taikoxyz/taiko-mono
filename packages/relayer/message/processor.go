@@ -1,27 +1,31 @@
 package message
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
 	"github.com/taikochain/taiko-mono/packages/relayer/proof"
 )
 
+type ethClient interface {
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+}
 type Processor struct {
 	eventRepo     relayer.EventRepository
-	srcEthClient  *ethclient.Client
-	destEthClient *ethclient.Client
-	rpc           *rpc.Client
+	srcEthClient  ethClient
+	destEthClient ethClient
+	rpc           relayer.Caller
 	ecdsaKey      *ecdsa.PrivateKey
 
-	destBridge       *contracts.Bridge
-	destHeaderSyncer *contracts.IHeaderSync
+	destBridge       relayer.Bridge
+	destHeaderSyncer relayer.HeaderSyncer
 
 	prover *proof.Prover
 
@@ -35,12 +39,12 @@ type Processor struct {
 type NewProcessorOpts struct {
 	Prover           *proof.Prover
 	ECDSAKey         *ecdsa.PrivateKey
-	RPCClient        *rpc.Client
-	SrcETHClient     *ethclient.Client
-	DestETHClient    *ethclient.Client
-	DestBridge       *contracts.Bridge
+	RPCClient        relayer.Caller
+	SrcETHClient     ethClient
+	DestETHClient    ethClient
+	DestBridge       relayer.Bridge
 	EventRepo        relayer.EventRepository
-	DestHeaderSyncer *contracts.IHeaderSync
+	DestHeaderSyncer relayer.HeaderSyncer
 	RelayerAddress   common.Address
 	Confirmations    uint64
 }
