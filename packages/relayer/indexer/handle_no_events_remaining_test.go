@@ -33,7 +33,7 @@ func Test_handleNoEventsRemaining(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newTestService()
+			svc, _ := newTestService()
 			err := svc.handleNoEventsRemaining(context.Background(), tt.chainID, tt.events)
 			assert.Equal(t, tt.wantErr, err)
 		})

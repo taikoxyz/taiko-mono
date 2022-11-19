@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/labstack/echo/v4"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
@@ -16,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/taikochain/taiko-mono/packages/relayer"
 	"github.com/taikochain/taiko-mono/packages/relayer/db"
+	"github.com/taikochain/taiko-mono/packages/relayer/http"
 	"github.com/taikochain/taiko-mono/packages/relayer/indexer"
 	"github.com/taikochain/taiko-mono/packages/relayer/repo"
 	"gorm.io/driver/mysql"
@@ -36,6 +38,7 @@ var (
 		"MYSQL_HOST",
 		"RELAYER_ECDSA_KEY",
 		"CONFIRMATIONS_BEFORE_PROCESSING",
+		"PROMETHEUS_HTTP_PORT",
 	}
 
 	defaultBlockBatchSize      = 2
@@ -44,7 +47,7 @@ var (
 	defaultConfirmations       = 15
 )
 
-func Run(mode relayer.Mode, layer relayer.Layer) {
+func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
@@ -77,6 +80,13 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 		log.Fatal(err)
 	}
 
+	srv, err := http.NewServer(http.NewServerOpts{
+		Echo: echo.New(),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	indexers, closeFunc, err := makeIndexers(layer, db)
 	if err != nil {
 		sqlDB.Close()
@@ -90,11 +100,17 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 
 	for _, i := range indexers {
 		go func(i *indexer.Service) {
-			if err := i.FilterThenSubscribe(context.Background(), mode); err != nil {
+			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
 				log.Fatal(err)
 			}
 		}(i)
 	}
+
+	go func() {
+		if err := srv.Start(fmt.Sprintf(":%v", os.Getenv("HTTP_PORT"))); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	<-forever
 }
