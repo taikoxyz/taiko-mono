@@ -35,7 +35,7 @@ library V1Proving {
         LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first K_ZKPROOFS_PER_BLOCK blocks are ZKPs
+        bytes[] proofs; // The first K_ZKPROOFS_PER_BLOCK are ZKPs
     }
 
     event BlockProven(
