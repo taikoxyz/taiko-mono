@@ -47,7 +47,7 @@ var (
 	defaultConfirmations       = 15
 )
 
-func Run(mode relayer.Mode, layer relayer.Layer) {
+func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func Run(mode relayer.Mode, layer relayer.Layer) {
 
 	for _, i := range indexers {
 		go func(i *indexer.Service) {
-			if err := i.FilterThenSubscribe(context.Background(), mode); err != nil {
+			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
 				log.Fatal(err)
 			}
 		}(i)

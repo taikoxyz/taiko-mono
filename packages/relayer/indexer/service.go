@@ -35,8 +35,8 @@ type Service struct {
 
 	processingBlock *relayer.Block
 
-	bridge     *contracts.Bridge
-	destBridge *contracts.Bridge
+	bridge     relayer.Bridge
+	destBridge relayer.Bridge
 
 	processor *message.Processor
 
