@@ -34,7 +34,13 @@ library V1Finalizing {
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        require(!checkHalt || !V1Utils.isHalted(s), "L1:halt");
+        bool halted = V1Utils.isHalted(s);
+        if (checkHalt) {
+            require(!halted, "L1:halted");
+        } else if (halted) {
+            // skip finalizing blocks
+            return;
+        }
 
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
