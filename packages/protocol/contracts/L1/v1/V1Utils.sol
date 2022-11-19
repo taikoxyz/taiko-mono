@@ -20,18 +20,23 @@ library V1Utils {
     event Halted(bool halted);
 
     function halt(LibData.State storage s, bool toHalt) public {
-        require(isBitOne(s.statusBits, MASK_HALT) != toHalt, "L1:precondition");
-        setBit(s.statusBits, MASK_HALT, toHalt);
+        require(isHalted(s) != toHalt, "L1:precondition");
+        setBit(s, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
 
     function isHalted(LibData.State storage s) public view returns (bool) {
-        return isBitOne(s.statusBits, MASK_HALT);
+        return isBitOne(s, MASK_HALT);
     }
 
-    function setBit(uint64 bits, uint256 mask, bool one) private {}
+    function setBit(LibData.State storage s, uint64 mask, bool one) private {
+        s.statusBits = one ? s.statusBits | mask : s.statusBits & ~mask;
+    }
 
-    function isBitOne(uint64 bits, uint64 mask) private pure returns (bool) {
-        return bits & mask != 0;
+    function isBitOne(
+        LibData.State storage s,
+        uint64 mask
+    ) private view returns (bool) {
+        return s.statusBits & mask != 0;
     }
 }
