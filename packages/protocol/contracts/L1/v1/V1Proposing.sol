@@ -86,7 +86,7 @@ library V1Proposing {
             })
         );
 
-        if (LibConstants.K_ENABLE_TOKENOMICS) {
+        if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint64 blockTime = meta.timestamp - s.lastProposedAt;
             (uint256 fee, uint256 premiumFee) = getBlockFee(s);
             s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);

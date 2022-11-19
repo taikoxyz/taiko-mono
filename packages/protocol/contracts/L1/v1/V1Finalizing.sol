@@ -66,7 +66,7 @@ library V1Finalizing {
                     latestL2Hash = fc.blockHash;
                 }
 
-                if (LibConstants.K_ENABLE_TOKENOMICS) {
+                if (LibConstants.K_TOKENOMICS_ENABLED) {
                     (uint256 reward, uint256 premiumReward) = getProofReward(
                         s,
                         fc.provenAt,
