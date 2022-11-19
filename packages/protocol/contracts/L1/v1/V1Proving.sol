@@ -58,7 +58,7 @@ library V1Proving {
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver {
+    ) public onlyWhitelistedProver(s) {
         require(!V1Utils.isHalted(s), "L1:halt");
 
         // Check and decode inputs
