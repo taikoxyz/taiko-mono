@@ -23,6 +23,13 @@ func main() {
 	  both: watch l1 => l2 and l2 => l1 bridge messages
 	`)
 
+	watchModePtr := flag.String("watch-mode", string(relayer.FilterAndSubscribeWatchMode), `watch mode to run in. 
+	options:
+	  filter: only filter previous messages
+	  subscribe: only subscribe to new messages
+	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
+	`)
+
 	flag.Parse()
 
 	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
@@ -33,5 +40,5 @@ func main() {
 		log.Fatal("mode not valid")
 	}
 
-	cli.Run(relayer.Mode(*modePtr), relayer.Layer(*layersPtr))
+	cli.Run(relayer.Mode(*modePtr), relayer.WatchMode(*watchModePtr), relayer.Layer(*layersPtr))
 }

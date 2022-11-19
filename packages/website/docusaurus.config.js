@@ -139,7 +139,7 @@ const config = {
         links: [
           {
             label: "Careers",
-            href: "https://taikochain.notion.site/Taiko-Jobs",
+            href: "https://taikochain.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
           },
           {
             label: "Discord",
