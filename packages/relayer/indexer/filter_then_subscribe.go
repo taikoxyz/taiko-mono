@@ -17,10 +17,15 @@ var (
 // FilterThenSubscribe gets the most recent block height that has been indexed, and works it's way
 // up to the latest block. As it goes, it tries to process messages.
 // When it catches up, it then starts to Subscribe to latest events as they come in.
-func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) error {
+func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode, watchMode relayer.WatchMode) error {
 	chainID, err := svc.ethClient.ChainID(ctx)
 	if err != nil {
 		return errors.Wrap(err, "svc.ethClient.ChainID()")
+	}
+
+	// if subscribing to new events, skip filtering and subscribe
+	if watchMode == relayer.SubscribeWatchMode {
+		return svc.subscribe(ctx, chainID)
 	}
 
 	if err := svc.setInitialProcessingBlockByMode(ctx, mode, chainID); err != nil {
@@ -107,7 +112,12 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode) 
 	}
 
 	if svc.processingBlock.Height < latestBlock.Number.Uint64() {
-		return svc.FilterThenSubscribe(ctx, relayer.SyncMode)
+		return svc.FilterThenSubscribe(ctx, relayer.SyncMode, watchMode)
+	}
+
+	// we are caught up and specified not to subscribe, we can return now
+	if watchMode == relayer.FilterWatchMode {
+		return nil
 	}
 
 	return svc.subscribe(ctx, chainID)

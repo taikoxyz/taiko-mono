@@ -26,6 +26,8 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
+
 	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
@@ -54,8 +56,6 @@ func (p *Processor) ProcessMessage(
 	)
 
 	key := hex.EncodeToString(hashed)
-
-	log.Infof("processing message for signal: %v, key: %v", common.Hash(event.Signal).Hex(), key)
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {

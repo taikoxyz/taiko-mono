@@ -18,6 +18,8 @@ func (svc *Service) handleEvent(
 	chainID *big.Int,
 	event *contracts.BridgeMessageSent,
 ) error {
+	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
+
 	raw := event.Raw
 
 	// handle chain re-org by checking Removed property, no need to
