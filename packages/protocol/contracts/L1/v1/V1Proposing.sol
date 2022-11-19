@@ -86,22 +86,26 @@ library V1Proposing {
             })
         );
 
-        uint64 blockTime = meta.timestamp - s.lastProposedAt;
-        (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-        s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
+        if (LibConstants.K_TOKENOMICS_ENABLED) {
+            uint64 blockTime = meta.timestamp - s.lastProposedAt;
+            (uint256 fee, uint256 premiumFee) = getBlockFee(s);
+            s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
 
-        s.avgBlockTime = V1Utils
-            .movingAverage(s.avgBlockTime, blockTime, 1024)
-            .toUint64();
+            s.avgBlockTime = V1Utils
+                .movingAverage(s.avgBlockTime, blockTime, 1024)
+                .toUint64();
 
-        // s.avgGasLimit = V1Utils
-        //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
-        //     .toUint64();
+            // s.avgGasLimit = V1Utils
+            //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+            //     .toUint64();
+
+            TkoToken(resolver.resolve("tko_token")).burn(
+                msg.sender,
+                premiumFee
+            );
+        }
 
         s.lastProposedAt = meta.timestamp;
-
-        TkoToken(resolver.resolve("tko_token")).burn(msg.sender, premiumFee);
-
         emit BlockProposed(s.nextBlockId++, meta);
     }
 

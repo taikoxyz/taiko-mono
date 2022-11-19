@@ -66,41 +66,39 @@ library V1Finalizing {
                     latestL2Hash = fc.blockHash;
                 }
 
-                (uint256 reward, uint256 premiumReward) = getProofReward(
-                    s,
-                    fc.provenAt,
-                    fc.proposedAt
-                );
+                if (LibConstants.K_TOKENOMICS_ENABLED) {
+                    (uint256 reward, uint256 premiumReward) = getProofReward(
+                        s,
+                        fc.provenAt,
+                        fc.proposedAt
+                    );
 
-                s.feeBase = V1Utils.movingAverage(s.feeBase, reward, 1024);
+                    s.feeBase = V1Utils.movingAverage(s.feeBase, reward, 1024);
 
-                s.avgProofTime = V1Utils
-                    .movingAverage(
-                        s.avgProofTime,
-                        fc.provenAt - fc.proposedAt,
-                        1024
-                    )
-                    .toUint64();
+                    s.avgProofTime = V1Utils
+                        .movingAverage(
+                            s.avgProofTime,
+                            fc.provenAt - fc.proposedAt,
+                            1024
+                        )
+                        .toUint64();
 
-                if (address(tkoToken) == address(0)) {
-                    tkoToken = TkoToken(resolver.resolve("tko_token"));
-                }
-
-                // Reward multiple provers
-                uint sum = 0;
-                for (uint k = 0; k < fc.provers.length; k++) {
-                    sum += 1 << k; // sum = 1 + 2 + 4 ...
-                }
-
-                for (uint k = 0; k < fc.provers.length; k++) {
-                    uint weight = (1 << (fc.provers.length - k - 1));
-                    uint proverReward = (premiumReward * weight) / sum;
-
-                    if (tkoToken.balanceOf(fc.provers[k]) == 0) {
-                        // reduce reward if the prover has 0 TKO balance.
-                        proverReward /= 2;
+                    if (address(tkoToken) == address(0)) {
+                        tkoToken = TkoToken(resolver.resolve("tko_token"));
                     }
-                    tkoToken.mint(fc.provers[k], proverReward);
+
+                    // Reward multiple provers
+                    uint sum = 2 ** fc.provers.length - 1;
+                    for (uint k = 0; k < fc.provers.length; k++) {
+                        uint weight = (1 << (fc.provers.length - k - 1));
+                        uint proverReward = (premiumReward * weight) / sum;
+
+                        if (tkoToken.balanceOf(fc.provers[k]) == 0) {
+                            // reduce reward if the prover has 0 TKO balance.
+                            proverReward /= 2;
+                        }
+                        tkoToken.mint(fc.provers[k], proverReward);
+                    }
                 }
 
                 emit BlockFinalized(i, fc.blockHash);

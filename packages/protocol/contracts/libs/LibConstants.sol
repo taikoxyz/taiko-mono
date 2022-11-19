@@ -42,4 +42,5 @@ library LibConstants {
         keccak256("BlockInvalidated(bytes32)");
 
     bool public constant K_WHITELIST_PROVERS = false;
+    bool public constant K_TOKENOMICS_ENABLED = true;
 }
