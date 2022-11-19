@@ -3,6 +3,9 @@ coverage:
     - "packages/relayer/contracts/**/*"
     - "packages/relayer/mock/**/*"
     - "packages/relayer/cmd/**/*"
+  status:
+    project: off
+    patch: off
 
 comment:
   show_carryforward_flags: true
