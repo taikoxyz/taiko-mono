@@ -8,9 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import "../LibData.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>

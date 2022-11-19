@@ -154,7 +154,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     /**
      * @notice Return if the L1 is halted.
-     * @returns True if halted, false otherwise.
+     * @return True if halted, false otherwise.
      */
     function isHalted() public view returns (bool) {
         return V1Utils.isHalted(state);
