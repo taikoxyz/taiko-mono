@@ -30,7 +30,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 
     function init(
         address _addressManager,
@@ -146,7 +146,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Finalizing.finalizeBlocks(state, maxBlocks, true);
     }
-    
+
     /* Add or remove a prover from the whitelist.
      *
      * @param prover The prover to be added or removed.
