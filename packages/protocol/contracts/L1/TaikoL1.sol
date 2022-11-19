@@ -136,7 +136,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     *  @notice Finalize up to N blocks.
+     * @notice Finalize up to N blocks.
      * @param maxBlocks Max number of blocks to finalize.
      */
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
@@ -145,7 +145,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     * Halt or resume the chain.
+     * @notice Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
@@ -153,7 +153,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     *  @notice Return if the L1 is halted.
+     * @notice Return if the L1 is halted.
      * @returns True if halted, false otherwise.
      */
     function isHalted() public view returns (bool) {
