@@ -29,8 +29,12 @@ library V1Finalizing {
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
-        require(!V1Utils.isHalted(s), "L1:halt");
+    function finalizeBlocks(
+        LibData.State storage s,
+        uint256 maxBlocks,
+        bool checkHalt
+    ) public {
+        require(!checkHalt || !V1Utils.isHalted(s), "L1:halt");
 
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];

@@ -23,7 +23,10 @@ library V1Proposing {
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(LibData.State storage s, bytes32 commitHash) public {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        // It's OK to allow committing block when the system is halt.
+        // By not checking the halt status, this method will be cheaper.
+        //
+        // require(!V1Utils.isHalted(s), "L1:halt");
 
         require(commitHash != 0, "L1:hash");
         require(s.commits[commitHash] == 0, "L1:committed");
