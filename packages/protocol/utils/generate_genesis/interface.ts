@@ -6,7 +6,6 @@ export interface Config {
     }>
     predeployERC20: boolean
 }
-
 export interface Result {
     alloc: any
     storageLayouts: any
