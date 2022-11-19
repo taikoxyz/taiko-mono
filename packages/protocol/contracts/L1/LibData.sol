@@ -59,7 +59,6 @@ library LibData {
         uint64 avgBlockTime; // The block time moving average
         uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
         // Changed when a block is proven/finalized
-        uint64 genesisHeight;
         uint64 latestFinalizedHeight;
         uint64 latestFinalizedId;
         uint64 avgProofTime; // the proof time moving average
