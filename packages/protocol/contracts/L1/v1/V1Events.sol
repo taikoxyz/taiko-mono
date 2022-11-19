@@ -28,5 +28,5 @@ abstract contract V1Events {
         address prover
     );
 
-    event Suspended(bool suspended);
+    event Halted(bool halted);
 }

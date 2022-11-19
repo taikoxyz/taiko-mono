@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../LibData.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
@@ -32,7 +33,7 @@ library V1Finalizing {
     }
 
     function finalizeBlocks(LibData.State storage s, uint256 maxBlocks) public {
-        require(!s.suspended, "L1:suspended");
+        require(!V1Utils.isHalted(s), "L1:halt");
 
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];

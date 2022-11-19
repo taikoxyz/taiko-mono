@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -17,7 +19,7 @@ import "./v1/V1Events.sol";
 import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import "./v1/V1Utils.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -136,12 +138,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     /**
      * Suspend or resume the chain.
      *
-     * @param suspended True to suspend, false to resume.
+     * @param toHalt True to halt, false to resume.
      */
-    function suspend(bool suspended) public onlyOwner {
-        require(state.suspended == !suspended, "L1:precondition");
-        state.suspended = suspended;
-        emit Suspended(suspended);
+    function halt(bool toHalt) public onlyOwner {
+        V1Utils.halt(state, toHalt);
     }
 
     /// @notice Finalize up to N blocks.
