@@ -3,7 +3,8 @@
 [![Solidity](https://github.com/taikochain/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikochain/taiko-mono/actions/workflows/solidity.yml)
 [![Protocol](https://codecov.io/gh/taikochain/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikochain/taiko-mono)
 
-[![Golang](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml) [![Relayer](https://codecov.io/gh/taikochain/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikochain/taiko-mono)
+[![Golang](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikochain/taiko-mono/actions/workflows/golang.yml)
+[![Relayer](https://codecov.io/gh/taikochain/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikochain/taiko-mono)
 
 <!-- PROJECT LOGO -->
 <br />
