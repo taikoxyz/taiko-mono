@@ -31,6 +31,7 @@ describe("LibBridgeProcess", function () {
 
         throw new Error("TestLibBridgeProcess.state slot number not found")
     }
+    
     async function deployLibBridgeProcessFixture() {
         const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
 
