@@ -47,8 +47,8 @@ struct State {
   mapping(uint256 => mapping(bytes32 => struct LibData.ForkChoice)) forkChoices;
   mapping(bytes32 => uint256) commits;
   uint64 genesisHeight;
-  uint64 latestFinalizedHeight;
-  uint64 latestFinalizedId;
+  uint64 latestVerifiedHeight;
+  uint64 latestVerifiedId;
   uint64 nextBlockId;
 }
 ```
@@ -74,7 +74,7 @@ function getL2BlockHash(struct LibData.State s, uint256 number) internal view re
 ### getStateVariables
 
 ```solidity
-function getStateVariables(struct LibData.State s) internal view returns (uint64 genesisHeight, uint64 latestFinalizedHeight, uint64 latestFinalizedId, uint64 nextBlockId)
+function getStateVariables(struct LibData.State s) internal view returns (uint64 genesisHeight, uint64 latestVerifiedHeight, uint64 latestVerifiedId, uint64 nextBlockId)
 ```
 
 ### hashMetadata
