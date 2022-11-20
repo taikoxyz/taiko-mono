@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/pressly/goose"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/db"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/db"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/mysql"

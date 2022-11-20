@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikochain/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
 var (
