@@ -1,9 +1,9 @@
 ## V1Finalizing
 
-### BlockFinalized
+### BlockVerified
 
 ```solidity
-event BlockFinalized(uint256 id, bytes32 blockHash)
+event BlockVerified(uint256 id, bytes32 blockHash)
 ```
 
 ### HeaderSynced
@@ -18,14 +18,6 @@ event HeaderSynced(uint256 height, uint256 srcHeight, bytes32 srcHash)
 function init(struct LibData.State s, bytes32 _genesisBlockHash, uint256 _feeBase) public
 ```
 
-### finalizeBlocks
+### verifyBlocks
 
-```solidity
-function finalizeBlocks(struct LibData.State s, contract AddressResolver resolver, uint256 maxBlocks) public
-```
-
-### getProofReward
-
-```solidity
-function getProofReward(struct LibData.State s, uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward, uint256 premiumReward)
 ```

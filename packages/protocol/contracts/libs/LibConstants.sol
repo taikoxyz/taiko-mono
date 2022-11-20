@@ -17,7 +17,7 @@ library LibConstants {
     // the 'the maximum value of the multiplier' close to 20.0
     uint256 public constant K_FEE_PREMIUM_LAMDA = 590;
     uint256 public constant K_ZKPROOFS_PER_BLOCK = 1;
-    uint256 public constant K_MAX_FINALIZATIONS_PER_TX = 20;
+    uint256 public constant TAIKO_MAX_VERIFICATIONS_PER_TX = 20;
     uint256 public constant K_COMMIT_DELAY_CONFIRMS = 4;
     uint256 public constant K_MAX_PROOFS_PER_FORK_CHOICE = 5;
     uint256 public constant K_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO

@@ -12,11 +12,6 @@ uint256 K_CHAIN_ID
 uint256 K_MAX_NUM_BLOCKS
 ```
 
-### K_FEE_PREMIUM_LAMDA
-
-```solidity
-uint256 K_FEE_PREMIUM_LAMDA
-```
 
 ### K_FEE_PREMIUM_PHI
 

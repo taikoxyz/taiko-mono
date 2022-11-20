@@ -70,7 +70,7 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextBlockId < s.latestFinalizedId + LibConstants.K_MAX_NUM_BLOCKS,
+            s.nextBlockId < s.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
             "L1:tooMany"
         );
 
