@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-
 import "../../common/AddressResolver.sol";
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
