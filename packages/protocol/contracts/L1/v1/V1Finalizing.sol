@@ -53,6 +53,14 @@ library V1Finalizing {
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
 
+            if (
+                block.timestamp <=
+                fc.provenAt + LibConstants.K_VERIFICATION_DELAY
+            ) {
+                // This block is proven but still needs to wait for verificaiton.
+                break;
+            }
+
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
                 emit BlockFinalized(i, 0);
             } else if (fc.blockHash != 0) {
