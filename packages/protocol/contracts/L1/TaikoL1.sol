@@ -148,7 +148,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(state, maxBlocks, true);
+        V1Finalizing.finalizeBlocks(
+            state,
+            AddressResolver(this),
+            maxBlocks,
+            true
+        );
     }
 
     /* Add or remove a prover from the whitelist.
@@ -194,6 +199,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             provenAt,
             proposedAt
         );
+    }
+
     /**
      * Check if the L1 is halted.
      * @return True if halted, false otherwise.

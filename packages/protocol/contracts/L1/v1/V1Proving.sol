@@ -289,10 +289,10 @@ library V1Proving {
                 "L1:proof:tooMany"
             );
 
-            // No uncle proof can take more than 1.5x time the first proof did.
-            uint256 delay = fc.provenAt - fc.proposedAt;
-            uint256 deadline = fc.provenAt + delay / 2;
-            require(block.timestamp <= deadline, "L1:tooLate");
+            require(
+                block.timestamp < V1Utils.uncleProofDeadline(fc),
+                "L1:tooLate"
+            );
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
                 require(fc.provers[i] != prover, "L1:prover:dup");

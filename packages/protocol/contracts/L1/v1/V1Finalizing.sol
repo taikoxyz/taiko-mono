@@ -9,6 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
+import "../TkoToken.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -65,8 +66,12 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
-            
-            if (fc.blockHash == 0 || block.timestamp <= fc.provenAt + LibConstants.K_VERIFICATION_DELAY) {
+
+            // Uncle proof can not take more than 2x time the first proof did.
+            if (
+                fc.blockHash == 0 ||
+                block.timestamp <= V1Utils.uncleProofDeadline(fc)
+            ) {
                 break;
             } else {
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
