@@ -17,13 +17,12 @@ contract TestHeaderSync is IHeaderSync {
         headerHash = header;
     }
 
-    function getSyncedHeader(uint256 number) external view returns (bytes32){
+    function getSyncedHeader(uint256 number) external view returns (bytes32) {
         number;
         return headerHash;
     }
 
-    function getLatestSyncedHeader() external view returns (bytes32){
+    function getLatestSyncedHeader() external view returns (bytes32) {
         return headerHash;
     }
-
 }

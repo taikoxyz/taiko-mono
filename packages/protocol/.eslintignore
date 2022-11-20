@@ -2,3 +2,5 @@ node_modules
 artifacts
 cache
 coverage
+doc
+docs
