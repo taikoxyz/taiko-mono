@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"golang.org/x/sync/errgroup"
 )
 

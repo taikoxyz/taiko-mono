@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
 )
 
 // Process prepares and calls `processMessage` on the bridge.

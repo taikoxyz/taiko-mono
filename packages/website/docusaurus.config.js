@@ -53,7 +53,7 @@ const config = {
           sidebarPath: require.resolve("./sidebars.js"),
           // Remove this to remove the "edit this page" links.
           editUrl:
-            "https://github.com/taikochain/taiko-mono/tree/main/packages/website/",
+            "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
           remarkPlugins: [math],
           rehypePlugins: [katex],
         },
@@ -115,7 +115,7 @@ const config = {
             "aria-label": "Discord",
           },
           {
-            href: "https://github.com/taikochain",
+            href: "https://github.com/taikoxyz",
             position: "right",
             className: "header-github-link",
             "aria-label": "GitHub",
@@ -139,7 +139,7 @@ const config = {
         links: [
           {
             label: "Careers",
-            href: "https://taikochain.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+            href: "https://taikoxyz.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
           },
           {
             label: "Discord",
@@ -147,7 +147,7 @@ const config = {
           },
           {
             label: "GitHub",
-            href: "https://github.com/taikochain",
+            href: "https://github.com/taikoxyz",
           },
           {
             label: "Reddit",
