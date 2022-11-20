@@ -1,4 +1,4 @@
-## V1Finalizing
+## V1Verifying
 
 ### BlockVerified
 
@@ -19,5 +19,7 @@ function init(struct LibData.State s, bytes32 _genesisBlockHash, uint256 _feeBas
 ```
 
 ### verifyBlocks
+
+```
 
 ```

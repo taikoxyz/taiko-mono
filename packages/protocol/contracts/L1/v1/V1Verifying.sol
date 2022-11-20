@@ -13,7 +13,7 @@ import "../TkoToken.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Finalizing {
+library V1Verifying {
     using SafeCastUpgradeable for uint256;
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
@@ -114,7 +114,7 @@ library V1Finalizing {
                     }
                 }
 
-                emit BlockFinalized(i, fc.blockHash);
+                emit BlockVerified(i, fc.blockHash);
             }
 
             processed += 1;

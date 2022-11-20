@@ -143,7 +143,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         returns (
             uint256, // K_CHAIN_ID
             uint256, // K_MAX_NUM_BLOCKS
-            uint256, // TAIKO_MAX_VERIFICATIONS_PER_TX
+            uint256, // K_MAX_VERIFICATIONS_PER_TX
             uint256, // K_COMMIT_DELAY_CONFIRMS
             uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
             uint256, // K_BLOCK_MAX_GAS_LIMIT
@@ -159,7 +159,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         return (
             LibConstants.K_CHAIN_ID,
             LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             LibConstants.K_COMMIT_DELAY_CONFIRMS,
             LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
             LibConstants.K_BLOCK_MAX_GAS_LIMIT,
