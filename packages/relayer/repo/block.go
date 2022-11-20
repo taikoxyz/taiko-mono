@@ -3,7 +3,7 @@ package repo
 import (
 	"math/big"
 
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/gorm"
 )
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/taikochain/taiko-mono/packages/relayer/encoding"
-	"github.com/taikochain/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 	"gopkg.in/go-playground/assert.v1"
 )
 

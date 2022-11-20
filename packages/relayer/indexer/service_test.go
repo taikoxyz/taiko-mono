@@ -9,11 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/message"
-	"github.com/taikochain/taiko-mono/packages/relayer/mock"
-	"github.com/taikochain/taiko-mono/packages/relayer/proof"
-	"github.com/taikochain/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 )
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
