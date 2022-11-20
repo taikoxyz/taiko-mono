@@ -35,7 +35,7 @@ describe("LibBridgeProcess", function () {
         const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
 
         // slot number of IBridge.State for TestLibBridgeProcess.
-        // mapping destChains is at position 0 (201)
+        // mapping destChains is at position 0
         // mapping messageStatus is at position 1 (202)
         // nextMessageId is at position 2 (203)
         // Context takes up 3 slots, starts at position 3 (204)
