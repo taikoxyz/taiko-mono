@@ -53,6 +53,7 @@ library V1Finalizing {
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
 
+            // TODO(daniel): use the average proof-time.
             if (
                 block.timestamp <=
                 fc.provenAt + LibConstants.K_VERIFICATION_DELAY
