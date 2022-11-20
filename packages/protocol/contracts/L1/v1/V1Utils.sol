@@ -17,6 +17,20 @@ import "../LibData.sol";
 library V1Utils {
     using LibMath for uint256;
 
+    uint64 public constant MASK_HALT = 1 << 0;
+
+    event Halted(bool halted);
+    
+        function halt(LibData.State storage s, bool toHalt) public {
+        require(isHalted(s) != toHalt, "L1:precondition");
+        setBit(s, MASK_HALT, toHalt);
+        emit Halted(toHalt);
+    }
+    
+        function isHalted(LibData.State storage s) public view returns (bool) {
+        return isBitOne(s, MASK_HALT);
+    }
+    
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
         LibData.State storage s,
@@ -83,5 +97,19 @@ library V1Utils {
         }
         uint256 _ma = (ma * (factor - 1) + v) / factor;
         return _ma > 0 ? _ma : ma;
+
+
+
+
+
+    function setBit(LibData.State storage s, uint64 mask, bool one) private {
+        s.statusBits = one ? s.statusBits | mask : s.statusBits & ~mask;
+    }
+
+    function isBitOne(
+        LibData.State storage s,
+        uint64 mask
+    ) private view returns (bool) {
+        return s.statusBits & mask != 0;
     }
 }

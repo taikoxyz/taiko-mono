@@ -50,7 +50,7 @@ library LibData {
         uint64 genesisHeight; // never change
         uint64 genesisTimestamp; // never change
         uint64 __reservedA1; // never change
-        uint64 __reservedA2; // never change
+        uint64 statusBits; // rarely change
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
         // Changed when a block is proposed
