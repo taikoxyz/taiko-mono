@@ -37,6 +37,7 @@ library LibData {
         address[] provers;
     }
 
+    // This struct takes 9 slots.
     struct State {
         // block id => block hash
         mapping(uint256 => bytes32) l2Hashes;
@@ -46,10 +47,10 @@ library LibData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
         mapping(address => bool) provers; // Whitelisted provers
-        // Never changed
-        uint64 genesisHeight; // never change
-        uint64 genesisTimestamp; // never change
-        uint64 __reservedA1; // never change
+        // Never or rarely changed
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 __reservedA1;
         uint64 statusBits; // rarely change
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
