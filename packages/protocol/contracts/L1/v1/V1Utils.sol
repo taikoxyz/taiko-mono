@@ -70,7 +70,7 @@ library V1Utils {
             1 +
             LibConstants.K_FEE_PREMIUM_LAMDA;
         // n is the number of unverified blocks
-        uint256 n = s.nextBlockId - s.latestFinalizedId - 1;
+        uint256 n = s.nextBlockId - s.latestVerifiedId - 1;
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
         uint256 k = isProposal ? m - n - 1 : m - n + 1;
         return (fee * (m - 1) * m) / (m - n) / k;
@@ -101,9 +101,10 @@ library V1Utils {
 
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
+        LibData.State storage s,
         LibData.ForkChoice storage fc
     ) internal view returns (uint64) {
-        return 2 * fc.provenAt - fc.proposedAt;
+        return fc.provenAt + s.avgProofTime;
     }
 
     function setBit(LibData.State storage s, uint64 mask, bool one) private {

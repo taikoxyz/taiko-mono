@@ -13,9 +13,9 @@ import "../TkoToken.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Finalizing {
+library V1Verifying {
     using SafeCastUpgradeable for uint256;
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
     event HeaderSynced(
         uint256 indexed height,
@@ -37,11 +37,11 @@ library V1Finalizing {
         s.lastProposedAt = uint64(block.timestamp);
         s.l2Hashes[0] = _genesisBlockHash;
 
-        emit BlockFinalized(0, _genesisBlockHash);
+        emit BlockVerified(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function finalizeBlocks(
+    function verifyBlocks(
         LibData.State storage s,
         AddressResolver resolver,
         uint256 maxBlocks,
@@ -55,13 +55,13 @@ library V1Finalizing {
             return;
         }
 
-        uint64 latestL2Height = s.latestFinalizedHeight;
+        uint64 latestL2Height = s.latestVerifiedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
         TkoToken tkoToken;
 
         for (
-            uint256 i = s.latestFinalizedId + 1;
+            uint256 i = s.latestVerifiedId + 1;
             i < s.nextBlockId && processed <= maxBlocks;
             i++
         ) {
@@ -70,7 +70,7 @@ library V1Finalizing {
             // Uncle proof can not take more than 2x time the first proof did.
             if (
                 fc.blockHash == 0 ||
-                block.timestamp <= V1Utils.uncleProofDeadline(fc)
+                block.timestamp <= V1Utils.uncleProofDeadline(s, fc)
             ) {
                 break;
             } else {
@@ -114,17 +114,17 @@ library V1Finalizing {
                     }
                 }
 
-                emit BlockFinalized(i, fc.blockHash);
+                emit BlockVerified(i, fc.blockHash);
             }
 
             processed += 1;
         }
 
         if (processed > 0) {
-            s.latestFinalizedId += processed;
+            s.latestVerifiedId += processed;
 
-            if (latestL2Height > s.latestFinalizedHeight) {
-                s.latestFinalizedHeight = latestL2Height;
+            if (latestL2Height > s.latestVerifiedHeight) {
+                s.latestVerifiedHeight = latestL2Height;
                 s.l2Hashes[latestL2Height] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }

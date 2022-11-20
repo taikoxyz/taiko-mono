@@ -57,8 +57,8 @@ struct State {
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 avgGasLimit;
-  uint64 latestFinalizedHeight;
-  uint64 latestFinalizedId;
+  uint64 latestVerifiedHeight;
+  uint64 latestVerifiedId;
   uint64 avgProofTime;
   uint64 reservedC1;
 }
@@ -85,7 +85,7 @@ function getL2BlockHash(struct LibData.State s, uint256 number) internal view re
 ### getStateVariables
 
 ```solidity
-function getStateVariables(struct LibData.State s) internal view returns (uint64 genesisHeight, uint64 latestFinalizedHeight, uint64 latestFinalizedId, uint64 nextBlockId)
+function getStateVariables(struct LibData.State s) internal view returns (uint64 genesisHeight, uint64 latestVerifiedHeight, uint64 latestVerifiedId, uint64 nextBlockId)
 ```
 
 ### hashMetadata

@@ -8,18 +8,16 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
 import "./v1/V1Events.sol";
-import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
 import "./v1/V1Utils.sol";
+import "./v1/V1Verifying.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -30,7 +28,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[41] private __gap; // TODO(daniel): double check this value.
+    uint256[41] private __gap;
 
     function init(
         address _addressManager,
@@ -38,7 +36,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash, _feeBase);
+        V1Verifying.init(state, _genesisBlockHash, _feeBase);
     }
 
     /**
@@ -74,10 +72,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
-        V1Finalizing.finalizeBlocks(
+        V1Verifying.verifyBlocks(
             state,
             AddressResolver(this),
-            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             false
         );
     }
@@ -102,10 +100,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bytes[] calldata inputs
     ) external nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
-        V1Finalizing.finalizeBlocks(
+        V1Verifying.verifyBlocks(
             state,
             AddressResolver(this),
-            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             false
         );
     }
@@ -134,10 +132,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             blockIndex,
             inputs
         );
-        V1Finalizing.finalizeBlocks(
+        V1Verifying.verifyBlocks(
             state,
             AddressResolver(this),
-            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             false
         );
     }
@@ -146,14 +144,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Finalize up to N blocks.
      * @param maxBlocks Max number of blocks to finalize.
      */
-    function finalizeBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.finalizeBlocks(
-            state,
-            AddressResolver(this),
-            maxBlocks,
-            true
-        );
+        V1Verifying.verifyBlocks(state, AddressResolver(this), maxBlocks, true);
     }
 
     /* Add or remove a prover from the whitelist.
@@ -194,7 +187,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 premiumReward) {
-        (, premiumReward) = V1Finalizing.getProofReward(
+        (, premiumReward) = V1Verifying.getProofReward(
             state,
             provenAt,
             proposedAt
@@ -230,7 +223,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     function getLatestSyncedHeader() public view override returns (bytes32) {
-        return state.getL2BlockHash(state.latestFinalizedHeight);
+        return state.getL2BlockHash(state.latestVerifiedHeight);
     }
 
     function getStateVariables()
@@ -238,8 +231,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         view
         returns (
             uint64 /*genesisHeight*/,
-            uint64 /*latestFinalizedHeight*/,
-            uint64 /*latestFinalizedId*/,
+            uint64 /*latestVerifiedHeight*/,
+            uint64 /*latestVerifiedId*/,
             uint64 /*nextBlockId*/
         )
     {
@@ -259,7 +252,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         returns (
             uint256, // K_CHAIN_ID
             uint256, // K_MAX_NUM_BLOCKS
-            uint256, // K_MAX_FINALIZATIONS_PER_TX
+            uint256, // K_MAX_VERIFICATIONS_PER_TX
             uint256, // K_COMMIT_DELAY_CONFIRMS
             uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
             uint256, // K_BLOCK_MAX_GAS_LIMIT
@@ -275,7 +268,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return (
             LibConstants.K_CHAIN_ID,
             LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.K_MAX_FINALIZATIONS_PER_TX,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             LibConstants.K_COMMIT_DELAY_CONFIRMS,
             LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
             LibConstants.K_BLOCK_MAX_GAS_LIMIT,

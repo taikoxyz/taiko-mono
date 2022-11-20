@@ -37,6 +37,7 @@ library LibData {
         address[] provers;
     }
 
+    // This struct takes 9 slots.
     struct State {
         // block id => block hash
         mapping(uint256 => bytes32) l2Hashes;
@@ -46,10 +47,10 @@ library LibData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
         mapping(address => bool) provers; // Whitelisted provers
-        // Never changed
-        uint64 genesisHeight; // never change
-        uint64 genesisTimestamp; // never change
-        uint64 __reservedA1; // never change
+        // Never or rarely changed
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 __reservedA1;
         uint64 statusBits; // rarely change
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
@@ -59,8 +60,8 @@ library LibData {
         uint64 avgBlockTime; // The block time moving average
         uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
         // Changed when a block is proven/finalized
-        uint64 latestFinalizedHeight;
-        uint64 latestFinalizedId;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
         uint64 avgProofTime; // the proof time moving average
         uint64 __reservedC1;
     }
@@ -84,7 +85,7 @@ library LibData {
         State storage s,
         uint256 number
     ) internal view returns (bytes32) {
-        require(number <= s.latestFinalizedHeight, "L1:id");
+        require(number <= s.latestVerifiedHeight, "L1:id");
         return s.l2Hashes[number];
     }
 
@@ -95,14 +96,14 @@ library LibData {
         view
         returns (
             uint64 genesisHeight,
-            uint64 latestFinalizedHeight,
-            uint64 latestFinalizedId,
+            uint64 latestVerifiedHeight,
+            uint64 latestVerifiedId,
             uint64 nextBlockId
         )
     {
         genesisHeight = s.genesisHeight;
-        latestFinalizedHeight = s.latestFinalizedHeight;
-        latestFinalizedId = s.latestFinalizedId;
+        latestVerifiedHeight = s.latestVerifiedHeight;
+        latestVerifiedId = s.latestVerifiedId;
         nextBlockId = s.nextBlockId;
     }
 
