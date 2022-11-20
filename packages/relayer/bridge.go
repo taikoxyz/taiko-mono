@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
 )
 
 type Bridge interface {
