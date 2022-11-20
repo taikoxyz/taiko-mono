@@ -101,9 +101,10 @@ library V1Utils {
 
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
+        LibData.State storage s,
         LibData.ForkChoice storage fc
     ) internal view returns (uint64) {
-        return 2 * fc.provenAt - fc.proposedAt;
+        return fc.provenAt + s.avgProofTime;
     }
 
     function setBit(LibData.State storage s, uint64 mask, bool one) private {

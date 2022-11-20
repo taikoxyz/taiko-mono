@@ -290,7 +290,7 @@ library V1Proving {
             );
 
             require(
-                block.timestamp < V1Utils.uncleProofDeadline(fc),
+                block.timestamp < V1Utils.uncleProofDeadline(s, fc),
                 "L1:tooLate"
             );
 

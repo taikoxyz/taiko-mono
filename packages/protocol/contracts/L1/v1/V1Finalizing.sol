@@ -70,7 +70,7 @@ library V1Finalizing {
             // Uncle proof can not take more than 2x time the first proof did.
             if (
                 fc.blockHash == 0 ||
-                block.timestamp <= V1Utils.uncleProofDeadline(fc)
+                block.timestamp <= V1Utils.uncleProofDeadline(s, fc)
             ) {
                 break;
             } else {
