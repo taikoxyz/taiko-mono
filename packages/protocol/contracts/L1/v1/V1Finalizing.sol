@@ -42,7 +42,7 @@ library V1Finalizing {
             return;
         }
 
-        uint64 latestL2Height = s.latestFinalizedHeight;
+        uint64 latestL2Height = s.latestVerifiedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
 
