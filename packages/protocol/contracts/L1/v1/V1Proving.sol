@@ -20,7 +20,7 @@ import "../../libs/LibZKP.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibMerkleTrie.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "../LibData.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
@@ -32,7 +32,7 @@ library V1Proving {
         LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs;
+        bytes[] proofs; // The first K_ZKPROOFS_PER_BLOCK are ZKPs
     }
 
     event BlockProven(
@@ -59,6 +59,8 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(s) {
+        require(!V1Utils.isHalted(s), "L1:halt");
+
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -67,7 +69,10 @@ library V1Proving {
 
         // Check evidence
         require(evidence.meta.id == blockIndex, "L1:id");
-        require(evidence.proofs.length == 3, "L1:proof:size");
+        require(
+            evidence.proofs.length == 2 + LibConstants.K_ZKPROOFS_PER_BLOCK,
+            "L1:proof:size"
+        );
 
         // Check anchor tx is valid
         LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
@@ -103,7 +108,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof(
                 LibRLPWriter.writeUint(0),
                 anchorTx,
-                evidence.proofs[1],
+                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
                 evidence.header.transactionsRoot
             ),
             "L1:tx:proof"
@@ -118,7 +123,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof(
                 LibRLPWriter.writeUint(0),
                 anchorReceipt,
-                evidence.proofs[2],
+                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
                 evidence.header.receiptsRoot
             ),
             "L1:receipt:proof"
@@ -134,6 +139,8 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(s) {
+        require(!V1Utils.isHalted(s), "L1:halt");
+
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -145,7 +152,10 @@ library V1Proving {
 
         // Check evidence
         require(evidence.meta.id == blockIndex, "L1:id");
-        require(evidence.proofs.length == 2, "L1:proof:size");
+        require(
+            evidence.proofs.length == 1 + LibConstants.K_ZKPROOFS_PER_BLOCK,
+            "L1:proof:size"
+        );
 
         // Check the 1st receipt is for an InvalidateBlock tx with
         // a BlockInvalidated event
@@ -173,7 +183,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof(
                 LibRLPWriter.writeUint(0),
                 invalidateBlockReceipt,
-                evidence.proofs[1],
+                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
                 evidence.header.receiptsRoot
             ),
             "L1:receipt:proof"
@@ -227,15 +237,17 @@ library V1Proving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
-        LibZKP.verify(
-            ConfigManager(resolver.resolve("config_manager")).getValue(
-                "zk_vkey"
-            ),
-            evidence.proofs[0],
-            blockHash,
-            evidence.prover,
-            evidence.meta.txListHash
-        );
+        for (uint i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
+            LibZKP.verify(
+                ConfigManager(resolver.resolve("config_manager")).getValue(
+                    string(abi.encodePacked("zk_vkey_", i))
+                ),
+                evidence.proofs[i],
+                blockHash,
+                evidence.prover,
+                evidence.meta.txListHash
+            );
+        }
 
         _markBlockProven(
             s,
@@ -261,18 +273,26 @@ library V1Proving {
             fc.provenAt = uint64(block.timestamp);
         } else {
             require(
-                fc.blockHash == blockHash && fc.proposedAt == target.timestamp,
-                "L1:proof:conflict"
+                fc.proposedAt == target.timestamp,
+                "L1:proposedAt:conflict"
             );
+
+            if (fc.blockHash != blockHash) {
+                // We have a problem here: two proofs are both valid but claims
+                // the new block has different hashes.
+                V1Utils.halt(s, true);
+                return;
+            }
+
             require(
                 fc.provers.length < LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
                 "L1:proof:tooMany"
             );
 
-            // No uncle proof can take more than 1.5x time the first proof did.
-            uint256 delay = fc.provenAt - fc.proposedAt;
-            uint256 deadline = fc.provenAt + delay / 2;
-            require(block.timestamp <= deadline, "L1:tooLate");
+            require(
+                block.timestamp < V1Utils.uncleProofDeadline(fc),
+                "L1:tooLate"
+            );
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
                 require(fc.provers[i] != prover, "L1:prover:dup");

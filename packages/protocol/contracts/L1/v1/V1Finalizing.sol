@@ -9,7 +9,6 @@
 pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
-import "../LibData.sol";
 import "../TkoToken.sol";
 import "./V1Utils.sol";
 
@@ -45,8 +44,17 @@ library V1Finalizing {
     function finalizeBlocks(
         LibData.State storage s,
         AddressResolver resolver,
-        uint256 maxBlocks
+        uint256 maxBlocks,
+        bool checkHalt
     ) public {
+        bool halted = V1Utils.isHalted(s);
+        if (checkHalt) {
+            require(!halted, "L1:halted");
+        } else if (halted) {
+            // skip finalizing blocks
+            return;
+        }
+
         uint64 latestL2Height = s.latestFinalizedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
@@ -58,7 +66,12 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
-            if (fc.blockHash == 0) {
+
+            // Uncle proof can not take more than 2x time the first proof did.
+            if (
+                fc.blockHash == 0 ||
+                block.timestamp <= V1Utils.uncleProofDeadline(fc)
+            ) {
                 break;
             } else {
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {

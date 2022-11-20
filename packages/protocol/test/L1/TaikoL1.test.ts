@@ -45,6 +45,7 @@ describe("TaikoL1", function () {
                     LibTxDecoder: libTxDecoder.address,
                     LibZKP: libZKP.address,
                     Uint512: uint512.address,
+                    V1Utils: v1Utils.address,
                 },
             })
         ).deploy()
@@ -63,6 +64,7 @@ describe("TaikoL1", function () {
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
                 Uint512: uint512.address,
+                V1Utils: v1Utils.address,
             },
         })
 

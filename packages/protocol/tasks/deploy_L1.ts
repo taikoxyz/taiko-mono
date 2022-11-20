@@ -173,17 +173,20 @@ async function deployBaseLibs(hre: any) {
     const v1Proposing = await utils.deployContract(hre, "V1Proposing", {
         V1Utils: v1Utils.address,
     })
+
     const v1Proving = await utils.deployContract(hre, "V1Proving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
         Uint512: libUint512.address,
+        V1Utils: v1Utils.address,
     })
 
     return {
         V1Finalizing: v1Finalizing.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
+        V1Utils: v1Utils.address,
         Uint512: libUint512.address,
     }
 }
