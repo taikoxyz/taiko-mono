@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 func (svc *Service) setInitialProcessingBlockByMode(
