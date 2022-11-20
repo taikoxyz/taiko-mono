@@ -1,7 +1,7 @@
 package mock
 
 import (
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 type EventRepository struct {

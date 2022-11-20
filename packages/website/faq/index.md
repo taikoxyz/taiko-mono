@@ -18,8 +18,8 @@ Here are the official links to our social media and public documentation:
 - Twitter: https://twitter.com/taikoxyz
 - Reddit: https://www.reddit.com/r/taiko_xyz/
 - Blog: https://mirror.xyz/labs.taiko.eth
-- GitHub: https://github.com/taikochain/
-- Whitepaper: https://github.com/taikochain/whitepaper
+- GitHub: https://github.com/taikoxyz/
+- Whitepaper: https://github.com/taikoxyz/whitepaper
 
 ## What is Layer 2 (L2)?
 

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 var (
