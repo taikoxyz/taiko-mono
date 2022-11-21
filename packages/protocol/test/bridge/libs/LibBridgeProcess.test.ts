@@ -37,9 +37,9 @@ describe("LibBridgeProcess", function () {
 
         // slot number of IBridge.State for TestLibBridgeProcess.
         // mapping destChains is at position 0
-        // mapping messageStatus is at position 1 (202)
-        // nextMessageId is at position 2 (203)
-        // Context takes up 3 slots, starts at position 3 (204)
+        // mapping messageStatus is at position 1
+        // nextMessageId is at position 2
+        // Context takes up 3 slots, starts at position 3
         const stateSlot = getStateSlot()
 
         const srcChainId = 1
