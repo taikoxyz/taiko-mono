@@ -157,8 +157,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Proving.isProverWhitelisted(state, prover);
     }
 
-    /// @notice Verify up to N blocks.
-    /// @param maxBlocks Max number of blocks to verify.
+
+    /** 
+     * Verify up to N blocks.
+     * @param maxBlocks Max number of blocks to verify.
+     */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Finalizing.verifyBlocks(state, maxBlocks);
