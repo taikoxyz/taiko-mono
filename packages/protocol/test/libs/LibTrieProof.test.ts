@@ -1,6 +1,4 @@
 import { expect } from "chai"
-import { ENOBUFS } from "constants"
-import { BigNumber } from "ethers"
 import { ethers } from "hardhat"
 import RLP from "rlp"
 import { Message } from "../utils/message"
