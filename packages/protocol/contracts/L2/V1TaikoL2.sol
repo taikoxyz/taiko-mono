@@ -64,11 +64,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * External Functions *
      **********************/
 
-    /**
-     * Persist the latest L1 block height and hash to L2 for cross-layer
-     * bridging. This function will also check certain block-level global
-     * variables because they are not part of the Trie structure.
-     * Note: this transaction shall be the first transaction in everyL2 block.
+    /** Persist the latest L1 block height and hash to L2 for cross-layer
+     *        bridging. This function will also check certain block-level global
+     *        variables because they are not part of the Trie structure.
+     *
+     *        Note that this transaction shall be the first transaction in every L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
