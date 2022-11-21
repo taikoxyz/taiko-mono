@@ -77,6 +77,12 @@ async function decode(hre: any, type: any, data: any) {
     return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString()
 }
 
+const MessageStatus = {
+    NEW: 0,
+    RETRIABLE: 1,
+    DONE: 2,
+}
+
 export {
     deployContract,
     getDeployer,
@@ -86,4 +92,5 @@ export {
     getDeployments,
     getSlot,
     decode,
+    MessageStatus,
 }
