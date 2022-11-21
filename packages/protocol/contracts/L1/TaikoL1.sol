@@ -176,7 +176,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function isProverWhitelisted(address prover) public view returns (bool) {
         return V1Proving.isProverWhitelisted(state, prover);
     }
-
+    
     /**
      * Check if the L1 is halted.
      * @return True if halted, false otherwise.
