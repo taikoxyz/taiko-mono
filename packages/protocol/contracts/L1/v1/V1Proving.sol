@@ -46,12 +46,21 @@ library V1Proving {
         address prover
     );
 
+    event ProverWhitelisted(address indexed prover, bool whitelisted);
+
+    modifier onlyWhitelistedProver(LibData.State storage s) {
+        if (LibConstants.K_WHITELIST_PROVERS) {
+            require(s.provers[msg.sender], "L1:whitelist");
+        }
+        _;
+    }
+
     function proveBlock(
         LibData.State storage s,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public {
+    ) public onlyWhitelistedProver(s) {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -126,7 +135,7 @@ library V1Proving {
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public {
+    ) public onlyWhitelistedProver(s) {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -180,6 +189,29 @@ library V1Proving {
             target,
             LibConstants.TAIKO_BLOCK_DEADEND_HASH
         );
+    }
+
+    function whitelistProver(
+        LibData.State storage s,
+        address prover,
+        bool enabled
+    ) public {
+        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
+        require(
+            prover != address(0) && s.provers[prover] != enabled,
+            "L1:precondition"
+        );
+
+        s.provers[prover] = enabled;
+        emit ProverWhitelisted(prover, enabled);
+    }
+
+    function isProverWhitelisted(
+        LibData.State storage s,
+        address prover
+    ) public view returns (bool) {
+        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
+        return s.provers[prover];
     }
 
     function _proveBlock(
