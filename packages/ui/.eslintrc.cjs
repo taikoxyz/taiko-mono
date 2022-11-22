@@ -18,7 +18,7 @@ module.exports = {
         quotes: ["error", "double"],
         semi: ["error", "always"],
     },
-    ignorePatterns: ["node_modules", "gme-provider"], // todo: lets lint that separately, or move it to its own package
+    ignorePatterns: ["node_modules"], // todo: lets lint that separately, or move it to its own package
     settings: {
         "svelte3/typescript": require("typescript"),
     },

@@ -1,12 +1,10 @@
 import { expect } from "chai"
-import { AddressManager, Bridge, EtherVault } from "../../typechain"
-import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
+import { ethers } from "hardhat"
+import RLP from "rlp"
+import { AddressManager, Bridge, EtherVault } from "../../typechain"
 import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
-// import { getSlot, MessageStatus } from "../../tasks/utils"
-import RLP from "rlp"
-// const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 async function deployBridge(
     signer: Signer,
@@ -860,7 +858,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
@@ -984,7 +982,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(

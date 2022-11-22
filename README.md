@@ -1,4 +1,7 @@
 <!-- BADGES -->
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
 [![Protocol](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikoxyz/taiko-mono)
@@ -43,6 +46,22 @@ Each commit will automatically trigger the GitHub Actions to run. If any commit 
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center"><a href="https://github.com/d1onys1us"><img src="https://avatars.githubusercontent.com/u/13951458?v=4?s=100" width="100px;" alt="d1onys1us"/><br /><sub><b>d1onys1us</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=d1onys1us" title="Documentation">📖</a></td>
+      <td align="center"><a href="http://taiko.xyz"><img src="https://avatars.githubusercontent.com/u/99078276?v=4?s=100" width="100px;" alt="dantaik"/><br /><sub><b>dantaik</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=dantaik" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=dantaik" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
