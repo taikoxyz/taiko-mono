@@ -1,7 +1,7 @@
 import { expect } from "chai"
-import { AddressManager, Bridge, EtherVault } from "../../typechain"
-import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
+import { ethers } from "hardhat"
+import { AddressManager, Bridge, EtherVault } from "../../typechain"
 import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 // import { getSlot, MessageStatus } from "../../tasks/utils"
@@ -860,7 +860,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
@@ -984,7 +984,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
