@@ -140,7 +140,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     /**
      * Verify up to N blocks.
-     * @param maxBlocks Max number of blocks to finalize.
+     * @param maxBlocks Max number of blocks to verify.
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
