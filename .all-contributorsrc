@@ -24,6 +24,76 @@
         "doc",
         "code"
       ]
+    },
+    {
+      "login": "dantaik",
+      "name": "dantaik",
+      "avatar_url": "https://avatars.githubusercontent.com/u/99078276?v=4",
+      "profile": "http://taiko.xyz",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "cyberhorsey",
+      "name": "cyberhorsey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/113397187?v=4",
+      "profile": "https://github.com/cyberhorsey",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "RogerLamTd",
+      "name": "RogerLamTd",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50648015?v=4",
+      "profile": "https://github.com/RogerLamTd",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "alexshliu",
+      "name": "alexshliu",
+      "avatar_url": "https://avatars.githubusercontent.com/u/104080237?v=4",
+      "profile": "https://github.com/alexshliu",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "kirataik",
+      "name": "kirataik",
+      "avatar_url": "https://avatars.githubusercontent.com/u/104244966?v=4",
+      "profile": "https://github.com/kirataik",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "mfinestone",
+      "name": "mfinestone",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36642873?v=4",
+      "profile": "https://github.com/mfinestone",
+      "contributions": [
+        "business",
+        "content"
+      ]
+    },
+    {
+      "login": "shadab-taiko",
+      "name": "shadab-taiko",
+      "avatar_url": "https://avatars.githubusercontent.com/u/108871478?v=4",
+      "profile": "https://github.com/shadab-taiko",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
