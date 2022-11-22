@@ -14,6 +14,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "dantaik",
+      "name": "dantaik",
+      "avatar_url": "https://avatars.githubusercontent.com/u/99078276?v=4",
+      "profile": "http://taiko.xyz",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
