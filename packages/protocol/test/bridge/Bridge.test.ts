@@ -1,12 +1,10 @@
 import { expect } from "chai"
 import { BigNumber, Signer } from "ethers"
 import { ethers } from "hardhat"
+import RLP from "rlp"
 import { AddressManager, Bridge, EtherVault } from "../../typechain"
 import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
-// import { getSlot, MessageStatus } from "../../tasks/utils"
-import RLP from "rlp"
-// const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 async function deployBridge(
     signer: Signer,
