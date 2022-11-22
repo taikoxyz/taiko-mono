@@ -12,9 +12,13 @@
   async function copyToClipboard(clip: string) {
     await navigator.clipboard.writeText(clip);
   }
+
+  async function disconnect() {
+    signer.set(null);
+  }
 </script>
 
-<div class="dropdown">
+<div class="dropdown dropdown-end">
   <label tabindex="0" class="btn m-1">
     <span class="pr-2">{addressSubsection(address)}</span>
 
@@ -30,6 +34,10 @@
         on:click={async () => await copyToClipboard(address)}>Copy Address</span
       >
     </li>
-    <li><span>Disconnect</span></li>
+    <li>
+      <span class="cursor-pointer" on:click={async () => await disconnect()}
+        >Disconnect</span
+      >
+    </li>
   </ul>
 </div>
