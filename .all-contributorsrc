@@ -14,6 +14,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "RogerLamTd",
+      "name": "RogerLamTd",
+      "avatar_url": "https://avatars.githubusercontent.com/u/50648015?v=4",
+      "profile": "https://github.com/RogerLamTd",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
