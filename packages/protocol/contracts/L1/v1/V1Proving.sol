@@ -316,7 +316,7 @@ library V1Proving {
         LibData.BlockMetadata memory meta
     ) private view {
         require(
-            meta.id > s.latestFinalizedId && meta.id < s.nextBlockId,
+            meta.id > s.latestVerifiedId && meta.id < s.nextBlockId,
             "L1:meta:id"
         );
         require(

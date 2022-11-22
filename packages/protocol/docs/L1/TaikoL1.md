@@ -80,19 +80,19 @@ merkel proof.
 | blockIndex | uint256 | The index of the block to prove. This is also used to select the right implementation version.                                                                                                                                                                                                                                                              |
 | inputs     | bytes[] | A list of data input: - inputs[0] An Evidence object with various information regarding the block to be proven and the actual proofs. - inputs[1] The target block to be proven invalid. - inputs[2] The receipt for the `invalidBlock` transaction on L2. Note that the `invalidBlock` transaction is supposed to be the only transaction in the L2 block. |
 
-### finalizeBlocks
+### verifyBlocks
 
 ```solidity
-function finalizeBlocks(uint256 maxBlocks) external
+function verifyBlocks(uint256 maxBlocks) external
 ```
 
-Finalize up to N blocks.
+Verify up to N blocks.
 
 #### Parameters
 
-| Name      | Type    | Description                       |
-| --------- | ------- | --------------------------------- |
-| maxBlocks | uint256 | Max number of blocks to finalize. |
+| Name      | Type    | Description                     |
+| --------- | ------- | ------------------------------- |
+| maxBlocks | uint256 | Max number of blocks to verify. |
 
 ### isCommitValid
 
