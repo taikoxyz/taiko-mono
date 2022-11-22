@@ -44,11 +44,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: protocol - Unit Tests
+      - name: ui - Unit Tests
         working-directory: ./packages/ui
-        run: pnpm install && pnpm clean && pnpm
+        run: pnpm install && pnpm run test
 
-      - name: protocol - Upload coverage to Codecov
+      - name: ui - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/ui/coverage
