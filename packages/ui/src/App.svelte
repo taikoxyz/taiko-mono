@@ -7,11 +7,10 @@
   import { themeChange } from "theme-change";
   import { onMount } from "svelte";
   import Home from "./pages/home/Home.svelte";
-  import { configureChains, createClient } from "@wagmi/core";
-  import { mainnet, taiko } from "./domain/chain";
-  import { publicProvider } from "wagmi/providers/public";
-  import { wagmiClient } from "./store/wagmi";
   import { setupI18n } from "./i18n";
+  import { BridgeType } from "./domain/bridge";
+  import ETHBridge from "./eth/bridge";
+  import { bridges } from "./store/bridge";
 
   onMount(() => {
     themeChange(false);
@@ -19,17 +18,12 @@
 
   setupI18n({ withLocale: "en" });
 
-  const { chains, provider } = configureChains(
-    [mainnet, taiko],
-    [publicProvider()]
-  );
+  const ethBridge = new ETHBridge();
 
-  const wagmi = createClient({
-    autoConnect: true,
-    provider,
+  bridges.update((store) => {
+    store.set(BridgeType.ETH, ethBridge);
+    return store;
   });
-
-  wagmiClient.set(wagmi);
 
   const routes = {
     "/": wrap({

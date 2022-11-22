@@ -1,6 +1,42 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
   import { token } from "../../store/token";
+  import { fromChain, toChain } from "../../store/chain";
+  import { activeBridge } from "../../store/bridge";
+  import { signer } from "../../store/signer";
+  import { BigNumber, ethers, Signer } from "ethers";
+
+  let amount: string;
+  let btnDisabled: boolean = true;
+
+  $: isBtnDisabled($signer, amount)
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.log(e));
+
+  async function isBtnDisabled(signer: Signer, amount: string) {
+    if (!signer) return true;
+    if (!amount) return true;
+    const balance = await signer.getBalance("latest");
+    if (balance.lt(ethers.utils.parseUnits(amount, $token.decimals)))
+      return true;
+
+    return false;
+  }
+
+  async function bridge() {
+    const tx = await $activeBridge.Bridge({
+      amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+      signer: $signer,
+      tokenAddress: "",
+      fromChainId: $fromChain.id,
+      toChainId: $toChain.id,
+      bridgeAddress: "0x456",
+      processingFeeInWei: BigNumber.from(100),
+      memo: "memo",
+    });
+
+    console.log("bridged", tx);
+  }
 </script>
 
 <div class="form-control">
@@ -8,7 +44,12 @@
     <span class="label-text">From</span>
   </label>
   <label class="input-group">
-    <input type="text" placeholder="0.01" class="input input-bordered" />
+    <input
+      type="text"
+      placeholder="0.01"
+      bind:value={amount}
+      class="input input-bordered"
+    />
     <span>{$token.symbol}</span>
   </label>
 </div>
@@ -18,7 +59,20 @@
     <span class="label-text">To</span>
   </label>
   <label class="input-group">
-    <input type="text" placeholder="0.01" class="input input-bordered" />
+    <input
+      type="text"
+      placeholder="0.01"
+      bind:value={amount}
+      class="input input-bordered"
+    />
     <span>{$token.symbol}</span>
   </label>
 </div>
+
+<button
+  class="btn btn-accent"
+  on:click={async () => await bridge()}
+  disabled={btnDisabled}
+>
+  Bridge
+</button>
