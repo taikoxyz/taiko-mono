@@ -3,8 +3,11 @@ name: "Push docker image to GCR"
 on:
   push:
     branches: [main]
-    tags:
-      - "v*"
+    paths:
+      - "packages/relayer/**"
+  pull_request:
+    paths:
+      - "packages/relayer/**"
 
 jobs:
   push-docker-image:
