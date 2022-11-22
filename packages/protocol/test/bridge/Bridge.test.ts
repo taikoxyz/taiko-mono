@@ -1,7 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
-import { ethers } from "hardhat"
 import { Message } from "../utils/message"
 import {
     AddressManager,
@@ -13,7 +12,6 @@ import {
 } from "../../typechain"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 import RLP from "rlp"
-
 
 async function deployBridge(
     signer: Signer,
