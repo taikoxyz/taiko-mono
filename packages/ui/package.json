@@ -45,7 +45,7 @@
     "prettier": "2.7.1",
     "rollup-plugin-node-builtins": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.10.2",
-    "svelte": "^3.49.0",
+    "svelte": "^3.53.1",
     "svelte-check": "^2.8.0",
     "svelte-jester": "^2.1.5",
     "svelte-loader": "^3.1.2",
@@ -63,6 +63,7 @@
     "@sveltestack/svelte-query": "^1.6.0",
     "@wagmi/core": "^0.7.4",
     "ethers": "^5.7.1",
+    "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0",
     "wagmi": "^0.8.5"
   }

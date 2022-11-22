@@ -6,16 +6,18 @@
 
   import { themeChange } from "theme-change";
   import { onMount } from "svelte";
-  import Footer from "./components/Footer.svelte";
   import Home from "./pages/home/Home.svelte";
   import { configureChains, createClient } from "@wagmi/core";
   import { mainnet, taiko } from "./domain/chain";
   import { publicProvider } from "wagmi/providers/public";
   import { wagmiClient } from "./store/wagmi";
+  import { setupI18n } from "./i18n";
 
   onMount(() => {
     themeChange(false);
   });
+
+  setupI18n({ withLocale: "en" });
 
   const { chains, provider } = configureChains(
     [mainnet, taiko],
@@ -42,7 +44,6 @@
   <div class="h-screen w-full" style="margin: 0 auto;">
     <Navbar />
     <Router {routes} />
-    <Footer />
   </div>
 </QueryProvider>
 
