@@ -24,6 +24,16 @@
         "doc",
         "code"
       ]
+    },
+    {
+      "login": "shadab-taiko",
+      "name": "shadab-taiko",
+      "avatar_url": "https://avatars.githubusercontent.com/u/108871478?v=4",
+      "profile": "https://github.com/shadab-taiko",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
