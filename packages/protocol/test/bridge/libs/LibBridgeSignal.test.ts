@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { TestLibBridgeSignal } from "../../../typechain"
+import { TestLibBridgeData, TestLibBridgeSignal } from "../../../typechain"
+import { Message } from "../../utils/message"
 
 describe("integration:LibBridgeSignal", function () {
     async function deployLibBridgeSignalFixture() {
@@ -10,7 +11,7 @@ describe("integration:LibBridgeSignal", function () {
             await ethers.getContractFactory("TestLibBridgeSignal")
         ).deploy()
 
-        const testMessage = {
+        const testMessage: Message = {
             id: 1,
             sender: owner.address,
             srcChainId: 1,
@@ -29,7 +30,7 @@ describe("integration:LibBridgeSignal", function () {
         return { owner, nonOwner, libSignal, testMessage }
     }
     async function deployLibBridgeDataFixture() {
-        const libData = await (
+        const libData: TestLibBridgeData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
         return { libData }
@@ -57,6 +58,7 @@ describe("integration:LibBridgeSignal", function () {
             ).to.be.revertedWith("B:signal")
         })
     })
+
     describe("isSignalSent()", async function () {
         it("properly sent message should be received", async function () {
             const { owner, libSignal, testMessage } =

@@ -1,11 +1,15 @@
-// import { expect } from "chai"
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import { Message } from "../../utils/message"
+import {
+    TestLibBridgeData,
+    TestLibBridgeInvoke,
+    TestReceiver,
+} from "../../../typechain"
 
 describe("LibBridgeInvoke", function () {
     async function deployLibBridgeDataFixture() {
-        const libData = await (
+        const libData: TestLibBridgeData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
         return { libData }
@@ -14,7 +18,7 @@ describe("LibBridgeInvoke", function () {
     async function deployLibBridgeInvokeFixture() {
         const [owner, nonOwner] = await ethers.getSigners()
 
-        const libInvoke = await (
+        const libInvoke: TestLibBridgeInvoke = await (
             await ethers.getContractFactory("TestLibBridgeInvoke")
         )
             .connect(owner)
@@ -89,7 +93,7 @@ describe("LibBridgeInvoke", function () {
 
             const { libData } = await deployLibBridgeDataFixture()
 
-            const testReceiver = await (
+            const testReceiver: TestReceiver = await (
                 await ethers.getContractFactory("TestReceiver")
             ).deploy()
 

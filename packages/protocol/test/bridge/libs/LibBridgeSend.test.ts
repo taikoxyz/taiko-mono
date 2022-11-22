@@ -1,22 +1,42 @@
 import { expect } from "chai"
 import hre, { ethers } from "hardhat"
+import {
+    AddressManager,
+    TestLibBridgeSend,
+    EtherVault,
+} from "../../../typechain"
 import { Message } from "../../utils/message"
 
 describe("LibBridgeSend", function () {
     async function deployLibBridgeSendFixture() {
-        const [owner, nonOwner, etherVault] = await ethers.getSigners()
+        const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
 
-        const addressManager = await (
+        const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
+
+        const etherVault: EtherVault = await (
+            await ethers.getContractFactory("EtherVault")
+        )
+            .connect(etherVaultOwner)
+            .deploy()
+
+        await etherVault.deployed()
+        await etherVault.init(addressManager.address)
+
+        await owner.sendTransaction({
+            to: etherVault.address,
+            value: ethers.utils.parseEther("10.0"),
+        })
+
         const blockChainId = hre.network.config.chainId ?? 0
         await addressManager.setAddress(
             `${blockChainId}.ether_vault`,
             etherVault.address
         )
 
-        const libSend = await (
+        const libSend: TestLibBridgeSend = await (
             await ethers.getContractFactory("TestLibBridgeSend")
         )
             .connect(owner)

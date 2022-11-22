@@ -1,12 +1,17 @@
 import { expect } from "chai"
-import { AddressManager, Bridge, EtherVault } from "../../typechain"
+import {
+    AddressManager,
+    Bridge,
+    EtherVault,
+    LibTrieProof,
+    TestHeaderSync,
+    TestLibBridgeData,
+} from "../../typechain"
 import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
 import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
-// import { getSlot, MessageStatus } from "../../tasks/utils"
 import RLP from "rlp"
-// const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 async function deployBridge(
     signer: Signer,
@@ -14,7 +19,9 @@ async function deployBridge(
     destChain: number,
     srcChain: number
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
-    const libTrieProof = await (await ethers.getContractFactory("LibTrieProof"))
+    const libTrieProof: LibTrieProof = await (
+        await ethers.getContractFactory("LibTrieProof")
+    )
         .connect(signer)
         .deploy()
 
@@ -476,7 +483,7 @@ describe("integration:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address)
 
-        const headerSync = await (
+        const headerSync: TestHeaderSync = await (
             await ethers.getContractFactory("TestHeaderSync")
         )
             .connect(l2Signer)
@@ -701,7 +708,7 @@ describe("integration:Bridge", function () {
                 ["latest", false]
             )
 
-            const libData = await (
+            const libData: TestLibBridgeData = await (
                 await ethers.getContractFactory("TestLibBridgeData")
             ).deploy()
 
