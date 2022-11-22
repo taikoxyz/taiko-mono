@@ -8,10 +8,26 @@
   import { onMount } from "svelte";
   import Footer from "./components/Footer.svelte";
   import Home from "./pages/home/Home.svelte";
+  import { configureChains, createClient } from "@wagmi/core";
+  import { mainnet, taiko } from "./domain/chain";
+  import { publicProvider } from "wagmi/providers/public";
+  import { wagmiClient } from "./store/wagmi";
 
   onMount(() => {
     themeChange(false);
   });
+
+  const { chains, provider } = configureChains(
+    [mainnet, taiko],
+    [publicProvider()]
+  );
+
+  const wagmi = createClient({
+    autoConnect: true,
+    provider,
+  });
+
+  wagmiClient.set(wagmi);
 
   const routes = {
     "/": wrap({

@@ -54,26 +54,17 @@
     "tailwindcss": "^2.2.19",
     "theme-change": "^2.2.0",
     "ts-jest": "^27.0.7",
+    "ts-jest-mock-import-meta": "^0.12.0",
     "ts-loader": "^9.2.6",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
     "vite": "^3.0.0"
   },
   "dependencies": {
-    "@sentry/browser": "^7.8.0",
-    "@sentry/tracing": "^7.8.0",
     "@sveltestack/svelte-query": "^1.6.0",
-    "@types/crypto-js": "^4.1.1",
-    "@types/mixpanel": "^2.14.3",
-    "@types/node-fetch": "^2.6.1",
-    "@types/semver": "^7.3.9",
-    "alchemy-sdk": "^2.1.0",
-    "axios": "^0.27.2",
-    "axios-retry": "^3.3.1",
-    "broadcast-channel": "^4.14.0",
-    "bs58": "^5.0.0",
+    "@wagmi/core": "^0.7.4",
     "ethers": "^5.7.1",
-    "mixpanel-browser": "^2.45.0",
-    "svelte-spa-router": "^3.2.0"
+    "svelte-spa-router": "^3.2.0",
+    "wagmi": "^0.8.5"
   }
 }

@@ -7,53 +7,27 @@ enum BridgeType {
   ERC1155 = "ERC1155",
 }
 
-enum BridgeMechanism {
-  Deposit = "Deposit",
-  Withdraw = "Withdraw",
-}
-
 type ApproveOpts = {
-  owner: string;
-  amount: string;
+  amountInWei: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
 };
 
 type BridgeOpts = {
-  amount: string;
+  amountInWei: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
+  fromChainId: number;
+  toChainId: number;
+  bridgeAddress: string;
+  processingFeeInWei?: BigNumber;
   tokenId?: string;
-};
-
-type BridgeBackOpts = {
-  amount: string;
-  signer: ethers.Signer;
-  tokenAddress: string;
-  name: string;
-  symbol: string;
-  decimals?: number;
-  tokenId?: string;
+  memo?: string;
 };
 
 interface Bridge {
-  Allowance(opts: ApproveOpts): Promise<BigNumber>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
-  BridgeBack(opts: BridgeBackOpts): Promise<Transaction>;
-  WaitForOtherLayerConfirmation(
-    tokenAddress: string,
-    amount: string,
-    from: string
-  ): Promise<Transaction>;
 }
 
-export {
-  ApproveOpts,
-  BridgeOpts,
-  BridgeBackOpts,
-  BridgeStatus,
-  BridgeType,
-  Bridge,
-  BridgeMechanism,
-};
+export { ApproveOpts, BridgeOpts, BridgeType, Bridge };
