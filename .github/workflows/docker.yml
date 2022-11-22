@@ -48,6 +48,6 @@ jobs:
         with:
           platforms: linux/amd64
           push: true
-          context: /packages/relayer
+          context: packages/relayer
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
