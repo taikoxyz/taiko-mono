@@ -1,9 +1,9 @@
 ## V1Events
 
-### BlockFinalized
+### BlockVerified
 
 ```solidity
-event BlockFinalized(uint256 id, bytes32 blockHash)
+event BlockVerified(uint256 id, bytes32 blockHash)
 ```
 
 ### BlockCommitted
