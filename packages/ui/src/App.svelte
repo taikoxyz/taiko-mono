@@ -4,7 +4,6 @@
   import Router from "svelte-spa-router";
   import Navbar from "./components/Navbar.svelte";
 
-  import { themeChange } from "theme-change";
   import { onMount } from "svelte";
   import Footer from "./components/Footer.svelte";
   import Home from "./pages/home/Home.svelte";
@@ -12,10 +11,6 @@
   import { mainnet, taiko } from "./domain/chain";
   import { publicProvider } from "wagmi/providers/public";
   import { wagmiClient } from "./store/wagmi";
-
-  onMount(() => {
-    themeChange(false);
-  });
 
   const { chains, provider } = configureChains(
     [mainnet, taiko],
@@ -39,15 +34,19 @@
 </script>
 
 <QueryProvider>
-  <div class="h-screen w-full" style="margin: 0 auto;">
+  <main>
     <Navbar />
     <Router {routes} />
     <Footer />
-  </div>
+  </main>
 </QueryProvider>
 
 <style global lang="postcss">
   @tailwind base;
   @tailwind components;
   @tailwind utilities;
+
+  main {
+    margin: 0;
+  }
 </style>
