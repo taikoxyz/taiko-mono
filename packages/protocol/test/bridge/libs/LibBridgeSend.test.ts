@@ -25,11 +25,6 @@ describe("LibBridgeSend", function () {
         await etherVault.deployed()
         await etherVault.init(addressManager.address)
 
-        await owner.sendTransaction({
-            to: etherVault.address,
-            value: ethers.utils.parseEther("10.0"),
-        })
-
         const blockChainId = hre.network.config.chainId ?? 0
         await addressManager.setAddress(
             `${blockChainId}.ether_vault`,
@@ -43,6 +38,9 @@ describe("LibBridgeSend", function () {
             .deploy()
 
         await libSend.init(addressManager.address)
+        await etherVault
+            .connect(etherVaultOwner)
+            .authorize(libSend.address, true)
 
         const srcChainId = 1
 
