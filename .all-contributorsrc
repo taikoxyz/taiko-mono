@@ -14,6 +14,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "davidtaikocha",
+      "name": "David",
+      "avatar_url": "https://avatars.githubusercontent.com/u/104078303?v=4",
+      "profile": "https://github.com/davidtaikocha",
+      "contributions": [
+        "doc",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
