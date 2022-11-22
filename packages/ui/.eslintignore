@@ -1,7 +1,6 @@
 build
 coverage
 node_modules
-gme-provider
 example
 LICENSES
 messages
