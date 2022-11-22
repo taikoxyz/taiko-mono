@@ -1,3 +1,4 @@
 packages:
   - "packages/protocol"
   - "packages/website"
+  - "packages/ui"
