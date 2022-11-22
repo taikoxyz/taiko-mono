@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to improve Taiko! Before submitting, please check if an existing issue already exists.
+        Before submitting, please check if an existing issue already exists. Thanks for taking the time to improve Taiko!
   - type: textarea
     id: description
     attributes:
