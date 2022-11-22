@@ -45,8 +45,8 @@ library LibData {
         mapping(bytes32 => uint256) commits;
         mapping(address => bool) provers; // Whitelisted provers
         uint64 genesisHeight;
-        uint64 latestFinalizedHeight;
-        uint64 latestFinalizedId;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
         uint64 nextBlockId;
     }
 
@@ -69,7 +69,7 @@ library LibData {
         State storage s,
         uint256 number
     ) internal view returns (bytes32) {
-        require(number <= s.latestFinalizedHeight, "L1:id");
+        require(number <= s.latestVerifiedHeight, "L1:id");
         return s.l2Hashes[number];
     }
 
@@ -80,14 +80,14 @@ library LibData {
         view
         returns (
             uint64 genesisHeight,
-            uint64 latestFinalizedHeight,
-            uint64 latestFinalizedId,
+            uint64 latestVerifiedHeight,
+            uint64 latestVerifiedId,
             uint64 nextBlockId
         )
     {
         genesisHeight = s.genesisHeight;
-        latestFinalizedHeight = s.latestFinalizedHeight;
-        latestFinalizedId = s.latestFinalizedId;
+        latestVerifiedHeight = s.latestVerifiedHeight;
+        latestVerifiedId = s.latestVerifiedId;
         nextBlockId = s.nextBlockId;
     }
 

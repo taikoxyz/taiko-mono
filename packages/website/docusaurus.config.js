@@ -157,6 +157,10 @@ const config = {
             label: "Twitter",
             href: "https://twitter.com/taikoxyz",
           },
+          {
+            label: "YouTube",
+            href: "https://www.youtube.com/@taikoxyz",
+          },
         ],
         copyright: `© Taiko Labs ${new Date().getFullYear()}`,
       },
