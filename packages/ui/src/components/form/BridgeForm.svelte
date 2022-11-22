@@ -5,6 +5,7 @@
   import { activeBridge, chainIdToBridgeAddress } from "../../store/bridge";
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
+  import { toast } from "@zerodevx/svelte-toast";
 
   let amount: string;
   let btnDisabled: boolean = true;
@@ -24,18 +25,24 @@
   }
 
   async function bridge() {
-    const tx = await $activeBridge.Bridge({
-      amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
-      signer: $signer,
-      tokenAddress: "",
-      fromChainId: $fromChain.id,
-      toChainId: $toChain.id,
-      bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
-      processingFeeInWei: BigNumber.from(100),
-      memo: "memo",
-    });
+    try {
+      const tx = await $activeBridge.Bridge({
+        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        signer: $signer,
+        tokenAddress: "",
+        fromChainId: $fromChain.id,
+        toChainId: $toChain.id,
+        bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
+        processingFeeInWei: BigNumber.from(100),
+        memo: "memo",
+      });
 
-    console.log("bridged", tx);
+      console.log("bridged", tx);
+      toast.push($_("toast.transactionSent"));
+    } catch (e) {
+      console.log(e);
+      toast.push($_("toast.errorSendingTransaction"));
+    }
   }
 </script>
 

@@ -3,9 +3,12 @@
   import { tokens } from "../../domain/token";
 
   import type { Token } from "../../domain/token";
+  import { toast } from "@zerodevx/svelte-toast";
 
   async function select(t: Token) {
+    if (t === $token) return;
     token.set(t);
+    toast.push(`Token changed to ${t.symbol.toUpperCase()}`);
   }
 </script>
 

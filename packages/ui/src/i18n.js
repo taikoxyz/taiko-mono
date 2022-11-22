@@ -13,6 +13,11 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
             },
             nav: {
                 connect: "Connect Wallet"
+            },
+            toast: {
+                transactionSent: "Transaction sent",
+                errorSendingTransaction: "Error sending transaction",
+                errorDisconneting: "Could not disconnect"
             }
         }
     })

@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { _ } from "svelte-i18n";
   import { addressSubsection } from "../utils/addressSubsection";
   import { onMount } from "svelte";
   import { signer } from "../store/signer";
   import ChevDown from "./icons/ChevDown.svelte";
+  import { toast } from "@zerodevx/svelte-toast";
 
   let address: string;
   onMount(async () => {
@@ -14,7 +16,12 @@
   }
 
   async function disconnect() {
-    signer.set(null);
+    try {
+      signer.set(null);
+    } catch (e) {
+      console.error(e);
+      toast.push($_("toast.errorDisconnecting"));
+    }
   }
 </script>
 

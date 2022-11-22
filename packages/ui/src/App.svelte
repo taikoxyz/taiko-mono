@@ -3,6 +3,7 @@
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
   import Navbar from "./components/Navbar.svelte";
+  import { SvelteToast } from "@zerodevx/svelte-toast";
 
   import { themeChange } from "theme-change";
   import { onMount } from "svelte";
@@ -46,6 +47,7 @@
     <Navbar />
     <Router {routes} />
   </div>
+  <SvelteToast />
 </QueryProvider>
 
 <style global lang="postcss">
