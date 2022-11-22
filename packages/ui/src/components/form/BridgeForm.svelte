@@ -2,7 +2,7 @@
   import { _ } from "svelte-i18n";
   import { token } from "../../store/token";
   import { fromChain, toChain } from "../../store/chain";
-  import { activeBridge } from "../../store/bridge";
+  import { activeBridge, chainIdToBridgeAddress } from "../../store/bridge";
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
 
@@ -30,7 +30,7 @@
       tokenAddress: "",
       fromChainId: $fromChain.id,
       toChainId: $toChain.id,
-      bridgeAddress: "0x456",
+      bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
       processingFeeInWei: BigNumber.from(100),
       memo: "memo",
     });

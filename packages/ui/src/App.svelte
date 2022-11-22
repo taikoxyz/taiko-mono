@@ -10,7 +10,8 @@
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
-  import { bridges } from "./store/bridge";
+  import { bridges, chainIdToBridgeAddress } from "./store/bridge";
+  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
 
   onMount(() => {
     themeChange(false);
@@ -22,6 +23,12 @@
 
   bridges.update((store) => {
     store.set(BridgeType.ETH, ethBridge);
+    return store;
+  });
+
+  chainIdToBridgeAddress.update((store) => {
+    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
+    store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
     return store;
   });
 
