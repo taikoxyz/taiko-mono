@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test": "npx jest --passWithNoTests --forceExit --detectOpenHandles --runInBand && npx jest-it-up",
+    "test": "pnpm exec jest",
     "prettier": "npx prettier '**/*.{ts,svelte}'",
     "prettier:write": "npm run prettier -- --write",
     "prettier:check": "npm run prettier -- --check",
