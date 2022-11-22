@@ -1,9 +1,6 @@
 build
 coverage
 node_modules
-gme-provider
 example
 LICENSES
-messages
 public
-test-app
