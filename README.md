@@ -29,14 +29,23 @@
 - [website](./packages/website/): main documentation website
 - [whitepaper](./packages/whitepaper): Latex source files for Taiko's whitepaper. A PDF will be published automatically to: https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf (linked from https://taiko.xyz).
 
-## Contributing
+## Contributing guide
 
-Refer to the [Contribution guide](./CONTRIBUTING.md) to contribute.
+Refer to the [Contributing guide](./CONTRIBUTING.md) to contribute.
 
 ## Github Actions
 
 Each commit will automatically trigger the GitHub Actions to run. If any commit message in your push or the HEAD commit of your PR contains the strings [skip ci], [ci skip], [no ci], [skip actions], or [actions skip] workflows triggered on the push or pull_request events will be skipped.
 
-## Release naming
+## Contributors ✨
 
-We are using [ships from the game EVE](https://wiki.eveuniversity.org/Ships) as release/testnet names.
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
