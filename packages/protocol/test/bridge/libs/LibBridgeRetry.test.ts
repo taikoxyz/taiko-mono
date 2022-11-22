@@ -1,3 +1,4 @@
+import * as helpers from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 import hre, { ethers } from "hardhat"
 import { Message } from "../../utils/message"
@@ -10,7 +11,6 @@ import {
     TestLibBridgeRetry,
     TestReceiver,
 } from "../../../typechain"
-const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 describe("LibBridgeRetry", function () {
     async function deployLibBridgeRetryFixture() {

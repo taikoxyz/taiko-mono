@@ -134,8 +134,8 @@ Taiko aims to build a secure, decentralized and permissionless rollup on Ethereu
 
 We achieve this by splitting the block submission process in two parts:
 \begin{description}
-\item[Block proposal] When a block gets proposed the block data is published on Ethereum and the block is appended to the proposed blocks list stored in the \underline{TaikoL1} contract. Once registered, the protocol ensures that \emph{all} block properties are immutable. This makes the block execution \emph{deterministic}: the post-block state can now be calculated by anyone. As such, the block is immediately \emph{finalized}. This also ensures that no one knows more about the latest state than anyone else, as that would create an unfair advantage.
-\item[Block verification] Because the block should already be finalized once proposed, it should \emph{not} be possible for the prover to have any impact on how the block is executed and what the post-block state is. All relevant inputs for the proof generation are verified on L1 directly or indirectly to achieve deterministic block transitions. As all proposed blocks are deterministic, they can be proven in parallel, because all intermediate states between blocks are known and unique. Once a proof is submitted for the block and its parent block, we call the block \emph{on-chain finalized}.
+\item[Block proposal] When a block gets proposed the block data is published on Ethereum and the block is appended to the proposed blocks list stored in the \underline{TaikoL1} contract. Once registered, the protocol ensures that \emph{all} block properties are immutable. This makes the block execution \emph{deterministic}: the post-block state can now be calculated by anyone. As such, the block is immediately \emph{verified}. This also ensures that no one knows more about the latest state than anyone else, as that would create an unfair advantage.
+\item[Block verification] Because the block should already be verified once proposed, it should \emph{not} be possible for the prover to have any impact on how the block is executed and what the post-block state is. All relevant inputs for the proof generation are verified on L1 directly or indirectly to achieve deterministic block transitions. As all proposed blocks are deterministic, they can be proven in parallel, because all intermediate states between blocks are known and unique. Once a proof is submitted for the block and its parent block, we call the block \emph{on-chain verified}.
 \end{description}
 
 \section{The Taiko Blockchain}
@@ -144,12 +144,12 @@ The Taiko blockchain is, as you'd expect, made up of blocks. A block is a collec
 \subsection{Core Contracts}
 The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2, respectively.
 
-\subsubsection{TaikoL1} Deployed on Ethereum. This contract on L1 is used to propose, prove, and finalize L2 blocks. \underline{TaikoL1} maintains the following state variables:
+\subsubsection{TaikoL1} Deployed on Ethereum. This contract on L1 is used to propose, prove, and verify L2 blocks. \underline{TaikoL1} maintains the following state variables:
 
 \begin{description}
 \item[numProposedBlocks] The total number of proposed blocks, and the ID for the next proposed block, formally $R_\mathrm{i}$.
 \item[proposedBlocks] The list of proposed blocks, formally $R_\mathrm{b}$.
-\item[lastFinalizedBlockId] The ID of the last finalized block, formally $R_\mathrm{f}$.
+\item[lastVerifiedBlockId] The ID of the last verified block, formally $R_\mathrm{f}$.
 \item [blockCommits] The mapping from the committed blocks' \emph{commit hashes} to their enclosed L1 blocks' block numbers, formally $R_\mathrm{c}$. If a block's commit hash is $h$, its number is $R_\mathrm{c}[h]$ (see Section \ref{sec:commit}).
 \item[forkChoices] The mapping from proposed block IDs to their \emph{Fork Choices}, formally $R_\mathrm{f}$. The fork choices for the $i$-th block is $R_\mathrm{f}[i]$. Fork Choices are discussed in detail in Section \ref{sec:proving}.
 \end{description}
@@ -161,7 +161,7 @@ The Taiko ZK-Rollup protocol has two major smart contracts deployed on L1 and L2
 \end{enumerate}
 
 \subsection{Proposing Blocks}
-Any willing entity can propose new Taiko blocks using the {\underline{TaikoL1}} contract. Blocks are appended to a list in the order they come in (which is dictated by Ethereum). Once the block is in the list it is finalized and nodes can apply its state to the latest L2 state (see Section \ref{sec:properties}). Certain blocks however are deemed invalid by the protocol and these blocks will be ignored (see Section \ref{sec:proving-invalid}).
+Any willing entity can propose new Taiko blocks using the {\underline{TaikoL1}} contract. Blocks are appended to a list in the order they come in (which is dictated by Ethereum). Once the block is in the list it is verified and nodes can apply its state to the latest L2 state (see Section \ref{sec:properties}). Certain blocks however are deemed invalid by the protocol and these blocks will be ignored (see Section \ref{sec:proving-invalid}).
 
 \subsubsection{Proposed Block} A proposed block in Taiko is the collection of information (known as the block's \emph{Metadata}), $C$, and a list of transactions, $L$,  (known as the block \emph{txList}). Formally, we can refer to a proposed block as $\dot{B}$:
 
@@ -339,9 +339,9 @@ According to the ECDSA's spec, when $k$ is $1$, $\theta_r$ must equal $\mathrm{G
 
 \subsection{Proving Blocks} \label{sec:proving}
 
-A proof needs to be submitted to Ethereum so that a block can be on-chain finalized. We stress again that all proposed blocks are finalized immediately because proposed blocks are deterministic and cannot be reverted. The prover has \emph{no} impact on the post-block state. The proof is only required to prove to the \underline{TaikoL1} smart contract that the L2 state transitions and the rollup protocol rules are fully constrained. These on-chain verified L2 states are made accessible to other smart contracts (and indirectly to other L2s) so they can have access to the full L2 state, which is critical for e.g. bridges (see Section \ref{sec:bridges}).
+A proof needs to be submitted to Ethereum so that a block can be on-chain verified. We stress again that all proposed blocks are verified immediately because proposed blocks are deterministic and cannot be reverted. The prover has \emph{no} impact on the post-block state. The proof is only required to prove to the \underline{TaikoL1} smart contract that the L2 state transitions and the rollup protocol rules are fully constrained. These on-chain verified L2 states are made accessible to other smart contracts (and indirectly to other L2s) so they can have access to the full L2 state, which is critical for e.g. bridges (see Section \ref{sec:bridges}).
 
-Blocks can be proven in parallel and so proofs may be submitted out-of-order. As a result, when proofs are submitted for blocks where the parent block is not yet finalized, we cannot know if the proof is for the correct state transition. A proof on its own can only verify that the state transition from one state to another state is done correctly, not that the initial state is the correct one. As such, proving a block can create a Fork Choice which is an attestation that the block in question transits from a prover-selected parent block to a correctly calculated new world state. It is important to note that there is only a single valid fork choice per block: the fork choice that transitions from the last on-chain finalized block to the next \emph{valid} proposed block. All other fork choices use an incorrect pre-block state.
+Blocks can be proven in parallel and so proofs may be submitted out-of-order. As a result, when proofs are submitted for blocks where the parent block is not yet verified, we cannot know if the proof is for the correct state transition. A proof on its own can only verify that the state transition from one state to another state is done correctly, not that the initial state is the correct one. As such, proving a block can create a Fork Choice which is an attestation that the block in question transits from a prover-selected parent block to a correctly calculated new world state. It is important to note that there is only a single valid fork choice per block: the fork choice that transitions from the last on-chain verified block to the next \emph{valid} proposed block. All other fork choices use an incorrect pre-block state.
 
 A Fork Choice is a tuple of 3 elements:
 
@@ -351,7 +351,7 @@ E \equiv (H_p, H_h, [(a_1, p^{z}_1, [p^{m_1}_1,...]),...])
 
 where $H_p$ is the block's parent hash, $H_h \equiv \texttt{KEC}(\texttt{RLP}(H))$ is the hash of the proposed block, and $(a_i, p^{z}_i, [p^{m_1}_i,...])$ are the $i$-th prover's address and the proofs. $p^{z}$ is a proof that shows the state transition from the parent hash to the block hash is correct, and [$p^{m_1}$,...] are Merkle proofs in the storage, transaction, and/or receipt trie that prove the anchor transaction has been executed successfully as the first transaction of the L2 block.
 
-Taiko accepts up to $K_{\mathrm{MaxProofsPerForkChoice}}$ proofs per fork choice. Proofs for the correct fork choice will be eligible for compensation. No limit is set on the number of fork choices as the protocol does not know which fork choice for a block is the correct one until the parent block is on-chain finalized.
+Taiko accepts up to $K_{\mathrm{MaxProofsPerForkChoice}}$ proofs per fork choice. Proofs for the correct fork choice will be eligible for compensation. No limit is set on the number of fork choices as the protocol does not know which fork choice for a block is the correct one until the parent block is on-chain verified.
 
 \subsubsection{Invalid Blocks} \label{sec:proving-invalid}
 
@@ -373,11 +373,11 @@ Where $K_{\mathrm{BlockDeadEndHash}}$ is a special value marking this Fork Choic
 
 It's important to note that these throw-away blocks are never a part of the Taiko chain. The only purpose of the block is to be able reuse the EVM proving subsystem so that we can create proofs for blocks with unexpected transaction data.
 
-\subsection{On-chain Finalization of Blocks}\label{sec:finalizing}
+\subsection{On-chain Finalization of Blocks}\label{sec:verifying}
 
-Assuming the $j$-th block is the last finalized valid block. The $i$-th block ($i > j$) can be finalized if 1) the $(i-1)$-th block has been finalized, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the $j$-th block's hash.
+Assuming the $j$-th block is the last verified valid block. The $i$-th block ($i > j$) can be verified if 1) the $(i-1)$-th block has been verified, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the $j$-th block's hash.
 
-If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as finalized but $j$ is not updated (otherwise $j$ changes to $i$ and so the $i$-th block would become the last finalized valid block while the block is not valid). So on L1, because each block needs to handled, valid or invalid, all blocks are part of the block chain through the Fork Choices. In Taiko nodes invalid blocks can be immediately dropped and are never part of Taiko's canonical chain.
+If $H_h$ equals $K_{\mathrm{BlockDeadEndHash}}$, the $i$-th block is marked as verified but $j$ is not updated (otherwise $j$ changes to $i$ and so the $i$-th block would become the last verified valid block while the block is not valid). So on L1, because each block needs to handled, valid or invalid, all blocks are part of the block chain through the Fork Choices. In Taiko nodes invalid blocks can be immediately dropped and are never part of Taiko's canonical chain.
 
 \section{ZK-EVM Circuits}
 
@@ -967,7 +967,7 @@ Name  & Description \\
 \midrule
 $K_{\mathrm{ChainID}}$ & Taiko's chain ID. \\
 $K_{\mathrm{MaxNumBlocks}}$ & The maximum number of slots for proposed blocks. \\
-$K_{\mathrm{MaxFinalizationsPerTx}}$  & The number of proven blocks that can be finalized when a new block is\\
+$K_{\mathrm{MaxVerificationsPerTx}}$  & The number of proven blocks that can be verified when a new block is\\
 & proposed or a block is proven. \\
 $K_{\mathrm{CommitDelayConfirms}}$  & The number of confirmations to wait for before a block can be proposed\\
 & after its commit-hash has been written on Ethereum.\\

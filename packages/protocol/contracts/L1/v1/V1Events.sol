@@ -13,7 +13,7 @@ import "../LibData.sol";
 /// @author david <david@taiko.xyz>
 abstract contract V1Events {
     // The following events must match the definitions in other V1 libraries.
-    event BlockFinalized(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
     event BlockCommitted(bytes32 hash, uint256 validSince);
 
@@ -29,4 +29,6 @@ abstract contract V1Events {
     );
 
     event ProverWhitelisted(address indexed prover, bool whitelisted);
+
+    event Halted(bool halted);
 }

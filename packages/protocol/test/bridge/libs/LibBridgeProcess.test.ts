@@ -1,5 +1,9 @@
+import * as helpers from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 import hre, { ethers } from "hardhat"
+import * as fs from "fs"
+import * as path from "path"
+import { getSlot, MessageStatus } from "../../../tasks/utils"
 import { Message } from "../../utils/message"
 import {
     AddressManager,
@@ -8,10 +12,6 @@ import {
     TestLibBridgeData,
     TestLibBridgeProcess,
 } from "../../../typechain"
-import { getSlot, MessageStatus } from "../../../tasks/utils"
-import * as fs from "fs"
-import * as path from "path"
-const helpers = require("@nomicfoundation/hardhat-network-helpers")
 
 describe("LibBridgeProcess", function () {
     function getStateSlot() {

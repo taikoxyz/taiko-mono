@@ -1,4 +1,8 @@
 import { expect } from "chai"
+import { ethers } from "hardhat"
+import { BigNumber, Signer } from "ethers"
+import { ethers } from "hardhat"
+import { Message } from "../utils/message"
 import {
     AddressManager,
     Bridge,
@@ -7,11 +11,9 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain"
-import { ethers } from "hardhat"
-import { BigNumber, Signer } from "ethers"
-import { Message } from "../utils/message"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 import RLP from "rlp"
+
 
 async function deployBridge(
     signer: Signer,
@@ -867,7 +869,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
@@ -991,7 +993,7 @@ describe("integration:Bridge", function () {
             const storageValue = await ethers.provider.getStorageAt(
                 l1Bridge.address,
                 key,
-                block.hash
+                block.number
             )
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(

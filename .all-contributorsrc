@@ -1,0 +1,35 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "d1onys1us",
+      "name": "d1onys1us",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13951458?v=4",
+      "profile": "https://github.com/d1onys1us",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "dantaik",
+      "name": "dantaik",
+      "avatar_url": "https://avatars.githubusercontent.com/u/99078276?v=4",
+      "profile": "http://taiko.xyz",
+      "contributions": [
+        "doc",
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "skipCi": true,
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "projectName": "taiko-mono",
+  "projectOwner": "taikoxyz"
+}
