@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ethers } from "ethers";
   import { signer } from "../../store/signer";
+  import { _ } from "svelte-i18n";
 
   async function connect() {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -12,5 +13,5 @@
 </script>
 
 <button class="btn" on:click={async () => await connect()}
-  >Connect Wallet</button
+  >{$_("nav.connect")}</button
 >

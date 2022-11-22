@@ -41,7 +41,7 @@
 
 <div class="form-control">
   <label class="label">
-    <span class="label-text">From</span>
+    <span class="label-text">{$_("home.from")}</span>
   </label>
   <label class="input-group">
     <input
@@ -56,7 +56,7 @@
 
 <div class="form-control">
   <label class="label">
-    <span class="label-text">To</span>
+    <span class="label-text">{$_("home.to")}</span>
   </label>
   <label class="input-group">
     <input
@@ -74,5 +74,5 @@
   on:click={async () => await bridge()}
   disabled={btnDisabled}
 >
-  Bridge
+  {$_("home.bridge")}
 </button>

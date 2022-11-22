@@ -6,7 +6,13 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
         en: {
             home: {
                 title: "Taiko Bridge",
-                selectToken: "Select Token"
+                selectToken: "Select Token",
+                from: "From",
+                to: "To",
+                bridge: "Bridge"
+            },
+            nav: {
+                connect: "Connect Wallet"
             }
         }
     })
