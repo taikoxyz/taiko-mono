@@ -19,7 +19,11 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
-    event BlockCommitted(bytes32 blockHash, uint256 commitHeight);
+    event BlockCommitted(
+        uint commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
@@ -32,12 +36,12 @@ library V1Proposing {
         //
         // require(!V1Utils.isHalted(s), "L1:halt");
 
-        bytes32 hash = _aggregateCommitHash(commitHash, block.number);
+        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
         require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
         s.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted(commitHash, block.number);
+        emit BlockCommitted(commitSlot, block.number, commitHash);
     }
 
     function proposeBlock(
@@ -110,7 +114,7 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        bytes32 hash = _aggregateCommitHash(commitHash, commitHeight);
+        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&
             block.number >=
@@ -144,8 +148,8 @@ library V1Proposing {
     }
 
     function _aggregateCommitHash(
-        bytes32 commitHash,
-        uint256 commitHeight
+        uint256 commitHeight,
+        bytes32 commitHash
     ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
