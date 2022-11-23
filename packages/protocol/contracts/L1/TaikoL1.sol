@@ -187,6 +187,20 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Utils.isHalted(state);
     }
 
+    function isCommitValid(
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) public view returns (bool) {
+        return
+            V1Proposing.isCommitValid(
+                state,
+                commitSlot,
+                commitHeight,
+                commitHash
+            );
+    }
+
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
