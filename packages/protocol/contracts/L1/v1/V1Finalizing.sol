@@ -8,9 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import "../LibData.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Finalizing {
@@ -31,7 +29,19 @@ library V1Finalizing {
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
-    function verifyBlocks(LibData.State storage s, uint256 maxBlocks) public {
+    function verifyBlocks(
+        LibData.State storage s,
+        uint256 maxBlocks,
+        bool checkHalt
+    ) public {
+        bool halted = V1Utils.isHalted(s);
+        if (checkHalt) {
+            require(!halted, "L1:halted");
+        } else if (halted) {
+            // skip finalizing blocks
+            return;
+        }
+
         uint64 latestL2Height = s.latestVerifiedHeight;
         bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
         uint64 processed = 0;
@@ -42,6 +52,15 @@ library V1Finalizing {
             i++
         ) {
             LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
+
+            // TODO(daniel): use the average proof-time.
+            if (
+                block.timestamp <=
+                fc.provenAt + LibConstants.K_VERIFICATION_DELAY
+            ) {
+                // This block is proven but still needs to wait for verificaiton.
+                break;
+            }
 
             if (fc.blockHash == LibConstants.TAIKO_BLOCK_DEADEND_HASH) {
                 emit BlockVerified(i, 0);
