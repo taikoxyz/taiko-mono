@@ -51,7 +51,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(uint256 commitSlot, bytes32 commitHash) external {
+    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
         V1Proposing.commitBlock(state, commitSlot, commitHash);
     }
 
@@ -204,6 +204,20 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function isHalted() public view returns (bool) {
         return V1Utils.isHalted(state);
+    }
+
+    function isCommitValid(
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) public view returns (bool) {
+        return
+            V1Proposing.isCommitValid(
+                state,
+                commitSlot,
+                commitHeight,
+                commitHash
+            );
     }
 
     function getProposedBlock(

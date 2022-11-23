@@ -21,17 +21,18 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(
-        uint256 commitSlot,
-        uint256 commitHeight,
+        uint64 commitSlot,
+        uint64 commitHeight,
         bytes32 commitHash
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
         LibData.State storage s,
-        uint256 commitSlot,
+        uint64 commitSlot,
         bytes32 commitHash
     ) public {
+        require(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0, "L1:disabled");
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
@@ -42,7 +43,7 @@ library V1Proposing {
         require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
         s.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted(commitSlot, block.number, commitHash);
+        emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(
@@ -66,19 +67,26 @@ library V1Proposing {
             meta.txListHash
         );
 
-        require(
-            isCommitValid(s, meta.commitSlot, meta.commitHeight, commitHash),
-            "L1:notCommitted"
-        );
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0) {
+            require(
+                isCommitValid(
+                    s,
+                    meta.commitSlot,
+                    meta.commitHeight,
+                    commitHash
+                ),
+                "L1:notCommitted"
+            );
 
-        if (meta.commitSlot == 0) {
-            // Special handling of slot 0 for refund; non-zero slots
-            // are supposed to managed by node software for reuse.
-            // Why:
-            // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
-            // - if use non-zero slots, the cost is 20000 for the first time, then
-            //   2900 each time afterwards.
-            delete s.commits[msg.sender][meta.commitSlot];
+            if (meta.commitSlot == 0) {
+                // Special handling of slot 0 for refund; non-zero slots
+                // are supposed to managed by node software for reuse.
+                // Why:
+                // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
+                // - if use non-zero slots, the cost is 20000 for the first time, then
+                //   2900 each time afterwards.
+                delete s.commits[msg.sender][meta.commitSlot];
+            }
         }
 
         require(
@@ -154,6 +162,7 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
+        require(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0, "L1:disabled");
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&

@@ -17,11 +17,11 @@ library LibData {
         uint256 l1Height;
         bytes32 l1Hash;
         address beneficiary;
-        uint64 gasLimit;
-        uint64 timestamp;
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
+        uint64 gasLimit;
+        uint64 timestamp;
         uint64 commitHeight;
         uint64 commitSlot;
     }

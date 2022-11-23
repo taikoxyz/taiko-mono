@@ -16,8 +16,8 @@ abstract contract V1Events {
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
     event BlockCommitted(
-        uint256 commitSlot,
-        uint256 commitHeight,
+        uint64 commitSlot,
+        uint64 commitHeight,
         bytes32 commitHash
     );
 
