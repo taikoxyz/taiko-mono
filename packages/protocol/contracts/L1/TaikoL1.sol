@@ -260,6 +260,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         public
         pure
         returns (
+            uint256, // K_ZKPROOFS_PER_BLOCK
             uint256, // K_CHAIN_ID
             uint256, // K_MAX_NUM_BLOCKS
             uint256, // K_MAX_VERIFICATIONS_PER_TX
@@ -276,6 +277,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         )
     {
         return (
+            LibConstants.K_ZKPROOFS_PER_BLOCK,
             LibConstants.K_CHAIN_ID,
             LibConstants.K_MAX_NUM_BLOCKS,
             LibConstants.K_MAX_VERIFICATIONS_PER_TX,

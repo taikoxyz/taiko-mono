@@ -62,12 +62,12 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        bytes32 commitHash = _calculateCommitHash(
-            meta.beneficiary,
-            meta.txListHash
-        );
-
         if (LibConstants.K_COMMIT_DELAY_CONFIRMS > 0) {
+            bytes32 commitHash = _calculateCommitHash(
+                meta.beneficiary,
+                meta.txListHash
+            );
+
             require(
                 isCommitValid(
                     s,
