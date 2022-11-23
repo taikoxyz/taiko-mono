@@ -8,12 +8,10 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
-import "../LibData.sol";
+import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library V1Proposing {
@@ -25,6 +23,11 @@ library V1Proposing {
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+        // It's OK to allow committing block when the system is halt.
+        // By not checking the halt status, this method will be cheaper.
+        //
+        // require(!V1Utils.isHalted(s), "L1:halt");
+
         require(commitHash != 0, "L1:hash");
         require(s.commits[commitHash] == 0, "L1:committed");
         s.commits[commitHash] = block.number;
@@ -39,6 +42,8 @@ library V1Proposing {
         LibData.State storage s,
         bytes[] calldata inputs
     ) public {
+        require(!V1Utils.isHalted(s), "L1:halt");
+
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
