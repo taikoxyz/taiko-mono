@@ -119,7 +119,7 @@ importers:
       '@typescript-eslint/eslint-plugin': ^5.16.0
       '@typescript-eslint/parser': ^5.16.0
       '@wagmi/core': ^0.7.4
-      '@zerodevx/svelte-toast': ^0.6.2
+      '@zerodevx/svelte-toast': ^0.6.3
       babel-jest: ^27.3.1
       babel-plugin-transform-es2015-modules-commonjs: ^6.26.2
       daisyui: 1.16.6
@@ -134,7 +134,7 @@ importers:
       prettier: 2.7.1
       rollup-plugin-node-builtins: ^2.0.0
       rollup-plugin-polyfill-node: ^0.10.2
-      svelte: ^3.49.0
+      svelte: ^3.53.1
       svelte-check: ^2.8.0
       svelte-i18n: ^3.5.1
       svelte-jester: ^2.1.5
