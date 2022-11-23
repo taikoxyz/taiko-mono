@@ -217,3 +217,21 @@ func Test_makeIndexers(t *testing.T) {
 		})
 	}
 }
+
+func Test_newHTTPServer(t *testing.T) {
+	db, cancel, err := testMysql(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer cancel()
+
+	srv, err := newHTTPServer(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, srv)
+}
+
+func Test_newHTTPServer_nilDB(t *testing.T) {
+	_, err := newHTTPServer(nil)
+	assert.NotNil(t, err)
+}

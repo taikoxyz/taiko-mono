@@ -7,23 +7,34 @@ import (
 	"os"
 
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
 type Server struct {
-	echo *echo.Echo
+	echo      *echo.Echo
+	eventRepo relayer.EventRepository
 }
 
 type NewServerOpts struct {
 	Echo        *echo.Echo
+	EventRepo   relayer.EventRepository
 	CorsOrigins []string
 }
 
 func (opts NewServerOpts) Validate() error {
 	if opts.Echo == nil {
 		return ErrNoHTTPFramework
+	}
+
+	if opts.EventRepo == nil {
+		return relayer.ErrNoEventRepository
+	}
+
+	if opts.CorsOrigins == nil {
+		return relayer.ErrNoCORSOrigins
 	}
 
 	return nil
@@ -35,7 +46,8 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		echo: opts.Echo,
+		echo:      opts.Echo,
+		eventRepo: opts.EventRepo,
 	}
 
 	corsOrigins := opts.CorsOrigins
@@ -43,6 +55,7 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		corsOrigins = []string{"*"}
 	}
 
+	srv.configureRoutes()
 	srv.configureMiddleware(corsOrigins)
 
 	return srv, nil

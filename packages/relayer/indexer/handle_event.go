@@ -38,7 +38,7 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	e, err := svc.eventRepo.Save(relayer.SaveEventOpts{
+	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
 		Name:    eventName,
 		Data:    string(marshaled),
 		ChainID: chainID,
