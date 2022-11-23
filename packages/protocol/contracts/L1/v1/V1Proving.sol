@@ -237,7 +237,7 @@ library V1Proving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
-        for (uint i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
+        for (uint256 i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
             LibZKP.verify(
                 ConfigManager(resolver.resolve("config_manager")).getValue(
                     string(abi.encodePacked("zk_vkey_", i))

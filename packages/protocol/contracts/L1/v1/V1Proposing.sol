@@ -19,12 +19,12 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
-    event BlockCommitted(bytes32 blockHash, uint256 committedAt);
+    event BlockCommitted(bytes32 blockHash, uint256 commitHeight);
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
         LibData.State storage s,
-        uint commitSlot,
+        uint256 commitSlot,
         bytes32 commitHash
     ) public {
         // It's OK to allow committing block when the system is halt.
@@ -32,8 +32,7 @@ library V1Proposing {
         //
         // require(!V1Utils.isHalted(s), "L1:halt");
 
-        require(commitHash != 0, "L1:hash");
-        bytes32 hash = keccak256(abi.encodePacked(commitHash, block.number));
+        bytes32 hash = _aggregateCommitHash(commitHash, block.number);
 
         require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
         s.commits[msg.sender][commitSlot] = hash;
@@ -67,6 +66,12 @@ library V1Proposing {
         );
 
         if (meta.commitSlot == 0) {
+            // Special handling of slot 0 for refund; non-zero slots
+            // are supposed to managed by node software for reuse.
+            // Why:
+            // - if use slot 0, a commit's gas cost is 20000 - 4800 + 2900 = 18100
+            // - if use non-zero slots, the cost is 20000 for the first time, then
+            //   2900 each time afterwards.
             delete s.commits[msg.sender][meta.commitSlot];
         }
 
@@ -105,11 +110,9 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
+        bytes32 hash = _aggregateCommitHash(commitHash, commitHeight);
         return
-            commitHash != 0 &&
-            commitHeight != 0 &&
-            s.commits[msg.sender][commitSlot] ==
-            keccak256(abi.encodePacked(commitHash, commitHeight)) &&
+            s.commits[msg.sender][commitSlot] == hash &&
             block.number >=
             commitHeight + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
@@ -138,5 +141,12 @@ library V1Proposing {
         bytes32 txListHash
     ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
+    }
+
+    function _aggregateCommitHash(
+        bytes32 commitHash,
+        uint256 commitHeight
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
 }
