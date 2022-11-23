@@ -31,6 +31,10 @@ library V1Proposing {
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
+        require(
+            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS > 0,
+            "L1:disabled"
+        );
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
@@ -64,19 +68,26 @@ library V1Proposing {
             meta.txListHash
         );
 
-        require(
-            isCommitValid(s, meta.commitSlot, meta.commitHeight, commitHash),
-            "L1:notCommitted"
-        );
+        if (LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS > 0) {
+            require(
+                isCommitValid(
+                    s,
+                    meta.commitSlot,
+                    meta.commitHeight,
+                    commitHash
+                ),
+                "L1:notCommitted"
+            );
 
-        if (meta.commitSlot == 0) {
-            // Special handling of slot 0 for refund; non-zero slots
-            // are supposed to managed by node software for reuse.
-            // Why:
-            // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
-            // - if use non-zero slots, the cost is 20000 for the first time, then
-            //   2900 each time afterwards.
-            delete s.commits[msg.sender][meta.commitSlot];
+            if (meta.commitSlot == 0) {
+                // Special handling of slot 0 for refund; non-zero slots
+                // are supposed to managed by node software for reuse.
+                // Why:
+                // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
+                // - if use non-zero slots, the cost is 20000 for the first time, then
+                //   2900 each time afterwards.
+                delete s.commits[msg.sender][meta.commitSlot];
+            }
         }
 
         require(
@@ -114,6 +125,10 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
+        require(
+            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS > 0,
+            "L1:disabled"
+        );
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&
