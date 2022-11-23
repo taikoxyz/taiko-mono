@@ -15,7 +15,11 @@ abstract contract V1Events {
     // The following events must match the definitions in other V1 libraries.
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event BlockCommitted(bytes32 hash, uint256 validSince);
+    event BlockCommitted(
+        uint commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    );
 
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
