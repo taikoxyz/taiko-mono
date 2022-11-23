@@ -17,6 +17,6 @@ FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /taiko-mono/packages/relayer/bin/trelayer /usr/local/bin/
+COPY --from=builder /taiko-mono/packages/relayer/bin/relayer /usr/local/bin/
 
 ENTRYPOINT ["relayer"]
