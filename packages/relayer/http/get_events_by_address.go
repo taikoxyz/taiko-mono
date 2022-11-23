@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"html"
 	"math/big"
 	"net/http"
 
@@ -16,7 +17,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, errors.New("invalid chain id"))
 	}
 
-	address := c.QueryParam("address")
+	address := html.EscapeString(c.QueryParam("address"))
 
 	events, err := srv.eventRepo.FindAllByAddress(c.Request().Context(), chainID, common.HexToAddress(address))
 	if err != nil {
