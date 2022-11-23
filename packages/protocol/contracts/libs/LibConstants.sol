@@ -10,13 +10,13 @@ pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
 library LibConstants {
-    uint256 public constant K_ZKPROOFS_PER_BLOCK = 1;
     // https://github.com/ethereum-lists/chains/pull/1611
     uint256 public constant K_CHAIN_ID = 167;
     uint256 public constant K_MAX_NUM_BLOCKS = 2049; // up to 2048 pending blocks
     // This number is calculated from K_MAX_NUM_BLOCKS to make
     // the 'the maximum value of the multiplier' close to 20.0
     uint256 public constant K_FEE_PREMIUM_LAMDA = 590;
+    uint256 public constant K_ZKPROOFS_PER_BLOCK = 1;
     uint256 public constant K_VERIFICATION_DELAY = 60 minutes;
     uint256 public constant K_MAX_VERIFICATIONS_PER_TX = 20;
     uint256 public constant K_COMMIT_DELAY_CONFIRMS = 4;
