@@ -22,8 +22,8 @@ library LibData {
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
-        uint64 commitSlot;
         uint64 commitHeight;
+        uint64 commitSlot;
     }
 
     struct ProposedBlock {

@@ -69,7 +69,7 @@ library V1Proposing {
             // Special handling of slot 0 for refund; non-zero slots
             // are supposed to managed by node software for reuse.
             // Why:
-            // - if use slot 0, a commit's gas cost is 20000 - 4800 + 2900 = 18100
+            // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
             // - if use non-zero slots, the cost is 20000 for the first time, then
             //   2900 each time afterwards.
             delete s.commits[msg.sender][meta.commitSlot];
