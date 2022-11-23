@@ -1,4 +1,5 @@
-import { BigNumber, Contract, Transaction } from "ethers";
+import { BigNumber, Contract } from "ethers";
+import type { Transaction } from "ethers";
 import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 

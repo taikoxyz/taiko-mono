@@ -44,6 +44,7 @@ library LibData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         mapping(bytes32 => uint256) commits;
         mapping(address => bool) provers; // Whitelisted provers
+        uint64 statusBits;
         uint64 genesisHeight;
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;

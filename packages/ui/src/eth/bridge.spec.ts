@@ -3,27 +3,6 @@ import { mainnet, taiko } from "../domain/chain";
 import type { Bridge, BridgeOpts } from "../domain/bridge";
 import ETHBridge from "./bridge";
 
-const sendMessageTx = {
-  accessList: [undefined],
-  data: "0x123",
-  feeData: {
-    gasLimit: { hex: "0x01", type: "BigNumber" },
-    gasPrice: { hex: "0x01", type: "BigNumber" },
-    maxFeePerGas: { hex: "0x00", type: "BigNumber" },
-    maxPriorityFeePerGas: {
-      hex: "0x00",
-      type: "BigNumber",
-    },
-  },
-  from: "0x123",
-  network: 1,
-  nonce: 0,
-  to: "0x123",
-  hash: "0x123",
-  type: 1,
-  value: 100,
-};
-
 const mockSigner = {
   getAddress: jest.fn(),
 };

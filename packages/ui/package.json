@@ -1,21 +1,20 @@
 {
   "name": "@taiko/ui",
-  "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "npm run dev",
+    "start": "pnpm run dev",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "pnpm exec jest",
-    "prettier": "npx prettier '**/*.{ts,svelte}'",
-    "prettier:write": "npm run prettier -- --write",
-    "prettier:check": "npm run prettier -- --check",
+    "prettier": "pnpm exec prettier '**/*.{ts,svelte}'",
+    "prettier:write": "pnpm run prettier -- --write",
+    "prettier:check": "pnpm run prettier -- --check",
     "svelte:check": "npx svelte-check --ignore test-app",
-    "lint": "npx eslint './**/*.{ts,svelte}' --ignore-path .eslintignore",
-    "lint:fix": "npx eslint --fix './**/*.{ts,svelte}' --ignore-path .eslintignore"
+    "lint": "pnpm exec eslint './**/*.{ts,svelte}' --ignore-path .eslintignore",
+    "lint:fix": "pnpm exec eslint --fix './**/*.{ts,svelte}' --ignore-path .eslintignore"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
@@ -32,7 +31,7 @@
     "@types/sanitize-html": "^2.6.2",
     "@typescript-eslint/eslint-plugin": "^5.16.0",
     "@typescript-eslint/parser": "^5.16.0",
-    "@zerodevx/svelte-toast": "^0.6.2",
+    "@zerodevx/svelte-toast": "^0.6.3",
     "babel-jest": "^27.3.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "daisyui": "1.16.6",
@@ -46,7 +45,7 @@
     "prettier": "2.7.1",
     "rollup-plugin-node-builtins": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.10.2",
-    "svelte": "^3.49.0",
+    "svelte": "^3.53.1",
     "svelte-check": "^2.8.0",
     "svelte-jester": "^2.1.5",
     "svelte-loader": "^3.1.2",
@@ -64,6 +63,7 @@
     "@sveltestack/svelte-query": "^1.6.0",
     "@wagmi/core": "^0.7.4",
     "ethers": "^5.7.1",
+    "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0",
     "wagmi": "^0.8.5"
   }

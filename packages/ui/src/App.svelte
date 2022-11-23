@@ -3,26 +3,35 @@
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
   import Navbar from "./components/Navbar.svelte";
+  import { SvelteToast } from "@zerodevx/svelte-toast";
 
   import { onMount } from "svelte";
-  import Footer from "./components/Footer.svelte";
   import Home from "./pages/home/Home.svelte";
-  import { configureChains, createClient } from "@wagmi/core";
-  import { mainnet, taiko } from "./domain/chain";
-  import { publicProvider } from "wagmi/providers/public";
-  import { wagmiClient } from "./store/wagmi";
+  import { setupI18n } from "./i18n";
+  import { BridgeType } from "./domain/bridge";
+  import ETHBridge from "./eth/bridge";
+  import { bridges, chainIdToBridgeAddress } from "./store/bridge";
+  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
 
   const { chains, provider } = configureChains(
     [mainnet, taiko],
     [publicProvider()]
   );
 
-  const wagmi = createClient({
-    autoConnect: true,
-    provider,
+  setupI18n({ withLocale: "en" });
+
+  const ethBridge = new ETHBridge();
+
+  bridges.update((store) => {
+    store.set(BridgeType.ETH, ethBridge);
+    return store;
   });
 
-  wagmiClient.set(wagmi);
+  chainIdToBridgeAddress.update((store) => {
+    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
+    store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
+    return store;
+  });
 
   const routes = {
     "/": wrap({
@@ -39,6 +48,7 @@
     <Router {routes} />
     <Footer />
   </main>
+  <SvelteToast />
 </QueryProvider>
 
 <style global lang="postcss">
