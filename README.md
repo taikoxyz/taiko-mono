@@ -1,6 +1,8 @@
 <!-- BADGES -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
@@ -17,20 +19,29 @@
   <h3>TAIKO</h3>
 
   <p>
-    A decentralized Ethereum equivalent ZK rollup
+    A decentralized Ethereum-equivalent ZK-Rollup
     <br />
     <a href="https://taiko.xyz" target="_blank"><strong>Explore the website »</strong></a>
     <br />
   </p>
 </div>
 
-## Packages
+## Project structure
 
-- [branding](./packages/branding/): branding materials
-- [protocol](./packages/protocol/): L1 and L2 smart contracts
-- [relayer](./packages/relayer/): bridge relayer
-- [website](./packages/website/): main documentation website
-- [whitepaper](./packages/whitepaper): Latex source files for Taiko's whitepaper. A PDF will be published automatically to: https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf (linked from https://taiko.xyz).
+<pre>
+taiko-mono
+├── <a href="./CONTRIBUTING.md">CONTRIBUTING.md</a>
+├── <a href="./README.md">README.md</a>
+...
+├── <a href="./packages">packages</a>
+│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
+│   ├── <a href="./packages/bridge-frontend">bridge-frontend</a>: Bridge frontend UI
+│   ├── <a href="./packages/protocol">protocol</a>: L1 and L2 protocol smart contracts
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer
+│   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz
+│   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
+...
+</pre>
 
 ## Contributing guide
 
@@ -43,6 +54,7 @@ Each commit will automatically trigger the GitHub Actions to run. If any commit 
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
