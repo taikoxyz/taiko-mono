@@ -5,9 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/relayer/**"
-  pull_request:
-    paths:
-      - "packages/relayer/**"
+      
 jobs:
   push-docker-image:
     name: Build and push docker image

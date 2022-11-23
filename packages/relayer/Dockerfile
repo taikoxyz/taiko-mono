@@ -2,9 +2,6 @@ FROM golang:1.19.3 as builder
 
 RUN apt install git curl
 
-ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.9.0/wait /wait
-RUN chmod +x /wait
-
 RUN git clone --depth 1 https://github.com/taikoxyz/taiko-mono /taiko-mono
 
 WORKDIR /taiko-mono/packages/relayer
