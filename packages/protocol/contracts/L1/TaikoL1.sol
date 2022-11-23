@@ -46,11 +46,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)` equals
      * to this commit hash.
      *
+     * @param commitSlot A slot to save this commit. Slot 0 will always be reset
+     *                   to zero for refund.
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(bytes32 commitHash) external {
-        V1Proposing.commitBlock(state, commitHash);
+    function commitBlock(uint256 commitSlot, bytes32 commitHash) external {
+        V1Proposing.commitBlock(state, commitSlot, commitHash);
     }
 
     /**
@@ -202,14 +204,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function isHalted() public view returns (bool) {
         return V1Utils.isHalted(state);
-    }
-
-    function isCommitValid(bytes32 hash) public view returns (bool) {
-        return V1Proposing.isCommitValid(state, hash);
-    }
-
-    function getCommitHeight(bytes32 commitHash) public view returns (uint256) {
-        return state.commits[commitHash];
     }
 
     function getProposedBlock(

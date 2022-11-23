@@ -20,23 +20,29 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
-    event BlockCommitted(bytes32 hash, uint256 validSince);
+    event BlockCommitted(
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
-    function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+    function commitBlock(
+        LibData.State storage s,
+        uint256 commitSlot,
+        bytes32 commitHash
+    ) public {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
         // require(!V1Utils.isHalted(s), "L1:halt");
 
-        require(commitHash != 0, "L1:hash");
-        require(s.commits[commitHash] == 0, "L1:committed");
-        s.commits[commitHash] = block.number;
+        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        emit BlockCommitted(
-            commitHash,
-            block.number + LibConstants.K_COMMIT_DELAY_CONFIRMS
-        );
+        require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        s.commits[msg.sender][commitSlot] = hash;
+
+        emit BlockCommitted(commitSlot, block.number, commitHash);
     }
 
     function proposeBlock(
@@ -60,8 +66,20 @@ library V1Proposing {
             meta.txListHash
         );
 
-        require(isCommitValid(s, commitHash), "L1:commit");
-        delete s.commits[commitHash];
+        require(
+            isCommitValid(s, meta.commitSlot, meta.commitHeight, commitHash),
+            "L1:notCommitted"
+        );
+
+        if (meta.commitSlot == 0) {
+            // Special handling of slot 0 for refund; non-zero slots
+            // are supposed to managed by node software for reuse.
+            // Why:
+            // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
+            // - if use non-zero slots, the cost is 20000 for the first time, then
+            //   2900 each time afterwards.
+            delete s.commits[msg.sender][meta.commitSlot];
+        }
 
         require(
             txList.length > 0 &&
@@ -132,13 +150,15 @@ library V1Proposing {
 
     function isCommitValid(
         LibData.State storage s,
-        bytes32 hash
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
     ) public view returns (bool) {
+        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
-            hash != 0 &&
-            s.commits[hash] != 0 &&
+            s.commits[msg.sender][commitSlot] == hash &&
             block.number >=
-            s.commits[hash] + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
@@ -165,5 +185,12 @@ library V1Proposing {
         bytes32 txListHash
     ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
+    }
+
+    function _aggregateCommitHash(
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
 }
