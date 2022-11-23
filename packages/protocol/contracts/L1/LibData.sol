@@ -64,6 +64,8 @@ library LibData {
         uint64 latestVerifiedId;
         uint64 avgProofTime; // the proof time moving average
         uint64 __reservedC1;
+        // Reserved
+        uint256[41] __gap;
     }
 
     function saveProposedBlock(

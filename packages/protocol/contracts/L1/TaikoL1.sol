@@ -8,6 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -28,7 +30,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[41] private __gap;
+    uint256[50] private __gap;
 
     function init(
         address _addressManager,
@@ -141,8 +143,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
-     * Finalize up to N blocks.
-     * @param maxBlocks Max number of blocks to finalize.
+     * Verify up to N blocks.
+     * @param maxBlocks Max number of blocks to verify.
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");

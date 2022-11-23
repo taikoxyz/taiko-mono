@@ -50,7 +50,7 @@ describe("TaikoL1", function () {
             })
         ).deploy()
 
-        const v1Finalizing = await (
+        const v1Verifying = await (
             await ethers.getContractFactory("V1Verifying", {
                 libraries: {
                     V1Utils: v1Utils.address,
@@ -60,7 +60,7 @@ describe("TaikoL1", function () {
 
         const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
             libraries: {
-                V1Verifying: v1Finalizing.address,
+                V1Verifying: v1Verifying.address,
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
                 Uint512: uint512.address,
