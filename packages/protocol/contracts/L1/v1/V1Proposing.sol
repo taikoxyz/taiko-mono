@@ -20,7 +20,7 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(
-        uint commitSlot,
+        uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
     );
