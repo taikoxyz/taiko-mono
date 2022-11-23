@@ -138,6 +138,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         public
         pure
         returns (
+            uint256, // K_ZKPROOFS_PER_BLOCK
             uint256, // TAIKO_CHAIN_ID
             uint256, // TAIKO_MAX_PROPOSED_BLOCKS
             uint256, // TAIKO_MAX_VERIFICATIONS_PER_TX
@@ -154,6 +155,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         )
     {
         return (
+            LibConstants.K_ZKPROOFS_PER_BLOCK,
             LibConstants.TAIKO_CHAIN_ID,
             LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
