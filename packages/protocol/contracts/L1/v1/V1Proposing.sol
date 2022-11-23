@@ -20,15 +20,15 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(
-        uint256 commitSlot,
-        uint256 commitHeight,
+        uint64 commitSlot,
+        uint64 commitHeight,
         bytes32 commitHash
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
         LibData.State storage s,
-        uint256 commitSlot,
+        uint64 commitSlot,
         bytes32 commitHash
     ) public {
         // It's OK to allow committing block when the system is halt.
@@ -41,7 +41,7 @@ library V1Proposing {
         require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
         s.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted(commitSlot, block.number, commitHash);
+        emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(

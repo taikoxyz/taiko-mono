@@ -50,7 +50,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(uint256 commitSlot, bytes32 commitHash) external {
+    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
         V1Proposing.commitBlock(state, commitSlot, commitHash);
     }
 
