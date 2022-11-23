@@ -18,16 +18,11 @@ task("deploy_L1")
         "L2 genesis block hash",
         ethers.constants.HashZero
     )
-    .addOptionalParam(
-        "l2ChainId",
-        "L2 chain id",
-        config.TAIKO_CHAINID,
-        types.int
-    )
+    .addOptionalParam("l2ChainId", "L2 chain id", config.K_CHAIN_ID, types.int)
     .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
-        config.DEFAULT_DEPLOY_CONFIRMATIONS,
+        config.K_DEPLOY_CONFIRMATIONS,
         types.int
     )
     .setAction(async (args, hre: any) => {
@@ -112,9 +107,11 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
+    const feeBase = hre.ethers.BigNumber.from(10).pow(18)
+
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
     )
 
     // Used by LibBridgeRead
@@ -165,7 +162,7 @@ async function deployBaseLibs(hre: any) {
     const libUint512 = await utils.deployContract(hre, "Uint512")
 
     const v1Utils = await utils.deployContract(hre, "V1Utils")
-    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing", {
+    const v1Verifying = await utils.deployContract(hre, "V1Verifying", {
         V1Utils: v1Utils.address,
     })
     const v1Proposing = await utils.deployContract(hre, "V1Proposing", {
@@ -181,7 +178,7 @@ async function deployBaseLibs(hre: any) {
     })
 
     return {
-        V1Finalizing: v1Finalizing.address,
+        V1Verifying: v1Verifying.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
         V1Utils: v1Utils.address,

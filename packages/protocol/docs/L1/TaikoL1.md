@@ -9,13 +9,13 @@ struct LibData.State state
 ### \_\_gap
 
 ```solidity
-uint256[45] __gap
+uint256[42] __gap
 ```
 
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
 ```
 
 ### commitBlock
@@ -93,6 +93,18 @@ Verify up to N blocks.
 | Name      | Type    | Description                     |
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
+
+### getBlockFee
+
+```solidity
+function getBlockFee() public view returns (uint256 premiumFee)
+```
+
+### getProofReward
+
+```solidity
+function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 premiumReward)
+```
 
 ### isCommitValid
 

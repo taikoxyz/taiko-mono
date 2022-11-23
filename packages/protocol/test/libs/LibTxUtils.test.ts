@@ -30,7 +30,7 @@ describe("LibTxUtils", function () {
             await ethers.getContractFactory("TestLibRLPWriter")
         ).deploy()
 
-        chainId = (await libConstants.TAIKO_CHAIN_ID()).toNumber()
+        chainId = (await libConstants.K_CHAIN_ID()).toNumber()
 
         const unsignedLegacyTx: UnsignedTransaction = {
             type: 0,
