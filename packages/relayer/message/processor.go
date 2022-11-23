@@ -1,36 +1,52 @@
 package message
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"sync"
 
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
-	"github.com/taikochain/taiko-mono/packages/relayer/proof"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
 
+type ethClient interface {
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+}
 type Processor struct {
 	eventRepo     relayer.EventRepository
-	destEthClient *ethclient.Client
-	rpc           *rpc.Client
+	srcEthClient  ethClient
+	destEthClient ethClient
+	rpc           relayer.Caller
 	ecdsaKey      *ecdsa.PrivateKey
 
-	destBridge       *contracts.Bridge
-	destHeaderSyncer *contracts.IHeaderSync
+	destBridge       relayer.Bridge
+	destHeaderSyncer relayer.HeaderSyncer
 
 	prover *proof.Prover
+
+	mu *sync.Mutex
+
+	destNonce     uint64
+	relayerAddr   common.Address
+	confirmations uint64
 }
 
 type NewProcessorOpts struct {
 	Prover           *proof.Prover
 	ECDSAKey         *ecdsa.PrivateKey
-	RPCClient        *rpc.Client
-	DestETHClient    *ethclient.Client
-	DestBridge       *contracts.Bridge
+	RPCClient        relayer.Caller
+	SrcETHClient     ethClient
+	DestETHClient    ethClient
+	DestBridge       relayer.Bridge
 	EventRepo        relayer.EventRepository
-	DestHeaderSyncer *contracts.IHeaderSync
+	DestHeaderSyncer relayer.HeaderSyncer
+	RelayerAddress   common.Address
+	Confirmations    uint64
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -50,6 +66,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrNoEthClient
 	}
 
+	if opts.SrcETHClient == nil {
+		return nil, relayer.ErrNoEthClient
+	}
+
 	if opts.DestBridge == nil {
 		return nil, relayer.ErrNoBridge
 	}
@@ -62,13 +82,26 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrNoTaikoL2
 	}
 
+	if opts.Confirmations == 0 {
+		return nil, relayer.ErrInvalidConfirmations
+	}
+
 	return &Processor{
-		eventRepo:        opts.EventRepo,
-		prover:           opts.Prover,
-		ecdsaKey:         opts.ECDSAKey,
-		rpc:              opts.RPCClient,
+		eventRepo: opts.EventRepo,
+		prover:    opts.Prover,
+		ecdsaKey:  opts.ECDSAKey,
+		rpc:       opts.RPCClient,
+
+		srcEthClient: opts.SrcETHClient,
+
 		destEthClient:    opts.DestETHClient,
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
+
+		mu: &sync.Mutex{},
+
+		destNonce:     0,
+		relayerAddr:   opts.RelayerAddress,
+		confirmations: opts.Confirmations,
 	}, nil
 }

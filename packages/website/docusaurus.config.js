@@ -9,12 +9,12 @@ const katex = require("rehype-katex");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Taiko",
-  tagline: "A decentralized Ethereum equivalent ZK rollup",
+  tagline: "A decentralized Ethereum-equivalent ZK-Rollup",
   url: "https://taiko.xyz",
   baseUrl: "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/Taiko_Token_Fluo.png",
+  favicon: "img/Taiko_Favicon_Fluo.png",
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -23,6 +23,26 @@ const config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  plugins: [
+    [
+      "content-docs",
+      {
+        id: "talks",
+        path: "talks",
+        routeBasePath: "talks",
+        sidebarPath: require.resolve("./sidebars.js"),
+      },
+    ],
+    [
+      "content-docs",
+      {
+        id: "faq",
+        path: "faq",
+        routeBasePath: "faq",
+      },
+    ],
+  ],
 
   presets: [
     [
@@ -33,7 +53,7 @@ const config = {
           sidebarPath: require.resolve("./sidebars.js"),
           // Remove this to remove the "edit this page" links.
           editUrl:
-            "https://github.com/taikochain/taiko-mono/tree/main/packages/website/",
+            "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
           remarkPlugins: [math],
           rehypePlugins: [katex],
         },
@@ -70,12 +90,22 @@ const config = {
         items: [
           {
             to: "docs/intro",
-            label: "Docs",
+            label: "Learn",
             position: "left",
           },
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
+            position: "left",
+          },
+          {
+            to: "talks",
+            label: "Talks",
+            position: "left",
+          },
+          {
+            to: "faq",
+            label: "FAQ",
             position: "left",
           },
           {
@@ -85,10 +115,16 @@ const config = {
             "aria-label": "Discord",
           },
           {
-            href: "https://github.com/taikochain",
+            href: "https://github.com/taikoxyz",
             position: "right",
             className: "header-github-link",
             "aria-label": "GitHub",
+          },
+          {
+            href: "https://www.reddit.com/r/taiko_xyz/",
+            position: "right",
+            className: "header-reddit-link",
+            "aria-label": "Reddit",
           },
           {
             href: "https://twitter.com/taikoxyz",
@@ -102,16 +138,28 @@ const config = {
         style: "dark",
         links: [
           {
+            label: "Careers",
+            href: "https://taikoxyz.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+          },
+          {
             label: "Discord",
             href: "https://discord.gg/tnSra3aFfg",
           },
           {
             label: "GitHub",
-            href: "https://github.com/taikochain",
+            href: "https://github.com/taikoxyz",
+          },
+          {
+            label: "Reddit",
+            href: "https://www.reddit.com/r/taiko_xyz/",
           },
           {
             label: "Twitter",
             href: "https://twitter.com/taikoxyz",
+          },
+          {
+            label: "YouTube",
+            href: "https://www.youtube.com/@taikoxyz",
           },
         ],
         copyright: `© Taiko Labs ${new Date().getFullYear()}`,

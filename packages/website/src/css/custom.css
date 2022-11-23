@@ -5,6 +5,13 @@
  */
 
 /* You can override the default Infima variables here. */
+
+.hero__subtitle,
+.navbar,
+.footer {
+  font-family: "Oxanium";
+}
+
 :root {
   --ifm-color-primary: #e30ead;
   --ifm-color-primary-dark: #ca0c9a;
@@ -77,6 +84,22 @@
 
 [data-theme="dark"] .header-github-link::before {
   background: url("@site/static/img/social-icons/github-white.svg") no-repeat;
+}
+
+.header-reddit-link:hover {
+  opacity: 0.6;
+}
+
+.header-reddit-link::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("@site/static/img/social-icons/reddit-black.svg") no-repeat;
+}
+
+[data-theme="dark"] .header-reddit-link::before {
+  background: url("@site/static/img/social-icons/reddit-white.svg") no-repeat;
 }
 
 .header-twitter-link:hover {

@@ -13,22 +13,25 @@ output:
 
 linters:
   enable:
+    - errcheck
     - funlen
     - gocognit
     - gocritic
     - gofmt
     - golint
     - gosec
+    - gosimple
     - lll
+    - unused
     - whitespace
     - wsl
 
 linters-settings:
   funlen:
-    lines: 100
-    statements: 45
+    lines: 116
+    statements: 48
   gocognit:
-    min-complexity: 32
+    min-complexity: 37
 
 issues:
   exclude-rules:

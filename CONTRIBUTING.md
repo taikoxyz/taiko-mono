@@ -1,9 +1,22 @@
-# Contribution guide
+# Contributing guide
 
 ## Table of contents
 
-1. [Coding style guide](#coding-style-guide)
-2. [Documentation style guide](#documentation-style-guide)
+1. [Issue guide](#issue-guide)
+2. [Coding style guide](#coding-style-guide)
+3. [Documentation style guide](#documentation-style-guide)
+
+## Issue guide
+
+As an open source project, you are free to open issues and work on issues. Please comment on the issue discussion if you are thinking of contributing or picking something up, so as to not overlap on any work.
+
+### Finding an issue to work on
+
+If you are looking for a good issue to start with, look for issues tagged with "good first issue".
+
+### Opening a new issue
+
+If you are opening a new issue, try to be descriptive as possible. Also please check if an existing issue already exists for it already.
 
 ## Coding style guide
 

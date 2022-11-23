@@ -1,50 +1,69 @@
 package indexer
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"time"
 
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
-	"github.com/taikochain/taiko-mono/packages/relayer/message"
-	"github.com/taikochain/taiko-mono/packages/relayer/proof"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
 
 var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+type ethClient interface {
+	ChainID(ctx context.Context) (*big.Int, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+}
+
 type Service struct {
 	eventRepo relayer.EventRepository
 	blockRepo relayer.BlockRepository
-	ethClient *ethclient.Client
+	ethClient ethClient
 	destRPC   *rpc.Client
 
 	processingBlock *relayer.Block
 
-	bridge     *contracts.Bridge
-	destBridge *contracts.Bridge
+	bridge     relayer.Bridge
+	destBridge relayer.Bridge
 
 	processor *message.Processor
 
 	relayerAddr common.Address
+
+	errChan chan error
+
+	blockBatchSize      uint64
+	numGoroutines       int
+	subscriptionBackoff time.Duration
 }
 
 type NewServiceOpts struct {
-	EventRepo         relayer.EventRepository
-	BlockRepo         relayer.BlockRepository
-	EthClient         *ethclient.Client
-	DestEthClient     *ethclient.Client
-	RPCClient         *rpc.Client
-	DestRPCClient     *rpc.Client
-	ECDSAKey          string
-	BridgeAddress     common.Address
-	DestBridgeAddress common.Address
-	DestTaikoAddress  common.Address
+	EventRepo           relayer.EventRepository
+	BlockRepo           relayer.BlockRepository
+	EthClient           *ethclient.Client
+	DestEthClient       *ethclient.Client
+	RPCClient           *rpc.Client
+	DestRPCClient       *rpc.Client
+	ECDSAKey            string
+	BridgeAddress       common.Address
+	DestBridgeAddress   common.Address
+	DestTaikoAddress    common.Address
+	BlockBatchSize      uint64
+	NumGoroutines       int
+	SubscriptionBackoff time.Duration
+	Confirmations       uint64
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -122,6 +141,9 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		DestBridge:       destBridge,
 		EventRepo:        opts.EventRepo,
 		DestHeaderSyncer: destHeaderSyncer,
+		RelayerAddress:   relayerAddr,
+		Confirmations:    opts.Confirmations,
+		SrcETHClient:     opts.EthClient,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")
@@ -139,5 +161,11 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		processor: processor,
 
 		relayerAddr: relayerAddr,
+
+		errChan: make(chan error),
+
+		blockBatchSize:      opts.BlockBatchSize,
+		numGoroutines:       opts.NumGoroutines,
+		subscriptionBackoff: opts.SubscriptionBackoff,
 	}, nil
 }

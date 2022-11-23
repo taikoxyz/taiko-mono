@@ -11,9 +11,11 @@ pragma solidity ^0.8.9;
 /// @author dantaik <dan@taiko.xyz>
 library LibConstants {
     // https://github.com/ethereum-lists/chains/pull/1611
+    uint256 public constant K_ZKPROOFS_PER_BLOCK = 1;
     uint256 public constant TAIKO_CHAIN_ID = 167;
+    uint256 public constant K_VERIFICATION_DELAY = 60 minutes;
     uint256 public constant TAIKO_MAX_PROPOSED_BLOCKS = 2048;
-    uint256 public constant TAIKO_MAX_FINALIZATIONS_PER_TX = 20;
+    uint256 public constant TAIKO_MAX_VERIFICATIONS_PER_TX = 20;
     uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS = 4;
     uint256 public constant TAIKO_MAX_PROOFS_PER_FORK_CHOICE = 5;
     uint256 public constant TAIKO_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO
@@ -31,4 +33,6 @@ library LibConstants {
 
     bytes32 public constant V1_INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
+
+    bool public constant K_WHITELIST_PROVERS = false;
 }

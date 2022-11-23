@@ -4,34 +4,41 @@ import (
 	"flag"
 	"log"
 
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/cli"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cli"
 )
 
 func main() {
-	modePtr := flag.String("mode", string(cli.SyncMode), `mode to run in. 
+	modePtr := flag.String("mode", string(relayer.SyncMode), `mode to run in. 
 	options:
 	  sync: continue syncing from previous block
 	  resync: restart syncing from block 0
 	  fromBlock: restart syncing from specified block number
 	`)
 
-	layersPtr := flag.String("layers", string(cli.Both), `layers to watch and process. 
+	layersPtr := flag.String("layers", string(relayer.Both), `layers to watch and process. 
 	options:
 	  l1: only watch l1 => l2 bridge messages
 	  l2: only watch l2 => l1 bridge messages
 	  both: watch l1 => l2 and l2 => l1 bridge messages
 	`)
 
+	watchModePtr := flag.String("watch-mode", string(relayer.FilterAndSubscribeWatchMode), `watch mode to run in. 
+	options:
+	  filter: only filter previous messages
+	  subscribe: only subscribe to new messages
+	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
+	`)
+
 	flag.Parse()
 
-	if !relayer.IsInSlice(cli.Mode(*modePtr), cli.Modes) {
+	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
 		log.Fatal("mode not valid")
 	}
 
-	if !relayer.IsInSlice(cli.Layer(*layersPtr), cli.Layers) {
+	if !relayer.IsInSlice(relayer.Layer(*layersPtr), relayer.Layers) {
 		log.Fatal("mode not valid")
 	}
 
-	cli.Run(cli.Mode(*modePtr), cli.Layer(*layersPtr))
+	cli.Run(relayer.Mode(*modePtr), relayer.WatchMode(*watchModePtr), relayer.Layer(*layersPtr))
 }

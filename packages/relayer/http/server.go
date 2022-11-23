@@ -2,12 +2,14 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 
+	echoprom "github.com/labstack/echo-contrib/prometheus"
 	echo "github.com/labstack/echo/v4"
 )
 
@@ -48,8 +50,13 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		eventRepo: opts.EventRepo,
 	}
 
+	corsOrigins := opts.CorsOrigins
+	if corsOrigins == nil {
+		corsOrigins = []string{"*"}
+	}
+
 	srv.configureRoutes()
-	srv.configureMiddleware(opts.CorsOrigins)
+	srv.configureMiddleware(corsOrigins)
 
 	return srv, nil
 }
@@ -75,7 +82,14 @@ func (srv *Server) Health(c echo.Context) error {
 }
 
 func LogSkipper(c echo.Context) bool {
-	return c.Request().URL.Path == "/health"
+	switch c.Request().URL.Path {
+	case "/healthz":
+		return true
+	case "/metrics":
+		return true
+	default:
+		return false
+	}
 }
 
 func (srv *Server) configureMiddleware(corsOrigins []string) {
@@ -95,4 +109,20 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 		AllowMethods: []string{http.MethodGet, http.MethodHead},
 	}))
+
+	srv.configureAndStartPrometheus()
+
+	srv.configureRoutes()
+}
+
+func (srv *Server) configureAndStartPrometheus() {
+	// Enable metrics middleware
+	p := echoprom.NewPrometheus("echo", nil)
+	p.Use(srv.echo)
+	e := echo.New()
+	p.SetMetricsPath(e)
+
+	go func() {
+		_ = e.Start(fmt.Sprintf(":%v", os.Getenv("PROMETHEUS_HTTP_PORT")))
+	}()
 }

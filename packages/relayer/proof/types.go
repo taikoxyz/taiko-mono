@@ -2,7 +2,6 @@ package proof
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -11,10 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 )
-
-type caller interface {
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-}
 
 type Bytes []byte
 

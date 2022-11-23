@@ -3,12 +3,11 @@ package mock
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"math/big"
 	"math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
 )
 
@@ -48,7 +47,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	}
 
 	if event == nil {
-		return errors.New("id not found")
+		return nil
 	}
 
 	event.Status = status

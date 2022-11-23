@@ -6,16 +6,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/taikochain/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type EventRepository struct {
-	db *gorm.DB
+	db relayer.DB
 }
 
-func NewEventRepository(db *gorm.DB) (*EventRepository, error) {
+func NewEventRepository(db relayer.DB) (*EventRepository, error) {
 	if db == nil {
 		return nil, relayer.ErrNoDB
 	}
@@ -32,7 +31,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		ChainID: opts.ChainID.Int64(),
 		Name:    opts.Name,
 	}
-	if err := r.db.Create(e).Error; err != nil {
+	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
 
@@ -41,12 +40,12 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
 	e := &relayer.Event{}
-	if err := r.db.Where("id = ?", id).First(e).Error; err != nil {
+	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.First")
 	}
 
 	e.Status = status
-	if err := r.db.Save(e).Error; err != nil {
+	if err := r.db.GormDB().Save(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.Save")
 	}
 
@@ -59,7 +58,7 @@ func (r *EventRepository) FindAllByAddress(
 	address common.Address,
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
-	if err := r.db.Where("chain_id = ?", chainID.Int64()).
+	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
 		Find(&e, datatypes.JSONQuery("data").
 			Equals(address.Hex(), "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")

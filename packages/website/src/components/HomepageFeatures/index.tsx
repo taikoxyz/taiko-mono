@@ -14,12 +14,10 @@ const FeatureList: FeatureItem[] = [
     Svg: require("@site/static/img/undraw_connected_world_wuay.svg").default,
     description: (
       <>
-        Anyone who wants to use, build on, or participate in Taiko can do so.
-        This is the case because the transaction fees are cheap and throughput
+        Anyone who wants to build on or use Taiko can do so.
+        This is because the transaction fees are cheap and throughput
         is high; the developer experience is robust and Ethereum dapp migration
-        is seamless; the network is permissionless and reuses Ethereum
-        infrastructure to the fullest extent. You can’t have freedom without
-        access.
+        is seamless. You can’t have freedom without access.
       </>
     ),
   },
@@ -30,10 +28,8 @@ const FeatureList: FeatureItem[] = [
       <>
         Taiko is censorship-resistant and cannot exclude groups or individuals.
         The rollup is decentralized - relying on Ethereum for data availability
-        and security; and permissionless - allowing any network participant,
-        user, or builder to opt-in. There are no special roles which can censor
-        users/applications/transactions. We are only interested in building
-        credibly neutral, fair systems.
+        and security; and permissionless - allowing any network participant to opt-in. 
+        We are only interested in building credibly neutral, fair systems.
       </>
     ),
   },
@@ -45,9 +41,7 @@ const FeatureList: FeatureItem[] = [
         Taiko is fully open-source and community-centric. We build on the
         shoulders of giants, and cherish contributing back into Ethereum’s
         technical progress and community. We value community contributions into
-        the project, harnessing the best minds and ideas that are interested in
-        the space. The type of activity Taiko executes and secures mandates
-        transparency.
+        the project, harnessing the best minds and ideas in the space.
       </>
     ),
   },

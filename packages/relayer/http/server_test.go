@@ -9,9 +9,9 @@ import (
 	"github.com/joho/godotenv"
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/mock"
-	"github.com/taikochain/taiko-mono/packages/relayer/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/repo"
 )
 
 func newTestServer(url string) *Server {
@@ -21,7 +21,10 @@ func newTestServer(url string) *Server {
 		echo:      echo.New(),
 		eventRepo: mock.NewEventRepository(),
 	}
+
+	srv.configureMiddleware([]string{"*"})
 	srv.configureRoutes()
+	srv.configureAndStartPrometheus()
 
 	return srv
 }
@@ -50,6 +53,14 @@ func Test_NewServer(t *testing.T) {
 			relayer.ErrNoEventRepository,
 		},
 		{
+			"noCorsOrigins",
+			NewServerOpts{
+				Echo:      echo.New(),
+				EventRepo: &repo.EventRepository{},
+			},
+			relayer.ErrNoCORSOrigins,
+		},
+		{
 			"noHttpFramework",
 			NewServerOpts{
 				EventRepo:   &repo.EventRepository{},
@@ -68,13 +79,26 @@ func Test_NewServer(t *testing.T) {
 func Test_Health(t *testing.T) {
 	srv := newTestServer("")
 
-	req, _ := http.NewRequest(echo.GET, "/health", nil)
+	req, _ := http.NewRequest(echo.GET, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
 	srv.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Test_Health expected code %v, got %v", http.StatusOK, rec.Code)
+	}
+}
+
+func Test_Metrics(t *testing.T) {
+	srv := newTestServer("")
+
+	req, _ := http.NewRequest(echo.GET, "/metrics", nil)
+	rec := httptest.NewRecorder()
+
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Test_Metrics expected code %v, got %v", http.StatusOK, rec.Code)
 	}
 }
 

@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikochain/taiko-mono/packages/relayer"
-	"github.com/taikochain/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
 )
 
 // Process prepares and calls `processMessage` on the bridge.
@@ -24,9 +26,15 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
+	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
+
 	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
+	}
+
+	if err := p.waitForConfirmations(ctx, event.Raw.TxHash, event.Raw.BlockNumber); err != nil {
+		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
 	// get latest synced header since not every header is synced from L1 => L2,
@@ -49,21 +57,6 @@ func (p *Processor) ProcessMessage(
 
 	key := hex.EncodeToString(hashed)
 
-	log.Infof("processing message for signal: %v, key: %v", common.Hash(event.Signal).Hex(), key)
-
-	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
-	if err != nil {
-		return errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
-	}
-
-	auth.Context = ctx
-
-	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 2000000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
-
-	log.Infof("getting proof")
-
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -79,23 +72,20 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
-	log.Infof("isMessageReceived: %v", received)
-
 	// message will fail when we try to process is
 	// TODO: update status in db
 	if !received {
 		return errors.New("message not received")
 	}
 
-	// process the message on the destination bridge.
-	tx, err := p.destBridge.ProcessMessage(auth, event.Message, encodedSignalProof)
+	tx, err := p.sendProcessMessageCall(ctx, event, encodedSignalProof)
 	if err != nil {
-		return errors.Wrap(err, "p.destBridge.ProcessMessage")
+		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
-	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx)
+	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "relayer.WaitReceipt")
 	}
@@ -112,6 +102,77 @@ func (p *Processor) ProcessMessage(
 	// update message status
 	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {
 		return errors.Wrap(err, "s.eventRepo.UpdateStatus")
+	}
+
+	return nil
+}
+
+func (p *Processor) sendProcessMessageCall(
+	ctx context.Context,
+	event *contracts.BridgeMessageSent,
+	proof []byte,
+) (*types.Transaction, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)
+	if err != nil {
+		return nil, errors.Wrap(err, "bind.NewKeyedTransactorWithChainID")
+	}
+
+	auth.Context = ctx
+
+	// uncomment to skip `eth_estimateGas`
+	auth.GasLimit = 2000000
+	auth.GasPrice = new(big.Int).SetUint64(500000000)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	err = p.getLatestNonce(ctx, auth)
+	if err != nil {
+		return nil, errors.New("p.getLatestNonce")
+	}
+	// process the message on the destination bridge.
+	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destBridge.ProcessMessage")
+	}
+
+	p.setLatestNonce(tx.Nonce())
+
+	return tx, nil
+}
+
+func (p *Processor) setLatestNonce(nonce uint64) {
+	p.destNonce = nonce
+}
+
+func (p *Processor) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
+	pendingNonce, err := p.destEthClient.PendingNonceAt(ctx, p.relayerAddr)
+	if err != nil {
+		return err
+	}
+
+	if pendingNonce > p.destNonce {
+		p.setLatestNonce(pendingNonce)
+	}
+
+	auth.Nonce = big.NewInt(int64(p.destNonce))
+
+	return nil
+}
+
+func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
+	// TODO: make timeout a config var
+	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
+
+	defer cancelFunc()
+
+	if err := relayer.WaitConfirmations(
+		ctx,
+		p.srcEthClient,
+		p.confirmations,
+		txHash,
+	); err != nil {
+		return errors.Wrap(err, "relayer.WaitConfirmations")
 	}
 
 	return nil
