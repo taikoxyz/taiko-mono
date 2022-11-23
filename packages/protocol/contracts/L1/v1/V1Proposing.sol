@@ -32,7 +32,7 @@ library V1Proposing {
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
-        require(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0, "L1:disabled");
+        require(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0, "L1:disabled");
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
@@ -67,7 +67,7 @@ library V1Proposing {
             meta.txListHash
         );
 
-        if (LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0) {
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMS > 0) {
             require(
                 isCommitValid(
                     s,
@@ -162,12 +162,11 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        require(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0, "L1:disabled");
+        require(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0, "L1:disabled");
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&
-            block.number >=
-            commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
