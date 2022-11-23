@@ -60,7 +60,3 @@ Taiko implements a ZK-EVM that supports every EVM opcode, producing a validity p
 A zero-knowledge proof is a method by which one party (the prover) can prove to another party (the verifier) that something is true, without revealing any information apart from the fact that this specific statement is true.
 
 There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses ZK-SNARKs in its design.
-
-## Where can I purchase the Taiko token?
-
-Currently, no token is available to purchase. The tokenomics are still under development.
