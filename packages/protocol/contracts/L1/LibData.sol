@@ -44,6 +44,7 @@ library LibData {
         mapping(uint256 => ProposedBlock) proposedBlocks;
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
+        // proposer => commitSlot => hash(commitHash, commitHeight)
         mapping(address => mapping(uint256 => bytes32)) commits;
         mapping(address => bool) provers; // Whitelisted provers
         uint64 statusBits;
