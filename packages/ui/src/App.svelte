@@ -5,7 +5,6 @@
   import Navbar from "./components/Navbar.svelte";
   import { SvelteToast } from "@zerodevx/svelte-toast";
 
-  import { themeChange } from "theme-change";
   import { onMount } from "svelte";
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
@@ -14,9 +13,10 @@
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
 
-  onMount(() => {
-    themeChange(false);
-  });
+  const { chains, provider } = configureChains(
+    [mainnet, taiko],
+    [publicProvider()]
+  );
 
   setupI18n({ withLocale: "en" });
 
@@ -43,10 +43,11 @@
 </script>
 
 <QueryProvider>
-  <div class="h-screen w-full" style="margin: 0 auto;">
+  <main>
     <Navbar />
     <Router {routes} />
-  </div>
+    <Footer />
+  </main>
   <SvelteToast />
 </QueryProvider>
 
@@ -54,4 +55,8 @@
   @tailwind base;
   @tailwind components;
   @tailwind utilities;
+
+  main {
+    margin: 0;
+  }
 </style>
