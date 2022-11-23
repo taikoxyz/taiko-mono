@@ -162,7 +162,10 @@ library LibTxDecoder {
         txLegacy.data = LibRLPReader.readBytes(body[5]);
         // EIP-155 is enabled on L2
         txLegacy.v = uint8(
-            LibRLPReader.readUint256(body[6]) - LibConstants.K_CHAIN_ID * 2 + 35
+            LibRLPReader.readUint256(body[6]) -
+                LibConstants.TAIKO_CHAIN_ID *
+                2 +
+                35
         );
         txLegacy.r = LibRLPReader.readUint256(body[7]);
         txLegacy.s = LibRLPReader.readUint256(body[8]);

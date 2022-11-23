@@ -373,7 +373,7 @@ Where $K_{\mathrm{BlockDeadEndHash}}$ is a special value marking this Fork Choic
 
 It's important to note that these throw-away blocks are never a part of the Taiko chain. The only purpose of the block is to be able reuse the EVM proving subsystem so that we can create proofs for blocks with unexpected transaction data.
 
-\subsection{Verification of Blocks}\label{sec:verifying}
+\subsection{On-chain Finalization of Blocks}\label{sec:verifying}
 
 Assuming the $j$-th block is the last verified valid block. The $i$-th block ($i > j$) can be verified if 1) the $(i-1)$-th block has been verified, and 2) the $i$-th block has a Fork Choice $E$ whose parent block hash $E(H_p)$ equals the $j$-th block's hash.
 

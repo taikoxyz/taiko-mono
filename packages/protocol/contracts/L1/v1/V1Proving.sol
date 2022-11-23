@@ -79,11 +79,11 @@ library V1Proving {
         require(_tx.txType == 0, "L1:anchor:type");
         require(
             _tx.destination ==
-                resolver.resolve(LibConstants.K_CHAIN_ID, "taiko"),
+                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
             "L1:anchor:dest"
         );
         require(
-            _tx.gasLimit == LibConstants.K_ANCHOR_TX_GAS_LIMIT,
+            _tx.gasLimit == LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
             "L1:anchor:gasLimit"
         );
 
@@ -95,7 +95,7 @@ library V1Proving {
             LibBytesUtils.equal(
                 _tx.data,
                 bytes.concat(
-                    LibConstants.K_ANCHOR_TX_SELECTOR,
+                    LibConstants.V1_ANCHOR_TX_SELECTOR,
                     bytes32(evidence.meta.l1Height),
                     evidence.meta.l1Hash
                 )
@@ -167,13 +167,13 @@ library V1Proving {
         LibReceiptDecoder.Log memory log = receipt.logs[0];
         require(
             log.contractAddress ==
-                resolver.resolve(LibConstants.K_CHAIN_ID, "taiko"),
+                resolver.resolve(LibConstants.TAIKO_CHAIN_ID, "taiko"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
         require(
             log.topics.length == 2 &&
-                log.topics[0] == LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC &&
+                log.topics[0] == LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC &&
                 log.topics[1] == target.txListHash,
             "L1:receipt:topics"
         );
@@ -195,7 +195,7 @@ library V1Proving {
             resolver,
             evidence,
             target,
-            LibConstants.K_BLOCK_DEADEND_HASH
+            LibConstants.TAIKO_BLOCK_DEADEND_HASH
         );
     }
 
@@ -285,14 +285,15 @@ library V1Proving {
             }
 
             require(
-                fc.provers.length < LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+                fc.provers.length <
+                    LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
                 "L1:proof:tooMany"
             );
 
-            require(
-                block.timestamp < V1Utils.uncleProofDeadline(s, fc),
-                "L1:tooLate"
-            );
+            // No uncle proof can take more than 1.5x time the first proof did.
+            uint256 delay = fc.provenAt - fc.proposedAt;
+            uint256 deadline = fc.provenAt + delay / 2;
+            require(block.timestamp <= deadline, "L1:tooLate");
 
             for (uint256 i = 0; i < fc.provers.length; i++) {
                 require(fc.provers[i] != prover, "L1:prover:dup");
@@ -352,7 +353,7 @@ library V1Proving {
                 header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
                 header.gasLimit ==
-                meta.gasLimit + LibConstants.K_ANCHOR_TX_GAS_LIMIT &&
+                meta.gasLimit + LibConstants.V1_ANCHOR_TX_GAS_LIMIT &&
                 header.gasUsed > 0 &&
                 header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&

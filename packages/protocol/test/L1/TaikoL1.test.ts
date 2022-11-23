@@ -1,6 +1,5 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { BigNumber } from "ethers"
 
 describe("TaikoL1", function () {
     async function deployTaikoL1Fixture() {
@@ -50,8 +49,8 @@ describe("TaikoL1", function () {
             })
         ).deploy()
 
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying", {
+        const v1Finalizing = await (
+            await ethers.getContractFactory("V1Finalizing", {
                 libraries: {
                     V1Utils: v1Utils.address,
                 },
@@ -60,7 +59,7 @@ describe("TaikoL1", function () {
 
         const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
             libraries: {
-                V1Verifying: v1Verifying.address,
+                V1Finalizing: v1Finalizing.address,
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
                 Uint512: uint512.address,
@@ -70,8 +69,7 @@ describe("TaikoL1", function () {
 
         const genesisHash = randomBytes32()
         const taikoL1 = await TaikoL1Factory.deploy()
-        const feeBase = BigNumber.from(10).pow(18)
-        await taikoL1.init(addressManager.address, genesisHash, feeBase)
+        await taikoL1.init(addressManager.address, genesisHash)
 
         return { taikoL1, genesisHash }
     }

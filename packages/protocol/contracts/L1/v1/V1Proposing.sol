@@ -11,7 +11,6 @@ pragma solidity ^0.8.9;
 import "../../common/ConfigManager.sol";
 import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
 import "./V1Utils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -47,7 +46,6 @@ library V1Proposing {
 
     function proposeBlock(
         LibData.State storage s,
-        AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
         require(!V1Utils.isHalted(s), "L1:halt");
@@ -83,12 +81,13 @@ library V1Proposing {
 
         require(
             txList.length > 0 &&
-                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
+                txList.length <= LibConstants.TAIKO_TXLIST_MAX_BYTES &&
                 meta.txListHash == txList.hashTxList(),
             "L1:txList"
         );
         require(
-            s.nextBlockId < s.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+            s.nextBlockId <=
+                s.latestVerifiedId + LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             "L1:tooMany"
         );
 
@@ -103,49 +102,10 @@ library V1Proposing {
 
         s.saveProposedBlock(
             s.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposer: msg.sender,
-                gasLimit: meta.gasLimit
-            })
+            LibData.ProposedBlock({metaHash: LibData.hashMetadata(meta)})
         );
 
-        if (LibConstants.K_TOKENOMICS_ENABLED) {
-            uint64 blockTime = meta.timestamp - s.lastProposedAt;
-            (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
-
-            s.avgBlockTime = V1Utils
-                .movingAverage(s.avgBlockTime, blockTime, 1024)
-                .toUint64();
-
-            // s.avgGasLimit = V1Utils
-            //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
-            //     .toUint64();
-
-            TkoToken(resolver.resolve("tko_token")).burn(
-                msg.sender,
-                premiumFee
-            );
-        }
-
-        s.lastProposedAt = meta.timestamp;
         emit BlockProposed(s.nextBlockId++, meta);
-    }
-
-    function getBlockFee(
-        LibData.State storage s
-    ) public view returns (uint256 fee, uint256 premiumFee) {
-        fee = V1Utils.getTimeAdjustedFee(
-            s,
-            true,
-            uint64(block.timestamp),
-            s.lastProposedAt,
-            s.avgBlockTime,
-            LibConstants.K_BLOCK_TIME_CAP
-        );
-        premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
-        premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
     }
 
     function isCommitValid(
@@ -158,7 +118,7 @@ library V1Proposing {
         return
             s.commits[msg.sender][commitSlot] == hash &&
             block.number >=
-            commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            commitHeight + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
@@ -174,7 +134,7 @@ library V1Proposing {
         );
 
         require(
-            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            meta.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
             "L1:gasLimit"
         );
         require(meta.extraData.length <= 32, "L1:extraData");

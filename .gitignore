@@ -109,8 +109,4 @@ dist
 # vscode
 .vscode/
 
-# python
-__pycache__/
-
-# whitepaper
 .pdf

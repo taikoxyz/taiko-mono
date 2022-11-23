@@ -21,25 +21,13 @@ function commitBlock(struct LibData.State s, bytes32 commitHash) public
 ### proposeBlock
 
 ```solidity
-function proposeBlock(struct LibData.State s, contract AddressResolver resolver, bytes[] inputs) public
-```
-
-### getBlockFee
-
-```solidity
-function getBlockFee(struct LibData.State s) public view returns (uint256 fee, uint256 premiumFee)
+function proposeBlock(struct LibData.State s, bytes[] inputs) public
 ```
 
 ### isCommitValid
 
 ```solidity
 function isCommitValid(struct LibData.State s, bytes32 hash) public view returns (bool)
-```
-
-### \_calcProposerBootstrapReward
-
-```solidity
-function _calcProposerBootstrapReward(struct LibData.State s) private view returns (uint256 proposerReward)
 ```
 
 ### \_validateMetadata

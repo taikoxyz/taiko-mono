@@ -28,8 +28,6 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
-        address proposer;
-        uint64 gasLimit;
     }
 
     struct ForkChoice {
@@ -39,7 +37,6 @@ library LibData {
         address[] provers;
     }
 
-    // This struct takes 9 slots.
     struct State {
         // block id => block hash
         mapping(uint256 => bytes32) l2Hashes;
@@ -50,25 +47,11 @@ library LibData {
         // proposer => commitSlot => hash(commitHash, commitHeight)
         mapping(address => mapping(uint256 => bytes32)) commits;
         mapping(address => bool) provers; // Whitelisted provers
-        // Never or rarely changed
+        uint64 statusBits;
         uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 __reservedA1;
-        uint64 statusBits; // rarely change
-        // Changed when a block is proposed or proven/finalized
-        uint256 feeBase;
-        // Changed when a block is proposed
-        uint64 nextBlockId;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 avgBlockTime; // The block time moving average
-        uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
-        // Changed when a block is proven/finalized
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;
-        uint64 avgProofTime; // the proof time moving average
-        uint64 __reservedC1;
-        // Reserved
-        uint256[41] __gap;
+        uint64 nextBlockId;
     }
 
     function saveProposedBlock(
@@ -76,14 +59,14 @@ library LibData {
         uint256 id,
         ProposedBlock memory blk
     ) internal {
-        s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
+        s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS] = blk;
     }
 
     function getProposedBlock(
         State storage s,
         uint256 id
     ) internal view returns (ProposedBlock storage) {
-        return s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
+        return s.proposedBlocks[id % LibConstants.TAIKO_MAX_PROPOSED_BLOCKS];
     }
 
     function getL2BlockHash(

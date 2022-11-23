@@ -78,7 +78,7 @@ library LibBlockHeader {
         return
             header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT &&
+            header.gasLimit <= LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
             header.nonce == 0;

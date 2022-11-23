@@ -22,8 +22,6 @@ struct BlockMetadata {
 ```solidity
 struct ProposedBlock {
   bytes32 metaHash;
-  address proposer;
-  uint64 gasLimit;
 }
 
 ```
@@ -49,18 +47,9 @@ struct State {
   mapping(uint256 => mapping(bytes32 => struct LibData.ForkChoice)) forkChoices;
   mapping(bytes32 => uint256) commits;
   uint64 genesisHeight;
-  uint64 genesisTimestamp;
-  uint64 reservedA1;
-  uint64 reservedA2;
-  uint256 feeBase;
-  uint64 nextBlockId;
-  uint64 lastProposedAt;
-  uint64 avgBlockTime;
-  uint64 avgGasLimit;
   uint64 latestVerifiedHeight;
   uint64 latestVerifiedId;
-  uint64 avgProofTime;
-  uint64 reservedC1;
+  uint64 nextBlockId;
 }
 ```
 
