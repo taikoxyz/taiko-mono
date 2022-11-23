@@ -19,23 +19,26 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
-    event BlockCommitted(bytes32 hash, uint256 validSince);
+    event BlockCommitted(bytes32 blockHash, uint256 committedAt);
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
-    function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+    function commitBlock(
+        LibData.State storage s,
+        uint commitSlot,
+        bytes32 commitHash
+    ) public {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
         // require(!V1Utils.isHalted(s), "L1:halt");
 
         require(commitHash != 0, "L1:hash");
-        require(s.commits[commitHash] == 0, "L1:committed");
-        s.commits[commitHash] = block.number;
+        bytes32 hash = keccak256(abi.encodePacked(commitHash, block.number));
 
-        emit BlockCommitted(
-            commitHash,
-            block.number + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS
-        );
+        require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        s.commits[msg.sender][commitSlot] = hash;
+
+        emit BlockCommitted(commitHash, block.number);
     }
 
     function proposeBlock(
@@ -58,8 +61,14 @@ library V1Proposing {
             meta.txListHash
         );
 
-        require(isCommitValid(s, commitHash), "L1:commit");
-        delete s.commits[commitHash];
+        require(
+            isCommitValid(s, meta.commitSlot, meta.commitHeight, commitHash),
+            "L1:notCommitted"
+        );
+
+        if (meta.commitSlot == 0) {
+            delete s.commits[msg.sender][meta.commitSlot];
+        }
 
         require(
             txList.length > 0 &&
@@ -92,13 +101,17 @@ library V1Proposing {
 
     function isCommitValid(
         LibData.State storage s,
-        bytes32 hash
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
     ) public view returns (bool) {
         return
-            hash != 0 &&
-            s.commits[hash] != 0 &&
+            commitHash != 0 &&
+            commitHeight != 0 &&
+            s.commits[msg.sender][commitSlot] ==
+            keccak256(abi.encodePacked(commitHash, commitHeight)) &&
             block.number >=
-            s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+            commitHeight + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {

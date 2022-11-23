@@ -22,6 +22,8 @@ library LibData {
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
+        uint64 commitSlot;
+        uint64 commitHeight;
     }
 
     struct ProposedBlock {
@@ -42,7 +44,7 @@ library LibData {
         mapping(uint256 => ProposedBlock) proposedBlocks;
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
-        mapping(bytes32 => uint256) commits;
+        mapping(address => mapping(uint256 => bytes32)) commits;
         mapping(address => bool) provers; // Whitelisted provers
         uint64 statusBits;
         uint64 genesisHeight;
