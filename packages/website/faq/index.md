@@ -61,10 +61,10 @@ A zero-knowledge proof is a method by which one party (the prover) can prove to 
 
 There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses ZK-SNARKs in its design.
 
-## What Taiko mean?
+## What Taiko means?
 
 It comes from a Chinese old saying  一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once". 
 
-The first drum beat cheers people up, the second weakens them, and the third devitalizes them, the third is the most powerful.
+The first drum beat cheers people up, the second weakens them, and the third devitalizes them, the first is the most powerful.
 Taiko is the "drum".
 
