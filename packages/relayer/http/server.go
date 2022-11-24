@@ -111,8 +111,6 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 	}))
 
 	srv.configureAndStartPrometheus()
-
-	srv.configureRoutes()
 }
 
 func (srv *Server) configureAndStartPrometheus() {
