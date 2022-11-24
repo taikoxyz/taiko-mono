@@ -1,13 +1,13 @@
-name: UI
+name: Bridge UI
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/ui/**"
+      - "packages/bridge-ui/**"
   pull_request:
     paths:
-      - "packages/ui/**"
+      - "packages/bridge-ui/**"
 
 jobs:
   build:
@@ -45,11 +45,11 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: ui - Unit Tests
-        working-directory: ./packages/ui
+        working-directory: ./packages/bridge-ui
         run: pnpm install && pnpm run test
 
       - name: ui - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          directory: ./packages/ui/coverage
+          directory: ./packages/bridge-ui/coverage
           flags: ui

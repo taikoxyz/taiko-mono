@@ -17,9 +17,9 @@ flag_management:
     - name: relayer
       paths:
         - packages/relayer/**/*
-    - name: ui
+    - name: bridge-ui
       paths:
-        - packages/ui/**/*
+        - packages/bridge-ui/**/*
 
 comment:
   show_carryforward_flags: true
