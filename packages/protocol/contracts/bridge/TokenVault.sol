@@ -18,7 +18,7 @@ import "./IBridge.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
- * It also manages the mapping between cannonical ERC20 tokens and their bridged
+ * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
  *
  * @author dantaik <dan@taiko.xyz>
@@ -30,7 +30,7 @@ contract TokenVault is EssentialContract {
      * Structs           *
      *********************/
 
-    struct CannonicalERC20 {
+    struct CanonicalERC20 {
         uint256 chainId;
         address addr;
         uint8 decimals;
@@ -45,11 +45,11 @@ contract TokenVault is EssentialContract {
     // Tracks if a token on the current chain is a canoncial or bridged token.
     mapping(address => bool) public isBridgedToken;
 
-    // Mappings from bridged tokens to their cannonical tokens.
-    mapping(address => CannonicalERC20) public bridgedToCanonical;
+    // Mappings from bridged tokens to their canonical tokens.
+    mapping(address => CanonicalERC20) public bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
-    // chainId => cannonical address => bridged address
+    // chainId => canonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
     uint256[47] private __gap;
@@ -175,7 +175,7 @@ contract TokenVault is EssentialContract {
         require(token != address(0), "V:token");
         require(amount > 0, "V:amount");
 
-        CannonicalERC20 memory canonicalToken;
+        CanonicalERC20 memory canonicalToken;
         uint256 _amount;
 
         if (isBridgedToken[token]) {
@@ -186,7 +186,7 @@ contract TokenVault is EssentialContract {
         } else {
             // The canonical token lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
-            canonicalToken = CannonicalERC20({
+            canonicalToken = CanonicalERC20({
                 chainId: block.chainid,
                 addr: token,
                 decimals: t.decimals(),
@@ -236,7 +236,7 @@ contract TokenVault is EssentialContract {
      * @param amount The amount of tokens to be sent. 0 is a valid value.
      */
     function receiveERC20(
-        CannonicalERC20 calldata canonicalToken,
+        CanonicalERC20 calldata canonicalToken,
         address from,
         address to,
         uint256 amount
@@ -264,7 +264,7 @@ contract TokenVault is EssentialContract {
      *********************/
 
     function _getOrDeployBridgedToken(
-        CannonicalERC20 calldata canonicalToken
+        CanonicalERC20 calldata canonicalToken
     ) private returns (address) {
         address token = canonicalToBridged[canonicalToken.chainId][
             canonicalToken.addr
@@ -275,7 +275,7 @@ contract TokenVault is EssentialContract {
     }
 
     function _deployBridgedToken(
-        CannonicalERC20 calldata canonicalToken
+        CanonicalERC20 calldata canonicalToken
     ) private returns (address bridgedToken) {
         bytes32 salt = keccak256(
             abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
