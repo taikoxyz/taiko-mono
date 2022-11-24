@@ -26,7 +26,6 @@ export default {
       }, 
     transformIgnorePatterns: ["node_modules/(?!(svelte-i18n)/)"],
     moduleFileExtensions: ["ts", "js", "svelte", "json"],
-    setupFilesAfterEnv: ["@testing-library/jest-dom/extend-expect"],
     collectCoverage: true,
     coverageDirectory: "coverage",
     coverageReporters: [
