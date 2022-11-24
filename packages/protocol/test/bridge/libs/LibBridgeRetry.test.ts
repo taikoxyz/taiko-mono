@@ -90,6 +90,7 @@ describe("LibBridgeRetry", function () {
             libRetry,
             testLibData,
             badLibRetry,
+            etherVault,
         }
     }
 
@@ -274,6 +275,63 @@ describe("LibBridgeRetry", function () {
             expect(balancePlusRefund).to.be.equal(
                 originalBalance.add(message.callValue)
             )
+        })
+
+        it("should fail, messageStatus is still RETRIABLE and balance is returned to etherVault", async function () {
+            const { owner, libRetry, testLibData, etherVault } =
+                await deployLibBridgeRetryFixture()
+
+            const testBadReceiver: TestBadReceiver = await (
+                await ethers.getContractFactory("TestBadReceiver")
+            ).deploy()
+
+            await testBadReceiver.deployed()
+
+            const destChainId = 5
+            const message: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: 1,
+                destChainId: destChainId,
+                owner: owner.address,
+                to: testBadReceiver.address,
+                refundAddress: ethers.constants.AddressZero,
+                depositValue: 0,
+                callValue: 1,
+                processingFee: 1,
+                gasLimit: 300000,
+                data: ethers.constants.HashZero,
+                memo: "",
+            }
+
+            const signal = await testLibData.hashMessage(message)
+
+            await helpers.setStorageAt(
+                libRetry.address,
+                await getSlot(hre, signal, 202),
+                MessageStatus.RETRIABLE
+            )
+
+            const originalBalance = await ethers.provider.getBalance(
+                etherVault.address
+            )
+            await libRetry.retryMessage(message, false)
+            const balancePlusRefund = await ethers.provider.getBalance(
+                etherVault.address
+            )
+
+            expect(
+                await decode(
+                    hre,
+                    "uint256",
+                    await ethers.provider.getStorageAt(
+                        libRetry.address,
+                        getSlot(hre, signal, 202)
+                    )
+                )
+            ).to.equal(MessageStatus.RETRIABLE.toString())
+
+            expect(balancePlusRefund).to.be.equal(originalBalance)
         })
 
         it("should succeed, set message status to done, invoke message succesfsully", async function () {
