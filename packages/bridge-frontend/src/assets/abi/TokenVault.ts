@@ -349,7 +349,7 @@ const abi = [
             type: "string",
           },
         ],
-        internalType: "struct TokenVault.CannonicalERC20",
+        internalType: "struct TokenVault.CanonicalERC20",
         name: "canonicalToken",
         type: "tuple",
       },

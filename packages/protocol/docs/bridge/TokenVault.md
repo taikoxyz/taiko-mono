@@ -1,13 +1,13 @@
 ## TokenVault
 
 This vault holds all ERC20 tokens (but not Ether) that users have deposited.
-It also manages the mapping between cannonical ERC20 tokens and their bridged
+It also manages the mapping between canonical ERC20 tokens and their bridged
 tokens.
 
-### CannonicalERC20
+### CanonicalERC20
 
 ```solidity
-struct CannonicalERC20 {
+struct CanonicalERC20 {
   uint256 chainId;
   address addr;
   uint8 decimals;
@@ -26,7 +26,7 @@ mapping(address => bool) isBridgedToken
 ### bridgedToCanonical
 
 ```solidity
-mapping(address => struct TokenVault.CannonicalERC20) bridgedToCanonical
+mapping(address => struct TokenVault.CanonicalERC20) bridgedToCanonical
 ```
 
 ### canonicalToBridged
@@ -126,7 +126,7 @@ by invoking the message call.
 ### receiveERC20
 
 ```solidity
-function receiveERC20(struct TokenVault.CannonicalERC20 canonicalToken, address from, address to, uint256 amount) external
+function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
 ```
 
 _This function can only be called by the bridge contract while
@@ -134,21 +134,21 @@ invoking a message call._
 
 #### Parameters
 
-| Name           | Type                              | Description                                                                                                          |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| canonicalToken | struct TokenVault.CannonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
-| from           | address                           | The source address.                                                                                                  |
-| to             | address                           | The destination address.                                                                                             |
-| amount         | uint256                           | The amount of tokens to be sent. 0 is a valid value.                                                                 |
+| Name           | Type                             | Description                                                                                                          |
+| -------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| canonicalToken | struct TokenVault.CanonicalERC20 | The canonical ERC20 token which may or may not live on this chain. If not, a BridgedERC20 contract will be deployed. |
+| from           | address                          | The source address.                                                                                                  |
+| to             | address                          | The destination address.                                                                                             |
+| amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
 
 ### \_getOrDeployBridgedToken
 
 ```solidity
-function _getOrDeployBridgedToken(struct TokenVault.CannonicalERC20 canonicalToken) private returns (address)
+function _getOrDeployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address)
 ```
 
 ### \_deployBridgedToken
 
 ```solidity
-function _deployBridgedToken(struct TokenVault.CannonicalERC20 canonicalToken) private returns (address bridgedToken)
+function _deployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address bridgedToken)
 ```
