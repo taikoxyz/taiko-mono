@@ -55,8 +55,8 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		corsOrigins = []string{"*"}
 	}
 
-	srv.configureRoutes()
 	srv.configureMiddleware(corsOrigins)
+	srv.configureRoutes()
 
 	return srv, nil
 }
