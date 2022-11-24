@@ -18,11 +18,7 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
-    "@sentry/types": "^6.19.6",
-    "@sentry/webpack-plugin": "^1.18.8",
     "@sveltejs/vite-plugin-svelte": "^1.0.1",
-    "@testing-library/jest-dom": "^5.15.0",
-    "@testing-library/svelte": "^3.1.0",
     "@tsconfig/svelte": "^3.0.0",
     "@types/eslint": "^8.2.1",
     "@types/estree": "^0.0.50",
@@ -37,8 +33,6 @@
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "daisyui": "1.16.6",
     "jest": "^27.5.1",
-    "jest-fetch-mock": "^3.0.3",
-    "jest-mock-axios": "^4.4.1",
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",
     "postcss-cli": "^7.1.2",
@@ -62,10 +56,8 @@
   },
   "dependencies": {
     "@sveltestack/svelte-query": "^1.6.0",
-    "@wagmi/core": "^0.7.4",
     "ethers": "^5.7.1",
     "svelte-i18n": "^3.5.1",
-    "svelte-spa-router": "^3.2.0",
-    "wagmi": "^0.8.5"
+    "svelte-spa-router": "^3.2.0"
   }
 }
