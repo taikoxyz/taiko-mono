@@ -32,11 +32,11 @@ library V1Proposing {
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
-        require(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0, "L1:disabled");
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // require(!V1Utils.isHalted(s), "L1:halt");
+        // assert(!V1Utils.isHalted(s));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
@@ -51,7 +51,7 @@ library V1Proposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        assert(!V1Utils.isHalted(s));
 
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
@@ -162,7 +162,7 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        require(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0, "L1:disabled");
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&

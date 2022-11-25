@@ -59,7 +59,7 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(s) {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        assert(!V1Utils.isHalted(s));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -139,7 +139,7 @@ library V1Proving {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(s) {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        assert(!V1Utils.isHalted(s));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -204,7 +204,7 @@ library V1Proving {
         address prover,
         bool enabled
     ) public {
-        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
+        assert(LibConstants.K_WHITELIST_PROVERS);
         require(
             prover != address(0) && s.provers[prover] != enabled,
             "L1:precondition"
@@ -218,7 +218,7 @@ library V1Proving {
         LibData.State storage s,
         address prover
     ) public view returns (bool) {
-        require(LibConstants.K_WHITELIST_PROVERS, "L1:featureDisabled");
+        assert(LibConstants.K_WHITELIST_PROVERS);
         return s.provers[prover];
     }
 
