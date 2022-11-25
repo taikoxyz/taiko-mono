@@ -44,12 +44,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: ui - Unit Tests
+      - name: Bridge UI - Unit Tests
         working-directory: ./packages/bridge-ui
         run: pnpm install && pnpm run test
 
-      - name: ui - Upload coverage to Codecov
+      - name: Bridge UI - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/bridge-ui/coverage
-          flags: ui
+          flags: bridge-ui
