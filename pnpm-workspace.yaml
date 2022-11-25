@@ -1,4 +1,4 @@
 packages:
   - "packages/protocol"
   - "packages/website"
-  - "packages/ui"
+  - "packages/bridge-ui"
