@@ -36,7 +36,7 @@ library V1Finalizing {
     ) public {
         bool halted = V1Utils.isHalted(s);
         if (checkHalt) {
-            require(!halted, "L1:halted");
+            assert(!halted);
         } else if (halted) {
             // skip finalizing blocks
             return;
