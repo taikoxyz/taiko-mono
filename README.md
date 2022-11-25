@@ -1,6 +1,6 @@
 <!-- BADGES -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
@@ -66,8 +66,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center"><a href="https://github.com/RogerLamTd"><img src="https://avatars.githubusercontent.com/u/50648015?v=4?s=100" width="100px;" alt="RogerLamTd"/><br /><sub><b>RogerLamTd</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=RogerLamTd" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=RogerLamTd" title="Code">💻</a></td>
       <td align="center"><a href="https://github.com/alexshliu"><img src="https://avatars.githubusercontent.com/u/104080237?v=4?s=100" width="100px;" alt="alexshliu"/><br /><sub><b>alexshliu</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=alexshliu" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=alexshliu" title="Code">💻</a></td>
       <td align="center"><a href="https://github.com/kirataik"><img src="https://avatars.githubusercontent.com/u/104244966?v=4?s=100" width="100px;" alt="kirataik"/><br /><sub><b>kirataik</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=kirataik" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=kirataik" title="Code">💻</a></td>
+    </tr>
+    <tr>
       <td align="center"><a href="https://github.com/mfinestone"><img src="https://avatars.githubusercontent.com/u/36642873?v=4?s=100" width="100px;" alt="mfinestone"/><br /><sub><b>mfinestone</b></sub></a><br /><a href="#business-mfinestone" title="Business development">💼</a> <a href="#content-mfinestone" title="Content">🖋</a></td>
       <td align="center"><a href="https://github.com/shadab-taiko"><img src="https://avatars.githubusercontent.com/u/108871478?v=4?s=100" width="100px;" alt="shadab-taiko"/><br /><sub><b>shadab-taiko</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Code">💻</a></td>
+      <td align="center"><a href="https://github.com/1xDeFi"><img src="https://avatars.githubusercontent.com/u/90858998?v=4?s=100" width="100px;" alt="1xDeFi"/><br /><sub><b>1xDeFi</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=1xDeFi" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
