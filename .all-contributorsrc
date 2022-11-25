@@ -94,6 +94,15 @@
         "doc",
         "code"
       ]
+    },
+    {
+      "login": "1xDeFi",
+      "name": "1xDeFi",
+      "avatar_url": "https://avatars.githubusercontent.com/u/90858998?v=4",
+      "profile": "https://github.com/1xDeFi",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
