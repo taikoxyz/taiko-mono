@@ -63,8 +63,8 @@ There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses 
 
 ## What does "Taiko" mean?
 
-It comes from a Chinese old saying  一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once". 
+It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once". 
 
-The first drum beat cheers people up, the second weakens them, and the third devitalizes them. the first is the most powerful.
+The first drum beat cheers people up, the second weakens them, and the third devitalizes them. The first is the most powerful.
 Taiko is the "drum".
 
