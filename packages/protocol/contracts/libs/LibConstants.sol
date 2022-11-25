@@ -12,7 +12,8 @@ pragma solidity ^0.8.9;
 library LibConstants {
     // https://github.com/ethereum-lists/chains/pull/1611
     uint256 public constant K_CHAIN_ID = 167;
-    uint256 public constant K_MAX_NUM_BLOCKS = 2049; // up to 2048 pending blocks
+    // up to 2048 pending blocks
+    uint256 public constant K_MAX_NUM_BLOCKS = 2049;
     // This number is calculated from K_MAX_NUM_BLOCKS to make
     // the 'the maximum value of the multiplier' close to 20.0
     uint256 public constant K_FEE_PREMIUM_LAMDA = 590;
