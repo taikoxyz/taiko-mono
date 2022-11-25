@@ -215,3 +215,5 @@ library LibBlockHeaderDecoder {
     }
   }
 }
+
+// TODO: add license, see https://github.com/privacy-scaling-explorations/zkevm-chain/issues/96
