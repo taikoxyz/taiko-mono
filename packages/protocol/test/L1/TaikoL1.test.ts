@@ -94,6 +94,19 @@ describe("TaikoL1", function () {
             expect(hash).to.be.eq(genesisHash)
         })
     })
+
+    describe("getBlockProvers()", async function () {
+        it("should return empty list when there is no proof for that block", async function () {
+            const { taikoL1 } = await deployTaikoL1Fixture()
+
+            const provers = await taikoL1.getBlockProvers(
+                Math.ceil(Math.random() * 1024),
+                randomBytes32()
+            )
+
+            expect(provers).to.be.empty
+        })
+    })
 })
 
 function randomBytes32() {
