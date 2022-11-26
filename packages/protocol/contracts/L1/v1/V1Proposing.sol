@@ -19,30 +19,37 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
-    event BlockCommitted(bytes32 hash, uint256 validSince);
+    event BlockCommitted(
+        uint64 commitSlot,
+        uint64 commitHeight,
+        bytes32 commitHash
+    );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
-    function commitBlock(LibData.State storage s, bytes32 commitHash) public {
+    function commitBlock(
+        LibData.State storage s,
+        uint64 commitSlot,
+        bytes32 commitHash
+    ) public {
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // require(!V1Utils.isHalted(s), "L1:halt");
+        // assert(!V1Utils.isHalted(s));
 
-        require(commitHash != 0, "L1:hash");
-        require(s.commits[commitHash] == 0, "L1:committed");
-        s.commits[commitHash] = block.number;
+        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        emit BlockCommitted(
-            commitHash,
-            block.number + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS
-        );
+        require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        s.commits[msg.sender][commitSlot] = hash;
+
+        emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(
         LibData.State storage s,
         bytes[] calldata inputs
     ) public {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        assert(!V1Utils.isHalted(s));
 
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
@@ -53,13 +60,28 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        bytes32 commitHash = _calculateCommitHash(
-            meta.beneficiary,
-            meta.txListHash
-        );
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0) {
+            bytes32 commitHash = _calculateCommitHash(
+                meta.beneficiary,
+                meta.txListHash
+            );
 
-        require(isCommitValid(s, commitHash), "L1:commit");
-        delete s.commits[commitHash];
+            require(
+                isCommitValid(
+                    s,
+                    meta.commitSlot,
+                    meta.commitHeight,
+                    commitHash
+                ),
+                "L1:notCommitted"
+            );
+
+            if (meta.commitSlot == 0) {
+                // Special handling of slot 0 for refund; non-zero slots
+                // are supposed to managed by node software for reuse.
+                delete s.commits[msg.sender][meta.commitSlot];
+            }
+        }
 
         require(
             txList.length > 0 &&
@@ -92,13 +114,16 @@ library V1Proposing {
 
     function isCommitValid(
         LibData.State storage s,
-        bytes32 hash
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
     ) public view returns (bool) {
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMATIONS > 0);
+        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
-            hash != 0 &&
-            s.commits[hash] != 0 &&
+            s.commits[msg.sender][commitSlot] == hash &&
             block.number >=
-            s.commits[hash] + LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS;
+            commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMATIONS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
@@ -125,5 +150,12 @@ library V1Proposing {
         bytes32 txListHash
     ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
+    }
+
+    function _aggregateCommitHash(
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
 }
