@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -80,9 +81,7 @@ func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer) {
 		log.Fatal(err)
 	}
 
-	srv, err := http.NewServer(http.NewServerOpts{
-		Echo: echo.New(),
-	})
+	srv, err := newHTTPServer(db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -317,4 +316,22 @@ func loadAndValidateEnv() error {
 	}
 
 	return errors.Errorf("Missing env vars: %v", missing)
+}
+
+func newHTTPServer(db relayer.DB) (*http.Server, error) {
+	eventRepo, err := repo.NewEventRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	srv, err := http.NewServer(http.NewServerOpts{
+		EventRepo:   eventRepo,
+		Echo:        echo.New(),
+		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
 }

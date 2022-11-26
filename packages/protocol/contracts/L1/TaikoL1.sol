@@ -256,6 +256,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
+    function getBlockProvers(
+        uint256 id,
+        bytes32 parentHash
+    ) public view returns (address[] memory) {
+        return state.forkChoices[id][parentHash].provers;
+    }
+
     function getConstants()
         public
         pure
