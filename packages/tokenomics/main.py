@@ -145,7 +145,7 @@ class Protocol(sim.Component):
         # uint256 m = LibConstants.K_MAX_NUM_BLOCKS -
         #     1 +
         #     LibConstants.K_FEE_PREMIUM_LAMDA;
-        # uint256 n = s.latestVERIFIEDId - s.nextBlockId - 1;
+        # uint256 n = s.nextBlockId - s.latestVERIFIEDId - 1;
         # uint256 k = isProposal ? m - n - 1 : m - n + 1;
         # return (fee * (m - 1) * m) / (m - n) / k;
 
