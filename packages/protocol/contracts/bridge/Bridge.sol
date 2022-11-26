@@ -59,7 +59,12 @@ contract Bridge is EssentialContract, IBridge {
     function sendMessage(
         Message calldata message
     ) external payable nonReentrant returns (bytes32 signal) {
-        return LibBridgeSend.sendMessage(state, AddressResolver(this), message);
+        return
+            LibBridgeSend.sendMessage({
+                state: state,
+                resolver: AddressResolver(this),
+                message: message
+            });
     }
 
     function sendSignal(bytes32 signal) external override {
@@ -72,12 +77,12 @@ contract Bridge is EssentialContract, IBridge {
         bytes calldata proof
     ) external nonReentrant {
         return
-            LibBridgeProcess.processMessage(
-                state,
-                AddressResolver(this),
-                message,
-                proof
-            );
+            LibBridgeProcess.processMessage({
+                state: state,
+                resolver: AddressResolver(this),
+                message: message,
+                proof: proof
+            });
     }
 
     function retryMessage(
@@ -85,19 +90,23 @@ contract Bridge is EssentialContract, IBridge {
         bool isLastAttempt
     ) external nonReentrant {
         return
-            LibBridgeRetry.retryMessage(
-                state,
-                AddressResolver(this),
-                message,
-                isLastAttempt
-            );
+            LibBridgeRetry.retryMessage({
+                state: state,
+                resolver: AddressResolver(this),
+                message: message,
+                isLastAttempt: isLastAttempt
+            });
     }
 
     function enableDestChain(
         uint256 _chainId,
         bool enabled
     ) external nonReentrant {
-        LibBridgeSend.enableDestChain(state, _chainId, enabled);
+        LibBridgeSend.enableDestChain({
+            state: state,
+            chainId: _chainId,
+            enabled: enabled
+        });
     }
 
     /*********************
@@ -115,13 +124,13 @@ contract Bridge is EssentialContract, IBridge {
     ) public view virtual override returns (bool) {
         address srcBridge = resolve(srcChainId, "bridge");
         return
-            LibBridgeSignal.isSignalReceived(
-                AddressResolver(this),
-                srcBridge,
-                srcBridge,
-                signal,
-                proof
-            );
+            LibBridgeSignal.isSignalReceived({
+                resolver: AddressResolver(this),
+                srcBridge: srcBridge,
+                sender: srcBridge,
+                signal: signal,
+                proof: proof
+            });
     }
 
     function isSignalSent(
@@ -139,13 +148,13 @@ contract Bridge is EssentialContract, IBridge {
     ) public view virtual override returns (bool) {
         address srcBridge = resolve(srcChainId, "bridge");
         return
-            LibBridgeSignal.isSignalReceived(
-                AddressResolver(this),
-                srcBridge,
-                sender,
-                signal,
-                proof
-            );
+            LibBridgeSignal.isSignalReceived({
+                resolver: AddressResolver(this),
+                srcBridge: srcBridge,
+                sender: sender,
+                signal: signal,
+                proof: proof
+            });
     }
 
     function getMessageStatus(

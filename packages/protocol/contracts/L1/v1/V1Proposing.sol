@@ -132,7 +132,10 @@ library V1Proposing {
                 .toUint64();
 
             // s.avgGasLimit = V1Utils
-            //     .movingAverage(s.avgGasLimit, meta.gasLimit, LibConstants.K_GAS_LIMIT_MAF)
+            //     .movingAverage(
+            //        s.avgGasLimit,
+            //        meta.gasLimit,
+            //        LibConstants.K_GAS_LIMIT_MAF)
             //     .toUint64();
 
             TkoToken(resolver.resolve("tko_token")).burn(
