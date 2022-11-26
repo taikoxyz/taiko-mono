@@ -103,6 +103,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "odesium",
+      "name": "Ben",
+      "avatar_url": "https://avatars.githubusercontent.com/u/56487762?v=4",
+      "profile": "https://github.com/odesium",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
