@@ -217,7 +217,7 @@ class Protocol(sim.Component):
         self.blocks.append(block)
 
         Prover(protocol=self, config=self.config, blockId=len(self.blocks) - 1)
-        self.finalize_block()
+        self.verify_block()
 
         self.m_fee_base.tally(self.fee_base)
         self.m_block_fee.tally(premium_fee)
@@ -237,17 +237,17 @@ class Protocol(sim.Component):
             self.blocks[id] = self.blocks[id]._replace(
                 status=Status.PROVEN, proven_at=env.now()
             )
-            self.finalize_block()
+            self.verify_block()
 
-    def can_finalize(self):
+    def can_verify(self):
         return (
             len(self.blocks) > self.last_VERIFIED_id + 1
             and self.blocks[self.last_VERIFIED_id + 1].status == Status.PROVEN
         )
 
-    def finalize_block(self):
+    def verify_block(self):
         for i in range(0, 5):
-            if self.can_finalize():
+            if self.can_verify():
 
                 k = self.last_VERIFIED_id + 1
 
