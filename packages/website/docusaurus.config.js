@@ -31,7 +31,8 @@ const config = {
         id: "talks",
         path: "talks",
         routeBasePath: "talks",
-        sidebarPath: require.resolve("./sidebars.js"),
+        editUrl:
+          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
       },
     ],
     [
@@ -40,6 +41,8 @@ const config = {
         id: "faq",
         path: "faq",
         routeBasePath: "faq",
+        editUrl:
+          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
       },
     ],
   ],

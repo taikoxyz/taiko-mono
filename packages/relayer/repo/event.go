@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,7 +24,7 @@ func NewEventRepository(db relayer.DB) (*EventRepository, error) {
 	}, nil
 }
 
-func (r *EventRepository) Save(opts relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
 		Data:    datatypes.JSON(opts.Data),
 		Status:  opts.Status,
@@ -37,7 +38,7 @@ func (r *EventRepository) Save(opts relayer.SaveEventOpts) (*relayer.Event, erro
 	return e, nil
 }
 
-func (r *EventRepository) UpdateStatus(id int, status relayer.EventStatus) error {
+func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.First")
@@ -51,7 +52,11 @@ func (r *EventRepository) UpdateStatus(id int, status relayer.EventStatus) error
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddress(chainID *big.Int, address common.Address) ([]*relayer.Event, error) {
+func (r *EventRepository) FindAllByAddress(
+	ctx context.Context,
+	chainID *big.Int,
+	address common.Address,
+) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
 		Find(&e, datatypes.JSONQuery("data").

@@ -1,6 +1,8 @@
 <!-- BADGES -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
@@ -8,6 +10,9 @@
 
 [![Golang](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
 [![Relayer](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikoxyz/taiko-mono)
+
+[![Typescript](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml)
+[![Bridge UI](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=bridge-ui)](https://codecov.io/gh/taikoxyz/taiko-mono)
 
 <!-- PROJECT LOGO -->
 <br />

@@ -1,8 +1,10 @@
 package relayer
 
 import (
+	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"gorm.io/datatypes"
 )
 
@@ -47,6 +49,7 @@ type SaveEventOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
-	Save(opts SaveEventOpts) (*Event, error)
-	UpdateStatus(id int, status EventStatus) error
+	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
+	UpdateStatus(ctx context.Context, id int, status EventStatus) error
+	FindAllByAddress(ctx context.Context, chainID *big.Int, address common.Address) ([]*Event, error)
 }
