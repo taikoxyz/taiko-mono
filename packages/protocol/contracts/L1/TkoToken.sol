@@ -42,7 +42,11 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init("Taiko Token", "TKO", 18);
+        ERC20Upgradeable.__ERC20_init({
+            name_: "Taiko Token",
+            symbol_: "TKO",
+            decimals_: 18
+        });
     }
 
     /*********************

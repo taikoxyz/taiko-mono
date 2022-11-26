@@ -76,12 +76,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
-        V1Verifying.verifyBlocks(
-            state,
-            AddressResolver(this),
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Verifying.verifyBlocks({
+            s: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
@@ -104,12 +104,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bytes[] calldata inputs
     ) external nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
-        V1Verifying.verifyBlocks(
-            state,
-            AddressResolver(this),
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Verifying.verifyBlocks({
+            s: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
@@ -130,18 +130,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlockInvalid(
-            state,
-            AddressResolver(this),
-            blockIndex,
-            inputs
-        );
-        V1Verifying.verifyBlocks(
-            state,
-            AddressResolver(this),
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Proving.proveBlockInvalid({
+            s: state,
+            resolver: AddressResolver(this),
+            blockIndex: blockIndex,
+            inputs: inputs
+        });
+        V1Verifying.verifyBlocks({
+            s: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
@@ -150,7 +150,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Verifying.verifyBlocks(state, AddressResolver(this), maxBlocks, true);
+        V1Verifying.verifyBlocks({
+            s: state,
+            resolver: AddressResolver(this),
+            maxBlocks: maxBlocks,
+            checkHalt: true
+        });
     }
 
     /* Add or remove a prover from the whitelist.
@@ -162,7 +167,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address prover,
         bool whitelisted
     ) public onlyOwner {
-        V1Proving.whitelistProver(state, prover, whitelisted);
+        V1Proving.whitelistProver({
+            s: state,
+            prover: prover,
+            whitelisted: whitelisted
+        });
     }
 
     /**
@@ -191,11 +200,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 premiumReward) {
-        (, premiumReward) = V1Verifying.getProofReward(
-            state,
-            provenAt,
-            proposedAt
-        );
+        (, premiumReward) = V1Verifying.getProofReward({
+            s: state,
+            provenAt: provenAt,
+            proposedAt: proposedAt
+        });
     }
 
     /**

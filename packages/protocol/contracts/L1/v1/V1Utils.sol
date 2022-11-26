@@ -97,13 +97,13 @@ library V1Utils {
 
     function movingAverage(
         uint256 ma,
-        uint256 v,
-        uint256 factor
+        uint256 newValue,
+        uint256 maf
     ) internal pure returns (uint256) {
         if (ma == 0) {
-            return v;
+            return newValue;
         }
-        uint256 _ma = (ma * (factor - 1) + v) / factor;
+        uint256 _ma = (ma * (maf - 1) + newValue) / maf;
         return _ma > 0 ? _ma : ma;
     }
 

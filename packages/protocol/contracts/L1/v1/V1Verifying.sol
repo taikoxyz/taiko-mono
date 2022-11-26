@@ -80,24 +80,24 @@ library V1Verifying {
                 }
 
                 if (LibConstants.K_TOKENOMICS_ENABLED) {
-                    (uint256 reward, uint256 premiumReward) = getProofReward(
-                        s,
-                        fc.provenAt,
-                        fc.proposedAt
-                    );
+                    (uint256 reward, uint256 premiumReward) = getProofReward({
+                        s: s,
+                        provenAt: fc.provenAt,
+                        proposedAt: fc.proposedAt
+                    });
 
-                    s.feeBase = V1Utils.movingAverage(
-                        s.feeBase,
-                        reward,
-                        LibConstants.K_FEE_BASE_MAF
-                    );
+                    s.feeBase = V1Utils.movingAverage({
+                        ma: s.feeBase,
+                        newValue: reward,
+                        maf: LibConstants.K_FEE_BASE_MAF
+                    });
 
                     s.avgProofTime = V1Utils
-                        .movingAverage(
-                            s.avgProofTime,
-                            fc.provenAt - fc.proposedAt,
-                            LibConstants.K_PROOF_TIME_MAF
-                        )
+                        .movingAverage({
+                            ma: s.avgProofTime,
+                            newValue: fc.provenAt - fc.proposedAt,
+                            maf: LibConstants.K_PROOF_TIME_MAF
+                        })
                         .toUint64();
 
                     if (address(tkoToken) == address(0)) {
@@ -140,15 +140,19 @@ library V1Verifying {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        reward = V1Utils.getTimeAdjustedFee(
-            s,
-            false,
-            provenAt,
-            proposedAt,
-            s.avgProofTime,
-            LibConstants.K_PROOF_TIME_CAP
-        );
-        premiumReward = V1Utils.getSlotsAdjustedFee(s, false, reward);
+        reward = V1Utils.getTimeAdjustedFee({
+            s: s,
+            isProposal: false,
+            tNow: provenAt,
+            tLast: proposedAt,
+            tAvg: s.avgProofTime,
+            tCap: LibConstants.K_PROOF_TIME_CAP
+        });
+        premiumReward = V1Utils.getSlotsAdjustedFee({
+            s: s,
+            isProposal: false,
+            fee: reward
+        });
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;

@@ -105,12 +105,12 @@ library V1Proving {
 
         // Check anchor tx is the 1st tx in the block
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                anchorTx,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                evidence.header.transactionsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: anchorTx,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                _root: evidence.header.transactionsRoot
+            }),
             "L1:tx:proof"
         );
 
@@ -120,17 +120,23 @@ library V1Proving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                anchorReceipt,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
-                evidence.header.receiptsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: anchorReceipt,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
+                _root: evidence.header.receiptsRoot
+            }),
             "L1:receipt:proof"
         );
 
         // ZK-prove block and mark block proven to be valid.
-        _proveBlock(s, resolver, evidence, evidence.meta, 0);
+        _proveBlock({
+            s: s,
+            resolver: resolver,
+            evidence: evidence,
+            target: evidence.meta,
+            blockHashOverride: 0
+        });
     }
 
     function proveBlockInvalid(
@@ -180,38 +186,38 @@ library V1Proving {
 
         // Check the event is the first one in the throw-away block
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                invalidateBlockReceipt,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                evidence.header.receiptsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: invalidateBlockReceipt,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                _root: evidence.header.receiptsRoot
+            }),
             "L1:receipt:proof"
         );
 
         // ZK-prove block and mark block proven as invalid.
-        _proveBlock(
-            s,
-            resolver,
-            evidence,
-            target,
-            LibConstants.K_BLOCK_DEADEND_HASH
-        );
+        _proveBlock({
+            s: s,
+            resolver: resolver,
+            evidence: evidence,
+            target: target,
+            blockHashOverride: LibConstants.K_BLOCK_DEADEND_HASH
+        });
     }
 
     function whitelistProver(
         LibData.State storage s,
         address prover,
-        bool enabled
+        bool whitelisted
     ) public {
         assert(LibConstants.K_WHITELIST_PROVERS);
         require(
-            prover != address(0) && s.provers[prover] != enabled,
+            prover != address(0) && s.provers[prover] != whitelisted,
             "L1:precondition"
         );
 
-        s.provers[prover] = enabled;
-        emit ProverWhitelisted(prover, enabled);
+        s.provers[prover] = whitelisted;
+        emit ProverWhitelisted(prover, whitelisted);
     }
 
     function isProverWhitelisted(
@@ -238,24 +244,24 @@ library V1Proving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         for (uint256 i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
-            LibZKP.verify(
-                ConfigManager(resolver.resolve("config_manager")).getValue(
-                    string(abi.encodePacked("zk_vkey_", i))
-                ),
-                evidence.proofs[i],
-                blockHash,
-                evidence.prover,
-                evidence.meta.txListHash
-            );
+            LibZKP.verify({
+                verificationKey: ConfigManager(
+                    resolver.resolve("config_manager")
+                ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                zkproof: evidence.proofs[i],
+                blockHash: blockHash,
+                prover: evidence.prover,
+                txListHash: evidence.meta.txListHash
+            });
         }
 
-        _markBlockProven(
-            s,
-            evidence.prover,
-            target,
-            evidence.header.parentHash,
-            blockHashOverride == 0 ? blockHash : blockHashOverride
-        );
+        _markBlockProven({
+            s: s,
+            prover: evidence.prover,
+            target: target,
+            parentHash: evidence.header.parentHash,
+            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
+        });
     }
 
     function _markBlockProven(

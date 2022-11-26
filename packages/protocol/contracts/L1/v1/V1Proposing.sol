@@ -69,12 +69,12 @@ library V1Proposing {
             );
 
             require(
-                isCommitValid(
-                    s,
-                    meta.commitSlot,
-                    meta.commitHeight,
-                    commitHash
-                ),
+                isCommitValid({
+                    s: s,
+                    commitSlot: meta.commitSlot,
+                    commitHeight: meta.commitHeight,
+                    commitHash: commitHash
+                }),
                 "L1:notCommitted"
             );
 
@@ -117,26 +117,19 @@ library V1Proposing {
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint64 blockTime = meta.timestamp - s.lastProposedAt;
             (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage(
-                s.feeBase,
-                fee,
-                LibConstants.K_FEE_BASE_MAF
-            );
+            s.feeBase = V1Utils.movingAverage({
+                ma: s.feeBase,
+                newValue: fee,
+                maf: LibConstants.K_FEE_BASE_MAF
+            });
 
             s.avgBlockTime = V1Utils
-                .movingAverage(
-                    s.avgBlockTime,
-                    blockTime,
-                    LibConstants.K_BLOCK_TIME_MAF
-                )
+                .movingAverage({
+                    ma: s.avgBlockTime,
+                    newValue: blockTime,
+                    maf: LibConstants.K_BLOCK_TIME_MAF
+                })
                 .toUint64();
-
-            // s.avgGasLimit = V1Utils
-            //     .movingAverage(
-            //        s.avgGasLimit,
-            //        meta.gasLimit,
-            //        LibConstants.K_GAS_LIMIT_MAF)
-            //     .toUint64();
 
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
@@ -151,14 +144,14 @@ library V1Proposing {
     function getBlockFee(
         LibData.State storage s
     ) public view returns (uint256 fee, uint256 premiumFee) {
-        fee = V1Utils.getTimeAdjustedFee(
-            s,
-            true,
-            uint64(block.timestamp),
-            s.lastProposedAt,
-            s.avgBlockTime,
-            LibConstants.K_BLOCK_TIME_CAP
-        );
+        fee = V1Utils.getTimeAdjustedFee({
+            s: s,
+            isProposal: true,
+            tNow: uint64(block.timestamp),
+            tLast: s.lastProposedAt,
+            tAvg: s.avgBlockTime,
+            tCap: LibConstants.K_BLOCK_TIME_CAP
+        });
         premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
         premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
     }
