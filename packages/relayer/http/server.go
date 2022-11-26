@@ -55,8 +55,8 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		corsOrigins = []string{"*"}
 	}
 
-	srv.configureRoutes()
 	srv.configureMiddleware(corsOrigins)
+	srv.configureRoutes()
 
 	return srv, nil
 }
@@ -111,8 +111,6 @@ func (srv *Server) configureMiddleware(corsOrigins []string) {
 	}))
 
 	srv.configureAndStartPrometheus()
-
-	srv.configureRoutes()
 }
 
 func (srv *Server) configureAndStartPrometheus() {

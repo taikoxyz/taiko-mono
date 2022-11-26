@@ -45,11 +45,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)` equals
      * to this commit hash.
      *
+     * @param commitSlot A slot to save this commit. Slot 0 will always be reset
+     *                   to zero for refund.
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(bytes32 commitHash) external {
-        V1Proposing.commitBlock(state, commitHash);
+    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
+        V1Proposing.commitBlock(state, commitSlot, commitHash);
     }
 
     /**
@@ -185,12 +187,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Utils.isHalted(state);
     }
 
-    function isCommitValid(bytes32 hash) public view returns (bool) {
-        return V1Proposing.isCommitValid(state, hash);
-    }
-
-    function getCommitHeight(bytes32 commitHash) public view returns (uint256) {
-        return state.commits[commitHash];
+    function isCommitValid(
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) public view returns (bool) {
+        return
+            V1Proposing.isCommitValid(
+                state,
+                commitSlot,
+                commitHeight,
+                commitHash
+            );
     }
 
     function getProposedBlock(
@@ -229,14 +237,23 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
+    function getBlockProvers(uint256 id, bytes32 parentHash)
+        public
+        view
+        returns (address[] memory)
+    {
+        return state.forkChoices[id][parentHash].provers;
+    }
+
     function getConstants()
         public
         pure
         returns (
+            uint256, // K_ZKPROOFS_PER_BLOCK
             uint256, // TAIKO_CHAIN_ID
             uint256, // TAIKO_MAX_PROPOSED_BLOCKS
             uint256, // TAIKO_MAX_VERIFICATIONS_PER_TX
-            uint256, // TAIKO_COMMIT_DELAY_CONFIRMATIONS
+            uint256, // K_COMMIT_DELAY_CONFIRMATIONS
             uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
             uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
             uint256, // TAIKO_BLOCK_MAX_TXS
@@ -249,10 +266,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         )
     {
         return (
+            LibConstants.K_ZKPROOFS_PER_BLOCK,
             LibConstants.TAIKO_CHAIN_ID,
             LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
             LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.TAIKO_COMMIT_DELAY_CONFIRMATIONS,
+            LibConstants.K_COMMIT_DELAY_CONFIRMATIONS,
             LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
             LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
             LibConstants.TAIKO_BLOCK_MAX_TXS,
