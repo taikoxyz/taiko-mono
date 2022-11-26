@@ -87,14 +87,14 @@ library V1Verifying {
                     });
 
                     state.feeBase = V1Utils.movingAverage({
-                        ma: state.feeBase,
+                        maValue: state.feeBase,
                         newValue: reward,
                         maf: LibConstants.K_FEE_BASE_MAF
                     });
 
                     state.avgProofTime = V1Utils
                         .movingAverage({
-                            ma: state.avgProofTime,
+                            maValue: state.avgProofTime,
                             newValue: fc.provenAt - fc.proposedAt,
                             maf: LibConstants.K_PROOF_TIME_MAF
                         })

@@ -119,14 +119,14 @@ library V1Proposing {
             uint64 blockTime = meta.timestamp - state.lastProposedAt;
             (uint256 fee, uint256 premiumFee) = getBlockFee(state);
             state.feeBase = V1Utils.movingAverage({
-                ma: state.feeBase,
+                maValue: state.feeBase,
                 newValue: fee,
                 maf: LibConstants.K_FEE_BASE_MAF
             });
 
             state.avgBlockTime = V1Utils
                 .movingAverage({
-                    ma: state.avgBlockTime,
+                    maValue: state.avgBlockTime,
                     newValue: blockTime,
                     maf: LibConstants.K_BLOCK_TIME_MAF
                 })
