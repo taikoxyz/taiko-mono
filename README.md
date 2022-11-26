@@ -2,6 +2,7 @@
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 
 [![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
+
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
 [![Protocol](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikoxyz/taiko-mono)
 
@@ -72,6 +73,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center"><a href="https://github.com/mfinestone"><img src="https://avatars.githubusercontent.com/u/36642873?v=4?s=100" width="100px;" alt="mfinestone"/><br /><sub><b>mfinestone</b></sub></a><br /><a href="#business-mfinestone" title="Business development">💼</a> <a href="#content-mfinestone" title="Content">🖋</a></td>
       <td align="center"><a href="https://github.com/shadab-taiko"><img src="https://avatars.githubusercontent.com/u/108871478?v=4?s=100" width="100px;" alt="shadab-taiko"/><br /><sub><b>shadab-taiko</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Code">💻</a></td>
+      <td align="center"><a href="https://github.com/1xDeFi"><img src="https://avatars.githubusercontent.com/u/90858998?v=4?s=100" width="100px;" alt="1xDeFi"/><br /><sub><b>1xDeFi</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=1xDeFi" title="Documentation">📖</a></td>
       <td align="center"><a href="https://github.com/odesium"><img src="https://avatars.githubusercontent.com/u/56487762?v=4?s=100" width="100px;" alt="Ben"/><br /><sub><b>Ben</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=odesium" title="Documentation">📖</a></td>
     </tr>
   </tbody>
