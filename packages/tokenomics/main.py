@@ -12,6 +12,7 @@ from presents.vbcp1 import present as vbcp1
 from presents.vbcp2 import present as vbcp2
 from presents.vbvps1 import present as vbvps1
 from presents.vbvps2 import present as vbvps2
+
 # from presents.p7 import present as p7
 # from presents.p8 import present as p8
 # from presents.p9 import present as p9
@@ -243,7 +244,8 @@ class Protocol(sim.Component):
         return (
             len(self.blocks) > self.last_VERIFIED_id + 1
             and self.blocks[self.last_VERIFIED_id + 1].status == Status.PROVEN
-            and env.now() > self.blocks[self.last_VERIFIED_id + 1].proven_at + self.avg_proof_time
+            and env.now()
+            > self.blocks[self.last_VERIFIED_id + 1].proven_at + self.avg_proof_time
         )
 
     def verify_block(self):
