@@ -72,30 +72,30 @@ library LibData {
     }
 
     function saveProposedBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         uint256 id,
         ProposedBlock memory blk
     ) internal {
-        s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
+        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
     }
 
     function getProposedBlock(
-        State storage s,
+        State storage state,
         uint256 id
     ) internal view returns (ProposedBlock storage) {
-        return s.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
+        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
     }
 
     function getL2BlockHash(
-        State storage s,
+        State storage state,
         uint256 number
     ) internal view returns (bytes32) {
-        require(number <= s.latestVerifiedHeight, "L1:id");
-        return s.l2Hashes[number];
+        require(number <= state.latestVerifiedHeight, "L1:id");
+        return state.l2Hashes[number];
     }
 
     function getStateVariables(
-        State storage s
+        State storage state
     )
         internal
         view
@@ -106,10 +106,10 @@ library LibData {
             uint64 nextBlockId
         )
     {
-        genesisHeight = s.genesisHeight;
-        latestVerifiedHeight = s.latestVerifiedHeight;
-        latestVerifiedId = s.latestVerifiedId;
-        nextBlockId = s.nextBlockId;
+        genesisHeight = state.genesisHeight;
+        latestVerifiedHeight = state.latestVerifiedHeight;
+        latestVerifiedId = state.latestVerifiedId;
+        nextBlockId = state.nextBlockId;
     }
 
     function hashMetadata(

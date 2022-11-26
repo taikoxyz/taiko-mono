@@ -24,30 +24,30 @@ library V1Verifying {
     );
 
     function init(
-        LibData.State storage s,
+        LibData.State storage state,
         bytes32 _genesisBlockHash,
         uint256 _feeBase
     ) public {
         require(_feeBase > 0, "L1:feeBase");
 
-        s.genesisHeight = uint64(block.number);
-        s.genesisTimestamp = uint64(block.timestamp);
-        s.feeBase = _feeBase;
-        s.nextBlockId = 1;
-        s.lastProposedAt = uint64(block.timestamp);
-        s.l2Hashes[0] = _genesisBlockHash;
+        state.genesisHeight = uint64(block.number);
+        state.genesisTimestamp = uint64(block.timestamp);
+        state.feeBase = _feeBase;
+        state.nextBlockId = 1;
+        state.lastProposedAt = uint64(block.timestamp);
+        state.l2Hashes[0] = _genesisBlockHash;
 
         emit BlockVerified(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
     function verifyBlocks(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        bool halted = V1Utils.isHalted(s);
+        bool halted = V1Utils.isHalted(state);
         if (checkHalt) {
             require(!halted, "L1:halted");
         } else if (halted) {
@@ -55,22 +55,22 @@ library V1Verifying {
             return;
         }
 
-        uint64 latestL2Height = s.latestVerifiedHeight;
-        bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
+        uint64 latestL2Height = state.latestVerifiedHeight;
+        bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
         uint64 processed = 0;
         TkoToken tkoToken;
 
         for (
-            uint256 i = s.latestVerifiedId + 1;
-            i < s.nextBlockId && processed <= maxBlocks;
+            uint256 i = state.latestVerifiedId + 1;
+            i < state.nextBlockId && processed <= maxBlocks;
             i++
         ) {
-            LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
+            LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (
                 fc.blockHash == 0 ||
-                block.timestamp <= V1Utils.uncleProofDeadline(s, fc)
+                block.timestamp <= V1Utils.uncleProofDeadline(state, fc)
             ) {
                 break;
             } else {
@@ -81,20 +81,20 @@ library V1Verifying {
 
                 if (LibConstants.K_TOKENOMICS_ENABLED) {
                     (uint256 reward, uint256 premiumReward) = getProofReward({
-                        s: s,
+                        state: state,
                         provenAt: fc.provenAt,
                         proposedAt: fc.proposedAt
                     });
 
-                    s.feeBase = V1Utils.movingAverage({
-                        ma: s.feeBase,
+                    state.feeBase = V1Utils.movingAverage({
+                        ma: state.feeBase,
                         newValue: reward,
                         maf: LibConstants.K_FEE_BASE_MAF
                     });
 
-                    s.avgProofTime = V1Utils
+                    state.avgProofTime = V1Utils
                         .movingAverage({
-                            ma: s.avgProofTime,
+                            ma: state.avgProofTime,
                             newValue: fc.provenAt - fc.proposedAt,
                             maf: LibConstants.K_PROOF_TIME_MAF
                         })
@@ -125,31 +125,31 @@ library V1Verifying {
         }
 
         if (processed > 0) {
-            s.latestVerifiedId += processed;
+            state.latestVerifiedId += processed;
 
-            if (latestL2Height > s.latestVerifiedHeight) {
-                s.latestVerifiedHeight = latestL2Height;
-                s.l2Hashes[latestL2Height] = latestL2Hash;
+            if (latestL2Height > state.latestVerifiedHeight) {
+                state.latestVerifiedHeight = latestL2Height;
+                state.l2Hashes[latestL2Height] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }
     }
 
     function getProofReward(
-        LibData.State storage s,
+        LibData.State storage state,
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
         reward = V1Utils.getTimeAdjustedFee({
-            s: s,
+            state: state,
             isProposal: false,
             tNow: provenAt,
             tLast: proposedAt,
-            tAvg: s.avgProofTime,
+            tAvg: state.avgProofTime,
             tCap: LibConstants.K_PROOF_TIME_CAP
         });
         premiumReward = V1Utils.getSlotsAdjustedFee({
-            s: s,
+            state: state,
             isProposal: false,
             fee: reward
         });

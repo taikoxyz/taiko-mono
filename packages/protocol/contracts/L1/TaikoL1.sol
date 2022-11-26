@@ -77,7 +77,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
         V1Verifying.verifyBlocks({
-            s: state,
+            state: state,
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -105,7 +105,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external nonReentrant {
         V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
         V1Verifying.verifyBlocks({
-            s: state,
+            state: state,
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -131,13 +131,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bytes[] calldata inputs
     ) external nonReentrant {
         V1Proving.proveBlockInvalid({
-            s: state,
+            state: state,
             resolver: AddressResolver(this),
             blockIndex: blockIndex,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
-            s: state,
+            state: state,
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -151,7 +151,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Verifying.verifyBlocks({
-            s: state,
+            state: state,
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks,
             checkHalt: true
@@ -168,7 +168,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelisted
     ) public onlyOwner {
         V1Proving.whitelistProver({
-            s: state,
+            state: state,
             prover: prover,
             whitelisted: whitelisted
         });
@@ -201,7 +201,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint64 proposedAt
     ) public view returns (uint256 premiumReward) {
         (, premiumReward) = V1Verifying.getProofReward({
-            s: state,
+            state: state,
             provenAt: provenAt,
             proposedAt: proposedAt
         });

@@ -28,7 +28,7 @@ library V1Proposing {
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
@@ -36,22 +36,22 @@ library V1Proposing {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // assert(!V1Utils.isHalted(s));
+        // assert(!V1Utils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
-        s.commits[msg.sender][commitSlot] = hash;
+        require(state.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
-        assert(!V1Utils.isHalted(s));
+        assert(!V1Utils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
@@ -70,7 +70,7 @@ library V1Proposing {
 
             require(
                 isCommitValid({
-                    s: s,
+                    state: state,
                     commitSlot: meta.commitSlot,
                     commitHeight: meta.commitHeight,
                     commitHash: commitHash
@@ -81,7 +81,7 @@ library V1Proposing {
             if (meta.commitSlot == 0) {
                 // Special handling of slot 0 for refund; non-zero slots
                 // are supposed to managed by node software for reuse.
-                delete s.commits[msg.sender][meta.commitSlot];
+                delete state.commits[msg.sender][meta.commitSlot];
             }
         }
 
@@ -92,11 +92,12 @@ library V1Proposing {
             "L1:txList"
         );
         require(
-            s.nextBlockId < s.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+            state.nextBlockId <
+                state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
             "L1:tooMany"
         );
 
-        meta.id = s.nextBlockId;
+        meta.id = state.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
         meta.timestamp = uint64(block.timestamp);
@@ -105,8 +106,8 @@ library V1Proposing {
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        s.saveProposedBlock(
-            s.nextBlockId,
+        state.saveProposedBlock(
+            state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
                 proposer: msg.sender,
@@ -115,17 +116,17 @@ library V1Proposing {
         );
 
         if (LibConstants.K_TOKENOMICS_ENABLED) {
-            uint64 blockTime = meta.timestamp - s.lastProposedAt;
-            (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage({
-                ma: s.feeBase,
+            uint64 blockTime = meta.timestamp - state.lastProposedAt;
+            (uint256 fee, uint256 premiumFee) = getBlockFee(state);
+            state.feeBase = V1Utils.movingAverage({
+                ma: state.feeBase,
                 newValue: fee,
                 maf: LibConstants.K_FEE_BASE_MAF
             });
 
-            s.avgBlockTime = V1Utils
+            state.avgBlockTime = V1Utils
                 .movingAverage({
-                    ma: s.avgBlockTime,
+                    ma: state.avgBlockTime,
                     newValue: blockTime,
                     maf: LibConstants.K_BLOCK_TIME_MAF
                 })
@@ -137,27 +138,27 @@ library V1Proposing {
             );
         }
 
-        s.lastProposedAt = meta.timestamp;
-        emit BlockProposed(s.nextBlockId++, meta);
+        state.lastProposedAt = meta.timestamp;
+        emit BlockProposed(state.nextBlockId++, meta);
     }
 
     function getBlockFee(
-        LibData.State storage s
+        LibData.State storage state
     ) public view returns (uint256 fee, uint256 premiumFee) {
         fee = V1Utils.getTimeAdjustedFee({
-            s: s,
+            state: state,
             isProposal: true,
             tNow: uint64(block.timestamp),
-            tLast: s.lastProposedAt,
-            tAvg: s.avgBlockTime,
+            tLast: state.lastProposedAt,
+            tAvg: state.avgBlockTime,
             tCap: LibConstants.K_BLOCK_TIME_CAP
         });
-        premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
-        premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
+        premiumFee = V1Utils.getSlotsAdjustedFee(state, true, fee);
+        premiumFee = V1Utils.getBootstrapDiscountedFee(state, premiumFee);
     }
 
     function isCommitValid(
-        LibData.State storage s,
+        LibData.State storage state,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
@@ -165,7 +166,7 @@ library V1Proposing {
         assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
-            s.commits[msg.sender][commitSlot] == hash &&
+            state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 

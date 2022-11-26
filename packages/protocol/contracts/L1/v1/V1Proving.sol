@@ -46,20 +46,20 @@ library V1Proving {
 
     event ProverWhitelisted(address indexed prover, bool whitelisted);
 
-    modifier onlyWhitelistedProver(LibData.State storage s) {
+    modifier onlyWhitelistedProver(LibData.State storage state) {
         if (LibConstants.K_WHITELIST_PROVERS) {
-            require(s.provers[msg.sender], "L1:whitelist");
+            require(state.provers[msg.sender], "L1:whitelist");
         }
         _;
     }
 
     function proveBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(s) {
-        assert(!V1Utils.isHalted(s));
+    ) public onlyWhitelistedProver(state) {
+        assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -131,7 +131,7 @@ library V1Proving {
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
-            s: s,
+            state: state,
             resolver: resolver,
             evidence: evidence,
             target: evidence.meta,
@@ -140,12 +140,12 @@ library V1Proving {
     }
 
     function proveBlockInvalid(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(s) {
-        assert(!V1Utils.isHalted(s));
+    ) public onlyWhitelistedProver(state) {
+        assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -197,7 +197,7 @@ library V1Proving {
 
         // ZK-prove block and mark block proven as invalid.
         _proveBlock({
-            s: s,
+            state: state,
             resolver: resolver,
             evidence: evidence,
             target: target,
@@ -206,30 +206,30 @@ library V1Proving {
     }
 
     function whitelistProver(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover,
         bool whitelisted
     ) public {
         assert(LibConstants.K_WHITELIST_PROVERS);
         require(
-            prover != address(0) && s.provers[prover] != whitelisted,
+            prover != address(0) && state.provers[prover] != whitelisted,
             "L1:precondition"
         );
 
-        s.provers[prover] = whitelisted;
+        state.provers[prover] = whitelisted;
         emit ProverWhitelisted(prover, whitelisted);
     }
 
     function isProverWhitelisted(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover
     ) public view returns (bool) {
         assert(LibConstants.K_WHITELIST_PROVERS);
-        return s.provers[prover];
+        return state.provers[prover];
     }
 
     function _proveBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         Evidence memory evidence,
         LibData.BlockMetadata memory target,
@@ -238,7 +238,7 @@ library V1Proving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadata(s, target);
+        _checkMetadata(state, target);
         _validateHeaderForMetadata(evidence.header, evidence.meta);
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
@@ -256,7 +256,7 @@ library V1Proving {
         }
 
         _markBlockProven({
-            s: s,
+            state: state,
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
@@ -265,13 +265,15 @@ library V1Proving {
     }
 
     function _markBlockProven(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover,
         LibData.BlockMetadata memory target,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
-        LibData.ForkChoice storage fc = s.forkChoices[target.id][parentHash];
+        LibData.ForkChoice storage fc = state.forkChoices[target.id][
+            parentHash
+        ];
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
@@ -286,7 +288,7 @@ library V1Proving {
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
-                V1Utils.halt(s, true);
+                V1Utils.halt(state, true);
                 return;
             }
 
@@ -296,7 +298,7 @@ library V1Proving {
             );
 
             require(
-                block.timestamp < V1Utils.uncleProofDeadline(s, fc),
+                block.timestamp < V1Utils.uncleProofDeadline(state, fc),
                 "L1:tooLate"
             );
 
@@ -335,15 +337,15 @@ library V1Proving {
     }
 
     function _checkMetadata(
-        LibData.State storage s,
+        LibData.State storage state,
         LibData.BlockMetadata memory meta
     ) private view {
         require(
-            meta.id > s.latestVerifiedId && meta.id < s.nextBlockId,
+            meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
             "L1:meta:id"
         );
         require(
-            LibData.getProposedBlock(s, meta.id).metaHash ==
+            LibData.getProposedBlock(state, meta.id).metaHash ==
                 LibData.hashMetadata(meta),
             "L1:metaHash"
         );
