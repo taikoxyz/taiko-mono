@@ -117,14 +117,22 @@ library V1Proposing {
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint64 blockTime = meta.timestamp - s.lastProposedAt;
             (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
+            s.feeBase = V1Utils.movingAverage(
+                s.feeBase,
+                fee,
+                LibConstants.K_FEE_BASE_MAF
+            );
 
             s.avgBlockTime = V1Utils
-                .movingAverage(s.avgBlockTime, blockTime, 1024)
+                .movingAverage(
+                    s.avgBlockTime,
+                    blockTime,
+                    LibConstants.K_BLOCK_TIME_MAF
+                )
                 .toUint64();
 
             // s.avgGasLimit = V1Utils
-            //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+            //     .movingAverage(s.avgGasLimit, meta.gasLimit, LibConstants.K_GAS_LIMIT_MAF)
             //     .toUint64();
 
             TkoToken(resolver.resolve("tko_token")).burn(

@@ -29,6 +29,12 @@ library LibConstants {
     uint256 public constant K_REWARD_BURN_POINTS = 100; // 1%
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
 
+    // Moving average factors
+    uint256 public constant K_FEE_BASE_MAF = 1024;
+    uint256 public constant K_GAS_LIMIT_MAF = 1024;
+    uint256 public constant K_BLOCK_TIME_MAF = 1024;
+    uint256 public constant K_PROOF_TIME_MAF = 1024;
+
     uint64 public constant K_REWARD_MULTIPLIER = 400; // 400%
     uint64 public constant K_FEE_GRACE_PERIOD = 125; // 125%
     uint64 public constant K_FEE_MAX_PERIOD = 375; // 375%
