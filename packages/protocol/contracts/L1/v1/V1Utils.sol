@@ -21,13 +21,13 @@ library V1Utils {
 
     event Halted(bool halted);
 
-    function halt(LibData.State storage s, bool toHalt) public {
+    function halt(LibData.State storage s, bool toHalt) internal {
         require(isHalted(s) != toHalt, "L1:precondition");
         setBit(s, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
 
-    function isHalted(LibData.State storage s) public view returns (bool) {
+    function isHalted(LibData.State storage s) internal view returns (bool) {
         return isBitOne(s, MASK_HALT);
     }
 
@@ -64,7 +64,7 @@ library V1Utils {
         LibData.State storage s,
         bool isProposal,
         uint256 fee
-    ) public view returns (uint256) {
+    ) internal view returns (uint256) {
         // m is the `n'` in the whitepaper
         uint256 m = LibConstants.K_MAX_NUM_BLOCKS -
             1 +
@@ -87,6 +87,14 @@ library V1Utils {
         return (fee * gamma) / 1024;
     }
 
+    // Returns a deterministic deadline for uncle proof submission.
+    function uncleProofDeadline(
+        LibData.State storage s,
+        LibData.ForkChoice storage fc
+    ) internal view returns (uint64) {
+        return fc.provenAt + s.avgProofTime;
+    }
+
     function movingAverage(
         uint256 ma,
         uint256 v,
@@ -97,14 +105,6 @@ library V1Utils {
         }
         uint256 _ma = (ma * (factor - 1) + v) / factor;
         return _ma > 0 ? _ma : ma;
-    }
-
-    // Returns a deterministic deadline for uncle proof submission.
-    function uncleProofDeadline(
-        LibData.State storage s,
-        LibData.ForkChoice storage fc
-    ) internal view returns (uint64) {
-        return fc.provenAt + s.avgProofTime;
     }
 
     function setBit(LibData.State storage s, uint64 mask, bool one) private {

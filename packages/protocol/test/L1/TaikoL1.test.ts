@@ -26,16 +26,8 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibZKP")
         ).deploy()
 
-        const v1Utils = await (
-            await ethers.getContractFactory("V1Utils")
-        ).deploy()
-
         const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing", {
-                libraries: {
-                    V1Utils: v1Utils.address,
-                },
-            })
+            await ethers.getContractFactory("V1Proposing")
         ).deploy()
 
         const v1Proving = await (
@@ -45,17 +37,12 @@ describe("TaikoL1", function () {
                     LibTxDecoder: libTxDecoder.address,
                     LibZKP: libZKP.address,
                     Uint512: uint512.address,
-                    V1Utils: v1Utils.address,
                 },
             })
         ).deploy()
 
         const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying", {
-                libraries: {
-                    V1Utils: v1Utils.address,
-                },
-            })
+            await ethers.getContractFactory("V1Verifying")
         ).deploy()
 
         const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
@@ -64,7 +51,6 @@ describe("TaikoL1", function () {
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
                 Uint512: uint512.address,
-                V1Utils: v1Utils.address,
             },
         })
 
@@ -94,6 +80,19 @@ describe("TaikoL1", function () {
             const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
             const hash = await taikoL1.getSyncedHeader(0)
             expect(hash).to.be.eq(genesisHash)
+        })
+    })
+
+    describe("getBlockProvers()", async function () {
+        it("should return empty list when there is no proof for that block", async function () {
+            const { taikoL1 } = await deployTaikoL1Fixture()
+
+            const provers = await taikoL1.getBlockProvers(
+                Math.ceil(Math.random() * 1024),
+                randomBytes32()
+            )
+
+            expect(provers).to.be.empty
         })
     })
 })

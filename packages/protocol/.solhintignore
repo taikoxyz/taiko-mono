@@ -3,4 +3,6 @@ contracts/aux/tokens/ERC20Upgradeable.sol
 contracts/test/TestLibRLPReader.sol
 contracts/test/TestLibRLPWriter.sol
 contracts/libs/Lib1559Math.sol
+contracts/libs/LibAddress.sol
+contracts/libs/LibMath.sol
 **/contracts/thirdparty/**/*.sol

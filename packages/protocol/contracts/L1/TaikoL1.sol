@@ -51,7 +51,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param commitHash Calculated with:
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
-    function commitBlock(uint256 commitSlot, bytes32 commitHash) external {
+    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
         V1Proposing.commitBlock(state, commitSlot, commitHash);
     }
 
@@ -206,6 +206,20 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Utils.isHalted(state);
     }
 
+    function isCommitValid(
+        uint256 commitSlot,
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) public view returns (bool) {
+        return
+            V1Proposing.isCommitValid(
+                state,
+                commitSlot,
+                commitHeight,
+                commitHash
+            );
+    }
+
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
@@ -242,10 +256,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
+    function getBlockProvers(
+        uint256 id,
+        bytes32 parentHash
+    ) public view returns (address[] memory) {
+        return state.forkChoices[id][parentHash].provers;
+    }
+
     function getConstants()
         public
         pure
         returns (
+            uint256, // K_ZKPROOFS_PER_BLOCK
             uint256, // K_CHAIN_ID
             uint256, // K_MAX_NUM_BLOCKS
             uint256, // K_MAX_VERIFICATIONS_PER_TX
@@ -262,6 +284,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         )
     {
         return (
+            LibConstants.K_ZKPROOFS_PER_BLOCK,
             LibConstants.K_CHAIN_ID,
             LibConstants.K_MAX_NUM_BLOCKS,
             LibConstants.K_MAX_VERIFICATIONS_PER_TX,

@@ -21,28 +21,29 @@ library V1Proposing {
     using LibData for LibData.State;
 
     event BlockCommitted(
-        uint256 commitSlot,
-        uint256 commitHeight,
+        uint64 commitSlot,
+        uint64 commitHeight,
         bytes32 commitHash
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
         LibData.State storage s,
-        uint256 commitSlot,
+        uint64 commitSlot,
         bytes32 commitHash
     ) public {
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // require(!V1Utils.isHalted(s), "L1:halt");
+        // assert(!V1Utils.isHalted(s));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
         require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
         s.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted(commitSlot, block.number, commitHash);
+        emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(
@@ -50,7 +51,7 @@ library V1Proposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
-        require(!V1Utils.isHalted(s), "L1:halt");
+        assert(!V1Utils.isHalted(s));
 
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
@@ -61,24 +62,27 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        bytes32 commitHash = _calculateCommitHash(
-            meta.beneficiary,
-            meta.txListHash
-        );
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMS > 0) {
+            bytes32 commitHash = _calculateCommitHash(
+                meta.beneficiary,
+                meta.txListHash
+            );
 
-        require(
-            isCommitValid(s, meta.commitSlot, meta.commitHeight, commitHash),
-            "L1:notCommitted"
-        );
+            require(
+                isCommitValid(
+                    s,
+                    meta.commitSlot,
+                    meta.commitHeight,
+                    commitHash
+                ),
+                "L1:notCommitted"
+            );
 
-        if (meta.commitSlot == 0) {
-            // Special handling of slot 0 for refund; non-zero slots
-            // are supposed to managed by node software for reuse.
-            // Why:
-            // - if use slot 0, a commit's gas cost is 20000 + 2900 - 4800 = 18100
-            // - if use non-zero slots, the cost is 20000 for the first time, then
-            //   2900 each time afterwards.
-            delete s.commits[msg.sender][meta.commitSlot];
+            if (meta.commitSlot == 0) {
+                // Special handling of slot 0 for refund; non-zero slots
+                // are supposed to managed by node software for reuse.
+                delete s.commits[msg.sender][meta.commitSlot];
+            }
         }
 
         require(
@@ -113,14 +117,22 @@ library V1Proposing {
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint64 blockTime = meta.timestamp - s.lastProposedAt;
             (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage(s.feeBase, fee, 1024);
+            s.feeBase = V1Utils.movingAverage(
+                s.feeBase,
+                fee,
+                LibConstants.K_FEE_BASE_MAF
+            );
 
             s.avgBlockTime = V1Utils
-                .movingAverage(s.avgBlockTime, blockTime, 1024)
+                .movingAverage(
+                    s.avgBlockTime,
+                    blockTime,
+                    LibConstants.K_BLOCK_TIME_MAF
+                )
                 .toUint64();
 
             // s.avgGasLimit = V1Utils
-            //     .movingAverage(s.avgGasLimit, meta.gasLimit, 1024)
+            //     .movingAverage(s.avgGasLimit, meta.gasLimit, LibConstants.K_GAS_LIMIT_MAF)
             //     .toUint64();
 
             TkoToken(resolver.resolve("tko_token")).burn(
@@ -154,11 +166,11 @@ library V1Proposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
+        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             s.commits[msg.sender][commitSlot] == hash &&
-            block.number >=
-            commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {

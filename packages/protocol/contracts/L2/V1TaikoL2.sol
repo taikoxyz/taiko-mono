@@ -68,7 +68,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      *        bridging. This function will also check certain block-level global
      *        variables because they are not part of the Trie structure.
      *
-     *        Note that this transaction shall be the first transaction in every L2 block.
+     *        Note that this transaction shall be the first transaction in every
+     *        L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
@@ -141,6 +142,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         public
         pure
         returns (
+            uint256, // K_ZKPROOFS_PER_BLOCK
             uint256, // K_CHAIN_ID
             uint256, // K_MAX_NUM_BLOCKS
             uint256, // K_MAX_VERIFICATIONS_PER_TX
@@ -157,6 +159,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         )
     {
         return (
+            LibConstants.K_ZKPROOFS_PER_BLOCK,
             LibConstants.K_CHAIN_ID,
             LibConstants.K_MAX_NUM_BLOCKS,
             LibConstants.K_MAX_VERIFICATIONS_PER_TX,

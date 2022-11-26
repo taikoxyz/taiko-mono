@@ -17,11 +17,11 @@ library LibData {
         uint256 l1Height;
         bytes32 l1Hash;
         address beneficiary;
-        uint64 gasLimit;
-        uint64 timestamp;
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
+        uint64 gasLimit;
+        uint64 timestamp;
         uint64 commitHeight;
         uint64 commitSlot;
     }
@@ -61,7 +61,7 @@ library LibData {
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
-        uint64 __avgGasLimit; // the block gas-limit moving average, not updated.
+        uint64 __avgGasLimit; // the block gaslimit moving average, not updated.
         // Changed when a block is proven/finalized
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;

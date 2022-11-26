@@ -86,13 +86,17 @@ library V1Verifying {
                         fc.proposedAt
                     );
 
-                    s.feeBase = V1Utils.movingAverage(s.feeBase, reward, 1024);
+                    s.feeBase = V1Utils.movingAverage(
+                        s.feeBase,
+                        reward,
+                        LibConstants.K_FEE_BASE_MAF
+                    );
 
                     s.avgProofTime = V1Utils
                         .movingAverage(
                             s.avgProofTime,
                             fc.provenAt - fc.proposedAt,
-                            1024
+                            LibConstants.K_PROOF_TIME_MAF
                         )
                         .toUint64();
 

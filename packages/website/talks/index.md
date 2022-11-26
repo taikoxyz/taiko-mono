@@ -1,7 +1,3 @@
----
-sidebar_position: 1
----
-
 # Talks
 
 - `2022-11-01`: [Taiko ZK-EVM: Layer 2 Finality](https://hackmd.io/@taikolabs/HkN7GR64i) (Old Friends Reunion - ETH Lisbon)
