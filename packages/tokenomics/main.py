@@ -243,6 +243,7 @@ class Protocol(sim.Component):
         return (
             len(self.blocks) > self.last_VERIFIED_id + 1
             and self.blocks[self.last_VERIFIED_id + 1].status == Status.PROVEN
+            and env.now() > self.blocks[self.last_VERIFIED_id + 1].proven_at + self.avg_proof_time
         )
 
     def verify_block(self):
