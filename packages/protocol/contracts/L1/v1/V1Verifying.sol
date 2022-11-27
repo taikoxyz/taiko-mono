@@ -86,10 +86,7 @@ library V1Verifying {
                         tkoToken = TkoToken(resolver.resolve("tko_token"));
                     }
 
-                    // Reward multiple provers
                     _rewardProvers(fc, premiumReward, tkoToken);
-
-                    // Return proposer deposit
                     _refundProposerDeposit(target, fc.provenAt, tkoToken);
 
                     // Update feeBase and avgProofTime
