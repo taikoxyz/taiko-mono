@@ -111,17 +111,7 @@ library V1Verifying {
                     // Return proposer deposit?
 
                     // Reward multiple provers
-                    uint sum = 2 ** fc.provers.length - 1;
-                    for (uint k = 0; k < fc.provers.length; k++) {
-                        uint weight = (1 << (fc.provers.length - k - 1));
-                        uint proverReward = (premiumReward * weight) / sum;
-
-                        if (tkoToken.balanceOf(fc.provers[k]) == 0) {
-                            // reduce reward if the prover has 0 TKO balance.
-                            proverReward /= 2;
-                        }
-                        tkoToken.mint(fc.provers[k], proverReward);
-                    }
+                    _rewardProvers(fc, premiumReward, tkoToken);
                 }
 
                 emit BlockVerified(i, fc.blockHash);
@@ -163,6 +153,24 @@ library V1Verifying {
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
+    }
+
+    function _rewardProvers(
+        LibData.ForkChoice storage fc,
+        uint256 premiumReward,
+        TkoToken tkoToken
+    ) private {
+        uint sum = 2 ** fc.provers.length - 1;
+        for (uint i = 0; i < fc.provers.length; i++) {
+            uint weight = (1 << (fc.provers.length - i - 1));
+            uint proverReward = (premiumReward * weight) / sum;
+
+            if (tkoToken.balanceOf(fc.provers[i]) == 0) {
+                // reduce reward if the prover has 0 TKO balance.
+                proverReward /= 2;
+            }
+            tkoToken.mint(fc.provers[i], proverReward);
+        }
     }
 
     function _cleanUp(LibData.ForkChoice storage fc) private {
