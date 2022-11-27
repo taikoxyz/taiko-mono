@@ -28,7 +28,7 @@ library LibData {
 
     struct ProposedBlock {
         bytes32 metaHash;
-        uint256 premiumFee;
+        uint256 deposit;
         address proposer;
         uint64 gasLimit;
     }

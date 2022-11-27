@@ -87,14 +87,14 @@ library V1Proposing {
             meta.mixHash = bytes32(block.difficulty);
         }
 
-        uint256 premiumFee;
+        uint256 deposit;
         if (LibConstants.K_TOKENOMICS_ENABLED) {
-            uint64 blockTime = meta.timestamp - state.lastProposedAt;
             uint256 fee;
-            (fee, premiumFee) = getBlockFee(state);
+            uint256 premiumFee;
+            (fee, premiumFee, deposit) = getBlockFees(state);
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
-                premiumFee
+                premiumFee + deposit
             );
 
             state.feeBase = V1Utils.movingAverage({
@@ -106,7 +106,7 @@ library V1Proposing {
             state.avgBlockTime = V1Utils
                 .movingAverage({
                     maValue: state.avgBlockTime,
-                    newValue: blockTime,
+                    newValue: meta.timestamp - state.lastProposedAt,
                     maf: LibConstants.K_BLOCK_TIME_MAF
                 })
                 .toUint64();
@@ -116,7 +116,7 @@ library V1Proposing {
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
-                premiumFee: premiumFee,
+                deposit: deposit,
                 proposer: msg.sender,
                 gasLimit: meta.gasLimit
             })
@@ -126,9 +126,9 @@ library V1Proposing {
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
-    function getBlockFee(
+    function getBlockFees(
         LibData.State storage state
-    ) public view returns (uint256 fee, uint256 premiumFee) {
+    ) public view returns (uint256 fee, uint256 premiumFee, uint256 deposit) {
         fee = V1Utils.getTimeAdjustedFee({
             state: state,
             isProposal: true,
@@ -139,6 +139,7 @@ library V1Proposing {
         });
         premiumFee = V1Utils.getSlotsAdjustedFee(state, true, fee);
         premiumFee = V1Utils.getBootstrapDiscountedFee(state, premiumFee);
+        deposit = (premiumFee * LibConstants.K_PROPOSER_DEPOSIT) / 100;
     }
 
     function isCommitValid(
