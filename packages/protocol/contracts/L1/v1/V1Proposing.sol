@@ -106,18 +106,16 @@ library V1Proposing {
         // their block.mixHash fields for randomness will be the same.
         meta.mixHash = bytes32(block.difficulty);
 
-        state.saveProposedBlock(
-            state.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposer: msg.sender,
-                gasLimit: meta.gasLimit
-            })
-        );
-
+        uint256 premiumFee;
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint64 blockTime = meta.timestamp - state.lastProposedAt;
-            (uint256 fee, uint256 premiumFee) = getBlockFee(state);
+            uint256 fee;
+            (fee, premiumFee) = getBlockFee(state);
+            TkoToken(resolver.resolve("tko_token")).burn(
+                msg.sender,
+                premiumFee
+            );
+
             state.feeBase = V1Utils.movingAverage({
                 maValue: state.feeBase,
                 newValue: fee,
@@ -131,12 +129,17 @@ library V1Proposing {
                     maf: LibConstants.K_BLOCK_TIME_MAF
                 })
                 .toUint64();
-
-            TkoToken(resolver.resolve("tko_token")).burn(
-                msg.sender,
-                premiumFee
-            );
         }
+
+        state.saveProposedBlock(
+            state.nextBlockId,
+            LibData.ProposedBlock({
+                metaHash: LibData.hashMetadata(meta),
+                premiumFee: premiumFee,
+                proposer: msg.sender,
+                gasLimit: meta.gasLimit
+            })
+        );
 
         state.lastProposedAt = meta.timestamp;
         emit BlockProposed(state.nextBlockId++, meta);
