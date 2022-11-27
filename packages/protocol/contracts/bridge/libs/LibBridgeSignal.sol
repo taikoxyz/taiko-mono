@@ -88,13 +88,13 @@ library LibBridgeSignal {
         require(srcBridge != address(0), "B:srcBridge");
 
         SignalProof memory mkp = abi.decode(proof, (SignalProof));
-        LibTrieProof.verify(
-            mkp.header.stateRoot,
-            srcBridge,
-            _key(sender, signal),
-            bytes32(uint256(1)),
-            mkp.proof
-        );
+        LibTrieProof.verify({
+            stateRoot: mkp.header.stateRoot,
+            addr: srcBridge,
+            key: _key(sender, signal),
+            value: bytes32(uint256(1)),
+            mkproof: mkp.proof
+        });
         // get synced header hash of the header height specified in the proof
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
             .getSyncedHeader(mkp.header.height);

@@ -46,20 +46,20 @@ library V1Proving {
 
     event ProverWhitelisted(address indexed prover, bool whitelisted);
 
-    modifier onlyWhitelistedProver(LibData.State storage s) {
+    modifier onlyWhitelistedProver(LibData.State storage state) {
         if (LibConstants.K_WHITELIST_PROVERS) {
-            require(s.provers[msg.sender], "L1:whitelist");
+            require(state.provers[msg.sender], "L1:whitelist");
         }
         _;
     }
 
     function proveBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(s) {
-        assert(!V1Utils.isHalted(s));
+    ) public onlyWhitelistedProver(state) {
+        assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -105,12 +105,12 @@ library V1Proving {
 
         // Check anchor tx is the 1st tx in the block
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                anchorTx,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                evidence.header.transactionsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: anchorTx,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                _root: evidence.header.transactionsRoot
+            }),
             "L1:tx:proof"
         );
 
@@ -120,26 +120,32 @@ library V1Proving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                anchorReceipt,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
-                evidence.header.receiptsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: anchorReceipt,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
+                _root: evidence.header.receiptsRoot
+            }),
             "L1:receipt:proof"
         );
 
         // ZK-prove block and mark block proven to be valid.
-        _proveBlock(s, resolver, evidence, evidence.meta, 0);
+        _proveBlock({
+            state: state,
+            resolver: resolver,
+            evidence: evidence,
+            target: evidence.meta,
+            blockHashOverride: 0
+        });
     }
 
     function proveBlockInvalid(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(s) {
-        assert(!V1Utils.isHalted(s));
+    ) public onlyWhitelistedProver(state) {
+        assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -180,50 +186,50 @@ library V1Proving {
 
         // Check the event is the first one in the throw-away block
         require(
-            LibMerkleTrie.verifyInclusionProof(
-                LibRLPWriter.writeUint(0),
-                invalidateBlockReceipt,
-                evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                evidence.header.receiptsRoot
-            ),
+            LibMerkleTrie.verifyInclusionProof({
+                _key: LibRLPWriter.writeUint(0),
+                _value: invalidateBlockReceipt,
+                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                _root: evidence.header.receiptsRoot
+            }),
             "L1:receipt:proof"
         );
 
         // ZK-prove block and mark block proven as invalid.
-        _proveBlock(
-            s,
-            resolver,
-            evidence,
-            target,
-            LibConstants.K_BLOCK_DEADEND_HASH
-        );
+        _proveBlock({
+            state: state,
+            resolver: resolver,
+            evidence: evidence,
+            target: target,
+            blockHashOverride: LibConstants.K_BLOCK_DEADEND_HASH
+        });
     }
 
     function whitelistProver(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover,
-        bool enabled
+        bool whitelisted
     ) public {
         assert(LibConstants.K_WHITELIST_PROVERS);
         require(
-            prover != address(0) && s.provers[prover] != enabled,
+            prover != address(0) && state.provers[prover] != whitelisted,
             "L1:precondition"
         );
 
-        s.provers[prover] = enabled;
-        emit ProverWhitelisted(prover, enabled);
+        state.provers[prover] = whitelisted;
+        emit ProverWhitelisted(prover, whitelisted);
     }
 
     function isProverWhitelisted(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover
     ) public view returns (bool) {
         assert(LibConstants.K_WHITELIST_PROVERS);
-        return s.provers[prover];
+        return state.provers[prover];
     }
 
     function _proveBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         Evidence memory evidence,
         LibData.BlockMetadata memory target,
@@ -232,55 +238,51 @@ library V1Proving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadata(s, target);
+        _checkMetadata(state, target);
         _validateHeaderForMetadata(evidence.header, evidence.meta);
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         for (uint256 i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
-            LibZKP.verify(
-                ConfigManager(resolver.resolve("config_manager")).getValue(
-                    string(abi.encodePacked("zk_vkey_", i))
-                ),
-                evidence.proofs[i],
-                blockHash,
-                evidence.prover,
-                evidence.meta.txListHash
-            );
+            LibZKP.verify({
+                verificationKey: ConfigManager(
+                    resolver.resolve("config_manager")
+                ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                zkproof: evidence.proofs[i],
+                blockHash: blockHash,
+                prover: evidence.prover,
+                txListHash: evidence.meta.txListHash
+            });
         }
 
-        _markBlockProven(
-            s,
-            evidence.prover,
-            target,
-            evidence.header.parentHash,
-            blockHashOverride == 0 ? blockHash : blockHashOverride
-        );
+        _markBlockProven({
+            state: state,
+            prover: evidence.prover,
+            target: target,
+            parentHash: evidence.header.parentHash,
+            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
+        });
     }
 
     function _markBlockProven(
-        LibData.State storage s,
+        LibData.State storage state,
         address prover,
         LibData.BlockMetadata memory target,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
-        LibData.ForkChoice storage fc = s.forkChoices[target.id][parentHash];
+        LibData.ForkChoice storage fc = state.forkChoices[target.id][
+            parentHash
+        ];
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
-            require(
-                fc.proposedAt == target.timestamp,
-                "L1:proposedAt:conflict"
-            );
-
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
-                V1Utils.halt(s, true);
+                V1Utils.halt(state, true);
                 return;
             }
 
@@ -290,7 +292,7 @@ library V1Proving {
             );
 
             require(
-                block.timestamp < V1Utils.uncleProofDeadline(s, fc),
+                block.timestamp < V1Utils.uncleProofDeadline(state, fc),
                 "L1:tooLate"
             );
 
@@ -305,7 +307,7 @@ library V1Proving {
             target.id,
             parentHash,
             blockHash,
-            fc.proposedAt,
+            target.timestamp,
             fc.provenAt,
             prover
         );
@@ -329,15 +331,15 @@ library V1Proving {
     }
 
     function _checkMetadata(
-        LibData.State storage s,
+        LibData.State storage state,
         LibData.BlockMetadata memory meta
     ) private view {
         require(
-            meta.id > s.latestVerifiedId && meta.id < s.nextBlockId,
+            meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
             "L1:meta:id"
         );
         require(
-            LibData.getProposedBlock(s, meta.id).metaHash ==
+            LibData.getProposedBlock(state, meta.id).metaHash ==
                 LibData.hashMetadata(meta),
             "L1:metaHash"
         );

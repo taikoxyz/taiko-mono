@@ -24,30 +24,30 @@ library V1Verifying {
     );
 
     function init(
-        LibData.State storage s,
+        LibData.State storage state,
         bytes32 _genesisBlockHash,
         uint256 _feeBase
     ) public {
         require(_feeBase > 0, "L1:feeBase");
 
-        s.genesisHeight = uint64(block.number);
-        s.genesisTimestamp = uint64(block.timestamp);
-        s.feeBase = _feeBase;
-        s.nextBlockId = 1;
-        s.lastProposedAt = uint64(block.timestamp);
-        s.l2Hashes[0] = _genesisBlockHash;
+        state.genesisHeight = uint64(block.number);
+        state.genesisTimestamp = uint64(block.timestamp);
+        state.feeBase = _feeBase;
+        state.nextBlockId = 1;
+        state.lastProposedAt = uint64(block.timestamp);
+        state.l2Hashes[0] = _genesisBlockHash;
 
         emit BlockVerified(0, _genesisBlockHash);
         emit HeaderSynced(block.number, 0, _genesisBlockHash);
     }
 
     function verifyBlocks(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        bool halted = V1Utils.isHalted(s);
+        bool halted = V1Utils.isHalted(state);
         if (checkHalt) {
             require(!halted, "L1:halted");
         } else if (halted) {
@@ -55,102 +55,133 @@ library V1Verifying {
             return;
         }
 
-        uint64 latestL2Height = s.latestVerifiedHeight;
-        bytes32 latestL2Hash = s.l2Hashes[latestL2Height];
+        uint64 latestL2Height = state.latestVerifiedHeight;
+        bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
         uint64 processed = 0;
         TkoToken tkoToken;
 
         for (
-            uint256 i = s.latestVerifiedId + 1;
-            i < s.nextBlockId && processed <= maxBlocks;
+            uint256 i = state.latestVerifiedId + 1;
+            i < state.nextBlockId && processed <= maxBlocks;
             i++
         ) {
-            LibData.ForkChoice storage fc = s.forkChoices[i][latestL2Hash];
+            LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            LibData.ProposedBlock storage target = LibData.getProposedBlock(
+                state,
+                i
+            );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (
-                fc.blockHash == 0 ||
-                block.timestamp <= V1Utils.uncleProofDeadline(s, fc)
-            ) {
+            if (!_isVerifiable(state, fc)) {
                 break;
             } else {
-                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
-                    latestL2Height += 1;
-                    latestL2Hash = fc.blockHash;
-                }
-
                 if (LibConstants.K_TOKENOMICS_ENABLED) {
-                    (uint256 reward, uint256 premiumReward) = getProofReward(
-                        s,
-                        fc.provenAt,
-                        fc.proposedAt
-                    );
-
-                    s.feeBase = V1Utils.movingAverage(
-                        s.feeBase,
-                        reward,
-                        LibConstants.K_FEE_BASE_MAF
-                    );
-
-                    s.avgProofTime = V1Utils
-                        .movingAverage(
-                            s.avgProofTime,
-                            fc.provenAt - fc.proposedAt,
-                            LibConstants.K_PROOF_TIME_MAF
-                        )
-                        .toUint64();
+                    (uint256 reward, uint256 premiumReward) = getProofReward({
+                        state: state,
+                        provenAt: fc.provenAt,
+                        proposedAt: target.proposedAt
+                    });
 
                     if (address(tkoToken) == address(0)) {
                         tkoToken = TkoToken(resolver.resolve("tko_token"));
                     }
 
                     // Reward multiple provers
-                    uint sum = 2 ** fc.provers.length - 1;
-                    for (uint k = 0; k < fc.provers.length; k++) {
-                        uint weight = (1 << (fc.provers.length - k - 1));
-                        uint proverReward = (premiumReward * weight) / sum;
+                    _rewardProvers(fc, premiumReward, tkoToken);
 
-                        if (tkoToken.balanceOf(fc.provers[k]) == 0) {
-                            // reduce reward if the prover has 0 TKO balance.
-                            proverReward /= 2;
-                        }
-                        tkoToken.mint(fc.provers[k], proverReward);
-                    }
+                    // Update feeBase and avgProofTime
+                    state.feeBase = V1Utils.movingAverage({
+                        maValue: state.feeBase,
+                        newValue: reward,
+                        maf: LibConstants.K_FEE_BASE_MAF
+                    });
+
+                    state.avgProofTime = V1Utils
+                        .movingAverage({
+                            maValue: state.avgProofTime,
+                            newValue: fc.provenAt - target.proposedAt,
+                            maf: LibConstants.K_PROOF_TIME_MAF
+                        })
+                        .toUint64();
                 }
 
+                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
+                    latestL2Height += 1;
+                    latestL2Hash = fc.blockHash;
+                }
+                processed += 1;
+                _cleanUp(fc);
                 emit BlockVerified(i, fc.blockHash);
             }
-
-            processed += 1;
         }
 
         if (processed > 0) {
-            s.latestVerifiedId += processed;
+            state.latestVerifiedId += processed;
 
-            if (latestL2Height > s.latestVerifiedHeight) {
-                s.latestVerifiedHeight = latestL2Height;
-                s.l2Hashes[latestL2Height] = latestL2Hash;
+            if (latestL2Height > state.latestVerifiedHeight) {
+                state.latestVerifiedHeight = latestL2Height;
+                state.l2Hashes[latestL2Height] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }
     }
 
     function getProofReward(
-        LibData.State storage s,
+        LibData.State storage state,
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward, uint256 premiumReward) {
-        reward = V1Utils.getTimeAdjustedFee(
-            s,
-            false,
-            provenAt,
-            proposedAt,
-            s.avgProofTime,
-            LibConstants.K_PROOF_TIME_CAP
-        );
-        premiumReward = V1Utils.getSlotsAdjustedFee(s, false, reward);
+        reward = V1Utils.getTimeAdjustedFee({
+            state: state,
+            isProposal: false,
+            tNow: provenAt,
+            tLast: proposedAt,
+            tAvg: state.avgProofTime,
+            tCap: LibConstants.K_PROOF_TIME_CAP
+        });
+        premiumReward = V1Utils.getSlotsAdjustedFee({
+            state: state,
+            isProposal: false,
+            fee: reward
+        });
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
+    }
+
+    function _rewardProvers(
+        LibData.ForkChoice storage fc,
+        uint256 premiumReward,
+        TkoToken tkoToken
+    ) private {
+        uint sum = 2 ** fc.provers.length - 1;
+        for (uint i = 0; i < fc.provers.length; i++) {
+            uint weight = (1 << (fc.provers.length - i - 1));
+            uint proverReward = (premiumReward * weight) / sum;
+
+            if (tkoToken.balanceOf(fc.provers[i]) == 0) {
+                // reduce reward if the prover has 0 TKO balance.
+                proverReward /= 2;
+            }
+            tkoToken.mint(fc.provers[i], proverReward);
+        }
+    }
+
+    function _cleanUp(LibData.ForkChoice storage fc) private {
+        fc.blockHash = 0;
+        fc.provenAt = 0;
+        for (uint i = 0; i < fc.provers.length; i++) {
+            fc.provers[i] = address(0);
+        }
+        delete fc.provers;
+    }
+
+    function _isVerifiable(
+        LibData.State storage state,
+        LibData.ForkChoice storage fc
+    ) private view returns (bool) {
+        return
+            fc.blockHash != 0 &&
+            block.timestamp > V1Utils.uncleProofDeadline(state, fc);
     }
 }

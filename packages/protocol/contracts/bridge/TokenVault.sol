@@ -287,13 +287,13 @@ contract TokenVault is EssentialContract {
             type(BridgedERC20).creationCode
         );
 
-        BridgedERC20(payable(bridgedToken)).init(
-            address(_addressManager),
-            canonicalToken.addr,
-            canonicalToken.chainId,
-            canonicalToken.decimals,
-            canonicalToken.symbol,
-            string(
+        BridgedERC20(payable(bridgedToken)).init({
+            _addressManager: address(_addressManager),
+            _srcToken: canonicalToken.addr,
+            _srcChainId: canonicalToken.chainId,
+            _decimals: canonicalToken.decimals,
+            _symbol: canonicalToken.symbol,
+            _name: string(
                 abi.encodePacked(
                     canonicalToken.name,
                     "(bridged",
@@ -302,12 +302,10 @@ contract TokenVault is EssentialContract {
                     ")"
                 )
             )
-        );
+        });
 
         isBridgedToken[bridgedToken] = true;
-
         bridgedToCanonical[bridgedToken] = canonicalToken;
-
         canonicalToBridged[canonicalToken.chainId][
             canonicalToken.addr
         ] = bridgedToken;

@@ -28,7 +28,7 @@ library V1Proposing {
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
     function commitBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
@@ -36,132 +36,111 @@ library V1Proposing {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // assert(!V1Utils.isHalted(s));
+        // assert(!V1Utils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        require(s.commits[msg.sender][commitSlot] != hash, "L1:committed");
-        s.commits[msg.sender][commitSlot] = hash;
+        require(state.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
     }
 
     function proposeBlock(
-        LibData.State storage s,
+        LibData.State storage state,
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
-        assert(!V1Utils.isHalted(s));
+        assert(!V1Utils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
         LibData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (LibData.BlockMetadata)
         );
-        bytes calldata txList = inputs[1];
-
+        _verifyBlockCommit(state, meta);
         _validateMetadata(meta);
 
-        if (LibConstants.K_COMMIT_DELAY_CONFIRMS > 0) {
-            bytes32 commitHash = _calculateCommitHash(
-                meta.beneficiary,
-                meta.txListHash
-            );
-
+        {
+            bytes calldata txList = inputs[1];
+            // perform validation and populate some fields
             require(
-                isCommitValid(
-                    s,
-                    meta.commitSlot,
-                    meta.commitHeight,
-                    commitHash
-                ),
-                "L1:notCommitted"
+                txList.length > 0 &&
+                    txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
+                    meta.txListHash == txList.hashTxList(),
+                "L1:txList"
+            );
+            require(
+                state.nextBlockId <
+                    state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+                "L1:tooMany"
             );
 
-            if (meta.commitSlot == 0) {
-                // Special handling of slot 0 for refund; non-zero slots
-                // are supposed to managed by node software for reuse.
-                delete s.commits[msg.sender][meta.commitSlot];
-            }
+            meta.id = state.nextBlockId;
+            meta.l1Height = block.number - 1;
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.timestamp = uint64(block.timestamp);
+
+            // if multiple L2 blocks included in the same L1 block,
+            // their block.mixHash fields for randomness will be the same.
+            meta.mixHash = bytes32(block.difficulty);
         }
 
-        require(
-            txList.length > 0 &&
-                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
-                meta.txListHash == txList.hashTxList(),
-            "L1:txList"
-        );
-        require(
-            s.nextBlockId < s.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
-            "L1:tooMany"
-        );
-
-        meta.id = s.nextBlockId;
-        meta.l1Height = block.number - 1;
-        meta.l1Hash = blockhash(block.number - 1);
-        meta.timestamp = uint64(block.timestamp);
-
-        // if multiple L2 blocks included in the same L1 block,
-        // their block.mixHash fields for randomness will be the same.
-        meta.mixHash = bytes32(block.difficulty);
-
-        s.saveProposedBlock(
-            s.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
-                proposer: msg.sender,
-                gasLimit: meta.gasLimit
-            })
-        );
-
         if (LibConstants.K_TOKENOMICS_ENABLED) {
-            uint64 blockTime = meta.timestamp - s.lastProposedAt;
-            (uint256 fee, uint256 premiumFee) = getBlockFee(s);
-            s.feeBase = V1Utils.movingAverage(
-                s.feeBase,
-                fee,
-                LibConstants.K_FEE_BASE_MAF
-            );
-
-            s.avgBlockTime = V1Utils
-                .movingAverage(
-                    s.avgBlockTime,
-                    blockTime,
-                    LibConstants.K_BLOCK_TIME_MAF
-                )
-                .toUint64();
-
-            // s.avgGasLimit = V1Utils
-            //     .movingAverage(s.avgGasLimit, meta.gasLimit, LibConstants.K_GAS_LIMIT_MAF)
-            //     .toUint64();
-
+            uint256 fee;
+            uint256 premiumFee;
+            (fee, premiumFee) = getBlockFee(state);
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
                 premiumFee
             );
+
+            // Update feeBase and avgBlockTime
+            state.feeBase = V1Utils.movingAverage({
+                maValue: state.feeBase,
+                newValue: fee,
+                maf: LibConstants.K_FEE_BASE_MAF
+            });
+
+            state.avgBlockTime = V1Utils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: meta.timestamp - state.lastProposedAt,
+                    maf: LibConstants.K_BLOCK_TIME_MAF
+                })
+                .toUint64();
         }
 
-        s.lastProposedAt = meta.timestamp;
-        emit BlockProposed(s.nextBlockId++, meta);
+        state.saveProposedBlock(
+            state.nextBlockId,
+            LibData.ProposedBlock({
+                metaHash: LibData.hashMetadata(meta),
+                proposer: msg.sender,
+                proposedAt: meta.timestamp
+            })
+        );
+
+        state.lastProposedAt = meta.timestamp;
+        emit BlockProposed(state.nextBlockId++, meta);
     }
 
     function getBlockFee(
-        LibData.State storage s
+        LibData.State storage state
     ) public view returns (uint256 fee, uint256 premiumFee) {
-        fee = V1Utils.getTimeAdjustedFee(
-            s,
-            true,
-            uint64(block.timestamp),
-            s.lastProposedAt,
-            s.avgBlockTime,
-            LibConstants.K_BLOCK_TIME_CAP
-        );
-        premiumFee = V1Utils.getSlotsAdjustedFee(s, true, fee);
-        premiumFee = V1Utils.getBootstrapDiscountedFee(s, premiumFee);
+        fee = V1Utils.getTimeAdjustedFee({
+            state: state,
+            isProposal: true,
+            tNow: uint64(block.timestamp),
+            tLast: state.lastProposedAt,
+            tAvg: state.avgBlockTime,
+            tCap: LibConstants.K_BLOCK_TIME_CAP
+        });
+        premiumFee = V1Utils.getSlotsAdjustedFee(state, true, fee);
+        premiumFee = V1Utils.getBootstrapDiscountedFee(state, premiumFee);
     }
 
     function isCommitValid(
-        LibData.State storage s,
+        LibData.State storage state,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
@@ -169,8 +148,37 @@ library V1Proposing {
         assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
-            s.commits[msg.sender][commitSlot] == hash &&
+            state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+    }
+
+    function _verifyBlockCommit(
+        LibData.State storage state,
+        LibData.BlockMetadata memory meta
+    ) private {
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMS == 0) {
+            return;
+        }
+        bytes32 commitHash = _calculateCommitHash(
+            meta.beneficiary,
+            meta.txListHash
+        );
+
+        require(
+            isCommitValid({
+                state: state,
+                commitSlot: meta.commitSlot,
+                commitHeight: meta.commitHeight,
+                commitHash: commitHash
+            }),
+            "L1:notCommitted"
+        );
+
+        if (meta.commitSlot == 0) {
+            // Special handling of slot 0 for refund; non-zero slots
+            // are supposed to managed by node software for reuse.
+            delete state.commits[msg.sender][meta.commitSlot];
+        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
