@@ -104,6 +104,8 @@ library V1Verifying {
                         tkoToken = TkoToken(resolver.resolve("tko_token"));
                     }
 
+                    // Return proposer deposit?
+
                     // Reward multiple provers
                     uint sum = 2 ** fc.provers.length - 1;
                     for (uint k = 0; k < fc.provers.length; k++) {
