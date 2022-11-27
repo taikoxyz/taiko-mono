@@ -90,7 +90,7 @@ library V1Proposing {
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint256 fee;
             uint256 premiumFee;
-            (fee, premiumFee) = getBlockFees(state);
+            (fee, premiumFee) = getBlockFee(state);
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
                 premiumFee
@@ -125,7 +125,7 @@ library V1Proposing {
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
-    function getBlockFees(
+    function getBlockFee(
         LibData.State storage state
     ) public view returns (uint256 fee, uint256 premiumFee) {
         fee = V1Utils.getTimeAdjustedFee({
