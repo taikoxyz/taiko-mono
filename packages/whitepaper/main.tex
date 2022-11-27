@@ -23,7 +23,7 @@
 \usepackage{tikz}
 \usepackage{mathtools}
 
-\usepackage[bookmarks=true, unicode=true, pdftitle={Taiko: A Type-1 ETHEREUM ZK-ROLLUP}, pdfauthor={Taiko Labs},pdfkeywords={Ethereum, White Paper, blockchain,EVM, ZK-EVM, ZK-Rollup, Layer-2},pdfborder={0 0 0.5 [1 3]}]{hyperref}
+\usepackage[bookmarks=true, unicode=true, pdftitle={Taiko: A decentralized Ethereum-equivalent ZK-Rollup}, pdfauthor={Taiko Labs},pdfkeywords={Ethereum, White Paper, blockchain,EVM, ZK-EVM, ZK-Rollup, Layer-2},pdfborder={0 0 0.5 [1 3]}]{hyperref}
 %,pagebackref=true
 % \usepackage{easy-todo}
 \usepackage{todonotes}
@@ -68,8 +68,8 @@
 
 %\renewcommand{\itemhook}{\setlength{\topsep}{0pt}  \setlength{\itemsep}{0pt}\setlength{\leftmargin}{15pt}}
 
-\title[TAIKO: A Type-1 Ethereum ZK-Rollup\\ \smaller
-\textbf{{1.2.1}}]{TAIKO: A Type-1 Ethereum ZK-Rollup \\ \smaller \textbf{{1.2.1 (\today)}}}
+\title[TAIKO: A decentralized Ethereum-equivalent ZK-Rollup\\ \smaller
+\textbf{{1.2.2}}]{TAIKO: A decentralized Ethereum-equivalent ZK-Rollup \\ \smaller \textbf{{1.2.2 (\today)}}}
 
 \author{Taiko Labs (info@taiko.xyz)}
 
@@ -78,7 +78,7 @@
 \pagecolor{pagecolor}
 
 \begin{abstract}
-An Ethereum-equivalent ZK-Rollup allows for scaling Ethereum without sacrificing security or compatibility. Advancements in Zero-Knowledge Proof cryptography and its application towards proving Ethereum Virtual Machine (EVM) execution have led to a flourishing of ZK-EVMs, now with further design decisions to choose from. Taiko aims to be a "type-1" ZK-Rollup, prioritizing EVM-equivalence, and even Ethereum-equivalence. Supporting all existing Ethereum applications, tooling, and infrastructure is the primary goal and benefit of this path. Besides the maximally compatible ZK-EVM component, which proves the correctness of EVM computation on the rollup, Taiko must implement a layer-2 blockchain architecture to support it. This architecture seeks to be as lightweight, decentralized, and permissionless as possible, and consists of Taiko nodes, provers, and smart contracts. Taiko nodes construct rollup blocks from users' L2 transactions and commit them to L1. Provers generate ZK-SNARK proofs asserting the validity of L2 transactions and blocks. A set of smart contracts deployed on Ethereum L1 acts as the data availability mechanism and verifier of the ZKPs.
+An Ethereum-equivalent ZK-Rollup allows for scaling Ethereum without sacrificing security or compatibility. Advancements in Zero-Knowledge Proof cryptography and its application towards proving Ethereum Virtual Machine (EVM) execution have led to a flourishing of ZK-EVMs, now with further design decisions to choose from. Taiko aims to be a decentralized ZK-Rollup, prioritizing Ethereum-equivalence. Supporting all existing Ethereum applications, tooling, and infrastructure is the primary goal and benefit of this path. Besides the maximally compatible ZK-EVM component, which proves the correctness of EVM computation on the rollup, Taiko must implement a layer-2 blockchain architecture to support it. This architecture seeks to be as lightweight, decentralized, and permissionless as possible, and consists of Taiko nodes, provers, and smart contracts. Taiko nodes construct rollup blocks from users' L2 transactions and commit them to L1. Provers generate ZK-SNARK proofs asserting the validity of L2 transactions and blocks. A set of smart contracts deployed on Ethereum L1 acts as the data availability mechanism and verifier of the ZKPs.
 
 \end{abstract}
 
