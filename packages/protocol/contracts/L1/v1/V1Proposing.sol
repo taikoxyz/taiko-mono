@@ -87,14 +87,13 @@ library V1Proposing {
             meta.mixHash = bytes32(block.difficulty);
         }
 
-        uint256 deposit;
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint256 fee;
             uint256 premiumFee;
-            (fee, premiumFee, deposit) = getBlockFees(state);
+            (fee, premiumFee) = getBlockFees(state);
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
-                premiumFee + deposit
+                premiumFee
             );
 
             // Update feeBase and avgBlockTime
@@ -117,7 +116,6 @@ library V1Proposing {
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
-                deposit: deposit,
                 proposer: msg.sender,
                 proposedAt: meta.timestamp
             })
@@ -129,7 +127,7 @@ library V1Proposing {
 
     function getBlockFees(
         LibData.State storage state
-    ) public view returns (uint256 fee, uint256 premiumFee, uint256 deposit) {
+    ) public view returns (uint256 fee, uint256 premiumFee) {
         fee = V1Utils.getTimeAdjustedFee({
             state: state,
             isProposal: true,
@@ -140,7 +138,6 @@ library V1Proposing {
         });
         premiumFee = V1Utils.getSlotsAdjustedFee(state, true, fee);
         premiumFee = V1Utils.getBootstrapDiscountedFee(state, premiumFee);
-        deposit = (premiumFee * LibConstants.K_PROPOSER_DEPOSIT) / 100;
     }
 
     function isCommitValid(
