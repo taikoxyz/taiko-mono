@@ -58,12 +58,11 @@ library V1Proposing {
             inputs[0],
             (LibData.BlockMetadata)
         );
-        bytes calldata txList = inputs[1];
-
-        _validateMetadata(meta);
         _verifyBlockCommit(state, meta);
+        _validateMetadata(meta);
 
         {
+            bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
                 txList.length > 0 &&
