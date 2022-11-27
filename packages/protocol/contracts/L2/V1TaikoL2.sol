@@ -52,12 +52,13 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
-        publicInputHash = _hashPublicInputs(
-            block.chainid,
-            number,
-            0,
-            ancestors
-        );
+
+        publicInputHash = _hashPublicInputs({
+            chainId: block.chainid,
+            number: number,
+            feeBase: 0,
+            ancestors: ancestors
+        });
     }
 
     /**********************
@@ -95,11 +96,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Reason hint,
         uint256 txIdx
     ) external {
-        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid(
-            txList,
-            hint,
-            txIdx
-        );
+        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+            encoded: txList,
+            hint: hint,
+            txIdx: txIdx
+        });
         require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         _checkPublicInputs();
@@ -150,12 +151,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
             uint256, // K_BLOCK_MAX_GAS_LIMIT
             uint256, // K_BLOCK_MAX_TXS
-            bytes32, // K_BLOCK_DEADEND_HASH
             uint256, // K_TXLIST_MAX_BYTES
             uint256, // K_TX_MIN_GAS_LIMIT
-            uint256, // K_ANCHOR_TX_GAS_LIMIT
-            bytes4, // K_ANCHOR_TX_SELECTOR
-            bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256 // K_ANCHOR_TX_GAS_LIMIT
         )
     {
         return (
@@ -167,12 +165,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
             LibConstants.K_BLOCK_MAX_GAS_LIMIT,
             LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_BLOCK_DEADEND_HASH,
             LibConstants.K_TXLIST_MAX_BYTES,
             LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_SELECTOR,
-            LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT
         );
     }
 
@@ -191,12 +186,22 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         require(
             publicInputHash ==
-                _hashPublicInputs(chainId, parentHeight, 0, ancestors),
+                _hashPublicInputs({
+                    chainId: chainId,
+                    number: parentHeight,
+                    feeBase: 0,
+                    ancestors: ancestors
+                }),
             "L2:publicInputHash"
         );
 
         ancestors[parentHeight % 255] = parentHash;
-        publicInputHash = _hashPublicInputs(chainId, number, 0, ancestors);
+        publicInputHash = _hashPublicInputs({
+            chainId: chainId,
+            number: number,
+            feeBase: 0,
+            ancestors: ancestors
+        });
 
         l2Hashes[parentHeight] = parentHash;
     }

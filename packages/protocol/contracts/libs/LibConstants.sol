@@ -31,7 +31,6 @@ library LibConstants {
 
     // Moving average factors
     uint256 public constant K_FEE_BASE_MAF = 1024;
-    uint256 public constant K_GAS_LIMIT_MAF = 1024;
     uint256 public constant K_BLOCK_TIME_MAF = 1024;
     uint256 public constant K_PROOF_TIME_MAF = 1024;
 

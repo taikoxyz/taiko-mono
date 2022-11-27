@@ -62,7 +62,12 @@ library LibBridgeRetry {
 
         // successful invocation
         if (
-            LibBridgeInvoke.invokeMessageCall(state, message, signal, gasleft())
+            LibBridgeInvoke.invokeMessageCall({
+                state: state,
+                message: message,
+                signal: signal,
+                gasLimit: gasleft()
+            })
         ) {
             state.updateMessageStatus(signal, LibBridgeData.MessageStatus.DONE);
         } else if (isLastAttempt) {

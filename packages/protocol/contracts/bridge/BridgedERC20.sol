@@ -52,7 +52,11 @@ contract BridgedERC20 is
             "BE:params"
         );
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init(_name, _symbol, _decimals);
+        ERC20Upgradeable.__ERC20_init({
+            name_: _name,
+            symbol_: _symbol,
+            decimals_: _decimals
+        });
         srcToken = _srcToken;
         srcChainId = _srcChainId;
     }

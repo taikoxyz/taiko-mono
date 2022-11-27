@@ -21,19 +21,21 @@ library V1Utils {
 
     event Halted(bool halted);
 
-    function halt(LibData.State storage s, bool toHalt) internal {
-        require(isHalted(s) != toHalt, "L1:precondition");
-        setBit(s, MASK_HALT, toHalt);
+    function halt(LibData.State storage state, bool toHalt) internal {
+        require(isHalted(state) != toHalt, "L1:precondition");
+        setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
 
-    function isHalted(LibData.State storage s) internal view returns (bool) {
-        return isBitOne(s, MASK_HALT);
+    function isHalted(
+        LibData.State storage state
+    ) internal view returns (bool) {
+        return isBitOne(state, MASK_HALT);
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
-        LibData.State storage s,
+        LibData.State storage state,
         bool isProposal,
         uint64 tNow,
         uint64 tLast,
@@ -41,7 +43,7 @@ library V1Utils {
         uint64 tCap
     ) internal view returns (uint256) {
         if (tAvg == 0) {
-            return s.feeBase;
+            return state.feeBase;
         }
         uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
         uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _tAvg) / 100;
@@ -53,15 +55,15 @@ library V1Utils {
             ((LibConstants.K_REWARD_MULTIPLIER - 100) * tRel) /
             100;
         if (isProposal) {
-            return (s.feeBase * 10000) / alpha; // fee
+            return (state.feeBase * 10000) / alpha; // fee
         } else {
-            return (s.feeBase * alpha) / 10000; // reward
+            return (state.feeBase * alpha) / 10000; // reward
         }
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(
-        LibData.State storage s,
+        LibData.State storage state,
         bool isProposal,
         uint256 fee
     ) internal view returns (uint256) {
@@ -70,7 +72,7 @@ library V1Utils {
             1 +
             LibConstants.K_FEE_PREMIUM_LAMDA;
         // n is the number of unverified blocks
-        uint256 n = s.nextBlockId - s.latestVerifiedId - 1;
+        uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
         uint256 k = isProposal ? m - n - 1 : m - n + 1;
         return (fee * (m - 1) * m) / (m - n) / k;
@@ -78,10 +80,10 @@ library V1Utils {
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
     function getBootstrapDiscountedFee(
-        LibData.State storage s,
+        LibData.State storage state,
         uint256 fee
     ) internal view returns (uint256) {
-        uint256 halves = uint256(block.timestamp - s.genesisTimestamp) /
+        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
             LibConstants.K_HALVING;
         uint256 gamma = 1024 - (1024 >> halves);
         return (fee * gamma) / 1024;
@@ -89,32 +91,38 @@ library V1Utils {
 
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
-        LibData.State storage s,
+        LibData.State storage state,
         LibData.ForkChoice storage fc
     ) internal view returns (uint64) {
-        return fc.provenAt + s.avgProofTime;
+        return fc.provenAt + state.avgProofTime;
     }
 
     function movingAverage(
-        uint256 ma,
-        uint256 v,
-        uint256 factor
+        uint256 maValue,
+        uint256 newValue,
+        uint256 maf
     ) internal pure returns (uint256) {
-        if (ma == 0) {
-            return v;
+        if (maValue == 0) {
+            return newValue;
         }
-        uint256 _ma = (ma * (factor - 1) + v) / factor;
-        return _ma > 0 ? _ma : ma;
+        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
+        return _ma > 0 ? _ma : maValue;
     }
 
-    function setBit(LibData.State storage s, uint64 mask, bool one) private {
-        s.statusBits = one ? s.statusBits | mask : s.statusBits & ~mask;
+    function setBit(
+        LibData.State storage state,
+        uint64 mask,
+        bool one
+    ) private {
+        state.statusBits = one
+            ? state.statusBits | mask
+            : state.statusBits & ~mask;
     }
 
     function isBitOne(
-        LibData.State storage s,
+        LibData.State storage state,
         uint64 mask
     ) private view returns (bool) {
-        return s.statusBits & mask != 0;
+        return state.statusBits & mask != 0;
     }
 }
