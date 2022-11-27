@@ -58,12 +58,11 @@ library V1Proposing {
             inputs[0],
             (LibData.BlockMetadata)
         );
-        bytes calldata txList = inputs[1];
-
-        _validateMetadata(meta);
         _verifyBlockCommit(state, meta);
+        _validateMetadata(meta);
 
         {
+            bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
                 txList.length > 0 &&
@@ -91,7 +90,8 @@ library V1Proposing {
         if (LibConstants.K_TOKENOMICS_ENABLED) {
             uint256 fee;
             uint256 premiumFee;
-            (fee, premiumFee, deposit) = getBlockFees(state);
+            (fee, premiumFee, deposit) = getBlockFee(state);
+    
             TkoToken(resolver.resolve("tko_token")).burn(
                 msg.sender,
                 premiumFee + deposit
@@ -127,7 +127,7 @@ library V1Proposing {
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
-    function getBlockFees(
+    function getBlockFee(
         LibData.State storage state
     ) public view returns (uint256 fee, uint256 premiumFee, uint256 deposit) {
         fee = V1Utils.getTimeAdjustedFee({

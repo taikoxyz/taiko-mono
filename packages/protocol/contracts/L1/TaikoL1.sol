@@ -192,8 +192,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Proving.isProverWhitelisted(state, prover);
     }
 
-    function getBlockFees() public view returns (uint256 fee, uint256 deposit) {
-        (, fee, deposit) = V1Proposing.getBlockFees(state);
+    function getBlockFee() public view returns (uint256 premiumFee, uint256 deposit) {
+        (, premiumFee, deposit) = V1Proposing.getBlockFee(state);
     }
 
     function getProofReward(
