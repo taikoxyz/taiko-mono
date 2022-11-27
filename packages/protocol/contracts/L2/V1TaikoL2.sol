@@ -151,12 +151,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
             uint256, // K_BLOCK_MAX_GAS_LIMIT
             uint256, // K_BLOCK_MAX_TXS
-            bytes32, // K_BLOCK_DEADEND_HASH
             uint256, // K_TXLIST_MAX_BYTES
             uint256, // K_TX_MIN_GAS_LIMIT
-            uint256, // K_ANCHOR_TX_GAS_LIMIT
-            bytes4, // K_ANCHOR_TX_SELECTOR
-            bytes32 // K_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256 // K_ANCHOR_TX_GAS_LIMIT
         )
     {
         return (
@@ -168,12 +165,9 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
             LibConstants.K_BLOCK_MAX_GAS_LIMIT,
             LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_BLOCK_DEADEND_HASH,
             LibConstants.K_TXLIST_MAX_BYTES,
             LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_SELECTOR,
-            LibConstants.K_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT
         );
     }
 

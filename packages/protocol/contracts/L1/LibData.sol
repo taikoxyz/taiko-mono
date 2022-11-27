@@ -26,15 +26,16 @@ library LibData {
         uint64 commitSlot;
     }
 
+    // 2 slots
     struct ProposedBlock {
         bytes32 metaHash;
         address proposer;
-        uint64 gasLimit;
+        uint64 proposedAt;
     }
 
+    // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
-        uint64 proposedAt;
         uint64 provenAt;
         address[] provers;
     }
