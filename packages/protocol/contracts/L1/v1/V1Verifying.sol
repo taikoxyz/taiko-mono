@@ -89,6 +89,9 @@ library V1Verifying {
                     // Reward multiple provers
                     _rewardProvers(fc, premiumReward, tkoToken);
 
+                    // Return proposer deposit
+                    _refundProposerDeposit(target, fc.provenAt, tkoToken);
+
                     // Update feeBase and avgProofTime
                     state.feeBase = V1Utils.movingAverage({
                         maValue: state.feeBase,
@@ -147,6 +150,14 @@ library V1Verifying {
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
+    }
+
+    function _refundProposerDeposit(
+        LibData.ProposedBlock storage target,
+        uint256 provenAt,
+        TkoToken tkoToken
+    ) private {
+        // TODO
     }
 
     function _rewardProvers(
