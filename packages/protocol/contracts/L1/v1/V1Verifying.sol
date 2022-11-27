@@ -66,6 +66,10 @@ library V1Verifying {
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            LibData.ProposedBlock storage target = LibData.getProposedBlock(
+                state,
+                i
+            );
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (
@@ -83,7 +87,7 @@ library V1Verifying {
                     (uint256 reward, uint256 premiumReward) = getProofReward({
                         state: state,
                         provenAt: fc.provenAt,
-                        proposedAt: fc.proposedAt
+                        proposedAt: target.proposedAt
                     });
 
                     state.feeBase = V1Utils.movingAverage({
@@ -95,7 +99,7 @@ library V1Verifying {
                     state.avgProofTime = V1Utils
                         .movingAverage({
                             maValue: state.avgProofTime,
-                            newValue: fc.provenAt - fc.proposedAt,
+                            newValue: fc.provenAt - target.proposedAt,
                             maf: LibConstants.K_PROOF_TIME_MAF
                         })
                         .toUint64();
@@ -124,6 +128,7 @@ library V1Verifying {
             }
 
             processed += 1;
+            _cleanUp(fc);
         }
 
         if (processed > 0) {
@@ -158,5 +163,14 @@ library V1Verifying {
         premiumReward =
             (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
             10000;
+    }
+
+    function _cleanUp(LibData.ForkChoice storage fc) private {
+        fc.blockHash = 0;
+        fc.provenAt = 0;
+        for (uint i = 0; i < fc.provers.length; i++) {
+            fc.provers[i] = address(0);
+        }
+        delete fc.provers;
     }
 }

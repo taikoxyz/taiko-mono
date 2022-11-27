@@ -118,7 +118,7 @@ library V1Proposing {
                 metaHash: LibData.hashMetadata(meta),
                 deposit: deposit,
                 proposer: msg.sender,
-                gasLimit: meta.gasLimit
+                proposedAt: meta.timestamp
             })
         );
 

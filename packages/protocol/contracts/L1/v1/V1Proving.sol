@@ -277,14 +277,8 @@ library V1Proving {
 
         if (fc.blockHash == 0) {
             fc.blockHash = blockHash;
-            fc.proposedAt = target.timestamp;
             fc.provenAt = uint64(block.timestamp);
         } else {
-            require(
-                fc.proposedAt == target.timestamp,
-                "L1:proposedAt:conflict"
-            );
-
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
@@ -313,7 +307,7 @@ library V1Proving {
             target.id,
             parentHash,
             blockHash,
-            fc.proposedAt,
+            target.timestamp,
             fc.provenAt,
             prover
         );
