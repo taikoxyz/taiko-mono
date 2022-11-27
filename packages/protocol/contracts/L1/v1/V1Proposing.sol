@@ -62,28 +62,7 @@ library V1Proposing {
 
         _validateMetadata(meta);
 
-        if (LibConstants.K_COMMIT_DELAY_CONFIRMS > 0) {
-            bytes32 commitHash = _calculateCommitHash(
-                meta.beneficiary,
-                meta.txListHash
-            );
-
-            require(
-                isCommitValid({
-                    state: state,
-                    commitSlot: meta.commitSlot,
-                    commitHeight: meta.commitHeight,
-                    commitHash: commitHash
-                }),
-                "L1:notCommitted"
-            );
-
-            if (meta.commitSlot == 0) {
-                // Special handling of slot 0 for refund; non-zero slots
-                // are supposed to managed by node software for reuse.
-                delete state.commits[msg.sender][meta.commitSlot];
-            }
-        }
+        _verifyBlockCommit(state, meta);
 
         require(
             txList.length > 0 &&
@@ -171,6 +150,35 @@ library V1Proposing {
         return
             state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+    }
+
+    function _verifyBlockCommit(
+        LibData.State storage state,
+        LibData.BlockMetadata memory meta
+    ) private {
+        if (LibConstants.K_COMMIT_DELAY_CONFIRMS == 0) {
+            return;
+        }
+        bytes32 commitHash = _calculateCommitHash(
+            meta.beneficiary,
+            meta.txListHash
+        );
+
+        require(
+            isCommitValid({
+                state: state,
+                commitSlot: meta.commitSlot,
+                commitHeight: meta.commitHeight,
+                commitHash: commitHash
+            }),
+            "L1:notCommitted"
+        );
+
+        if (meta.commitSlot == 0) {
+            // Special handling of slot 0 for refund; non-zero slots
+            // are supposed to managed by node software for reuse.
+            delete state.commits[msg.sender][meta.commitSlot];
+        }
     }
 
     function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
