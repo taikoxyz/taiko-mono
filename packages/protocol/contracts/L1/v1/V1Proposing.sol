@@ -61,29 +61,31 @@ library V1Proposing {
         bytes calldata txList = inputs[1];
 
         _validateMetadata(meta);
-
         _verifyBlockCommit(state, meta);
 
-        require(
-            txList.length > 0 &&
-                txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
-                meta.txListHash == txList.hashTxList(),
-            "L1:txList"
-        );
-        require(
-            state.nextBlockId <
-                state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
-            "L1:tooMany"
-        );
+        {
+            // perform validation and populate some fields
+            require(
+                txList.length > 0 &&
+                    txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
+                    meta.txListHash == txList.hashTxList(),
+                "L1:txList"
+            );
+            require(
+                state.nextBlockId <
+                    state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+                "L1:tooMany"
+            );
 
-        meta.id = state.nextBlockId;
-        meta.l1Height = block.number - 1;
-        meta.l1Hash = blockhash(block.number - 1);
-        meta.timestamp = uint64(block.timestamp);
+            meta.id = state.nextBlockId;
+            meta.l1Height = block.number - 1;
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.timestamp = uint64(block.timestamp);
 
-        // if multiple L2 blocks included in the same L1 block,
-        // their block.mixHash fields for randomness will be the same.
-        meta.mixHash = bytes32(block.difficulty);
+            // if multiple L2 blocks included in the same L1 block,
+            // their block.mixHash fields for randomness will be the same.
+            meta.mixHash = bytes32(block.difficulty);
+        }
 
         uint256 premiumFee;
         if (LibConstants.K_TOKENOMICS_ENABLED) {
