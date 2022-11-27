@@ -97,6 +97,7 @@ library V1Proposing {
                 premiumFee + deposit
             );
 
+            // Update feeBase and avgBlockTime
             state.feeBase = V1Utils.movingAverage({
                 maValue: state.feeBase,
                 newValue: fee,

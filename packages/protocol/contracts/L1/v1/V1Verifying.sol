@@ -72,17 +72,9 @@ library V1Verifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (
-                fc.blockHash == 0 ||
-                block.timestamp <= V1Utils.uncleProofDeadline(state, fc)
-            ) {
+            if (!_isVerifiable(state, fc)) {
                 break;
             } else {
-                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
-                    latestL2Height += 1;
-                    latestL2Hash = fc.blockHash;
-                }
-
                 if (LibConstants.K_TOKENOMICS_ENABLED) {
                     (uint256 reward, uint256 premiumReward) = getProofReward({
                         state: state,
@@ -90,6 +82,17 @@ library V1Verifying {
                         proposedAt: target.proposedAt
                     });
 
+                    if (address(tkoToken) == address(0)) {
+                        tkoToken = TkoToken(resolver.resolve("tko_token"));
+                    }
+
+                    // Reward multiple provers
+                    _rewardProvers(fc, premiumReward, tkoToken);
+
+                    // Return proposer deposit
+                    _refundProposerDeposit(target, fc.provenAt, tkoToken);
+
+                    // Update feeBase and avgProofTime
                     state.feeBase = V1Utils.movingAverage({
                         maValue: state.feeBase,
                         newValue: reward,
@@ -103,22 +106,16 @@ library V1Verifying {
                             maf: LibConstants.K_PROOF_TIME_MAF
                         })
                         .toUint64();
-
-                    if (address(tkoToken) == address(0)) {
-                        tkoToken = TkoToken(resolver.resolve("tko_token"));
-                    }
-
-                    // Return proposer deposit?
-
-                    // Reward multiple provers
-                    _rewardProvers(fc, premiumReward, tkoToken);
                 }
 
+                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
+                    latestL2Height += 1;
+                    latestL2Hash = fc.blockHash;
+                }
+                processed += 1;
+                _cleanUp(fc);
                 emit BlockVerified(i, fc.blockHash);
             }
-
-            processed += 1;
-            _cleanUp(fc);
         }
 
         if (processed > 0) {
@@ -155,6 +152,14 @@ library V1Verifying {
             10000;
     }
 
+    function _refundProposerDeposit(
+        LibData.ProposedBlock storage target,
+        uint256 provenAt,
+        TkoToken tkoToken
+    ) private {
+        // TODO
+    }
+
     function _rewardProvers(
         LibData.ForkChoice storage fc,
         uint256 premiumReward,
@@ -180,5 +185,14 @@ library V1Verifying {
             fc.provers[i] = address(0);
         }
         delete fc.provers;
+    }
+
+    function _isVerifiable(
+        LibData.State storage state,
+        LibData.ForkChoice storage fc
+    ) private view returns (bool) {
+        return
+            fc.blockHash != 0 &&
+            block.timestamp > V1Utils.uncleProofDeadline(state, fc);
     }
 }
