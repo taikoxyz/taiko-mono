@@ -15,13 +15,16 @@
   import type { Chain } from "../../domain/chain";
 
   let amount: string;
+  let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
 
   $: isBtnDisabled($signer, amount)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer);
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+    .then((a) => (requiresAllowance = a))
+    .catch((e) => console.log(e));
 
   async function checkAllowance(
     amt: string,
@@ -30,6 +33,8 @@
     fromChain: Chain,
     signer: Signer
   ) {
+    if (!signer || !amt || !token || !fromChain) return true;
+
     return await $activeBridge.RequiresAllowance({
       amountInWei: amt
         ? ethers.utils.parseUnits(amt, token.decimals)
@@ -47,6 +52,7 @@
   async function isBtnDisabled(signer: Signer, amount: string) {
     if (!signer) return true;
     if (!amount) return true;
+    if (requiresAllowance) return true;
     const balance = await signer.getBalance("latest");
     if (balance.lt(ethers.utils.parseUnits(amount, $token.decimals)))
       return true;
