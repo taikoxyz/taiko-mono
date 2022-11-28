@@ -60,8 +60,30 @@
     return false;
   }
 
+  async function approve() {
+    try {
+      if (!requiresAllowance)
+        throw Error("does not require additional allowance");
+
+      const tx = await $activeBridge.Approve({
+        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        signer: $signer,
+        contractAddress: $token.address,
+        spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
+      });
+
+      console.log("approved", tx);
+      toast.push($_("toast.transactionSent"));
+    } catch (e) {
+      console.log(e);
+      toast.push($_("toast.errorSendingTransaction"));
+    }
+  }
+
   async function bridge() {
     try {
+      if (requiresAllowance) throw Error("requires additional allowance");
+
       const tx = await $activeBridge.Bridge({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
@@ -112,10 +134,20 @@
   </label>
 </div>
 
-<button
-  class="btn btn-accent"
-  on:click={async () => await bridge()}
-  disabled={btnDisabled}
->
-  {$_("home.bridge")}
-</button>
+{#if requiresAllowance}
+  <button
+    class="btn btn-accent"
+    on:click={async () => await bridge()}
+    disabled={btnDisabled}
+  >
+    {$_("home.bridge")}
+  </button>
+{:else}
+  <button
+    class="btn btn-accent"
+    on:click={async () => await approve()}
+    disabled={btnDisabled}
+  >
+    {$_("home.bridge")}
+  </button>
+{/if}

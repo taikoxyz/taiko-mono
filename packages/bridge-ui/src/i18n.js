@@ -9,7 +9,8 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
                 selectToken: "Select Token",
                 from: "From",
                 to: "To",
-                bridge: "Bridge"
+                bridge: "Bridge",
+                approve: "Approve"
             },
             nav: {
                 connect: "Connect Wallet"
