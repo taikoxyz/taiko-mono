@@ -34,18 +34,12 @@ describe("bridge tests", () => {
     const bridge: Bridge = new ETHBridge();
     const wallet = new Wallet("0x");
 
-    const opts: BridgeOpts = {
+    const requires = await bridge.RequiresAllowance({
       amountInWei: BigNumber.from(1),
-      signer: wallet,
-      tokenAddress: "",
-      fromChainId: mainnet.id,
-      toChainId: taiko.id,
-      bridgeAddress: "0x456",
-      processingFeeInWei: BigNumber.from(2),
-      memo: "memo",
-    };
-
-    const requires = await bridge.RequiresAllowance(opts);
+      signer: new Wallet("0x"),
+      contractAddress: "0x1234",
+      spenderAddress: "0x",
+    });
     expect(requires).toBe(false);
   });
 

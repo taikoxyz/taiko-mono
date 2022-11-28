@@ -40,12 +40,8 @@
         ? ethers.utils.parseUnits(amt, token.decimals)
         : BigNumber.from(0),
       signer: signer,
-      tokenAddress: token.address,
-      fromChainId: fromChain.id,
-      toChainId: $toChain.id,
-      bridgeAddress: $chainIdToBridgeAddress.get(fromChain.id),
-      processingFeeInWei: BigNumber.from(100),
-      memo: "memo",
+      contractAddress: token.address,
+      spenderAddress: $chainIdToBridgeAddress.get(fromChain.id),
     });
   }
 

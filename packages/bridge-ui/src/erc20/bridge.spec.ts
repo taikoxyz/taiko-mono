@@ -2,6 +2,7 @@ import { BigNumber, Wallet } from "ethers";
 import { mainnet, taiko } from "../domain/chain";
 import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
 import ERC20Bridge from "./bridge";
+
 const mockSigner = {
   getAddress: jest.fn(),
 };
@@ -61,12 +62,12 @@ describe("bridge tests", () => {
     const bridge: Bridge = new ERC20Bridge();
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(opts);
+    const requires = await bridge.RequiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
       "0xfake",
-      opts.bridgeAddress
+      approveOpts.spenderAddress
     );
     expect(requires).toBe(true);
   });
@@ -80,12 +81,12 @@ describe("bridge tests", () => {
     const bridge: Bridge = new ERC20Bridge();
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(opts);
+    const requires = await bridge.RequiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
       "0xfake",
-      opts.bridgeAddress
+      approveOpts.spenderAddress
     );
     expect(requires).toBe(false);
   });
@@ -97,12 +98,12 @@ describe("bridge tests", () => {
     const bridge: Bridge = new ERC20Bridge();
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
-    const requires = await bridge.RequiresAllowance(opts);
+    const requires = await bridge.RequiresAllowance(approveOpts);
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
     expect(mockContract.allowance).toHaveBeenCalledWith(
       "0xfake",
-      opts.bridgeAddress
+      approveOpts.spenderAddress
     );
     expect(requires).toBe(false);
   });

@@ -4,7 +4,7 @@ import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 
 class ETHBridge implements Bridge {
-  RequiresAllowance(opts: BridgeOpts): Promise<boolean> {
+  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
     return new Promise((resolve) => resolve(false));
   }
 

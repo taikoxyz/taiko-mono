@@ -20,12 +20,12 @@ class ERC20Bridge implements Bridge {
     return allowance.lt(amount);
   }
 
-  async RequiresAllowance(opts: BridgeOpts): Promise<boolean> {
+  async RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
     return await this.spenderRequiresAllowance(
-      opts.tokenAddress,
+      opts.contractAddress,
       opts.signer,
       opts.amountInWei,
-      opts.bridgeAddress
+      opts.spenderAddress
     );
   }
 

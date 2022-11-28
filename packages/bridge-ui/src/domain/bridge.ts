@@ -27,7 +27,7 @@ type BridgeOpts = {
 };
 
 interface Bridge {
-  RequiresAllowance(opts: BridgeOpts): Promise<boolean>;
+  RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
 }
