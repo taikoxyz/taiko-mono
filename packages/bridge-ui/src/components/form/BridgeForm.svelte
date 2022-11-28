@@ -71,8 +71,11 @@
         contractAddress: $token.address,
         spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
       });
+      console.log("approved, waiting for confirmations ", tx);
+      $signer.provider.waitForTransaction(tx.hash, 3);
 
-      console.log("approved", tx);
+      requiresAllowance = false;
+
       toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
