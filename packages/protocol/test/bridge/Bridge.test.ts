@@ -7,6 +7,7 @@ import {
     Bridge,
     EtherVault,
     LibTrieProof,
+    TestBadReceiver,
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain"
@@ -1110,13 +1111,21 @@ describe("integration:Bridge", function () {
                 headerSync,
             } = await deployBridgeFixture()
 
+            const testBadReceiver: TestBadReceiver = await (
+                await ethers.getContractFactory("TestBadReceiver")
+            )
+                .connect(l2Signer)
+                .deploy()
+
+            await testBadReceiver.deployed()
+
             const m: Message = {
                 id: 1,
                 sender: owner.address,
                 srcChainId: srcChainId,
                 destChainId: enabledDestChainId,
                 owner: owner.address,
-                to: owner.address,
+                to: testBadReceiver.address,
                 refundAddress: owner.address,
                 depositValue: 1000,
                 callValue: 1000,
@@ -1128,7 +1137,7 @@ describe("integration:Bridge", function () {
 
             const expectedAmount =
                 m.depositValue + m.callValue + m.processingFee
-            const tx = await l1Bridge.sendMessage(m, {
+            const tx = await l1Bridge.connect(owner).sendMessage(m, {
                 value: expectedAmount,
             })
 
@@ -1201,6 +1210,7 @@ describe("integration:Bridge", function () {
                     RLP.encode(proof.storageProof[0].proof),
                 ]
             )
+
             // encode the SignalProof struct from LibBridgeSignal
             const signalProof = ethers.utils.defaultAbiCoder.encode(
                 [
@@ -1209,24 +1219,16 @@ describe("integration:Bridge", function () {
                 [{ header: blockHeader, proof: encodedProof }]
             )
 
-            // @Jeff I'm attempting to make it process a message in such a way
-            // that it fails intentionally and is marked retriable. It doesn't
-            // seem to be working, any clues on how to go about this?
+            await l2Bridge
+                .connect(l2NonOwner)
+                .processMessage(message, signalProof, {
+                    gasLimit: BigNumber.from(2000000),
+                })
 
-            // I set message.gasLimit to 1 and try to have a nonOwner call the
-            // processMessage() so it should use the message.gasLimit
-            // but it just processes normally outside the processMessage
-            // block
-
-            // await expect(
-            //     await l2Bridge
-            //         .connect(l2NonOwner)
-            //         .processMessage(message, signalProof, {
-            //             gasLimit: BigNumber.from(2000000),
-            //         })
-            // ).to.be.reverted
-
-            console.log("message processed")
+            const status = await l2Bridge.getMessageStatus(signal)
+            expect(status).to.be.eq(1) // message is retriable now
+            // because the LibBridgeInvoke call failed, because
+            // message.to is a bad receiver and throws upon receipt
 
             return {
                 message,
@@ -1253,6 +1255,7 @@ describe("integration:Bridge", function () {
                 storageSlot,
                 "latest",
             ])
+
             console.log(storageAt)
         })
     })
