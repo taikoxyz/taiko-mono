@@ -1,13 +1,20 @@
 <script lang="ts">
   import { token } from "../../store/token";
-  import { tokens } from "../../domain/token";
+  import { bridgeType } from "../../store/bridge";
+  import { ETH, tokens } from "../../domain/token";
 
   import type { Token } from "../../domain/token";
   import { toast } from "@zerodevx/svelte-toast";
+  import { BridgeType } from "../../domain/bridge";
 
   async function select(t: Token) {
     if (t === $token) return;
     token.set(t);
+    if (t.symbol.toLowerCase() == ETH.symbol.toLowerCase()) {
+      bridgeType.set(BridgeType.ETH);
+    } else {
+      bridgeType.set(BridgeType.ERC20);
+    }
     toast.push(`Token changed to ${t.symbol.toUpperCase()}`);
   }
 </script>

@@ -11,6 +11,7 @@ type ApproveOpts = {
   amountInWei: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
+  spenderAddress: string;
 };
 
 type BridgeOpts = {
@@ -26,6 +27,7 @@ type BridgeOpts = {
 };
 
 interface Bridge {
+  RequiresAllowance(opts: BridgeOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
 }

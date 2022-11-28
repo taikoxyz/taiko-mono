@@ -5,25 +5,22 @@
   import Navbar from "./components/Navbar.svelte";
   import { SvelteToast } from "@zerodevx/svelte-toast";
 
-  import { onMount } from "svelte";
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
-
-  const { chains, provider } = configureChains(
-    [mainnet, taiko],
-    [publicProvider()]
-  );
+  import ERC20Bridge from "./erc20/bridge";
 
   setupI18n({ withLocale: "en" });
 
   const ethBridge = new ETHBridge();
+  const erc20Bridge = new ERC20Bridge();
 
   bridges.update((store) => {
     store.set(BridgeType.ETH, ethBridge);
+    store.set(BridgeType.ERC20, erc20Bridge);
     return store;
   });
 
@@ -46,7 +43,6 @@
   <main>
     <Navbar />
     <Router {routes} />
-    <Footer />
   </main>
   <SvelteToast />
 </QueryProvider>

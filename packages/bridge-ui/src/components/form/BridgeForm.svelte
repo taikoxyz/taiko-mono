@@ -2,10 +2,17 @@
   import { _ } from "svelte-i18n";
   import { token } from "../../store/token";
   import { fromChain, toChain } from "../../store/chain";
-  import { activeBridge, chainIdToBridgeAddress } from "../../store/bridge";
+  import {
+    activeBridge,
+    chainIdToBridgeAddress,
+    bridgeType,
+  } from "../../store/bridge";
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
   import { toast } from "@zerodevx/svelte-toast";
+  import type { Token } from "../../domain/token";
+  import type { BridgeType } from "../../domain/bridge";
+  import type { Chain } from "../../domain/chain";
 
   let amount: string;
   let btnDisabled: boolean = true;
@@ -13,6 +20,29 @@
   $: isBtnDisabled($signer, amount)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
+
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer);
+
+  async function checkAllowance(
+    amt: string,
+    token: Token,
+    bridgeType: BridgeType,
+    fromChain: Chain,
+    signer: Signer
+  ) {
+    return await $activeBridge.RequiresAllowance({
+      amountInWei: amt
+        ? ethers.utils.parseUnits(amt, token.decimals)
+        : BigNumber.from(0),
+      signer: signer,
+      tokenAddress: token.address,
+      fromChainId: fromChain.id,
+      toChainId: $toChain.id,
+      bridgeAddress: $chainIdToBridgeAddress.get(fromChain.id),
+      processingFeeInWei: BigNumber.from(100),
+      memo: "memo",
+    });
+  }
 
   async function isBtnDisabled(signer: Signer, amount: string) {
     if (!signer) return true;

@@ -30,6 +30,25 @@ describe("bridge tests", () => {
     jest.resetAllMocks();
   });
 
+  it("requires allowance returns false", async () => {
+    const bridge: Bridge = new ETHBridge();
+    const wallet = new Wallet("0x");
+
+    const opts: BridgeOpts = {
+      amountInWei: BigNumber.from(1),
+      signer: wallet,
+      tokenAddress: "",
+      fromChainId: mainnet.id,
+      toChainId: taiko.id,
+      bridgeAddress: "0x456",
+      processingFeeInWei: BigNumber.from(2),
+      memo: "memo",
+    };
+
+    const requires = await bridge.RequiresAllowance(opts);
+    expect(requires).toBe(false);
+  });
+
   it("approve returns empty transaction", async () => {
     const bridge: Bridge = new ETHBridge();
 
@@ -37,6 +56,7 @@ describe("bridge tests", () => {
       amountInWei: BigNumber.from(1),
       signer: new Wallet("0x"),
       contractAddress: "0x1234",
+      spenderAddress: "0x",
     });
   });
 
