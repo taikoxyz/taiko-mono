@@ -133,7 +133,7 @@
   </label>
 </div>
 
-{#if requiresAllowance}
+{#if !requiresAllowance}
   <button
     class="btn btn-accent"
     on:click={async () => await bridge()}
@@ -147,6 +147,6 @@
     on:click={async () => await approve()}
     disabled={btnDisabled}
   >
-    {$_("home.bridge")}
+    {$_("home.approve")}
   </button>
 {/if}
