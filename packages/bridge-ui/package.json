@@ -56,10 +56,10 @@
   },
   "dependencies": {
     "@sveltestack/svelte-query": "^1.6.0",
+    "@wagmi/core": "^0.7.5",
     "ethers": "^5.7.1",
     "extend-expect": "link:@testing-library/jest-dom/extend-expect",
     "svelte-i18n": "^3.5.1",
-    "svelte-spa-router": "^3.2.0",
-    "wagmi": "^0.8.6"
+    "svelte-spa-router": "^3.2.0"
   }
 }

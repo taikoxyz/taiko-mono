@@ -1,4 +1,4 @@
-import type { Chain as WagmiChain } from "wagmi";
+import type { Chain as WagmiChain } from "@wagmi/core";
 
 export type Chain = {
   id: number;

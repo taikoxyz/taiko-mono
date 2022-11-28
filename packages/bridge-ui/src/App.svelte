@@ -2,10 +2,12 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import Navbar from "./components/Navbar.svelte";
   import { SvelteToast } from "@zerodevx/svelte-toast";
-
-  import { onMount } from "svelte";
+  import { configureChains } from '@wagmi/core';
+  import { publicProvider } from '@wagmi/core/providers/public'
+  
+  import { mainnet, taiko } from "./domain/chain";
+  import Navbar from "./components/Navbar.svelte";
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
@@ -46,7 +48,6 @@
   <main>
     <Navbar />
     <Router {routes} />
-    <Footer />
   </main>
   <SvelteToast />
 </QueryProvider>
