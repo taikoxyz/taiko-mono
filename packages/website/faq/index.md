@@ -19,7 +19,7 @@ Here are the official links to our social media and public documentation:
 - Reddit: https://www.reddit.com/r/taiko_xyz/
 - Blog: https://mirror.xyz/labs.taiko.eth
 - GitHub: https://github.com/taikoxyz/
-- Whitepaper: https://github.com/taikoxyz/whitepaper
+- Whitepaper: https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
 
 ## What is Layer 2 (L2)?
 
@@ -60,3 +60,11 @@ Taiko implements a ZK-EVM that supports every EVM opcode, producing a validity p
 A zero-knowledge proof is a method by which one party (the prover) can prove to another party (the verifier) that something is true, without revealing any information apart from the fact that this specific statement is true.
 
 There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses ZK-SNARKs in its design.
+
+## What does "Taiko" mean?
+
+It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once". 
+
+The first drum beat cheers people up, the second weakens them, and the third devitalizes them. The first is the most powerful.
+Taiko is the "drum".
+

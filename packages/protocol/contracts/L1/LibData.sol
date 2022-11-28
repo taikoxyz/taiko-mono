@@ -17,11 +17,13 @@ library LibData {
         uint256 l1Height;
         bytes32 l1Hash;
         address beneficiary;
-        uint64 gasLimit;
-        uint64 timestamp;
         bytes32 txListHash;
         bytes32 mixHash;
         bytes extraData;
+        uint64 gasLimit;
+        uint64 timestamp;
+        uint64 commitHeight;
+        uint64 commitSlot;
     }
 
     struct ProposedBlock {
@@ -42,7 +44,8 @@ library LibData {
         mapping(uint256 => ProposedBlock) proposedBlocks;
         // block id => parent hash => fork choice
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
-        mapping(bytes32 => uint256) commits;
+        // proposer => commitSlot => hash(commitHash, commitHeight)
+        mapping(address => mapping(uint256 => bytes32)) commits;
         mapping(address => bool) provers; // Whitelisted provers
         uint64 statusBits;
         uint64 genesisHeight;
