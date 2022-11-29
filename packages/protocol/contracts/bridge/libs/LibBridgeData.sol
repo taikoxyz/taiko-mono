@@ -25,7 +25,8 @@ library LibBridgeData {
     enum MessageStatus {
         NEW,
         RETRIABLE,
-        DONE
+        DONE,
+        FAILED
     }
 
     struct State {
