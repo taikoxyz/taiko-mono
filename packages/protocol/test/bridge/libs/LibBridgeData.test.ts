@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
+import { K_BRIDGE_MESSAGE } from "../../constants/messages"
 import { MessageStatus } from "../../../tasks/utils"
 
 describe("LibBridgeData", function () {
