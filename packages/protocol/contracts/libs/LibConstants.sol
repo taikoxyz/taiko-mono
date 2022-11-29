@@ -28,7 +28,7 @@ library LibConstants {
     uint256 public constant K_TX_MIN_GAS_LIMIT = 21000; // TODO
     uint256 public constant K_REWARD_BURN_POINTS = 100; // 1%
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
-    uint256 public constant K_PROPOSER_DEPOSIT = 100;
+    uint256 public constant K_PROPOSER_DEPOSIT = 25; // 25%
 
     // Moving average factors
     uint256 public constant K_FEE_BASE_MAF = 1024;
