@@ -79,8 +79,8 @@ library V1Verifying {
                     uint256 newFeeBase;
                     {
                         uint256 reward;
-                        uint256 tRel; // [0-10000], see the whitepaper
-                        (newFeeBase, reward, tRel) = getProofReward({
+                        uint256 tRelBp; // [0-10000], see the whitepaper
+                        (newFeeBase, reward, tRelBp) = getProofReward({
                             state: state,
                             provenAt: fc.provenAt,
                             proposedAt: target.proposedAt
@@ -91,7 +91,7 @@ library V1Verifying {
                         }
 
                         _rewardProvers(fc, reward, tkoToken);
-                        _refundProposerDeposit(target, tRel, tkoToken);
+                        _refundProposerDeposit(target, tRelBp, tkoToken);
                     }
                     // Update feeBase and avgProofTime
                     state.feeBase = V1Utils.movingAverage({
@@ -134,8 +134,8 @@ library V1Verifying {
         LibData.State storage state,
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRel) {
-        (newFeeBase, tRel) = V1Utils.getTimeAdjustedFee({
+    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
+        (newFeeBase, tRelBp) = V1Utils.getTimeAdjustedFee({
             state: state,
             isProposal: false,
             tNow: provenAt,
@@ -153,10 +153,10 @@ library V1Verifying {
 
     function _refundProposerDeposit(
         LibData.ProposedBlock storage target,
-        uint256 tRel,
+        uint256 tRelBp,
         TkoToken tkoToken
     ) private {
-        uint refund = (target.deposit * (10000 - tRel)) / 10000;
+        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
         if (refund > 0) {
             tkoToken.mint(target.proposer, refund);
         }

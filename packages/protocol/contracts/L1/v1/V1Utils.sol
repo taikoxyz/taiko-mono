@@ -41,10 +41,10 @@ library V1Utils {
         uint64 tLast,
         uint64 tAvg,
         uint64 tCap
-    ) internal view returns (uint256 newFeeBase, uint256 tRel) {
+    ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = state.feeBase;
-            tRel = 0;
+            tRelBp = 0;
         } else {
             uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
             uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD_PCTG * _tAvg) /
@@ -52,9 +52,9 @@ library V1Utils {
             uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD_PCTG * _tAvg) / 100;
             uint256 a = tLast + tGrace;
             uint256 b = tNow > a ? tNow - a : 0;
-            tRel = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
+            tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
             uint256 alpha = 10000 +
-                ((LibConstants.K_REWARD_MULTIPLIER_PCTG - 100) * tRel) /
+                ((LibConstants.K_REWARD_MULTIPLIER_PCTG - 100) * tRelBp) /
                 100;
             if (isProposal) {
                 newFeeBase = (state.feeBase * 10000) / alpha; // fee
