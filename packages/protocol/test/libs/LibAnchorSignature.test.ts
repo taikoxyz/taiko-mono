@@ -18,13 +18,13 @@ describe("LibAnchorSignature", function () {
 
     before(async function () {
         const libUint512 = await (
-            await ethers.getContractFactory("Uint512")
+            await ethers.getContractFactory("LibUint512")
         ).deploy()
 
         libAnchorSignature = await (
             await ethers.getContractFactory("TestLibAnchorSignature", {
                 libraries: {
-                    Uint512: libUint512.address,
+                    LibUint512: libUint512.address,
                 },
             })
         ).deploy()
