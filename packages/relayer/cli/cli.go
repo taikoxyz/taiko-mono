@@ -48,7 +48,7 @@ var (
 	defaultConfirmations       = 15
 )
 
-func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer) {
+func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer, httpOnly relayer.HTTPOnly) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
@@ -86,30 +86,32 @@ func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer) {
 		log.Fatal(err)
 	}
 
-	indexers, closeFunc, err := makeIndexers(layer, db)
-	if err != nil {
-		sqlDB.Close()
-		log.Fatal(err)
-	}
-
-	defer sqlDB.Close()
-	defer closeFunc()
-
 	forever := make(chan struct{})
-
-	for _, i := range indexers {
-		go func(i *indexer.Service) {
-			if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
-				log.Fatal(err)
-			}
-		}(i)
-	}
 
 	go func() {
 		if err := srv.Start(fmt.Sprintf(":%v", os.Getenv("HTTP_PORT"))); err != nil {
 			log.Fatal(err)
 		}
 	}()
+
+	if !httpOnly {
+		indexers, closeFunc, err := makeIndexers(layer, db)
+		if err != nil {
+			sqlDB.Close()
+			log.Fatal(err)
+		}
+
+		defer sqlDB.Close()
+		defer closeFunc()
+
+		for _, i := range indexers {
+			go func(i *indexer.Service) {
+				if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
+					log.Fatal(err)
+				}
+			}(i)
+		}
+	}
 
 	<-forever
 }

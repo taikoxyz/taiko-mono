@@ -3,7 +3,7 @@ import { expect } from "chai"
 import * as fs from "fs"
 import hre, { ethers } from "hardhat"
 import * as path from "path"
-import { getSlot } from "../../../tasks/utils"
+import { getSlot, MessageStatus } from "../../../tasks/utils"
 import { AddressManager, Bridge } from "../../../typechain"
 import { Message } from "../../utils/message"
 
@@ -108,12 +108,6 @@ describe("LibBridgeProcess", function () {
         await etherVault
             .connect(etherVaultOwner)
             .authorize(libProcess.address, true)
-
-        const MessageStatus = {
-            NEW: 0,
-            RETRIABLE: 1,
-            DONE: 2,
-        }
 
         return {
             owner,

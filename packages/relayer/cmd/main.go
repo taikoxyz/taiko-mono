@@ -30,6 +30,12 @@ func main() {
 	  filter-and-subscribe: catch up on all previous messages, then subscribe to new messages
 	`)
 
+	httpOnlyPtr := flag.Bool("http-only", false, `only run an http server and don't index blocks. 
+	options:
+	  true: only run an http server, dont index blocks
+	  false: run an http server and index blocks
+	`)
+
 	flag.Parse()
 
 	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
@@ -40,5 +46,10 @@ func main() {
 		log.Fatal("mode not valid")
 	}
 
-	cli.Run(relayer.Mode(*modePtr), relayer.WatchMode(*watchModePtr), relayer.Layer(*layersPtr))
+	cli.Run(
+		relayer.Mode(*modePtr),
+		relayer.WatchMode(*watchModePtr),
+		relayer.Layer(*layersPtr),
+		relayer.HTTPOnly(*httpOnlyPtr),
+	)
 }
