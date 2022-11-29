@@ -149,7 +149,7 @@ library LibRLPWriter {
     function _toBinary(uint256 _x) private pure returns (bytes memory) {
         bytes memory b = abi.encodePacked(_x);
 
-        uint256 i = 0;
+        uint256 i;
         for (; i < 32; i++) {
             if (b[i] != 0) {
                 break;
@@ -157,7 +157,7 @@ library LibRLPWriter {
         }
 
         bytes memory res = new bytes(32 - i);
-        for (uint256 j = 0; j < res.length; j++) {
+        for (uint256 j; j < res.length; j++) {
             res[j] = b[i++];
         }
 
@@ -175,10 +175,10 @@ library LibRLPWriter {
     ) private pure returns (bytes memory) {
         bytes memory b = abi.encodePacked(_x);
 
-        uint256 i = 0;
+        uint256 i;
 
         bytes memory res = new bytes(32);
-        for (uint256 j = 0; j < res.length; j++) {
+        for (uint256 j; j < res.length; j++) {
             res[j] = b[i++];
         }
 
@@ -230,7 +230,7 @@ library LibRLPWriter {
         }
 
         uint256 len;
-        uint256 i = 0;
+        uint256 i;
         for (; i < _list.length; i++) {
             len += _list[i].length;
         }

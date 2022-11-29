@@ -243,7 +243,7 @@ library V1Proving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
-        for (uint256 i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
+        for (uint256 i; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
             LibZKP.verify({
                 verificationKey: ConfigManager(
                     resolver.resolve("config_manager")
@@ -296,7 +296,7 @@ library V1Proving {
                 "L1:tooLate"
             );
 
-            for (uint256 i = 0; i < fc.provers.length; i++) {
+            for (uint256 i; i < fc.provers.length; i++) {
                 require(fc.provers[i] != prover, "L1:prover:dup");
             }
         }

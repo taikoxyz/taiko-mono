@@ -57,7 +57,7 @@ library V1Verifying {
 
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
-        uint64 processed = 0;
+        uint64 processed;
         TkoToken tkoToken;
 
         for (
@@ -155,7 +155,7 @@ library V1Verifying {
         TkoToken tkoToken
     ) private {
         uint sum = 2 ** fc.provers.length - 1;
-        for (uint i = 0; i < fc.provers.length; i++) {
+        for (uint i; i < fc.provers.length; i++) {
             uint weight = (1 << (fc.provers.length - i - 1));
             uint proverReward = (premiumReward * weight) / sum;
 
@@ -170,7 +170,7 @@ library V1Verifying {
     function _cleanUp(LibData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint i = 0; i < fc.provers.length; i++) {
+        for (uint i; i < fc.provers.length; i++) {
             fc.provers[i] = address(0);
         }
         delete fc.provers;

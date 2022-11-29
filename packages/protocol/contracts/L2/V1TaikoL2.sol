@@ -49,7 +49,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
-        for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
+        for (uint256 i; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
 
