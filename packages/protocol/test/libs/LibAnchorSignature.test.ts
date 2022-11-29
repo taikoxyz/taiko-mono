@@ -3,8 +3,6 @@ import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
 
 describe("LibAnchorSignature", function () {
-    let libAnchorSignature: any
-
     const unsignedLegacyTx: UnsignedTransaction = {
         type: 0,
         chainId: Math.floor(Math.random() * 1024),
@@ -16,21 +14,11 @@ describe("LibAnchorSignature", function () {
         data: ethers.utils.randomBytes(32),
     }
 
-    before(async function () {
-        const libUint512 = await (
-            await ethers.getContractFactory("LibUint512")
-        ).deploy()
-
-        libAnchorSignature = await (
-            await ethers.getContractFactory("TestLibAnchorSignature", {
-                libraries: {
-                    LibUint512: libUint512.address,
-                },
-            })
-        ).deploy()
-    })
-
     it("should calculate correct signature values", async function () {
+        const libAnchorSignature: any = await (
+            await ethers.getContractFactory("TestLibAnchorSignature")
+        ).deploy()
+
         const validKs = [1, 2]
 
         for (const k of validKs) {
