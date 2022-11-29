@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Taken from https://github.com/privacy-scaling-explorations/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol#L23
+// Note: No MIT license provided at the time, only SPDX-License-Identifier
 /* solhint-disable */
 pragma solidity ^0.8.9;
 
@@ -215,5 +216,3 @@ library LibBlockHeaderDecoder {
     }
   }
 }
-
-// TODO: add license, see https://github.com/privacy-scaling-explorations/zkevm-chain/issues/96
