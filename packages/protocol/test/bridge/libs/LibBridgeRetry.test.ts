@@ -1,7 +1,7 @@
 import * as helpers from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 import hre, { ethers } from "hardhat"
-import { decode, getSlot } from "../../../tasks/utils"
+import { decode, getSlot, MessageStatus } from "../../../tasks/utils"
 import { Message } from "../../utils/message"
 
 describe("LibBridgeRetry", function () {
@@ -72,12 +72,6 @@ describe("LibBridgeRetry", function () {
         const testLibData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
-
-        const MessageStatus = {
-            NEW: 0,
-            RETRIABLE: 1,
-            DONE: 2,
-        }
 
         return {
             owner,
@@ -276,7 +270,7 @@ describe("LibBridgeRetry", function () {
                         getSlot(hre, signal, 202)
                     )
                 )
-            ).to.equal(MessageStatus.DONE.toString())
+            ).to.equal(MessageStatus.FAILED.toString())
 
             expect(balancePlusRefund).to.be.equal(
                 originalBalance.add(message.callValue)
