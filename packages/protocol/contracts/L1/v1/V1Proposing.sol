@@ -144,7 +144,7 @@ library V1Proposing {
             feeBase: newFeeBase
         });
         fee = V1Utils.getBootstrapDiscountedFee(state, fee);
-        deposit = (fee * LibConstants.K_PROPOSER_DEPOSIT) / 100;
+        deposit = (fee * LibConstants.K_PROPOSER_DEPOSIT_PCTG) / 100;
     }
 
     function isCommitValid(

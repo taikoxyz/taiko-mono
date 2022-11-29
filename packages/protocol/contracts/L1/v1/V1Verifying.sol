@@ -148,7 +148,7 @@ library V1Verifying {
             isProposal: false,
             feeBase: newFeeBase
         });
-        reward = (reward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) / 10000;
+        reward = (reward * (10000 - LibConstants.K_REWARD_BURN_BP)) / 10000;
     }
 
     function _refundProposerDeposit(

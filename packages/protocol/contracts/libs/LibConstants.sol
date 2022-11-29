@@ -26,18 +26,18 @@ library LibConstants {
     uint256 public constant K_BLOCK_MAX_TXS = 20; // TODO
     uint256 public constant K_TXLIST_MAX_BYTES = 10240; // TODO
     uint256 public constant K_TX_MIN_GAS_LIMIT = 21000; // TODO
-    uint256 public constant K_REWARD_BURN_POINTS = 100; // 1%
+    uint256 public constant K_REWARD_BURN_BP = 100; // 100 basis points or 1%
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
-    uint256 public constant K_PROPOSER_DEPOSIT = 25; // 25%
+    uint256 public constant K_PROPOSER_DEPOSIT_PCTG = 25; // 25%
 
     // Moving average factors
     uint256 public constant K_FEE_BASE_MAF = 1024;
     uint256 public constant K_BLOCK_TIME_MAF = 1024;
     uint256 public constant K_PROOF_TIME_MAF = 1024;
 
-    uint64 public constant K_REWARD_MULTIPLIER = 400; // 400%
-    uint64 public constant K_FEE_GRACE_PERIOD = 125; // 125%
-    uint64 public constant K_FEE_MAX_PERIOD = 375; // 375%
+    uint64 public constant K_REWARD_MULTIPLIER_PCTG = 400; // 400%
+    uint64 public constant K_FEE_GRACE_PERIOD_PCTG = 125; // 125%
+    uint64 public constant K_FEE_MAX_PERIOD_PCTG = 375; // 375%
     uint64 public constant K_BLOCK_TIME_CAP = 48 seconds;
     uint64 public constant K_PROOF_TIME_CAP = 60 minutes;
     uint64 public constant K_HALVING = 180 days;

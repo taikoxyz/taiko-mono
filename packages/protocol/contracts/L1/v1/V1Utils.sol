@@ -47,13 +47,14 @@ library V1Utils {
             tRel = 0;
         } else {
             uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
-            uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD * _tAvg) / 100;
-            uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD * _tAvg) / 100;
+            uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD_PCTG * _tAvg) /
+                100;
+            uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD_PCTG * _tAvg) / 100;
             uint256 a = tLast + tGrace;
             uint256 b = tNow > a ? tNow - a : 0;
             tRel = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
             uint256 alpha = 10000 +
-                ((LibConstants.K_REWARD_MULTIPLIER - 100) * tRel) /
+                ((LibConstants.K_REWARD_MULTIPLIER_PCTG - 100) * tRel) /
                 100;
             if (isProposal) {
                 newFeeBase = (state.feeBase * 10000) / alpha; // fee
