@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.5.0) (token/ERC20/ERC20.sol)
-
-/*
-This file is copied from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol" with the following modifications:
-
-1. decimals can be customized
-2. `Transfer` events are not emitted from _mint and _burn.
-*/
+// This file is copied from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol"
+// with the following modifications:
+//   - decimals can be customized
+//   - `Transfer` events are not emitted from _mint and _burn.
 // The MIT License (MIT)
 
 // Copyright (c) 2016-2022 zOS Global Limited and contributors
