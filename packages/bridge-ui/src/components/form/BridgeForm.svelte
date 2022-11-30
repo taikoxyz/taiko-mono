@@ -144,7 +144,7 @@
 {:else}
   <button
     class="btn btn-accent"
-    on:click={async () => await approve()}
+    on:click={approve}
     disabled={btnDisabled}
   >
     {$_("home.approve")}
