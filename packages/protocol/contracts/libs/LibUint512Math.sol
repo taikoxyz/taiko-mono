@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-library Uint512 {
+library LibUint512Math {
     /**
      * Optimized full 512 bit multiplication in Solidity.
      * Taken from: https://xn--2-umb.com/17/full-mul/index.html
      */
-    function mul256x256(
+    function mul(
         uint256 a,
         uint256 b
     ) public pure returns (uint256 r0, uint256 r1) {
@@ -21,7 +21,7 @@ library Uint512 {
      * Simple 512-bit addition.
      * Taken from: https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
      */
-    function add512x512(
+    function add(
         uint256 a0,
         uint256 a1,
         uint256 b0,
