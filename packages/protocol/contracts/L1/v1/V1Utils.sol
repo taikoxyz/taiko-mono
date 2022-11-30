@@ -21,12 +21,6 @@ library V1Utils {
 
     event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
 
-    function halt(LibData.State storage s, bool toHalt) public {
-        require(isHalted(s) != toHalt, "L1:precondition");
-        setBit(s, MASK_HALT, toHalt);
-        emit Halted(toHalt);
-    }
-
     function enableWhitelisting(
         LibData.State storage s,
         bool whitelistProposers,
@@ -35,6 +29,12 @@ library V1Utils {
         s.whitelistProposers = whitelistProvers;
         s.whitelistProvers = whitelistProvers;
         emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
+    }
+
+    function halt(LibData.State storage s, bool toHalt) public {
+        require(isHalted(s) != toHalt, "L1:precondition");
+        setBit(s, MASK_HALT, toHalt);
+        emit Halted(toHalt);
     }
 
     function isHalted(LibData.State storage s) public view returns (bool) {
