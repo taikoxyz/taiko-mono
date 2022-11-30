@@ -30,7 +30,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    LibData.TentativeState private tstate;
+    LibData.TentativeState private tentative;
     uint256[50] private __gap;
 
     function init(
@@ -41,8 +41,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         EssentialContract._init(_addressManager);
         V1Verifying.init(state, _genesisBlockHash, _feeBase);
 
-        // tstate.whitelistProposers = false;
-        // tstate.whitelistProvers = true;
+        // tentative.whitelistProposers = false;
+        // tentative.whitelistProvers = true;
     }
 
     /**
@@ -81,7 +81,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock({
             state: state,
-            tstate: tstate,
+            tentative: tentative,
             resolver: AddressResolver(this),
             inputs: inputs
         });
@@ -114,7 +114,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external nonReentrant {
         V1Proving.proveBlock(
             state,
-            tstate,
+            tentative,
             AddressResolver(this),
             blockIndex,
             inputs
@@ -147,7 +147,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external nonReentrant {
         V1Proving.proveBlockInvalid({
             state: state,
-            tstate: tstate,
+            tentative: tentative,
             resolver: AddressResolver(this),
             blockIndex: blockIndex,
             inputs: inputs
@@ -184,7 +184,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelistProvers
     ) public onlyOwner {
         V1Utils.enableWhitelisting(
-            tstate,
+            tentative,
             whitelistProposers,
             whitelistProvers
         );
@@ -200,7 +200,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address proposer,
         bool whitelisted
     ) public onlyOwner {
-        V1Utils.whitelistProposer(tstate, proposer, whitelisted);
+        V1Utils.whitelistProposer(tentative, proposer, whitelisted);
     }
 
     /**
@@ -214,7 +214,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelisted
     ) public onlyOwner {
         V1Utils.whitelistProver({
-            tstate: tstate,
+            tentative: tentative,
             prover: prover,
             whitelisted: whitelisted
         });
@@ -237,7 +237,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function isProposerWhitelisted(
         address proposer
     ) public view returns (bool) {
-        return V1Utils.isProposerWhitelisted(tstate, proposer);
+        return V1Utils.isProposerWhitelisted(tentative, proposer);
     }
 
     /**
@@ -247,7 +247,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Utils.isProverWhitelisted(tstate, prover);
+        return V1Utils.isProverWhitelisted(tentative, prover);
     }
 
     function getBlockFee() public view returns (uint256 premiumFee) {

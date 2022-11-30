@@ -25,42 +25,42 @@ library V1Utils {
     event Halted(bool halted);
 
     function enableWhitelisting(
-        LibData.TentativeState storage tstate,
+        LibData.TentativeState storage tentative,
         bool whitelistProposers,
         bool whitelistProvers
     ) internal {
-        tstate.whitelistProposers = whitelistProvers;
-        tstate.whitelistProvers = whitelistProvers;
+        tentative.whitelistProposers = whitelistProvers;
+        tentative.whitelistProvers = whitelistProvers;
         emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
     }
 
     function whitelistProposer(
-        LibData.TentativeState storage tstate,
+        LibData.TentativeState storage tentative,
         address proposer,
         bool enabled
     ) internal {
-        assert(tstate.whitelistProposers);
+        assert(tentative.whitelistProposers);
         require(
-            proposer != address(0) && tstate.proposers[proposer] != enabled,
+            proposer != address(0) && tentative.proposers[proposer] != enabled,
             "L1:precondition"
         );
 
-        tstate.proposers[proposer] = enabled;
+        tentative.proposers[proposer] = enabled;
         emit ProposerWhitelisted(proposer, enabled);
     }
 
     function whitelistProver(
-        LibData.TentativeState storage tstate,
+        LibData.TentativeState storage tentative,
         address prover,
         bool whitelisted
     ) public {
-        assert(tstate.whitelistProvers);
+        assert(tentative.whitelistProvers);
         require(
-            prover != address(0) && tstate.provers[prover] != whitelisted,
+            prover != address(0) && tentative.provers[prover] != whitelisted,
             "L1:precondition"
         );
 
-        tstate.provers[prover] = whitelisted;
+        tentative.provers[prover] = whitelisted;
         emit ProverWhitelisted(prover, whitelisted);
     }
 
@@ -77,19 +77,19 @@ library V1Utils {
     }
 
     function isProposerWhitelisted(
-        LibData.TentativeState storage tstate,
+        LibData.TentativeState storage tentative,
         address proposer
     ) internal view returns (bool) {
-        assert(tstate.whitelistProposers);
-        return tstate.proposers[proposer];
+        assert(tentative.whitelistProposers);
+        return tentative.proposers[proposer];
     }
 
     function isProverWhitelisted(
-        LibData.TentativeState storage tstate,
+        LibData.TentativeState storage tentative,
         address prover
     ) internal view returns (bool) {
-        assert(tstate.whitelistProvers);
-        return tstate.provers[prover];
+        assert(tentative.whitelistProvers);
+        return tentative.provers[prover];
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
