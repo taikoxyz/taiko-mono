@@ -68,7 +68,7 @@
         spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
       });
       console.log("approved, waiting for confirmations ", tx);
-      $signer.provider.waitForTransaction(tx.hash, 3);
+      await $signer.provider.waitForTransaction(tx.hash, 3);
 
       requiresAllowance = false;
 
