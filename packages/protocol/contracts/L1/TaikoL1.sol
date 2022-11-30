@@ -152,16 +152,16 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Finalizing.verifyBlocks(state, maxBlocks, true);
     }
 
-    /* Add or remove a prover from the whitelist.
-     *
-     * @param prover The prover to be added or removed.
-     * @param whitelisted True to add; remove otherwise.
+    /**
+     * Enable or disable proposer and prover whitelisting
+     * @param whitelistProposers True to enable proposer whitelisting.
+     * @param whitelistProvers True to enable prover whitelisting.
      */
-    function whitelistProver(
-        address prover,
-        bool whitelisted
+    function enableWhitelisting(
+        bool whitelistProposers,
+        bool whitelistProvers
     ) public onlyOwner {
-        V1Proving.whitelistProver(state, prover, whitelisted);
+        V1Utils.enableWhitelisting(state, whitelistProposers, whitelistProvers);
     }
 
     /* Add or remove a proposer from the whitelist.
@@ -176,34 +176,24 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proposing.whitelistProposer(state, proposer, whitelisted);
     }
 
+    /* Add or remove a prover from the whitelist.
+     *
+     * @param prover The prover to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProver(
+        address prover,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Proving.whitelistProver(state, prover, whitelisted);
+    }
+
     /**
      * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
         V1Utils.halt(state, toHalt);
-    }
-
-    /**
-     * Enable or disable proposer and prover whitelisting
-     * @param whitelistProposers True to enable proposer whitelisting.
-     * @param whitelistProvers True to enable prover whitelisting.
-     */
-    function enableWhitelisting(
-        bool whitelistProposers,
-        bool whitelistProvers
-    ) public onlyOwner {
-        V1Utils.enableWhitelisting(state, whitelistProposers, whitelistProvers);
-    }
-
-    /**
-     * Check whether a prover is whitelisted.
-     *
-     * @param prover The prover.
-     * @return True if the prover is whitelisted, false otherwise.
-     */
-    function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Proving.isProverWhitelisted(state, prover);
     }
 
     /**
@@ -216,6 +206,16 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address proposer
     ) public view returns (bool) {
         return V1Proposing.isProposerWhitelisted(state, proposer);
+    }
+
+    /**
+     * Check whether a prover is whitelisted.
+     *
+     * @param prover The prover.
+     * @return True if the prover is whitelisted, false otherwise.
+     */
+    function isProverWhitelisted(address prover) public view returns (bool) {
+        return V1Proving.isProverWhitelisted(state, prover);
     }
 
     /**
