@@ -136,7 +136,7 @@
 {#if !requiresAllowance}
   <button
     class="btn btn-accent"
-    on:click={async () => await bridge()}
+    on:click={bridge}
     disabled={btnDisabled}
   >
     {$_("home.bridge")}
