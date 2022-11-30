@@ -81,6 +81,7 @@ const MessageStatus = {
     NEW: 0,
     RETRIABLE: 1,
     DONE: 2,
+    FAILED: 3,
 }
 
 export {
