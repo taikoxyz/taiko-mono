@@ -19,7 +19,50 @@ library V1Utils {
 
     uint64 public constant MASK_HALT = 1 << 0;
 
+    event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
+    event ProposerWhitelisted(address indexed proposer, bool whitelisted);
+    event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
+
+    function enableWhitelisting(
+        LibData.TentativeState storage tentative,
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) internal {
+        tentative.whitelistProposers = whitelistProvers;
+        tentative.whitelistProvers = whitelistProvers;
+        emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
+    }
+
+    function whitelistProposer(
+        LibData.TentativeState storage tentative,
+        address proposer,
+        bool enabled
+    ) internal {
+        assert(tentative.whitelistProposers);
+        require(
+            proposer != address(0) && tentative.proposers[proposer] != enabled,
+            "L1:precondition"
+        );
+
+        tentative.proposers[proposer] = enabled;
+        emit ProposerWhitelisted(proposer, enabled);
+    }
+
+    function whitelistProver(
+        LibData.TentativeState storage tentative,
+        address prover,
+        bool whitelisted
+    ) internal {
+        assert(tentative.whitelistProvers);
+        require(
+            prover != address(0) && tentative.provers[prover] != whitelisted,
+            "L1:precondition"
+        );
+
+        tentative.provers[prover] = whitelisted;
+        emit ProverWhitelisted(prover, whitelisted);
+    }
 
     function halt(LibData.State storage state, bool toHalt) internal {
         require(isHalted(state) != toHalt, "L1:precondition");
@@ -31,6 +74,22 @@ library V1Utils {
         LibData.State storage state
     ) internal view returns (bool) {
         return isBitOne(state, MASK_HALT);
+    }
+
+    function isProposerWhitelisted(
+        LibData.TentativeState storage tentative,
+        address proposer
+    ) internal view returns (bool) {
+        assert(tentative.whitelistProposers);
+        return tentative.proposers[proposer];
+    }
+
+    function isProverWhitelisted(
+        LibData.TentativeState storage tentative,
+        address prover
+    ) internal view returns (bool) {
+        assert(tentative.whitelistProvers);
+        return tentative.provers[prover];
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.

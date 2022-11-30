@@ -27,6 +27,13 @@ library V1Proposing {
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
+    modifier onlyWhitelistedProposer(LibData.TentativeState storage tentative) {
+        if (tentative.whitelistProposers) {
+            require(tentative.proposers[msg.sender], "L1:whitelist");
+        }
+        _;
+    }
+
     function commitBlock(
         LibData.State storage state,
         uint64 commitSlot,
@@ -48,9 +55,10 @@ library V1Proposing {
 
     function proposeBlock(
         LibData.State storage state,
+        LibData.TentativeState storage tentative,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public {
+    ) public onlyWhitelistedProposer(tentative) {
         assert(!V1Utils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");

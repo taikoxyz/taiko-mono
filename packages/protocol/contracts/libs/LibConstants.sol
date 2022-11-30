@@ -49,6 +49,5 @@ library LibConstants {
     bytes32 public constant K_INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
 
-    bool public constant K_WHITELIST_PROVERS = false;
     bool public constant K_TOKENOMICS_ENABLED = true;
 }
