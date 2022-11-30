@@ -8,6 +8,7 @@
   import { toast } from "@zerodevx/svelte-toast";
   import ArrowDown from "../icons/ArrowDown.svelte";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
+  import ProcessingFee from "./ProcessingFee.svelte";
 
   let amount: string;
   let btnDisabled: boolean = true;
@@ -98,6 +99,7 @@
     <span class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full">ETH</span>
   </label>
 </div>
+<ProcessingFee />
 
 <button
   class="btn btn-accent text-sm mt-16 w-full"
