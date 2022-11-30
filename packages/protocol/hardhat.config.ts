@@ -1,4 +1,3 @@
-import "./tasks/deploy_L1"
 import "@nomiclabs/hardhat-etherscan"
 import "@nomiclabs/hardhat-waffle"
 import "@openzeppelin/hardhat-upgrades"
@@ -6,9 +5,10 @@ import "@typechain/hardhat"
 import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
 import "hardhat-preprocessor"
+import { HardhatUserConfig } from "hardhat/config"
 import "solidity-coverage"
 import "solidity-docgen"
-import { HardhatUserConfig } from "hardhat/config"
+import "./tasks/deploy_L1"
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
@@ -91,24 +91,21 @@ const config: HardhatUserConfig = {
     preprocess: {
         eachLine: () => ({
             transform: (line) => {
-                if (
-                    process.env.CHAIN_ID &&
-                    line.includes("uint256 public constant TAIKO_CHAIN_ID")
-                ) {
-                    return `${line.slice(0, line.indexOf(" ="))} = ${
-                        process.env.CHAIN_ID
-                    };`
-                }
-
-                if (
-                    process.env.COMMIT_DELAY_CONFIRMATIONS &&
-                    line.includes(
-                        "uint256 public constant TAIKO_COMMIT_DELAY_CONFIRMATIONS"
-                    )
-                ) {
-                    return `${line.slice(0, line.indexOf(" ="))} = ${
-                        process.env.COMMIT_DELAY_CONFIRMATIONS
-                    };`
+                for (const constantName of [
+                    "TAIKO_CHAIN_ID",
+                    "K_COMMIT_DELAY_CONFIRMATIONS",
+                    "TAIKO_BLOCK_MAX_TXS",
+                    "TAIKO_TXLIST_MAX_BYTES",
+                    "TAIKO_BLOCK_MAX_GAS_LIMIT",
+                ]) {
+                    if (
+                        process.env[constantName] &&
+                        line.includes(`uint256 public constant ${constantName}`)
+                    ) {
+                        return `${line.slice(0, line.indexOf(" ="))} = ${
+                            process.env[constantName]
+                        };`
+                    }
                 }
 
                 return line
