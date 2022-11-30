@@ -39,6 +39,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external initializer {
         EssentialContract._init(_addressManager);
         V1Verifying.init(state, _genesisBlockHash, _feeBase);
+
+        state.whitelistProposers = false;
+        state.whitelistProvers = true;
     }
 
     /**
@@ -158,6 +161,30 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         });
     }
 
+    /**
+     * Enable or disable proposer and prover whitelisting
+     * @param whitelistProposers True to enable proposer whitelisting.
+     * @param whitelistProvers True to enable prover whitelisting.
+     */
+    function enableWhitelisting(
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) public onlyOwner {
+        V1Utils.enableWhitelisting(state, whitelistProposers, whitelistProvers);
+    }
+
+    /* Add or remove a proposer from the whitelist.
+     *
+     * @param proposer The proposer to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProposer(
+        address proposer,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Proposing.whitelistProposer(state, proposer, whitelisted);
+    }
+
     /* Add or remove a prover from the whitelist.
      *
      * @param prover The prover to be added or removed.
@@ -180,6 +207,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function halt(bool toHalt) public onlyOwner {
         V1Utils.halt(state, toHalt);
+    }
+
+    /**
+     * Check whether a proposer is whitelisted.
+     *
+     * @param proposer The proposer.
+     * @return True if the proposer is whitelisted, false otherwise.
+     */
+    function isProposerWhitelisted(
+        address proposer
+    ) public view returns (bool) {
+        return V1Proposing.isProposerWhitelisted(state, proposer);
     }
 
     /**

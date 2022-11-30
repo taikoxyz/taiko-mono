@@ -159,7 +159,6 @@ async function deployBaseLibs(hre: any) {
         "LibReceiptDecoder"
     )
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
-    const libUint512 = await utils.deployContract(hre, "Uint512")
 
     const v1Verifying = await utils.deployContract(hre, "V1Verifying", {})
     const v1Proposing = await utils.deployContract(hre, "V1Proposing", {})
@@ -168,14 +167,12 @@ async function deployBaseLibs(hre: any) {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
-        Uint512: libUint512.address,
     })
 
     return {
         V1Verifying: v1Verifying.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
-        Uint512: libUint512.address,
     }
 }
 

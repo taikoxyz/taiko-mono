@@ -20,9 +20,26 @@ library V1Utils {
     uint64 public constant MASK_HALT = 1 << 0;
 
     event Halted(bool halted);
+    
+    event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
 
     function halt(LibData.State storage state, bool toHalt) internal {
         require(isHalted(state) != toHalt, "L1:precondition");
+        setBit(state, MASK_HALT, toHalt);
+    }
+
+    function enableWhitelisting(
+        LibData.State storage state,
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) internal {
+        state.whitelistProposers = whitelistProvers;
+        state.whitelistProvers = whitelistProvers;
+        emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
+    }
+
+    function halt(LibData.State storage state, bool toHalt) internal {
+        require(isHalted(s) != toHalt, "L1:precondition");
         setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }

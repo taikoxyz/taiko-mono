@@ -20,12 +20,21 @@ library V1Proposing {
     using SafeCastUpgradeable for uint256;
     using LibData for LibData.State;
 
+    event ProposerWhitelisted(address indexed proposer, bool whitelisted);
+
     event BlockCommitted(
         uint64 commitSlot,
         uint64 commitHeight,
         bytes32 commitHash
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
+
+    modifier onlyWhitelistedProposer(LibData.State storage s) {
+        if (s.whitelistProposers) {
+            require(s.proposers[msg.sender], "L1:whitelist");
+        }
+        _;
+    }
 
     function commitBlock(
         LibData.State storage state,
@@ -50,7 +59,7 @@ library V1Proposing {
         LibData.State storage state,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public {
+    ) public onlyWhitelistedProposer(s) {
         assert(!V1Utils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
@@ -137,6 +146,29 @@ library V1Proposing {
         });
         premiumFee = V1Utils.getSlotsAdjustedFee(state, true, fee);
         premiumFee = V1Utils.getBootstrapDiscountedFee(state, premiumFee);
+    }
+
+    function whitelistProposer(
+        LibData.State storage s,
+        address proposer,
+        bool enabled
+    ) public {
+        assert(s.whitelistProposers);
+        require(
+            proposer != address(0) && s.proposers[proposer] != enabled,
+            "L1:precondition"
+        );
+
+        s.proposers[proposer] = enabled;
+        emit ProposerWhitelisted(proposer, enabled);
+    }
+
+    function isProposerWhitelisted(
+        LibData.State storage s,
+        address proposer
+    ) public view returns (bool) {
+        assert(s.whitelistProposers);
+        return s.proposers[proposer];
     }
 
     function isCommitValid(

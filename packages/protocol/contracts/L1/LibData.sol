@@ -50,6 +50,7 @@ library LibData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         // proposer => commitSlot => hash(commitHash, commitHeight)
         mapping(address => mapping(uint256 => bytes32)) commits;
+        mapping(address => bool) proposers; // Whitelisted proposers
         mapping(address => bool) provers; // Whitelisted provers
         // Never or rarely changed
         uint64 genesisHeight;
@@ -68,8 +69,13 @@ library LibData {
         uint64 latestVerifiedId;
         uint64 avgProofTime; // the proof time moving average
         uint64 __reservedC1;
+
+        // Temp for testnet
+        bool whitelistProposers;
+        bool whitelistProvers;
+
         // Reserved
-        uint256[41] __gap;
+        uint256[39] __gap;
     }
 
     function saveProposedBlock(
