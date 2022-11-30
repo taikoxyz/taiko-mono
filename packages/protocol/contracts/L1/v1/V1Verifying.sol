@@ -76,23 +76,27 @@ library V1Verifying {
                 break;
             } else {
                 if (LibConstants.K_TOKENOMICS_ENABLED) {
-                    (uint256 reward, uint256 premiumReward) = getProofReward({
-                        state: state,
-                        provenAt: fc.provenAt,
-                        proposedAt: target.proposedAt
-                    });
+                    uint256 newFeeBase;
+                    {
+                        uint256 reward;
+                        uint256 tRelBp; // [0-10000], see the whitepaper
+                        (newFeeBase, reward, tRelBp) = getProofReward({
+                            state: state,
+                            provenAt: fc.provenAt,
+                            proposedAt: target.proposedAt
+                        });
 
-                    if (address(tkoToken) == address(0)) {
-                        tkoToken = TkoToken(resolver.resolve("tko_token"));
+                        if (address(tkoToken) == address(0)) {
+                            tkoToken = TkoToken(resolver.resolve("tko_token"));
+                        }
+
+                        _rewardProvers(fc, reward, tkoToken);
+                        _refundProposerDeposit(target, tRelBp, tkoToken);
                     }
-
-                    // Reward multiple provers
-                    _rewardProvers(fc, premiumReward, tkoToken);
-
                     // Update feeBase and avgProofTime
                     state.feeBase = V1Utils.movingAverage({
                         maValue: state.feeBase,
-                        newValue: reward,
+                        newValue: newFeeBase,
                         maf: LibConstants.K_FEE_BASE_MAF
                     });
 
@@ -130,8 +134,8 @@ library V1Verifying {
         LibData.State storage state,
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 reward, uint256 premiumReward) {
-        reward = V1Utils.getTimeAdjustedFee({
+    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
+        (newFeeBase, tRelBp) = V1Utils.getTimeAdjustedFee({
             state: state,
             isProposal: false,
             tNow: provenAt,
@@ -139,25 +143,34 @@ library V1Verifying {
             tAvg: state.avgProofTime,
             tCap: LibConstants.K_PROOF_TIME_CAP
         });
-        premiumReward = V1Utils.getSlotsAdjustedFee({
+        reward = V1Utils.getSlotsAdjustedFee({
             state: state,
             isProposal: false,
-            fee: reward
+            feeBase: newFeeBase
         });
-        premiumReward =
-            (premiumReward * (10000 - LibConstants.K_REWARD_BURN_POINTS)) /
-            10000;
+        reward = (reward * (10000 - LibConstants.K_REWARD_BURN_BP)) / 10000;
+    }
+
+    function _refundProposerDeposit(
+        LibData.ProposedBlock storage target,
+        uint256 tRelBp,
+        TkoToken tkoToken
+    ) private {
+        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
+        if (refund > 0) {
+            tkoToken.mint(target.proposer, refund);
+        }
     }
 
     function _rewardProvers(
         LibData.ForkChoice storage fc,
-        uint256 premiumReward,
+        uint256 reward,
         TkoToken tkoToken
     ) private {
         uint sum = 2 ** fc.provers.length - 1;
         for (uint i = 0; i < fc.provers.length; i++) {
             uint weight = (1 << (fc.provers.length - i - 1));
-            uint proverReward = (premiumReward * weight) / sum;
+            uint proverReward = (reward * weight) / sum;
 
             if (tkoToken.balanceOf(fc.provers[i]) == 0) {
                 // reduce reward if the prover has 0 TKO balance.

@@ -26,9 +26,10 @@ library LibData {
         uint64 commitSlot;
     }
 
-    // 2 slots
+    // 3 slots
     struct ProposedBlock {
         bytes32 metaHash;
+        uint256 deposit;
         address proposer;
         uint64 proposedAt;
     }
