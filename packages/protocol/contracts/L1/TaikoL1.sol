@@ -30,6 +30,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
+    LibData.TempState private tstate;
     uint256[50] private __gap;
 
     function init(
@@ -40,8 +41,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         EssentialContract._init(_addressManager);
         V1Verifying.init(state, _genesisBlockHash, _feeBase);
 
-        state.whitelistProposers = false;
-        state.whitelistProvers = true;
+        // tstate.whitelistProposers = false;
+        // tstate.whitelistProvers = true;
     }
 
     /**
@@ -78,7 +79,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
+        V1Proposing.proposeBlock({
+            state: state,
+            tstate: tstate,
+            resolver: AddressResolver(this),
+            inputs: inputs
+        });
         V1Verifying.verifyBlocks({
             state: state,
             resolver: AddressResolver(this),
@@ -106,7 +112,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockIndex,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
+        V1Proving.proveBlock(
+            state,
+            tstate,
+            AddressResolver(this),
+            blockIndex,
+            inputs
+        );
         V1Verifying.verifyBlocks({
             state: state,
             resolver: AddressResolver(this),
@@ -135,6 +147,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external nonReentrant {
         V1Proving.proveBlockInvalid({
             state: state,
+            tstate: tstate,
             resolver: AddressResolver(this),
             blockIndex: blockIndex,
             inputs: inputs
@@ -170,10 +183,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelistProposers,
         bool whitelistProvers
     ) public onlyOwner {
-        V1Utils.enableWhitelisting(state, whitelistProposers, whitelistProvers);
+        V1Utils.enableWhitelisting(
+            tstate,
+            whitelistProposers,
+            whitelistProvers
+        );
     }
 
-    /* Add or remove a proposer from the whitelist.
+    /**
+     *  Add or remove a proposer from the whitelist.
      *
      * @param proposer The proposer to be added or removed.
      * @param whitelisted True to add; remove otherwise.
@@ -182,10 +200,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address proposer,
         bool whitelisted
     ) public onlyOwner {
-        V1Proposing.whitelistProposer(state, proposer, whitelisted);
+        V1Utils.whitelistProposer(tstate, proposer, whitelisted);
     }
 
-    /* Add or remove a prover from the whitelist.
+    /**
+     *  Add or remove a prover from the whitelist.
      *
      * @param prover The prover to be added or removed.
      * @param whitelisted True to add; remove otherwise.
@@ -194,8 +213,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address prover,
         bool whitelisted
     ) public onlyOwner {
-        V1Proving.whitelistProver({
-            state: state,
+        V1Utils.whitelistProver({
+            tstate: tstate,
             prover: prover,
             whitelisted: whitelisted
         });
@@ -218,7 +237,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function isProposerWhitelisted(
         address proposer
     ) public view returns (bool) {
-        return V1Proposing.isProposerWhitelisted(state, proposer);
+        return V1Utils.isProposerWhitelisted(tstate, proposer);
     }
 
     /**
@@ -228,7 +247,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Proving.isProverWhitelisted(state, prover);
+        return V1Utils.isProverWhitelisted(tstate, prover);
     }
 
     function getBlockFee() public view returns (uint256 premiumFee) {

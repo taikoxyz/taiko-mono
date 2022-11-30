@@ -22,15 +22,47 @@ library V1Utils {
     event Halted(bool halted);
 
     event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
+    event ProposerWhitelisted(address indexed proposer, bool whitelisted);
+    event ProverWhitelisted(address indexed prover, bool whitelisted);
 
     function enableWhitelisting(
-        LibData.State storage state,
+        LibData.TempState storage tstate,
         bool whitelistProposers,
         bool whitelistProvers
     ) internal {
-        state.whitelistProposers = whitelistProvers;
-        state.whitelistProvers = whitelistProvers;
+        tstate.whitelistProposers = whitelistProvers;
+        tstate.whitelistProvers = whitelistProvers;
         emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
+    }
+
+    function whitelistProposer(
+        LibData.TempState storage tstate,
+        address proposer,
+        bool enabled
+    ) public {
+        assert(tstate.whitelistProposers);
+        require(
+            proposer != address(0) && tstate.proposers[proposer] != enabled,
+            "L1:precondition"
+        );
+
+        tstate.proposers[proposer] = enabled;
+        emit ProposerWhitelisted(proposer, enabled);
+    }
+
+    function whitelistProver(
+        LibData.TempState storage tstate,
+        address prover,
+        bool whitelisted
+    ) public {
+        assert(tstate.whitelistProvers);
+        require(
+            prover != address(0) && tstate.provers[prover] != whitelisted,
+            "L1:precondition"
+        );
+
+        tstate.provers[prover] = whitelisted;
+        emit ProverWhitelisted(prover, whitelisted);
     }
 
     function halt(LibData.State storage state, bool toHalt) internal {
@@ -43,6 +75,22 @@ library V1Utils {
         LibData.State storage state
     ) internal view returns (bool) {
         return isBitOne(state, MASK_HALT);
+    }
+
+    function isProposerWhitelisted(
+        LibData.TempState storage tstate,
+        address proposer
+    ) internal view returns (bool) {
+        assert(tstate.whitelistProposers);
+        return tstate.proposers[proposer];
+    }
+
+    function isProverWhitelisted(
+        LibData.TempState storage tstate,
+        address prover
+    ) internal view returns (bool) {
+        assert(tstate.whitelistProvers);
+        return tstate.provers[prover];
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.

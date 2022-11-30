@@ -44,21 +44,20 @@ library V1Proving {
         address prover
     );
 
-    event ProverWhitelisted(address indexed prover, bool whitelisted);
-
-    modifier onlyWhitelistedProver(LibData.State storage state) {
-        if (state.whitelistProvers) {
-            require(state.provers[msg.sender], "L1:whitelist");
+    modifier onlyWhitelistedProver(LibData.TempState storage tstate) {
+        if (tstate.whitelistProvers) {
+            require(tstate.provers[msg.sender], "L1:whitelist");
         }
         _;
     }
 
     function proveBlock(
         LibData.State storage state,
+        LibData.TempState storage tstate,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(state) {
+    ) public onlyWhitelistedProver(tstate) {
         assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
@@ -141,10 +140,11 @@ library V1Proving {
 
     function proveBlockInvalid(
         LibData.State storage state,
+        LibData.TempState storage tstate,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(state) {
+    ) public onlyWhitelistedProver(tstate) {
         assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
@@ -203,29 +203,6 @@ library V1Proving {
             target: target,
             blockHashOverride: LibConstants.K_BLOCK_DEADEND_HASH
         });
-    }
-
-    function whitelistProver(
-        LibData.State storage state,
-        address prover,
-        bool whitelisted
-    ) public {
-        assert(state.whitelistProvers);
-        require(
-            prover != address(0) && state.provers[prover] != whitelisted,
-            "L1:precondition"
-        );
-
-        state.provers[prover] = whitelisted;
-        emit ProverWhitelisted(prover, whitelisted);
-    }
-
-    function isProverWhitelisted(
-        LibData.State storage state,
-        address prover
-    ) public view returns (bool) {
-        assert(state.whitelistProvers);
-        return state.provers[prover];
     }
 
     function _proveBlock(
