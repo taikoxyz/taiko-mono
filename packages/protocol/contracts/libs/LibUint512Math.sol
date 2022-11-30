@@ -9,7 +9,7 @@ library LibUint512Math {
     function mul(
         uint256 a,
         uint256 b
-    ) public pure returns (uint256 r0, uint256 r1) {
+    ) internal pure returns (uint256 r0, uint256 r1) {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)
@@ -26,7 +26,7 @@ library LibUint512Math {
         uint256 a1,
         uint256 b0,
         uint256 b1
-    ) public pure returns (uint256 r0, uint256 r1) {
+    ) internal pure returns (uint256 r0, uint256 r1) {
         assembly {
             r0 := add(a0, b0)
             r1 := add(add(a1, b1), lt(r0, a0))
