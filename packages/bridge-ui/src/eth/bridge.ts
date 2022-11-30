@@ -5,7 +5,7 @@ import TokenVault from "../constants/abi/TokenVault";
 
 class ETHBridge implements Bridge {
   RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
-    return new Promise((resolve) => resolve(false));
+    return Promise.resolve(false);
   }
 
   // ETH does not need to be approved for transacting
