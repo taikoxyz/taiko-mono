@@ -19,11 +19,10 @@ library V1Utils {
 
     uint64 public constant MASK_HALT = 1 << 0;
 
-    event Halted(bool halted);
-
     event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
     event ProposerWhitelisted(address indexed proposer, bool whitelisted);
     event ProverWhitelisted(address indexed prover, bool whitelisted);
+    event Halted(bool halted);
 
     function enableWhitelisting(
         LibData.TempState storage tstate,
