@@ -53,7 +53,7 @@ library V1Utils {
         LibData.TentativeState storage tentative,
         address prover,
         bool whitelisted
-    ) public {
+    ) internal {
         assert(tentative.whitelistProvers);
         require(
             prover != address(0) && tentative.provers[prover] != whitelisted,
