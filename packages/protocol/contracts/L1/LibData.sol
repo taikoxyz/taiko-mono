@@ -69,11 +69,9 @@ library LibData {
         uint64 latestVerifiedId;
         uint64 avgProofTime; // the proof time moving average
         uint64 __reservedC1;
-
         // Temp for testnet
         bool whitelistProposers;
         bool whitelistProvers;
-
         // Reserved
         uint256[39] __gap;
     }

@@ -29,9 +29,9 @@ library V1Proposing {
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
-    modifier onlyWhitelistedProposer(LibData.State storage s) {
-        if (s.whitelistProposers) {
-            require(s.proposers[msg.sender], "L1:whitelist");
+    modifier onlyWhitelistedProposer(LibData.State storage state) {
+        if (state.whitelistProposers) {
+            require(state.proposers[msg.sender], "L1:whitelist");
         }
         _;
     }
@@ -59,7 +59,7 @@ library V1Proposing {
         LibData.State storage state,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProposer(s) {
+    ) public onlyWhitelistedProposer(state) {
         assert(!V1Utils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
@@ -149,26 +149,26 @@ library V1Proposing {
     }
 
     function whitelistProposer(
-        LibData.State storage s,
+        LibData.State storage state,
         address proposer,
         bool enabled
     ) public {
-        assert(s.whitelistProposers);
+        assert(state.whitelistProposers);
         require(
-            proposer != address(0) && s.proposers[proposer] != enabled,
+            proposer != address(0) && state.proposers[proposer] != enabled,
             "L1:precondition"
         );
 
-        s.proposers[proposer] = enabled;
+        state.proposers[proposer] = enabled;
         emit ProposerWhitelisted(proposer, enabled);
     }
 
     function isProposerWhitelisted(
-        LibData.State storage s,
+        LibData.State storage state,
         address proposer
     ) public view returns (bool) {
-        assert(s.whitelistProposers);
-        return s.proposers[proposer];
+        assert(state.whitelistProposers);
+        return state.proposers[proposer];
     }
 
     function isCommitValid(
