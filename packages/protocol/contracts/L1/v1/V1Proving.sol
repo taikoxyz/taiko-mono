@@ -44,7 +44,7 @@ library V1Proving {
         address prover
     );
 
-    modifier onlyWhitelistedProver(LibData.TempState storage tstate) {
+    modifier onlyWhitelistedProver(LibData.TentativeState storage tstate) {
         if (tstate.whitelistProvers) {
             require(tstate.provers[msg.sender], "L1:whitelist");
         }
@@ -53,7 +53,7 @@ library V1Proving {
 
     function proveBlock(
         LibData.State storage state,
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs
@@ -140,7 +140,7 @@ library V1Proving {
 
     function proveBlockInvalid(
         LibData.State storage state,
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         AddressResolver resolver,
         uint256 blockIndex,
         bytes[] calldata inputs

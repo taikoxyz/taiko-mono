@@ -27,7 +27,7 @@ library V1Proposing {
     );
     event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
 
-    modifier onlyWhitelistedProposer(LibData.TempState storage tstate) {
+    modifier onlyWhitelistedProposer(LibData.TentativeState storage tstate) {
         if (tstate.whitelistProposers) {
             require(tstate.proposers[msg.sender], "L1:whitelist");
         }
@@ -55,7 +55,7 @@ library V1Proposing {
 
     function proposeBlock(
         LibData.State storage state,
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public onlyWhitelistedProposer(tstate) {

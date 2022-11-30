@@ -25,7 +25,7 @@ library V1Utils {
     event Halted(bool halted);
 
     function enableWhitelisting(
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         bool whitelistProposers,
         bool whitelistProvers
     ) internal {
@@ -35,7 +35,7 @@ library V1Utils {
     }
 
     function whitelistProposer(
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         address proposer,
         bool enabled
     ) internal {
@@ -50,7 +50,7 @@ library V1Utils {
     }
 
     function whitelistProver(
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         address prover,
         bool whitelisted
     ) public {
@@ -77,7 +77,7 @@ library V1Utils {
     }
 
     function isProposerWhitelisted(
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         address proposer
     ) internal view returns (bool) {
         assert(tstate.whitelistProposers);
@@ -85,7 +85,7 @@ library V1Utils {
     }
 
     function isProverWhitelisted(
-        LibData.TempState storage tstate,
+        LibData.TentativeState storage tstate,
         address prover
     ) internal view returns (bool) {
         assert(tstate.whitelistProvers);

@@ -71,7 +71,7 @@ library LibData {
         uint256[42] __gap;
     }
 
-    struct TempState {
+    struct TentativeState {
         mapping(address => bool) proposers; // Whitelisted proposers
         mapping(address => bool) provers; // Whitelisted provers
         bool whitelistProposers;

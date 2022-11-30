@@ -30,7 +30,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    LibData.TempState private tstate;
+    LibData.TentativeState private tstate;
     uint256[50] private __gap;
 
     function init(
