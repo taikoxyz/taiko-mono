@@ -39,7 +39,7 @@ library V1Utils {
         LibData.TempState storage tstate,
         address proposer,
         bool enabled
-    ) public {
+    ) internal {
         assert(tstate.whitelistProposers);
         require(
             proposer != address(0) && tstate.proposers[proposer] != enabled,
