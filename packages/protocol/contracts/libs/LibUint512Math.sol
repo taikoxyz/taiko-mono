@@ -24,7 +24,7 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 pragma solidity ^0.8.9;
 
-library LibUint512 {
+library LibUint512Math {
     /**
      * Optimized full 512 bit multiplication in Solidity.
      * Taken from: https://xn--2-umb.com/17/full-mul/index.html
