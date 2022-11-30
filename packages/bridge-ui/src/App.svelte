@@ -59,5 +59,6 @@
 
   main {
     margin: 0;
+    font-family: 'Inter', sans-serif;
   }
 </style>

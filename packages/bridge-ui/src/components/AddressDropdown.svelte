@@ -1,14 +1,18 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
-  import { addressSubsection } from "../utils/addressSubsection";
   import { onMount } from "svelte";
-  import { signer } from "../store/signer";
-  import ChevDown from "./icons/ChevDown.svelte";
+  import { _ } from "svelte-i18n";
   import { toast } from "@zerodevx/svelte-toast";
 
+  import { addressSubsection } from "../utils/addressSubsection";
+  import { signer } from "../store/signer";
+  import ChevDown from "./icons/ChevDown.svelte";
+  import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
+
   let address: string;
+  let addressAvatarImgData;
   onMount(async () => {
     address = await $signer.getAddress();
+    addressAvatarImgData = getAddressAvatarFromIdenticon(address);
   });
 
   async function copyToClipboard(clip: string) {
@@ -25,15 +29,16 @@
   }
 </script>
 
-<div class="dropdown dropdown-end">
-  <label tabindex="0" class="btn m-1">
-    <span class="pr-2">{addressSubsection(address)}</span>
+<div class="dropdown dropdown-bottom">
+  <button tabindex="0" class="btn btn-wide justify-around">
+    <img width=26 height=26 src="data:image/png;base64,{addressAvatarImgData}" class="rounded-full mr-2" alt="avatar" />
+    <span class="font-normal flex-1 text-left">{addressSubsection(address)}</span>
 
     <ChevDown />
-  </label>
+  </button>
   <ul
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
+    class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
     <li>
       <span

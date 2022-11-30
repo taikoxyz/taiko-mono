@@ -6,6 +6,8 @@
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
   import { toast } from "@zerodevx/svelte-toast";
+  import ArrowDown from "../icons/ArrowDown.svelte";
+  import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
 
   let amount: string;
   let btnDisabled: boolean = true;
@@ -44,42 +46,62 @@
       toast.push($_("toast.errorSendingTransaction"));
     }
   }
+
+  function toggleChains() {
+    fromChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
+    toChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
+  }
 </script>
 
-<div class="form-control">
-  <label class="label">
+<div class="form-control w-full">
+  <label class="label" for="amount">
     <span class="label-text">{$_("home.from")}</span>
   </label>
-  <label class="input-group">
+  <label class="input-group relative rounded-lg overflow-hidden">
+    <span class="bg-transparent border-transparent absolute top-0 left-0 h-full z-0">{$fromChain.name}</span>
     <input
-      type="text"
-      placeholder="0.01"
-      bind:value={amount}
-      class="input input-bordered"
+    type="number"
+    step="0.01"
+    placeholder="0.01"
+    min="0"
+    bind:value={amount}
+    class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
+    name="amount"
     />
-    <span>{$token.symbol}</span>
+    <span class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full">ETH</span>
   </label>
 </div>
 
-<div class="form-control">
-  <label class="label">
+<fieldset class="border border-b-0 border-dark-4 mt-10 mb-7">
+  <legend class="h-0 flex items-center">
+    <button class="btn btn-square btn-sm" on:click={toggleChains}>
+      <ArrowDown />
+    </button>
+  </legend>
+</fieldset>
+
+<div class="form-control w-full">
+  <label class="label" for="amount-to">
     <span class="label-text">{$_("home.to")}</span>
   </label>
-  <label class="input-group">
+  <label class="input-group relative rounded-lg overflow-hidden">
+    <span class="bg-transparent border-transparent absolute top-0 left-0 h-full z-0">{$toChain.name}</span>
     <input
-      type="text"
-      placeholder="0.01"
-      bind:value={amount}
-      class="input input-bordered"
+    type="number"
+    step="0.01"
+    placeholder="0.01"
+    min="0"
+    bind:value={amount}
+    class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
+    name="amount-to"
     />
-    <span>{$token.symbol}</span>
+    <span class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full">ETH</span>
   </label>
 </div>
 
 <button
-  class="btn btn-accent"
+  class="btn btn-accent text-sm mt-16 w-full"
   on:click={async () => await bridge()}
-  disabled={btnDisabled}
 >
   {$_("home.bridge")}
 </button>

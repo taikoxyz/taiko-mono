@@ -5,15 +5,15 @@
   import AddressDropdown from "./AddressDropdown.svelte";
 </script>
 
-<div class="navbar bg-base-100">
-  <div class="flex-1">
+<nav class="navbar h-[125px] py-8 px-32">
+  <div class="navbar-end justify-start">
     <Logo />
   </div>
-  <div class="flex-none">
+  <div class="navbar-end">
     {#if $signer}
       <AddressDropdown />
     {:else}
       <Connect />
     {/if}
   </div>
-</div>
+</nav>
