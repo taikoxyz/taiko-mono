@@ -47,7 +47,7 @@ library V1Proving {
     event ProverWhitelisted(address indexed prover, bool whitelisted);
 
     modifier onlyWhitelistedProver(LibData.State storage s) {
-        if (LibConstants.K_WHITELIST_PROVERS) {
+        if (s.whitelistProvers) {
             require(s.provers[msg.sender], "L1:whitelist");
         }
         _;
@@ -204,7 +204,7 @@ library V1Proving {
         address prover,
         bool enabled
     ) public {
-        assert(LibConstants.K_WHITELIST_PROVERS);
+        assert(s.whitelistProvers);
         require(
             prover != address(0) && s.provers[prover] != enabled,
             "L1:precondition"
@@ -218,7 +218,7 @@ library V1Proving {
         LibData.State storage s,
         address prover
     ) public view returns (bool) {
-        assert(LibConstants.K_WHITELIST_PROVERS);
+        assert(s.whitelistProvers);
         return s.provers[prover];
     }
 

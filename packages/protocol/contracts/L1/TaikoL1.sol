@@ -38,6 +38,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) external initializer {
         EssentialContract._init(_addressManager);
         V1Finalizing.init(state, _genesisBlockHash);
+
+        state.whitelistProposers = false;
+        state.whitelistProvers = true;
     }
 
     /**
@@ -161,12 +164,36 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         V1Proving.whitelistProver(state, prover, whitelisted);
     }
 
+    /* Add or remove a proposer from the whitelist.
+     *
+     * @param proposer The proposer to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProposer(
+        address proposer,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Proposing.whitelistProposer(state, proposer, whitelisted);
+    }
+
     /**
      * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
         V1Utils.halt(state, toHalt);
+    }
+
+    /**
+     * Enable or disable proposer and prover whitelisting
+     * @param whitelistProposers True to enable proposer whitelisting.
+     * @param whitelistProvers True to enable prover whitelisting.
+     */
+    function enableWhitelisting(
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) public onlyOwner {
+        V1Utils.enableWhitelisting(state, whitelistProposers, whitelistProvers);
     }
 
     /**
@@ -177,6 +204,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
         return V1Proving.isProverWhitelisted(state, prover);
+    }
+
+    /**
+     * Check whether a proposer is whitelisted.
+     *
+     * @param proposer The proposer.
+     * @return True if the proposer is whitelisted, false otherwise.
+     */
+    function isProposerWhitelisted(
+        address proposer
+    ) public view returns (bool) {
+        return V1Proposing.isProposerWhitelisted(state, proposer);
     }
 
     /**
