@@ -117,3 +117,14 @@
 [data-theme="dark"] .header-twitter-link::before {
   background: url("@site/static/img/social-icons/twitter-white.svg") no-repeat;
 }
+
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.footer__link-item {
+  margin-right: 16px;
+}
