@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
 import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -26,8 +24,6 @@ import "./v1/V1Verifying.sol";
  */
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using LibData for LibData.State;
-    using LibTxDecoder for bytes;
-    using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
     LibData.TentativeState public tentative;
