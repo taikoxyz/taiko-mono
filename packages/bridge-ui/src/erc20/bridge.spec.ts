@@ -110,7 +110,7 @@ describe("bridge tests", () => {
 
   it("approve throws when amount is already greater than whats set", async () => {
     mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.sub(1)
+      opts.amountInWei.add(1)
     );
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
@@ -119,7 +119,7 @@ describe("bridge tests", () => {
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     await expect(bridge.Approve(approveOpts)).rejects.toThrowError(
-      "token vault does not have required allowance"
+      "token vault already has required allowance"
     );
 
     expect(mockSigner.getAddress).toHaveBeenCalled();
@@ -131,7 +131,7 @@ describe("bridge tests", () => {
 
   it("approve succeeds when allowance is less than what is being requested", async () => {
     mockContract.allowance.mockImplementationOnce(() =>
-      opts.amountInWei.add(1)
+      opts.amountInWei.sub(1)
     );
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");

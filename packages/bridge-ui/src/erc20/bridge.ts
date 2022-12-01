@@ -12,10 +12,8 @@ class ERC20Bridge implements Bridge {
     bridgeAddress: string
   ): Promise<boolean> {
     const contract: Contract = new Contract(tokenAddress, ERC20, signer);
-    const allowance: BigNumber = await contract.allowance(
-      await signer.getAddress(),
-      bridgeAddress
-    );
+    const owner = await signer.getAddress();
+    const allowance: BigNumber = await contract.allowance(owner, bridgeAddress);
 
     return allowance.lt(amount);
   }
@@ -31,14 +29,14 @@ class ERC20Bridge implements Bridge {
 
   async Approve(opts: ApproveOpts): Promise<Transaction> {
     if (
-      await this.spenderRequiresAllowance(
+      !(await this.spenderRequiresAllowance(
         opts.contractAddress,
         opts.signer,
         opts.amountInWei,
         opts.spenderAddress
-      )
+      ))
     ) {
-      throw Error("token vault does not have required allowance");
+      throw Error("token vault already has required allowance");
     }
 
     const contract: Contract = new Contract(
