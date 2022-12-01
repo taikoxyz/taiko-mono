@@ -1,13 +1,23 @@
-enum ProcessingFeeOpts {
+enum ProcessingFeeMethod {
   RECOMMENDED = "recommended",
   CUSTOM = "custom",
   NONE = "none",
-}
+};
 
-type ProcessingFeeDetails = {
-  displayText: string;
-  value: number;
-  timeToConfirm: number;
-}
+interface ProcessingFeeDetails {
+  DisplayText: string;
+  TimeToConfirm: number;
+};
 
-export { ProcessingFeeDetails, ProcessingFeeOpts };
+const PROCESSING_FEE_META: Map<ProcessingFeeMethod, ProcessingFeeDetails> =  new Map([[ProcessingFeeMethod.RECOMMENDED, {
+  displayText: "Recommended",
+  timeToConfirm: 15 * 60 * 1000,
+}], [ProcessingFeeMethod.CUSTOM, {
+  displayText: "Custom Amount",
+  timeToConfirm: 15 * 60 * 1000,
+}], [ProcessingFeeMethod.NONE, {
+  displayText: "No Fees",
+  timeToConfirm: 15 * 60 * 1000,
+}]]);
+
+export { ProcessingFeeDetails, ProcessingFeeMethod, PROCESSING_FEE_META };
