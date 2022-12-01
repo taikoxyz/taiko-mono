@@ -22,7 +22,7 @@ If you are opening a new issue, try to be descriptive as possible. Also please c
 
 ### Source code comments
 
-Follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documentating smart contract source code. Please adhere to a few additional standards:
+Follow the [NatSpec format](https://docs.soliditylang.org/en/v0.8.16/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
 
 - Choose `/** */` over `///` for multi-line NatSpec comments, to save column space
 - Omit the usage of `@notice`, this will be automatically picked up so it will save column space and improve readability
