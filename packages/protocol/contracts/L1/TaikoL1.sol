@@ -97,7 +97,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used
+     * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] is an abi-encoded object with various information
@@ -109,16 +109,16 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
 
     function proveBlock(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlock(
-            state,
-            tentative,
-            AddressResolver(this),
-            blockIndex,
-            inputs
-        );
+        V1Proving.proveBlock({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            blockId: blockId,
+            inputs: inputs
+        });
         V1Verifying.verifyBlocks({
             state: state,
             resolver: AddressResolver(this),
@@ -131,7 +131,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Prove a block is invalid with a zero-knowledge proof and a receipt
      * merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used to
+     * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] An Evidence object with various information regarding
@@ -142,14 +142,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          be the only transaction in the L2 block.
      */
     function proveBlockInvalid(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
         V1Proving.proveBlockInvalid({
             state: state,
             tentative: tentative,
             resolver: AddressResolver(this),
-            blockIndex: blockIndex,
+            blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({

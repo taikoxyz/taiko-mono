@@ -55,7 +55,7 @@ library V1Proving {
         LibData.State storage state,
         LibData.TentativeState storage tentative,
         AddressResolver resolver,
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(tentative) {
         assert(!V1Utils.isHalted(state));
@@ -67,7 +67,7 @@ library V1Proving {
         bytes calldata anchorReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockId, "L1:id");
         require(
             evidence.proofs.length == 2 + LibConstants.K_ZKPROOFS_PER_BLOCK,
             "L1:proof:size"
@@ -142,7 +142,7 @@ library V1Proving {
         LibData.State storage state,
         LibData.TentativeState storage tentative,
         AddressResolver resolver,
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(tentative) {
         assert(!V1Utils.isHalted(state));
@@ -157,7 +157,7 @@ library V1Proving {
         bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockId, "L1:id");
         require(
             evidence.proofs.length == 1 + LibConstants.K_ZKPROOFS_PER_BLOCK,
             "L1:proof:size"
