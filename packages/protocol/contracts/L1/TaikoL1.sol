@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
