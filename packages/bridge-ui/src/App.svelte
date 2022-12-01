@@ -3,9 +3,9 @@
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
   import { SvelteToast } from "@zerodevx/svelte-toast";
-  import { configureChains } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public'
-  
+  import { configureChains } from "@wagmi/core";
+  import { publicProvider } from "@wagmi/core/providers/public";
+
   import { mainnet, taiko } from "./domain/chain";
   import Navbar from "./components/Navbar.svelte";
   import Home from "./pages/home/Home.svelte";
@@ -14,18 +14,23 @@
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import ERC20Bridge from "./erc20/bridge";
+  import { pendingTransactions } from "./store/transactions";
+  import { ethers } from "ethers";
+
+  setupI18n({ withLocale: "en" });
 
   const { chains, provider } = configureChains(
     [mainnet, taiko],
     [publicProvider()]
   );
 
-  setupI18n({ withLocale: "en" });
-
   const ethBridge = new ETHBridge();
+  const erc20Bridge = new ERC20Bridge();
 
   bridges.update((store) => {
     store.set(BridgeType.ETH, ethBridge);
+    store.set(BridgeType.ERC20, erc20Bridge);
     return store;
   });
 
@@ -34,6 +39,8 @@
     store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
     return store;
   });
+
+  pendingTransactions.subscribe((store) => {});
 
   const routes = {
     "/": wrap({
@@ -59,6 +66,6 @@
 
   main {
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
 </style>

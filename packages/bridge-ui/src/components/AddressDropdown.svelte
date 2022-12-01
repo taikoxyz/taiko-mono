@@ -5,8 +5,10 @@
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
+  import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
+  import Loader from "./icons/Loader.svelte";
 
   let address: string;
   let addressAvatarImgData;
@@ -31,8 +33,20 @@
 
 <div class="dropdown dropdown-bottom">
   <button tabindex="0" class="btn btn-wide justify-around">
-    <img width=26 height=26 src="data:image/png;base64,{addressAvatarImgData}" class="rounded-full mr-2" alt="avatar" />
-    <span class="font-normal flex-1 text-left">{addressSubsection(address)}</span>
+    <img
+      width="26"
+      height="26"
+      src="data:image/png;base64,{addressAvatarImgData}"
+      class="rounded-full mr-2"
+      alt="avatar"
+    />
+    <span class="font-normal flex-1 text-left">
+      {#if $pendingTransactions && $pendingTransactions.length}
+        {$pendingTransactions.length} Pending <Loader />
+      {:else}
+        {addressSubsection(address)}
+      {/if}
+    </span>
 
     <ChevDown />
   </button>
