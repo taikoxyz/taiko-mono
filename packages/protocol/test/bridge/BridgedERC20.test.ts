@@ -330,7 +330,7 @@ describe("BridgedERC20", function () {
                     .transfer(owner.address, amount)
             )
                 .to.emit(erc20, "Transfer")
-                .withArgs(owner.address, amount)
+                .withArgs(accountWithTokens.address, amount)
 
             const newRecipientBalance = await erc20.balanceOf(owner.address)
             const newAccountWithTokensBalance = await erc20.balanceOf(
