@@ -8,9 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
@@ -26,10 +23,9 @@ import "./v1/V1Verifying.sol";
  */
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using LibData for LibData.State;
-    using LibTxDecoder for bytes;
-    using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
+    LibData.TentativeState public tentative;
     uint256[50] private __gap;
 
     function init(
@@ -38,7 +34,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Verifying.init(state, _genesisBlockHash, _feeBase);
+        V1Verifying.init({
+            state: state,
+            genesisBlockHash: _genesisBlockHash,
+            feeBase: _feeBase
+        });
+
+        tentative.whitelistProposers = false;
+        tentative.whitelistProvers = true;
     }
 
     /**
@@ -75,7 +78,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, AddressResolver(this), inputs);
+        V1Proposing.proposeBlock({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            inputs: inputs
+        });
         V1Verifying.verifyBlocks({
             state: state,
             resolver: AddressResolver(this),
@@ -88,7 +96,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used
+     * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] is an abi-encoded object with various information
@@ -100,10 +108,16 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
 
     function proveBlock(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
+        V1Proving.proveBlock({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            blockId: blockId,
+            inputs: inputs
+        });
         V1Verifying.verifyBlocks({
             state: state,
             resolver: AddressResolver(this),
@@ -116,7 +130,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * Prove a block is invalid with a zero-knowledge proof and a receipt
      * merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used to
+     * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] An Evidence object with various information regarding
@@ -127,13 +141,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          be the only transaction in the L2 block.
      */
     function proveBlockInvalid(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
         V1Proving.proveBlockInvalid({
             state: state,
+            tentative: tentative,
             resolver: AddressResolver(this),
-            blockIndex: blockIndex,
+            blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
@@ -158,7 +173,41 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         });
     }
 
-    /* Add or remove a prover from the whitelist.
+    /**
+     * Enable or disable proposer and prover whitelisting
+     * @param whitelistProposers True to enable proposer whitelisting.
+     * @param whitelistProvers True to enable prover whitelisting.
+     */
+    function enableWhitelisting(
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) public onlyOwner {
+        V1Utils.enableWhitelisting({
+            tentative: tentative,
+            whitelistProposers: whitelistProposers,
+            whitelistProvers: whitelistProvers
+        });
+    }
+
+    /**
+     *  Add or remove a proposer from the whitelist.
+     *
+     * @param proposer The proposer to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProposer(
+        address proposer,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Utils.whitelistProposer({
+            tentative: tentative,
+            proposer: proposer,
+            whitelisted: whitelisted
+        });
+    }
+
+    /**
+     *  Add or remove a prover from the whitelist.
      *
      * @param prover The prover to be added or removed.
      * @param whitelisted True to add; remove otherwise.
@@ -167,8 +216,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address prover,
         bool whitelisted
     ) public onlyOwner {
-        V1Proving.whitelistProver({
-            state: state,
+        V1Utils.whitelistProver({
+            tentative: tentative,
             prover: prover,
             whitelisted: whitelisted
         });
@@ -183,24 +232,37 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
+     * Check whether a proposer is whitelisted.
+     *
+     * @param proposer The proposer.
+     * @return True if the proposer is whitelisted, false otherwise.
+     */
+    function isProposerWhitelisted(
+        address proposer
+    ) public view returns (bool) {
+        return V1Utils.isProposerWhitelisted(tentative, proposer);
+    }
+
+    /**
      * Check whether a prover is whitelisted.
      *
      * @param prover The prover.
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Proving.isProverWhitelisted(state, prover);
+        return V1Utils.isProverWhitelisted(tentative, prover);
     }
 
-    function getBlockFee() public view returns (uint256 premiumFee) {
-        (, premiumFee) = V1Proposing.getBlockFee(state);
+    function getBlockFee() public view returns (uint256) {
+        (, uint fee, uint deposit) = V1Proposing.getBlockFee(state);
+        return fee + deposit;
     }
 
     function getProofReward(
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 premiumReward) {
-        (, premiumReward) = V1Verifying.getProofReward({
+    ) public view returns (uint256 reward) {
+        (, reward, ) = V1Verifying.getProofReward({
             state: state,
             provenAt: provenAt,
             proposedAt: proposedAt

@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import { K_BRIDGE_MESSAGE } from "../../constants/messages"
+import { MessageStatus } from "../../../tasks/utils"
 
 describe("LibBridgeData", function () {
     async function deployLibBridgeDataFixture() {
@@ -32,12 +33,6 @@ describe("LibBridgeData", function () {
         ]
 
         const testVar = [K_BRIDGE_MESSAGE, testMessage]
-
-        const MessageStatus = {
-            NEW: 0,
-            RETRIABLE: 1,
-            DONE: 2,
-        }
 
         return {
             owner,

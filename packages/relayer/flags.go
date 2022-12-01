@@ -25,3 +25,5 @@ var (
 	FilterAndSubscribeWatchMode WatchMode = "filter-and-subscribe"
 	WatchModes                            = []WatchMode{FilterWatchMode, SubscribeWatchMode}
 )
+
+type HTTPOnly bool

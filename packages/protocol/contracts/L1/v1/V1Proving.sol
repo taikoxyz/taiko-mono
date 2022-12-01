@@ -44,21 +44,20 @@ library V1Proving {
         address prover
     );
 
-    event ProverWhitelisted(address indexed prover, bool whitelisted);
-
-    modifier onlyWhitelistedProver(LibData.State storage state) {
-        if (LibConstants.K_WHITELIST_PROVERS) {
-            require(state.provers[msg.sender], "L1:whitelist");
+    modifier onlyWhitelistedProver(LibData.TentativeState storage tentative) {
+        if (tentative.whitelistProvers) {
+            require(tentative.provers[msg.sender], "L1:whitelist");
         }
         _;
     }
 
     function proveBlock(
         LibData.State storage state,
+        LibData.TentativeState storage tentative,
         AddressResolver resolver,
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(state) {
+    ) public onlyWhitelistedProver(tentative) {
         assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
@@ -68,7 +67,7 @@ library V1Proving {
         bytes calldata anchorReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockId, "L1:id");
         require(
             evidence.proofs.length == 2 + LibConstants.K_ZKPROOFS_PER_BLOCK,
             "L1:proof:size"
@@ -141,10 +140,11 @@ library V1Proving {
 
     function proveBlockInvalid(
         LibData.State storage state,
+        LibData.TentativeState storage tentative,
         AddressResolver resolver,
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(state) {
+    ) public onlyWhitelistedProver(tentative) {
         assert(!V1Utils.isHalted(state));
 
         // Check and decode inputs
@@ -157,7 +157,7 @@ library V1Proving {
         bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockIndex, "L1:id");
+        require(evidence.meta.id == blockId, "L1:id");
         require(
             evidence.proofs.length == 1 + LibConstants.K_ZKPROOFS_PER_BLOCK,
             "L1:proof:size"
@@ -203,29 +203,6 @@ library V1Proving {
             target: target,
             blockHashOverride: LibConstants.K_BLOCK_DEADEND_HASH
         });
-    }
-
-    function whitelistProver(
-        LibData.State storage state,
-        address prover,
-        bool whitelisted
-    ) public {
-        assert(LibConstants.K_WHITELIST_PROVERS);
-        require(
-            prover != address(0) && state.provers[prover] != whitelisted,
-            "L1:precondition"
-        );
-
-        state.provers[prover] = whitelisted;
-        emit ProverWhitelisted(prover, whitelisted);
-    }
-
-    function isProverWhitelisted(
-        LibData.State storage state,
-        address prover
-    ) public view returns (bool) {
-        assert(LibConstants.K_WHITELIST_PROVERS);
-        return state.provers[prover];
     }
 
     function _proveBlock(
@@ -303,14 +280,14 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        emit BlockProven(
-            target.id,
-            parentHash,
-            blockHash,
-            target.timestamp,
-            fc.provenAt,
-            prover
-        );
+        emit BlockProven({
+            id: target.id,
+            parentHash: parentHash,
+            blockHash: blockHash,
+            timestamp: target.timestamp,
+            provenAt: fc.provenAt,
+            prover: prover
+        });
     }
 
     function _validateAnchorTxSignature(

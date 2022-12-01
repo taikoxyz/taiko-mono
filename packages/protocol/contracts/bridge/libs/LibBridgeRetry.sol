@@ -71,7 +71,10 @@ library LibBridgeRetry {
         ) {
             state.updateMessageStatus(signal, LibBridgeData.MessageStatus.DONE);
         } else if (isLastAttempt) {
-            state.updateMessageStatus(signal, LibBridgeData.MessageStatus.DONE);
+            state.updateMessageStatus(
+                signal,
+                LibBridgeData.MessageStatus.FAILED
+            );
 
             address refundAddress = message.refundAddress == address(0)
                 ? message.owner

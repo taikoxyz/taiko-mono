@@ -10,10 +10,6 @@ describe("TaikoL1", function () {
         ).deploy()
         await addressManager.init()
 
-        const uint512 = await (
-            await ethers.getContractFactory("Uint512")
-        ).deploy()
-
         const libReceiptDecoder = await (
             await ethers.getContractFactory("LibReceiptDecoder")
         ).deploy()
@@ -36,7 +32,6 @@ describe("TaikoL1", function () {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
                     LibZKP: libZKP.address,
-                    Uint512: uint512.address,
                 },
             })
         ).deploy()
@@ -50,7 +45,6 @@ describe("TaikoL1", function () {
                 V1Verifying: v1Verifying.address,
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
-                Uint512: uint512.address,
             },
         })
 
