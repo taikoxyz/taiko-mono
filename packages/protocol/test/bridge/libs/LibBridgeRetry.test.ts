@@ -270,7 +270,7 @@ describe("LibBridgeRetry", function () {
                         getSlot(hre, signal, 202)
                     )
                 )
-            ).to.equal(MessageStatus.DONE.toString())
+            ).to.equal(MessageStatus.FAILED.toString())
 
             expect(balancePlusRefund).to.be.equal(
                 originalBalance.add(message.callValue)
