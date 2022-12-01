@@ -92,7 +92,7 @@ describe("EtherVault", function () {
                 etherVault
                     .connect(authorized)
                     .receiveEther(balance.add(additionalAmount))
-            ).to.be.revertedWith("LA:fail")
+            ).to.be.revertedWith("ETH transfer failed")
         })
 
         it("throws if not authorized", async () => {

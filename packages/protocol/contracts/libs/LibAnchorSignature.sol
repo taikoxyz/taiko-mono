@@ -55,7 +55,7 @@ library LibAnchorSignature {
         bytes32 digest,
         uint8 k
     ) internal view returns (uint8 v, uint256 r, uint256 s) {
-        require(k == 1 || k == 2, "AS:k");
+        require(k == 1 || k == 2, "invalid k value");
 
         r = k == 1 ? GX : GX2;
 
