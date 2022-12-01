@@ -9,9 +9,12 @@
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import Loader from "./icons/Loader.svelte";
+  import type { BridgeTransaction } from "src/domain/transactions";
+
+  export let transactions: BridgeTransaction[] = [];
 
   let address: string;
-  let addressAvatarImgData;
+  let addressAvatarImgData: string;
   onMount(async () => {
     address = await $signer.getAddress();
     addressAvatarImgData = getAddressAvatarFromIdenticon(address);
@@ -33,17 +36,18 @@
 
 <div class="dropdown dropdown-bottom">
   <button tabindex="0" class="btn btn-wide justify-around">
-    <img
-      width="26"
-      height="26"
-      src="data:image/png;base64,{addressAvatarImgData}"
-      class="rounded-full mr-2"
-      alt="avatar"
-    />
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending <Loader />
       {:else}
+        <img
+          width="26"
+          height="26"
+          src="data:image/png;base64,{addressAvatarImgData}"
+          class="rounded-full mr-2"
+          alt="avatar"
+        />
+
         {addressSubsection(address)}
       {/if}
     </span>
@@ -65,5 +69,10 @@
         >Disconnect</span
       >
     </li>
+    {#if transactions && transactions.length}
+      <li>
+        <span class="cursor-pointer"> {transactions.length} Transactions</span>
+      </li>
+    {/if}
   </ul>
 </div>

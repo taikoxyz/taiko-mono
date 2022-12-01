@@ -17,10 +17,11 @@
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
   import { pendingTransactions } from "../../store/transactions";
+  import type { Transactioner } from "src/domain/transactions";
 
   let amount: string;
-  let btnDisabled: boolean = true;
   let requiresAllowance: boolean = true;
+  let btnDisabled: boolean = true;
 
   $: isBtnDisabled($signer, amount, $token)
     .then((d) => (btnDisabled = d))
@@ -33,7 +34,6 @@
   async function isBtnDisabled(signer: Signer, amount: string, token: Token) {
     if (!signer) return true;
     if (!amount) return true;
-    if (!token) return true;
     if (requiresAllowance) return true;
     const balance = await signer.getBalance("latest");
     if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
@@ -91,6 +91,8 @@
 
   async function bridge() {
     try {
+      if (requiresAllowance) throw Error("requires additional allowance");
+
       const tx = await $activeBridge.Bridge({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
@@ -122,6 +124,10 @@
       val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET
     );
   }
+
+  function onInput(e: any) {
+    amount = (e.data as number).toString();
+  }
 </script>
 
 <div class="form-control w-full">
@@ -138,7 +144,7 @@
       step="0.01"
       placeholder="0.01"
       min="0"
-      bind:value={amount}
+      on:input={onInput}
       class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
       name="amount"
     />
@@ -157,30 +163,6 @@
   </legend>
 </fieldset>
 
-<div class="form-control w-full">
-  <label class="label" for="amount-to">
-    <span class="label-text">{$_("home.to")}</span>
-  </label>
-  <label class="input-group relative rounded-lg overflow-hidden">
-    <span
-      class="bg-transparent border-transparent absolute top-0 left-0 h-full z-0"
-      >{$toChain.name}</span
-    >
-    <input
-      type="number"
-      step="0.01"
-      placeholder="0.01"
-      min="0"
-      bind:value={amount}
-      class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
-      name="amount-to"
-    />
-    <span
-      class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full"
-      >ETH</span
-    >
-  </label>
-</div>
 <ProcessingFee />
 
 {#if !requiresAllowance}

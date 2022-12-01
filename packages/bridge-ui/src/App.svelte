@@ -2,21 +2,23 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import { SvelteToast } from "@zerodevx/svelte-toast";
+  import { SvelteToast, toast } from "@zerodevx/svelte-toast";
   import { configureChains } from "@wagmi/core";
   import { publicProvider } from "@wagmi/core/providers/public";
 
-  import { mainnet, taiko } from "./domain/chain";
-  import Navbar from "./components/Navbar.svelte";
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
-  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from "./domain/chain";
   import ERC20Bridge from "./erc20/bridge";
   import { pendingTransactions } from "./store/transactions";
   import { ethers } from "ethers";
+  import Navbar from "./components/Navbar.svelte";
+  import { signer } from "./store/signer";
+  import type { Transactioner } from "./domain/transactions";
+  import { RelayerService } from "./relayer/service";
 
   setupI18n({ withLocale: "en" });
 
@@ -40,7 +42,19 @@
     return store;
   });
 
-  pendingTransactions.subscribe((store) => {});
+  const relayerURL = import.meta.env.VITE_RELAYER_URL;
+
+  const transactioner: Transactioner = new RelayerService(relayerURL);
+
+  pendingTransactions.subscribe((store) => {
+    store.forEach(async (tx) => {
+      await $signer.provider.waitForTransaction(tx.hash, 3);
+      toast.push("Transaction completed!");
+      const s = store;
+      s.pop();
+      pendingTransactions.set(s);
+    });
+  });
 
   const routes = {
     "/": wrap({
@@ -53,7 +67,7 @@
 
 <QueryProvider>
   <main>
-    <Navbar />
+    <Navbar {transactioner} />
     <Router {routes} />
   </main>
   <SvelteToast />

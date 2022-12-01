@@ -4,6 +4,10 @@ import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 
 class ETHBridge implements Bridge {
+  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   // ETH does not need to be approved for transacting
   Approve(opts: ApproveOpts): Promise<Transaction> {
     return new Promise((resolve) => resolve({} as unknown as Transaction));
@@ -18,7 +22,7 @@ class ETHBridge implements Bridge {
 
     const owner = await opts.signer.getAddress();
     const message = {
-      sender: opts.signer.getAddress(),
+      sender: owner,
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
       owner: owner,
