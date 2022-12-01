@@ -38,7 +38,7 @@ library LibReceiptDecoder {
                 : encoded
         );
 
-        require(rlpItems.length == 4, "invalid items length");
+        require(rlpItems.length == 4, "RD:rlpItems");
 
         receipt.status = uint64(LibRLPReader.readUint256(rlpItems[0]));
         receipt.cumulativeGasUsed = uint64(
@@ -52,7 +52,7 @@ library LibReceiptDecoder {
         LibRLPReader.RLPItem memory logsBloomRlp
     ) internal pure returns (bytes32[8] memory logsBloom) {
         bytes memory bloomBytes = LibRLPReader.readBytes(logsBloomRlp);
-        require(bloomBytes.length == 256, "invalid logs bloom");
+        require(bloomBytes.length == 256, "RD:bloom");
 
         return abi.decode(bloomBytes, (bytes32[8]));
     }

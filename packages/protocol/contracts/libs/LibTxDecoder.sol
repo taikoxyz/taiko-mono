@@ -79,7 +79,7 @@ library LibTxDecoder {
         bytes calldata encoded
     ) public pure returns (TxList memory txList) {
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
-        require(txs.length > 0, "empty txList");
+        require(txs.length > 0, "TD:txs");
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
@@ -136,10 +136,10 @@ library LibTxDecoder {
                 _tx.s = tx1559.signatureS;
                 _tx.data = tx1559.data;
             } else {
-                revert("invalid txType");
+                revert("TD:txType");
             }
         } else {
-            revert("invalid prefix");
+            revert("TD:prefix");
         }
     }
 
@@ -152,7 +152,7 @@ library LibTxDecoder {
     function decodeLegacyTx(
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (TransactionLegacy memory txLegacy) {
-        require(body.length == 9, "invalid items length");
+        require(body.length == 9, "TD:body");
 
         txLegacy.nonce = LibRLPReader.readUint256(body[0]);
         txLegacy.gasPrice = LibRLPReader.readUint256(body[1]);
@@ -171,7 +171,7 @@ library LibTxDecoder {
     function decodeTx2930(
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (Transaction2930 memory tx2930) {
-        require(body.length == 11, "invalid items length");
+        require(body.length == 11, "TD:body");
 
         tx2930.chainId = LibRLPReader.readUint256(body[0]);
         tx2930.nonce = LibRLPReader.readUint256(body[1]);
@@ -189,7 +189,7 @@ library LibTxDecoder {
     function decodeTx1559(
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (Transaction1559 memory tx1559) {
-        require(body.length == 12, "invalid items length");
+        require(body.length == 12, "TD:body");
 
         tx1559.chainId = LibRLPReader.readUint256(body[0]);
         tx1559.nonce = LibRLPReader.readUint256(body[1]);

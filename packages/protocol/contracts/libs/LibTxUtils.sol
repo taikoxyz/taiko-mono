@@ -40,15 +40,15 @@ library LibTxUtils {
 
         if (transaction.txType == 0) {
             // Legacy transactions
-            require(txRLPItems.length == 9, "invalid rlp items");
+            require(txRLPItems.length == 9, "TU:9");
         } else if (transaction.txType == 1) {
             // EIP-2930 transactions
-            require(txRLPItems.length == 11, "invalid rlp items");
+            require(txRLPItems.length == 11, "TU:11");
         } else if (transaction.txType == 2) {
             // EIP-1559 transactions
-            require(txRLPItems.length == 12, "invalid rlp items");
+            require(txRLPItems.length == 12, "TU:12");
         } else {
-            revert("invalid txType");
+            revert("TU:txRLPItems");
         }
 
         // Signature values are always last three RLP items for all kinds of

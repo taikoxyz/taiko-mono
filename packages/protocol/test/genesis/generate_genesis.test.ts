@@ -138,7 +138,7 @@ action("Generate Genesis", function () {
 
             await expect(
                 LibTxDecoder.decodeTxList(ethers.utils.RLP.encode([]))
-            ).to.be.revertedWith("empty txList")
+            ).to.be.revertedWith("TD:txs")
         })
 
         it("V1TaikoL2", async function () {

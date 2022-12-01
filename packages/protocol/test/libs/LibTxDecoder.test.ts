@@ -35,7 +35,7 @@ describe("LibTxDecoder", function () {
             const txListBytes = await rlpEncodeTxList(txList)
             await expect(
                 libTxDecoder.callStatic.decodeTxList(txListBytes)
-            ).to.be.revertedWith("empty txList")
+            ).to.be.revertedWith("TD:txs")
         })
 
         it("should revert with random bytes", async function () {

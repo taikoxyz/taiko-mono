@@ -71,13 +71,13 @@ library LibInvalidTxList {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
 
-            require(txIdx < txList.items.length, "invalid txIdx");
+            require(txIdx < txList.items.length, "ITL:txIdx");
             LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
                     LibTxUtils.recoverSender(_tx) == address(0),
-                    "bad hint TX_INVALID_SIG"
+                    "ITL:badHint:Sig"
                 );
                 return Reason.TX_INVALID_SIG;
             }
@@ -85,12 +85,12 @@ library LibInvalidTxList {
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
                 require(
                     _tx.gasLimit >= LibConstants.K_TX_MIN_GAS_LIMIT,
-                    "bad hint"
+                    "ITL:badHint:Gas"
                 );
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;
             }
 
-            revert("failed to prove txlist invalid");
+            revert("ITL:error");
         } catch (bytes memory) {
             return Reason.BINARY_NOT_DECODABLE;
         }

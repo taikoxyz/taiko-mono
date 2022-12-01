@@ -51,7 +51,7 @@ describe("TokenVault", function () {
 
             await expect(
                 token.connect(protoBroker).mint(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("TKO: invalid address")
+            ).to.be.revertedWith("TKO:account")
         })
 
         it("throws when minter is not the protoBroker", async () => {
@@ -86,7 +86,7 @@ describe("TokenVault", function () {
 
             await expect(
                 token.connect(protoBroker).burn(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("TKO: invalid address")
+            ).to.be.revertedWith("TKO:account")
         })
 
         it("throws when burner is not the protoBroker", async () => {
@@ -130,7 +130,7 @@ describe("TokenVault", function () {
 
             await expect(
                 token.connect(owner).transfer(token.address, 1)
-            ).to.be.revertedWith("TKO: invalid to")
+            ).to.be.revertedWith("TKO:to")
         })
 
         it("throws when transfer is > user's amount", async () => {

@@ -58,7 +58,7 @@ library LibTrieProof {
             stateRoot
         );
 
-        require(exists, "LTP:invalid account proof");
+        require(exists, "LTP:exists");
 
         LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
             rlpAccount
@@ -74,6 +74,6 @@ library LibTrieProof {
             storageRoot
         );
 
-        require(verified, "LTP:invalid storage proof");
+        require(verified, "LTP:verified");
     }
 }
