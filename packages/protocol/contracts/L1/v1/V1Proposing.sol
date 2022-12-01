@@ -50,7 +50,11 @@ library V1Proposing {
         require(state.commits[msg.sender][commitSlot] != hash, "L1:committed");
         state.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted(commitSlot, uint64(block.number), commitHash);
+        emit BlockCommitted({
+            commitSlot: commitSlot,
+            commitHeight: uint64(block.number),
+            commitHash: commitHash
+        });
     }
 
     function proposeBlock(

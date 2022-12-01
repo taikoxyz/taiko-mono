@@ -37,16 +37,17 @@ library V1Utils {
     function whitelistProposer(
         LibData.TentativeState storage tentative,
         address proposer,
-        bool enabled
+        bool whitelisted
     ) internal {
         assert(tentative.whitelistProposers);
         require(
-            proposer != address(0) && tentative.proposers[proposer] != enabled,
+            proposer != address(0) &&
+                tentative.proposers[proposer] != whitelisted,
             "L1:precondition"
         );
 
-        tentative.proposers[proposer] = enabled;
-        emit ProposerWhitelisted(proposer, enabled);
+        tentative.proposers[proposer] = whitelisted;
+        emit ProposerWhitelisted(proposer, whitelisted);
     }
 
     function whitelistProver(

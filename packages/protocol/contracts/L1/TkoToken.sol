@@ -16,7 +16,7 @@ import "../libs/LibMath.sol";
 import "../thirdparty/ERC20Upgradeable.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-/// @dev This is Taiko's governance and utility token.
+/// @dev This is Taiko's governance and fee token.
 contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;

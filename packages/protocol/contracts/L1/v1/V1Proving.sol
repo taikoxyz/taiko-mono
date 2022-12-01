@@ -280,14 +280,14 @@ library V1Proving {
 
         fc.provers.push(prover);
 
-        emit BlockProven(
-            target.id,
-            parentHash,
-            blockHash,
-            target.timestamp,
-            fc.provenAt,
-            prover
-        );
+        emit BlockProven({
+            id: target.id,
+            parentHash: parentHash,
+            blockHash: blockHash,
+            timestamp: target.timestamp,
+            provenAt: fc.provenAt,
+            prover: prover
+        });
     }
 
     function _validateAnchorTxSignature(

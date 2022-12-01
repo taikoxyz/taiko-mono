@@ -142,7 +142,12 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        emit EtherSent(to, destChainId, message.depositValue, signal);
+        emit EtherSent({
+            to: to,
+            destChainId: destChainId,
+            amount: message.depositValue,
+            signal: signal
+        });
     }
 
     /**
@@ -310,13 +315,13 @@ contract TokenVault is EssentialContract {
             canonicalToken.addr
         ] = bridgedToken;
 
-        emit BridgedERC20Deployed(
-            canonicalToken.chainId,
-            canonicalToken.addr,
-            bridgedToken,
-            canonicalToken.symbol,
-            canonicalToken.name,
-            canonicalToken.decimals
-        );
+        emit BridgedERC20Deployed({
+            srcChainId: canonicalToken.chainId,
+            canonicalToken: canonicalToken.addr,
+            bridgedToken: bridgedToken,
+            canonicalTokenSymbol: canonicalToken.symbol,
+            canonicalTokenName: canonicalToken.name,
+            canonicalTokenDecimal: canonicalToken.decimals
+        });
     }
 }

@@ -182,11 +182,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelistProposers,
         bool whitelistProvers
     ) public onlyOwner {
-        V1Utils.enableWhitelisting(
-            tentative,
-            whitelistProposers,
-            whitelistProvers
-        );
+        V1Utils.enableWhitelisting({
+            tentative: tentative,
+            whitelistProposers: whitelistProposers,
+            whitelistProvers: whitelistProvers
+        });
     }
 
     /**
@@ -199,7 +199,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address proposer,
         bool whitelisted
     ) public onlyOwner {
-        V1Utils.whitelistProposer(tentative, proposer, whitelisted);
+        V1Utils.whitelistProposer({
+            tentative: tentative,
+            proposer: proposer,
+            whitelisted: whitelisted
+        });
     }
 
     /**
