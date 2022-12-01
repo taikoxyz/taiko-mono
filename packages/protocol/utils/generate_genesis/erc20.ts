@@ -27,13 +27,21 @@ export async function deployERC20(
         "./test/thirdparty/TestERC20.sol/TestERC20.json"
     ))
 
-    const address = ethers.utils.getCreate2Address(
-        contractOwner,
-        ethers.utils.keccak256(
-            ethers.utils.toUtf8Bytes(`${chainId}${artifact.contractName}`)
-        ),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes(artifact.bytecode))
-    )
+    let address: string
+    if (
+        config.contractAddresses &&
+        ethers.utils.isAddress(config.contractAddresses[artifact.contractName])
+    ) {
+        address = config.contractAddresses[artifact.contractName]
+    } else {
+        address = ethers.utils.getCreate2Address(
+            contractOwner,
+            ethers.utils.keccak256(
+                ethers.utils.toUtf8Bytes(`${chainId}${artifact.contractName}`)
+            ),
+            ethers.utils.keccak256(ethers.utils.toUtf8Bytes(artifact.bytecode))
+        )
+    }
 
     const variables = {
         _name: TOKEN_NAME,
