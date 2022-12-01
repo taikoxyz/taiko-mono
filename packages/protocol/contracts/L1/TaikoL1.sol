@@ -34,7 +34,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Verifying.init(state, _genesisBlockHash, _feeBase);
+        V1Verifying.init({
+            state: state,
+            genesisBlockHash: _genesisBlockHash,
+            feeBase: _feeBase
+        });
 
         tentative.whitelistProposers = false;
         tentative.whitelistProvers = true;

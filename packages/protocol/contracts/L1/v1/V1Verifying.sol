@@ -25,20 +25,20 @@ library V1Verifying {
 
     function init(
         LibData.State storage state,
-        bytes32 _genesisBlockHash,
-        uint256 _feeBase
+        bytes32 genesisBlockHash,
+        uint256 feeBase
     ) public {
-        require(_feeBase > 0, "L1:feeBase");
+        require(feeBase > 0, "L1:feeBase");
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBase = _feeBase;
+        state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = _genesisBlockHash;
+        state.l2Hashes[0] = genesisBlockHash;
 
-        emit BlockVerified(0, _genesisBlockHash);
-        emit HeaderSynced(block.number, 0, _genesisBlockHash);
+        emit BlockVerified(0, genesisBlockHash);
+        emit HeaderSynced(block.number, 0, genesisBlockHash);
     }
 
     function verifyBlocks(
