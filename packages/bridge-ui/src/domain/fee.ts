@@ -10,14 +10,14 @@ interface ProcessingFeeDetails {
 };
 
 const PROCESSING_FEE_META: Map<ProcessingFeeMethod, ProcessingFeeDetails> =  new Map([[ProcessingFeeMethod.RECOMMENDED, {
-  displayText: "Recommended",
-  timeToConfirm: 15 * 60 * 1000,
+  DisplayText: "Recommended",
+  TimeToConfirm: 15 * 60 * 1000,
 }], [ProcessingFeeMethod.CUSTOM, {
-  displayText: "Custom Amount",
-  timeToConfirm: 15 * 60 * 1000,
+  DisplayText: "Custom Amount",
+  TimeToConfirm: 15 * 60 * 1000,
 }], [ProcessingFeeMethod.NONE, {
-  displayText: "No Fees",
-  timeToConfirm: 15 * 60 * 1000,
+  DisplayText: "No Fees",
+  TimeToConfirm: 15 * 60 * 1000,
 }]]);
 
 export { ProcessingFeeDetails, ProcessingFeeMethod, PROCESSING_FEE_META };
