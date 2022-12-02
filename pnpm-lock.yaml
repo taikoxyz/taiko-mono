@@ -11,6 +11,7 @@ importers:
   packages/bridge-ui:
     specifiers:
       '@babel/preset-env': ^7.16.0
+      '@lottiefiles/svelte-lottie-player': ^0.2.0
       '@sveltejs/vite-plugin-svelte': ^1.0.1
       '@sveltestack/svelte-query': ^1.6.0
       '@tsconfig/svelte': ^3.0.0
@@ -54,7 +55,9 @@ importers:
       tslib: ^2.4.0
       typescript: ^4.6.4
       vite: ^3.0.0
+      vite-plugin-static-copy: ^0.12.0
     dependencies:
+      '@lottiefiles/svelte-lottie-player': 0.2.0
       '@sveltestack/svelte-query': 1.6.0
       '@wagmi/core': 0.7.5_pinzqcinq2gn5fmxzoagizk6bi
       axios: 1.2.0
@@ -100,6 +103,7 @@ importers:
       tslib: 2.4.1
       typescript: 4.9.3
       vite: 3.2.4
+      vite-plugin-static-copy: 0.12.0_vite@3.2.4
 
   packages/protocol:
     specifiers:
@@ -3169,6 +3173,12 @@ packages:
 
   /@leichtgewicht/ip-codec/2.0.4:
     resolution: {integrity: sha512-Hcv+nVC0kZnQ3tD9GVu5xSMR4VVYOteQIr/hwFPVEvPdlXqgGEuRjiheChHgdM+JyqdgNcmzZOX/tnl0JOiI7A==}
+
+  /@lottiefiles/svelte-lottie-player/0.2.0:
+    resolution: {integrity: sha512-sV8YkO8hCDGq67LCCqjT+JW6cAbVCIw9wtgrOWz+Ao6Q8cD7ZvdsCiipSIMIH55Ja6MWwEXP4N4nKD+jL3XQLg==}
+    dependencies:
+      lottie-web: 5.10.0
+    dev: false
 
   /@mdx-js/mdx/1.6.22:
     resolution: {integrity: sha512-AMxuLxPz2j5/6TpF/XSdKpQP1NlG0z11dFOlq+2IP/lSgl11GY8ji6S/rgsViN/L0BDvHvUMruRb7ub+24LUYA==}
@@ -13514,6 +13524,10 @@ packages:
     dependencies:
       js-tokens: 4.0.0
 
+  /lottie-web/5.10.0:
+    resolution: {integrity: sha512-q2hfqKrGXNkwjSSZjKxf3fWMi0e3ZBc03qBkVWoGbwUJ7BcG+9YXjMPtmmhitzk8Nc6VQ5PRnh9yInPdfq0PZg==}
+    dev: false
+
   /loupe/2.3.6:
     resolution: {integrity: sha512-RaPMZKiMy8/JruncMU5Bt6na1eftNoo++R4Y+N2FrxkDVTrGvcyzFTsaGif4QTeKESheMGegbhw6iUAq+5A8zA==}
     dependencies:
@@ -19287,6 +19301,19 @@ packages:
       is-buffer: 2.0.5
       unist-util-stringify-position: 2.0.3
       vfile-message: 2.0.4
+
+  /vite-plugin-static-copy/0.12.0_vite@3.2.4:
+    resolution: {integrity: sha512-5a8hCjYJdf/rl8s7ct/YWt97gXdGPGNSOoJtkY5IYhbnSq04X1gTt5GpFHKfAxhHoed1Grfw3Ed13t7AjJi7gw==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    peerDependencies:
+      vite: ^3.0.0
+    dependencies:
+      chokidar: 3.5.3
+      fast-glob: 3.2.12
+      fs-extra: 10.1.0
+      picocolors: 1.0.0
+      vite: 3.2.4
+    dev: true
 
   /vite/3.2.4:
     resolution: {integrity: sha512-Z2X6SRAffOUYTa+sLy3NQ7nlHFU100xwanq1WDwqaiFiCe+25zdxP1TfCS5ojPV2oDDcXudHIoPnI1Z/66B7Yw==}
