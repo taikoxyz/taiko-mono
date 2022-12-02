@@ -28,7 +28,6 @@ library LibConstants {
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
     uint256 public constant K_FEE_PREMIUM_LAMDA = 590;
     uint256 public constant K_REWARD_BURN_BP = 100; // 100 basis points or 1%
-    uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
     uint256 public constant K_PROPOSER_DEPOSIT_PCTG = 25; // 25%
 
     // Moving average factors
