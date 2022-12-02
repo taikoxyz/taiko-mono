@@ -59,6 +59,12 @@ action("Generate Genesis", function () {
             const expectCode: string = alloc[address].code
 
             expect(code.toLowerCase()).to.be.equal(expectCode.toLowerCase())
+
+            if (testConfig.contractAddresses[alloc[address].contractName]) {
+                expect(address).to.be.equal(
+                    testConfig.contractAddresses[alloc[address].contractName]
+                )
+            }
         }
     })
 

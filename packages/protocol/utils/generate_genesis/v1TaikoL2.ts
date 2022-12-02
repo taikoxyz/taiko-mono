@@ -39,7 +39,8 @@ export async function deployV1TaikoL2(
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
-        chainId
+        chainId,
+        config.contractAddresses
     )
 
     const storageLayouts: any = {}
@@ -88,7 +89,8 @@ export async function deployV1TaikoL2(
 // and initialized variables.
 async function generateContractConfigs(
     contractOwner: string,
-    chainId: number
+    chainId: number,
+    hardCodedAddresses: any
 ): Promise<any> {
     const contractArtifacts: any = {
         // Libraries
@@ -165,13 +167,20 @@ async function generateContractConfigs(
             bytecode = linkContractLibs(contractArtifacts.Bridge, addressMap)
         }
 
-        addressMap[contractName] = ethers.utils.getCreate2Address(
-            contractOwner,
-            ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes(`${chainId}${contractName}`)
-            ),
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes(bytecode))
-        )
+        if (
+            hardCodedAddresses &&
+            ethers.utils.isAddress(hardCodedAddresses[contractName])
+        ) {
+            addressMap[contractName] = hardCodedAddresses[contractName]
+        } else {
+            addressMap[contractName] = ethers.utils.getCreate2Address(
+                contractOwner,
+                ethers.utils.keccak256(
+                    ethers.utils.toUtf8Bytes(`${chainId}${contractName}`)
+                ),
+                ethers.utils.keccak256(ethers.utils.toUtf8Bytes(bytecode))
+            )
+        }
     }
 
     console.log("pre-computed addresses:")
