@@ -98,10 +98,38 @@ library V1Proposing {
             meta.mixHash = bytes32(block.difficulty);
         }
 
+        uint256 deposit;
+        if (LibConstants.K_TOKENOMICS_ENABLED) {
+            uint256 newFeeBase;
+            {
+                uint256 fee;
+                (newFeeBase, fee, deposit) = getBlockFee(state);
+                TkoToken(resolver.resolve("tko_token")).burn(
+                    msg.sender,
+                    fee + deposit
+                );
+            }
+            // Update feeBase and avgBlockTime
+            state.feeBase = V1Utils.movingAverage({
+                maValue: state.feeBase,
+                newValue: newFeeBase,
+                maf: LibConstants.K_FEE_BASE_MAF
+            });
+
+            state.avgBlockTime = V1Utils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: meta.timestamp - state.lastProposedAt,
+                    maf: LibConstants.K_BLOCK_TIME_MAF
+                })
+                .toUint64();
+        }
+
         state.saveProposedBlock(
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: LibData.hashMetadata(meta),
+                deposit: deposit,
                 proposer: msg.sender,
                 proposedAt: meta.timestamp
             })
@@ -109,6 +137,26 @@ library V1Proposing {
 
         state.lastProposedAt = meta.timestamp;
         emit BlockProposed(state.nextBlockId++, meta);
+    }
+
+    function getBlockFee(
+        LibData.State storage state
+    ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
+        (newFeeBase, ) = V1Utils.getTimeAdjustedFee({
+            state: state,
+            isProposal: true,
+            tNow: uint64(block.timestamp),
+            tLast: state.lastProposedAt,
+            tAvg: state.avgBlockTime,
+            tCap: LibConstants.K_BLOCK_TIME_CAP
+        });
+        fee = V1Utils.getSlotsAdjustedFee({
+            state: state,
+            isProposal: true,
+            feeBase: newFeeBase
+        });
+        fee = V1Utils.getBootstrapDiscountedFee(state, fee);
+        deposit = (fee * LibConstants.K_PROPOSER_DEPOSIT_PCTG) / 100;
     }
 
     function isCommitValid(

@@ -29,6 +29,7 @@ library LibData {
     // 3 slots
     struct ProposedBlock {
         bytes32 metaHash;
+        uint256 deposit;
         address proposer;
         uint64 proposedAt;
     }
@@ -55,6 +56,8 @@ library LibData {
         uint64 genesisTimestamp;
         uint64 __reservedA1;
         uint64 statusBits; // rarely change
+        // Changed when a block is proposed or proven/finalized
+        uint256 feeBase;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.

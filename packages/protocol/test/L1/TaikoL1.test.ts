@@ -1,5 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { BigNumber } from "ethers"
 
 describe("TaikoL1", function () {
     async function deployTaikoL1Fixture() {
@@ -49,7 +50,8 @@ describe("TaikoL1", function () {
 
         const genesisHash = randomBytes32()
         const taikoL1 = await TaikoL1Factory.deploy()
-        await taikoL1.init(addressManager.address, genesisHash)
+        const feeBase = BigNumber.from(10).pow(18)
+        await taikoL1.init(addressManager.address, genesisHash, feeBase)
 
         return { taikoL1, genesisHash }
     }
