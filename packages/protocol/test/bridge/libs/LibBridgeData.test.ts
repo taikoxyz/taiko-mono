@@ -1,6 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
+import { K_BRIDGE_MESSAGE } from "../../constants/messages"
 import { MessageStatus } from "../../../tasks/utils"
 
 describe("LibBridgeData", function () {
@@ -32,7 +32,7 @@ describe("LibBridgeData", function () {
             "tuple(uint256 id, address sender, uint256 srcChainId, uint256 destChainId, address owner, address to, address refundAddress, uint256 depositValue, uint256 callValue, uint256 processingFee, uint256 gasLimit, bytes data, string memo)",
         ]
 
-        const testVar = [TAIKO_BRIDGE_MESSAGE, testMessage]
+        const testVar = [K_BRIDGE_MESSAGE, testMessage]
 
         return {
             owner,
@@ -51,7 +51,7 @@ describe("LibBridgeData", function () {
                 await deployLibBridgeDataFixture()
             // dummy struct to test with
 
-            const testVar = [TAIKO_BRIDGE_MESSAGE, testMessage]
+            const testVar = [K_BRIDGE_MESSAGE, testMessage]
             const hashed = await libData.hashMessage(testMessage)
             const expectedEncoded = ethers.utils.defaultAbiCoder.encode(
                 testTypes,
