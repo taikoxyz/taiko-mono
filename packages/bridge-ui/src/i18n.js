@@ -8,7 +8,8 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
                 title: "Taiko Bridge",
                 selectToken: "Select Token",
                 to: "To",
-                bridge: "Bridge"
+                bridge: "Bridge",
+                approve: "Approve"
             },
             "bridgeForm": {
                 fieldLabel: "Bridge Token",

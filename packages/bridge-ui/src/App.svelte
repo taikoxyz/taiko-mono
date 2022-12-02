@@ -2,30 +2,37 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import { SvelteToast } from "@zerodevx/svelte-toast";
-  import { configureChains } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public'
-  
-  import { mainnet, taiko } from "./domain/chain";
-  import Navbar from "./components/Navbar.svelte";
+  import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+  import { configureChains } from "@wagmi/core";
+  import { publicProvider } from "@wagmi/core/providers/public";
+
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
-  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from "./domain/chain";
+  import ERC20Bridge from "./erc20/bridge";
+  import { pendingTransactions } from "./store/transactions";
+  import { ethers } from "ethers";
+  import Navbar from "./components/Navbar.svelte";
+  import { signer } from "./store/signer";
+  import type { Transactioner } from "./domain/transactions";
+  import { RelayerService } from "./relayer/service";
+
+  setupI18n({ withLocale: "en" });
 
   const { chains, provider } = configureChains(
     [mainnet, taiko],
     [publicProvider()]
   );
 
-  setupI18n({ withLocale: "en" });
-
   const ethBridge = new ETHBridge();
+  const erc20Bridge = new ERC20Bridge();
 
   bridges.update((store) => {
     store.set(BridgeType.ETH, ethBridge);
+    store.set(BridgeType.ERC20, erc20Bridge);
     return store;
   });
 
@@ -33,6 +40,20 @@
     store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
     store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
     return store;
+  });
+
+  const relayerURL = import.meta.env.VITE_RELAYER_URL;
+
+  const transactioner: Transactioner = new RelayerService(relayerURL);
+
+  pendingTransactions.subscribe((store) => {
+    store.forEach(async (tx) => {
+      await $signer.provider.waitForTransaction(tx.hash, 3);
+      toast.push("Transaction completed!");
+      const s = store;
+      s.pop();
+      pendingTransactions.set(s);
+    });
   });
 
   const routes = {
@@ -46,7 +67,7 @@
 
 <QueryProvider>
   <main>
-    <Navbar />
+    <Navbar {transactioner} />
     <Router {routes} />
   </main>
   <SvelteToast />
@@ -59,6 +80,6 @@
 
   main {
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
 </style>
