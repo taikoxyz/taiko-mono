@@ -25,14 +25,10 @@ library V1Verifying {
 
     function init(
         LibData.State storage state,
-        bytes32 genesisBlockHash,
-        uint256 feeBase
+        bytes32 genesisBlockHash
     ) public {
-        require(feeBase > 0, "L1:feeBase");
-
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
         state.l2Hashes[0] = genesisBlockHash;
@@ -58,7 +54,6 @@ library V1Verifying {
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
         uint64 processed = 0;
-        TkoToken tkoToken;
 
         for (
             uint256 i = state.latestVerifiedId + 1;
@@ -66,49 +61,11 @@ library V1Verifying {
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
-            LibData.ProposedBlock storage target = LibData.getProposedBlock(
-                state,
-                i
-            );
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (!_isVerifiable(state, fc)) {
                 break;
             } else {
-                if (LibConstants.K_TOKENOMICS_ENABLED) {
-                    uint256 newFeeBase;
-                    {
-                        uint256 reward;
-                        uint256 tRelBp; // [0-10000], see the whitepaper
-                        (newFeeBase, reward, tRelBp) = getProofReward({
-                            state: state,
-                            provenAt: fc.provenAt,
-                            proposedAt: target.proposedAt
-                        });
-
-                        if (address(tkoToken) == address(0)) {
-                            tkoToken = TkoToken(resolver.resolve("tko_token"));
-                        }
-
-                        _rewardProvers(fc, reward, tkoToken);
-                        _refundProposerDeposit(target, tRelBp, tkoToken);
-                    }
-                    // Update feeBase and avgProofTime
-                    state.feeBase = V1Utils.movingAverage({
-                        maValue: state.feeBase,
-                        newValue: newFeeBase,
-                        maf: LibConstants.K_FEE_BASE_MAF
-                    });
-
-                    state.avgProofTime = V1Utils
-                        .movingAverage({
-                            maValue: state.avgProofTime,
-                            newValue: fc.provenAt - target.proposedAt,
-                            maf: LibConstants.K_PROOF_TIME_MAF
-                        })
-                        .toUint64();
-                }
-
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
                     latestL2Height += 1;
                     latestL2Hash = fc.blockHash;
@@ -127,56 +84,6 @@ library V1Verifying {
                 state.l2Hashes[latestL2Height] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
-        }
-    }
-
-    function getProofReward(
-        LibData.State storage state,
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
-        (newFeeBase, tRelBp) = V1Utils.getTimeAdjustedFee({
-            state: state,
-            isProposal: false,
-            tNow: provenAt,
-            tLast: proposedAt,
-            tAvg: state.avgProofTime,
-            tCap: LibConstants.K_PROOF_TIME_CAP
-        });
-        reward = V1Utils.getSlotsAdjustedFee({
-            state: state,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
-        reward = (reward * (10000 - LibConstants.K_REWARD_BURN_BP)) / 10000;
-    }
-
-    function _refundProposerDeposit(
-        LibData.ProposedBlock storage target,
-        uint256 tRelBp,
-        TkoToken tkoToken
-    ) private {
-        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
-        if (refund > 0) {
-            tkoToken.mint(target.proposer, refund);
-        }
-    }
-
-    function _rewardProvers(
-        LibData.ForkChoice storage fc,
-        uint256 reward,
-        TkoToken tkoToken
-    ) private {
-        uint sum = 2 ** fc.provers.length - 1;
-        for (uint i = 0; i < fc.provers.length; i++) {
-            uint weight = (1 << (fc.provers.length - i - 1));
-            uint proverReward = (reward * weight) / sum;
-
-            if (tkoToken.balanceOf(fc.provers[i]) == 0) {
-                // reduce reward if the prover has 0 TKO balance.
-                proverReward /= 2;
-            }
-            tkoToken.mint(fc.provers[i], proverReward);
         }
     }
 

@@ -30,15 +30,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash,
-        uint256 _feeBase
+        bytes32 _genesisBlockHash
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Verifying.init({
-            state: state,
-            genesisBlockHash: _genesisBlockHash,
-            feeBase: _feeBase
-        });
+        V1Verifying.init({state: state, genesisBlockHash: _genesisBlockHash});
 
         tentative.whitelistProposers = false;
         tentative.whitelistProvers = true;
@@ -251,22 +246,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
         return V1Utils.isProverWhitelisted(tentative, prover);
-    }
-
-    function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = V1Proposing.getBlockFee(state);
-        return fee + deposit;
-    }
-
-    function getProofReward(
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 reward) {
-        (, reward, ) = V1Verifying.getProofReward({
-            state: state,
-            provenAt: provenAt,
-            proposedAt: proposedAt
-        });
     }
 
     /**
