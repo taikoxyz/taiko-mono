@@ -8,8 +8,8 @@
   import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import Loader from "./icons/Loader.svelte";
   import type { BridgeTransaction } from "src/domain/transactions";
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
 
   export let transactions: BridgeTransaction[] = [];
 
@@ -38,7 +38,18 @@
   <button tabindex="0" class="btn btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
-        {$pendingTransactions.length} Pending <Loader />
+        {$pendingTransactions.length} Pending
+        <LottiePlayer
+          src="/lottie/loader.json"
+          autoplay={true}
+          loop={true}
+          controls={false}
+          renderer="svg"
+          background="transparent"
+          height={24}
+          width={24}
+          controlsLayout={[]}
+        />
       {:else}
         <img
           width="26"
