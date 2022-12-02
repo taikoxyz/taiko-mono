@@ -56,7 +56,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         publicInputHash = _hashPublicInputs({
             chainId: block.chainid,
             number: number,
-            feeBase: 0,
+            baseFee: 0,
             ancestors: ancestors
         });
     }
@@ -189,7 +189,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
                 _hashPublicInputs({
                     chainId: chainId,
                     number: parentHeight,
-                    feeBase: 0,
+                    baseFee: 0,
                     ancestors: ancestors
                 }),
             "L2:publicInputHash"
@@ -199,7 +199,7 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         publicInputHash = _hashPublicInputs({
             chainId: chainId,
             number: number,
-            feeBase: 0,
+            baseFee: 0,
             ancestors: ancestors
         });
 
