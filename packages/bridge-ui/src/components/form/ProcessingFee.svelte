@@ -1,4 +1,5 @@
 <script>
+  import { _ } from "svelte-i18n";
   import { processingFee } from "../../store/fee";
   import { PROCESSING_FEE_META } from "../../domain/fee";
 
@@ -8,7 +9,9 @@
 </script>
 
 <div class="mt-10">
-  <h4 class="text-sm font-medium text-left mb-4">Processing Fees</h4>
+  <h4 class="text-sm font-medium text-left mb-4">
+    {$_("bridgeForm.processingFeeLabel")}
+  </h4>
   <div class="flex items-center justify-between">
     {#each Array.from(PROCESSING_FEE_META) as fee}
       <button

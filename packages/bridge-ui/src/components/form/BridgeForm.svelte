@@ -18,10 +18,26 @@
   import type { Chain } from "../../domain/chain";
   import { pendingTransactions } from "../../store/transactions";
   import type { Transactioner } from "src/domain/transactions";
+  import { ETH } from "../../domain/token";
+  import SelectToken from "../buttons/SelectToken.svelte";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
+  let tokenBalance: string;
+
+  $: getUserBalance($signer, $token);
+
+  async function getUserBalance(signer, token) {
+    if (signer && token) {
+      if (token.symbol == ETH.symbol) {
+        const userBalance = await signer.getBalance("latest");
+        tokenBalance = ethers.utils.formatEther(userBalance);
+      } else {
+        // TODO: read ERC20 balance from contract
+      }
+    }
+  }
 
   $: isBtnDisabled($signer, amount, $token)
     .then((d) => (btnDisabled = d))
@@ -128,11 +144,19 @@
   function onInput(e: any) {
     amount = (e.data as number).toString();
   }
+
+  function useFullAmount() {
+    amount = tokenBalance;
+  }
 </script>
 
-<div class="form-control w-full">
+<div class="form-control w-full my-8">
   <label class="label" for="amount">
-    <span class="label-text">{$_("home.from")}</span>
+    <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
+    {#if $signer && tokenBalance}
+      <button class="label-text" on:click={useFullAmount}
+        >{$_("bridgeForm.maxLabel")} {tokenBalance} ETH</button
+      >{/if}
   </label>
   <label class="input-group relative rounded-lg overflow-hidden">
     <span
@@ -162,6 +186,8 @@
     </button>
   </legend>
 </fieldset>
+
+<SelectToken />
 
 <ProcessingFee />
 
