@@ -4,7 +4,6 @@ import { TestLibBridgeData } from "../../../typechain"
 import { MessageStatus } from "../../../tasks/utils"
 import { Message } from "../../utils/message"
 import { TAIKO_BRIDGE_MESSAGE } from "../../constants/messages"
-import { MessageStatus } from "../../../tasks/utils"
 
 describe("LibBridgeData", function () {
     async function deployLibBridgeDataFixture() {
