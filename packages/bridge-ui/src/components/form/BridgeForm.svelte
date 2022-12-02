@@ -9,9 +9,25 @@
   import ArrowDown from "../icons/ArrowDown.svelte";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import ProcessingFee from "./ProcessingFee.svelte";
+  import { ETH } from "../../domain/token";
+  import SelectToken from "../buttons/SelectToken.svelte";
 
   let amount: string;
   let btnDisabled: boolean = true;
+  let tokenBalance: string;
+
+  $: getUserBalance($signer, $token);
+  
+  async function getUserBalance(signer, token) {
+    if(signer && token) {
+      if(token.symbol == ETH.symbol) {
+        const userBalance = await signer.getBalance('latest');
+        tokenBalance = ethers.utils.formatEther(userBalance);
+      } else {
+        // TODO: read ERC20 balance from contract
+      }
+    }
+  }
 
   $: isBtnDisabled($signer, amount)
     .then((d) => (btnDisabled = d))
@@ -52,53 +68,31 @@
     fromChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
     toChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
   }
+
+  function useFullAmount() {
+    amount = tokenBalance;
+  }
 </script>
 
-<div class="form-control w-full">
+<div class="form-control w-full my-8">
   <label class="label" for="amount">
-    <span class="label-text">{$_("home.from")}</span>
+    <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
+    {#if $signer && tokenBalance } <button class="label-text" on:click={useFullAmount}>{$_("bridgeForm.maxLabel")} {tokenBalance} ETH</button>{/if}
   </label>
-  <label class="input-group relative rounded-lg overflow-hidden">
-    <span class="bg-transparent border-transparent absolute top-0 left-0 h-full z-0">{$fromChain.name}</span>
+  <label class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4">
     <input
     type="number"
     step="0.01"
     placeholder="0.01"
     min="0"
     bind:value={amount}
-    class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
+    class="input input-primary bg-dark-4 input-lg"
     name="amount"
     />
-    <span class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full">ETH</span>
+    <SelectToken />
   </label>
 </div>
 
-<fieldset class="border border-b-0 border-dark-4 mt-10 mb-7">
-  <legend class="h-0 flex items-center">
-    <button class="btn btn-square btn-sm" on:click={toggleChains}>
-      <ArrowDown />
-    </button>
-  </legend>
-</fieldset>
-
-<div class="form-control w-full">
-  <label class="label" for="amount-to">
-    <span class="label-text">{$_("home.to")}</span>
-  </label>
-  <label class="input-group relative rounded-lg overflow-hidden">
-    <span class="bg-transparent border-transparent absolute top-0 left-0 h-full z-0">{$toChain.name}</span>
-    <input
-    type="number"
-    step="0.01"
-    placeholder="0.01"
-    min="0"
-    bind:value={amount}
-    class="input input-primary focus:input-accent bg-dark-4 input-lg rounded-lg! w-full text-right pl-20 pr-12 z-1"
-    name="amount-to"
-    />
-    <span class="pl-0 bg-transparent border-transparent absolute top-0 right-0 h-full">ETH</span>
-  </label>
-</div>
 <ProcessingFee />
 
 <button

@@ -7,9 +7,13 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
             home: {
                 title: "Taiko Bridge",
                 selectToken: "Select Token",
-                from: "From",
                 to: "To",
                 bridge: "Bridge"
+            },
+            "bridgeForm": {
+                fieldLabel: "Bridge Token",
+                maxLabel: "Max:",
+                processingFeeLabel: "Processing Fee",
             },
             nav: {
                 connect: "Connect Wallet"

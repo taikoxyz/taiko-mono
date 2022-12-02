@@ -13,7 +13,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-token-select m-1">
+  <button tabindex="0" class="btn btn-active">
     <svelte:component this={$token.logoComponent} />
     <span class="px-2 font-medium">{$token.symbol.toUpperCase()}</span>
     <ChevDown />
@@ -22,10 +22,10 @@
     class="dropdown-content menu py-2 shadow-xl bg-base-100 rounded-box"
   >
     {#each tokens as t}
-      <li class="cursor-pointer w-full hover:bg-dark-3 px-9 py-3">
-        <button on:click={async () => await select(t)} class="flex items-center">
-          <svelte:component this={t.logoComponent} height={16} width={16} />
-          <span class="text-sm font-medium mx-2">{t.symbol.toUpperCase()}</span>
+      <li class="cursor-pointer w-full hover:bg-dark-3 px-7 py-3">
+        <button on:click={async () => await select(t)} class="flex items-center justify-center">
+          <svelte:component this={t.logoComponent} height={22} width={22} />
+          <span class="text-sm font-medium bg-base-100 px-2">{t.symbol.toUpperCase()}</span>
         </button>
       </li>
     {/each}
