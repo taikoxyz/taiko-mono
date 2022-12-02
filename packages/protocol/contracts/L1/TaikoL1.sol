@@ -8,36 +8,40 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import "../common/ConfigManager.sol";
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
 import "./LibData.sol";
 import "./v1/V1Events.sol";
-import "./v1/V1Finalizing.sol";
 import "./v1/V1Proposing.sol";
 import "./v1/V1Proving.sol";
 import "./v1/V1Utils.sol";
+import "./v1/V1Verifying.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
  */
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using LibData for LibData.State;
-    using LibTxDecoder for bytes;
-    using SafeCastUpgradeable for uint256;
 
     LibData.State public state;
-    uint256[43] private __gap;
+    LibData.TentativeState public tentative;
+    uint256[50] private __gap;
 
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Finalizing.init(state, _genesisBlockHash);
+        V1Verifying.init({
+            state: state,
+            genesisBlockHash: _genesisBlockHash,
+            feeBase: _feeBase
+        });
+
+        tentative.whitelistProposers = false;
+        tentative.whitelistProvers = true;
     }
 
     /**
@@ -74,19 +78,25 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        V1Proposing.proposeBlock(state, inputs);
-        V1Finalizing.verifyBlocks(
-            state,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Proposing.proposeBlock({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            inputs: inputs
+        });
+        V1Verifying.verifyBlocks({
+            state: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used
+     * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] is an abi-encoded object with various information
@@ -98,22 +108,29 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
 
     function proveBlock(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlock(state, AddressResolver(this), blockIndex, inputs);
-        V1Finalizing.verifyBlocks(
-            state,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Proving.proveBlock({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            blockId: blockId,
+            inputs: inputs
+        });
+        V1Verifying.verifyBlocks({
+            state: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
      * Prove a block is invalid with a zero-knowledge proof and a receipt
      * merkel proof.
      *
-     * @param blockIndex The index of the block to prove. This is also used to
+     * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
      * @param inputs A list of data input:
      *        - inputs[0] An Evidence object with various information regarding
@@ -124,20 +141,22 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          be the only transaction in the L2 block.
      */
     function proveBlockInvalid(
-        uint256 blockIndex,
+        uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        V1Proving.proveBlockInvalid(
-            state,
-            AddressResolver(this),
-            blockIndex,
-            inputs
-        );
-        V1Finalizing.verifyBlocks(
-            state,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            false
-        );
+        V1Proving.proveBlockInvalid({
+            state: state,
+            tentative: tentative,
+            resolver: AddressResolver(this),
+            blockId: blockId,
+            inputs: inputs
+        });
+        V1Verifying.verifyBlocks({
+            state: state,
+            resolver: AddressResolver(this),
+            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            checkHalt: false
+        });
     }
 
     /**
@@ -146,10 +165,49 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Finalizing.verifyBlocks(state, maxBlocks, true);
+        V1Verifying.verifyBlocks({
+            state: state,
+            resolver: AddressResolver(this),
+            maxBlocks: maxBlocks,
+            checkHalt: true
+        });
     }
 
-    /* Add or remove a prover from the whitelist.
+    /**
+     * Enable or disable proposer and prover whitelisting
+     * @param whitelistProposers True to enable proposer whitelisting.
+     * @param whitelistProvers True to enable prover whitelisting.
+     */
+    function enableWhitelisting(
+        bool whitelistProposers,
+        bool whitelistProvers
+    ) public onlyOwner {
+        V1Utils.enableWhitelisting({
+            tentative: tentative,
+            whitelistProposers: whitelistProposers,
+            whitelistProvers: whitelistProvers
+        });
+    }
+
+    /**
+     *  Add or remove a proposer from the whitelist.
+     *
+     * @param proposer The proposer to be added or removed.
+     * @param whitelisted True to add; remove otherwise.
+     */
+    function whitelistProposer(
+        address proposer,
+        bool whitelisted
+    ) public onlyOwner {
+        V1Utils.whitelistProposer({
+            tentative: tentative,
+            proposer: proposer,
+            whitelisted: whitelisted
+        });
+    }
+
+    /**
+     *  Add or remove a prover from the whitelist.
      *
      * @param prover The prover to be added or removed.
      * @param whitelisted True to add; remove otherwise.
@@ -158,7 +216,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address prover,
         bool whitelisted
     ) public onlyOwner {
-        V1Proving.whitelistProver(state, prover, whitelisted);
+        V1Utils.whitelistProver({
+            tentative: tentative,
+            prover: prover,
+            whitelisted: whitelisted
+        });
     }
 
     /**
@@ -170,13 +232,41 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     /**
+     * Check whether a proposer is whitelisted.
+     *
+     * @param proposer The proposer.
+     * @return True if the proposer is whitelisted, false otherwise.
+     */
+    function isProposerWhitelisted(
+        address proposer
+    ) public view returns (bool) {
+        return V1Utils.isProposerWhitelisted(tentative, proposer);
+    }
+
+    /**
      * Check whether a prover is whitelisted.
      *
      * @param prover The prover.
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Proving.isProverWhitelisted(state, prover);
+        return V1Utils.isProverWhitelisted(tentative, prover);
+    }
+
+    function getBlockFee() public view returns (uint256) {
+        (, uint fee, uint deposit) = V1Proposing.getBlockFee(state);
+        return fee + deposit;
+    }
+
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt
+    ) public view returns (uint256 reward) {
+        (, reward, ) = V1Verifying.getProofReward({
+            state: state,
+            provenAt: provenAt,
+            proposedAt: proposedAt
+        });
     }
 
     /**
@@ -249,36 +339,30 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         pure
         returns (
             uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
-            uint256, // TAIKO_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMATIONS
-            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
-            uint256, // TAIKO_BLOCK_MAX_TXS
-            bytes32, // TAIKO_BLOCK_DEADEND_HASH
-            uint256, // TAIKO_TXLIST_MAX_BYTES
-            uint256, // TAIKO_TX_MIN_GAS_LIMIT
-            uint256, // V1_ANCHOR_TX_GAS_LIMIT
-            bytes4, // V1_ANCHOR_TX_SELECTOR
-            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256, // K_CHAIN_ID
+            uint256, // K_MAX_NUM_BLOCKS
+            uint256, // K_MAX_VERIFICATIONS_PER_TX
+            uint256, // K_COMMIT_DELAY_CONFIRMS
+            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // K_BLOCK_MAX_GAS_LIMIT
+            uint256, // K_BLOCK_MAX_TXS
+            uint256, // K_TXLIST_MAX_BYTES
+            uint256, // K_TX_MIN_GAS_LIMIT
+            uint256 // K_ANCHOR_TX_GAS_LIMIT
         )
     {
         return (
             LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMATIONS,
-            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.TAIKO_BLOCK_MAX_TXS,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
-            LibConstants.TAIKO_TXLIST_MAX_BYTES,
-            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_SELECTOR,
-            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_CHAIN_ID,
+            LibConstants.K_MAX_NUM_BLOCKS,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            LibConstants.K_COMMIT_DELAY_CONFIRMS,
+            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.K_BLOCK_MAX_TXS,
+            LibConstants.K_TXLIST_MAX_BYTES,
+            LibConstants.K_TX_MIN_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT
         );
     }
 }
