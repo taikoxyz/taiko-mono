@@ -125,6 +125,9 @@
   width: 100%;
 }
 
-.footer__link-item {
-  margin-right: 16px;
+@media screen and (max-width: 996px) {
+  .footer__link-item {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
 }
