@@ -1,5 +1,5 @@
 import type { Ethereum } from "@wagmi/core";
-import { BigNumber, Signer } from "ethers";
+import { BigNumber } from "ethers";
 import type { Chain } from "src/domain/chain";
 
 export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
@@ -9,7 +9,6 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
       params: [{ chainId: BigNumber.from(chain.id).toHexString() }],
     });
   } catch (switchError) {
-    console.log(switchError);
     // This error code indicates that the chain has not been added to MetaMask.
     if (switchError.code === 4902) {
       try {
