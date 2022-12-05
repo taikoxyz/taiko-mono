@@ -24,28 +24,32 @@
   </button>
   <ul
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
+    class="dropdown-content flex menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
     <li>
-      <svelte:component this={CHAIN_MAINNET.icon} />
-      <span class="ml-2">{CHAIN_MAINNET.name}</span>
-      <span
-        class="cursor-pointer"
-        on:click={async () =>
-          await switchEthereumChain($ethereum, CHAIN_MAINNET)}
-      >
-        <MetaMask />
-      </span>
+      <button class="btn btn-wide justify-around">
+        <svelte:component this={CHAIN_MAINNET.icon} />
+        <span class="ml-2 text-left flex-1">{CHAIN_MAINNET.name}</span>
+        <span
+          class="cursor-pointer z-10"
+          on:click={async () =>
+            await switchEthereumChain($ethereum, CHAIN_MAINNET)}
+        >
+          <MetaMask />
+        </span>
+      </button>
     </li>
     <li>
-      <svelte:component this={CHAIN_TKO.icon} />
-      <span class="ml-2">{CHAIN_TKO.name}</span>
-      <span
-        class="cursor-pointer"
-        on:click={async () => await switchEthereumChain($ethereum, CHAIN_TKO)}
-      >
-        <MetaMask />
-      </span>
+      <button class="btn btn-wide justify-around">
+        <svelte:component this={CHAIN_TKO.icon} />
+        <span class="ml-2 text-left flex-1">{CHAIN_TKO.name}</span>
+        <span
+          class="cursor-pointer z-10"
+          on:click={async () => await switchEthereumChain($ethereum, CHAIN_TKO)}
+        >
+          <MetaMask />
+        </span>
+      </button>
     </li>
   </ul>
 </div>
