@@ -5,11 +5,16 @@
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
+  import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
+  import type { BridgeTransaction } from "src/domain/transactions";
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+
+  export let transactions: BridgeTransaction[] = [];
 
   let address: string;
-  let addressAvatarImgData;
+  let addressAvatarImgData: string;
   onMount(async () => {
     address = await $signer.getAddress();
     addressAvatarImgData = getAddressAvatarFromIdenticon(address);
@@ -31,8 +36,32 @@
 
 <div class="dropdown dropdown-bottom">
   <button tabindex="0" class="btn btn-wide justify-around">
-    <img width=26 height=26 src="data:image/png;base64,{addressAvatarImgData}" class="rounded-full mr-2" alt="avatar" />
-    <span class="font-normal flex-1 text-left">{addressSubsection(address)}</span>
+    <span class="font-normal flex-1 text-left">
+      {#if $pendingTransactions && $pendingTransactions.length}
+        {$pendingTransactions.length} Pending
+        <LottiePlayer
+          src="/lottie/loader.json"
+          autoplay={true}
+          loop={true}
+          controls={false}
+          renderer="svg"
+          background="transparent"
+          height={24}
+          width={24}
+          controlsLayout={[]}
+        />
+      {:else}
+        <img
+          width="26"
+          height="26"
+          src="data:image/png;base64,{addressAvatarImgData}"
+          class="rounded-full mr-2"
+          alt="avatar"
+        />
+
+        {addressSubsection(address)}
+      {/if}
+    </span>
 
     <ChevDown />
   </button>
@@ -51,5 +80,10 @@
         >Disconnect</span
       >
     </li>
+    {#if transactions && transactions.length}
+      <li>
+        <span class="cursor-pointer"> {transactions.length} Transactions</span>
+      </li>
+    {/if}
   </ul>
 </div>

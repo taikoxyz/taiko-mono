@@ -52,11 +52,14 @@
     "ts-loader": "^9.2.6",
     "tslib": "^2.4.0",
     "typescript": "^4.6.4",
-    "vite": "^3.0.0"
+    "vite": "^3.0.0",
+    "vite-plugin-static-copy": "^0.12.0"
   },
   "dependencies": {
+    "@lottiefiles/svelte-lottie-player": "^0.2.0",
     "@sveltestack/svelte-query": "^1.6.0",
     "@wagmi/core": "^0.7.5",
+    "axios": "^1.2.0",
     "ethers": "^5.7.1",
     "extend-expect": "link:@testing-library/jest-dom/extend-expect",
     "identicon.js": "^2.3.3",
