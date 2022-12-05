@@ -57,27 +57,6 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "svc.processMessage")
 	}
 
-	// if the block number of the event is higher than the block we are processing,
-	// we can now consider that previous block processed. save it to the DB
-	// and bump the block number.
-	if raw.BlockNumber > svc.processingBlock.Height {
-		log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
-
-		if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
-			Height:    svc.processingBlock.Height,
-			Hash:      common.HexToHash(svc.processingBlock.Hash),
-			ChainID:   chainID,
-			EventName: eventName,
-		}); err != nil {
-			return errors.Wrap(err, "svc.blockRepo.Save")
-		}
-
-		svc.processingBlock = &relayer.Block{
-			Height: raw.BlockNumber,
-			Hash:   raw.BlockHash.Hex(),
-		}
-	}
-
 	return nil
 }
 

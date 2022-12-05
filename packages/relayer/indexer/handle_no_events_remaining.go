@@ -23,8 +23,6 @@ func (svc *Service) handleNoEventsRemaining(
 		return errors.Wrap(events.Error(), "events.Error")
 	}
 
-	log.Infof("saving new latest processed block to DB: %v", events.Event.Raw.BlockNumber)
-
 	if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
 		Height:    events.Event.Raw.BlockNumber,
 		Hash:      events.Event.Raw.BlockHash,
@@ -32,6 +30,13 @@ func (svc *Service) handleNoEventsRemaining(
 		EventName: eventName,
 	}); err != nil {
 		return errors.Wrap(err, "svc.blockRepo.Save")
+	}
+
+	log.Infof("processing block: %v, chainID: %v", events.Event.Raw.BlockNumber, chainID.Int64())
+
+	svc.processingBlock = &relayer.Block{
+		Height: events.Event.Raw.BlockNumber,
+		Hash:   events.Event.Raw.BlockHash.Hex(),
 	}
 
 	return nil
