@@ -11,9 +11,9 @@ import "./LibUint512Math.sol";
 
 /// @author david <david@taiko.xyz>
 library LibAnchorSignature {
-    address public constant TAIKO_GOLDEN_TOUCH_ADDRESS =
+    address public constant K_GOLDEN_TOUCH_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant TAIKO_GOLDEN_TOUCH_PRIVATEKEY =
+    uint256 public constant K_GOLDEN_TOUCH_PRIVATEKEY =
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
     uint256 public constant GX =
@@ -32,7 +32,7 @@ library LibAnchorSignature {
     // (
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = LibUint512Math.mul(GX, TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = LibUint512Math.mul(GX, K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xb4a95509ce05fe8d45987859a067780d16a367c0e2cacf79cd301b93fb717940;
     uint256 public constant GX_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
@@ -41,7 +41,7 @@ library LibAnchorSignature {
     // (
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW,
     //     uint256 GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH
-    // ) = LibUint512Math.mul(GX2, TAIKO_GOLDEN_TOUCH_PRIVATEKEY);
+    // ) = LibUint512Math.mul(GX2, K_GOLDEN_TOUCH_PRIVATEKEY);
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_LOW =
         0xad77eceea844778cb4376153fc8f06f12f1695df4585bf75bfb17ec19ce90818;
     uint256 public constant GX2_MUL_GOLDEN_TOUCH_PRIVATEKEY_HIGH =
