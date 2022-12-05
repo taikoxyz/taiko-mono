@@ -69,7 +69,7 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode, 
 
 		if !events.Next() || events.Event == nil {
 			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
-				return errors.Wrap(err, "s.handleNoEventsInBatch")
+				return errors.Wrap(err, "svc.handleNoEventsInBatch")
 			}
 
 			continue
@@ -90,13 +90,17 @@ func (svc *Service) FilterThenSubscribe(ctx context.Context, mode relayer.Mode, 
 				return nil
 			})
 
+			// if there are no more events
 			if !events.Next() {
+				// wait for the last of the goroutines to finish
 				if err := group.Wait(); err != nil {
 					return errors.Wrap(err, "group.Wait")
 				}
 
-				if err := svc.handleNoEventsRemaining(ctx, chainID, events); err != nil {
-					return errors.Wrap(err, "svc.handleNoEventsRemaining")
+				// handle no events remaining, saving the processing block and restarting the for
+				// loop
+				if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
+					return errors.Wrap(err, "svc.handleNoEventsInBatch")
 				}
 
 				break

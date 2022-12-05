@@ -106,7 +106,7 @@ func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer, ht
 
 		for _, i := range indexers {
 			go func(i *indexer.Service) {
-				if err := i.FilterThenSubscribe(context.Background(), mode, watchMode); err != nil {
+				if err := i.FilterThenSubscribe(context.TODO(), mode, watchMode); err != nil {
 					log.Fatal(err)
 				}
 			}(i)

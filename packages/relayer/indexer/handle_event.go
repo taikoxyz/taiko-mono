@@ -24,7 +24,7 @@ func (svc *Service) handleEvent(
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
-	if raw.Removed {
+	if raw.Removed || event.Signal == relayer.ZeroHash {
 		return nil
 	}
 
@@ -90,16 +90,17 @@ func (svc *Service) eventStatusFromSignal(
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	// if gasLimit is 0, relayer can not process this.
-	if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
-		eventStatus = relayer.EventStatusNewOnlyOwner
-	} else {
-		messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
-		if err != nil {
-			return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
-		}
+	messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
+	if err != nil {
+		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+	}
 
-		eventStatus = relayer.EventStatus(messageStatus)
+	eventStatus = relayer.EventStatus(messageStatus)
+	if eventStatus == relayer.EventStatusNew {
+		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
+			// if gasLimit is 0, relayer can not process this.
+			eventStatus = relayer.EventStatusNewOnlyOwner
+		}
 	}
 
 	return eventStatus, nil
