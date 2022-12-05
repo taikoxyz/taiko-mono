@@ -55,7 +55,7 @@
           width="26"
           height="26"
           src="data:image/png;base64,{addressAvatarImgData}"
-          class="rounded-full mr-2"
+          class="rounded-full mr-2 inline-block"
           alt="avatar"
         />
 
