@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
 	"golang.org/x/sync/errgroup"
 )
@@ -16,15 +15,6 @@ import (
 // subscribe subscribes to latest events
 func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	log.Info("subscribing to new events")
-
-	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
-	}
-
-	svc.processingBlock = &relayer.Block{
-		Height: latestBlock.Number.Uint64(),
-	}
 
 	sink := make(chan *contracts.BridgeMessageSent)
 
