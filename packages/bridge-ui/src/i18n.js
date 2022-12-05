@@ -15,6 +15,8 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
                 fieldLabel: "Bridge Token",
                 maxLabel: "Max:",
                 processingFeeLabel: "Processing Fee",
+                bridge: "Bridge",
+                approve: "Approve",
             },
             nav: {
                 connect: "Connect Wallet"

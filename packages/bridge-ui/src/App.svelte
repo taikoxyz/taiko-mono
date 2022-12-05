@@ -3,29 +3,21 @@
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
   import { SvelteToast, toast } from "@zerodevx/svelte-toast";
-  import { configureChains } from "@wagmi/core";
-  import { publicProvider } from "@wagmi/core/providers/public";
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
-  import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from "./domain/chain";
   import ERC20Bridge from "./erc20/bridge";
   import { pendingTransactions } from "./store/transactions";
-  import { ethers } from "ethers";
   import Navbar from "./components/Navbar.svelte";
   import { signer } from "./store/signer";
   import type { Transactioner } from "./domain/transactions";
   import { RelayerService } from "./relayer/service";
 
   setupI18n({ withLocale: "en" });
-
-  const { chains, provider } = configureChains(
-    [mainnet, taiko],
-    [publicProvider()]
-  );
+  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
 
   const ethBridge = new ETHBridge();
   const erc20Bridge = new ERC20Bridge();
