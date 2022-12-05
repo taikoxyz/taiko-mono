@@ -8,10 +8,12 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+// solhint-disable-next-line max-line-length
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+
 import "../common/EssentialContract.sol";
 import "../thirdparty/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -50,7 +52,11 @@ contract BridgedERC20 is
             "BE:params"
         );
         EssentialContract._init(_addressManager);
-        ERC20Upgradeable.__ERC20_init(_name, _symbol, _decimals);
+        ERC20Upgradeable.__ERC20_init({
+            name_: _name,
+            symbol_: _symbol,
+            decimals_: _decimals
+        });
         srcToken = _srcToken;
         srcChainId = _srcChainId;
     }

@@ -92,8 +92,8 @@ const config: HardhatUserConfig = {
         eachLine: () => ({
             transform: (line) => {
                 for (const constantName of [
-                    "TAIKO_CHAIN_ID",
-                    "K_COMMIT_DELAY_CONFIRMATIONS",
+                    "K_CHAIN_ID",
+                    "K_COMMIT_DELAY_CONFIRMS",
                     "TAIKO_BLOCK_MAX_TXS",
                     "TAIKO_TXLIST_MAX_BYTES",
                     "TAIKO_BLOCK_MAX_GAS_LIMIT",
