@@ -64,11 +64,6 @@
     }
   }
 
-  function toggleChains() {
-    fromChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
-    toChain.update(val => val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
-  }
-
   function useFullAmount() {
     amount = tokenBalance;
   }

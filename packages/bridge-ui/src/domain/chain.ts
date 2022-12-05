@@ -1,10 +1,15 @@
 import type { Chain as WagmiChain } from "@wagmi/core";
+import type { ComponentType } from "svelte";
+
+import Eth from "../components/icons/ETH.svelte";
+import Taiko from "../components/icons/TKO.svelte";
 
 export type Chain = {
   id: number;
   name: string;
   rpc: string;
   enabled?: boolean;
+  icon?: ComponentType;
 };
 
 export const CHAIN_MAINNET = {
@@ -12,6 +17,7 @@ export const CHAIN_MAINNET = {
   name: "Mainnet",
   rpc: "http://34.132.67.34:8545",
   enabled: true,
+  icon: Eth,
 };
 
 export const CHAIN_TKO = {
@@ -19,6 +25,7 @@ export const CHAIN_TKO = {
   name: "Taiko",
   rpc: "http://rpc.a1.testnet.taiko.xyz",
   enabled: true,
+  icon: Taiko,
 };
 
 export const chains: Record<string, Chain> = {
