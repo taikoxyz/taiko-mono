@@ -52,12 +52,13 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
             ancestors[i] = blockhash(number - i - 2);
         }
-        publicInputHash = _hashPublicInputs(
-            block.chainid,
-            number,
-            0,
-            ancestors
-        );
+
+        publicInputHash = _hashPublicInputs({
+            chainId: block.chainid,
+            number: number,
+            baseFee: 0,
+            ancestors: ancestors
+        });
     }
 
     /**********************
@@ -68,7 +69,8 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      *        bridging. This function will also check certain block-level global
      *        variables because they are not part of the Trie structure.
      *
-     *        Note that this transaction shall be the first transaction in every L2 block.
+     *        Note that this transaction shall be the first transaction in every
+     *        L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
@@ -94,11 +96,11 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Reason hint,
         uint256 txIdx
     ) external {
-        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid(
-            txList,
-            hint,
-            txIdx
-        );
+        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+            encoded: txList,
+            hint: hint,
+            txIdx: txIdx
+        });
         require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         _checkPublicInputs();
@@ -134,41 +136,38 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
+    // NOTE: If the order of the return values of this function changes, then
+    // some test cases that using this function in generate_genesis.test.ts
+    // may also needs to be modified accordingly.
     function getConstants()
         public
         pure
         returns (
             uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // TAIKO_CHAIN_ID
-            uint256, // TAIKO_MAX_PROPOSED_BLOCKS
-            uint256, // TAIKO_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMATIONS
-            uint256, // TAIKO_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // TAIKO_BLOCK_MAX_GAS_LIMIT
-            uint256, // TAIKO_BLOCK_MAX_TXS
-            bytes32, // TAIKO_BLOCK_DEADEND_HASH
-            uint256, // TAIKO_TXLIST_MAX_BYTES
-            uint256, // TAIKO_TX_MIN_GAS_LIMIT
-            uint256, // V1_ANCHOR_TX_GAS_LIMIT
-            bytes4, // V1_ANCHOR_TX_SELECTOR
-            bytes32 // V1_INVALIDATE_BLOCK_LOG_TOPIC
+            uint256, // K_CHAIN_ID
+            uint256, // K_MAX_NUM_BLOCKS
+            uint256, // K_MAX_VERIFICATIONS_PER_TX
+            uint256, // K_COMMIT_DELAY_CONFIRMS
+            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
+            uint256, // K_BLOCK_MAX_GAS_LIMIT
+            uint256, // K_BLOCK_MAX_TXS
+            uint256, // K_TXLIST_MAX_BYTES
+            uint256, // K_TX_MIN_GAS_LIMIT
+            uint256 // K_ANCHOR_TX_GAS_LIMIT
         )
     {
         return (
             LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.TAIKO_CHAIN_ID,
-            LibConstants.TAIKO_MAX_PROPOSED_BLOCKS,
-            LibConstants.TAIKO_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMATIONS,
-            LibConstants.TAIKO_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.TAIKO_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.TAIKO_BLOCK_MAX_TXS,
-            LibConstants.TAIKO_BLOCK_DEADEND_HASH,
-            LibConstants.TAIKO_TXLIST_MAX_BYTES,
-            LibConstants.TAIKO_TX_MIN_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_GAS_LIMIT,
-            LibConstants.V1_ANCHOR_TX_SELECTOR,
-            LibConstants.V1_INVALIDATE_BLOCK_LOG_TOPIC
+            LibConstants.K_CHAIN_ID,
+            LibConstants.K_MAX_NUM_BLOCKS,
+            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            LibConstants.K_COMMIT_DELAY_CONFIRMS,
+            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
+            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
+            LibConstants.K_BLOCK_MAX_TXS,
+            LibConstants.K_TXLIST_MAX_BYTES,
+            LibConstants.K_TX_MIN_GAS_LIMIT,
+            LibConstants.K_ANCHOR_TX_GAS_LIMIT
         );
     }
 
@@ -187,12 +186,22 @@ contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         require(
             publicInputHash ==
-                _hashPublicInputs(chainId, parentHeight, 0, ancestors),
+                _hashPublicInputs({
+                    chainId: chainId,
+                    number: parentHeight,
+                    baseFee: 0,
+                    ancestors: ancestors
+                }),
             "L2:publicInputHash"
         );
 
         ancestors[parentHeight % 255] = parentHash;
-        publicInputHash = _hashPublicInputs(chainId, number, 0, ancestors);
+        publicInputHash = _hashPublicInputs({
+            chainId: chainId,
+            number: number,
+            baseFee: 0,
+            ancestors: ancestors
+        });
 
         l2Hashes[parentHeight] = parentHash;
     }

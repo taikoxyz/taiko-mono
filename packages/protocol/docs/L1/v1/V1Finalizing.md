@@ -1,4 +1,4 @@
-## V1Finalizing
+## V1Verifying
 
 ### BlockVerified
 
@@ -15,11 +15,11 @@ event HeaderSynced(uint256 height, uint256 srcHeight, bytes32 srcHash)
 ### init
 
 ```solidity
-function init(struct LibData.State s, bytes32 _genesisBlockHash) public
+function init(struct LibData.State s, bytes32 _genesisBlockHash, uint256 _feeBase) public
 ```
 
 ### verifyBlocks
 
-```solidity
-function verifyBlocks(struct LibData.State s, uint256 maxBlocks) public
+```
+
 ```

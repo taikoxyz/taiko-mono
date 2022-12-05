@@ -60,14 +60,15 @@ library LibBridgeProcess {
         );
         // Message must have been "received" on the destChain (current chain)
         address srcBridge = resolver.resolve(message.srcChainId, "bridge");
+
         require(
-            LibBridgeSignal.isSignalReceived(
-                resolver,
-                srcBridge,
-                srcBridge,
-                signal,
-                proof
-            ),
+            LibBridgeSignal.isSignalReceived({
+                resolver: resolver,
+                srcBridge: srcBridge,
+                sender: srcBridge,
+                signal: signal,
+                proof: proof
+            }),
             "B:notReceived"
         );
 
@@ -94,13 +95,13 @@ library LibBridgeProcess {
             uint256 gasLimit = msg.sender == message.owner
                 ? gasleft()
                 : message.gasLimit;
-
-            bool success = LibBridgeInvoke.invokeMessageCall(
-                state,
-                message,
-                signal,
-                gasLimit
-            );
+            
+            bool success = LibBridgeInvoke.invokeMessageCall({
+                state: state,
+                message: message,
+                signal: signal,
+                gasLimit: gasLimit
+            });
 
             if (success) {
                 status = LibBridgeData.MessageStatus.DONE;

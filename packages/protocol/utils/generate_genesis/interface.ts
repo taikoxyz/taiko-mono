@@ -5,6 +5,7 @@ export interface Config {
         [key: string]: number
     }>
     predeployERC20: boolean
+    contractAddresses: Object
 }
 
 export interface Result {

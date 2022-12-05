@@ -30,6 +30,19 @@ describe("bridge tests", () => {
     jest.resetAllMocks();
   });
 
+  it("requires allowance returns false", async () => {
+    const bridge: Bridge = new ETHBridge();
+    const wallet = new Wallet("0x");
+
+    const requires = await bridge.RequiresAllowance({
+      amountInWei: BigNumber.from(1),
+      signer: new Wallet("0x"),
+      contractAddress: "0x1234",
+      spenderAddress: "0x",
+    });
+    expect(requires).toBe(false);
+  });
+
   it("approve returns empty transaction", async () => {
     const bridge: Bridge = new ETHBridge();
 
@@ -37,6 +50,7 @@ describe("bridge tests", () => {
       amountInWei: BigNumber.from(1),
       signer: new Wallet("0x"),
       contractAddress: "0x1234",
+      spenderAddress: "0x",
     });
   });
 
