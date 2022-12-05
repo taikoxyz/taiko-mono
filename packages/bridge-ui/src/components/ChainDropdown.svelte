@@ -7,6 +7,16 @@
   import { switchEthereumChain } from "../utils/switchEthereumChain";
   import { ethereum } from "../store/ethereum";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
+  import type { Chain } from "../domain/chain";
+  import { ethers } from "ethers";
+  import { signer } from "../store/signer";
+  const changeChain = async (chain: Chain) => {
+    await switchEthereumChain($ethereum, chain);
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+
+    signer.set(provider.getSigner());
+  };
 </script>
 
 <div class="dropdown dropdown-bottom mr-4">
@@ -27,26 +37,29 @@
     class="dropdown-content flex menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
     <li>
-      <button class="btn btn-wide justify-around">
+      <button
+        class="btn btn-wide justify-around"
+        on:click={async () => {
+          await changeChain(CHAIN_MAINNET);
+        }}
+      >
         <svelte:component this={CHAIN_MAINNET.icon} />
         <span class="ml-2 text-left flex-1">{CHAIN_MAINNET.name}</span>
-        <span
-          class="cursor-pointer z-10"
-          on:click={async () =>
-            await switchEthereumChain($ethereum, CHAIN_MAINNET)}
-        >
+        <span>
           <MetaMask />
         </span>
       </button>
     </li>
     <li>
-      <button class="btn btn-wide justify-around">
+      <button
+        class="btn btn-wide justify-around"
+        on:click={async () => {
+          await changeChain(CHAIN_TKO);
+        }}
+      >
         <svelte:component this={CHAIN_TKO.icon} />
         <span class="ml-2 text-left flex-1">{CHAIN_TKO.name}</span>
-        <span
-          class="cursor-pointer z-10"
-          on:click={async () => await switchEthereumChain($ethereum, CHAIN_TKO)}
-        >
+        <span>
           <MetaMask />
         </span>
       </button>

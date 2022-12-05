@@ -12,11 +12,7 @@
   };
 </script>
 
-<div
-  class="modal overflow-hidden bg-transparent"
-  class:modal-open={isOpen}
-  on:click|self={onCloseClicked}
->
+<div class="modal" class:modal-open={isOpen} on:click|self={onCloseClicked}>
   <div class="modal-box">
     <h3 class="font-bold text-lg">{title}</h3>
     {#if showXButton}

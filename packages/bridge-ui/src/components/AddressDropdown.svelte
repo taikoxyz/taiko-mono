@@ -46,17 +46,19 @@
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
-        <LottiePlayer
-          src="/lottie/loader.json"
-          autoplay={true}
-          loop={true}
-          controls={false}
-          renderer="svg"
-          background="transparent"
-          height={26}
-          width={26}
-          controlsLayout={[]}
-        />
+        <div class="inline-block">
+          <LottiePlayer
+            src="/lottie/loader.json"
+            autoplay={true}
+            loop={true}
+            controls={false}
+            renderer="svg"
+            background="transparent"
+            height={26}
+            width={26}
+            controlsLayout={[]}
+          />
+        </div>
       {:else}
         <img
           width="26"

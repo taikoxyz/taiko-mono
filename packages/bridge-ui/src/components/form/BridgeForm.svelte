@@ -18,6 +18,7 @@
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
   import { truncateString } from "../../utils/truncateString";
+  import { pendingTransactions } from "../../store/transactions";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -37,7 +38,7 @@
     }
   }
 
-  $: isBtnDisabled($signer, amount)
+  $: isBtnDisabled($signer, amount, $token, requiresAllowance)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -52,9 +53,7 @@
     fromChain: Chain,
     signer: Signer
   ) {
-    if (!signer || !amt || !token || !fromChain) return true;
-
-    return await $activeBridge.RequiresAllowance({
+    const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: amt
         ? ethers.utils.parseUnits(amt, token.decimals)
         : BigNumber.from(0),
@@ -62,14 +61,20 @@
       contractAddress: token.address,
       spenderAddress: $chainIdToBridgeAddress.get(fromChain.id),
     });
+    return allowance;
   }
 
-  async function isBtnDisabled(signer: Signer, amount: string) {
+  async function isBtnDisabled(
+    signer: Signer,
+    amount: string,
+    token: Token,
+    requiresAllowance: boolean
+  ) {
     if (!signer) return true;
     if (!amount) return true;
     if (requiresAllowance) return true;
     const balance = await signer.getBalance("latest");
-    if (balance.lt(ethers.utils.parseUnits(amount, $token.decimals)))
+    if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
       return true;
 
     return false;
@@ -88,9 +93,11 @@
       });
       console.log("approved, waiting for confirmations ", tx);
       await $signer.provider.waitForTransaction(tx.hash, 3);
-
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
       requiresAllowance = false;
-
       toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
@@ -113,7 +120,11 @@
         memo: "memo",
       });
 
-      console.log("bridged", tx);
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
+
       toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
@@ -123,6 +134,10 @@
 
   function useFullAmount() {
     amount = tokenBalance;
+  }
+
+  function updateAmount(e: any) {
+    amount = (e.data as number).toString();
   }
 </script>
 
@@ -145,7 +160,7 @@
       step="0.01"
       placeholder="0.01"
       min="0"
-      bind:value={amount}
+      on:input={updateAmount}
       class="input input-primary bg-dark-4 input-lg flex-1"
       name="amount"
     />
