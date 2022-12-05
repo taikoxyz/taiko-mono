@@ -1385,10 +1385,6 @@ describe("integration:Bridge", function () {
 
             await tx.wait()
 
-            // const tx = await l2Bridge.connect(l2Signer).sendSignal(signal)
-
-            // await tx.wait()
-
             const sender = owner.address
 
             const key = ethers.utils.keccak256(
@@ -1462,7 +1458,8 @@ describe("integration:Bridge", function () {
                 ],
                 [{ header: blockHeader, proof: encodedProof }]
             )
-
+            // proving functionality; l2Bridge can check if l1Bridge receives a signal
+            // allowing for dapp cross layer communication
             expect(
                 await l2Bridge.isSignalReceived(
                     signal,
