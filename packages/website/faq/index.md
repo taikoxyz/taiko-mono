@@ -16,6 +16,7 @@ Here are the official links to our social media and public documentation:
 
 - Website: https://taiko.xyz/
 - Twitter: https://twitter.com/taikoxyz
+- Discord: https://discord.gg/taikoxyz
 - Reddit: https://www.reddit.com/r/taiko_xyz/
 - Blog: https://mirror.xyz/labs.taiko.eth
 - GitHub: https://github.com/taikoxyz/
