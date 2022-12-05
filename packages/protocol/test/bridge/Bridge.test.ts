@@ -1375,15 +1375,13 @@ describe("integration:Bridge", function () {
     })
 
     describe("isSignalReceived()", function () {
-        it.only("should return true", async function () {
-            const { l1Bridge, headerSync, srcChainId } =
+        it("should return true", async function () {
+            const { l1Bridge, headerSync, srcChainId, l2Bridge, owner } =
                 await deployBridgeFixture()
 
             const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32))
 
-            const nonOwnerSigner = await ethers.provider.getSigner()
-
-            const tx = await l1Bridge.connect(nonOwnerSigner).sendSignal(signal)
+            const tx = await l1Bridge.connect(owner).sendSignal(signal)
 
             await tx.wait()
 
@@ -1391,7 +1389,7 @@ describe("integration:Bridge", function () {
 
             // await tx.wait()
 
-            const sender = await nonOwnerSigner.getAddress()
+            const sender = owner.address
 
             const key = ethers.utils.keccak256(
                 ethers.utils.solidityPack(
@@ -1466,9 +1464,12 @@ describe("integration:Bridge", function () {
             )
 
             expect(
-                await l1Bridge
-                    .connect(nonOwnerSigner)
-                    .isSignalReceived(signal, srcChainId, sender, signalProof)
+                await l2Bridge.isSignalReceived(
+                    signal,
+                    srcChainId,
+                    sender,
+                    signalProof
+                )
             ).to.be.eq(true)
         })
     })
