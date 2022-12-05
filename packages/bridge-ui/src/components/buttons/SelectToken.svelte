@@ -20,7 +20,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-active">
+  <button tabindex="0" class="btn btn-active left-btn">
     <svelte:component this={$token.logoComponent} />
     <span class="px-2 font-medium">{$token.symbol.toUpperCase()}</span>
     <ChevDown />

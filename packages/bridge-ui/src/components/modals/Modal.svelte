@@ -13,7 +13,7 @@
 </script>
 
 <div
-  class="modal overflow-hidden bg-transparent blur-sm"
+  class="modal overflow-hidden bg-transparent"
   class:modal-open={isOpen}
   on:click|self={onCloseClicked}
 >

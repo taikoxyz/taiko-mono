@@ -14,7 +14,7 @@ export type Chain = {
 
 export const CHAIN_MAINNET = {
   id: 31336,
-  name: "Mainnet",
+  name: "Taiko L1",
   rpc: "http://34.132.67.34:8545",
   enabled: true,
   icon: Eth,
@@ -22,7 +22,7 @@ export const CHAIN_MAINNET = {
 
 export const CHAIN_TKO = {
   id: 167001,
-  name: "Taiko",
+  name: "Taiko zkEVM",
   rpc: "http://rpc.a1.testnet.taiko.xyz",
   enabled: true,
   icon: Taiko,
@@ -35,7 +35,7 @@ export const chains: Record<string, Chain> = {
 
 export const mainnet: WagmiChain = {
   id: 31336,
-  name: "Mainnet",
+  name: "Taiko L1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
@@ -58,7 +58,7 @@ export const mainnet: WagmiChain = {
 
 export const taiko: WagmiChain = {
   id: 167001,
-  name: "Taiko",
+  name: "Taiko zkEVM",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {

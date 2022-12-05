@@ -9,17 +9,19 @@
   } from "../domain/transactions";
   import type { Signer } from "ethers";
   import { fromChain } from "../store/chain";
+  import ChainDropdown from "./ChainDropdown.svelte";
+  import type { Chain } from "../domain/chain";
 
   export let transactioner: Transactioner;
   let transactions: BridgeTransaction[];
 
-  $: getTransactions($signer);
+  $: getTransactions($signer, $fromChain);
 
-  async function getTransactions(signer: Signer) {
-    if (!signer) return;
+  async function getTransactions(signer: Signer, chain: Chain) {
+    if (!signer || !chain) return;
     transactions = await transactioner.GetAllByAddress(
       await signer.getAddress(),
-      $fromChain.id
+      chain.id
     );
   }
 </script>
@@ -30,6 +32,7 @@
   </div>
   <div class="navbar-end">
     {#if $signer}
+      <ChainDropdown />
       <AddressDropdown {transactions} />
     {:else}
       <Connect />

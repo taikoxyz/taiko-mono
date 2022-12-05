@@ -10,15 +10,22 @@
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import type { BridgeTransaction } from "src/domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+  import type { Signer } from "ethers";
 
   export let transactions: BridgeTransaction[] = [];
 
   let address: string;
   let addressAvatarImgData: string;
   onMount(async () => {
-    address = await $signer.getAddress();
-    addressAvatarImgData = getAddressAvatarFromIdenticon(address);
+    setAddress($signer);
   });
+
+  $: setAddress($signer).catch((e) => console.error(e));
+
+  async function setAddress(signer: Signer) {
+    address = await signer.getAddress();
+    addressAvatarImgData = getAddressAvatarFromIdenticon(address);
+  }
 
   async function copyToClipboard(clip: string) {
     await navigator.clipboard.writeText(clip);
@@ -46,8 +53,8 @@
           controls={false}
           renderer="svg"
           background="transparent"
-          height={24}
-          width={24}
+          height={26}
+          width={26}
           controlsLayout={[]}
         />
       {:else}

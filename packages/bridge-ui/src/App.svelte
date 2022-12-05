@@ -18,6 +18,7 @@
 
   setupI18n({ withLocale: "en" });
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
 
   const ethBridge = new ETHBridge();
   const erc20Bridge = new ERC20Bridge();
@@ -63,6 +64,8 @@
     <Router {routes} />
   </main>
   <SvelteToast />
+
+  <SwitchEthereumChainModal />
 </QueryProvider>
 
 <style global lang="postcss">

@@ -17,6 +17,7 @@
   import type { Token } from "../../domain/token";
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
+  import { truncateString } from "../../utils/truncateString";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -24,11 +25,11 @@
   let tokenBalance: string;
 
   $: getUserBalance($signer, $token);
-  
+
   async function getUserBalance(signer, token) {
-    if(signer && token) {
-      if(token.symbol == ETH.symbol) {
-        const userBalance = await signer.getBalance('latest');
+    if (signer && token) {
+      if (token.symbol == ETH.symbol) {
+        const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
         // TODO: read ERC20 balance from contract
@@ -128,17 +129,25 @@
 <div class="form-control w-full my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
-    {#if $signer && tokenBalance } <button class="label-text" on:click={useFullAmount}>{$_("bridgeForm.maxLabel")} {tokenBalance} ETH</button>{/if}
+    {#if $signer && tokenBalance}
+      <button class="label-text" on:click={useFullAmount}
+        >{$_("bridgeForm.maxLabel")}
+        {tokenBalance.length > 10
+          ? `${truncateString(tokenBalance)}...`
+          : tokenBalance} ETH</button
+      >{/if}
   </label>
-  <label class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4">
+  <label
+    class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
+  >
     <input
-    type="number"
-    step="0.01"
-    placeholder="0.01"
-    min="0"
-    bind:value={amount}
-    class="input input-primary bg-dark-4 input-lg flex-1"
-    name="amount"
+      type="number"
+      step="0.01"
+      placeholder="0.01"
+      min="0"
+      bind:value={amount}
+      class="input input-primary bg-dark-4 input-lg flex-1"
+      name="amount"
     />
     <SelectToken />
   </label>
@@ -147,19 +156,11 @@
 <ProcessingFee />
 
 {#if !requiresAllowance}
-  <button
-    class="btn btn-accent"
-    on:click={bridge}
-    disabled={btnDisabled}
-  >
+  <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>
     {$_("home.bridge")}
   </button>
 {:else}
-  <button
-    class="btn btn-accent"
-    on:click={approve}
-    disabled={btnDisabled}
-  >
+  <button class="btn btn-accent" on:click={approve} disabled={btnDisabled}>
     {$_("home.approve")}
   </button>
 {/if}
