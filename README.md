@@ -1,7 +1,8 @@
 <!-- BADGES -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
 
 [![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
 [![Protocol](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikoxyz/taiko-mono)
