@@ -72,9 +72,7 @@ library LibTxUtils {
             // For legacy transactions, there are three more RLP items to
             // encode defined in EIP-155.
             if (transaction.txType == 0 && i == list.length - 4) {
-                list[i + 1] = LibRLPWriter.writeUint(
-                    LibConstants.TAIKO_CHAIN_ID
-                );
+                list[i + 1] = LibRLPWriter.writeUint(LibConstants.K_CHAIN_ID);
                 list[i + 2] = LibRLPWriter.writeUint64(0);
                 list[i + 3] = LibRLPWriter.writeUint64(0);
                 break;

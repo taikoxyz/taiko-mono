@@ -21,16 +21,8 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibZKP")
         ).deploy()
 
-        const v1Utils = await (
-            await ethers.getContractFactory("V1Utils")
-        ).deploy()
-
         const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing", {
-                libraries: {
-                    V1Utils: v1Utils.address,
-                },
-            })
+            await ethers.getContractFactory("V1Proposing")
         ).deploy()
 
         const v1Proving = await (
@@ -39,25 +31,19 @@ describe("TaikoL1", function () {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
                     LibZKP: libZKP.address,
-                    V1Utils: v1Utils.address,
                 },
             })
         ).deploy()
 
-        const v1Finalizing = await (
-            await ethers.getContractFactory("V1Finalizing", {
-                libraries: {
-                    V1Utils: v1Utils.address,
-                },
-            })
+        const v1Verifying = await (
+            await ethers.getContractFactory("V1Verifying")
         ).deploy()
 
         const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
             libraries: {
-                V1Finalizing: v1Finalizing.address,
+                V1Verifying: v1Verifying.address,
                 V1Proposing: v1Proposing.address,
                 V1Proving: v1Proving.address,
-                V1Utils: v1Utils.address,
             },
         })
 

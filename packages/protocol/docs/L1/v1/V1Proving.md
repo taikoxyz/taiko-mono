@@ -20,13 +20,13 @@ event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, uint64 time
 ### proveBlock
 
 ```solidity
-function proveBlock(struct LibData.State s, contract AddressResolver resolver, uint256 blockIndex, bytes[] inputs) public
+function proveBlock(struct LibData.State s, contract AddressResolver resolver, uint256 blockId, bytes[] inputs) public
 ```
 
 ### proveBlockInvalid
 
 ```solidity
-function proveBlockInvalid(struct LibData.State s, contract AddressResolver resolver, uint256 blockIndex, bytes[] inputs) public
+function proveBlockInvalid(struct LibData.State s, contract AddressResolver resolver, uint256 blockId, bytes[] inputs) public
 ```
 
 ### \_proveBlock

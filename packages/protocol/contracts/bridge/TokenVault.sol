@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+// solhint-disable-next-line max-line-length
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
@@ -141,7 +142,12 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        emit EtherSent(to, destChainId, message.depositValue, signal);
+        emit EtherSent({
+            to: to,
+            destChainId: destChainId,
+            amount: message.depositValue,
+            signal: signal
+        });
     }
 
     /**
@@ -286,13 +292,13 @@ contract TokenVault is EssentialContract {
             type(BridgedERC20).creationCode
         );
 
-        BridgedERC20(payable(bridgedToken)).init(
-            address(_addressManager),
-            canonicalToken.addr,
-            canonicalToken.chainId,
-            canonicalToken.decimals,
-            canonicalToken.symbol,
-            string(
+        BridgedERC20(payable(bridgedToken)).init({
+            _addressManager: address(_addressManager),
+            _srcToken: canonicalToken.addr,
+            _srcChainId: canonicalToken.chainId,
+            _decimals: canonicalToken.decimals,
+            _symbol: canonicalToken.symbol,
+            _name: string(
                 abi.encodePacked(
                     canonicalToken.name,
                     "(bridged",
@@ -301,23 +307,21 @@ contract TokenVault is EssentialContract {
                     ")"
                 )
             )
-        );
+        });
 
         isBridgedToken[bridgedToken] = true;
-
         bridgedToCanonical[bridgedToken] = canonicalToken;
-
         canonicalToBridged[canonicalToken.chainId][
             canonicalToken.addr
         ] = bridgedToken;
 
-        emit BridgedERC20Deployed(
-            canonicalToken.chainId,
-            canonicalToken.addr,
-            bridgedToken,
-            canonicalToken.symbol,
-            canonicalToken.name,
-            canonicalToken.decimals
-        );
+        emit BridgedERC20Deployed({
+            srcChainId: canonicalToken.chainId,
+            canonicalToken: canonicalToken.addr,
+            bridgedToken: bridgedToken,
+            canonicalTokenSymbol: canonicalToken.symbol,
+            canonicalTokenName: canonicalToken.name,
+            canonicalTokenDecimal: canonicalToken.decimals
+        });
     }
 }

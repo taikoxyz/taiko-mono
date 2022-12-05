@@ -18,16 +18,11 @@ task("deploy_L1")
         "L2 genesis block hash",
         ethers.constants.HashZero
     )
-    .addOptionalParam(
-        "l2ChainId",
-        "L2 chain id",
-        config.TAIKO_CHAINID,
-        types.int
-    )
+    .addOptionalParam("l2ChainId", "L2 chain id", config.K_CHAIN_ID, types.int)
     .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
-        config.DEFAULT_DEPLOY_CONFIRMATIONS,
+        config.K_DEPLOY_CONFIRMATIONS,
         types.int
     )
     .setAction(async (args, hre: any) => {
@@ -112,6 +107,7 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
+
     await utils.waitTx(
         hre,
         await TaikoL1.init(AddressManager.address, l2GenesisBlockHash)
@@ -163,26 +159,19 @@ async function deployBaseLibs(hre: any) {
     )
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder")
 
-    const v1Utils = await utils.deployContract(hre, "V1Utils")
-    const v1Finalizing = await utils.deployContract(hre, "V1Finalizing", {
-        V1Utils: v1Utils.address,
-    })
-    const v1Proposing = await utils.deployContract(hre, "V1Proposing", {
-        V1Utils: v1Utils.address,
-    })
+    const v1Verifying = await utils.deployContract(hre, "V1Verifying", {})
+    const v1Proposing = await utils.deployContract(hre, "V1Proposing", {})
 
     const v1Proving = await utils.deployContract(hre, "V1Proving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
-        V1Utils: v1Utils.address,
     })
 
     return {
-        V1Finalizing: v1Finalizing.address,
+        V1Verifying: v1Verifying.address,
         V1Proposing: v1Proposing.address,
         V1Proving: v1Proving.address,
-        V1Utils: v1Utils.address,
     }
 }
 
