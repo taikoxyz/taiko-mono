@@ -38,30 +38,26 @@
   >
     <li>
       <button
-        class="btn btn-wide justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
         on:click={async () => {
           await changeChain(CHAIN_MAINNET);
         }}
       >
-        <svelte:component this={CHAIN_MAINNET.icon} />
-        <span class="ml-2 text-left flex-1">{CHAIN_MAINNET.name}</span>
-        <span>
+        <svelte:component this={CHAIN_MAINNET.icon} height={24} />
+        <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
           <MetaMask />
-        </span>
       </button>
     </li>
     <li>
       <button
-        class="btn btn-wide justify-around"
+        class="flex items-center px-2 py-4 hover:bg-dark-5 rounded-xl justify-around"
         on:click={async () => {
           await changeChain(CHAIN_TKO);
         }}
       >
-        <svelte:component this={CHAIN_TKO.icon} />
-        <span class="ml-2 text-left flex-1">{CHAIN_TKO.name}</span>
-        <span>
+        <svelte:component this={CHAIN_TKO.icon} height={24} />
+        <span class="pl-1.5 text-left flex-1">{CHAIN_TKO.name}</span>
           <MetaMask />
-        </span>
       </button>
     </li>
   </ul>
