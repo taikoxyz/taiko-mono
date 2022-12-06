@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import hre, { ethers } from "hardhat"
+import { ethers } from "hardhat"
 import { BigNumber, Signer } from "ethers"
 import { Message } from "../utils/message"
 import {
@@ -11,7 +11,6 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain"
-import { getSlot } from "../../tasks/utils"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 import RLP from "rlp"
 
@@ -614,8 +613,6 @@ describe("integration:Bridge", function () {
                 )
             )
 
-            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
-            // in the response
             const block: Block = await ethers.provider.send(
                 "eth_getBlockByNumber",
                 ["latest", false]
@@ -831,8 +828,6 @@ describe("integration:Bridge", function () {
                 )
             )
 
-            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
-            // in the response
             const block: Block = await ethers.provider.send(
                 "eth_getBlockByNumber",
                 ["latest", false]
@@ -955,8 +950,6 @@ describe("integration:Bridge", function () {
                 )
             )
 
-            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
-            // in the response
             const block: Block = await ethers.provider.send(
                 "eth_getBlockByNumber",
                 ["latest", false]
@@ -1021,9 +1014,11 @@ describe("integration:Bridge", function () {
                 [{ header: blockHeader, proof: encodedProof }]
             )
 
-            await l2Bridge.processMessage(message, signalProof, {
-                gasLimit: BigNumber.from(2000000),
-            })
+            expect(
+                await l2Bridge.processMessage(message, signalProof, {
+                    gasLimit: BigNumber.from(2000000),
+                })
+            ).to.emit(l2Bridge, "MessageStatusChanged")
         })
     })
 
@@ -1249,18 +1244,100 @@ describe("integration:Bridge", function () {
         }
         it("setup message to fail first processMessage", async function () {
             const { l2Bridge, signal } = await retriableMessageSetup()
-            const storageSlot = await getSlot(hre, signal, 202)
-            const storageAt = await ethers.provider.send("eth_getStorageAt", [
-                l2Bridge.address,
-                storageSlot,
-                "latest",
-            ])
-
-            console.log(storageAt)
+            l2Bridge
+            signal
         })
     })
 
     describe("isMessageReceived()", function () {
+        it("should throw if signal is not a bridge message; proof is invalid since sender != bridge.", async function () {
+            const { owner, l1Bridge, l2Bridge, headerSync, srcChainId } =
+                await deployBridgeFixture()
+
+            const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+
+            const tx = await l1Bridge.connect(owner).sendSignal(signal)
+
+            await tx.wait()
+
+            const sender = owner.address
+
+            const key = ethers.utils.keccak256(
+                ethers.utils.solidityPack(
+                    ["address", "bytes32"],
+                    [sender, signal]
+                )
+            )
+
+            const block: Block = await ethers.provider.send(
+                "eth_getBlockByNumber",
+                ["latest", false]
+            )
+
+            await headerSync.setSyncedHeader(block.hash)
+
+            const logsBloom = block.logsBloom.toString().substring(2)
+
+            const blockHeader: BlockHeader = {
+                parentHash: block.parentHash,
+                ommersHash: block.sha3Uncles,
+                beneficiary: block.miner,
+                stateRoot: block.stateRoot,
+                transactionsRoot: block.transactionsRoot,
+                receiptsRoot: block.receiptsRoot,
+                logsBloom: logsBloom
+                    .match(/.{1,64}/g)!
+                    .map((s: string) => "0x" + s),
+                difficulty: block.difficulty,
+                height: block.number,
+                gasLimit: block.gasLimit,
+                gasUsed: block.gasUsed,
+                timestamp: block.timestamp,
+                extraData: block.extraData,
+                mixHash: block.mixHash,
+                nonce: block.nonce,
+                baseFeePerGas: block.baseFeePerGas
+                    ? parseInt(block.baseFeePerGas)
+                    : 0,
+            }
+
+            // get storageValue for the key
+            const storageValue = await ethers.provider.getStorageAt(
+                l1Bridge.address,
+                key,
+                block.number
+            )
+            // // make sure it equals 1 so we know sendSignal worked
+            expect(storageValue).to.be.eq(
+                "0x0000000000000000000000000000000000000000000000000000000000000001"
+            )
+
+            // rpc call to get the merkle proof what value is at key on the bridge contract
+            const proof: EthGetProofResponse = await ethers.provider.send(
+                "eth_getProof",
+                [l1Bridge.address, [key], block.hash]
+            )
+
+            // RLP encode the proof together for LibTrieProof to decode
+            const encodedProof = ethers.utils.defaultAbiCoder.encode(
+                ["bytes", "bytes"],
+                [
+                    RLP.encode(proof.accountProof),
+                    RLP.encode(proof.storageProof[0].proof),
+                ]
+            )
+            // encode the SignalProof struct from LibBridgeSignal
+            const signalProof = ethers.utils.defaultAbiCoder.encode(
+                [
+                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
+                ],
+                [{ header: blockHeader, proof: encodedProof }]
+            )
+            await expect(
+                l2Bridge.isMessageReceived(signal, srcChainId, signalProof)
+            ).to.be.revertedWith("Invalid large internal hash")
+        })
+
         it("should return true", async function () {
             const {
                 owner,
@@ -1342,6 +1419,17 @@ describe("integration:Bridge", function () {
                     : 0,
             }
 
+            // get storageValue for the key
+            const storageValue = await ethers.provider.getStorageAt(
+                l1Bridge.address,
+                key,
+                block.number
+            )
+            // // make sure it equals 1 so we know sendMessage worked
+            expect(storageValue).to.be.eq(
+                "0x0000000000000000000000000000000000000000000000000000000000000001"
+            )
+
             // rpc call to get the merkle proof what value is at key on the bridge contract
             const proof: EthGetProofResponse = await ethers.provider.send(
                 "eth_getProof",
@@ -1375,8 +1463,135 @@ describe("integration:Bridge", function () {
     })
 
     describe("isSignalReceived()", function () {
-        it("should return true", async function () {
-            const { l1Bridge, headerSync, srcChainId, l2Bridge, owner } =
+        it("should throw if sender == address(0)", async function () {
+            const { l2Bridge, srcChainId } = await deployBridgeFixture()
+
+            const signal = ethers.utils.randomBytes(32)
+            const sender = ethers.constants.AddressZero
+            const signalProof = ethers.constants.HashZero
+
+            await expect(
+                l2Bridge.isSignalReceived(
+                    signal,
+                    srcChainId,
+                    sender,
+                    signalProof
+                )
+            ).to.be.revertedWith("B:sender")
+        })
+
+        it("should throw if signal == HashZero", async function () {
+            const { owner, l2Bridge, srcChainId } = await deployBridgeFixture()
+
+            const signal = ethers.constants.HashZero
+            const sender = owner.address
+            const signalProof = ethers.constants.HashZero
+
+            await expect(
+                l2Bridge.isSignalReceived(
+                    signal,
+                    srcChainId,
+                    sender,
+                    signalProof
+                )
+            ).to.be.revertedWith("B:signal")
+        })
+
+        it("should throw if calling from same layer", async function () {
+            const { owner, l1Bridge, headerSync, srcChainId } =
+                await deployBridgeFixture()
+            const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32))
+
+            const tx = await l1Bridge.connect(owner).sendSignal(signal)
+
+            await tx.wait()
+
+            const sender = owner.address
+
+            const key = ethers.utils.keccak256(
+                ethers.utils.solidityPack(
+                    ["address", "bytes32"],
+                    [sender, signal]
+                )
+            )
+
+            const block: Block = await ethers.provider.send(
+                "eth_getBlockByNumber",
+                ["latest", false]
+            )
+
+            await headerSync.setSyncedHeader(block.hash)
+
+            const logsBloom = block.logsBloom.toString().substring(2)
+
+            const blockHeader: BlockHeader = {
+                parentHash: block.parentHash,
+                ommersHash: block.sha3Uncles,
+                beneficiary: block.miner,
+                stateRoot: block.stateRoot,
+                transactionsRoot: block.transactionsRoot,
+                receiptsRoot: block.receiptsRoot,
+                logsBloom: logsBloom
+                    .match(/.{1,64}/g)!
+                    .map((s: string) => "0x" + s),
+                difficulty: block.difficulty,
+                height: block.number,
+                gasLimit: block.gasLimit,
+                gasUsed: block.gasUsed,
+                timestamp: block.timestamp,
+                extraData: block.extraData,
+                mixHash: block.mixHash,
+                nonce: block.nonce,
+                baseFeePerGas: block.baseFeePerGas
+                    ? parseInt(block.baseFeePerGas)
+                    : 0,
+            }
+
+            // get storageValue for the key
+            const storageValue = await ethers.provider.getStorageAt(
+                l1Bridge.address,
+                key,
+                block.number
+            )
+            // make sure it equals 1 so our proof is valid
+            expect(storageValue).to.be.eq(
+                "0x0000000000000000000000000000000000000000000000000000000000000001"
+            )
+
+            // rpc call to get the merkle proof what value is at key on the bridge contract
+            const proof: EthGetProofResponse = await ethers.provider.send(
+                "eth_getProof",
+                [l1Bridge.address, [key], block.hash]
+            )
+
+            // RLP encode the proof together for LibTrieProof to decode
+            const encodedProof = ethers.utils.defaultAbiCoder.encode(
+                ["bytes", "bytes"],
+                [
+                    RLP.encode(proof.accountProof),
+                    RLP.encode(proof.storageProof[0].proof),
+                ]
+            )
+            // encode the SignalProof struct from LibBridgeSignal
+            const signalProof = ethers.utils.defaultAbiCoder.encode(
+                [
+                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
+                ],
+                [{ header: blockHeader, proof: encodedProof }]
+            )
+
+            await expect(
+                l1Bridge.isSignalReceived(
+                    signal,
+                    srcChainId,
+                    sender,
+                    signalProof
+                )
+            ).to.be.revertedWith("B:srcBridge")
+        })
+
+        it("should return true and pass", async function () {
+            const { owner, l1Bridge, l2Bridge, headerSync, srcChainId } =
                 await deployBridgeFixture()
 
             const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32))
@@ -1432,7 +1647,7 @@ describe("integration:Bridge", function () {
                 key,
                 block.number
             )
-            // // make sure it equals 1 so our proof will pass
+            // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             )
