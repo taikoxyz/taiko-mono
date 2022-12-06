@@ -107,6 +107,7 @@ export async function deployContracts(hre: any) {
         "TaikoL1",
         await deployBaseLibs(hre)
     )
+
     const feeBase = hre.ethers.BigNumber.from(10).pow(18)
 
     await utils.waitTx(
