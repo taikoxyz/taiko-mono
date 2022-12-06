@@ -101,28 +101,28 @@ func Test_makeIndexers(t *testing.T) {
 				return nil
 			},
 			0,
-			errors.New("dial unix valid: connect: no such file or directory"),
+			errors.New("dial unix: missing address"),
 		},
 		{
 			"missingL2RPCUrl",
 			relayer.Both,
 			dbFunc,
 			func() func() {
-				os.Setenv("L1_RPC_URL", "ws://34.132.67.34:8546")
+				os.Setenv("L1_RPC_URL", "https://l1rpc.a1.taiko.xyz")
 				return func() {
 					os.Setenv("L1_RPC_URL", "")
 				}
 			},
 			0,
-			errors.New("dial unix valid: connect: no such file or directory"),
+			errors.New("dial unix: missing address"),
 		},
 		{
 			"successL1",
 			relayer.L1,
 			dbFunc,
 			func() func() {
-				os.Setenv("L1_RPC_URL", "ws://34.132.67.34:8546")
-				os.Setenv("L2_RPC_URL", "ws://34.132.67.34:8546")
+				os.Setenv("L1_RPC_URL", "https://l1rpc.a1.taiko.xyz")
+				os.Setenv("L2_RPC_URL", "https://l2rpc.a1.taiko.xyz")
 				os.Setenv("L1_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L2_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L1_TAIKO_ADDRESS", dummyAddress)
@@ -147,8 +147,8 @@ func Test_makeIndexers(t *testing.T) {
 			relayer.L2,
 			dbFunc,
 			func() func() {
-				os.Setenv("L1_RPC_URL", "ws://34.132.67.34:8546")
-				os.Setenv("L2_RPC_URL", "ws://34.132.67.34:8546")
+				os.Setenv("L1_RPC_URL", "https://l1rpc.a1.taiko.xyz")
+				os.Setenv("L2_RPC_URL", "https://l2rpc.a1.taiko.xyz")
 				os.Setenv("L1_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L2_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L1_TAIKO_ADDRESS", dummyAddress)
@@ -173,8 +173,8 @@ func Test_makeIndexers(t *testing.T) {
 			relayer.Both,
 			dbFunc,
 			func() func() {
-				os.Setenv("L1_RPC_URL", "ws://34.132.67.34:8546")
-				os.Setenv("L2_RPC_URL", "ws://34.132.67.34:8546")
+				os.Setenv("L1_RPC_URL", "https://l1rpc.a1.taiko.xyz")
+				os.Setenv("L2_RPC_URL", "https://l2rpc.a1.taiko.xyz")
 				os.Setenv("L1_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L2_BRIDGE_ADDRESS", dummyAddress)
 				os.Setenv("L1_TAIKO_ADDRESS", dummyAddress)
