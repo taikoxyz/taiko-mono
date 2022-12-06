@@ -8,7 +8,7 @@
 
 <Modal title={"Switch Ethereum Chain"} isOpen={$isSwitchEthereumChainModalOpen}>
   <div class="w-100 text-center p-4">
-    Your current network is not supported. Please change to one of:
+    Your current network is not supported. Please select one:
     <button
       class="btn btn-accent block btn-block mb-2"
       on:click={async () => {
