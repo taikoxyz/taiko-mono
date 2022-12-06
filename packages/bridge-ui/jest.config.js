@@ -49,6 +49,7 @@ export default {
     preset: "ts-jest",
     testEnvironment: "jsdom",
     testPathIgnorePatterns: ["<rootDir>/node_modules/"],
+    coveragePathIgnorePatterns: ["<rootDir>/src/components/"],
     testTimeout: 40 * 1000,
     watchPathIgnorePatterns: ["node_modules"],
 };

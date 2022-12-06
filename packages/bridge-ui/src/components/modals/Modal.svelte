@@ -12,21 +12,17 @@
   };
 </script>
 
-<div
-  class="modal overflow-hidden bg-transparent blur-sm"
-  class:modal-open={isOpen}
-  on:click|self={onCloseClicked}
->
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">{title}</h3>
+<div class="modal bg-black/60" class:modal-open={isOpen} on:click|self={onCloseClicked}>
+  <div class="modal-box bg-dark-3">
+    <h3 class="font-bold text-lg text-center mt-4">{title}</h3>
     {#if showXButton}
       <div class="modal-action mt-0">
         <button
           type="button"
-          class="cursor-pointer font-sans text-lg"
+          class="btn btn-sm btn-circle absolute right-2 top-2 cursor-pointer font-sans text-lg"
           on:click={onCloseClicked}
         >
-          X
+          &times;
         </button>
       </div>
     {/if}

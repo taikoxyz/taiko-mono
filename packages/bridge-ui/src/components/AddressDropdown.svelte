@@ -1,15 +1,31 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
-  import { addressSubsection } from "../utils/addressSubsection";
   import { onMount } from "svelte";
-  import { signer } from "../store/signer";
-  import ChevDown from "./icons/ChevDown.svelte";
+  import { _ } from "svelte-i18n";
   import { toast } from "@zerodevx/svelte-toast";
 
+  import { addressSubsection } from "../utils/addressSubsection";
+  import { signer } from "../store/signer";
+  import { pendingTransactions } from "../store/transactions";
+  import ChevDown from "./icons/ChevDown.svelte";
+  import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
+  import type { BridgeTransaction } from "src/domain/transactions";
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+  import type { Signer } from "ethers";
+
+  export let transactions: BridgeTransaction[] = [];
+
   let address: string;
+  let addressAvatarImgData: string;
   onMount(async () => {
-    address = await $signer.getAddress();
+    setAddress($signer);
   });
+
+  $: setAddress($signer).catch((e) => console.error(e));
+
+  async function setAddress(signer: Signer) {
+    address = await signer.getAddress();
+    addressAvatarImgData = getAddressAvatarFromIdenticon(address);
+  }
 
   async function copyToClipboard(clip: string) {
     await navigator.clipboard.writeText(clip);
@@ -25,15 +41,42 @@
   }
 </script>
 
-<div class="dropdown dropdown-end">
-  <label tabindex="0" class="btn m-1">
-    <span class="pr-2">{addressSubsection(address)}</span>
+<div class="dropdown dropdown-bottom">
+  <button tabindex="0" class="btn btn-wide justify-around">
+    <span class="font-normal flex-1 text-left">
+      {#if $pendingTransactions && $pendingTransactions.length}
+        {$pendingTransactions.length} Pending
+        <div class="inline-block">
+          <LottiePlayer
+            src="/lottie/loader.json"
+            autoplay={true}
+            loop={true}
+            controls={false}
+            renderer="svg"
+            background="transparent"
+            height={26}
+            width={26}
+            controlsLayout={[]}
+          />
+        </div>
+      {:else}
+        <img
+          width="26"
+          height="26"
+          src="data:image/png;base64,{addressAvatarImgData}"
+          class="rounded-full mr-2 inline-block"
+          alt="avatar"
+        />
+
+        {addressSubsection(address)}
+      {/if}
+    </span>
 
     <ChevDown />
-  </label>
+  </button>
   <ul
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
+    class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
     <li>
       <span
@@ -46,5 +89,10 @@
         >Disconnect</span
       >
     </li>
+    {#if transactions && transactions.length}
+      <li>
+        <span class="cursor-pointer"> {transactions.length} Transactions</span>
+      </li>
+    {/if}
   </ul>
 </div>
