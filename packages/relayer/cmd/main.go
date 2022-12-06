@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -9,6 +10,8 @@ import (
 )
 
 func main() {
+	fmt.Println("latest")
+
 	modePtr := flag.String("mode", string(relayer.SyncMode), `mode to run in. 
 	options:
 	  sync: continue syncing from previous block
