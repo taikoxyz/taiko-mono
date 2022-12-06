@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
-  import { Chain, CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
+  import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
+  import type { Chain } from "../../domain/chain";
   import { switchEthereumChain } from "../../utils/switchEthereumChain";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
   import { ethereum } from "../../store/ethereum";
