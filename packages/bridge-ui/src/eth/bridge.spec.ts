@@ -31,8 +31,7 @@ describe("bridge tests", () => {
   });
 
   it("requires allowance returns false", async () => {
-    const bridge: Bridge = new ETHBridge();
-    const wallet = new Wallet("0x");
+    const bridge: Bridge = new ETHBridge(null);
 
     const requires = await bridge.RequiresAllowance({
       amountInWei: BigNumber.from(1),
@@ -44,7 +43,7 @@ describe("bridge tests", () => {
   });
 
   it("approve returns empty transaction", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
 
     const tx = await bridge.Approve({
       amountInWei: BigNumber.from(1),
@@ -55,7 +54,7 @@ describe("bridge tests", () => {
   });
 
   it("bridges with processing fee", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
     const wallet = new Wallet("0x");
 
     const opts: BridgeOpts = {
@@ -87,7 +86,7 @@ describe("bridge tests", () => {
   });
 
   it("bridges without processing fee", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
 
     const wallet = new Wallet("0x");
 

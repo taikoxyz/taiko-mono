@@ -59,7 +59,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -78,7 +78,7 @@ describe("bridge tests", () => {
     );
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -95,7 +95,7 @@ describe("bridge tests", () => {
     mockContract.allowance.mockImplementationOnce(() => opts.amountInWei);
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -115,7 +115,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     await expect(bridge.Approve(approveOpts)).rejects.toThrowError(
@@ -136,7 +136,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     await bridge.Approve(approveOpts);
@@ -157,7 +157,7 @@ describe("bridge tests", () => {
       opts.amountInWei.sub(1)
     );
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
@@ -174,7 +174,7 @@ describe("bridge tests", () => {
     );
     mockSigner.getAddress.mockImplementation(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
@@ -199,7 +199,7 @@ describe("bridge tests", () => {
     );
     mockSigner.getAddress.mockImplementation(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 

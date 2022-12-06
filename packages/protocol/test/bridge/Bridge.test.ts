@@ -668,7 +668,7 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:status")
         })
 
-        it("should throw if message signalproof is not valid", async function () {
+        it.only("should throw if message signalproof is not valid", async function () {
             const {
                 owner,
                 l1Bridge,
