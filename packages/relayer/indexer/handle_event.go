@@ -18,15 +18,20 @@ func (svc *Service) handleEvent(
 	chainID *big.Int,
 	event *contracts.BridgeMessageSent,
 ) error {
-	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
-
 	raw := event.Raw
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
-	if raw.Removed || event.Signal == relayer.ZeroHash {
+	if raw.Removed {
 		return nil
 	}
+
+	if event.Signal == relayer.ZeroHash {
+		log.Warn("Zero signal found. This is unexpected. Returning early")
+		return nil
+	}
+
+	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
 
 	eventStatus, err := svc.eventStatusFromSignal(ctx, event.Message.GasLimit, event.Signal)
 	if err != nil {

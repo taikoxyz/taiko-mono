@@ -14,9 +14,7 @@ func Test_FilterThenSubscribe(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
-	svc.processingBlock = &relayer.Block{
-		Height: 0,
-	}
+	svc.processingBlockHeight = 0
 
 	go func() {
 		_ = svc.FilterThenSubscribe(
@@ -54,9 +52,7 @@ func Test_FilterThenSubscribe_alreadyCaughtUp(t *testing.T) {
 	svc, bridge := newTestService()
 	b := bridge.(*mock.Bridge)
 
-	svc.processingBlock = &relayer.Block{
-		Height: mock.LatestBlockNumber.Uint64(),
-	}
+	svc.processingBlockHeight = mock.LatestBlockNumber.Uint64()
 
 	go func() {
 		_ = svc.FilterThenSubscribe(

@@ -21,23 +21,22 @@ func (svc *Service) setInitialProcessingBlockByMode(
 			chainID,
 		)
 		if err != nil {
-			return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
+			return errors.Wrap(err, "svc.blockRepo.GetLatestBlock()")
 		}
 
-		svc.processingBlock = latestProcessedBlock
+		svc.processingBlockHeight = latestProcessedBlock.Height
+		if svc.processingBlockHeight == 0 && svc.taikol1 != nil {
+			genesis, _, _, _, err := svc.taikol1.GetStateVariables(nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
+			}
+
+			svc.processingBlockHeight = genesis
+		}
 
 		return nil
 	case relayer.ResyncMode:
-		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(0))
-		if err != nil {
-			return errors.Wrap(err, "s.blockRepo.GetLatestBlock()")
-		}
-
-		svc.processingBlock = &relayer.Block{
-			Height: header.Number.Uint64(),
-			Hash:   header.Hash().Hex(),
-		}
-
+		svc.processingBlockHeight = 0
 		return nil
 	default:
 		return relayer.ErrInvalidMode
