@@ -101,7 +101,7 @@ func Test_makeIndexers(t *testing.T) {
 				return nil
 			},
 			0,
-			errors.New("dial unix: missing address"),
+			errors.New("dial unix valid: connect: no such file or directory"),
 		},
 		{
 			"missingL2RPCUrl",
@@ -114,7 +114,7 @@ func Test_makeIndexers(t *testing.T) {
 				}
 			},
 			0,
-			errors.New("dial unix: missing address"),
+			errors.New("dial unix valid: connect: no such file or directory"),
 		},
 		{
 			"successL1",
