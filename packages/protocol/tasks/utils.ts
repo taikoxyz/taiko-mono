@@ -120,7 +120,7 @@ async function getSignalProof(
     hre: any,
     contractAddress: string,
     key: string,
-    blockHash: string,
+    blockHash: number,
     blockHeader: BlockHeader
 ) {
     const proof: EthGetProofResponse = await hre.ethers.provider.send(
