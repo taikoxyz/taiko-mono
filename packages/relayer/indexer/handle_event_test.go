@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
 var (
@@ -83,20 +84,36 @@ func Test_eventStatusFromSignal(t *testing.T) {
 		wantStatus relayer.EventStatus
 	}{
 		{
-			"eventStatusNewOnlyOwner, nilGasLimit",
+			"eventStatusDone",
 			context.Background(),
 			nil,
 			[32]byte{},
 			nil,
-			relayer.EventStatusNewOnlyOwner,
+			relayer.EventStatusDone,
 		},
 		{
 			"eventStatusNewOnlyOwner, 0GasLimit",
 			context.Background(),
 			common.Big0,
-			[32]byte{},
+			mock.SuccessSignal,
 			nil,
 			relayer.EventStatusNewOnlyOwner,
+		},
+		{
+			"eventStatusNewOnlyOwner, nilGasLimit",
+			context.Background(),
+			nil,
+			mock.SuccessSignal,
+			nil,
+			relayer.EventStatusNewOnlyOwner,
+		},
+		{
+			"eventStatusNewOnlyOwner, non0GasLimit",
+			context.Background(),
+			big.NewInt(100),
+			mock.SuccessSignal,
+			nil,
+			relayer.EventStatusNew,
 		},
 	}
 

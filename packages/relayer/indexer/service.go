@@ -33,7 +33,7 @@ type Service struct {
 	ethClient ethClient
 	destRPC   *rpc.Client
 
-	processingBlock *relayer.Block
+	processingBlockHeight uint64
 
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
@@ -42,11 +42,11 @@ type Service struct {
 
 	relayerAddr common.Address
 
-	errChan chan error
-
 	blockBatchSize      uint64
 	numGoroutines       int
 	subscriptionBackoff time.Duration
+
+	taikol1 *contracts.TaikoL1
 }
 
 type NewServiceOpts struct {
@@ -59,6 +59,7 @@ type NewServiceOpts struct {
 	ECDSAKey            string
 	BridgeAddress       common.Address
 	DestBridgeAddress   common.Address
+	SrcTaikoAddress     common.Address
 	DestTaikoAddress    common.Address
 	BlockBatchSize      uint64
 	NumGoroutines       int
@@ -133,6 +134,14 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "contracts.NewV1TaikoL2")
 	}
 
+	var taikoL1 *contracts.TaikoL1
+	if opts.SrcTaikoAddress != ZeroAddress {
+		taikoL1, err = contracts.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "contracts.NewTaikoL1")
+		}
+	}
+
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
 		Prover:           prover,
 		ECDSAKey:         privateKey,
@@ -157,12 +166,11 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 		bridge:     bridge,
 		destBridge: destBridge,
+		taikol1:    taikoL1,
 
 		processor: processor,
 
 		relayerAddr: relayerAddr,
-
-		errChan: make(chan error),
 
 		blockBatchSize:      opts.BlockBatchSize,
 		numGoroutines:       opts.NumGoroutines,

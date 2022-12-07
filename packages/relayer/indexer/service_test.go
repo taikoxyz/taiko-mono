@@ -47,9 +47,9 @@ func newTestService() (*Service, relayer.Bridge) {
 		ethClient:     &mock.EthClient{},
 		numGoroutines: 10,
 
-		processingBlock: &relayer.Block{},
-		processor:       processor,
-		blockBatchSize:  100,
+		processingBlockHeight: 0,
+		processor:             processor,
+		blockBatchSize:        100,
 	}, b
 }
 
