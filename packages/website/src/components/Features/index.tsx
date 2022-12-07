@@ -9,19 +9,19 @@ const features = [
   {
     name: "Type 1",
     description:
-      "A Type 1 (or Ethereum-equivalent) ZK-EVM means we make no tradeoffs for compatibility. This results in an equivalent DX to Ethereum.",
+      "A Type 1 (Ethereum-equivalent) ZK-EVM aims for maximum compatibility. This results in a seamless developer experience.",
     icon: ArrowPathIcon,
   },
   {
     name: "Open Source",
     description:
-      "All code at Taiko is open source. You can view the code on our GitHub. By “open source” we mean free to see the source and modify it.",
+      "Taiko's code is open source and available on GitHub. “Open source” means free to view and modify the source code.",
     icon: ScaleIcon,
   },
   {
-    name: "Fully Decentralized",
+    name: "Decentralized",
     description:
-      "The network is fully decentralized: Layer 2 nodes, proposers, and provers. This is because all of the Layer 2 data is stored on Layer 1.",
+      "Fully decentralized Layer 2: nodes, proposers, and provers. The data needed to run a node is available on Layer 1.",
     icon: GlobeAltIcon,
   },
 ];
