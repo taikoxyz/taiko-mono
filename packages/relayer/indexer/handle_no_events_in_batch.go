@@ -11,9 +11,11 @@ import (
 
 // handleNoEventsInBatch is used when an entire batch call has no events in the entire response,
 // and we need to update the latest block processed
-func (svc *Service) handleNoEventsInBatch(ctx context.Context, chainID *big.Int, blockNumber int64) error {
-	log.Infof("no events in batch")
-
+func (svc *Service) handleNoEventsInBatch(
+	ctx context.Context,
+	chainID *big.Int,
+	blockNumber int64,
+) error {
 	header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(blockNumber))
 	if err != nil {
 		return errors.Wrap(err, "svc.ethClient.HeaderByNumber")
@@ -30,10 +32,7 @@ func (svc *Service) handleNoEventsInBatch(ctx context.Context, chainID *big.Int,
 		return errors.Wrap(err, "svc.blockRepo.Save")
 	}
 
-	svc.processingBlock = &relayer.Block{
-		Height: uint64(blockNumber),
-		Hash:   header.Hash().Hex(),
-	}
+	svc.processingBlockHeight = uint64(blockNumber)
 
 	return nil
 }
