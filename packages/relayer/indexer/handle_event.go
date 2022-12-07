@@ -18,13 +18,19 @@ func (svc *Service) handleEvent(
 	chainID *big.Int,
 	event *contracts.BridgeMessageSent,
 ) error {
-	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
-
 	raw := event.Raw
+
+	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
 	if raw.Removed {
+		log.Warn("event signal was removed: %v", common.Hash(event.Signal).Hex())
+		return nil
+	}
+
+	if event.Signal == relayer.ZeroHash {
+		log.Warn("Zero signal found. This is unexpected. Returning early")
 		return nil
 	}
 
@@ -55,27 +61,6 @@ func (svc *Service) handleEvent(
 	// process the message
 	if err := svc.processor.ProcessMessage(ctx, event, e); err != nil {
 		return errors.Wrap(err, "svc.processMessage")
-	}
-
-	// if the block number of the event is higher than the block we are processing,
-	// we can now consider that previous block processed. save it to the DB
-	// and bump the block number.
-	if raw.BlockNumber > svc.processingBlock.Height {
-		log.Infof("saving new latest processed block to DB: %v", raw.BlockNumber)
-
-		if err := svc.blockRepo.Save(relayer.SaveBlockOpts{
-			Height:    svc.processingBlock.Height,
-			Hash:      common.HexToHash(svc.processingBlock.Hash),
-			ChainID:   chainID,
-			EventName: eventName,
-		}); err != nil {
-			return errors.Wrap(err, "svc.blockRepo.Save")
-		}
-
-		svc.processingBlock = &relayer.Block{
-			Height: raw.BlockNumber,
-			Hash:   raw.BlockHash.Hex(),
-		}
 	}
 
 	return nil
@@ -111,16 +96,17 @@ func (svc *Service) eventStatusFromSignal(
 ) (relayer.EventStatus, error) {
 	var eventStatus relayer.EventStatus
 
-	// if gasLimit is 0, relayer can not process this.
-	if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
-		eventStatus = relayer.EventStatusNewOnlyOwner
-	} else {
-		messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
-		if err != nil {
-			return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
-		}
+	messageStatus, err := svc.destBridge.GetMessageStatus(nil, signal)
+	if err != nil {
+		return 0, errors.Wrap(err, "svc.destBridge.GetMessageStatus")
+	}
 
-		eventStatus = relayer.EventStatus(messageStatus)
+	eventStatus = relayer.EventStatus(messageStatus)
+	if eventStatus == relayer.EventStatusNew {
+		if gasLimit == nil || gasLimit.Cmp(common.Big0) == 0 {
+			// if gasLimit is 0, relayer can not process this.
+			eventStatus = relayer.EventStatusNewOnlyOwner
+		}
 	}
 
 	return eventStatus, nil

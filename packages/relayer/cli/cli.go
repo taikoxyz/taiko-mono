@@ -186,6 +186,7 @@ func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(
 			BridgeAddress:     common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+			SrcTaikoAddress:   common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 
 			BlockBatchSize:      uint64(blockBatchSize),
 			NumGoroutines:       numGoroutines,

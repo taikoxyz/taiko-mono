@@ -95,6 +95,7 @@ library LibBridgeProcess {
             uint256 gasLimit = msg.sender == message.owner
                 ? gasleft()
                 : message.gasLimit;
+
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
