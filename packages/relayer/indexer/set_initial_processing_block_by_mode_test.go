@@ -59,7 +59,7 @@ func Test_SetInitialProcessingBlockByMode(t *testing.T) {
 
 			assert.Equal(t, tt.wantErr, err != nil)
 
-			assert.Equal(t, tt.wantHeight, svc.processingBlock.Height)
+			assert.Equal(t, tt.wantHeight, svc.processingBlockHeight)
 		})
 	}
 }
