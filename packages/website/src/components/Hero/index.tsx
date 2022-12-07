@@ -11,7 +11,9 @@ export default function Hero() {
                 <span className="font-oxanium block text-[#e30ead] xl:inline">
                   Type 1{" "}
                 </span>
-                <span className="dark:text-neutral-100">ZK-EVM</span>
+                <span className="font-oxanium dark:text-neutral-100">
+                  ZK-EVM
+                </span>
               </span>{" "}
             </h1>
             <p className="font-oxanium mx-auto mt-3 max-w-md text-lg text-neutral-600 sm:text-xl md:mt-5 md:max-w-3xl dark:text-neutral-100">
@@ -21,7 +23,7 @@ export default function Hero() {
               <div className="inline-flex rounded-md shadow">
                 <a
                   href="./docs/intro"
-                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-medium text-white hover:bg-[#bd0b90] hover:no-underline hover:text-white"
+                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
                 >
                   Get started
                 </a>

@@ -12,7 +12,7 @@ export default function JoinUs() {
             <a
               href="https://www.notion.so/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2"
               target="_blank"
-              className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-medium text-white hover:bg-[#bd0b90] hover:no-underline hover:text-white"
+              className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
             >
               Explore open positions
             </a>
