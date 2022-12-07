@@ -15,7 +15,7 @@ export default function Home(): JSX.Element {
       <Head>
         <meta
           property="og:image"
-          content="@site/static/img/Taiko_Logo_Fluo.png"
+          content="https://taiko.xyz/img/Taiko_Logo_Fluo.png"
         />
       </Head>
       <Hero />
