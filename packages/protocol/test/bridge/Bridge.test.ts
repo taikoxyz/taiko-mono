@@ -13,7 +13,6 @@ import {
 } from "../../typechain"
 import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils"
-import RLP from "rlp"
 
 async function deployBridge(
     signer: Signer,
@@ -617,7 +616,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -656,7 +655,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -715,7 +714,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -774,7 +773,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -887,61 +886,16 @@ describe("integration:Bridge", function () {
                 )
             )
 
-            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
-            // in the response
-            const block: Block = await ethers.provider.send(
-                "eth_getBlockByNumber",
-                ["latest", false]
-            )
+            const { block, blockHeader } = await getLatestBlockHeader(hre)
 
             await headerSync.setSyncedHeader(block.hash)
 
-            const logsBloom = block.logsBloom.toString().substring(2)
-
-            const blockHeader: BlockHeader = {
-                parentHash: block.parentHash,
-                ommersHash: block.sha3Uncles,
-                beneficiary: block.miner,
-                stateRoot: block.stateRoot,
-                transactionsRoot: block.transactionsRoot,
-                receiptsRoot: block.receiptsRoot,
-                logsBloom: logsBloom
-                    .match(/.{1,64}/g)!
-                    .map((s: string) => "0x" + s),
-                difficulty: block.difficulty,
-                height: block.number,
-                gasLimit: block.gasLimit,
-                gasUsed: block.gasUsed,
-                timestamp: block.timestamp,
-                extraData: block.extraData,
-                mixHash: block.mixHash,
-                nonce: block.nonce,
-                baseFeePerGas: block.baseFeePerGas
-                    ? parseInt(block.baseFeePerGas)
-                    : 0,
-            }
-
-            // rpc call to get the merkle proof what value is at key on the bridge contract
-            const proof: EthGetProofResponse = await ethers.provider.send(
-                "eth_getProof",
-                [l1Bridge.address, [key], block.hash]
-            )
-
-            // RLP encode the proof together for LibTrieProof to decode
-            const encodedProof = ethers.utils.defaultAbiCoder.encode(
-                ["bytes", "bytes"],
-                [
-                    RLP.encode(proof.accountProof),
-                    RLP.encode(proof.storageProof[0].proof),
-                ]
-            )
-
-            // encode the SignalProof struct from LibBridgeSignal
-            const signalProof = ethers.utils.defaultAbiCoder.encode(
-                [
-                    "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
-                ],
-                [{ header: blockHeader, proof: encodedProof }]
+            const signalProof = await getSignalProof(
+                hre,
+                l1Bridge.address,
+                key,
+                block.number,
+                blockHeader
             )
 
             await l2Bridge
@@ -1018,7 +972,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -1071,7 +1025,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -1157,7 +1111,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
 
@@ -1209,7 +1163,7 @@ describe("integration:Bridge", function () {
                 hre,
                 l1Bridge.address,
                 key,
-                block.hash,
+                block.number,
                 blockHeader
             )
             // proving functionality; l2Bridge can check if l1Bridge receives a signal
