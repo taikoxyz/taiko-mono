@@ -47,3 +47,4 @@ event ProverWhitelisted(address prover, bool whitelisted)
 ```solidity
 event Halted(bool halted)
 ```
+

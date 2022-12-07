@@ -36,26 +36,27 @@ function proposeBlock(struct LibData.State state, struct LibData.TentativeState 
 function isCommitValid(struct LibData.State state, uint256 commitSlot, uint256 commitHeight, bytes32 commitHash) public view returns (bool)
 ```
 
-### \_verifyBlockCommit
+### _verifyBlockCommit
 
 ```solidity
 function _verifyBlockCommit(struct LibData.State state, struct LibData.BlockMetadata meta) private
 ```
 
-### \_validateMetadata
+### _validateMetadata
 
 ```solidity
 function _validateMetadata(struct LibData.BlockMetadata meta) private pure
 ```
 
-### \_calculateCommitHash
+### _calculateCommitHash
 
 ```solidity
 function _calculateCommitHash(address beneficiary, bytes32 txListHash) private pure returns (bytes32)
 ```
 
-### \_aggregateCommitHash
+### _aggregateCommitHash
 
 ```solidity
 function _aggregateCommitHash(uint256 commitHeight, bytes32 commitHash) private pure returns (bytes32)
 ```
+

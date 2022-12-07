@@ -35,32 +35,33 @@ function proveBlock(struct LibData.State state, struct LibData.TentativeState te
 function proveBlockInvalid(struct LibData.State state, struct LibData.TentativeState tentative, contract AddressResolver resolver, uint256 blockId, bytes[] inputs) public
 ```
 
-### \_proveBlock
+### _proveBlock
 
 ```solidity
 function _proveBlock(struct LibData.State state, contract AddressResolver resolver, struct V1Proving.Evidence evidence, struct LibData.BlockMetadata target, bytes32 blockHashOverride) private
 ```
 
-### \_markBlockProven
+### _markBlockProven
 
 ```solidity
 function _markBlockProven(struct LibData.State state, address prover, struct LibData.BlockMetadata target, bytes32 parentHash, bytes32 blockHash) private
 ```
 
-### \_validateAnchorTxSignature
+### _validateAnchorTxSignature
 
 ```solidity
 function _validateAnchorTxSignature(struct LibTxDecoder.Tx _tx) private view
 ```
 
-### \_checkMetadata
+### _checkMetadata
 
 ```solidity
 function _checkMetadata(struct LibData.State state, struct LibData.BlockMetadata meta) private view
 ```
 
-### \_validateHeaderForMetadata
+### _validateHeaderForMetadata
 
 ```solidity
 function _validateHeaderForMetadata(struct BlockHeader header, struct LibData.BlockMetadata meta) private pure
 ```
+

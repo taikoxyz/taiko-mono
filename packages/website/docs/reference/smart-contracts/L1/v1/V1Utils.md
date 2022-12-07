@@ -89,3 +89,4 @@ function setBit(struct LibData.State state, uint64 mask, bool one) private
 ```solidity
 function isBitOne(struct LibData.State state, uint64 mask) private view returns (bool)
 ```
+
