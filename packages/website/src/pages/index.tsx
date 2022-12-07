@@ -9,13 +9,13 @@ import Head from "@docusaurus/Head";
 export default function Home(): JSX.Element {
   return (
     <Layout
-      title="Taiko"
-      description="Type 1 ZK-EVM -- A fully decentralized, Ethereum-equivalent ZK-Rollup."
+      title="Type 1 ZK-EVM"
+      description="A fully decentralized, Ethereum-equivalent ZK-Rollup."
     >
       <Head>
         <meta
           property="og:image"
-          content="@site/static/img/Taiko_Logo_Fluo.svg"
+          content="@site/static/img/Taiko_Logo_Fluo.png"
         />
       </Head>
       <Hero />
