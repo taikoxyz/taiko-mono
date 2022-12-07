@@ -7,10 +7,16 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
             home: {
                 title: "Taiko Bridge",
                 selectToken: "Select Token",
-                from: "From",
                 to: "To",
                 bridge: "Bridge",
                 approve: "Approve"
+            },
+            "bridgeForm": {
+                fieldLabel: "Bridge Token",
+                maxLabel: "Max:",
+                processingFeeLabel: "Processing Fee",
+                bridge: "Bridge",
+                approve: "Approve",
             },
             nav: {
                 connect: "Connect Wallet"
@@ -19,6 +25,10 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
                 transactionSent: "Transaction sent",
                 errorSendingTransaction: "Error sending transaction",
                 errorDisconneting: "Could not disconnect"
+            },
+            switchChainModal: {
+                title: "Not on the right network",
+                subtitle: "Your current network is not supported. Please select one:"
             }
         }
     })
