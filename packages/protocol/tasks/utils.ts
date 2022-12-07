@@ -120,12 +120,12 @@ async function getSignalProof(
     hre: any,
     contractAddress: string,
     key: string,
-    blockHash: number,
+    blockNumber: number,
     blockHeader: BlockHeader
 ) {
     const proof: EthGetProofResponse = await hre.ethers.provider.send(
         "eth_getProof",
-        [contractAddress, [key], blockHash]
+        [contractAddress, [key], blockNumber]
     )
 
     // RLP encode the proof together for LibTrieProof to decode
