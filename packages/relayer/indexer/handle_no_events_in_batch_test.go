@@ -27,13 +27,13 @@ func Test_handleNoEventsInBatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _ := newTestService()
 
-			assert.NotEqual(t, svc.processingBlock.Height, uint64(tt.blockNumber))
+			assert.NotEqual(t, svc.processingBlockHeight, uint64(tt.blockNumber))
 
 			err := svc.handleNoEventsInBatch(context.Background(), tt.chainID, tt.blockNumber)
 
 			assert.Equal(t, tt.wantErr, err)
 
-			assert.Equal(t, svc.processingBlock.Height, uint64(tt.blockNumber))
+			assert.Equal(t, svc.processingBlockHeight, uint64(tt.blockNumber))
 		})
 	}
 }

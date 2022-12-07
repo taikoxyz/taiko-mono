@@ -114,8 +114,8 @@ library V1Verifying {
                     latestL2Hash = fc.blockHash;
                 }
                 processed += 1;
-                _cleanUp(fc);
                 emit BlockVerified(i, fc.blockHash);
+                _cleanUp(fc);
             }
         }
 

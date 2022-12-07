@@ -10,15 +10,35 @@
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
   import { toast } from "@zerodevx/svelte-toast";
+  import ProcessingFee from "./ProcessingFee.svelte";
+  import { ETH } from "../../domain/token";
+  import SelectToken from "../buttons/SelectToken.svelte";
+
   import type { Token } from "../../domain/token";
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
+  import { truncateString } from "../../utils/truncateString";
+  import { pendingTransactions } from "../../store/transactions";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
+  let tokenBalance: string;
 
-  $: isBtnDisabled($signer, amount)
+  $: getUserBalance($signer, $token);
+
+  async function getUserBalance(signer, token) {
+    if (signer && token) {
+      if (token.symbol == ETH.symbol) {
+        const userBalance = await signer.getBalance("latest");
+        tokenBalance = ethers.utils.formatEther(userBalance);
+      } else {
+        // TODO: read ERC20 balance from contract
+      }
+    }
+  }
+
+  $: isBtnDisabled($signer, amount, $token, requiresAllowance)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -33,9 +53,7 @@
     fromChain: Chain,
     signer: Signer
   ) {
-    if (!signer || !amt || !token || !fromChain) return true;
-
-    return await $activeBridge.RequiresAllowance({
+    const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: amt
         ? ethers.utils.parseUnits(amt, token.decimals)
         : BigNumber.from(0),
@@ -43,14 +61,20 @@
       contractAddress: token.address,
       spenderAddress: $chainIdToBridgeAddress.get(fromChain.id),
     });
+    return allowance;
   }
 
-  async function isBtnDisabled(signer: Signer, amount: string) {
+  async function isBtnDisabled(
+    signer: Signer,
+    amount: string,
+    token: Token,
+    requiresAllowance: boolean
+  ) {
     if (!signer) return true;
     if (!amount) return true;
     if (requiresAllowance) return true;
     const balance = await signer.getBalance("latest");
-    if (balance.lt(ethers.utils.parseUnits(amount, $token.decimals)))
+    if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
       return true;
 
     return false;
@@ -69,9 +93,11 @@
       });
       console.log("approved, waiting for confirmations ", tx);
       await $signer.provider.waitForTransaction(tx.hash, 3);
-
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
       requiresAllowance = false;
-
       toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
@@ -94,59 +120,62 @@
         memo: "memo",
       });
 
-      console.log("bridged", tx);
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
+
       toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
       toast.push($_("toast.errorSendingTransaction"));
     }
   }
+
+  function useFullAmount() {
+    amount = tokenBalance;
+  }
+
+  function updateAmount(e: any) {
+    amount = (e.data as number).toString();
+  }
 </script>
 
-<div class="form-control">
-  <label class="label">
-    <span class="label-text">{$_("home.from")}</span>
+<div class="form-control w-full my-8">
+  <label class="label" for="amount">
+    <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
+    {#if $signer && tokenBalance}
+      <button class="label-text" on:click={useFullAmount}
+        >{$_("bridgeForm.maxLabel")}
+        {tokenBalance.length > 10
+          ? `${truncateString(tokenBalance)}...`
+          : tokenBalance} ETH</button
+      >{/if}
   </label>
-  <label class="input-group">
+  <label
+    class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
+  >
     <input
-      type="text"
+      type="number"
+      step="0.01"
       placeholder="0.01"
-      bind:value={amount}
-      class="input input-bordered"
+      min="0"
+      on:input={updateAmount}
+      class="input input-primary bg-dark-4 input-lg flex-1"
+      name="amount"
     />
-    <span>{$token.symbol}</span>
+    <SelectToken />
   </label>
 </div>
 
-<div class="form-control">
-  <label class="label">
-    <span class="label-text">{$_("home.to")}</span>
-  </label>
-  <label class="input-group">
-    <input
-      type="text"
-      placeholder="0.01"
-      bind:value={amount}
-      class="input input-bordered"
-    />
-    <span>{$token.symbol}</span>
-  </label>
-</div>
+<ProcessingFee />
 
 {#if !requiresAllowance}
-  <button
-    class="btn btn-accent"
-    on:click={bridge}
-    disabled={btnDisabled}
-  >
+  <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>
     {$_("home.bridge")}
   </button>
 {:else}
-  <button
-    class="btn btn-accent"
-    on:click={approve}
-    disabled={btnDisabled}
-  >
+  <button class="btn btn-accent" on:click={approve} disabled={btnDisabled}>
     {$_("home.approve")}
   </button>
 {/if}

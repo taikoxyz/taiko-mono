@@ -1,24 +1,31 @@
-import type { Chain as WagmiChain } from "wagmi";
+import type { Chain as WagmiChain } from "@wagmi/core";
+import type { ComponentType } from "svelte";
+
+import Eth from "../components/icons/ETH.svelte";
+import Taiko from "../components/icons/TKO.svelte";
 
 export type Chain = {
   id: number;
   name: string;
   rpc: string;
   enabled?: boolean;
+  icon?: ComponentType;
 };
 
 export const CHAIN_MAINNET = {
   id: 31336,
-  name: "Mainnet",
-  rpc: "http://34.132.67.34:8545",
+  name: "Ethereum A1",
+  rpc: "https://l1rpc.a1.taiko.xyz",
   enabled: true,
+  icon: Eth,
 };
 
 export const CHAIN_TKO = {
   id: 167001,
-  name: "Taiko",
-  rpc: "http://rpc.a1.testnet.taiko.xyz",
+  name: "Taiko A1",
+  rpc: "https://l2rpc.a1.taiko.xyz",
   enabled: true,
+  icon: Taiko,
 };
 
 export const chains: Record<string, Chain> = {
@@ -28,16 +35,16 @@ export const chains: Record<string, Chain> = {
 
 export const mainnet: WagmiChain = {
   id: 31336,
-  name: "Mainnet",
+  name: "Ethereum A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "http://34.132.67.34:8545",
+    default: "https://l1rpc.a1.taiko.xyz",
   },
   blockExplorers: {
     default: {
       name: "Main",
-      url: "https://34.132.67.34:4000",
+      url: "https://l1explorer.a1.taiko.xyz",
     },
   },
   ens: {
@@ -51,16 +58,16 @@ export const mainnet: WagmiChain = {
 
 export const taiko: WagmiChain = {
   id: 167001,
-  name: "Taiko",
+  name: "Taiko A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "http://rpc.a1.testnet.taiko.xyz",
+    default: "https://l2rpc.a1.taiko.xyz",
   },
   blockExplorers: {
     default: {
       name: "Main",
-      url: "https://a1.testnet.taiko.xyz",
+      url: "https://l2explorer.a1.taiko.xyz",
     },
   },
   ens: {

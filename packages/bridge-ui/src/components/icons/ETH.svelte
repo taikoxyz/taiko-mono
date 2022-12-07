@@ -1,9 +1,15 @@
+<script lang="ts">
+  export let height: number = 30;
+  export let width: number = 30;
+</script>
+
 <svg
-  width="30"
-  height="30"
+  {width}
+  {height}
   viewBox="0 0 30 30"
   fill="none"
   xmlns="http://www.w3.org/2000/svg"
+  class="inline-block"
 >
   <circle cx="15" cy="15" r="15" fill="#617FEA" />
   <path
