@@ -9,7 +9,7 @@ const features = [
   {
     name: "Type 1",
     description:
-      "A Type 1 ZK-EVM (or Ethereum-equivalent) means we make no tradeoffs for compatibility. This means an equivalent DX to Ethereum.",
+      "A Type 1 (or Ethereum-equivalent) ZK-EVM means we make no tradeoffs for compatibility. This results in an equivalent DX to Ethereum.",
     icon: ArrowPathIcon,
   },
   {
