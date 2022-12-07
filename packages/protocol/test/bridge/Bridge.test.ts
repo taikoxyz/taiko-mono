@@ -11,7 +11,6 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain"
-import { Block, BlockHeader, EthGetProofResponse } from "../utils/rpc"
 import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils"
 
 async function deployBridge(
