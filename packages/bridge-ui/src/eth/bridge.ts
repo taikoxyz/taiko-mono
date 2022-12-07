@@ -85,7 +85,7 @@ class ETHBridge implements Bridge {
     const signerAddress = await opts.signer.getAddress();
 
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error("use can not process this, it is not their message");
+      throw Error("user can not process this, it is not their message");
     }
 
     if (messageStatus === MessageStatus.New) {

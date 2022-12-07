@@ -63,8 +63,6 @@ class ProofService implements Prover {
       [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)]
     );
 
-    console.log(encodedProof);
-
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
       [
