@@ -1,11 +1,17 @@
 import * as helpers from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
-import * as fs from "fs"
 import hre, { ethers } from "hardhat"
+import * as fs from "fs"
 import * as path from "path"
 import { getSlot, MessageStatus } from "../../../tasks/utils"
-import { AddressManager, Bridge } from "../../../typechain"
 import { Message } from "../../utils/message"
+import {
+    AddressManager,
+    EtherVault,
+    LibTrieProof,
+    TestLibBridgeData,
+    TestLibBridgeProcess,
+} from "../../../typechain"
 
 describe("LibBridgeProcess", function () {
     function getStateSlot() {
@@ -51,7 +57,9 @@ describe("LibBridgeProcess", function () {
         ).deploy()
         await addressManager.init()
 
-        const etherVault = await (await ethers.getContractFactory("EtherVault"))
+        const etherVault: EtherVault = await (
+            await ethers.getContractFactory("EtherVault")
+        )
             .connect(etherVaultOwner)
             .deploy()
 
@@ -71,7 +79,7 @@ describe("LibBridgeProcess", function () {
             value: ethers.utils.parseEther("10.0"),
         })
 
-        const libTrieLink = await (
+        const libTrieLink: LibTrieProof = await (
             await ethers.getContractFactory("LibTrieProof")
         )
             .connect(owner)
@@ -89,7 +97,7 @@ describe("LibBridgeProcess", function () {
             .deploy()
         await libProcessLink.deployed()
 
-        const libProcess = await (
+        const libProcess: TestLibBridgeProcess = await (
             await ethers.getContractFactory("TestLibBridgeProcess", {
                 libraries: {
                     LibBridgeProcess: libProcessLink.address,
@@ -101,7 +109,7 @@ describe("LibBridgeProcess", function () {
 
         await libProcess.init(addressManager.address)
 
-        const testLibData = await (
+        const testLibData: TestLibBridgeData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
 
@@ -114,66 +122,11 @@ describe("LibBridgeProcess", function () {
             srcChainId,
             messageOwner,
             libProcess,
-            MessageStatus,
             stateSlot,
             blockChainId,
             nonOwner,
             testLibData,
             addressManager,
-        }
-    }
-    async function deployBridgeFixture() {
-        const [owner, etherVault] = await ethers.getSigners()
-
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy()
-        await addressManager.init()
-
-        const chainId = hre.network.config.chainId ?? 0
-
-        await addressManager.setAddress(
-            `${chainId}.ether_vault`,
-            etherVault.address
-        )
-
-        const libTrieProof = await (
-            await ethers.getContractFactory("LibTrieProof")
-        ).deploy()
-
-        const libBridgeProcess = await (
-            await ethers.getContractFactory("LibBridgeProcess", {
-                libraries: {
-                    LibTrieProof: libTrieProof.address,
-                },
-            })
-        ).deploy()
-
-        const libBridgeRetry = await (
-            await ethers.getContractFactory("LibBridgeRetry")
-        ).deploy()
-
-        const BridgeFactory = await ethers.getContractFactory("Bridge", {
-            libraries: {
-                LibBridgeProcess: libBridgeProcess.address,
-                LibBridgeRetry: libBridgeRetry.address,
-                LibTrieProof: libTrieProof.address,
-            },
-        })
-
-        const bridge: Bridge = await BridgeFactory.connect(owner).deploy()
-
-        await bridge.init(addressManager.address)
-
-        const headerSync = await (
-            await ethers.getContractFactory("TestHeaderSync")
-        ).deploy()
-
-        await addressManager.setAddress(`${chainId}.taiko`, headerSync.address)
-
-        return {
-            bridge,
-            headerSync,
         }
     }
 
@@ -233,7 +186,6 @@ describe("LibBridgeProcess", function () {
                 libProcess,
                 testLibData,
                 blockChainId,
-                MessageStatus,
                 stateSlot,
             } = await deployLibBridgeProcessFixture()
 
@@ -265,51 +217,6 @@ describe("LibBridgeProcess", function () {
                 libProcess.processMessage(message, ethers.constants.HashZero)
             ).to.be.revertedWith("B:status")
         })
-
-        it("should throw if signal has not been received", async function () {
-            const {
-                owner,
-                srcChainId,
-                nonOwner,
-                libProcess,
-                blockChainId,
-                addressManager,
-            } = await deployLibBridgeProcessFixture()
-            const { bridge } = await deployBridgeFixture()
-
-            await addressManager.setAddress(
-                `${srcChainId}.bridge`,
-                bridge.address
-            )
-
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: srcChainId,
-                destChainId: blockChainId,
-                owner: owner.address,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100000000,
-                data: ethers.constants.HashZero,
-                memo: "",
-            }
-            await expect(
-                libProcess.processMessage(message, ethers.constants.HashZero)
-            ).to.be.reverted
-
-            // Reverts because there is no HeaderSync, can't test without
-        })
-
-        it("if message fails, refund should go to the intended account and amount", async function () {
-            await deployLibBridgeProcessFixture()
-        })
-
-        it("should pass properly, message should be processed and marked DONE", async function () {
-            await deployLibBridgeProcessFixture()
-        })
+        // Remaining test cases require integration, will be covered in Bridge.test.ts
     })
 })
