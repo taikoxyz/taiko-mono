@@ -5,7 +5,7 @@ export default function JoinUs() {
     <div className="bg-white dark:bg-[#1B1B1D]">
       <div className="mx-auto max-w-7xl py-12 px-4 text-center sm:px-6 lg:py-16 lg:px-8">
         <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-neutral-100">
-          <span className="block">Want to contribute?</span>
+          <span className="block">Join Us 🥁</span>
         </h2>
         <div className="mt-8 flex justify-center">
           <div className="inline-flex rounded-md shadow">

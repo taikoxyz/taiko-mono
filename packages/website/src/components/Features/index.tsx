@@ -21,14 +21,14 @@ const features = [
   {
     name: "Decentralized",
     description:
-      "Fully decentralized Layer 2: nodes, proposers, and provers. The data needed to run a node is available on Layer 1.",
+      "Fully decentralized and permissionless nodes, proposers, and provers. Anyone can participate in Taiko.",
     icon: GlobeAltIcon,
   },
 ];
 
 export default function Features() {
   return (
-    <div className="mx-auto max-w-md px-6 text-center sm:max-w-3xl lg:max-w-7xl lg:px-8 dark:bg-[#1B1B1D]">
+    <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8 dark:bg-[#1B1B1D]">
       <div className="mt-20">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-1 lg:grid-cols-3">
           {features.map((feature) => (

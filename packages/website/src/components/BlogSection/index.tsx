@@ -80,7 +80,7 @@ export default function BlogSection(): JSX.Element {
               <div className="flex-shrink-0">
                 <a href={post.href} target="_blank">
                   <img
-                    className="h-54 w-full object-cover"
+                    className="h-full w-full object-cover"
                     src={post.imageUrl}
                     alt=""
                   />

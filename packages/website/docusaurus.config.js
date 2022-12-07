@@ -113,7 +113,7 @@ const config = {
             position: "left",
           },
           {
-            href: "https://discord.gg/tnSra3aFfg",
+            href: "https://discord.gg/taikoxyz",
             position: "right",
             className: "header-discord-link",
             "aria-label": "Discord",
