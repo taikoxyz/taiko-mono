@@ -6,22 +6,28 @@
 struct LibData.State state
 ```
 
+### tentative
+
+```solidity
+struct LibData.TentativeState tentative
+```
+
 ### \_\_gap
 
 ```solidity
-uint256[42] __gap
+uint256[50] __gap
 ```
 
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
+function init(address _addressManager, bytes32 _genesisBlockHash) external
 ```
 
 ### commitBlock
 
 ```solidity
-function commitBlock(bytes32 commitHash) external
+function commitBlock(uint64 commitSlot, bytes32 commitHash) external
 ```
 
 Write a _commit hash_ so a few blocks later a L2 block can be proposed
@@ -30,9 +36,10 @@ to this commit hash.
 
 #### Parameters
 
-| Name       | Type    | Description                                                      |
-| ---------- | ------- | ---------------------------------------------------------------- |
-| commitHash | bytes32 | Calculated with: `calculateCommitHash(beneficiary, txListHash)`. |
+| Name       | Type    | Description                                                                 |
+| ---------- | ------- | --------------------------------------------------------------------------- |
+| commitSlot | uint64  | A slot to save this commit. Slot 0 will always be reset to zero for refund. |
+| commitHash | bytes32 | Calculated with: `calculateCommitHash(beneficiary, txListHash)`.            |
 
 ### proposeBlock
 
@@ -94,28 +101,123 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### getBlockFee
+### enableWhitelisting
 
 ```solidity
-function getBlockFee() public view returns (uint256 premiumFee)
+function enableWhitelisting(bool whitelistProposers, bool whitelistProvers) public
 ```
 
-### getProofReward
+Enable or disable proposer and prover whitelisting
+
+#### Parameters
+
+| Name               | Type | Description                           |
+| ------------------ | ---- | ------------------------------------- |
+| whitelistProposers | bool | True to enable proposer whitelisting. |
+| whitelistProvers   | bool | True to enable prover whitelisting.   |
+
+### whitelistProposer
 
 ```solidity
-function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 premiumReward)
+function whitelistProposer(address proposer, bool whitelisted) public
 ```
+
+Add or remove a proposer from the whitelist.
+
+#### Parameters
+
+| Name        | Type    | Description                          |
+| ----------- | ------- | ------------------------------------ |
+| proposer    | address | The proposer to be added or removed. |
+| whitelisted | bool    | True to add; remove otherwise.       |
+
+### whitelistProver
+
+```solidity
+function whitelistProver(address prover, bool whitelisted) public
+```
+
+Add or remove a prover from the whitelist.
+
+#### Parameters
+
+| Name        | Type    | Description                        |
+| ----------- | ------- | ---------------------------------- |
+| prover      | address | The prover to be added or removed. |
+| whitelisted | bool    | True to add; remove otherwise.     |
+
+### halt
+
+```solidity
+function halt(bool toHalt) public
+```
+
+Halt or resume the chain.
+
+#### Parameters
+
+| Name   | Type | Description                    |
+| ------ | ---- | ------------------------------ |
+| toHalt | bool | True to halt, false to resume. |
+
+### isProposerWhitelisted
+
+```solidity
+function isProposerWhitelisted(address proposer) public view returns (bool)
+```
+
+Check whether a proposer is whitelisted.
+
+#### Parameters
+
+| Name     | Type    | Description   |
+| -------- | ------- | ------------- |
+| proposer | address | The proposer. |
+
+#### Return Values
+
+| Name | Type | Description                                           |
+| ---- | ---- | ----------------------------------------------------- |
+| [0]  | bool | True if the proposer is whitelisted, false otherwise. |
+
+### isProverWhitelisted
+
+```solidity
+function isProverWhitelisted(address prover) public view returns (bool)
+```
+
+Check whether a prover is whitelisted.
+
+#### Parameters
+
+| Name   | Type    | Description |
+| ------ | ------- | ----------- |
+| prover | address | The prover. |
+
+#### Return Values
+
+| Name | Type | Description                                         |
+| ---- | ---- | --------------------------------------------------- |
+| [0]  | bool | True if the prover is whitelisted, false otherwise. |
+
+### isHalted
+
+```solidity
+function isHalted() public view returns (bool)
+```
+
+Check if the L1 is halted.
+
+#### Return Values
+
+| Name | Type | Description                      |
+| ---- | ---- | -------------------------------- |
+| [0]  | bool | True if halted, false otherwise. |
 
 ### isCommitValid
 
 ```solidity
-function isCommitValid(bytes32 hash) public view returns (bool)
-```
-
-### getCommitHeight
-
-```solidity
-function getCommitHeight(bytes32 commitHash) public view returns (uint256)
+function isCommitValid(uint256 commitSlot, uint256 commitHeight, bytes32 commitHash) public view returns (bool)
 ```
 
 ### getProposedBlock
@@ -148,8 +250,14 @@ function getStateVariables() public view returns (uint64, uint64, uint64, uint64
 function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v, uint256 r, uint256 s)
 ```
 
+### getBlockProvers
+
+```solidity
+function getBlockProvers(uint256 id, bytes32 parentHash) public view returns (address[])
+```
+
 ### getConstants
 
 ```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
+function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
 ```
