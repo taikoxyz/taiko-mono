@@ -1,16 +1,26 @@
-<script>
+<script lang="ts">
   import ArrowRight from "../icons/ArrowRight.svelte";
   import { fromChain, toChain } from "../../store/chain";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
+  import { switchEthereumChain } from "../../utils/switchEthereumChain";
+  import { ethereum } from "../../store/ethereum";
+  import { ethers } from "ethers";
+  import { signer } from "../../store/signer";
 
-  function toggleChains() {
-    fromChain.update((val) =>
-      val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET
-    );
-    toChain.update((val) =>
-      val === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET
-    );
-  }
+  const toggleChains = async () => {
+    const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
+    await switchEthereumChain($ethereum, chain);
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+
+    fromChain.set(chain);
+    if (chain === CHAIN_MAINNET) {
+      toChain.set(CHAIN_TKO);
+    } else {
+      toChain.set(CHAIN_MAINNET);
+    }
+    signer.set(provider.getSigner());
+  };
 </script>
 
 <div class="flex items-center justify-between w-full p-8 py-6 text-lg">

@@ -25,7 +25,7 @@ func (svc *Service) handleEvent(
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
 	if raw.Removed {
-		log.Warn("event signal was removed: %v", common.Hash(event.Signal).Hex())
+		log.Warnf("event signal was removed: %v", common.Hash(event.Signal).Hex())
 		return nil
 	}
 

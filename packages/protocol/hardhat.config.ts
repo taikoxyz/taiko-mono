@@ -14,6 +14,15 @@ const hardhatMnemonic =
     "test test test test test test test test test test test taik"
 const config: HardhatUserConfig = {
     docgen: {
+        exclude: [
+            "bridge/libs/",
+            "L1/v1/",
+            "L1/LibData.sol",
+            "libs/",
+            "test/",
+            "thirdparty/",
+            "common/EssentialContract.sol",
+        ],
         pages: "files",
         templates: "./solidity-docgen/templates",
     },

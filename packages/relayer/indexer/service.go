@@ -131,7 +131,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 	destHeaderSyncer, err := contracts.NewIHeaderSync(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "contracts.NewV1TaikoL2")
+		return nil, errors.Wrap(err, "contracts.NewTaikoL2")
 	}
 
 	var taikoL1 *contracts.TaikoL1
