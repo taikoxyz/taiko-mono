@@ -1,17 +1,19 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { TestLibBridgeData } from "../../../typechain"
 import { K_BRIDGE_MESSAGE } from "../../constants/messages"
 import { MessageStatus } from "../../../tasks/utils"
+import { Message } from "../../utils/message"
 
 describe("LibBridgeData", function () {
     async function deployLibBridgeDataFixture() {
         const [owner, nonOwner] = await ethers.getSigners()
 
-        const libData = await (
+        const libData: TestLibBridgeData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
 
-        const testMessage = {
+        const testMessage: Message = {
             id: 1,
             sender: owner.address,
             srcChainId: 1,
@@ -41,7 +43,6 @@ describe("LibBridgeData", function () {
             testMessage,
             testTypes,
             testVar,
-            MessageStatus,
         }
     }
 
@@ -49,7 +50,6 @@ describe("LibBridgeData", function () {
         it("should return properly hashed message", async function () {
             const { libData, testMessage, testTypes } =
                 await deployLibBridgeDataFixture()
-            // dummy struct to test with
 
             const testVar = [K_BRIDGE_MESSAGE, testMessage]
             const hashed = await libData.hashMessage(testMessage)
@@ -67,7 +67,7 @@ describe("LibBridgeData", function () {
             const { libData } = await deployLibBridgeDataFixture()
             // dummy struct to test with
 
-            const testMessage = {
+            const testMessage: Message = {
                 id: 0,
                 sender: "0xDA1Ea1362475997419D2055dD43390AEE34c6c37",
                 srcChainId: 31336,
@@ -93,8 +93,7 @@ describe("LibBridgeData", function () {
 
     describe("updateMessageStatus()", async function () {
         it("should emit upon successful change, and value should be changed correctly", async function () {
-            const { libData, testMessage, MessageStatus } =
-                await deployLibBridgeDataFixture()
+            const { libData, testMessage } = await deployLibBridgeDataFixture()
 
             const signal = await libData.hashMessage(testMessage)
 
@@ -108,8 +107,7 @@ describe("LibBridgeData", function () {
         })
 
         it("unchanged MessageStatus should not emit event", async function () {
-            const { libData, testMessage, MessageStatus } =
-                await deployLibBridgeDataFixture()
+            const { libData, testMessage } = await deployLibBridgeDataFixture()
 
             const signal = await libData.hashMessage(testMessage)
 

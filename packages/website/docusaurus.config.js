@@ -83,12 +83,13 @@ const config = {
     ({
       colorMode: {
         defaultMode: "dark",
-        respectPrefersColorScheme: true,
+        respectPrefersColorScheme: false,
       },
       navbar: {
         logo: {
           alt: "Taiko Logo",
-          src: "img/Taiko_Logo_Fluo.svg",
+          src: "./img/Taiko_Logotype_Horiz_1_Fluo_Black.svg",
+          srcDark: "./img/Taiko_Logotype_Horiz_1_Fluo_White.svg",
         },
         items: [
           {
@@ -112,7 +113,7 @@ const config = {
             position: "left",
           },
           {
-            href: "https://discord.gg/tnSra3aFfg",
+            href: "https://discord.gg/taikoxyz",
             position: "right",
             className: "header-discord-link",
             "aria-label": "Discord",
@@ -138,34 +139,57 @@ const config = {
         ],
       },
       footer: {
+        copyright: "© Taiko Labs " + new Date().getFullYear(),
         style: "dark",
         links: [
           {
-            label: "Careers",
-            href: "https://taikoxyz.notion.site/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+            title: "About",
+            items: [
+              {
+                label: "Careers",
+                href: "https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+              },
+              {
+                label: "Media kit",
+                href: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/",
+              },
+            ],
           },
           {
-            label: "Discord",
-            href: "https://discord.gg/tnSra3aFfg",
+            title: "Developers",
+            items: [
+              {
+                label: "Getting started",
+                to: "docs/intro",
+              },
+              {
+                label: "GitHub",
+                href: "https://github.com/taikoxyz",
+              },
+            ],
           },
           {
-            label: "GitHub",
-            href: "https://github.com/taikoxyz",
-          },
-          {
-            label: "Reddit",
-            href: "https://www.reddit.com/r/taiko_xyz/",
-          },
-          {
-            label: "Twitter",
-            href: "https://twitter.com/taikoxyz",
-          },
-          {
-            label: "YouTube",
-            href: "https://www.youtube.com/@taikoxyz",
+            title: "Social",
+            items: [
+              {
+                label: "Discord",
+                href: "https://discord.gg/taikoxyz",
+              },
+              {
+                label: "Reddit",
+                href: "https://www.reddit.com/r/taiko_xyz/",
+              },
+              {
+                label: "Twitter",
+                href: "https://twitter.com/taikoxyz",
+              },
+              {
+                label: "YouTube",
+                href: "https://www.youtube.com/@taikoxyz",
+              },
+            ],
           },
         ],
-        copyright: `© Taiko Labs ${new Date().getFullYear()}`,
       },
       prism: {
         additionalLanguages: ["solidity"],

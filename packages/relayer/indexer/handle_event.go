@@ -20,9 +20,12 @@ func (svc *Service) handleEvent(
 ) error {
 	raw := event.Raw
 
+	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
+
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
 	if raw.Removed {
+		log.Warnf("event signal was removed: %v", common.Hash(event.Signal).Hex())
 		return nil
 	}
 
@@ -30,8 +33,6 @@ func (svc *Service) handleEvent(
 		log.Warn("Zero signal found. This is unexpected. Returning early")
 		return nil
 	}
-
-	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
 
 	eventStatus, err := svc.eventStatusFromSignal(ctx, event.Message.GasLimit, event.Signal)
 	if err != nil {
