@@ -1,6 +1,7 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
   import { token } from "../../store/token";
+  import { processingFee } from "../../store/fee";
   import { fromChain, toChain } from "../../store/chain";
   import {
     activeBridge,
@@ -19,11 +20,13 @@
   import type { Chain } from "../../domain/chain";
   import { truncateString } from "../../utils/truncateString";
   import { pendingTransactions } from "../../store/transactions";
+  import { ProcessingFeeMethod } from "../../domain/fee";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
+  let customFee: string = "0.01";
 
   $: getUserBalance($signer, $token);
 
@@ -116,7 +119,7 @@
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
-        processingFeeInWei: BigNumber.from(100),
+        processingFeeInWei: getProcessingFee(),
         memo: "memo",
       });
 
@@ -138,6 +141,20 @@
 
   function updateAmount(e: any) {
     amount = (e.data as number).toString();
+  }
+
+  function getProcessingFee() {
+    if ($processingFee === ProcessingFeeMethod.NONE) {
+      return undefined;
+    }
+
+    if ($processingFee === ProcessingFeeMethod.CUSTOM) {
+      return BigNumber.from(customFee);
+    }
+
+    if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
+      return BigNumber.from("0.01");
+    }
   }
 </script>
 
@@ -168,7 +185,7 @@
   </label>
 </div>
 
-<ProcessingFee />
+<ProcessingFee bind:customFee />
 
 {#if !requiresAllowance}
   <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>

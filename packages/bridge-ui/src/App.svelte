@@ -19,9 +19,28 @@
   setupI18n({ withLocale: "en" });
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
+  import { ProofService } from "./proof/service";
+  import { ethers } from "ethers";
+  import { number } from "svelte-i18n";
+  import type { Prover } from "./domain/proof";
 
-  const ethBridge = new ETHBridge();
-  const erc20Bridge = new ERC20Bridge();
+  const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
+    number,
+    ethers.providers.JsonRpcProvider
+  >();
+  providerMap.set(
+    CHAIN_MAINNET.id,
+    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL)
+  );
+  providerMap.set(
+    CHAIN_TKO.id,
+    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
+  );
+
+  const prover: Prover = new ProofService(providerMap);
+
+  const ethBridge = new ETHBridge(prover);
+  const erc20Bridge = new ERC20Bridge(prover);
 
   bridges.update((store) => {
     store.set(BridgeType.ETH, ethBridge);

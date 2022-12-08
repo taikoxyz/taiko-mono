@@ -82,8 +82,10 @@ func (svc *Service) FilterThenSubscribe(
 		group.SetLimit(svc.numGoroutines)
 
 		for {
+			event := events.Event
+
 			group.Go(func() error {
-				err := svc.handleEvent(groupCtx, chainID, events.Event)
+				err := svc.handleEvent(groupCtx, chainID, event)
 				if err != nil {
 					// log error but always return nil to keep other goroutines active
 					log.Error(err.Error())
