@@ -99,14 +99,6 @@ library V1Verifying {
                         newValue: newFeeBase,
                         maf: LibConstants.K_FEE_BASE_MAF
                     });
-
-                    state.avgProofTime = V1Utils
-                        .movingAverage({
-                            maValue: state.avgProofTime,
-                            newValue: fc.provenAt - target.proposedAt,
-                            maf: LibConstants.K_PROOF_TIME_MAF
-                        })
-                        .toUint64();
                 }
 
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {

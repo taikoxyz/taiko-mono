@@ -134,8 +134,9 @@ library V1Proposing {
                 maf: LibConstants.K_BLOCK_TIME_MAF
             })
             .toUint64();
+
         state.lastProposedAt = meta.timestamp;
-        
+
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
