@@ -115,14 +115,6 @@ library V1Proposing {
                 newValue: newFeeBase,
                 maf: LibConstants.K_FEE_BASE_MAF
             });
-
-            state.avgBlockTime = V1Utils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: meta.timestamp - state.lastProposedAt,
-                    maf: LibConstants.K_BLOCK_TIME_MAF
-                })
-                .toUint64();
         }
 
         state.saveProposedBlock(
@@ -135,7 +127,15 @@ library V1Proposing {
             })
         );
 
+        state.avgBlockTime = V1Utils
+            .movingAverage({
+                maValue: state.avgBlockTime,
+                newValue: meta.timestamp - state.lastProposedAt,
+                maf: LibConstants.K_BLOCK_TIME_MAF
+            })
+            .toUint64();
         state.lastProposedAt = meta.timestamp;
+        
         emit BlockProposed(state.nextBlockId++, meta);
     }
 

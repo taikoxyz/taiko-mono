@@ -113,6 +113,15 @@ library V1Verifying {
                     latestL2Height += 1;
                     latestL2Hash = fc.blockHash;
                 }
+
+                state.avgProofTime = V1Utils
+                    .movingAverage({
+                        maValue: state.avgProofTime,
+                        newValue: fc.provenAt - target.proposedAt,
+                        maf: LibConstants.K_PROOF_TIME_MAF
+                    })
+                    .toUint64();
+
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
                 _cleanUp(fc);
