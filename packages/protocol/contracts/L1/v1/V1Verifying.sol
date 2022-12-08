@@ -75,7 +75,7 @@ library V1Verifying {
             if (!_isVerifiable(state, fc)) {
                 break;
             } else {
-                if (LibConstants.K_TOKENOMICS_ENABLED) {
+                if (LibConstants.K_ENABLE_TOKENOMICS) {
                     uint256 newFeeBase;
                     {
                         uint256 reward;

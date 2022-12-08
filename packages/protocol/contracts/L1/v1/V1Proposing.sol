@@ -99,7 +99,7 @@ library V1Proposing {
         }
 
         uint256 deposit;
-        if (LibConstants.K_TOKENOMICS_ENABLED) {
+        if (LibConstants.K_ENABLE_TOKENOMICS) {
             uint256 newFeeBase;
             {
                 uint256 fee;
