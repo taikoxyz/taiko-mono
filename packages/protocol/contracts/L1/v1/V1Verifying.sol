@@ -61,6 +61,10 @@ library V1Verifying {
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            LibData.ProposedBlock storage target = LibData.getProposedBlock(
+                state,
+                i
+            );
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (!_isVerifiable(state, fc)) {
