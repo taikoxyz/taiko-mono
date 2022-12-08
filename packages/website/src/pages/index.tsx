@@ -8,10 +8,7 @@ import Head from "@docusaurus/Head";
 
 export default function Home(): JSX.Element {
   return (
-    <Layout
-      title="Type 1 ZK-EVM"
-      description="A fully decentralized, Ethereum-equivalent ZK-Rollup."
-    >
+    <Layout description="A Type 1 ZK-EVM -- Fully decentralized, Ethereum-equivalent ZK-Rollup.">
       <Head>
         <meta
           property="og:image"
