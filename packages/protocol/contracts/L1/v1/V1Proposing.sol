@@ -98,6 +98,14 @@ library V1Proposing {
             meta.mixHash = bytes32(block.difficulty);
         }
 
+        state.avgBlockTime = V1Utils
+            .movingAverage({
+                maValue: state.avgBlockTime,
+                newValue: meta.timestamp - state.lastProposedAt,
+                maf: LibConstants.K_BLOCK_TIME_MAF
+            })
+            .toUint64();
+
         state.saveProposedBlock(
             state.nextBlockId,
             LibData.ProposedBlock({
