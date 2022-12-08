@@ -1,12 +1,11 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
 
-  import SelectToken from "../../components/buttons/SelectToken.svelte";
   import BridgeForm from "../../components/form/BridgeForm.svelte";
   import TaikoBanner from "../../components/TaikoBanner.svelte";
 </script>
 
-<div class="hero bg-base-100 mt-12">
+<div class="hero bg-base-100">
   <div class="hero-content text-center">
     <div class="">
       <TaikoBanner />
