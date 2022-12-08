@@ -8,7 +8,7 @@
 
 <div class="hero bg-base-100 mt-12">
   <div class="hero-content text-center">
-    <div class="max-w-lg w-[460px]">
+    <div class="">
       <TaikoBanner />
       <!-- <div class="mt-8 flex items-center justify-center px-2">
         <span class="font-bold mr-2">{$_("home.selectToken")}</span>

@@ -19,7 +19,7 @@
   };
 </script>
 
-<div class="dropdown dropdown-bottom mr-4">
+<div class="dropdown dropdown-bottom dropdown-end mr-4">
   <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $fromChain}

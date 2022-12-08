@@ -158,7 +158,7 @@
   }
 </script>
 
-<div class="form-control w-full my-8">
+<div class="form-control w-full my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
     {#if $signer && tokenBalance}
