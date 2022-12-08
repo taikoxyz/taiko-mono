@@ -52,6 +52,6 @@
   }
 </script>
 
-<button class="btn btn-wide" on:click={async () => await connect()}
+<button class="btn btn-md md:btn-wide" on:click={async () => await connect()}
   >{$_("nav.connect")}</button
 >

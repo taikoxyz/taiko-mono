@@ -20,13 +20,13 @@
 </script>
 
 <div class="dropdown dropdown-bottom mr-4">
-  <button tabindex="0" class="btn btn-wide justify-around">
+  <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
-        <span class="ml-2">{$fromChain.name}</span>
+        <span class="ml-2 hidden md:inline-block">{$fromChain.name}</span>
       {:else}
-        <span class="ml-2">Invalid Chain</span>
+        <span class="ml-2 hidden md:inline-block">Invalid Chain</span>
       {/if}
     </span>
 
@@ -44,8 +44,8 @@
         }}
       >
         <svelte:component this={CHAIN_MAINNET.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
-          <MetaMask />
+        <span class="pl-1.5 text-left flex-1 ">{CHAIN_MAINNET.name}</span>
+        <MetaMask />
       </button>
     </li>
     <li>
@@ -57,7 +57,7 @@
       >
         <svelte:component this={CHAIN_TKO.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{CHAIN_TKO.name}</span>
-          <MetaMask />
+        <MetaMask />
       </button>
     </li>
   </ul>

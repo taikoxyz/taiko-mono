@@ -42,7 +42,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-wide justify-around">
+  <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
@@ -68,7 +68,9 @@
           alt="avatar"
         />
 
-        {addressSubsection(address)}
+        <span class="hidden md:inline-block">
+          {addressSubsection(address)}
+        </span>
       {/if}
     </span>
 
