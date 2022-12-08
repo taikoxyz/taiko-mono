@@ -56,6 +56,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:abi
 
+      - name: protocol - Generate Docs
+        working-directory: ./packages/protocol
+        run: pnpm export:docs
+
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: pnpm deploy:hardhat

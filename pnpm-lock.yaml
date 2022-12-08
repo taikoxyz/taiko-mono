@@ -207,16 +207,20 @@ importers:
       '@docusaurus/preset-classic': 2.2.0
       '@docusaurus/theme-classic': ^2.2.0
       '@docusaurus/types': ^2.2.0
+      '@heroicons/react': ^2.0.13
       '@mdx-js/react': ^1.6.22
       '@tsconfig/docusaurus': ^1.0.6
       '@types/node': ^12.20.45
+      autoprefixer: ^10.4.13
       clsx: ^1.2.1
       hast-util-is-element: 1.1.0
+      postcss: ^8.4.19
       prism-react-renderer: ^1.3.5
       react: ^17.0.2
       react-dom: ^17.0.2
       rehype-katex: ^5.0.0
       remark-math: ^3.0.1
+      tailwindcss: ^3.2.4
       typescript: ^4.8.4
     dependencies:
       '@docusaurus/core': 2.2.0_aeigrxhfhc4abyd45ix2hknizy
@@ -233,8 +237,12 @@ importers:
       '@docusaurus/module-type-aliases': 2.2.0_sfoxds7t5ydpegc3knd667wn6m
       '@docusaurus/theme-classic': 2.2.0_wfh3mw2ke2bdr53qfq544ltemu
       '@docusaurus/types': 2.2.0_sfoxds7t5ydpegc3knd667wn6m
+      '@heroicons/react': 2.0.13_react@17.0.2
       '@tsconfig/docusaurus': 1.0.6
       '@types/node': 12.20.55
+      autoprefixer: 10.4.13_postcss@8.4.19
+      postcss: 8.4.19
+      tailwindcss: 3.2.4_postcss@8.4.19
       typescript: 4.9.3
 
 packages:
@@ -2899,6 +2907,14 @@ packages:
     resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
     dependencies:
       '@hapi/hoek': 9.3.0
+
+  /@heroicons/react/2.0.13_react@17.0.2:
+    resolution: {integrity: sha512-iSN5XwmagrnirWlYEWNPdCDj9aRYVD/lnK3JlsC9/+fqGF80k8C7rl+1HCvBX0dBoagKqOFBs6fMhJJ1hOg1EQ==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      react: 17.0.2
+    dev: true
 
   /@humanwhocodes/config-array/0.5.0:
     resolution: {integrity: sha512-FagtKFz74XrTl7y6HCzQpwDfXP0yhxe9lHLD1UZxjvZIcbyRz8zTFF/yYNfSfzU414eDwZ1SrO0Qvtyf+wFMQg==}

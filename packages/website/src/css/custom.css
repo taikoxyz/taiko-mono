@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
@@ -6,9 +10,11 @@
 
 /* You can override the default Infima variables here. */
 
+.footer,
+.footer__title,
 .hero__subtitle,
 .navbar,
-.footer {
+.oxanium {
   font-family: "Oxanium";
 }
 
@@ -116,19 +122,4 @@
 
 [data-theme="dark"] .header-twitter-link::before {
   background: url("@site/static/img/social-icons/twitter-white.svg") no-repeat;
-}
-
-.footer__links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  width: 100%;
-  align-items: center;
-}
-
-@media screen and (max-width: 996px) {
-  .footer__link-item {
-    margin-left: 8px;
-    margin-right: 8px;
-  }
 }

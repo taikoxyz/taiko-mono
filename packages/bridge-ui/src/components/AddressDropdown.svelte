@@ -8,7 +8,7 @@
   import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import type { BridgeTransaction } from "src/domain/transactions";
+  import type { BridgeTransaction } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import type { Signer } from "ethers";
 

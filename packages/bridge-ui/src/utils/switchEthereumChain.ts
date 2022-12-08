@@ -1,5 +1,5 @@
 import type { Ethereum } from "@wagmi/core";
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "ethers";
 import type { Chain } from "../domain/chain";
 
 export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {

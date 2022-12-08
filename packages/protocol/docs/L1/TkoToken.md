@@ -1,6 +1,6 @@
 ## TkoToken
 
-_This is Taiko's governance token._
+_This is Taiko's governance and fee token._
 
 ### \_\_gap
 
