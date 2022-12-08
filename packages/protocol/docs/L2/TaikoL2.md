@@ -1,4 +1,4 @@
-## V1TaikoL2
+## TaikoL2
 
 ### l2Hashes
 

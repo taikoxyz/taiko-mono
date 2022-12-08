@@ -9,8 +9,8 @@ task("deploy_L1")
     .addParam("daoVault", "The DAO vault address")
     .addParam("teamVault", "The team vault address")
     .addOptionalParam(
-        "v1TaikoL2",
-        "The V1TaikoL2 address",
+        "taikoL2",
+        "The TaikoL2 address",
         ethers.constants.AddressZero
     )
     .addOptionalParam(
@@ -49,7 +49,7 @@ export async function deployContracts(hre: any) {
     const daoVault = hre.args.daoVault
     const teamVault = hre.args.teamVault
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
-    const v1TaikoL2Address = hre.args.v1TaikoL2
+    const taikoL2Address = hre.args.taikoL2
     const l2ChainId = hre.args.l2ChainId
 
     log.debug(`network: ${network}`)
@@ -57,7 +57,7 @@ export async function deployContracts(hre: any) {
     log.debug(`deployer: ${deployer}`)
     log.debug(`daoVault: ${daoVault}`)
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
-    log.debug(`v1TaikoL2Address: ${v1TaikoL2Address}`)
+    log.debug(`taikoL2Address: ${taikoL2Address}`)
     log.debug(`l2ChainId: ${l2ChainId}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
@@ -76,7 +76,7 @@ export async function deployContracts(hre: any) {
     // Used by V1Proving
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${l2ChainId}.taiko`, v1TaikoL2Address)
+        await AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2Address)
     )
 
     // TkoToken
