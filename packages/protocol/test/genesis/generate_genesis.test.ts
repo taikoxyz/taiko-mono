@@ -126,11 +126,11 @@ action("Generate Genesis", function () {
                 getContractAlloc("EtherVault").address
             )
 
-            const v1TaikoL2 = await addressManager.getAddress(
+            const taikoL2 = await addressManager.getAddress(
                 `${testConfig.chainId}.taiko`
             )
 
-            expect(v1TaikoL2).to.be.equal(getContractAlloc("V1TaikoL2").address)
+            expect(taikoL2).to.be.equal(getContractAlloc("TaikoL2").address)
         })
 
         it("LibTxDecoder", async function () {
@@ -147,18 +147,18 @@ action("Generate Genesis", function () {
             ).to.be.revertedWith("empty txList")
         })
 
-        it("V1TaikoL2", async function () {
-            const V1TaikoL2Alloc = getContractAlloc("V1TaikoL2")
+        it("TaikoL2", async function () {
+            const TaikoL2Alloc = getContractAlloc("TaikoL2")
 
-            const V1TaikoL2 = new hre.ethers.Contract(
-                V1TaikoL2Alloc.address,
-                require("../../artifacts/contracts/L2/V1TaikoL2.sol/V1TaikoL2.json").abi,
+            const TaikoL2 = new hre.ethers.Contract(
+                TaikoL2Alloc.address,
+                require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
                 signer
             )
 
             let latestL1Height = 1
             for (let i = 0; i < 300; i++) {
-                const tx = await V1TaikoL2.anchor(
+                const tx = await TaikoL2.anchor(
                     latestL1Height++,
                     ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                     { gasLimit: 1000000 }
@@ -170,18 +170,15 @@ action("Generate Genesis", function () {
 
                 if (i === 299) {
                     console.log({
-                        message:
-                            "V1TaikoL2.anchor gas cost after 256 L2 blocks",
+                        message: "TaikoL2.anchor gas cost after 256 L2 blocks",
                         gasUsed: receipt.gasUsed,
                     })
                 }
             }
 
-            const [bytes, txNums] = await generateMaxSizeInvalidTxList(
-                V1TaikoL2
-            )
+            const [bytes, txNums] = await generateMaxSizeInvalidTxList(TaikoL2)
 
-            const tx = await V1TaikoL2.invalidateBlock(
+            const tx = await TaikoL2.invalidateBlock(
                 bytes,
                 5, // hint: TX_INVALID_SIG
                 0
@@ -192,8 +189,7 @@ action("Generate Genesis", function () {
             expect(receipt.status).to.be.equal(1)
 
             console.log({
-                message:
-                    "V1TaikoL2.invalidateBlock gas cost after 256 L2 blocks",
+                message: "TaikoL2.invalidateBlock gas cost after 256 L2 blocks",
                 TxListBytes: ethers.utils.arrayify(bytes).length,
                 txNums,
                 reason: "TX_INVALID_SIG",
@@ -334,8 +330,8 @@ action("Generate Genesis", function () {
     }
 })
 
-async function generateMaxSizeInvalidTxList(V1TaikoL2: any) {
-    const constants = await V1TaikoL2.getConstants()
+async function generateMaxSizeInvalidTxList(TaikoL2: any) {
+    const constants = await TaikoL2.getConstants()
 
     const chainId = constants[0].toNumber()
     const blockMaxTxNums = constants[7].toNumber()
