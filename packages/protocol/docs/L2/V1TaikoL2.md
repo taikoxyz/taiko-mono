@@ -51,7 +51,9 @@ function anchor(uint256 l1Height, bytes32 l1Hash) external
 Persist the latest L1 block height and hash to L2 for cross-layer
 bridging. This function will also check certain block-level global
 variables because they are not part of the Trie structure.
-Note: this transaction shall be the first transaction in everyL2 block.
+
+       Note that this transaction shall be the first transaction in every
+       L2 block.
 
 #### Parameters
 
@@ -97,7 +99,7 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 ### getConstants
 
 ```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, bytes32, uint256, uint256, uint256, bytes4, bytes32)
+function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
 ```
 
 ### \_checkPublicInputs
@@ -109,5 +111,5 @@ function _checkPublicInputs() private
 ### \_hashPublicInputs
 
 ```solidity
-function _hashPublicInputs(uint256 chainId, uint256 number, uint256 feeBase, bytes32[255] ancestors) private pure returns (bytes32)
+function _hashPublicInputs(uint256 chainId, uint256 number, uint256 baseFee, bytes32[255] ancestors) private pure returns (bytes32)
 ```
