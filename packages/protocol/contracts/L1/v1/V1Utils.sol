@@ -101,6 +101,18 @@ library V1Utils {
         return fc.provenAt + state.avgProofTime;
     }
 
+    function movingAverage(
+        uint256 maValue,
+        uint256 newValue,
+        uint256 maf
+    ) internal pure returns (uint256) {
+        if (maValue == 0) {
+            return newValue;
+        }
+        uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
+        return _ma > 0 ? _ma : maValue;
+    }
+
     function setBit(
         LibData.State storage state,
         uint64 mask,
