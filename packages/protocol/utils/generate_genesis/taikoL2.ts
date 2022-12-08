@@ -9,8 +9,8 @@ const {
 } = require("@defi-wonderland/smock/dist/src/utils")
 const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts")
 
-// deployV1TaikoL2 generates a L2 genesis alloc of the V1TaikoL2 contract.
-export async function deployV1TaikoL2(
+// deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
+export async function deployTaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
@@ -115,9 +115,9 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./thirdparty/AddressManager.sol/AddressManager.json"
         )),
-        V1TaikoL2: require(path.join(
+        TaikoL2: require(path.join(
             ARTIFACTS_PATH,
-            "./L2/V1TaikoL2.sol/V1TaikoL2.json"
+            "./L2/TaikoL2.sol/TaikoL2.json"
         )),
         Bridge: require(path.join(
             ARTIFACTS_PATH,
@@ -138,12 +138,12 @@ async function generateContractConfigs(
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         let bytecode = (artifact as any).bytecode
 
-        if (contractName === "V1TaikoL2") {
+        if (contractName === "TaikoL2") {
             if (!addressMap.LibTxDecoder) {
                 throw new Error("LibTxDecoder not initialized")
             }
 
-            bytecode = linkContractLibs(contractArtifacts.V1TaikoL2, addressMap)
+            bytecode = linkContractLibs(contractArtifacts.TaikoL2, addressMap)
         } else if (contractName === "LibBridgeProcess") {
             if (!addressMap.LibTrieProof) {
                 throw new Error("LibTrieProof not initialized")
@@ -226,7 +226,7 @@ async function generateContractConfigs(
                     [`${ethers.utils.solidityKeccak256(
                         ["string"],
                         [`${chainId}.taiko`]
-                    )}`]: addressMap.V1TaikoL2,
+                    )}`]: addressMap.TaikoL2,
                     [`${ethers.utils.solidityKeccak256(
                         ["string"],
                         [`${chainId}.bridge`]
@@ -242,10 +242,10 @@ async function generateContractConfigs(
                 },
             },
         },
-        V1TaikoL2: {
-            address: addressMap.V1TaikoL2,
+        TaikoL2: {
+            address: addressMap.TaikoL2,
             deployedBytecode: linkContractLibs(
-                contractArtifacts.V1TaikoL2,
+                contractArtifacts.TaikoL2,
                 addressMap
             ),
             variables: {
@@ -253,7 +253,7 @@ async function generateContractConfigs(
                 _status: 1, // _NOT_ENTERED
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
-                // V1TaikoL2
+                // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["uint256", "uint256", "uint256", "bytes32[255]"],

@@ -19,7 +19,7 @@ import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract V1TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
+contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     using LibTxDecoder for bytes;
 
     /**********************
