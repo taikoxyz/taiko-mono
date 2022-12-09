@@ -34,9 +34,13 @@ describe("LibTxDecoder", function () {
             const txList: string[] = []
             const txListBytes = await rlpEncodeTxList(txList)
 
-            const decoded = await libTxDecoder.callStatic.decodeTxList(
+            let decoded = await libTxDecoder.callStatic.decodeTxList(
                 txListBytes
             )
+
+            expect(decoded.items.length).to.be.eql(0)
+
+            decoded = await libTxDecoder.callStatic.decodeTxList([])
 
             expect(decoded.items.length).to.be.eql(0)
         })
