@@ -66,7 +66,9 @@ library LibData {
         // Changed when a block is proven/finalized
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;
-        uint64 avgProofTime; // the proof time moving average
+        // the proof time moving average, note that for each block, only the
+        // first proof's time is considered.
+        uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
         uint256[42] __gap;
