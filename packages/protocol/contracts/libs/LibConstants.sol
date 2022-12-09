@@ -42,6 +42,11 @@ library LibConstants {
     uint64 public constant K_HALVING = 180 days;
     uint64 public constant K_INITIAL_UNCLE_DELAY = 60 minutes;
 
+    uint256 public constant K_BLOCK_TIME_MAF = 1024;
+    uint256 public constant K_PROOF_TIME_MAF = 1024;
+
+    uint64 public constant K_INITIAL_UNCLE_DELAY = 60 minutes;
+
     bytes4 public constant K_ANCHOR_TX_SELECTOR =
         bytes4(keccak256("anchor(uint256,bytes32)"));
 
