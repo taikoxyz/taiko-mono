@@ -14,11 +14,11 @@
   }
 </script>
 
-<div class="my-10">
+<div class="my-10 w-full">
   <h4 class="text-sm font-medium text-left mb-4">
     {$_("bridgeForm.processingFeeLabel")}
   </h4>
-  <div class="flex items-center justify-around px-8 py-4">
+  <div class="grid grid-rows-3 md:grid-rows-1 md:grid-cols-3 py-4 gap-y-2 gap-x-1">
     {#each Array.from(PROCESSING_FEE_META) as fee}
       <button
         class="{$processingFee === fee[0]
@@ -32,7 +32,7 @@
 
   {#if $processingFee === ProcessingFeeMethod.CUSTOM}
     <label
-      class="mt-2 input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
+      class="mt-2 input-group relative"
     >
       <input
         type="number"
@@ -40,9 +40,10 @@
         placeholder="0.01"
         min="0"
         on:input={updateAmount}
-        class="input input-primary bg-dark-4 input-lg flex-1"
+        class="input input-primary md:input-lg flex-1 rounded-l-lg !rounded-r-none bg-dark-4"
         name="amount"
       />
+      <span class="!rounded-r-lg bg-dark-4">ETH</span>
     </label>
   {:else if $processingFee === ProcessingFeeMethod.RECOMMENDED}
     <div class="flex items-left justify-between">
