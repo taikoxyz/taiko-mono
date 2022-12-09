@@ -122,7 +122,11 @@ func Run(
 	<-forever
 }
 
-func makeIndexers(layer relayer.Layer, db relayer.DB, profitableOnly relayer.ProfitableOnly) ([]*indexer.Service, func(), error) {
+func makeIndexers(
+	layer relayer.Layer,
+	db relayer.DB,
+	profitableOnly relayer.ProfitableOnly,
+) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, nil, err
