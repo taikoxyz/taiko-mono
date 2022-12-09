@@ -14,7 +14,6 @@
 
   export let transactioner: Transactioner;
   let transactions: BridgeTransaction[];
-  console.log(transactions);
   $: getTransactions($signer, $fromChain);
 
   async function getTransactions(signer: Signer, chain: Chain) {
@@ -23,7 +22,6 @@
       await signer.getAddress(),
       chain.id
     );
-    console.log(transactions);
   }
 </script>
 
