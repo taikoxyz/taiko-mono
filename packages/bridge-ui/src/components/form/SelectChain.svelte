@@ -27,7 +27,7 @@
   };
 </script>
 
-<div class="flex items-center justify-between w-full p-8 py-6 text-lg">
+<div class="flex items-center justify-between w-full px-4 md:px-8 py-6 text-sm md:text-lg">
   <div class="flex items-center w-2/5 justify-center">
     {#if $fromChain}
       <svelte:component this={$fromChain.icon} />
@@ -38,7 +38,7 @@
     {/if}
   </div>
 
-  <button on:click={toggleChains} class="btn btn-square btn-xs"
+  <button on:click={toggleChains} class="btn btn-square btn-xs" disabled={!$signer}
     ><ArrowRight /></button
   >
   <div class="flex items-center w-2/5 justify-center">
