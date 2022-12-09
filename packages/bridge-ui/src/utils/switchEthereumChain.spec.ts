@@ -30,6 +30,25 @@ describe("switchEthereumChain()", () => {
     ).rejects.toThrowError("fake");
   });
 
+  it("throws when wallet_switchethereumchain throws non 4902 error", async () => {
+    mockEthereum.request.mockImplementation(() => {
+      class EthereumError extends Error {
+        public code: number;
+        constructor(message: string, code: number) {
+          super(message);
+          this.code = code;
+        }
+      }
+
+      throw new EthereumError("fake", 4901);
+    });
+    expect(mockEthereum.request).not.toHaveBeenCalled();
+
+    await expect(
+      switchEthereumChain(mockEthereum as unknown as Ethereum, CHAIN_MAINNET)
+    ).rejects.toThrowError("fake");
+  });
+
   it("succeeds when wallet_switchEthereumChain and addEthereumChain do not throw", async () => {
     mockEthereum.request.mockImplementation(() => {});
     expect(mockEthereum.request).not.toHaveBeenCalled();
