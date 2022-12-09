@@ -5,8 +5,8 @@
   import TaikoBanner from "../../components/TaikoBanner.svelte";
 </script>
 
-<div class="hero bg-base-100">
-  <div class="hero-content text-center">
+<div class="hero bg-base-100 w-full">
+  <div class="hero-content text-center w-full">
     <div class="">
       <TaikoBanner />
       <!-- <div class="mt-8 flex items-center justify-center px-2">

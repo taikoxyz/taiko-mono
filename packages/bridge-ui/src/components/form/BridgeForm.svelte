@@ -158,7 +158,7 @@
   }
 </script>
 
-<div class="form-control w-full my-4 md:my-8">
+<div class="form-control my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
     {#if $signer && tokenBalance}
@@ -178,7 +178,7 @@
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-lg flex-1"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full"
       name="amount"
     />
     <SelectToken />
