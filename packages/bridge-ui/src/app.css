@@ -3,6 +3,13 @@
   height: 56px;
 }
 
+@media (min-width: 768px) {
+  .btn.md\:btn-wide {
+    width: 194px;
+    height: 56px;
+  }
+}
+
 .btn.btn-token-select {
   width: 140px;
   height: 60px;

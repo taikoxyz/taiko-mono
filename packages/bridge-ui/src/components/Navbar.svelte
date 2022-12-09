@@ -14,7 +14,6 @@
 
   export let transactioner: Transactioner;
   let transactions: BridgeTransaction[];
-
   $: getTransactions($signer, $fromChain);
 
   async function getTransactions(signer: Signer, chain: Chain) {
@@ -26,7 +25,7 @@
   }
 </script>
 
-<nav class="navbar mb-4 md:h-[125px] pt-4 md:pt-0 md:px-4">
+<nav class="navbar mb-4 md:h-[125px] pt-4 md:pt-0 md:px-4 w-full">
   <div class="navbar-end justify-start">
     <Logo />
   </div>
