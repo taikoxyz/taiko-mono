@@ -3,9 +3,9 @@
   import { bridgeType } from "../../store/bridge";
   import { ETH, tokens } from "../../domain/token";
   import type { Token } from "../../domain/token";
-  import { toast } from "@zerodevx/svelte-toast";
   import { BridgeType } from "../../domain/bridge";
   import ChevDown from "../icons/ChevDown.svelte";
+  import { successToast } from "../../utils/toast";
 
   async function select(t: Token) {
     if (t === $token) return;
@@ -15,7 +15,7 @@
     } else {
       bridgeType.set(BridgeType.ERC20);
     }
-    toast.push(`Token changed to ${t.symbol.toUpperCase()}`);
+    successToast(`Token changed to ${t.symbol.toUpperCase()}`);
   }
 </script>
 

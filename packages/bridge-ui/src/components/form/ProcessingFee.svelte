@@ -18,7 +18,7 @@
   <h4 class="text-sm font-medium text-left mb-4">
     {$_("bridgeForm.processingFeeLabel")}
   </h4>
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-around px-8 py-4">
     {#each Array.from(PROCESSING_FEE_META) as fee}
       <button
         class="{$processingFee === fee[0]

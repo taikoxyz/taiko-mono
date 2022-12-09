@@ -8,14 +8,21 @@
   import Modal from "./Modal.svelte";
   import { ethers } from "ethers";
   import { signer } from "../../store/signer";
+  import { errorToast, successToast } from "../../utils/toast";
 
   const switchChain = async (chain: Chain) => {
-    await switchEthereumChain($ethereum, CHAIN_TKO);
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    try {
+      await switchEthereumChain($ethereum, chain);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
 
-    signer.set(provider.getSigner());
-    isSwitchEthereumChainModalOpen.set(false);
+      signer.set(provider.getSigner());
+      isSwitchEthereumChainModalOpen.set(false);
+      successToast("Successfully switched chain");
+    } catch (e) {
+      console.error(e);
+      errorToast("Error switching ethereum chain");
+    }
   };
 </script>
 

@@ -23,6 +23,7 @@
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
   import type { Prover } from "./domain/proof";
+  import { successToast } from "./utils/toast";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -61,7 +62,7 @@
   pendingTransactions.subscribe((store) => {
     store.forEach(async (tx) => {
       await $signer.provider.waitForTransaction(tx.hash, 3);
-      toast.push("Transaction completed!");
+      successToast("Transaction completed!");
       const s = store;
       s.pop();
       pendingTransactions.set(s);
@@ -101,16 +102,5 @@
   main {
     margin: 0;
     font-family: "Inter", sans-serif;
-  }
-
-  :root {
-    --toastBackground: #008000;
-    --toastColor: #e3e3e3;
-    --toastHeight: 50px;
-    --toastContainerTop: auto;
-    --toastContainerRight: auto;
-    --toastContainerBottom: 2rem;
-    --toastContainerLeft: auto;
-    --toastBorderRadius: 0.9rem;
   }
 </style>

@@ -2,7 +2,7 @@
   import { _ } from "svelte-i18n";
 
   import ChevDown from "./icons/ChevDown.svelte";
-  import { fromChain } from "../store/chain";
+  import { fromChain, toChain } from "../store/chain";
   import MetaMask from "./icons/MetaMask.svelte";
   import { switchEthereumChain } from "../utils/switchEthereumChain";
   import { ethereum } from "../store/ethereum";
@@ -15,6 +15,12 @@
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
 
+    fromChain.set(chain);
+    if (chain === CHAIN_MAINNET) {
+      toChain.set(CHAIN_TKO);
+    } else {
+      toChain.set(CHAIN_MAINNET);
+    }
     signer.set(provider.getSigner());
   };
 </script>
@@ -44,7 +50,7 @@
         }}
       >
         <svelte:component this={CHAIN_MAINNET.icon} height={24} />
-        <span class="pl-1.5 text-left flex-1 ">{CHAIN_MAINNET.name}</span>
+        <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
         <MetaMask />
       </button>
     </li>

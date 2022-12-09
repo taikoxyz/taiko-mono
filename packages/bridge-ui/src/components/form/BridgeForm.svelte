@@ -10,7 +10,6 @@
   } from "../../store/bridge";
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
-  import { toast } from "@zerodevx/svelte-toast";
   import ProcessingFee from "./ProcessingFee.svelte";
   import { ETH } from "../../domain/token";
   import SelectToken from "../buttons/SelectToken.svelte";
@@ -22,6 +21,7 @@
   import { pendingTransactions } from "../../store/transactions";
   import { ProcessingFeeMethod } from "../../domain/fee";
   import Memo from "./Memo.svelte";
+  import { errorToast, successToast } from "../../utils/toast";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -105,10 +105,10 @@
         return store;
       });
       requiresAllowance = false;
-      toast.push($_("toast.transactionSent"));
+      successToast($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
     }
   }
 
@@ -132,10 +132,10 @@
         return store;
       });
 
-      toast.push($_("toast.transactionSent"));
+      successToast($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
     }
   }
 

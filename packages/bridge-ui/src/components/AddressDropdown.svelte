@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-  import { toast } from "@zerodevx/svelte-toast";
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
@@ -11,6 +10,7 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import type { Signer } from "ethers";
+  import { errorToast } from "../utils/toast";
 
   export let transactions: BridgeTransaction[] = [];
 
@@ -36,7 +36,7 @@
       signer.set(null);
     } catch (e) {
       console.error(e);
-      toast.push($_("toast.errorDisconnecting"));
+      errorToast($_("toast.errorDisconnecting"));
     }
   }
 </script>
