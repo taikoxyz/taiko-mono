@@ -118,7 +118,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 	}
 }
 
-func TestIntegration_Event_FindAllByAddress(t *testing.T) {
+func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
 
@@ -176,7 +176,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.FindAllByAddress(context.Background(), tt.chainID, tt.address)
+			resp, err := eventRepo.FindAllByAddressAndChainID(context.Background(), tt.chainID, tt.address)
 			assert.Equal(t, tt.wantResp, resp)
 			assert.Equal(t, tt.wantErr, err)
 		})

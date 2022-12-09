@@ -52,13 +52,27 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddress(
+func (r *EventRepository) FindAllByAddressAndChainID(
 	ctx context.Context,
 	chainID *big.Int,
 	address common.Address,
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
+		Find(&e, datatypes.JSONQuery("data").
+			Equals(address.Hex(), "Owner")).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) FindAllByAddress(
+	ctx context.Context,
+	address common.Address,
+) ([]*relayer.Event, error) {
+	e := make([]*relayer.Event, 0)
+	if err := r.db.GormDB().
 		Find(&e, datatypes.JSONQuery("data").
 			Equals(address.Hex(), "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
