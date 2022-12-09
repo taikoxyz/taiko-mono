@@ -10,7 +10,6 @@
   } from "../../store/bridge";
   import { signer } from "../../store/signer";
   import { BigNumber, ethers, Signer } from "ethers";
-  import { toast } from "@zerodevx/svelte-toast";
   import ProcessingFee from "./ProcessingFee.svelte";
   import { ETH } from "../../domain/token";
   import SelectToken from "../buttons/SelectToken.svelte";
@@ -21,12 +20,15 @@
   import { truncateString } from "../../utils/truncateString";
   import { pendingTransactions } from "../../store/transactions";
   import { ProcessingFeeMethod } from "../../domain/fee";
+  import Memo from "./Memo.svelte";
+  import { errorToast, successToast } from "../../utils/toast";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
   let customFee: string = "0.01";
+  let memo: string = "";
 
   $: getUserBalance($signer, $token);
 
@@ -56,6 +58,8 @@
     fromChain: Chain,
     signer: Signer
   ) {
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
+
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: amt
         ? ethers.utils.parseUnits(amt, token.decimals)
@@ -101,10 +105,10 @@
         return store;
       });
       requiresAllowance = false;
-      toast.push($_("toast.transactionSent"));
+      successToast($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
     }
   }
 
@@ -120,7 +124,7 @@
         toChainId: $toChain.id,
         bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
-        memo: "memo",
+        memo: memo,
       });
 
       pendingTransactions.update((store) => {
@@ -128,10 +132,10 @@
         return store;
       });
 
-      toast.push($_("toast.transactionSent"));
+      successToast($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
     }
   }
 
@@ -158,7 +162,7 @@
   }
 </script>
 
-<div class="form-control w-full my-8">
+<div class="form-control my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
     {#if $signer && tokenBalance}
@@ -178,7 +182,7 @@
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-lg flex-1"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full"
       name="amount"
     />
     <SelectToken />
@@ -187,12 +191,22 @@
 
 <ProcessingFee bind:customFee />
 
+<Memo bind:memo />
+
 {#if !requiresAllowance}
-  <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={bridge}
+    disabled={btnDisabled}
+  >
     {$_("home.bridge")}
   </button>
 {:else}
-  <button class="btn btn-accent" on:click={approve} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={approve}
+    disabled={btnDisabled}
+  >
     {$_("home.approve")}
   </button>
 {/if}

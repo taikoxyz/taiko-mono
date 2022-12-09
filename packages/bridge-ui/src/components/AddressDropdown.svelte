@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-  import { toast } from "@zerodevx/svelte-toast";
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
@@ -11,6 +10,7 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import type { Signer } from "ethers";
+  import { errorToast } from "../utils/toast";
 
   export let transactions: BridgeTransaction[] = [];
 
@@ -36,13 +36,13 @@
       signer.set(null);
     } catch (e) {
       console.error(e);
-      toast.push($_("toast.errorDisconnecting"));
+      errorToast($_("toast.errorDisconnecting"));
     }
   }
 </script>
 
-<div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-wide justify-around">
+<div class="dropdown dropdown-bottom dropdown-end">
+  <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
@@ -68,7 +68,9 @@
           alt="avatar"
         />
 
-        {addressSubsection(address)}
+        <span class="hidden md:inline-block">
+          {addressSubsection(address)}
+        </span>
       {/if}
     </span>
 
@@ -78,6 +80,9 @@
     tabindex="0"
     class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
+    <li class="inline-block md:hidden">
+      <span>{addressSubsection(address)}</span>
+    </li>
     <li>
       <span
         class="cursor-pointer"
