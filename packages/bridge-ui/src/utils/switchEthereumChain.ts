@@ -30,6 +30,8 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
       } catch (addError) {
         throw addError;
       }
+    } else {
+      throw switchError;
     }
   }
 };

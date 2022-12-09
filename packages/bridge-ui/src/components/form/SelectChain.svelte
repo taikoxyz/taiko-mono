@@ -6,20 +6,24 @@
   import { signer } from "../../store/signer";
   import { switchEthereumChain } from "../../utils/switchEthereumChain";
   import { ethers } from "ethers";
+  import { errorToast, successToast } from "../../utils/toast";
 
   const toggleChains = async () => {
-    const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
-    await switchEthereumChain($ethereum, chain);
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    try {
+      const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
+      await switchEthereumChain($ethereum, chain);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
 
-    fromChain.set(chain);
-    if (chain === CHAIN_MAINNET) {
-      toChain.set(CHAIN_TKO);
-    } else {
-      toChain.set(CHAIN_MAINNET);
+      fromChain.set(chain);
+      toChain.set(chain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET);
+
+      signer.set(provider.getSigner());
+      successToast("Successfully changed chain");
+    } catch (e) {
+      console.error(e);
+      errorToast("Error switching chain");
     }
-    signer.set(provider.getSigner());
   };
 </script>
 

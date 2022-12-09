@@ -26,7 +26,7 @@
   }
 </script>
 
-<nav class="navbar h-[125px] py-8 px-32">
+<nav class="navbar mb-4 md:h-[125px] pt-4 md:pt-0 md:px-4">
   <div class="navbar-end justify-start">
     <Logo />
   </div>
