@@ -21,12 +21,14 @@
   import { truncateString } from "../../utils/truncateString";
   import { pendingTransactions } from "../../store/transactions";
   import { ProcessingFeeMethod } from "../../domain/fee";
+  import Memo from "./Memo.svelte";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
   let customFee: string = "0.01";
+  let memo: string = "";
 
   $: getUserBalance($signer, $token);
 
@@ -56,6 +58,8 @@
     fromChain: Chain,
     signer: Signer
   ) {
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
+
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: amt
         ? ethers.utils.parseUnits(amt, token.decimals)
@@ -120,7 +124,7 @@
         toChainId: $toChain.id,
         bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
-        memo: "memo",
+        memo: memo,
       });
 
       pendingTransactions.update((store) => {
@@ -187,12 +191,22 @@
 
 <ProcessingFee bind:customFee />
 
+<Memo bind:memo />
+
 {#if !requiresAllowance}
-  <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={bridge}
+    disabled={btnDisabled}
+  >
     {$_("home.bridge")}
   </button>
 {:else}
-  <button class="btn btn-accent" on:click={approve} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={approve}
+    disabled={btnDisabled}
+  >
     {$_("home.approve")}
   </button>
 {/if}
