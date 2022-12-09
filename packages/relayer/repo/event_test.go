@@ -151,7 +151,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 				{
 					ID:      1,
 					Name:    "name",
-					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Owner": "%s"}`, addr.Hex()))),
+					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()))),
 					ChainID: 1,
 					Status:  relayer.EventStatusDone,
 				},
@@ -214,7 +214,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				{
 					ID:      1,
 					Name:    "name",
-					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Owner": "%s"}`, addr.Hex()))),
+					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()))),
 					ChainID: 1,
 					Status:  relayer.EventStatusDone,
 				},
