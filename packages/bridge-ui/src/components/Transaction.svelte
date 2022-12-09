@@ -14,7 +14,6 @@
   let fromChainID: number = chainID == 167001 ? 31336 : 167001;
 
   let fromChain = chains[fromChainID];
-  console.log(chainID);
   let toChain = chains[chainID];
 
   let amount = 0.001;
