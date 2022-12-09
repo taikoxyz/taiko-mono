@@ -1,7 +1,7 @@
 import { toast } from "@zerodevx/svelte-toast";
 import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
 
-const errorOpts: SvelteToastOptions = {
+export const errorOpts: SvelteToastOptions = {
   theme: {
     "--toastBackground": "#FF0000",
     "--toastColor": "#e3e3e3",
@@ -14,7 +14,7 @@ const errorOpts: SvelteToastOptions = {
   },
 };
 
-const successOpts: SvelteToastOptions = {
+export const successOpts: SvelteToastOptions = {
   theme: {
     "--toastBackground": "#008000",
     "--toastColor": "#e3e3e3",
