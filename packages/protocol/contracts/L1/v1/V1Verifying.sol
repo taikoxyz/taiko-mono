@@ -72,7 +72,7 @@ library V1Verifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (!_isVerifiable(state, fc)) {
+            if (!_isVerifiable(state, fc, i)) {
                 break;
             } else {
                 if (LibConstants.K_ENABLE_TOKENOMICS) {
@@ -192,10 +192,11 @@ library V1Verifying {
 
     function _isVerifiable(
         LibData.State storage state,
-        LibData.ForkChoice storage fc
+        LibData.ForkChoice storage fc,
+        uint256 blockId
     ) private view returns (bool) {
         return
             fc.blockHash != 0 &&
-            block.timestamp > V1Utils.uncleProofDeadline(state, fc);
+            block.timestamp > V1Utils.uncleProofDeadline(state, fc, blockId);
     }
 }
