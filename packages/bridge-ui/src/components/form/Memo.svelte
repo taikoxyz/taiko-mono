@@ -12,7 +12,7 @@
     <span class="label-text">Memo</span>
     <input
       type="checkbox"
-      class="toggle"
+      class="toggle rounded-full"
       on:change={onChange}
       bind:checked={showMemo}
     />
@@ -22,7 +22,7 @@
     <input
       type="text"
       placeholder="Memo..."
-      class="input input-primary bg-dark-4 input-sm md:input-md w-full"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full"
       name="memo"
       bind:value={memo}
     />
