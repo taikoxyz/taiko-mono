@@ -7,7 +7,7 @@
   }
 </script>
 
-<div class="form-control">
+<div class="form-control mb-2">
   <label class="label cursor-pointer">
     <span class="label-text">Memo</span>
     <input

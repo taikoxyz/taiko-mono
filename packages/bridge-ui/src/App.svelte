@@ -3,6 +3,7 @@
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
   import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+  import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
@@ -21,7 +22,6 @@
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
-  import { number } from "svelte-i18n";
   import type { Prover } from "./domain/proof";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
@@ -68,6 +68,12 @@
     });
   });
 
+  const toastOptions: SvelteToastOptions = {
+    dismissable: false,
+    duration: 4000,
+    pausable: false,
+  };
+
   const routes = {
     "/": wrap({
       component: Home,
@@ -82,7 +88,7 @@
     <Navbar {transactioner} />
     <Router {routes} />
   </main>
-  <SvelteToast />
+  <SvelteToast options={toastOptions} />
 
   <SwitchEthereumChainModal />
 </QueryProvider>
@@ -95,5 +101,16 @@
   main {
     margin: 0;
     font-family: "Inter", sans-serif;
+  }
+
+  :root {
+    --toastBackground: #008000;
+    --toastColor: #e3e3e3;
+    --toastHeight: 50px;
+    --toastContainerTop: auto;
+    --toastContainerRight: auto;
+    --toastContainerBottom: 2rem;
+    --toastContainerLeft: auto;
+    --toastBorderRadius: 0.9rem;
   }
 </style>
