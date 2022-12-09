@@ -65,6 +65,7 @@ type NewServiceOpts struct {
 	NumGoroutines       int
 	SubscriptionBackoff time.Duration
 	Confirmations       uint64
+	ProfitableOnly      relayer.ProfitableOnly
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -153,6 +154,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		RelayerAddress:   relayerAddr,
 		Confirmations:    opts.Confirmations,
 		SrcETHClient:     opts.EthClient,
+		ProfitableOnly:   opts.ProfitableOnly,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

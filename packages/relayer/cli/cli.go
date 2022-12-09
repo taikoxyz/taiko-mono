@@ -48,7 +48,13 @@ var (
 	defaultConfirmations       = 15
 )
 
-func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer, httpOnly relayer.HTTPOnly) {
+func Run(
+	mode relayer.Mode,
+	watchMode relayer.WatchMode,
+	layer relayer.Layer,
+	httpOnly relayer.HTTPOnly,
+	profitableOnly relayer.ProfitableOnly,
+) {
 	if err := loadAndValidateEnv(); err != nil {
 		log.Fatal(err)
 	}
@@ -95,7 +101,7 @@ func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer, ht
 	}()
 
 	if !httpOnly {
-		indexers, closeFunc, err := makeIndexers(layer, db)
+		indexers, closeFunc, err := makeIndexers(layer, db, profitableOnly)
 		if err != nil {
 			sqlDB.Close()
 			log.Fatal(err)
@@ -116,7 +122,7 @@ func Run(mode relayer.Mode, watchMode relayer.WatchMode, layer relayer.Layer, ht
 	<-forever
 }
 
-func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(), error) {
+func makeIndexers(layer relayer.Layer, db relayer.DB, profitableOnly relayer.ProfitableOnly) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, nil, err
@@ -192,6 +198,7 @@ func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(
 			NumGoroutines:       numGoroutines,
 			SubscriptionBackoff: subscriptionBackoff,
 			Confirmations:       uint64(confirmations),
+			ProfitableOnly:      profitableOnly,
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -218,6 +225,7 @@ func makeIndexers(layer relayer.Layer, db relayer.DB) ([]*indexer.Service, func(
 			NumGoroutines:       numGoroutines,
 			SubscriptionBackoff: subscriptionBackoff,
 			Confirmations:       uint64(confirmations),
+			ProfitableOnly:      profitableOnly,
 		})
 		if err != nil {
 			log.Fatal(err)
