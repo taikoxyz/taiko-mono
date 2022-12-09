@@ -78,7 +78,9 @@
   const routes = {
     "/": wrap({
       component: Home,
-      props: {},
+      props: {
+        transactioner: transactioner,
+      },
       userData: {},
     }),
   };

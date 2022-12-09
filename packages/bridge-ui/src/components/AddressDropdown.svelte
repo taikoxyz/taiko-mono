@@ -7,7 +7,10 @@
   import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import type { BridgeTransaction } from "../domain/transactions";
+  import type {
+    BridgeTransaction,
+    Transactioner,
+  } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
@@ -15,7 +18,7 @@
   import DisconnectIcon from "./icons/Disconnect.svelte";
   import TransactionsIcon from "./icons/Transactions.svelte";
   import { slide } from "svelte/transition";
-  import {fromChain} from '../store/chain';
+  import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
   import Transactions from "./Transactions.svelte";
 
@@ -25,10 +28,10 @@
 
   let address: string;
   let addressAvatarImgData: string;
-  let tokenBalance: string = '';
+  let tokenBalance: string = "";
 
   onMount(async () => {
-    setAddress($signer);
+    await setAddress($signer);
   });
 
   $: getUserBalance($signer);
@@ -104,32 +107,50 @@
       <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
         {#if $fromChain && $signer}
           <svelte:component this={$fromChain.icon} />
-          <div class="text-lg mt-2">{tokenBalance.length > 10
-            ? `${truncateString(tokenBalance)}...`
-            : tokenBalance} ETH</div>
+          <div class="text-lg mt-2">
+            {tokenBalance.length > 10
+              ? `${truncateString(tokenBalance)}...`
+              : tokenBalance} ETH
+          </div>
         {/if}
       </div>
-      <div class="divider"></div>
-      <div class="flex inline-block md:hidden">
-        <span>{addressSubsection(address)}</span>
+      <div class="divider" />
+      <div class="flex hover:bg-dark-5 items-center py-2 px-2">
+        <img
+          width="24"
+          height="24"
+          src="data:image/png;base64,{addressAvatarImgData}"
+          class="rounded-full mr-2 inline-block"
+          alt="avatar"
+        />
+        {addressSubsection(address)}
       </div>
-      <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
-      on:click={async () => await copyToClipboard(address)}>
-          <CopyIcon />
-          Copy Address
+      <div
+        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+        on:click={async () => await copyToClipboard(address)}
+      >
+        <CopyIcon />
+        Copy Address
       </div>
-      <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2" on:click={async () => await disconnect()}><DisconnectIcon /> Disconnect
+      <div
+        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+        on:click={async () => await disconnect()}
+      >
+        <DisconnectIcon /> Disconnect
       </div>
       {#if transactions && transactions.length}
-        <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2" on:click={() => showTransactions = true}>
+        <div
+          class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+          on:click={() => (showTransactions = true)}
+        >
           <TransactionsIcon />
           {transactions.length} Transactions
         </div>
       {/if}
-      {:else}
-        <div class="" transition:slide>
-          <Transactions bind:showTransactions={showTransactions} transactions={transactions} />
-        </div>
-      {/if}
-    </div>
+    {:else}
+      <div class="" transition:slide>
+        <Transactions bind:showTransactions {transactions} />
+      </div>
+    {/if}
+  </div>
 </div>

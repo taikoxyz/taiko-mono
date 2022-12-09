@@ -157,7 +157,7 @@
     }
 
     if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return BigNumber.from("0.01");
+      return ethers.utils.parseEther("0.001");
     }
   }
 </script>

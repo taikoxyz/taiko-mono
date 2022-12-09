@@ -43,6 +43,9 @@ describe("relayer api tests tests", () => {
         address: "0x123",
         chainID: 167001,
       },
+      headers: {
+        Accept: "*/*",
+      },
     });
   });
 });

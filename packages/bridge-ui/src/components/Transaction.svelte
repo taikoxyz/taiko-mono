@@ -1,24 +1,14 @@
 <script lang="ts">
-  import { chains } from "../domain/chain";
+  import type { BridgeTransaction } from "../domain/transactions";
+  import type { Chain } from "../domain/chain";
   import Loader from "./icons/Loader.svelte";
   import TransactionsIcon from "./icons/Transactions.svelte";
+  import { MessageStatus } from "../domain/message";
 
-  export let id: number;
-  export let name: string;
-  export let data: string;
-  export let status: number;
-  export let chainID: number;
+  export let transaction: BridgeTransaction;
 
-  // TODO: uncomment this when fromChainID is available
-  // export let fromChainID: number;
-  let fromChainID: number = chainID == 167001 ? 31336 : 167001;
-
-  let fromChain = chains[fromChainID];
-  let toChain = chains[chainID];
-
-  let amount = 0.001;
-
-  let isPending = status === 0;
+  export let fromChain: Chain;
+  export let toChain: Chain;
 </script>
 
 <div class="p-2">
@@ -33,12 +23,13 @@
     </div>
   </div>
   <div class="px-1 py-2 flex items-center justify-between">
-    {amount} ETH
+    {transaction.rawData.Message.DepositValue}
+    {transaction.rawData.Message.Data ? "TKO" : "ETH"}
 
-    {#if isPending}
-    <div class="animate-spin">
-      <Loader />
-    </div>
+    {#if transaction.status === MessageStatus.New}
+      <div class="animate-spin">
+        <Loader />
+      </div>
     {:else}
       <TransactionsIcon />
     {/if}

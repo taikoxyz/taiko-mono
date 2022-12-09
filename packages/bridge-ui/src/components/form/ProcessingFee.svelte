@@ -18,7 +18,7 @@
   <h4 class="text-sm font-medium text-left mb-4">
     {$_("bridgeForm.processingFeeLabel")}
   </h4>
-  <div class="grid grid-rows-3 md:grid-rows-1 md:grid-cols-3 py-4 gap-y-2 gap-x-1">
+  <div class="flex items-center justify-around">
     {#each Array.from(PROCESSING_FEE_META) as fee}
       <button
         class="{$processingFee === fee[0]
@@ -31,9 +31,7 @@
   </div>
 
   {#if $processingFee === ProcessingFeeMethod.CUSTOM}
-    <label
-      class="mt-2 input-group relative"
-    >
+    <label class="mt-2 input-group relative">
       <input
         type="number"
         step="0.01"
