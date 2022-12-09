@@ -2,11 +2,11 @@
   import { BigNumber, ethers } from "ethers";
   import { signer } from "../../store/signer";
   import { _ } from "svelte-i18n";
-  import { toast } from "@zerodevx/svelte-toast";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../..//domain/chain";
   import { fromChain, toChain } from "../../store/chain";
   import { ethereum } from "../../store/ethereum";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
+  import { errorToast, successToast } from "../../utils/toast";
 
   async function connect() {
     try {
@@ -44,14 +44,14 @@
         await getAccounts();
       });
 
-      toast.push("Connected");
+      successToast("Connected");
     } catch (e) {
       console.log(e);
-      toast.push("Error connecting to wallet");
+      errorToast("Error connecting to wallet");
     }
   }
 </script>
 
-<button class="btn btn-wide" on:click={async () => await connect()}
+<button class="btn btn-md md:btn-wide" on:click={async () => await connect()}
   >{$_("nav.connect")}</button
 >
