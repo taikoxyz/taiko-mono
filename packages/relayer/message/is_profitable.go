@@ -25,7 +25,7 @@ func (p *Processor) isProfitable(ctx context.Context, message contracts.IBridgeM
 
 	auth.Context = ctx
 
-	// process the message on the destination bridge.
+	// estimate gas with auth.NoSend set to true
 	tx, err := p.destBridge.ProcessMessage(auth, message, proof)
 	if err != nil {
 		return false, errors.Wrap(err, "p.destBridge.ProcessMessage")
