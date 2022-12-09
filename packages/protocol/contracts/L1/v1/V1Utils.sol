@@ -96,9 +96,14 @@ library V1Utils {
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
         LibData.State storage state,
-        LibData.ForkChoice storage fc
+        LibData.ForkChoice storage fc,
+        uint256 blockId
     ) internal view returns (uint64) {
-        return fc.provenAt + state.avgProofTime;
+        if (blockId <= 2 * LibConstants.K_MAX_NUM_BLOCKS) {
+            return fc.provenAt + LibConstants.K_INITIAL_UNCLE_DELAY;
+        } else {
+            return fc.provenAt + state.avgProofTime;
+        }
     }
 
     function movingAverage(
