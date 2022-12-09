@@ -16,4 +16,4 @@ pnpm start
 
 ## Contributing
 
-Refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md).
