@@ -147,7 +147,7 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${chainId}.bridge`, Bridge.address)
     )
 
-    // Fund L1 bridge (necessary for L2 faucet)
+    // Fund L1 bridge, which is necessary when there is a L2 faucet
     if (
         bridgeFunderPrivateKey.length &&
         hre.ethers.utils.isHexString(bridgeFund)
