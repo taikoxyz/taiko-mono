@@ -3,9 +3,9 @@
   import { bridgeType } from "../../store/bridge";
   import { ETH, tokens } from "../../domain/token";
   import type { Token } from "../../domain/token";
-  import { toast } from "@zerodevx/svelte-toast";
   import { BridgeType } from "../../domain/bridge";
   import ChevDown from "../icons/ChevDown.svelte";
+  import { successToast } from "../../utils/toast";
 
   async function select(t: Token) {
     if (t === $token) return;
@@ -15,14 +15,14 @@
     } else {
       bridgeType.set(BridgeType.ERC20);
     }
-    toast.push(`Token changed to ${t.symbol.toUpperCase()}`);
+    successToast(`Token changed to ${t.symbol.toUpperCase()}`);
   }
 </script>
 
 <div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-active left-btn">
-    <svelte:component this={$token.logoComponent} />
-    <span class="px-2 font-medium">{$token.symbol.toUpperCase()}</span>
+  <button tabindex="0" class="flex items-center justify-center">
+    <svelte:component this={$token.logoComponent} class="inline-block" />
+    <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevDown />
   </button>
   <ul class="dropdown-content menu py-2 shadow-xl bg-base-100 rounded-box">

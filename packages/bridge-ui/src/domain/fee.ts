@@ -21,14 +21,14 @@ const PROCESSING_FEE_META: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
     [
       ProcessingFeeMethod.CUSTOM,
       {
-        displayText: "Custom Amount",
+        displayText: "Custom",
         timeToConfirm: 15 * 60 * 1000,
       },
     ],
     [
       ProcessingFeeMethod.NONE,
       {
-        displayText: "No Fees",
+        displayText: "None",
         timeToConfirm: 15 * 60 * 1000,
       },
     ],
