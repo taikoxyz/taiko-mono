@@ -9,16 +9,36 @@
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import type { BridgeTransaction } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
-  import type { Signer } from "ethers";
+  import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
+  import CopyIcon from "./icons/Copy.svelte";
+  import DisconnectIcon from "./icons/Disconnect.svelte";
+  import TransactionsIcon from "./icons/Transactions.svelte";
+  import { slide } from "svelte/transition";
+  import {fromChain} from '../store/chain';
+  import { truncateString } from "../utils/truncateString";
+  import Transactions from "./Transactions.svelte";
 
   export let transactions: BridgeTransaction[] = [];
 
+  let showTransactions = false;
+
   let address: string;
   let addressAvatarImgData: string;
+  let tokenBalance: string = '';
+
   onMount(async () => {
     setAddress($signer);
   });
+
+  $: getUserBalance($signer);
+
+  async function getUserBalance(signer) {
+    if (signer) {
+      const userBalance = await signer.getBalance("latest");
+      tokenBalance = ethers.utils.formatEther(userBalance);
+    }
+  }
 
   $: setAddress($signer).catch((e) => console.error(e));
 
@@ -76,28 +96,40 @@
 
     <ChevDown />
   </button>
-  <ul
+  <div
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-64 mt-2 pb-2"
   >
-    <li class="inline-block md:hidden">
-      <span>{addressSubsection(address)}</span>
-    </li>
-    <li>
-      <span
-        class="cursor-pointer"
-        on:click={async () => await copyToClipboard(address)}>Copy Address</span
-      >
-    </li>
-    <li>
-      <span class="cursor-pointer" on:click={async () => await disconnect()}
-        >Disconnect</span
-      >
-    </li>
-    {#if transactions && transactions.length}
-      <li>
-        <span class="cursor-pointer"> {transactions.length} Transactions</span>
-      </li>
-    {/if}
-  </ul>
+    {#if !showTransactions}
+      <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
+        {#if $fromChain && $signer}
+          <svelte:component this={$fromChain.icon} />
+          <div class="text-lg mt-2">{tokenBalance.length > 10
+            ? `${truncateString(tokenBalance)}...`
+            : tokenBalance} ETH</div>
+        {/if}
+      </div>
+      <div class="divider"></div>
+      <div class="flex inline-block md:hidden">
+        <span>{addressSubsection(address)}</span>
+      </div>
+      <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+      on:click={async () => await copyToClipboard(address)}>
+          <CopyIcon />
+          Copy Address
+      </div>
+      <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2" on:click={async () => await disconnect()}><DisconnectIcon /> Disconnect
+      </div>
+      {#if transactions && transactions.length}
+        <div class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2" on:click={() => showTransactions = true}>
+          <TransactionsIcon />
+          {transactions.length} Transactions
+        </div>
+      {/if}
+      {:else}
+        <div class="" transition:slide>
+          <Transactions bind:showTransactions={showTransactions} transactions={transactions} />
+        </div>
+      {/if}
+    </div>
 </div>
