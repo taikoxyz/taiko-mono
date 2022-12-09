@@ -59,7 +59,7 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
-		Find(&e, datatypes.JSONQuery("data").
+		Find(&e, datatypes.JSONQuery("data").Extract("$.Message").
 			Equals(address.Hex(), "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
@@ -73,7 +73,7 @@ func (r *EventRepository) FindAllByAddress(
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().
-		Find(&e, datatypes.JSONQuery("data").
+		Find(&e, datatypes.JSONQuery("data").Extract("$.Message").
 			Equals(address.Hex(), "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
