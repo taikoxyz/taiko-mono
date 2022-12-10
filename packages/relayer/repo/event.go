@@ -61,7 +61,7 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
 		Find(&e, datatypes.JSONQuery("data").
-			Equals(address.Hex(), "Message", "Owner")).Error; err != nil {
+			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -131,7 +132,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
 		Name:    "name",
-		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()),
+		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID: big.NewInt(1),
 		Status:  relayer.EventStatusDone,
 	})
@@ -151,7 +152,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 				{
 					ID:      1,
 					Name:    "name",
-					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()))),
+					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 					ChainID: 1,
 					Status:  relayer.EventStatusDone,
 				},
@@ -196,7 +197,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
 		Name:    "name",
-		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()),
+		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
 		ChainID: big.NewInt(1),
 		Status:  relayer.EventStatusDone,
 	})
@@ -214,7 +215,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				{
 					ID:      1,
 					Name:    "name",
-					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()))),
+					Data:    datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
 					ChainID: 1,
 					Status:  relayer.EventStatusDone,
 				},
