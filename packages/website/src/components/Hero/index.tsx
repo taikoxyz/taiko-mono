@@ -4,7 +4,7 @@ export default function Hero() {
   return (
     <div className="relative bg-neutral-50 dark:bg-neutral-800">
       <main className="lg:relative">
-        <div className="mx-auto w-full max-w-7xl pt-16 pb-20 text-left lg:py-48">
+        <div className="mx-auto w-full max-w-7xl pt-16 pb-20 text-center lg:py-48">
           <div className="px-4 sm:px-8 lg:w-1/2 xl:pr-16 ">
             <h1 className="font-oxanium text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl">
               A <span className="text-[#e30ead]">Type 1</span> ZK-EVM
