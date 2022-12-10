@@ -131,7 +131,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
 		Name:    "name",
-		Data:    fmt.Sprintf(`{"Owner":"%s"}`, addr.Hex()),
+		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()),
 		ChainID: big.NewInt(1),
 		Status:  relayer.EventStatusDone,
 	})
@@ -196,7 +196,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
 		Name:    "name",
-		Data:    fmt.Sprintf(`{"Owner":"%s"}`, addr.Hex()),
+		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, addr.Hex()),
 		ChainID: big.NewInt(1),
 		Status:  relayer.EventStatusDone,
 	})
