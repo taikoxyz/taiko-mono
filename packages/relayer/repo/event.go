@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -74,7 +75,7 @@ func (r *EventRepository) FindAllByAddress(
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().
 		Find(&e, datatypes.JSONQuery("data").
-			Equals(address.Hex(), "Message", "Owner")).Error; err != nil {
+			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
