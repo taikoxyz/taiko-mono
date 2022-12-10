@@ -17,7 +17,6 @@ const config: HardhatUserConfig = {
         exclude: [
             "bridge/libs/",
             "L1/v1/",
-            "L1/LibData.sol",
             "libs/",
             "test/",
             "thirdparty/",
