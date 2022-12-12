@@ -40,7 +40,7 @@ const storageProof: EthGetProofResponse = {
   storageProof: [
     {
       key: "0x01",
-      value: "0x01",
+      value: "0x1",
       proof: [ethers.constants.HashZero],
     },
   ],
