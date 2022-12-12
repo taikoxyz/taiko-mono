@@ -79,8 +79,6 @@ class ETHBridge implements BridgeInterface {
       opts.signal
     );
 
-    console.log(opts.destBridgeAddress, opts.signal, messageStatus);
-
     if (messageStatus === MessageStatus.Done) {
       throw Error("message already processed");
     }
@@ -99,9 +97,14 @@ class ETHBridge implements BridgeInterface {
         srcBridgeAddress: opts.srcBridgeAddress,
       });
 
-      return await contract.processMessage(opts.message, proof);
+      console.log(opts.message, proof);
+      return await contract.processMessage(opts.message, proof, {
+        gasLimit: 1000000,
+      });
     } else {
-      return await contract.retryMessage(opts.message);
+      return await contract.retryMessage(opts.message, {
+        gasLimit: 1000000,
+      });
     }
   }
 }

@@ -60,8 +60,6 @@ class ProofService implements Prover {
       block.hash,
     ]);
 
-    console.log(proof.storageProof[0].value);
-
     if (proof.storageProof[0].value !== "0x1") {
       throw Error("invalid proof");
     }
