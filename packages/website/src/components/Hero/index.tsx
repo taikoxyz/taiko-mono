@@ -2,34 +2,36 @@ import React from "react";
 
 export default function Hero() {
   // Enlarges and decreases the opacity of the taikoGeom image upon scroll
-  const changeTaikoGeom = () => {
-    const taikoGeom = document.getElementById("taikoGeom");
-    const taikoGeomParent = document.getElementById("taikoGeomParent");
-    const elementHeight = window.pageYOffset;
+  if (typeof window !== "undefined") {
+    const changeTaikoGeom = () => {
+      const taikoGeom = document.getElementById("taikoGeom");
+      const taikoGeomParent = document.getElementById("taikoGeomParent");
+      const elementHeight = window.pageYOffset;
 
-    // Enlarge the TaikoGeom width on scroll
-    if (window.innerWidth.valueOf() < 500) {
-      taikoGeomParent.style.width = `${
-        window.innerWidth.valueOf() / 1 + elementHeight * 9
-      }px`;
+      // Enlarge the TaikoGeom width on scroll
+      if (window.innerWidth.valueOf() < 500) {
+        taikoGeomParent.style.width = `${
+          window.innerWidth.valueOf() / 1 + elementHeight * 9
+        }px`;
 
-      // Lower the TaikoGeom opacity on scroll
-      // Smaller screens need a faster decrease
-      if (1 - elementHeight * 0.003 >= 0) {
-        taikoGeom.style.opacity = `${
-          (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003) * 0.8
-        }`;
+        // Lower the TaikoGeom opacity on scroll
+        // Smaller screens need a faster decrease
+        if (1 - elementHeight * 0.003 >= 0) {
+          taikoGeom.style.opacity = `${
+            (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003) * 0.8
+          }`;
+        }
+      } else {
+        taikoGeomParent.style.width = `${
+          window.innerWidth.valueOf() / 2 + elementHeight * 9
+        }px`;
+
+        // Lower the TaikoGeom opacity on scroll
+        taikoGeom.style.opacity = `${(1 - elementHeight / 250) * 0.8}`;
       }
-    } else {
-      taikoGeomParent.style.width = `${
-        window.innerWidth.valueOf() / 2 + elementHeight * 9
-      }px`;
-
-      // Lower the TaikoGeom opacity on scroll
-      taikoGeom.style.opacity = `${(1 - elementHeight / 250) * 0.8}`;
-    }
-  };
-  window.addEventListener("scroll", changeTaikoGeom);
+    };
+    window.addEventListener("scroll", changeTaikoGeom);
+  }
 
   return (
     <div className="relative bg-neutral-50 dark:bg-neutral-800">
