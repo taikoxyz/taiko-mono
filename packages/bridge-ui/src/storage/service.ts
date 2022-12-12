@@ -1,7 +1,7 @@
 import type { BridgeTransaction, Transactioner } from "../domain/transactions";
 import { Contract, ethers } from "ethers";
 import Bridge from "../constants/abi/Bridge";
-import { chains } from "../domain/chain";
+import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 
 interface storage {
   getItem(key: string): string;
@@ -31,19 +31,31 @@ class StorageService implements Transactioner {
 
     await Promise.all(
       (txs || []).map(async (tx) => {
-        const provider = this.providerMap.get(tx.chainId);
+        const destChainId =
+          tx.chainId === CHAIN_MAINNET.id ? CHAIN_TKO.id : CHAIN_MAINNET.id;
+        const destProvider = this.providerMap.get(destChainId);
 
-        const receipt = await provider.getTransactionReceipt(tx.hash);
+        const srcProvider = this.providerMap.get(tx.chainId);
 
-        const destBridgeAddress = chains[tx.chainId].bridgeAddress;
+        const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
-        const contract: Contract = new Contract(
+        const destBridgeAddress = chains[destChainId].bridgeAddress;
+
+        const srcBridgeAddress = chains[tx.chainId].bridgeAddress;
+
+        const destContract: Contract = new Contract(
           destBridgeAddress,
           Bridge,
-          provider
+          destProvider
         );
 
-        let events = await contract.queryFilter(
+        const srcContract: Contract = new Contract(
+          srcBridgeAddress,
+          Bridge,
+          srcProvider
+        );
+
+        const events = await srcContract.queryFilter(
           "MessageSent",
           receipt.blockNumber,
           receipt.blockNumber
@@ -57,9 +69,10 @@ class StorageService implements Transactioner {
 
         const signal = event.args.signal;
 
-        const messageStatus: number = await contract.getMessageStatus(signal);
+        const messageStatus: number = await destContract.getMessageStatus(
+          signal
+        );
 
-        console.log(event.args.message);
         const bridgeTx: BridgeTransaction = {
           message: event.args.message,
           receipt: receipt,

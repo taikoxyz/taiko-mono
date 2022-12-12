@@ -17,8 +17,8 @@
   </div>
   {#each $transactions as transaction}
     <Transaction
-      toChain={chains[transaction.message.destChainId]}
-      fromChain={chains[transaction.message.srcChainId]}
+      toChain={chains[transaction.message.destChainId.toNumber()]}
+      fromChain={chains[transaction.message.srcChainId.toNumber()]}
       {transaction}
     />
   {/each}

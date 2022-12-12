@@ -79,6 +79,8 @@ class ETHBridge implements BridgeInterface {
       opts.signal
     );
 
+    console.log(opts.destBridgeAddress, opts.signal, messageStatus);
+
     if (messageStatus === MessageStatus.Done) {
       throw Error("message already processed");
     }
@@ -89,7 +91,6 @@ class ETHBridge implements BridgeInterface {
       throw Error("user can not process this, it is not their message");
     }
 
-    console.log(opts.message);
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
