@@ -11,14 +11,14 @@ export default function Hero() {
       // Enlarge the TaikoGeom width on scroll
       if (window.innerWidth.valueOf() < 500) {
         taikoGeomParent.style.width = `${
-          window.innerWidth.valueOf() / 1 + elementHeight * 9
+          window.innerWidth.valueOf() * 0.91666667 + elementHeight * 9
         }px`;
 
         // Lower the TaikoGeom opacity on scroll
         // Smaller screens need a faster decrease
         if (1 - elementHeight * 0.003 >= 0) {
           taikoGeom.style.opacity = `${
-            (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003) * 0.8
+            (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003)
           }`;
         }
       } else {
@@ -27,7 +27,7 @@ export default function Hero() {
         }px`;
 
         // Lower the TaikoGeom opacity on scroll
-        taikoGeom.style.opacity = `${(1 - elementHeight / 250) * 0.8}`;
+        taikoGeom.style.opacity = `${1 - elementHeight / 250}`;
       }
     };
     window.addEventListener("scroll", changeTaikoGeom);
@@ -36,7 +36,7 @@ export default function Hero() {
   return (
     <div className="relative bg-neutral-50 dark:bg-neutral-800">
       <main className="lg:relative">
-        <div className="w-3/4 pt-16 pb-20 text-left lg:py-48">
+        <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
           <div className="px-12 xl:px-32 lg:px-24 md:px-16 lg:w-full xl:pr-16 ">
             <h1 className="font-oxanium text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl">
               A <span className="text-[#e30ead]">Type 1</span> ZK-EVM
@@ -63,7 +63,7 @@ export default function Hero() {
         >
           <img
             id="taikoGeom"
-            className="absolute overflow-visible opacity-60 h-full w-full object-cover max-w-none"
+            className="absolute z-0 overflow-visible h-full w-full object-cover max-w-none"
             src="./img/Taiko_GEOM_1_Fluo_Sliced.svg"
             alt=""
           />
