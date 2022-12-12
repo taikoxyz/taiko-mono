@@ -4,6 +4,7 @@
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
+  import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
@@ -17,7 +18,6 @@
   import { truncateString } from "../utils/truncateString";
   import Transactions from "./Transactions.svelte";
   import { transactions } from "../store/transactions";
-  import { MessageStatus } from "../domain/message";
 
   let showTransactions = false;
 
@@ -62,8 +62,8 @@
 <div class="dropdown dropdown-bottom dropdown-end">
   <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
-      {#if $transactions && $transactions.filter((t) => t.status === MessageStatus.New).length}
-        {$transactions.filter((t) => t.status === MessageStatus.New).length} Pending
+      {#if $pendingTransactions && $pendingTransactions.length}
+        {$pendingTransactions.length} Pending
         <div class="inline-block">
           <LottiePlayer
             src="/lottie/loader.json"

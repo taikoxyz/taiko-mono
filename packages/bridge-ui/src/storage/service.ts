@@ -39,6 +39,8 @@ class StorageService implements Transactioner {
 
         const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
+        if (!receipt) return;
+
         const destBridgeAddress = chains[destChainId].bridgeAddress;
 
         const srcBridgeAddress = chains[tx.chainId].bridgeAddress;
@@ -80,6 +82,8 @@ class StorageService implements Transactioner {
           ethersTx: tx,
           status: messageStatus,
         };
+
+        console.log(bridgeTx);
 
         bridgeTxs.push(bridgeTx);
       })

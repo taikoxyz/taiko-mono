@@ -89,6 +89,10 @@
       const s = store;
       s.pop();
       pendingTransactions.set(s);
+
+      transactions.set(
+        await $transactioner.GetAllByAddress(await $signer.getAddress())
+      );
     });
   });
 

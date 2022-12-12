@@ -22,6 +22,8 @@ class ProofService implements Prover {
       )
     );
 
+    console.log(opts.srcChain);
+
     const provider = this.providerMap.get(opts.srcChain);
 
     const block: Block = await provider.send("eth_getBlockByNumber", [
