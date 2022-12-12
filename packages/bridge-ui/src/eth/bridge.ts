@@ -2,15 +2,16 @@ import { BigNumber, Contract } from "ethers";
 import type { Transaction } from "ethers";
 import type {
   ApproveOpts,
-  Bridge,
+  Bridge as BridgeInterface,
   BridgeOpts,
   ClaimOpts,
 } from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
+import Bridge from "../constants/abi/Bridge";
 
-class ETHBridge implements Bridge {
+class ETHBridge implements BridgeInterface {
   private readonly prover: Prover;
 
   constructor(prover: Prover) {
@@ -70,7 +71,7 @@ class ETHBridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      TokenVault,
+      Bridge,
       opts.signer
     );
 
@@ -88,9 +89,10 @@ class ETHBridge implements Bridge {
       throw Error("user can not process this, it is not their message");
     }
 
+    console.log(opts.message);
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
-        srcChain: opts.message.srcChainId,
+        srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
         sender: opts.message.sender,
         srcBridgeAddress: opts.srcBridgeAddress,

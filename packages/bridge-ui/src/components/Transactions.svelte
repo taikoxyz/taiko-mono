@@ -1,12 +1,10 @@
 <script lang="ts">
   import { chains } from "../domain/chain";
-  import type { BridgeTransaction } from "../domain/transactions";
+  import { transactions } from "../store/transactions";
   import ArrowLeft from "./icons/ArrowLeft.svelte";
   import Transaction from "./Transaction.svelte";
 
   export let showTransactions = false;
-
-  export let transactions: BridgeTransaction[] = [];
 </script>
 
 <div>
@@ -17,10 +15,10 @@
     <ArrowLeft />
     <span class="text-sm ml-2">Transactions</span>
   </div>
-  {#each transactions as transaction}
+  {#each $transactions as transaction}
     <Transaction
-      toChain={chains[transaction.rawData.Message.DestChainId]}
-      fromChain={chains[transaction.rawData.Message.SrcChainId]}
+      toChain={chains[transaction.message.destChainId]}
+      fromChain={chains[transaction.message.srcChainId]}
       {transaction}
     />
   {/each}

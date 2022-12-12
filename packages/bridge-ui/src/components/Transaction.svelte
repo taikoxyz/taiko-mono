@@ -1,14 +1,66 @@
 <script lang="ts">
   import type { BridgeTransaction } from "../domain/transactions";
+  import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
   import Loader from "./icons/Loader.svelte";
   import TransactionsIcon from "./icons/Transactions.svelte";
   import { MessageStatus } from "../domain/message";
+  import { ethers } from "ethers";
+  import { activeBridge } from "../store/bridge";
+  import { signer } from "../store/signer";
+  import { pendingTransactions } from "../store/transactions";
+  import { errorToast, successToast } from "../utils/toast";
+  import { _ } from "svelte-i18n";
+  import { switchEthereumChain } from "../utils/switchEthereumChain";
+  import { ethereum } from "../store/ethereum";
+  import {
+    fromChain as fromChainStore,
+    toChain as toChainStore,
+  } from "../store/chain";
 
   export let transaction: BridgeTransaction;
 
   export let fromChain: Chain;
   export let toChain: Chain;
+
+  async function claim(bridgeTx: BridgeTransaction) {
+    if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
+      const chain = chains[bridgeTx.message.destChainId.toNumber()];
+      await switchEthereumChain($ethereum, chain);
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+
+      fromChainStore.set(chain);
+      if (chain === CHAIN_MAINNET) {
+        toChainStore.set(CHAIN_TKO);
+      } else {
+        toChainStore.set(CHAIN_MAINNET);
+      }
+      signer.set(provider.getSigner());
+    }
+
+    try {
+      const tx = await $activeBridge.Claim({
+        signer: $signer,
+        message: bridgeTx.message,
+        signal: bridgeTx.signal,
+        destBridgeAddress:
+          chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
+        srcBridgeAddress:
+          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+      });
+
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
+
+      successToast($_("toast.transactionSent"));
+    } catch (e) {
+      console.log(e);
+      errorToast($_("toast.errorSendingTransaction"));
+    }
+  }
 </script>
 
 <div class="p-2">
@@ -23,15 +75,35 @@
     </div>
   </div>
   <div class="px-1 py-2 flex items-center justify-between">
-    {transaction.rawData.Message.DepositValue}
-    {transaction.rawData.Message.Data ? "TKO" : "ETH"}
+    {ethers.utils.formatEther(transaction.message.depositValue)}
+    {transaction.message.data && transaction.message.data !== "0x"
+      ? "TKO"
+      : "ETH"}
 
-    {#if transaction.status === MessageStatus.New}
+    <span
+      class="cursor-pointer inline-block"
+      on:click={() =>
+        window.open(
+          `${fromChain.explorerUrl}/tx/${transaction.ethersTx.hash}`,
+          "_blank"
+        )}
+    >
+      <TransactionsIcon />
+    </span>
+
+    {#if !transaction.receipt && transaction.status === MessageStatus.New}
       <div class="animate-spin">
         <Loader />
       </div>
-    {:else}
-      <TransactionsIcon />
+    {:else if transaction.receipt?.status === 1 && transaction.status === MessageStatus.New}
+      <span
+        class="cursor-pointer"
+        on:click={async () => await claim(transaction)}
+      >
+        Claim
+      </span>
+    {:else if transaction.status === MessageStatus.Done}
+      Claimed
     {/if}
   </div>
 </div>

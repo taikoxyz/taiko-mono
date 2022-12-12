@@ -55,6 +55,7 @@ func (svc *Service) handleEvent(
 	}
 
 	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
+		log.Warnf("cant process signal: %v, eventStatus: %v", common.Hash(event.Signal).Hex(), eventStatus)
 		return nil
 	}
 

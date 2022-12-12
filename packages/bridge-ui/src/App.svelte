@@ -11,11 +11,14 @@
   import ETHBridge from "./eth/bridge";
   import { bridges, chainIdToBridgeAddress } from "./store/bridge";
   import ERC20Bridge from "./erc20/bridge";
-  import { pendingTransactions } from "./store/transactions";
+  import {
+    pendingTransactions,
+    transactioner,
+    transactions,
+  } from "./store/transactions";
   import Navbar from "./components/Navbar.svelte";
   import { signer } from "./store/signer";
   import type { Transactioner } from "./domain/transactions";
-  import { RelayerService } from "./relayer/service";
 
   setupI18n({ withLocale: "en" });
   import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
@@ -24,6 +27,8 @@
   import { ethers } from "ethers";
   import type { Prover } from "./domain/proof";
   import { successToast } from "./utils/toast";
+  import { StorageService } from "./storage/service";
+  import { fromChain } from "./store/chain";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -55,13 +60,30 @@
     return store;
   });
 
-  const relayerURL = import.meta.env.VITE_RELAYER_URL;
+  // const relayerURL = import.meta.env.VITE_RELAYER_URL;
 
-  const transactioner: Transactioner = new RelayerService(relayerURL);
+  const storageTransactioner: Transactioner = new StorageService(
+    window.localStorage,
+    providerMap
+  );
+
+  transactioner.set(storageTransactioner);
+
+  signer.subscribe(async (store) => {
+    if (store) {
+      const txs = await $transactioner.GetAllByAddress(
+        await store.getAddress()
+      );
+
+      transactions.set(txs);
+    }
+    return store;
+  });
 
   pendingTransactions.subscribe((store) => {
     store.forEach(async (tx) => {
-      await $signer.provider.waitForTransaction(tx.hash, 3);
+      console.log("waiting for tx hash", tx.hash);
+      await $signer.provider.waitForTransaction(tx.hash, 1);
       successToast("Transaction completed!");
       const s = store;
       s.pop();
@@ -78,9 +100,7 @@
   const routes = {
     "/": wrap({
       component: Home,
-      props: {
-        transactioner: transactioner,
-      },
+      props: {},
       userData: {},
     }),
   };
@@ -88,7 +108,7 @@
 
 <QueryProvider>
   <main>
-    <Navbar {transactioner} />
+    <Navbar />
     <Router {routes} />
   </main>
   <SvelteToast options={toastOptions} />

@@ -39,14 +39,20 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
+	log.Infof(
+		"srcChainId: %v, latestSyncedHeader: %v",
+		event.Message.SrcChainId.Uint64(),
+		common.Hash(latestSyncedHeader).Hex(),
+	)
+
 	// if header hasnt been synced, we are unable to process this message
 	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
-		log.Infof("header not synced, bailing")
+		log.Warn("no headers have been synced, returning early")
 		return nil
 	}
 
 	hashed := crypto.Keccak256(
-		event.Raw.Address.Bytes(), // L1 bridge address
+		event.Raw.Address.Bytes(),
 		event.Signal[:],
 	)
 
@@ -54,6 +60,14 @@ func (p *Processor) ProcessMessage(
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
+		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: signal: %v, from: %v",
+			event.Message.SrcChainId,
+			event.Message.DestChainId,
+			event.Raw.TxHash.Hex(),
+			common.Hash(event.Signal).Hex(),
+			event.Message.Owner.Hex(),
+		)
+
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
 	}
 
@@ -121,15 +135,18 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	if p.profitableOnly {
-		profitable, err := p.isProfitable(ctx, event.Message, proof)
-		if err != nil {
-			return nil, errors.Wrap(err, "p.isProfitable")
-		}
+	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.isProfitable")
+	}
 
-		if !profitable {
-			return nil, relayer.ErrUnprofitable
-		}
+	if bool(p.profitableOnly) && !profitable {
+		return nil, relayer.ErrUnprofitable
+	}
+
+	if gas != 0 {
+		auth.GasLimit = gas
+		log.Infof("gasLimit: %v", gas)
 	}
 
 	// process the message on the destination bridge.

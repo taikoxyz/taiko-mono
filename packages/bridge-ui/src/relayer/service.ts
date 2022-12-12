@@ -11,6 +11,10 @@ class RelayerService implements Transactioner {
   constructor(relayerURL: string) {
     this.axios = new Axios({
       baseURL: relayerURL,
+      transitional: {
+        silentJSONParsing: false,
+      },
+      responseType: "json",
     });
   }
 
@@ -26,22 +30,25 @@ class RelayerService implements Transactioner {
       params.chainID = chainID;
     }
 
-    const resp: AxiosResponse<BridgeTransaction[]> = await this.axios.get<
-      BridgeTransaction[]
-    >(`/events`, {
+    const resp: AxiosResponse = await this.axios.get(`/events`, {
       params: params,
       headers: {
         Accept: "*/*",
+        "Content-Type": "application/json",
       },
     });
 
-    const txs = resp.data.map((tx) => {
+    const bridgeTxs: BridgeTransaction[] = JSON.parse(resp.data);
+
+    const parsed = bridgeTxs.map((tx) => {
       const rawData: Data = JSON.parse(tx.data);
       tx.rawData = rawData;
       return tx;
     });
 
-    return txs;
+    console.log(parsed);
+
+    return parsed;
   }
 }
 

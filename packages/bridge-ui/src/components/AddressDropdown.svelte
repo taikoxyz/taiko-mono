@@ -7,10 +7,6 @@
   import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import type {
-    BridgeTransaction,
-    Transactioner,
-  } from "../domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
@@ -21,8 +17,7 @@
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
   import Transactions from "./Transactions.svelte";
-
-  export let transactions: BridgeTransaction[] = [];
+  import { transactions } from "../store/transactions";
 
   let showTransactions = false;
 
@@ -138,18 +133,18 @@
       >
         <DisconnectIcon /> Disconnect
       </div>
-      {#if transactions && transactions.length}
+      {#if $transactions && $transactions.length}
         <div
           class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
           on:click={() => (showTransactions = true)}
         >
           <TransactionsIcon />
-          {transactions.length} Transactions
+          {$transactions.length} Transactions
         </div>
       {/if}
     {:else}
       <div class="" transition:slide>
-        <Transactions bind:showTransactions {transactions} />
+        <Transactions bind:showTransactions />
       </div>
     {/if}
   </div>

@@ -127,6 +127,23 @@
         memo: memo,
       });
 
+      // tx.chainId is not set immediately but we need it later. set it
+      // manually.
+      tx.chainId = $fromChain.id;
+      let transactions: ethers.Transaction[] = JSON.parse(
+        await window.localStorage.getItem("transactions")
+      );
+      if (!transactions) {
+        transactions = [tx];
+      } else {
+        transactions.push(tx);
+      }
+
+      await window.localStorage.setItem(
+        "transactions",
+        JSON.stringify(transactions)
+      );
+
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
