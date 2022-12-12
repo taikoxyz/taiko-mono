@@ -95,7 +95,7 @@ class ETHBridge implements BridgeInterface {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
-        sender: opts.message.sender,
+        sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
       });
 

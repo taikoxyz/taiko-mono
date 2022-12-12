@@ -22,6 +22,7 @@ class ProofService implements Prover {
       )
     );
 
+    console.log(opts.sender);
     console.log(opts.srcChain);
 
     const provider = this.providerMap.get(opts.srcChain);
@@ -59,7 +60,9 @@ class ProofService implements Prover {
       block.hash,
     ]);
 
-    if (proof.storageProof[0].value !== "0x01") {
+    console.log(proof.storageProof[0].value);
+
+    if (proof.storageProof[0].value !== "0x1") {
       throw Error("invalid proof");
     }
 
