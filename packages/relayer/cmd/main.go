@@ -36,6 +36,12 @@ func main() {
 	  false: run an http server and index blocks
 	`)
 
+	profitableOnlyPtr := flag.Bool("profitable-only", false, `only process profitable transactions. 
+	options:
+	  true:
+	  false:
+	`)
+
 	flag.Parse()
 
 	if !relayer.IsInSlice(relayer.Mode(*modePtr), relayer.Modes) {
@@ -51,5 +57,6 @@ func main() {
 		relayer.WatchMode(*watchModePtr),
 		relayer.Layer(*layersPtr),
 		relayer.HTTPOnly(*httpOnlyPtr),
+		relayer.ProfitableOnly(*profitableOnlyPtr),
 	)
 }

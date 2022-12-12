@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -52,7 +53,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddress(
+func (r *EventRepository) FindAllByAddressAndChainID(
 	ctx context.Context,
 	chainID *big.Int,
 	address common.Address,
@@ -60,7 +61,21 @@ func (r *EventRepository) FindAllByAddress(
 	e := make([]*relayer.Event, 0)
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
 		Find(&e, datatypes.JSONQuery("data").
-			Equals(address.Hex(), "Message", "Owner")).Error; err != nil {
+			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) FindAllByAddress(
+	ctx context.Context,
+	address common.Address,
+) ([]*relayer.Event, error) {
+	e := make([]*relayer.Event, 0)
+	if err := r.db.GormDB().
+		Find(&e, datatypes.JSONQuery("data").
+			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
