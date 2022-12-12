@@ -27,3 +27,5 @@ var (
 )
 
 type HTTPOnly bool
+
+type ProfitableOnly bool

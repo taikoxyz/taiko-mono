@@ -18,7 +18,7 @@ import (
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
 
-func newTestProcessor() *Processor {
+func newTestProcessor(profitableOnly relayer.ProfitableOnly) *Processor {
 	privateKey, _ := crypto.HexToECDSA(dummyEcdsaKey)
 
 	prover, _ := proof.New(
@@ -35,6 +35,7 @@ func newTestProcessor() *Processor {
 		destHeaderSyncer: &mock.HeaderSyncer{},
 		prover:           prover,
 		rpc:              &mock.Caller{},
+		profitableOnly:   profitableOnly,
 	}
 }
 func Test_NewProcessor(t *testing.T) {

@@ -20,6 +20,15 @@ var (
 
 var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 
+var ProcessMessageTx = types.NewTransaction(
+	PendingNonce,
+	common.HexToAddress(dummyAddress),
+	big.NewInt(1),
+	100,
+	big.NewInt(10),
+	nil,
+)
+
 type Bridge struct {
 	MessagesSent int
 	ErrorsSent   int
@@ -84,14 +93,7 @@ func (b *Bridge) ProcessMessage(
 	message contracts.IBridgeMessage,
 	proof []byte,
 ) (*types.Transaction, error) {
-	return types.NewTransaction(
-		PendingNonce,
-		common.HexToAddress(dummyAddress),
-		big.NewInt(1),
-		100,
-		big.NewInt(10),
-		nil,
-	), nil
+	return ProcessMessageTx, nil
 }
 
 func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, signal [32]byte, srcChainId *big.Int, proof []byte) (bool, error) { // nolint
