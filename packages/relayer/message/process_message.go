@@ -39,12 +39,6 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
-	log.Infof(
-		"srcChainId: %v, latestSyncedHeader: %v",
-		event.Message.SrcChainId.Uint64(),
-		common.Hash(latestSyncedHeader).Hex(),
-	)
-
 	// if header hasnt been synced, we are unable to process this message
 	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
 		log.Warn("no headers have been synced, returning early")

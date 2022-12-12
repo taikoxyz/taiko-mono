@@ -48,6 +48,7 @@ export type BridgeTransaction = {
   status: MessageStatus;
   signal: string;
   message: Message;
+  interval?: NodeJS.Timer;
 };
 export interface Transactioner {
   GetAllByAddress(

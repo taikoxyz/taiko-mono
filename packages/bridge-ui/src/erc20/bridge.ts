@@ -134,7 +134,7 @@ class ERC20Bridge implements Bridge {
 
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
-        srcChain: opts.message.srcChainId,
+        srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
         sender: opts.message.sender,
         srcBridgeAddress: opts.srcBridgeAddress,

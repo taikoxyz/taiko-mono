@@ -50,7 +50,6 @@ class ProofService implements Prover {
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
     };
 
-    console.log(opts.srcBridgeAddress);
     // rpc call to get the merkle proof what value is at key on the bridge contract
     const proof: EthGetProofResponse = await provider.send("eth_getProof", [
       opts.srcBridgeAddress,
@@ -58,8 +57,7 @@ class ProofService implements Prover {
       block.hash,
     ]);
 
-    console.log(proof);
-    if (proof.storageProof[0].value !== "0x1") {
+    if (proof.storageProof[0].value !== "0x01") {
       throw Error("invalid proof");
     }
 

@@ -131,7 +131,9 @@ describe("bridge tests", () => {
 
     await expect(
       bridge.Claim({
-        message: {} as unknown as Message,
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
@@ -157,6 +159,7 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           owner: "0x",
+          srcChainId: BigNumber.from(167001),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -188,7 +191,7 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
         sender: "0x01",
       } as unknown as Message,
       signal: "0x",
@@ -222,7 +225,7 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
         sender: "0x01",
       } as unknown as Message,
       signal: "0x",

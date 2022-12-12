@@ -21,14 +21,15 @@
   import type { Transactioner } from "./domain/transactions";
 
   setupI18n({ withLocale: "en" });
-  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import { chains, CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
   import type { Prover } from "./domain/proof";
   import { successToast } from "./utils/toast";
   import { StorageService } from "./storage/service";
-  import { fromChain } from "./store/chain";
+  import { MessageStatus } from "./domain/message";
+  import BridgeABI from "./constants/abi/Bridge";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -89,6 +90,35 @@
       s.pop();
       pendingTransactions.set(s);
     });
+  });
+
+  transactions.subscribe((store) => {
+    if (store) {
+      store.forEach(async (tx) => {
+        if (tx.interval) clearInterval(tx.interval);
+
+        if (tx.status === MessageStatus.New) {
+          const provider = providerMap.get(tx.message.destChainId.toNumber());
+
+          const interval = setInterval(async () => {
+            tx.interval = interval;
+            const contract = new ethers.Contract(
+              chains[tx.message.destChainId.toNumber()].bridgeAddress,
+              BridgeABI,
+              provider
+            );
+
+            const messageStatus: MessageStatus =
+              await contract.getMessageStatus(tx.signal);
+
+            if (messageStatus === MessageStatus.Done) {
+              successToast("Bridge message processed successfully");
+              clearInterval(tx.interval);
+            }
+          }, 30 * 1000);
+        }
+      });
+    }
   });
 
   const toastOptions: SvelteToastOptions = {
