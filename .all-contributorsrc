@@ -131,6 +131,15 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "schlusslicht",
+      "name": "Philip Schlusslicht",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1932900?v=4",
+      "profile": "https://phil.ist",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
