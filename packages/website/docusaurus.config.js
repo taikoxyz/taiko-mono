@@ -35,16 +35,6 @@ const config = {
           "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
       },
     ],
-    [
-      "content-docs",
-      {
-        id: "faq",
-        path: "faq",
-        routeBasePath: "faq",
-        editUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
-      },
-    ],
   ],
 
   presets: [
@@ -113,9 +103,27 @@ const config = {
             position: "left",
           },
           {
-            to: "faq",
-            label: "FAQ",
+            href: "https://l1faucet.a1.taiko.xyz/",
+            label: "L1 Faucet",
             position: "left",
+          },
+          {
+            href: "https://l2faucet.a1.taiko.xyz/",
+            label: "L2 Faucet",
+            position: "left",
+          },
+          {
+            href: "https://bridge.a1.taiko.xyz/",
+            label: "Bridge",
+            position: "left",
+          },
+          {
+            href: "https://l1explorer.a1.taiko.xyz/",
+            label: "L1 Explorer",
+          },
+          {
+            href: "https://l2explorer.a1.taiko.xyz/",
+            label: "L2 Explorer",
           },
           {
             href: "https://discord.gg/taikoxyz",
@@ -152,11 +160,11 @@ const config = {
             items: [
               {
                 label: "Careers",
-                href: "https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+                to: "https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
               },
               {
                 label: "Media kit",
-                href: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/",
+                to: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/",
               },
             ],
           },
@@ -169,7 +177,7 @@ const config = {
               },
               {
                 label: "GitHub",
-                href: "https://github.com/taikoxyz",
+                to: "https://github.com/taikoxyz",
               },
             ],
           },
@@ -178,19 +186,19 @@ const config = {
             items: [
               {
                 label: "Discord",
-                href: "https://discord.gg/taikoxyz",
+                to: "https://discord.gg/taikoxyz",
               },
               {
                 label: "Reddit",
-                href: "https://www.reddit.com/r/taiko_xyz/",
+                to: "https://www.reddit.com/r/taiko_xyz/",
               },
               {
                 label: "Twitter",
-                href: "https://twitter.com/taikoxyz",
+                to: "https://twitter.com/taikoxyz",
               },
               {
                 label: "YouTube",
-                href: "https://www.youtube.com/@taikoxyz",
+                to: "https://www.youtube.com/@taikoxyz",
               },
             ],
           },

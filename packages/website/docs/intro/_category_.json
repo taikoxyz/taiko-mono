@@ -1,6 +1,7 @@
 {
   "label": "Introduction",
   "collapsed": false,
+  "position": 1,
   "link": {
     "type": "generated-index"
   }

@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# Quickstart
+# What is Taiko?
 
 Welcome to Taiko! 🥁
 
@@ -18,7 +18,11 @@ Here are the best places to learn about Taiko.
 - [Contract documentation](/docs/category/smart-contracts/)
 - [Frequently Asked Questions (FAQ)](/faq/)
 
-### Follow us
+## Try out the testnet
+
+Try out the [Alpha 1 testnet](../alpha-1-testnet/)!
+
+## Follow us
 
 - [Blog](https://mirror.xyz/labs.taiko.eth)
 - [Discord](https://discord.gg/taikoxyz)
