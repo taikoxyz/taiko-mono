@@ -47,7 +47,7 @@ Thanks goes to these wonderful people! If you would like to contribute, please r
 
 <a href="https://github.com/taikoxyz/taiko-mono/graphs/contributors">
   <p align="center">
-    <img src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
+    <img width="720" src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
   </p>
 </a>
 
