@@ -1,4 +1,4 @@
-import type { ethers } from "ethers";
+import type { BigNumber, ethers } from "ethers";
 import type { Message, MessageStatus } from "./message";
 
 // export interface Data {
@@ -49,6 +49,8 @@ export type BridgeTransaction = {
   signal: string;
   message: Message;
   interval?: NodeJS.Timer;
+  amountInWei?: BigNumber;
+  symbol?: string;
 };
 export interface Transactioner {
   GetAllByAddress(

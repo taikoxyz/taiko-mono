@@ -1,7 +1,11 @@
 import type { BridgeTransaction, Transactioner } from "../domain/transactions";
-import { Contract, ethers } from "ethers";
+import { BigNumber, Contract, ethers } from "ethers";
 import Bridge from "../constants/abi/Bridge";
 import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
+import TokenVault from "../constants/abi/TokenVault";
+import { chainIdToBridgeAddress } from "../store/bridge";
+import { get } from "svelte/store";
+import ERC20 from "../constants/abi/ERC20";
 
 interface storage {
   getItem(key: string): string;
@@ -75,12 +79,43 @@ class StorageService implements Transactioner {
           signal
         );
 
+        let amountInWei: BigNumber;
+        let symbol: string;
+        if (event.args.message.data !== "0x") {
+          const tokenVaultContract = new Contract(
+            get(chainIdToBridgeAddress).get(tx.chainId),
+            TokenVault,
+            srcProvider
+          );
+          const erc20Events = await tokenVaultContract.queryFilter(
+            "ERC20Sent",
+            receipt.blockNumber,
+            receipt.blockNumber
+          );
+
+          const erc20Event = erc20Events.find(
+            (e) => e.args.signal.toLowerCase() === signal.toLowerCase()
+          );
+
+          if (!erc20Event) return;
+
+          const erc20Contract = new Contract(
+            erc20Event.args.token,
+            ERC20,
+            srcProvider
+          );
+          symbol = await erc20Contract.symbol();
+          amountInWei = BigNumber.from(erc20Event.args.amount);
+        }
+
         const bridgeTx: BridgeTransaction = {
           message: event.args.message,
           receipt: receipt,
           signal: event.args.signal,
           ethersTx: tx,
           status: messageStatus,
+          amountInWei: amountInWei,
+          symbol: symbol,
         };
 
         bridgeTxs.push(bridgeTx);

@@ -27,4 +27,12 @@ export const TKO: Token = {
   logoComponent: Tko,
 };
 
-export const tokens = [ETH, TKO];
+export const HORSE: Token = {
+  name: "Horse Token",
+  address: "0xa196769Ca67f4903eCa574F5e76e003071A4d84a",
+  decimals: 18,
+  symbol: "HORSE",
+  logoComponent: Tko,
+};
+
+export const tokens = [ETH, TKO, HORSE];

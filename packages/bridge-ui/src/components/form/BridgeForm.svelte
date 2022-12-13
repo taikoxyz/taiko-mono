@@ -1,5 +1,7 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+
   import { token } from "../../store/token";
   import { processingFee } from "../../store/fee";
   import { fromChain, toChain } from "../../store/chain";
@@ -9,7 +11,7 @@
     bridgeType,
   } from "../../store/bridge";
   import { signer } from "../../store/signer";
-  import { BigNumber, ethers, Signer } from "ethers";
+  import { BigNumber, Contract, ethers, Signer } from "ethers";
   import ProcessingFee from "./ProcessingFee.svelte";
   import { ETH } from "../../domain/token";
   import SelectToken from "../buttons/SelectToken.svelte";
@@ -22,6 +24,7 @@
   import { ProcessingFeeMethod } from "../../domain/fee";
   import Memo from "./Memo.svelte";
   import { errorToast, successToast } from "../../utils/toast";
+  import ERC20 from "../../constants/abi/ERC20";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -29,6 +32,7 @@
   let tokenBalance: string;
   let customFee: string = "0.01";
   let memo: string = "";
+  let loading: boolean = false;
 
   $: getUserBalance($signer, $token);
 
@@ -38,7 +42,9 @@
         const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
-        // TODO: read ERC20 balance from contract
+        const contract = new Contract(token.address, ERC20, signer);
+        const userBalance = await contract.balanceOf(await signer.getAddress());
+        tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
     }
   }
@@ -80,9 +86,11 @@
     if (!signer) return true;
     if (!amount) return true;
     if (isNaN(parseFloat(amount))) return true;
-    if (requiresAllowance) return true;
-    const balance = await signer.getBalance("latest");
-    if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
+    if (
+      BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
+        ethers.utils.parseUnits(amount, token.decimals)
+      )
+    )
       return true;
 
     return false;
@@ -90,6 +98,7 @@
 
   async function approve() {
     try {
+      loading = true;
       if (!requiresAllowance)
         throw Error("does not require additional allowance");
 
@@ -100,31 +109,32 @@
         spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
       });
 
-      console.log("approved, waiting for confirmations ", tx);
-
-      await $signer.provider.waitForTransaction(tx.hash, 3);
-
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
       });
 
-      requiresAllowance = false;
       successToast($_("toast.transactionSent"));
+      await $signer.provider.waitForTransaction(tx.hash, 1);
+
+      requiresAllowance = false;
     } catch (e) {
       console.log(e);
       errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
     }
   }
 
   async function bridge() {
     try {
+      loading = true;
       if (requiresAllowance) throw Error("requires additional allowance");
 
       const tx = await $activeBridge.Bridge({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        tokenAddress: "",
+        tokenAddress: $token.address,
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
@@ -155,9 +165,12 @@
       });
 
       successToast($_("toast.transactionSent"));
+      await $signer.provider.waitForTransaction(tx.hash, 1);
     } catch (e) {
       console.log(e);
       errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
     }
   }
 
@@ -192,8 +205,9 @@
         >{$_("bridgeForm.maxLabel")}
         {tokenBalance.length > 10
           ? `${truncateString(tokenBalance)}...`
-          : tokenBalance} ETH</button
-      >{/if}
+          : tokenBalance}
+        {$token.symbol}
+      </button>{/if}
   </label>
   <label
     class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
@@ -222,6 +236,20 @@
     disabled={btnDisabled}
   >
     {$_("home.bridge")}
+  </button>
+{:else if loading}
+  <button class="btn btn-accent w-full" disabled={true}>
+    <LottiePlayer
+      src="/lottie/loader.json"
+      autoplay={true}
+      loop={true}
+      controls={false}
+      renderer="svg"
+      background="transparent"
+      height={26}
+      width={26}
+      controlsLayout={[]}
+    />
   </button>
 {:else}
   <button

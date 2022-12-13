@@ -176,7 +176,7 @@ describe("bridge tests", () => {
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
   });
 
-  it("bridge calls senderc20 when doesnt requires approval", async () => {
+  it("bridge calls senderc20 when doesnt require approval", async () => {
     mockContract.allowance.mockImplementationOnce(() =>
       opts.amountInWei.add(1)
     );
@@ -195,9 +195,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(100000),
-      opts.processingFeeInWei,
+      0,
       "0xfake",
       opts.memo
+      // {
+      //   value: opts.processingFeeInWei,
+      // }
     );
   });
 
@@ -228,7 +231,7 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(0),
-      BigNumber.from(0),
+      0,
       "0xfake",
       ""
     );

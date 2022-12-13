@@ -1,8 +1,8 @@
-import { BigNumber, ethers } from "ethers";
+import { BigNumber, BigNumberish, ethers } from "ethers";
+import { TKO } from "../domain/token";
 import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import { MessageStatus } from "../domain/message";
 import { StorageService } from "./service";
-
 const mockStorage = {
   getItem: jest.fn(),
 };
@@ -14,6 +14,7 @@ const mockProvider = {
 const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
+  symbol: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
@@ -62,7 +63,29 @@ const mockEvent = {
   },
 };
 
+const mockErc20Event = {
+  args: {
+    amount: "100",
+    signal: "0x456",
+  },
+};
+
 const mockQuery = [mockEvent];
+
+const mockErc20Query = [mockErc20Event];
+
+jest.mock("../store/bridge", () => ({
+  chainIdToBridgeAddress: jest.fn(),
+}));
+
+jest.mock("svelte/store", () => ({
+  get: function () {
+    return {
+      get: jest.fn(),
+    };
+  },
+}));
+
 describe("storage tests", () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -71,6 +94,10 @@ describe("storage tests", () => {
   it("gets all transactions by address, no transactions in list", async () => {
     mockStorage.getItem.mockImplementation(() => {
       return "[]";
+    });
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKO.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
@@ -91,6 +118,10 @@ describe("storage tests", () => {
 
     mockContract.queryFilter.mockImplementation(() => {
       return mockQuery;
+    });
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKO.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
@@ -117,6 +148,10 @@ describe("storage tests", () => {
       return [];
     });
 
+    mockContract.symbol.mockImplementation(() => {
+      return TKO.symbol;
+    });
+
     const svc = new StorageService(mockStorage as any, providerMap);
 
     const addresses = await svc.GetAllByAddress("0x123", CHAIN_MAINNET.id);
@@ -137,8 +172,18 @@ describe("storage tests", () => {
       return MessageStatus.New;
     });
 
-    mockContract.queryFilter.mockImplementation(() => {
-      return mockQuery;
+    mockContract.queryFilter.mockImplementation(
+      (name: string, from: BigNumberish, to: BigNumberish) => {
+        if (name === "ERC20Sent") {
+          return mockErc20Query;
+        }
+
+        return mockQuery;
+      }
+    );
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKO.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
@@ -147,6 +192,7 @@ describe("storage tests", () => {
 
     expect(addresses).toEqual([
       {
+        amountInWei: BigNumber.from(0x64),
         ethersTx: {
           chainId: CHAIN_MAINNET.id,
           data: "0x",
@@ -169,6 +215,8 @@ describe("storage tests", () => {
         },
         signal: "0x456",
         status: 0,
+
+        symbol: "TKO",
       },
     ]);
   });
@@ -187,8 +235,18 @@ describe("storage tests", () => {
       return MessageStatus.New;
     });
 
-    mockContract.queryFilter.mockImplementation(() => {
-      return mockQuery;
+    mockContract.queryFilter.mockImplementation(
+      (name: string, from: BigNumberish, to: BigNumberish) => {
+        if (name === "ERC20Sent") {
+          return mockErc20Query;
+        }
+
+        return mockQuery;
+      }
+    );
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKO.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
@@ -197,6 +255,7 @@ describe("storage tests", () => {
 
     expect(addresses).toEqual([
       {
+        amountInWei: BigNumber.from(0x64),
         ethersTx: {
           chainId: CHAIN_TKO.id,
           data: "0x",
@@ -219,6 +278,7 @@ describe("storage tests", () => {
         },
         signal: "0x456",
         status: 0,
+        symbol: "TKO",
       },
     ]);
   });

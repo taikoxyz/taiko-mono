@@ -17,6 +17,7 @@
     fromChain as fromChainStore,
     toChain as toChainStore,
   } from "../store/chain";
+  import { token } from "../store/token";
 
   export let transaction: BridgeTransaction;
 
@@ -75,9 +76,11 @@
     </div>
   </div>
   <div class="px-1 py-2 flex items-center justify-between">
-    {ethers.utils.formatEther(transaction.message.depositValue)}
+    {transaction.message.data === "0x"
+      ? ethers.utils.formatEther(transaction.message.depositValue)
+      : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message.data && transaction.message.data !== "0x"
-      ? "TKO"
+      ? transaction.symbol
       : "ETH"}
 
     <span
