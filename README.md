@@ -3,8 +3,14 @@
 </p>
 
 <h1 align="center">
-  Taiko
+  TAIKO
 </h1>
+
+<p align="center">
+  A decentralized, Ethereum-equivalent ZK-Rollup.
+  <br />
+  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website ↗</strong></a>
+</p>
 
 <div align="center">
 
@@ -13,12 +19,6 @@
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 
 </div>
-
-<p align="center">
-  A decentralized, Ethereum-equivalent ZK-Rollup.
-  <br />
-  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website</strong></a>
-</p>
 
 ## Project structure
 
@@ -46,7 +46,11 @@ Each commit will automatically trigger the GitHub Actions to run. If any commit 
 Thanks goes to these wonderful people! If you would like to contribute, please read the [Contributing guide](./CONTRIBUTING.md). You can also reach out to the community on [Discord](https://discord.gg/taikoxyz).
 
 <a href="https://github.com/taikoxyz/taiko-mono/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
+  <p align="center">
+    <img src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
+  </p>
 </a>
 
-Made with [contrib.rocks](https://contrib.rocks).
+<p align="center">
+  Made with <a rel="noopener noreferrer" target="_blank" href="https://contrib.rocks">contrib.rocks</a>
+</p>
