@@ -39,10 +39,10 @@ export default {
     ],
     coverageThreshold: {
         global: {
-            statements: 99,
-            branches: 87,
-            functions: 99,
-            lines: 99,
+            statements: 100,
+            branches: 95.65,
+            functions: 100,
+            lines: 100,
         },
     },
     modulePathIgnorePatterns: ["<rootDir>/public/build/"],

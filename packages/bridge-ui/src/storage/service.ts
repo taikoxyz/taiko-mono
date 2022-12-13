@@ -83,8 +83,6 @@ class StorageService implements Transactioner {
           status: messageStatus,
         };
 
-        console.log(bridgeTx);
-
         bridgeTxs.push(bridgeTx);
       })
     );
