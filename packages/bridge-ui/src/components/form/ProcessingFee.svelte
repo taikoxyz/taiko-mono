@@ -10,7 +10,7 @@
   }
 
   function updateAmount(e: any) {
-    customFee = (e.data as number).toString();
+    customFee = (e.target.value as number).toString();
   }
 </script>
 

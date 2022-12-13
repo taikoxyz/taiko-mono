@@ -179,7 +179,7 @@
     }
 
     if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return ethers.utils.parseEther("0.001");
+      return ethers.utils.parseEther("0.01");
     }
   }
 </script>
