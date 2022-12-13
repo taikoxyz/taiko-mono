@@ -18,6 +18,15 @@
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Solidity?label=Protocol&logo=github)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Golang?label=Relayer&logo=github)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Bridge%20UI?label=Bridge%20UI&logo=github)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Website?label=Website&logo=github)
+
+![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=protocol&label=Protocol&logo=codecov&token=E468X2PTJC)
+![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=relayer&label=Relayer&logo=codecov&token=E468X2PTJC)
+![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=bridge-ui&label=Bridge%20UI&logo=codecov&token=E468X2PTJC)
+
 </div>
 
 ## Project structure
