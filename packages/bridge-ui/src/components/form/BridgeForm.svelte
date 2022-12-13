@@ -174,7 +174,7 @@
     }
 
     if ($processingFee === ProcessingFeeMethod.CUSTOM) {
-      return BigNumber.from(customFee);
+      return BigNumber.from(ethers.utils.parseEther(customFee));
     }
 
     if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
