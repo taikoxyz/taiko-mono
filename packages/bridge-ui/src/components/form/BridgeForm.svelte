@@ -79,6 +79,7 @@
   ) {
     if (!signer) return true;
     if (!amount) return true;
+    if (isNaN(parseFloat(amount))) return true;
     if (requiresAllowance) return true;
     const balance = await signer.getBalance("latest");
     if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
@@ -165,7 +166,7 @@
   }
 
   function updateAmount(e: any) {
-    amount = (e.data as number).toString();
+    amount = (e.target.value as number).toString();
   }
 
   function getProcessingFee() {

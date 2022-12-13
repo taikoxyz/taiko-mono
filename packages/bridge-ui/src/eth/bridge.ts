@@ -34,6 +34,8 @@ class ETHBridge implements BridgeInterface {
       opts.signer
     );
 
+    console.log(opts.amountInWei.toString());
+    console.log(opts.processingFeeInWei.toString());
     const owner = await opts.signer.getAddress();
     const message = {
       sender: owner,
