@@ -9,7 +9,7 @@
 <p align="center">
   A decentralized, Ethereum-equivalent ZK-Rollup.
   <br />
-  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website ↗</strong></a>
+  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website</strong></a>
 </p>
 
 <div align="center">
