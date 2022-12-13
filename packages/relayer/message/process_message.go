@@ -3,8 +3,6 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,9 +24,6 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
-
-	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
@@ -72,8 +67,7 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
-	// message will fail when we try to process is
-	// TODO: update status in db
+	// message will fail when we try to process it
 	if !received {
 		return errors.New("message not received")
 	}
@@ -119,10 +113,6 @@ func (p *Processor) sendProcessMessageCall(
 
 	auth.Context = ctx
 
-	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 2000000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -130,6 +120,18 @@ func (p *Processor) sendProcessMessageCall(
 	if err != nil {
 		return nil, errors.New("p.getLatestNonce")
 	}
+
+	if p.profitableOnly {
+		profitable, err := p.isProfitable(ctx, event.Message, proof)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.isProfitable")
+		}
+
+		if !profitable {
+			return nil, relayer.ErrUnprofitable
+		}
+	}
+
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
 	if err != nil {
@@ -143,37 +145,4 @@ func (p *Processor) sendProcessMessageCall(
 
 func (p *Processor) setLatestNonce(nonce uint64) {
 	p.destNonce = nonce
-}
-
-func (p *Processor) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
-	pendingNonce, err := p.destEthClient.PendingNonceAt(ctx, p.relayerAddr)
-	if err != nil {
-		return err
-	}
-
-	if pendingNonce > p.destNonce {
-		p.setLatestNonce(pendingNonce)
-	}
-
-	auth.Nonce = big.NewInt(int64(p.destNonce))
-
-	return nil
-}
-
-func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
-	// TODO: make timeout a config var
-	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
-
-	defer cancelFunc()
-
-	if err := relayer.WaitConfirmations(
-		ctx,
-		p.srcEthClient,
-		p.confirmations,
-		txHash,
-	); err != nil {
-		return errors.Wrap(err, "relayer.WaitConfirmations")
-	}
-
-	return nil
 }
