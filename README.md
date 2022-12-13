@@ -1,6 +1,6 @@
 <!-- BADGES -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-14-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 
@@ -78,6 +78,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center"><a href="https://github.com/odesium"><img src="https://avatars.githubusercontent.com/u/56487762?v=4?s=100" width="100px;" alt="Ben"/><br /><sub><b>Ben</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=odesium" title="Documentation">📖</a></td>
       <td align="center"><a href="https://github.com/omahs"><img src="https://avatars.githubusercontent.com/u/73983677?v=4?s=100" width="100px;" alt="omahs"/><br /><sub><b>omahs</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=omahs" title="Documentation">📖</a></td>
       <td align="center"><a href="https://github.com/wolfderechter"><img src="https://avatars.githubusercontent.com/u/60930264?v=4?s=100" width="100px;" alt="wolfderechter"/><br /><sub><b>wolfderechter</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=wolfderechter" title="Code">💻</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=wolfderechter" title="Documentation">📖</a></td>
+      <td align="center"><a href="https://phil.ist"><img src="https://avatars.githubusercontent.com/u/1932900?v=4?s=100" width="100px;" alt="Philip Schlusslicht"/><br /><sub><b>Philip Schlusslicht</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=schlusslicht" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
