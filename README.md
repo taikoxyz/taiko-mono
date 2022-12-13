@@ -34,11 +34,12 @@
 <pre>
 taiko-mono
 ├── <a href="./CONTRIBUTING.md">CONTRIBUTING.md</a>
+├── <a href="./LICENSE.md">LICENSE.md</a>
 ├── <a href="./README.md">README.md</a>
 ...
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
-│   ├── <a href="./packages/bridge-frontend">bridge-frontend</a>: Bridge frontend UI
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge frontend UI
 │   ├── <a href="./packages/protocol">protocol</a>: L1 and L2 protocol smart contracts
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer
 │   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz
@@ -59,7 +60,3 @@ Thanks goes to these wonderful people! If you would like to contribute, please r
     <img width="720" src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
   </p>
 </a>
-
-<p align="center">
-  Made with <a rel="noopener noreferrer" target="_blank" href="https://contrib.rocks">contrib.rocks</a>
-</p>
