@@ -1,3 +1,6 @@
+[![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
+[![Protocol](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikoxyz/taiko-mono)
+
 # Taiko protocol
 
 This package contains rollup contracts on both L1 and L2, along with other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).

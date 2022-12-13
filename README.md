@@ -1,32 +1,24 @@
-<!-- BADGES -->
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-13-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
+<p align="center">
+  <img src="./packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" width="80" alt="Logo for Taiko" />
+</p>
 
+<h1 align="center">
+  Taiko
+</h1>
 
-[![Solidity](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
-[![Protocol](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=protocol)](https://codecov.io/gh/taikoxyz/taiko-mono)
-
-[![Golang](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
-[![Relayer](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=relayer)](https://codecov.io/gh/taikoxyz/taiko-mono)
-
-[![Typescript](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml)
-[![Bridge UI](https://codecov.io/gh/taikoxyz/taiko-mono/branch/main/graph/badge.svg?token=E468X2PTJC&flag=bridge-ui)](https://codecov.io/gh/taikoxyz/taiko-mono)
-
-<!-- PROJECT LOGO -->
-<br />
 <div align="center">
-  <img src="./packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" alt="Logo" width="80" height="80">
 
-  <h3>TAIKO</h3>
+[![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
+[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://t3.gg/discord)
+[![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 
-  <p>
-    A decentralized Ethereum-equivalent ZK-Rollup
-    <br />
-    <a href="https://taiko.xyz" target="_blank"><strong>Explore the website »</strong></a>
-    <br />
-  </p>
 </div>
+
+<p align="center">
+  A decentralized, Ethereum-equivalent ZK-Rollup.
+  <br />
+  <a href="https://taiko.xyz" target="_blank"><strong>Explore the website</strong></a>
+</p>
 
 ## Project structure
 
@@ -45,46 +37,16 @@ taiko-mono
 ...
 </pre>
 
-## Contributing guide
-
-Refer to the [Contributing guide](./CONTRIBUTING.md) to contribute.
-
 ## Github Actions
 
 Each commit will automatically trigger the GitHub Actions to run. If any commit message in your push or the HEAD commit of your PR contains the strings [skip ci], [ci skip], [no ci], [skip actions], or [actions skip] workflows triggered on the push or pull_request events will be skipped.
 
 ## Contributors ✨
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+Thanks goes to these wonderful people! If you would like to contribute, please read the [Contributing guide](./CONTRIBUTING.md). You can also reach out to the community on [Discord](https://discord.gg/taikoxyz).
 
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center"><a href="https://github.com/d1onys1us"><img src="https://avatars.githubusercontent.com/u/13951458?v=4?s=100" width="100px;" alt="d1onys1us"/><br /><sub><b>d1onys1us</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=d1onys1us" title="Documentation">📖</a></td>
-      <td align="center"><a href="https://github.com/davidtaikocha"><img src="https://avatars.githubusercontent.com/u/104078303?v=4?s=100" width="100px;" alt="David"/><br /><sub><b>David</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=davidtaikocha" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=davidtaikocha" title="Code">💻</a></td>
-      <td align="center"><a href="http://taiko.xyz"><img src="https://avatars.githubusercontent.com/u/99078276?v=4?s=100" width="100px;" alt="dantaik"/><br /><sub><b>dantaik</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=dantaik" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=dantaik" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/cyberhorsey"><img src="https://avatars.githubusercontent.com/u/113397187?v=4?s=100" width="100px;" alt="cyberhorsey"/><br /><sub><b>cyberhorsey</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=cyberhorsey" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=cyberhorsey" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/RogerLamTd"><img src="https://avatars.githubusercontent.com/u/50648015?v=4?s=100" width="100px;" alt="RogerLamTd"/><br /><sub><b>RogerLamTd</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=RogerLamTd" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=RogerLamTd" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/alexshliu"><img src="https://avatars.githubusercontent.com/u/104080237?v=4?s=100" width="100px;" alt="alexshliu"/><br /><sub><b>alexshliu</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=alexshliu" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=alexshliu" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/kirataik"><img src="https://avatars.githubusercontent.com/u/104244966?v=4?s=100" width="100px;" alt="kirataik"/><br /><sub><b>kirataik</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=kirataik" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=kirataik" title="Code">💻</a></td>
-    </tr>
-    <tr>
-      <td align="center"><a href="https://github.com/mfinestone"><img src="https://avatars.githubusercontent.com/u/36642873?v=4?s=100" width="100px;" alt="mfinestone"/><br /><sub><b>mfinestone</b></sub></a><br /><a href="#business-mfinestone" title="Business development">💼</a> <a href="#content-mfinestone" title="Content">🖋</a></td>
-      <td align="center"><a href="https://github.com/shadab-taiko"><img src="https://avatars.githubusercontent.com/u/108871478?v=4?s=100" width="100px;" alt="shadab-taiko"/><br /><sub><b>shadab-taiko</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Documentation">📖</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=shadab-taiko" title="Code">💻</a></td>
-      <td align="center"><a href="https://github.com/1xDeFi"><img src="https://avatars.githubusercontent.com/u/90858998?v=4?s=100" width="100px;" alt="1xDeFi"/><br /><sub><b>1xDeFi</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=1xDeFi" title="Documentation">📖</a></td>
-      <td align="center"><a href="https://github.com/odesium"><img src="https://avatars.githubusercontent.com/u/56487762?v=4?s=100" width="100px;" alt="Ben"/><br /><sub><b>Ben</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=odesium" title="Documentation">📖</a></td>
-      <td align="center"><a href="https://github.com/omahs"><img src="https://avatars.githubusercontent.com/u/73983677?v=4?s=100" width="100px;" alt="omahs"/><br /><sub><b>omahs</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=omahs" title="Documentation">📖</a></td>
-      <td align="center"><a href="https://github.com/wolfderechter"><img src="https://avatars.githubusercontent.com/u/60930264?v=4?s=100" width="100px;" alt="wolfderechter"/><br /><sub><b>wolfderechter</b></sub></a><br /><a href="https://github.com/taikoxyz/taiko-mono/commits?author=wolfderechter" title="Code">💻</a> <a href="https://github.com/taikoxyz/taiko-mono/commits?author=wolfderechter" title="Documentation">📖</a></td>
-    </tr>
-  </tbody>
-</table>
+<a href="https://github.com/taikoxyz/taiko-mono/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=taikoxyz/taiko-mono" />
+</a>
 
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
+Made with [contrib.rocks](https://contrib.rocks).
