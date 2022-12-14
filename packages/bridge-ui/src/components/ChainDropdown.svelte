@@ -26,7 +26,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end mr-4">
-  <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
+  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -37,7 +37,7 @@
     </span>
 
     <ChevDown />
-  </button>
+  </label>
   <ul
     tabindex="0"
     class="dropdown-content flex menu p-2 shadow bg-dark-3 rounded-box w-[194px]"

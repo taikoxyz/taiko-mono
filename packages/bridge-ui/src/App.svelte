@@ -140,13 +140,15 @@
 </script>
 
 <QueryProvider>
-  <main>
-    <Navbar />
-    <Router {routes} />
-  </main>
-  <SvelteToast options={toastOptions} />
+  <div class="lg:container lg:mx-auto lg:px-64">
+    <main>
+      <Navbar />
+      <Router {routes} />
+    </main>
+    <SvelteToast options={toastOptions} />
 
-  <SwitchEthereumChainModal />
+    <SwitchEthereumChainModal />
+  </div>
 </QueryProvider>
 
 <style global lang="postcss">
