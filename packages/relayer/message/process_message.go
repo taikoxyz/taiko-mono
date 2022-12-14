@@ -32,17 +32,16 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
+	if err := p.waitHeaderSynced(ctx, event); err != nil {
+		return errors.Wrap(err, "p.waitHeaderSynced")
+	}
+
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
 	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
-
-	if err := p.waitHeaderSynced(ctx, event); err != nil {
-		return errors.Wrap(err, "p.waitHeaderSynced")
-	}
-
 	hashed := crypto.Keccak256(
 		event.Raw.Address.Bytes(), // L1 bridge address
 		event.Signal[:],
