@@ -10,6 +10,7 @@ import TokenVault from "../constants/abi/TokenVault";
 import ERC20 from "../constants/abi/ERC20";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
+import BridgeABI from "../constants/abi/Bridge";
 
 class ERC20Bridge implements Bridge {
   private readonly prover: Prover;
@@ -117,7 +118,7 @@ class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      TokenVault,
+      BridgeABI,
       opts.signer
     );
 
@@ -139,13 +140,17 @@ class ERC20Bridge implements Bridge {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
-        sender: opts.message.sender,
+        sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
       });
 
-      return await contract.processMessage(opts.message, proof);
+      return await contract.processMessage(opts.message, proof, {
+        gasLimit: 2500000,
+      });
     } else {
-      return await contract.retryMessage(opts.message);
+      return await contract.retryMessage(opts.message, false, {
+        gasLimit: 2500000,
+      });
     }
   }
 }

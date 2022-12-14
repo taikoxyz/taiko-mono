@@ -4,6 +4,7 @@ enum MessageStatus {
   New,
   Retriable,
   Done,
+  Failed,
 }
 
 type Message = {

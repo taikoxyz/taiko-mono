@@ -6,7 +6,7 @@
   import TransactionsIcon from "./icons/Transactions.svelte";
   import { MessageStatus } from "../domain/message";
   import { ethers } from "ethers";
-  import { activeBridge } from "../store/bridge";
+  import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
   import { pendingTransactions } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
@@ -17,7 +17,7 @@
     fromChain as fromChainStore,
     toChain as toChainStore,
   } from "../store/chain";
-  import { token } from "../store/token";
+  import { BridgeType } from "../domain/bridge";
 
   export let transaction: BridgeTransaction;
 
@@ -41,15 +41,17 @@
     }
 
     try {
-      const tx = await $activeBridge.Claim({
-        signer: $signer,
-        message: bridgeTx.message,
-        signal: bridgeTx.signal,
-        destBridgeAddress:
-          chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
-        srcBridgeAddress:
-          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
-      });
+      const tx = await $bridges
+        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
+        .Claim({
+          signer: $signer,
+          message: bridgeTx.message,
+          signal: bridgeTx.signal,
+          destBridgeAddress:
+            chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
+          srcBridgeAddress:
+            chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+        });
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -98,13 +100,22 @@
       <div class="animate-spin">
         <Loader />
       </div>
-    {:else if transaction.receipt?.status === 1 && transaction.status === MessageStatus.New}
+    {:else if transaction.status === MessageStatus.New}
       <span
         class="cursor-pointer"
         on:click={async () => await claim(transaction)}
       >
         Claim
       </span>
+    {:else if transaction.status === MessageStatus.Retriable}
+      <span
+        class="cursor-pointer"
+        on:click={async () => await claim(transaction)}
+      >
+        Retry
+      </span>
+    {:else if transaction.status === MessageStatus.Failed}
+      Failed
     {:else if transaction.status === MessageStatus.Done}
       Claimed
     {/if}
