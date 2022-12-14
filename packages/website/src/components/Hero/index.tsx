@@ -1,22 +1,54 @@
 import React from "react";
 
 export default function Hero() {
+  // Enlarges and decreases the opacity of the taikoGeom image upon scroll
+  if (typeof window !== "undefined") {
+    const changeTaikoGeom = () => {
+      const taikoGeom = document.getElementById("taikoGeom");
+      const taikoGeomParent = document.getElementById("taikoGeomParent");
+      const elementHeight = window.pageYOffset;
+
+      // Enlarge the TaikoGeom width on scroll
+      if (window.innerWidth.valueOf() < 500) {
+        taikoGeomParent.style.width = `${
+          window.innerWidth.valueOf() * 0.91666667 + elementHeight * 9
+        }px`;
+
+        // Lower the TaikoGeom opacity on scroll
+        // Smaller screens need a faster decrease
+        if (1 - elementHeight * 0.003 >= 0) {
+          taikoGeom.style.opacity = `${
+            (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003)
+          }`;
+        }
+      } else {
+        taikoGeomParent.style.width = `${
+          window.innerWidth.valueOf() / 2 + elementHeight * 9
+        }px`;
+
+        // Lower the TaikoGeom opacity on scroll
+        taikoGeom.style.opacity = `${1 - elementHeight / 250}`;
+      }
+    };
+    window.addEventListener("scroll", changeTaikoGeom);
+  }
+
   return (
     <div className="relative bg-neutral-50 dark:bg-neutral-800">
       <main className="lg:relative">
-        <div className="mx-auto w-full max-w-7xl pt-16 pb-20 text-center lg:py-48 lg:text-left">
-          <div className="px-4 sm:px-8 lg:w-1/2 xl:pr-16">
+        <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
+          <div className="px-12 xl:px-32 lg:px-24 md:px-16 lg:w-full xl:pr-16 ">
             <h1 className="font-oxanium text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl">
               A <span className="text-[#e30ead]">Type 1</span> ZK-EVM
             </h1>
-            <p className="font-oxanium mx-auto mt-3 max-w-md text-lg text-neutral-600 sm:text-xl md:mt-5 md:max-w-3xl dark:text-neutral-100">
+            <p className="font-oxanium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
               Fully decentralized, Ethereum-equivalent ZK-Rollup.
             </p>
-            <div className="mt-10 sm:flex sm:justify-center lg:justify-start">
+            <div className="mt-10 flex md:justify-left">
               <div className="inline-flex rounded-md shadow">
                 <a
                   href="./docs/intro"
-                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
+                  className="inline-flex items-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
                 >
                   Get started
                 </a>
@@ -24,9 +56,14 @@ export default function Hero() {
             </div>
           </div>
         </div>
-        <div className="relative h-64 w-full sm:h-72 md:h-96 lg:absolute lg:inset-y-0 lg:right-0 lg:h-full lg:w-1/2">
+
+        <div
+          id="taikoGeomParent"
+          className="absolute inset-y-0 -right-6 overflow-hidden h-full w-11/12 lg:absolute lg:inset-y-0 lg:right-0 lg:h-full lg:w-1/2"
+        >
           <img
-            className="absolute inset-0 h-full w-full object-cover"
+            id="taikoGeom"
+            className="absolute z-0 overflow-visible h-full w-full object-cover max-w-none"
             src="./img/Taiko_GEOM_1_Fluo_Sliced.svg"
             alt=""
           />

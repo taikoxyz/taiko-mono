@@ -1,5 +1,5 @@
 <script>
-  import ArrowRight from "../icons/ArrowRight.svelte";
+  import ArrowRightLeft from "../icons/ArrowRightLeft.svelte";
   import { fromChain, toChain } from "../../store/chain";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import { ethereum } from "../../store/ethereum";
@@ -27,7 +27,9 @@
   };
 </script>
 
-<div class="flex items-center justify-between w-full px-4 md:px-8 py-6 text-sm md:text-lg">
+<div
+  class="flex items-center justify-between w-full px-4 md:px-8 py-6 text-sm md:text-lg"
+>
   <div class="flex items-center w-2/5 justify-center">
     {#if $fromChain}
       <svelte:component this={$fromChain.icon} />
@@ -38,8 +40,10 @@
     {/if}
   </div>
 
-  <button on:click={toggleChains} class="btn btn-square btn-xs" disabled={!$signer}
-    ><ArrowRight /></button
+  <button
+    on:click={toggleChains}
+    class="btn btn-square btn-xs"
+    disabled={!$signer}><ArrowRightLeft /></button
   >
   <div class="flex items-center w-2/5 justify-center">
     {#if $toChain}

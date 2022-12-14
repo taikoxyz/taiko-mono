@@ -5,6 +5,7 @@
 1. [Issue guide](#issue-guide)
 2. [Coding style guide](#coding-style-guide)
 3. [Documentation style guide](#documentation-style-guide)
+4. [Git workflow](#git-workflow)
 
 ## Issue guide
 
@@ -112,6 +113,16 @@ Group documentation under one of the four categories:
   echo "at least the command" \
   && echo "looks good when copy pastad"
   ```
+
+## Git workflow
+
+### Submitting a PR
+
+Please make sure to use a conventional commit in your PR title (eg. `feat(scope): description of feature`). This will be squashed and merged into the `main` branch.
+
+### GitHub Actions
+
+Each commit will automatically trigger the GitHub Actions to run. If any commit message in your push or the HEAD commit of your PR contains the strings [skip ci], [ci skip], [no ci], [skip actions], or [actions skip] workflows triggered on the push or pull_request events will be skipped.
 
 ## References
 
