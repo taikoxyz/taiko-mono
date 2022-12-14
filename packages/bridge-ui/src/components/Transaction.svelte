@@ -8,7 +8,7 @@
   import { ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions } from "../store/transactions";
+  import { pendingTransactions, transactions } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import { switchEthereumChain } from "../utils/switchEthereumChain";
@@ -66,25 +66,23 @@
   }
 </script>
 
-<div class="p-2">
-  <div class="flex items-center justify-between text-xs">
-    <div class="flex items-center">
-      <svelte:component this={fromChain.icon} height={18} width={18} />
-      <span class="ml-2">From {fromChain.name}</span>
-    </div>
-    <div class="flex items-center">
-      <svelte:component this={toChain.icon} height={18} width={18} />
-      <span class="ml-2">To {toChain.name}</span>
-    </div>
-  </div>
-  <div class="px-1 py-2 flex items-center justify-between">
-    {transaction.message.data === "0x"
+<tr>
+  <td>
+    <svelte:component this={fromChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
+  </td>
+  <td>
+    <svelte:component this={toChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
+  </td>
+  <td>
+    {transaction.message?.data === "0x"
       ? ethers.utils.formatEther(transaction.message.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message.data && transaction.message.data !== "0x"
-      ? transaction.symbol
-      : "ETH"}
+    {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
+  </td>
 
+  <td>
     <span
       class="cursor-pointer inline-block"
       on:click={() =>
@@ -95,12 +93,14 @@
     >
       <TransactionsIcon />
     </span>
+  </td>
 
+  <td>
     {#if !transaction.receipt && transaction.status === MessageStatus.New}
       <div class="animate-spin">
         <Loader />
       </div>
-    {:else if transaction.status === MessageStatus.New}
+    {:else if transaction.receipt && transaction.status === MessageStatus.New}
       <span
         class="cursor-pointer"
         on:click={async () => await claim(transaction)}
@@ -120,5 +120,11 @@
     {:else if transaction.status === MessageStatus.Done}
       Claimed
     {/if}
-  </div>
-</div>
+  </td>
+</tr>
+
+<style>
+  td {
+    padding: 1rem;
+  }
+</style>

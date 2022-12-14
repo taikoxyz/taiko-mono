@@ -59,7 +59,7 @@
     store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
     store.set(
       CHAIN_MAINNET.id,
-      import.meta.env.VITE_MAINNETTOKEN_VAULT__ADDRESS
+      import.meta.env.VITE_MAINNET_TOKEN_VAULT_ADDRESS
     );
     return store;
   });
@@ -104,12 +104,12 @@
         if (tx.interval) clearInterval(tx.interval);
 
         if (tx.status === MessageStatus.New) {
-          const provider = providerMap.get(tx.message.destChainId.toNumber());
+          const provider = providerMap.get(tx.toChainId);
 
           const interval = setInterval(async () => {
             tx.interval = interval;
             const contract = new ethers.Contract(
-              chains[tx.message.destChainId.toNumber()].bridgeAddress,
+              chains[tx.toChainId].bridgeAddress,
               BridgeABI,
               provider
             );

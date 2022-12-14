@@ -12,14 +12,9 @@
   import { errorToast } from "../utils/toast";
   import CopyIcon from "./icons/Copy.svelte";
   import DisconnectIcon from "./icons/Disconnect.svelte";
-  import TransactionsIcon from "./icons/Transactions.svelte";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
-  import Transactions from "./Transactions.svelte";
-  import { transactions } from "../store/transactions";
-
-  let showTransactions = false;
 
   let address: string;
   let addressAvatarImgData: string;
@@ -98,54 +93,39 @@
     tabindex="0"
     class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-64 mt-2 pb-2"
   >
-    {#if !showTransactions}
-      <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
-        {#if $fromChain && $signer}
-          <svelte:component this={$fromChain.icon} />
-          <div class="text-lg mt-2">
-            {tokenBalance.length > 10
-              ? `${truncateString(tokenBalance)}...`
-              : tokenBalance} ETH
-          </div>
-        {/if}
-      </div>
-      <div class="divider" />
-      <div class="flex hover:bg-dark-5 items-center py-2 px-2">
-        <img
-          width="24"
-          height="24"
-          src="data:image/png;base64,{addressAvatarImgData}"
-          class="rounded-full mr-2 inline-block"
-          alt="avatar"
-        />
-        {addressSubsection(address)}
-      </div>
-      <div
-        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
-        on:click={async () => await copyToClipboard(address)}
-      >
-        <CopyIcon />
-        Copy Address
-      </div>
-      <div
-        class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
-        on:click={async () => await disconnect()}
-      >
-        <DisconnectIcon /> Disconnect
-      </div>
-      {#if $transactions && $transactions.length}
-        <div
-          class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
-          on:click={() => (showTransactions = true)}
-        >
-          <TransactionsIcon />
-          {$transactions.length} Transactions
+    <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
+      {#if $fromChain && $signer}
+        <svelte:component this={$fromChain.icon} />
+        <div class="text-lg mt-2">
+          {tokenBalance.length > 10
+            ? `${truncateString(tokenBalance)}...`
+            : tokenBalance} ETH
         </div>
       {/if}
-    {:else}
-      <div class="" transition:slide>
-        <Transactions bind:showTransactions />
-      </div>
-    {/if}
+    </div>
+    <div class="divider" />
+    <div class="flex hover:bg-dark-5 items-center py-2 px-2">
+      <img
+        width="24"
+        height="24"
+        src="data:image/png;base64,{addressAvatarImgData}"
+        class="rounded-full mr-2 inline-block"
+        alt="avatar"
+      />
+      {addressSubsection(address)}
+    </div>
+    <div
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+      on:click={async () => await copyToClipboard(address)}
+    >
+      <CopyIcon />
+      Copy Address
+    </div>
+    <div
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+      on:click={async () => await disconnect()}
+    >
+      <DisconnectIcon /> Disconnect
+    </div>
   </ul>
 </div>

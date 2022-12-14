@@ -46,11 +46,13 @@ export type BridgeTransaction = {
   ethersTx: ethers.Transaction;
   receipt?: ethers.providers.TransactionReceipt;
   status: MessageStatus;
-  signal: string;
-  message: Message;
+  signal?: string;
+  message?: Message;
   interval?: NodeJS.Timer;
   amountInWei?: BigNumber;
   symbol?: string;
+  fromChainId: number;
+  toChainId: number;
 };
 export interface Transactioner {
   GetAllByAddress(
