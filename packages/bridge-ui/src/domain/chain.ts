@@ -53,9 +53,9 @@ export const mainnet: WagmiChain = {
       url: "https://l1explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
   multicall: {
     address: "0xca11bde05977b3631167028862be2a173976ca11",
     blockCreated: 14353601,
@@ -76,9 +76,9 @@ export const taiko: WagmiChain = {
       url: "https://l2explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
   multicall: {
     address: "0xca11bde05977b3631167028862be2a173976ca11",
     blockCreated: 14353601,
