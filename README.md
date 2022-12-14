@@ -29,6 +29,10 @@
 
 </div>
 
+## Documentation
+
+Most documentation can be found on the website, at [taiko.xyz](https://taiko.xyz). There should also be a README in each package, as well as comments in the source code.
+
 ## Project structure
 
 <pre>
@@ -46,10 +50,6 @@ taiko-mono
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
 ...
 </pre>
-
-## Github Actions
-
-Each commit will automatically trigger the GitHub Actions to run. If any commit message in your push or the HEAD commit of your PR contains the strings [skip ci], [ci skip], [no ci], [skip actions], or [actions skip] workflows triggered on the push or pull_request events will be skipped.
 
 ## Contributors ✨
 
