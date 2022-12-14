@@ -17,7 +17,7 @@ If you are opening a new issue, try to be descriptive as possible. Also please c
 
 ## Working on an issue
 
-If you are looking for a good issue to start with, look for issues tagged with "good first issue". Once you've found an issue to work on, you can assign it to yourself on GitHub and/or leave a comment that you're picking it up. Take a look at our [git standards](#git-standards).
+If you are looking for a good issue to start with, look for issues tagged with [good first issue](https://github.com/taikoxyz/taiko-mono/labels/good%20first%20issue). Once you've found an issue to work on, you can assign it to yourself on GitHub and/or leave a comment that you're picking it up. Take a look at our [git standards](#git-standards).
 
 ## Ask questions and start discussions
 
