@@ -89,7 +89,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, relayer.ErrNoEthClient
 	}
 
-	if opts.tokenVaultAddress == ZeroAddress {
+	if opts.BridgeAddress == ZeroAddress {
 		return nil, relayer.ErrNoBridgeAddress
 	}
 
@@ -115,7 +115,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	bridge, err := contracts.NewBridge(opts.tokenVaultAddress, opts.EthClient)
+	bridge, err := contracts.NewBridge(opts.BridgeAddress, opts.EthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
