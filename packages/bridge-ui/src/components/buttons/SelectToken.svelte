@@ -20,12 +20,18 @@
 </script>
 
 <div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="flex items-center justify-center">
+  <label
+    tabindex="0"
+    class="flex items-center justify-center hover:cursor-pointer"
+  >
     <svelte:component this={$token.logoComponent} class="inline-block" />
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevDown />
-  </button>
-  <ul class="dropdown-content menu py-2 shadow-xl bg-base-100 rounded-box">
+  </label>
+  <ul
+    tabindex="0"
+    class="dropdown-content menu py-2 shadow-xl bg-base-100 rounded-box"
+  >
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-3 px-7 py-3">
         <button
