@@ -115,6 +115,7 @@
         Retry
       </span>
     {:else if transaction.status === MessageStatus.Failed}
+      <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
       Failed
     {:else if transaction.status === MessageStatus.Done}
       Claimed

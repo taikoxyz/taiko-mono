@@ -141,7 +141,7 @@
           .address,
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        bridgeAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
       });
