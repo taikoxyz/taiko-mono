@@ -34,6 +34,8 @@ type Processor struct {
 	destNonce     uint64
 	relayerAddr   common.Address
 	confirmations uint64
+
+	profitableOnly relayer.ProfitableOnly
 }
 
 type NewProcessorOpts struct {
@@ -47,6 +49,7 @@ type NewProcessorOpts struct {
 	DestHeaderSyncer relayer.HeaderSyncer
 	RelayerAddress   common.Address
 	Confirmations    uint64
+	ProfitableOnly   relayer.ProfitableOnly
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -103,5 +106,7 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		destNonce:     0,
 		relayerAddr:   opts.RelayerAddress,
 		confirmations: opts.Confirmations,
+
+		profitableOnly: opts.ProfitableOnly,
 	}, nil
 }
