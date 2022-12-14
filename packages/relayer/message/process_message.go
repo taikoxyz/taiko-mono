@@ -42,6 +42,7 @@ func (p *Processor) ProcessMessage(
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
+
 	hashed := crypto.Keccak256(
 		event.Raw.Address.Bytes(), // L1 bridge address
 		event.Signal[:],
