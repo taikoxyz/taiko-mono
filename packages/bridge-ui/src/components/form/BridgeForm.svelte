@@ -248,7 +248,6 @@
   >
     <input
       type="number"
-      step="0.01"
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
@@ -294,3 +293,15 @@
     {$_("home.approve")}
   </button>
 {/if}
+
+<style lang="scss">
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+</style>

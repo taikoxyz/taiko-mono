@@ -67,4 +67,4 @@ export const HORSE: Token = {
   logoComponent: Tko,
 };
 
-export const tokens = [ETH, TKO, HORSE];
+export const tokens = [ETH, HORSE];
