@@ -7,7 +7,7 @@
   import { fromChain, toChain } from "../../store/chain";
   import {
     activeBridge,
-    chainIdToBridgeAddress,
+    chainIdToTokenVaultAddress,
     bridgeType,
   } from "../../store/bridge";
   import { signer } from "../../store/signer";
@@ -71,8 +71,9 @@
         ? ethers.utils.parseUnits(amt, token.decimals)
         : BigNumber.from(0),
       signer: signer,
-      contractAddress: token.address,
-      spenderAddress: $chainIdToBridgeAddress.get(fromChain.id),
+      contractAddress: token.addresses.find((t) => t.chainId === fromChain.id)
+        .address,
+      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
     });
     return allowance;
   }
@@ -105,8 +106,10 @@
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: $token.address,
-        spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
+        contractAddress: $token.addresses.find(
+          (t) => t.chainId === $fromChain.id
+        ).address,
+        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
       });
 
       pendingTransactions.update((store) => {
@@ -134,10 +137,11 @@
       const tx = await $activeBridge.Bridge({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        tokenAddress: $token.address,
+        tokenAddress: $token.addresses.find((t) => t.chainId === $fromChain.id)
+          .address,
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
+        bridgeAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
       });

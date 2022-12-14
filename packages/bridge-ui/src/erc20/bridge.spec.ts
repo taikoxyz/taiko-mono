@@ -43,7 +43,7 @@ const opts: BridgeOpts = {
   tokenAddress: "0xtoken",
   fromChainId: mainnet.id,
   toChainId: taiko.id,
-  bridgeAddress: "0x456",
+  tokenVaultAddress: "0x456",
   processingFeeInWei: BigNumber.from(2),
   memo: "memo",
 };
@@ -220,7 +220,7 @@ describe("bridge tests", () => {
       tokenAddress: "0xtoken",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
     };
 
     await bridge.Bridge(opts);

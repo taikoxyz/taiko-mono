@@ -3,7 +3,7 @@ import { BigNumber, Contract, ethers } from "ethers";
 import Bridge from "../constants/abi/Bridge";
 import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import TokenVault from "../constants/abi/TokenVault";
-import { chainIdToBridgeAddress } from "../store/bridge";
+import { chainIdToTokenVaultAddress } from "../store/bridge";
 import { get } from "svelte/store";
 import ERC20 from "../constants/abi/ERC20";
 
@@ -83,7 +83,7 @@ class StorageService implements Transactioner {
         let symbol: string;
         if (event.args.message.data !== "0x") {
           const tokenVaultContract = new Contract(
-            get(chainIdToBridgeAddress).get(tx.chainId),
+            get(chainIdToTokenVaultAddress).get(tx.chainId),
             TokenVault,
             srcProvider
           );

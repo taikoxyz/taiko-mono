@@ -69,14 +69,14 @@ class ERC20Bridge implements Bridge {
         opts.tokenAddress,
         opts.signer,
         opts.amountInWei,
-        opts.bridgeAddress
+        opts.tokenVaultAddress
       )
     ) {
       throw Error("token vault does not have required allowance");
     }
 
     const contract: Contract = new Contract(
-      opts.bridgeAddress,
+      opts.tokenVaultAddress,
       TokenVault,
       opts.signer
     );

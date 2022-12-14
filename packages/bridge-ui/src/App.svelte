@@ -9,7 +9,7 @@
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
-  import { bridges, chainIdToBridgeAddress } from "./store/bridge";
+  import { bridges, chainIdToTokenVaultAddress } from "./store/bridge";
   import ERC20Bridge from "./erc20/bridge";
   import {
     pendingTransactions,
@@ -55,7 +55,7 @@
     return store;
   });
 
-  chainIdToBridgeAddress.update((store) => {
+  chainIdToTokenVaultAddress.update((store) => {
     store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
     store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
     return store;

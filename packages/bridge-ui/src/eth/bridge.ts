@@ -29,7 +29,7 @@ class ETHBridge implements BridgeInterface {
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
-      opts.bridgeAddress,
+      opts.tokenVaultAddress,
       TokenVault,
       opts.signer
     );
