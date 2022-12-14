@@ -36,13 +36,21 @@
 
   $: getUserBalance($signer, $token);
 
-  async function getUserBalance(signer, token) {
+  async function getUserBalance(signer: ethers.Signer, token: Token) {
     if (signer && token) {
       if (token.symbol == ETH.symbol) {
         const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
-        const contract = new Contract(token.address, ERC20, signer);
+        const addr = token.addresses.find(
+          (t) => t.chainId === $fromChain.id
+        ).address;
+        console.log(addr);
+        if (!addr || addr === "0x00") {
+          tokenBalance = "0";
+          return;
+        }
+        const contract = new Contract(addr, ERC20, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
