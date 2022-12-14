@@ -36,7 +36,7 @@ class StorageService implements Transactioner {
 
     await Promise.all(
       (txs || []).map(async (tx) => {
-        console.log(tx);
+        if (tx.ethersTx.from.toLowerCase() !== address.toLowerCase()) return;
         const destChainId = tx.toChainId;
         const destProvider = this.providerMap.get(destChainId);
 
