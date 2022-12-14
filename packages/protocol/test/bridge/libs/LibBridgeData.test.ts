@@ -4,22 +4,17 @@ import { TestLibBridgeData } from "../../../typechain"
 import { K_BRIDGE_MESSAGE } from "../../constants/messages"
 import { MessageStatus } from "../../../tasks/utils"
 import { Message } from "../../utils/message"
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 
 describe("LibBridgeData", function () {
-    let owner, nonOwner: SignerWithAddress
-    let libData: TestLibBridgeData
+    let owner: any
+    let nonOwner: any
     let testMessage: Message
     let testTypes: any
     let testVar: any
+    let libData: TestLibBridgeData
 
-    beforeEach(async function () {
-        owner = (await ethers.getSigners())[0]
-        nonOwner = (await ethers.getSigners())[1]
-
-        libData = await (
-            await ethers.getContractFactory("TestLibBridgeData")
-        ).deploy()
+    before(async function () {
+        ;[owner, nonOwner] = await ethers.getSigners()
 
         testMessage = {
             id: 1,
@@ -36,13 +31,18 @@ describe("LibBridgeData", function () {
             data: ethers.constants.HashZero,
             memo: "",
         }
-
         testTypes = [
             "string",
             "tuple(uint256 id, address sender, uint256 srcChainId, uint256 destChainId, address owner, address to, address refundAddress, uint256 depositValue, uint256 callValue, uint256 processingFee, uint256 gasLimit, bytes data, string memo)",
         ]
 
         testVar = [K_BRIDGE_MESSAGE, testMessage]
+    })
+
+    beforeEach(async function () {
+        libData = await (
+            await ethers.getContractFactory("TestLibBridgeData")
+        ).deploy()
     })
 
     describe("hashMessage()", async function () {
