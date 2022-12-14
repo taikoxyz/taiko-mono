@@ -83,7 +83,6 @@
 
   pendingTransactions.subscribe((store) => {
     store.forEach(async (tx) => {
-      console.log("waiting for tx hash", tx.hash);
       await $signer.provider.waitForTransaction(tx.hash, 1);
       successToast("Transaction completed!");
       const s = store;
