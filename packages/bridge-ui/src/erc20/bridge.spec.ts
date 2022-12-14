@@ -259,6 +259,28 @@ describe("bridge tests", () => {
     ).rejects.toThrowError("message already processed");
   });
 
+  it("claim throws if message status is failed", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Failed;
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError("message already processed");
+  });
+
   it("claim throws if message owner is not signer", async () => {
     mockContract.getMessageStatus.mockImplementationOnce(() => {
       return MessageStatus.New;

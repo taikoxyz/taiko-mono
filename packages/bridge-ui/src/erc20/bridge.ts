@@ -126,7 +126,10 @@ class ERC20Bridge implements Bridge {
       opts.signal
     );
 
-    if (messageStatus === MessageStatus.Done) {
+    if (
+      messageStatus === MessageStatus.Done ||
+      messageStatus === MessageStatus.Failed
+    ) {
       throw Error("message already processed");
     }
 
@@ -145,11 +148,11 @@ class ERC20Bridge implements Bridge {
       });
 
       return await contract.processMessage(opts.message, proof, {
-        gasLimit: 2500000,
+        gasLimit: 3500000,
       });
     } else {
       return await contract.retryMessage(opts.message, false, {
-        gasLimit: 2500000,
+        gasLimit: 3500000,
       });
     }
   }
