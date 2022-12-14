@@ -49,6 +49,20 @@ jobs:
         working-directory: ./packages/website
         run: pnpm install
 
+      # export protocol docs
+      - name: Export protocol docs
+        working-directory: ./packages/protocol
+        run: pnpm export:docs
+
+      # commit protocol docs
+      - name: Commit protocol docs
+        working-directory: ./packages/website
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add ./docs/reference/smart-contracts
+          git commit -m "docs(website): update protocol docs"
+
       - name: Build Website
         working-directory: ./packages/website
         run: pnpm build
