@@ -2,10 +2,9 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
-  import Loader from "./icons/Loader.svelte";
   import TransactionsIcon from "./icons/Transactions.svelte";
   import { MessageStatus } from "../domain/message";
-  import { ethers } from "ethers";
+  import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
   import { pendingTransactions, transactions } from "../store/transactions";
@@ -18,12 +17,22 @@
     toChain as toChainStore,
   } from "../store/chain";
   import { BridgeType } from "../domain/bridge";
+  import { onMount } from "svelte";
+
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+  import HeaderSync from "../constants/abi/HeaderSync";
+  import { providers } from "../store/providers";
 
   export let transaction: BridgeTransaction;
 
   export let fromChain: Chain;
   export let toChain: Chain;
 
+  let processable: boolean = false;
+
+  onMount(async () => {
+    processable = await isProcessable();
+  });
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
@@ -64,6 +73,24 @@
       errorToast($_("toast.errorSendingTransaction"));
     }
   }
+
+  async function isProcessable() {
+    if (!transaction.receipt) return false;
+    if (!transaction.message) return false;
+    if (transaction.status !== MessageStatus.New) return true;
+
+    const contract = new Contract(
+      chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
+      HeaderSync,
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+    );
+
+    const latestSyncedHeader = await contract.getLatestSyncedHeader();
+    const srcBlock = await $providers
+      .get(chains[transaction.message.srcChainId.toNumber()].id)
+      .getBlock(latestSyncedHeader);
+    return transaction.receipt.blockNumber >= srcBlock.number;
+  }
 </script>
 
 <tr>
@@ -96,9 +123,21 @@
   </td>
 
   <td>
-    {#if !transaction.receipt && transaction.status === MessageStatus.New}
-      <div class="animate-spin">
-        <Loader />
+    {#if !processable}
+      Pending...
+    {:else if !transaction.receipt && transaction.status === MessageStatus.New}
+      <div class="inline-block">
+        <LottiePlayer
+          src="/lottie/loader.json"
+          autoplay={true}
+          loop={true}
+          controls={false}
+          renderer="svg"
+          background="transparent"
+          height={26}
+          width={26}
+          controlsLayout={[]}
+        />
       </div>
     {:else if transaction.receipt && transaction.status === MessageStatus.New}
       <span

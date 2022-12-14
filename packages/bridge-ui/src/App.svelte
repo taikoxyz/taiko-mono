@@ -2,7 +2,7 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+  import { SvelteToast } from "@zerodevx/svelte-toast";
   import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
 
   import Home from "./pages/home/Home.svelte";
@@ -30,6 +30,7 @@
   import { StorageService } from "./storage/service";
   import { MessageStatus } from "./domain/message";
   import BridgeABI from "./constants/abi/Bridge";
+  import { providers } from "./store/providers";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -43,6 +44,8 @@
     CHAIN_TKO.id,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
   );
+
+  providers.set(providerMap);
 
   const prover: Prover = new ProofService(providerMap);
 
