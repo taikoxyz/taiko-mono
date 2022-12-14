@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -35,8 +34,6 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 		case err := <-sub.Err():
 			return errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			log.Infof("event signal from sink", common.Hash(event.Signal).Hex())
-
 			go func() {
 				err := svc.handleEvent(ctx, chainID, event)
 				if err != nil {

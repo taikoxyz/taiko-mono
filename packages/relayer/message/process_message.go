@@ -43,12 +43,6 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.waitHeaderSynced")
 	}
 
-	// if header hasnt been synced, we are unable to process this message
-	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
-		log.Infof("header not synced, bailing")
-		return nil
-	}
-
 	hashed := crypto.Keccak256(
 		event.Raw.Address.Bytes(), // L1 bridge address
 		event.Signal[:],
@@ -73,6 +67,7 @@ func (p *Processor) ProcessMessage(
 
 	// message will fail when we try to process it
 	if !received {
+		log.Warnf("signal %v not received on dest chain", common.Hash(event.Signal).Hex())
 		return errors.New("message not received")
 	}
 
@@ -116,7 +111,6 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	auth.Context = ctx
-	auth.GasLimit = 3000000
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
