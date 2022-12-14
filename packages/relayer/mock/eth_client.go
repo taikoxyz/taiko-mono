@@ -2,11 +2,13 @@ package mock
 
 import (
 	"context"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 var (
@@ -60,4 +62,12 @@ func (c *EthClient) TransactionReceipt(ctx context.Context, txHash common.Hash) 
 
 func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	return uint64(BlockNum), nil
+}
+
+func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	if hash == relayer.ZeroHash {
+		return nil, errors.New("cant find block")
+	}
+
+	return types.NewBlockWithHeader(Header), nil
 }

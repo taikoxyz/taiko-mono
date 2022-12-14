@@ -5,11 +5,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
-	"golang.org/x/sync/errgroup"
 )
 
 // subscribe subscribes to latest events
@@ -30,23 +30,19 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 
 	defer sub.Unsubscribe()
 
-	group, ctx := errgroup.WithContext(ctx)
-
-	group.SetLimit(svc.numGoroutines)
-
 	for {
 		select {
 		case err := <-sub.Err():
 			return errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
-			group.Go(func() error {
+			log.Infof("event signal from sink", common.Hash(event.Signal).Hex())
+
+			go func() {
 				err := svc.handleEvent(ctx, chainID, event)
 				if err != nil {
-					log.Errorf("svc.handleEvent: %v", err)
+					log.Errorf("svc.subscribe, svc.handleEvent: %v", err)
 				}
-
-				return nil
-			})
+			}()
 		}
 	}
 }

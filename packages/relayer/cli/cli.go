@@ -42,10 +42,11 @@ var (
 		"PROMETHEUS_HTTP_PORT",
 	}
 
-	defaultBlockBatchSize      = 2
-	defaultNumGoroutines       = 10
-	defaultSubscriptionBackoff = 2 * time.Second
-	defaultConfirmations       = 15
+	defaultBlockBatchSize                = 2
+	defaultNumGoroutines                 = 10
+	defaultSubscriptionBackoff           = 2 * time.Second
+	defaultConfirmations                 = 15
+	defaultHeaderSyncIntervalSeconds int = 60
 )
 
 func Run(
@@ -150,10 +151,15 @@ func makeIndexers(
 	var subscriptionBackoff time.Duration
 
 	subscriptionBackoffInSeconds, err := strconv.Atoi(os.Getenv("SUBSCRIPTION_BACKOFF_IN_SECONDS"))
-	if err != nil || numGoroutines <= 0 {
+	if err != nil || subscriptionBackoffInSeconds <= 0 {
 		subscriptionBackoff = defaultSubscriptionBackoff
 	} else {
 		subscriptionBackoff = time.Duration(subscriptionBackoffInSeconds) * time.Second
+	}
+
+	headerSyncIntervalInSeconds, err := strconv.Atoi(os.Getenv("HEADER_SYNC_INTERVAL_IN_SECONDS"))
+	if err != nil || headerSyncIntervalInSeconds <= 0 {
+		headerSyncIntervalInSeconds = defaultHeaderSyncIntervalSeconds
 	}
 
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
@@ -198,11 +204,12 @@ func makeIndexers(
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
 			SrcTaikoAddress:   common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 
-			BlockBatchSize:      uint64(blockBatchSize),
-			NumGoroutines:       numGoroutines,
-			SubscriptionBackoff: subscriptionBackoff,
-			Confirmations:       uint64(confirmations),
-			ProfitableOnly:      profitableOnly,
+			BlockBatchSize:              uint64(blockBatchSize),
+			NumGoroutines:               numGoroutines,
+			SubscriptionBackoff:         subscriptionBackoff,
+			Confirmations:               uint64(confirmations),
+			ProfitableOnly:              profitableOnly,
+			HeaderSyncIntervalInSeconds: int64(headerSyncIntervalInSeconds),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -225,11 +232,12 @@ func makeIndexers(
 			DestBridgeAddress: common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
 			DestTaikoAddress:  common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
 
-			BlockBatchSize:      uint64(blockBatchSize),
-			NumGoroutines:       numGoroutines,
-			SubscriptionBackoff: subscriptionBackoff,
-			Confirmations:       uint64(confirmations),
-			ProfitableOnly:      profitableOnly,
+			BlockBatchSize:              uint64(blockBatchSize),
+			NumGoroutines:               numGoroutines,
+			SubscriptionBackoff:         subscriptionBackoff,
+			Confirmations:               uint64(confirmations),
+			ProfitableOnly:              profitableOnly,
+			HeaderSyncIntervalInSeconds: int64(headerSyncIntervalInSeconds),
 		})
 		if err != nil {
 			log.Fatal(err)

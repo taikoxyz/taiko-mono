@@ -39,6 +39,10 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
+	if err := p.waitHeaderSynced(ctx, event); err != nil {
+		return errors.Wrap(err, "p.waitHeaderSynced")
+	}
+
 	// if header hasnt been synced, we are unable to process this message
 	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
 		log.Infof("header not synced, bailing")
@@ -112,6 +116,7 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	auth.Context = ctx
+	auth.GasLimit = 3000000
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
