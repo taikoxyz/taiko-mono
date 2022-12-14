@@ -55,7 +55,7 @@ export const HORSE: Token = {
   addresses: [
     {
       chainId: CHAIN_MAINNET.id,
-      address: "0xa196769Ca67f4903eCa574F5e76e003071A4d84a",
+      address: import.meta.env.VITE_TEST_ERC20_ADDRESS_MAINNET,
     },
     {
       chainId: CHAIN_TKO.id,

@@ -56,8 +56,11 @@
   });
 
   chainIdToTokenVaultAddress.update((store) => {
-    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
-    store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
+    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
+    store.set(
+      CHAIN_MAINNET.id,
+      import.meta.env.VITE_MAINNETTOKEN_VAULT__ADDRESS
+    );
     return store;
   });
 
