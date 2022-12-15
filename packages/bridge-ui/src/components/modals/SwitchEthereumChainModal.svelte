@@ -1,5 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
+  import { fetchSigner } from "@wagmi/core";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import type { Chain } from "../../domain/chain";
   import { switchEthereumChain } from "../../utils/switchEthereumChain";
@@ -13,10 +14,9 @@
   const switchChain = async (chain: Chain) => {
     try {
       await switchEthereumChain($ethereum, chain);
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
+      const wagmiSigner = await fetchSigner();
 
-      signer.set(provider.getSigner());
+      signer.set(wagmiSigner);
       isSwitchEthereumChainModalOpen.set(false);
       successToast("Successfully switched chain");
     } catch (e) {
