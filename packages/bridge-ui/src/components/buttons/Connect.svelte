@@ -7,6 +7,7 @@
   import { ethereum } from "../../store/ethereum";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
   import { errorToast, successToast } from "../../utils/toast";
+  import { transactioner, transactions } from "../../store/transactions";
 
   async function connect() {
     try {
@@ -15,7 +16,11 @@
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
 
-        signer.set(provider.getSigner());
+        const s = provider.getSigner();
+        signer.set(s);
+        transactions.set(
+          await $transactioner.GetAllByAddress(await s.getAddress())
+        );
       };
 
       const changeChain = async (chainId: number) => {

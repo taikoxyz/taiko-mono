@@ -57,6 +57,10 @@ class ProofService implements Prover {
       block.hash,
     ]);
 
+    if (proof.storageProof[0].value !== "0x1") {
+      throw Error("invalid proof");
+    }
+
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = ethers.utils.defaultAbiCoder.encode(
       ["bytes", "bytes"],

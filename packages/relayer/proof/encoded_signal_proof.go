@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/encoding"
 
@@ -57,6 +58,8 @@ func (p *Prover) encodedStorageProof(
 ) ([]byte, error) {
 	var ethProof StorageProof
 
+	log.Infof("getting proof for: %v, key: %v, blockNum: %v", bridgeAddress, key, blockNumber)
+
 	err := c.CallContext(ctx,
 		&ethProof,
 		"eth_getProof",
@@ -67,6 +70,8 @@ func (p *Prover) encodedStorageProof(
 	if err != nil {
 		return nil, errors.Wrap(err, "c.CallContext")
 	}
+
+	log.Infof("proof: %v", new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64())
 
 	if new(big.Int).SetBytes(ethProof.StorageProof[0].Value).Int64() != int64(1) {
 		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")

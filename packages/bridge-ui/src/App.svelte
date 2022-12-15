@@ -2,28 +2,35 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+  import { SvelteToast } from "@zerodevx/svelte-toast";
   import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
   import { BridgeType } from "./domain/bridge";
   import ETHBridge from "./eth/bridge";
-  import { bridges, chainIdToBridgeAddress } from "./store/bridge";
+  import { bridges, chainIdToTokenVaultAddress } from "./store/bridge";
   import ERC20Bridge from "./erc20/bridge";
-  import { pendingTransactions } from "./store/transactions";
+  import {
+    pendingTransactions,
+    transactioner,
+    transactions,
+  } from "./store/transactions";
   import Navbar from "./components/Navbar.svelte";
   import { signer } from "./store/signer";
   import type { Transactioner } from "./domain/transactions";
-  import { RelayerService } from "./relayer/service";
 
   setupI18n({ withLocale: "en" });
-  import { CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import { chains, CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
   import type { Prover } from "./domain/proof";
   import { successToast } from "./utils/toast";
+  import { StorageService } from "./storage/service";
+  import { MessageStatus } from "./domain/message";
+  import BridgeABI from "./constants/abi/Bridge";
+  import { providers } from "./store/providers";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -38,6 +45,8 @@
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
   );
 
+  providers.set(providerMap);
+
   const prover: Prover = new ProofService(providerMap);
 
   const ethBridge = new ETHBridge(prover);
@@ -49,24 +58,76 @@
     return store;
   });
 
-  chainIdToBridgeAddress.update((store) => {
-    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
-    store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
+  chainIdToTokenVaultAddress.update((store) => {
+    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
+    store.set(
+      CHAIN_MAINNET.id,
+      import.meta.env.VITE_MAINNET_TOKEN_VAULT_ADDRESS
+    );
     return store;
   });
 
-  const relayerURL = import.meta.env.VITE_RELAYER_URL;
+  // const relayerURL = import.meta.env.VITE_RELAYER_URL;
 
-  const transactioner: Transactioner = new RelayerService(relayerURL);
+  const storageTransactioner: Transactioner = new StorageService(
+    window.localStorage,
+    providerMap
+  );
+
+  transactioner.set(storageTransactioner);
+
+  signer.subscribe(async (store) => {
+    if (store) {
+      const txs = await $transactioner.GetAllByAddress(
+        await store.getAddress()
+      );
+
+      transactions.set(txs);
+    }
+    return store;
+  });
 
   pendingTransactions.subscribe((store) => {
     store.forEach(async (tx) => {
-      await $signer.provider.waitForTransaction(tx.hash, 3);
+      await $signer.provider.waitForTransaction(tx.hash, 1);
       successToast("Transaction completed!");
       const s = store;
       s.pop();
       pendingTransactions.set(s);
+
+      transactions.set(
+        await $transactioner.GetAllByAddress(await $signer.getAddress())
+      );
     });
+  });
+
+  transactions.subscribe((store) => {
+    if (store) {
+      store.forEach(async (tx) => {
+        if (tx.interval) clearInterval(tx.interval);
+
+        if (tx.status === MessageStatus.New) {
+          const provider = providerMap.get(tx.toChainId);
+
+          const interval = setInterval(async () => {
+            tx.interval = interval;
+            const contract = new ethers.Contract(
+              chains[tx.toChainId].bridgeAddress,
+              BridgeABI,
+              provider
+            );
+
+            const messageStatus: MessageStatus =
+              await contract.getMessageStatus(tx.signal);
+
+            if (messageStatus === MessageStatus.Done) {
+              successToast("Bridge message processed successfully");
+              clearInterval(tx.interval);
+            }
+          }, 30 * 1000);
+        }
+      });
+    }
   });
 
   const toastOptions: SvelteToastOptions = {
@@ -87,7 +148,7 @@
 <QueryProvider>
   <div class="lg:container lg:mx-auto lg:px-64">
     <main>
-      <Navbar {transactioner} />
+      <Navbar />
       <Router {routes} />
     </main>
     <SvelteToast options={toastOptions} />
