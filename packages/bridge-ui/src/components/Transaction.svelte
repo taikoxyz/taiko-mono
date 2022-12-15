@@ -7,11 +7,9 @@
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions, transactions } from "../store/transactions";
+  import { pendingTransactions } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
-  import { switchEthereumChain } from "../utils/switchEthereumChain";
-  import { ethereum } from "../store/ethereum";
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
@@ -22,6 +20,7 @@
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
+  import { switchNetwork } from "@wagmi/core";
 
   export let transaction: BridgeTransaction;
 
@@ -36,7 +35,9 @@
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 

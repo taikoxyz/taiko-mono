@@ -3,17 +3,16 @@
   import { fetchSigner } from "@wagmi/core";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import type { Chain } from "../../domain/chain";
-  import { switchEthereumChain } from "../../utils/switchEthereumChain";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
-  import { ethereum } from "../../store/ethereum";
   import Modal from "./Modal.svelte";
-  import { ethers } from "ethers";
   import { signer } from "../../store/signer";
   import { errorToast, successToast } from "../../utils/toast";
 
   const switchChain = async (chain: Chain) => {
     try {
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const wagmiSigner = await fetchSigner();
 
       signer.set(wagmiSigner);
