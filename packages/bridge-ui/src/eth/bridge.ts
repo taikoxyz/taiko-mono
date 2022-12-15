@@ -98,11 +98,11 @@ class ETHBridge implements BridgeInterface {
       });
 
       return await contract.processMessage(opts.message, proof, {
-        gasLimit: 1000000,
+        gasLimit: 1500000,
       });
     } else {
       return await contract.retryMessage(opts.message, {
-        gasLimit: 1000000,
+        gasLimit: 1500000,
       });
     }
   }
