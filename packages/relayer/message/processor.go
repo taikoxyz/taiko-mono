@@ -16,6 +16,7 @@ type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 }
 type Processor struct {
 	eventRepo     relayer.EventRepository
@@ -35,21 +36,23 @@ type Processor struct {
 	relayerAddr   common.Address
 	confirmations uint64
 
-	profitableOnly relayer.ProfitableOnly
+	profitableOnly            relayer.ProfitableOnly
+	headerSyncIntervalSeconds int64
 }
 
 type NewProcessorOpts struct {
-	Prover           *proof.Prover
-	ECDSAKey         *ecdsa.PrivateKey
-	RPCClient        relayer.Caller
-	SrcETHClient     ethClient
-	DestETHClient    ethClient
-	DestBridge       relayer.Bridge
-	EventRepo        relayer.EventRepository
-	DestHeaderSyncer relayer.HeaderSyncer
-	RelayerAddress   common.Address
-	Confirmations    uint64
-	ProfitableOnly   relayer.ProfitableOnly
+	Prover                    *proof.Prover
+	ECDSAKey                  *ecdsa.PrivateKey
+	RPCClient                 relayer.Caller
+	SrcETHClient              ethClient
+	DestETHClient             ethClient
+	DestBridge                relayer.Bridge
+	EventRepo                 relayer.EventRepository
+	DestHeaderSyncer          relayer.HeaderSyncer
+	RelayerAddress            common.Address
+	Confirmations             uint64
+	ProfitableOnly            relayer.ProfitableOnly
+	HeaderSyncIntervalSeconds int64
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -107,6 +110,7 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		relayerAddr:   opts.RelayerAddress,
 		confirmations: opts.Confirmations,
 
-		profitableOnly: opts.ProfitableOnly,
+		profitableOnly:            opts.ProfitableOnly,
+		headerSyncIntervalSeconds: opts.HeaderSyncIntervalSeconds,
 	}, nil
 }
