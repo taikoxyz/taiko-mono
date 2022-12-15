@@ -77,7 +77,7 @@
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
-    if (transaction.status !== MessageStatus.New) return true;
+    if (transaction.status === MessageStatus.Done) return true;
 
     const contract = new Contract(
       chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
@@ -89,7 +89,8 @@
     const srcBlock = await $providers
       .get(chains[transaction.message.srcChainId.toNumber()].id)
       .getBlock(latestSyncedHeader);
-    return transaction.receipt.blockNumber >= srcBlock.number;
+
+    return transaction.receipt.blockNumber <= srcBlock.number;
   }
 </script>
 

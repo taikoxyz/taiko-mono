@@ -135,6 +135,8 @@ class StorageService implements Transactioner {
       })
     );
 
+    bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
+
     return bridgeTxs;
   }
 }
