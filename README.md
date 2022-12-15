@@ -33,6 +33,12 @@
 
 Most documentation can be found on the website, at [taiko.xyz](https://taiko.xyz). There should also be a README in each package, as well as comments in the source code.
 
+## Questions and discussions
+
+Ask questions and start discussions for new ideas under [GitHub Discussions](https://github.com/taikoxyz/taiko-mono/discussions).
+
+If you have a specific request/report, you can [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
+
 ## Project structure
 
 <pre>

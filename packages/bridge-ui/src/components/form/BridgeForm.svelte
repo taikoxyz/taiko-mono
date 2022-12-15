@@ -270,7 +270,7 @@
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-md md:input-lg w-full"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
     />
     <SelectToken />
@@ -312,3 +312,13 @@
     {$_("home.approve")}
   </button>
 {/if}
+
+<style>
+  /* hide number input arrows */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    -moz-appearance: textfield !important;
+  }
+</style>

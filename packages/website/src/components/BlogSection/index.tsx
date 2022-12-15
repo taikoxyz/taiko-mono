@@ -86,7 +86,7 @@ export default function BlogSection(): JSX.Element {
                   />
                 </a>
               </div>
-              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-700">
+              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
                 <div className="flex-1">
                   <div className="text-sm font-medium">
                     <a>{post.category.name}</a>
