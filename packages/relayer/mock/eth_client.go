@@ -64,10 +64,10 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	return uint64(BlockNum), nil
 }
 
-func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	if hash == relayer.ZeroHash {
 		return nil, errors.New("cant find block")
 	}
 
-	return types.NewBlockWithHeader(Header), nil
+	return Header, nil
 }

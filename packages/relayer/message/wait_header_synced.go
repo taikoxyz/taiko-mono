@@ -27,18 +27,18 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *contracts.Bridg
 				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
 			}
 
-			block, err := p.srcEthClient.BlockByHash(ctx, latestSyncedHeader)
+			header, err := p.srcEthClient.HeaderByHash(ctx, latestSyncedHeader)
 			if err != nil {
 				return errors.Wrap(err, "p.destHeaderSyncer.GetLatestSyncedHeader")
 			}
 
 			// header is caught up and processible
-			if block.NumberU64() >= event.Raw.BlockNumber {
+			if header.Number.Uint64() >= event.Raw.BlockNumber {
 				log.Infof(
 					"signal: %v is processable. occured in block %v, latestSynced is block %v",
 					common.Hash(event.Signal).Hex(),
 					event.Raw.BlockNumber,
-					block.NumberU64(),
+					header.Number.Uint64(),
 				)
 
 				return nil
@@ -48,7 +48,7 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *contracts.Bridg
 				"signal: %v waiting to be processable. occured in block %v, latestSynced is block %v",
 				common.Hash(event.Signal).Hex(),
 				event.Raw.BlockNumber,
-				block.NumberU64(),
+				header.Number.Uint64(),
 			)
 		}
 	}

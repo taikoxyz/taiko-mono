@@ -16,7 +16,7 @@ type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
-	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
 }
 type Processor struct {
 	eventRepo     relayer.EventRepository
