@@ -42,7 +42,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end">
-  <button tabindex="0" class="btn btn-md md:btn-wide justify-around">
+  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
@@ -75,7 +75,7 @@
     </span>
 
     <ChevDown />
-  </button>
+  </label>
   <ul
     tabindex="0"
     class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
