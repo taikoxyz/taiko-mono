@@ -23,6 +23,9 @@
   import { wagmiClient } from "../../store/wagmi";
   import MetaMask from "../icons/MetaMask.svelte";
   import { transactioner, transactions } from "../../store/transactions";
+  import WalletConnect from "../icons/WalletConnect.svelte";
+  import CoinbaseWallet from "../icons/CoinbaseWallet.svelte";
+
 
   const changeChain = async (chainId: number) => {
     if (chainId === CHAIN_TKO.id) {
@@ -63,8 +66,10 @@
   }
 
   const iconMap = {
-    metamask: MetaMask,
-  };
+    'metamask': MetaMask,
+    'walletconnect': WalletConnect,
+    'coinbase wallet': CoinbaseWallet,
+  }
 
   onDestroy(() => {
     if (unwatchNetwork) {
@@ -87,13 +92,12 @@
   isOpen={$isConnectWalletModalOpen}
   onClose={() => ($isConnectWalletModalOpen = false)}
 >
-  <div class="flex items-center space-x-4 p-8">
+  <div class="flex flex-col items-center space-y-4 space-x-0 p-8">
     {#each $wagmiClient.connectors as connector}
-      <button
-        class="btn flex flex-col space-y-2"
-        on:click={() => connectWithConnector(connector)}
-      >
-        <svelte:component this={iconMap[connector.name.toLowerCase()]} />
+      <button class="btn flex items-center justify-start md:pl-32 space-x-4 w-full" on:click={() => connectWithConnector(connector)}>
+        <div class="h-7 w-7 flex items-center justify-center">
+          <svelte:component this={iconMap[connector.name.toLowerCase()]} />
+        </div>
         <span>{connector.name}</span>
       </button>
     {/each}
