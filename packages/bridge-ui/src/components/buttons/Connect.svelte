@@ -36,47 +36,13 @@
     }
   };
 
-  async function connect() {
-    try {
-      const getAccounts = async () => {
-        ethereum.set(window.ethereum);
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-
-        const s = provider.getSigner();
-        signer.set(s);
-        transactions.set(
-          await $transactioner.GetAllByAddress(await s.getAddress())
-        );
-      };
-
-      await getAccounts();
-
-      const { chainId } = await $signer.provider.getNetwork();
-
-      await changeChain(chainId);
-
-      window.ethereum.on("chainChanged", async (chainId) => {
-        await changeChain(BigNumber.from(chainId).toNumber());
-      });
-
-      window.ethereum.on("accountsChanged", async (accounts) => {
-        await getAccounts();
-      });
-
-      successToast("Connected");
-    } catch (e) {
-      console.log(e);
-      errorToast("Error connecting to wallet");
-    }
-  }
-
   let unwatchNetwork;
   let unwatchAccount;
 
   async function setSigner() {
     const wagmiSigner = await fetchSigner();
     signer.set(wagmiSigner);
+    return wagmiSigner;
   }
 
   async function connectWithConnector(connector: Connector) {
@@ -86,7 +52,12 @@
     unwatchNetwork = watchNetwork(
       async (network) => await changeChain(network.chain.id)
     );
-    unwatchAccount = watchAccount(async () => await setSigner());
+    unwatchAccount = watchAccount(async () => {
+      const s = await setSigner();
+      transactions.set(
+        await $transactioner.GetAllByAddress(await s.getAddress())
+      );
+    });
     ethereum.set(await connector.getProvider());
     successToast("Connected");
   }
