@@ -42,11 +42,6 @@ class StorageService implements Transactioner {
 
         const srcProvider = this.providerMap.get(tx.fromChainId);
 
-        if (!tx.ethersTx.hash) {
-          bridgeTxs.push(tx);
-          return;
-        }
-
         const receipt = await srcProvider.getTransactionReceipt(
           tx.ethersTx.hash
         );

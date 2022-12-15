@@ -3,6 +3,7 @@ import { TKO } from "../domain/token";
 import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import { MessageStatus } from "../domain/message";
 import { StorageService } from "./service";
+import type { BridgeTransaction } from "../domain/transactions";
 const mockStorage = {
   getItem: jest.fn(),
 };
@@ -39,16 +40,22 @@ providerMap.set(
   mockProvider as unknown as ethers.providers.JsonRpcProvider
 );
 
-const mockTx: ethers.Transaction = {
-  chainId: CHAIN_MAINNET.id,
-  hash: "0x123",
-  nonce: 0,
-  gasLimit: BigNumber.from(1),
-  data: "0x",
-  value: BigNumber.from(1),
+const mockTx: BridgeTransaction = {
+  ethersTx: {
+    chainId: CHAIN_MAINNET.id,
+    hash: "0x123",
+    nonce: 0,
+    gasLimit: BigNumber.from(1),
+    data: "0x",
+    value: BigNumber.from(1),
+    from: "0x123",
+  },
+  status: MessageStatus.New,
+  fromChainId: CHAIN_MAINNET.id,
+  toChainId: CHAIN_TKO.id,
 };
 
-const mockTxs: ethers.Transaction[] = [mockTx];
+const mockTxs: BridgeTransaction[] = [mockTx];
 
 const mockTxReceipt = {
   blockNumber: 1,
@@ -128,7 +135,28 @@ describe("storage tests", () => {
 
     const addresses = await svc.GetAllByAddress("0x123", CHAIN_MAINNET.id);
 
-    expect(addresses).toEqual([]);
+    expect(addresses).toEqual([
+      {
+        ethersTx: {
+          chainId: 31336,
+          data: "0x",
+          from: "0x123",
+          gasLimit: {
+            hex: "0x01",
+            type: "BigNumber",
+          },
+          hash: "0x123",
+          nonce: 0,
+          value: {
+            hex: "0x01",
+            type: "BigNumber",
+          },
+        },
+        fromChainId: 31336,
+        status: 0,
+        toChainId: 167001,
+      },
+    ]);
   });
 
   it("gets all transactions by address, no event", async () => {
@@ -156,7 +184,31 @@ describe("storage tests", () => {
 
     const addresses = await svc.GetAllByAddress("0x123", CHAIN_MAINNET.id);
 
-    expect(addresses).toEqual([]);
+    expect(addresses).toEqual([
+      {
+        ethersTx: {
+          chainId: 31336,
+          data: "0x",
+          from: "0x123",
+          gasLimit: {
+            hex: "0x01",
+            type: "BigNumber",
+          },
+          hash: "0x123",
+          nonce: 0,
+          value: {
+            hex: "0x01",
+            type: "BigNumber",
+          },
+        },
+        fromChainId: 31336,
+        receipt: {
+          blockNumber: 1,
+        },
+        status: 0,
+        toChainId: 167001,
+      },
+    ]);
   });
 
   it("gets all transactions by address", async () => {
@@ -206,6 +258,7 @@ describe("storage tests", () => {
             hex: "0x01",
             type: "BigNumber",
           },
+          from: "0x123",
         },
         message: {
           owner: "0x123",
@@ -215,14 +268,15 @@ describe("storage tests", () => {
         },
         signal: "0x456",
         status: 0,
-
+        fromChainId: 31336,
+        toChainId: 167001,
         symbol: "TKO",
       },
     ]);
   });
 
   it("gets all transactions by address, CHAIN_TKO", async () => {
-    mockTx.chainId = CHAIN_TKO.id;
+    mockTx.ethersTx.chainId = CHAIN_TKO.id;
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -258,6 +312,7 @@ describe("storage tests", () => {
         amountInWei: BigNumber.from(0x64),
         ethersTx: {
           chainId: CHAIN_TKO.id,
+          from: "0x123",
           data: "0x",
           gasLimit: {
             hex: "0x01",
@@ -279,6 +334,8 @@ describe("storage tests", () => {
         signal: "0x456",
         status: 0,
         symbol: "TKO",
+        fromChainId: 31336,
+        toChainId: 167001,
       },
     ]);
   });
