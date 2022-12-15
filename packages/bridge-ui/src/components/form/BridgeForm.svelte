@@ -312,15 +312,3 @@
     {$_("home.approve")}
   </button>
 {/if}
-
-<style>
-  /* input::-webkit-outer-spin-button,
-  input::-webkit-inner-spin-button {
-    margin: 0;
-    -webkit-appearance: none;
-  }
-
-  input[type="number"] {
-    -moz-appearance: textfield;
-  } */
-</style>
