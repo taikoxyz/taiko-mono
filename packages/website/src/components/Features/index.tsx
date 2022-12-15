@@ -33,7 +33,7 @@ export default function Features() {
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-1 lg:grid-cols-3">
           {features.map((feature) => (
             <div key={feature.name} className="pt-6">
-              <div className="flow-root rounded-lg bg-neutral-50 px-6 pb-8 dark:bg-neutral-700">
+              <div className="flow-root rounded-lg bg-neutral-50 px-6 pb-8 dark:bg-neutral-800">
                 <div className="-mt-6">
                   <div>
                     <span className="inline-flex items-center justify-center rounded-xl bg-neutral-600 p-3 shadow-lg dark:bg-neutral-500">

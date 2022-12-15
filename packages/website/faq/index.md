@@ -20,6 +20,7 @@ Here are the official links to our social media and public documentation:
 - Reddit: https://www.reddit.com/r/taiko_xyz/
 - Blog: https://mirror.xyz/labs.taiko.eth
 - GitHub: https://github.com/taikoxyz/
+- Discussions: https://github.com/taikoxyz/taiko-mono/discussions
 - Whitepaper: https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
 
 ## What is Layer 2 (L2)?
@@ -64,8 +65,7 @@ There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses 
 
 ## What does "Taiko" mean?
 
-It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once". 
+It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì) meaning "Do it all at once".
 
 The first drum beat cheers people up, the second weakens them, and the third devitalizes them. The first is the most powerful.
 Taiko is the "drum".
-
