@@ -2,13 +2,17 @@
   import { wrap } from "svelte-spa-router/wrap";
   import QueryProvider from "./components/providers/QueryProvider.svelte";
   import Router from "svelte-spa-router";
-  import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+  import { SvelteToast } from "@zerodevx/svelte-toast";
   import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
-  import { configureChains, createClient, InjectedConnector } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public';
-  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
-  import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
+  import {
+    configureChains,
+    createClient,
+    InjectedConnector,
+  } from "@wagmi/core";
+  import { publicProvider } from "@wagmi/core/providers/public";
+  import { jsonRpcProvider } from "@wagmi/core/providers/jsonRpc";
+  import { CoinbaseWalletConnector } from "@wagmi/core/connectors/coinbaseWallet";
+  import { WalletConnectConnector } from "@wagmi/core/connectors/walletConnect";
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
@@ -25,9 +29,15 @@
   import { signer } from "./store/signer";
   import type { Transactioner } from "./domain/transactions";
   import { wagmiClient } from "./store/wagmi";
-  
+
   setupI18n({ withLocale: "en" });
-  import { chains, CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from "./domain/chain";
+  import {
+    chains,
+    CHAIN_MAINNET,
+    CHAIN_TKO,
+    mainnet,
+    taiko,
+  } from "./domain/chain";
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
@@ -36,6 +46,7 @@
   import { StorageService } from "./storage/service";
   import { MessageStatus } from "./domain/message";
   import BridgeABI from "./constants/abi/Bridge";
+  import { providers } from "./store/providers";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -49,28 +60,36 @@
     CHAIN_TKO.id,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
   );
+  providers.set(providerMap);
 
-  const { chains: wagmiChains, provider, webSocketProvider } = configureChains(
+  const {
+    chains: wagmiChains,
+    provider,
+    webSocketProvider,
+  } = configureChains(
     [mainnet, taiko],
-    [publicProvider(), jsonRpcProvider({
-      rpc: (chain) => ({
-        http: providerMap.get(chain.id).connection.url,
+    [
+      publicProvider(),
+      jsonRpcProvider({
+        rpc: (chain) => ({
+          http: providerMap.get(chain.id).connection.url,
+        }),
       }),
-    })],
+    ]
   );
 
   $wagmiClient = createClient({
     provider,
     connectors: [
       new InjectedConnector({
-        chains: wagmiChains
+        chains: wagmiChains,
       }),
       new CoinbaseWalletConnector({
-      chains: wagmiChains,
-      options: {
-        appName: 'Taiko Bridge',
-      },
-    }),
+        chains: wagmiChains,
+        options: {
+          appName: "Taiko Bridge",
+        },
+      }),
       new WalletConnectConnector({
         chains: wagmiChains,
         options: {
@@ -92,8 +111,11 @@
   });
 
   chainIdToTokenVaultAddress.update((store) => {
-    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS);
-    store.set(CHAIN_MAINNET.id, import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS);
+    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
+    store.set(
+      CHAIN_MAINNET.id,
+      import.meta.env.VITE_MAINNET_TOKEN_VAULT_ADDRESS
+    );
     return store;
   });
 
@@ -137,12 +159,12 @@
         if (tx.interval) clearInterval(tx.interval);
 
         if (tx.status === MessageStatus.New) {
-          const provider = providerMap.get(tx.message.destChainId.toNumber());
+          const provider = providerMap.get(tx.toChainId);
 
           const interval = setInterval(async () => {
             tx.interval = interval;
             const contract = new ethers.Contract(
-              chains[tx.message.destChainId.toNumber()].bridgeAddress,
+              chains[tx.toChainId].bridgeAddress,
               BridgeABI,
               provider
             );

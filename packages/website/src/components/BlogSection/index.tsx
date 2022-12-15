@@ -61,7 +61,7 @@ export default function BlogSection(): JSX.Element {
       </div>
       <div className="relative mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
+          <h2 className="font-oxanium text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl dark:text-neutral-100">
             Latest Blog Posts
           </h2>
           <div className="mx-auto mt-3 max-w-2xl text-xl text-neutral-500 sm:mt-4 dark:text-neutral-300">
@@ -86,7 +86,7 @@ export default function BlogSection(): JSX.Element {
                   />
                 </a>
               </div>
-              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-700">
+              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
                 <div className="flex-1">
                   <div className="text-sm font-medium">
                     <a>{post.category.name}</a>

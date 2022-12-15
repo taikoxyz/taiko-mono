@@ -3,17 +3,26 @@
   import { BigNumber, ethers } from "ethers";
   import { signer } from "../../store/signer";
   import { _ } from "svelte-i18n";
-  import { connect as wagmiConnect, Connector, fetchSigner, watchAccount, watchNetwork } from '@wagmi/core'
+  import {
+    connect as wagmiConnect,
+    Connector,
+    fetchSigner,
+    watchAccount,
+    watchNetwork,
+  } from "@wagmi/core";
 
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import { fromChain, toChain } from "../../store/chain";
   import { ethereum } from "../../store/ethereum";
-  import { isSwitchEthereumChainModalOpen, isConnectWalletModalOpen } from "../../store/modal";
+  import {
+    isSwitchEthereumChainModalOpen,
+    isConnectWalletModalOpen,
+  } from "../../store/modal";
   import { errorToast, successToast } from "../../utils/toast";
   import Modal from "../modals/Modal.svelte";
   import { wagmiClient } from "../../store/wagmi";
   import MetaMask from "../icons/MetaMask.svelte";
-
+  import { transactioner, transactions } from "../../store/transactions";
 
   const changeChain = async (chainId: number) => {
     if (chainId === CHAIN_TKO.id) {
@@ -34,7 +43,11 @@
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
 
-        signer.set(provider.getSigner());
+        const s = provider.getSigner();
+        signer.set(s);
+        transactions.set(
+          await $transactioner.GetAllByAddress(await s.getAddress())
+        );
       };
 
       await getAccounts();
@@ -70,38 +83,45 @@
     const { chain } = await wagmiConnect({ connector });
     await setSigner();
     await changeChain(chain.id);
-    unwatchNetwork = watchNetwork(async (network) => await changeChain(network.chain.id));
+    unwatchNetwork = watchNetwork(
+      async (network) => await changeChain(network.chain.id)
+    );
     unwatchAccount = watchAccount(async () => await setSigner());
     ethereum.set(await connector.getProvider());
     successToast("Connected");
   }
 
   const iconMap = {
-    'metamask': MetaMask,
-  }
+    metamask: MetaMask,
+  };
 
   onDestroy(() => {
-    if(unwatchNetwork) {
-      unwatchNetwork()
+    if (unwatchNetwork) {
+      unwatchNetwork();
     }
-    if(unwatchAccount) {
-      unwatchAccount()
+    if (unwatchAccount) {
+      unwatchAccount();
     }
-  })
+  });
 </script>
 
-<button class="btn btn-md md:btn-wide" on:click={() => $isConnectWalletModalOpen = true}
+<button
+  class="btn btn-md md:btn-wide"
+  on:click={() => ($isConnectWalletModalOpen = true)}
   >{$_("nav.connect")}</button
 >
 
 <Modal
   title={$_("connectModal.title")}
   isOpen={$isConnectWalletModalOpen}
-  onClose={() => $isConnectWalletModalOpen = false}
+  onClose={() => ($isConnectWalletModalOpen = false)}
 >
   <div class="flex items-center space-x-4 p-8">
     {#each $wagmiClient.connectors as connector}
-      <button class="btn flex flex-col space-y-2" on:click={() => connectWithConnector(connector)}>
+      <button
+        class="btn flex flex-col space-y-2"
+        on:click={() => connectWithConnector(connector)}
+      >
         <svelte:component this={iconMap[connector.name.toLowerCase()]} />
         <span>{connector.name}</span>
       </button>

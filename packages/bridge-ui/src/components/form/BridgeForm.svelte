@@ -20,12 +20,18 @@
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
   import { truncateString } from "../../utils/truncateString";
-  import { pendingTransactions } from "../../store/transactions";
+  import {
+    pendingTransactions,
+    transactions as transactionsStore,
+    transactioner,
+  } from "../../store/transactions";
   import { ProcessingFeeMethod } from "../../domain/fee";
   import Memo from "./Memo.svelte";
   import { errorToast, successToast } from "../../utils/toast";
   import ERC20 from "../../constants/abi/ERC20";
   import TokenVault from "../../constants/abi/TokenVault";
+  import type { BridgeTransaction } from "../../domain/transactions";
+  import { MessageStatus } from "../../domain/message";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -55,7 +61,6 @@
             (t) => t.chainId === $toChain.id
           ).address;
 
-          console.log(srcChainAddr);
           const tokenVault = new Contract(
             $chainIdToTokenVaultAddress.get(fromChain.id),
             TokenVault,
@@ -66,7 +71,7 @@
             $toChain.id,
             srcChainAddr
           );
-          console.log(bridged);
+
           if (bridged == ethers.constants.AddressZero) {
             tokenBalance = "0";
             return;
@@ -164,8 +169,9 @@
       loading = true;
       if (requiresAllowance) throw Error("requires additional allowance");
 
+      const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
       const tx = await $activeBridge.Bridge({
-        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: $token.addresses.find((t) => t.chainId === $fromChain.id)
           .address,
@@ -179,13 +185,22 @@
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
       tx.chainId = $fromChain.id;
-      let transactions: ethers.Transaction[] = JSON.parse(
+      let transactions: BridgeTransaction[] = JSON.parse(
         await window.localStorage.getItem("transactions")
       );
+
+      const bridgeTransaction: BridgeTransaction = {
+        fromChainId: $fromChain.id,
+        toChainId: $toChain.id,
+        symbol: $token.symbol,
+        amountInWei: amountInWei,
+        ethersTx: tx,
+        status: MessageStatus.New,
+      };
       if (!transactions) {
-        transactions = [tx];
+        transactions = [bridgeTransaction];
       } else {
-        transactions.push(tx);
+        transactions.push(bridgeTransaction);
       }
 
       await window.localStorage.setItem(
@@ -197,6 +212,10 @@
         store.push(tx);
         return store;
       });
+
+      transactionsStore.set(
+        await $transactioner.GetAllByAddress(await $signer.getAddress())
+      );
 
       successToast($_("toast.transactionSent"));
       await $signer.provider.waitForTransaction(tx.hash, 1);
@@ -248,11 +267,10 @@
   >
     <input
       type="number"
-      step="0.01"
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-md md:input-lg w-full"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
     />
     <SelectToken />
@@ -294,3 +312,13 @@
     {$_("home.approve")}
   </button>
 {/if}
+
+<style>
+  /* hide number input arrows */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    -moz-appearance: textfield !important;
+  }
+</style>

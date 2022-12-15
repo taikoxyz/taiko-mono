@@ -50,22 +50,23 @@ type Service struct {
 }
 
 type NewServiceOpts struct {
-	EventRepo           relayer.EventRepository
-	BlockRepo           relayer.BlockRepository
-	EthClient           *ethclient.Client
-	DestEthClient       *ethclient.Client
-	RPCClient           *rpc.Client
-	DestRPCClient       *rpc.Client
-	ECDSAKey            string
-	BridgeAddress       common.Address
-	DestBridgeAddress   common.Address
-	SrcTaikoAddress     common.Address
-	DestTaikoAddress    common.Address
-	BlockBatchSize      uint64
-	NumGoroutines       int
-	SubscriptionBackoff time.Duration
-	Confirmations       uint64
-	ProfitableOnly      relayer.ProfitableOnly
+	EventRepo                   relayer.EventRepository
+	BlockRepo                   relayer.BlockRepository
+	EthClient                   *ethclient.Client
+	DestEthClient               *ethclient.Client
+	RPCClient                   *rpc.Client
+	DestRPCClient               *rpc.Client
+	ECDSAKey                    string
+	BridgeAddress               common.Address
+	DestBridgeAddress           common.Address
+	SrcTaikoAddress             common.Address
+	DestTaikoAddress            common.Address
+	BlockBatchSize              uint64
+	NumGoroutines               int
+	SubscriptionBackoff         time.Duration
+	Confirmations               uint64
+	ProfitableOnly              relayer.ProfitableOnly
+	HeaderSyncIntervalInSeconds int64
 }
 
 func NewService(opts NewServiceOpts) (*Service, error) {
@@ -144,17 +145,18 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 	}
 
 	processor, err := message.NewProcessor(message.NewProcessorOpts{
-		Prover:           prover,
-		ECDSAKey:         privateKey,
-		RPCClient:        opts.RPCClient,
-		DestETHClient:    opts.DestEthClient,
-		DestBridge:       destBridge,
-		EventRepo:        opts.EventRepo,
-		DestHeaderSyncer: destHeaderSyncer,
-		RelayerAddress:   relayerAddr,
-		Confirmations:    opts.Confirmations,
-		SrcETHClient:     opts.EthClient,
-		ProfitableOnly:   opts.ProfitableOnly,
+		Prover:                    prover,
+		ECDSAKey:                  privateKey,
+		RPCClient:                 opts.RPCClient,
+		DestETHClient:             opts.DestEthClient,
+		DestBridge:                destBridge,
+		EventRepo:                 opts.EventRepo,
+		DestHeaderSyncer:          destHeaderSyncer,
+		RelayerAddress:            relayerAddr,
+		Confirmations:             opts.Confirmations,
+		SrcETHClient:              opts.EthClient,
+		ProfitableOnly:            opts.ProfitableOnly,
+		HeaderSyncIntervalSeconds: opts.HeaderSyncIntervalInSeconds,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

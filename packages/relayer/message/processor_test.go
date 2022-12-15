@@ -26,16 +26,17 @@ func newTestProcessor(profitableOnly relayer.ProfitableOnly) *Processor {
 	)
 
 	return &Processor{
-		eventRepo:        &mock.EventRepository{},
-		destBridge:       &mock.Bridge{},
-		srcEthClient:     &mock.EthClient{},
-		destEthClient:    &mock.EthClient{},
-		mu:               &sync.Mutex{},
-		ecdsaKey:         privateKey,
-		destHeaderSyncer: &mock.HeaderSyncer{},
-		prover:           prover,
-		rpc:              &mock.Caller{},
-		profitableOnly:   profitableOnly,
+		eventRepo:                 &mock.EventRepository{},
+		destBridge:                &mock.Bridge{},
+		srcEthClient:              &mock.EthClient{},
+		destEthClient:             &mock.EthClient{},
+		mu:                        &sync.Mutex{},
+		ecdsaKey:                  privateKey,
+		destHeaderSyncer:          &mock.HeaderSyncer{},
+		prover:                    prover,
+		rpc:                       &mock.Caller{},
+		profitableOnly:            profitableOnly,
+		headerSyncIntervalSeconds: 1,
 	}
 }
 func Test_NewProcessor(t *testing.T) {

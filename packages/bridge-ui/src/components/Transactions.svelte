@@ -1,25 +1,32 @@
 <script lang="ts">
   import { chains } from "../domain/chain";
   import { transactions } from "../store/transactions";
-  import ArrowLeft from "./icons/ArrowLeft.svelte";
   import Transaction from "./Transaction.svelte";
-
-  export let showTransactions = false;
 </script>
 
-<div>
-  <div
-    class="px-2 py-4 flex items-center border-b border-b-dark-5"
-    on:click={() => (showTransactions = false)}
-  >
-    <ArrowLeft />
-    <span class="text-sm ml-2">Transactions</span>
-  </div>
-  {#each $transactions as transaction}
-    <Transaction
-      toChain={chains[transaction.message.destChainId.toNumber()]}
-      fromChain={chains[transaction.message.srcChainId.toNumber()]}
-      {transaction}
-    />
-  {/each}
+<div class="my-4 px-4">
+  {#if $transactions.length}
+    <table class="table-auto">
+      <thead>
+        <tr>
+          <th>From</th>
+          <th>To</th>
+          <th>Amount</th>
+          <th>View</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each $transactions as transaction}
+          <Transaction
+            toChain={chains[transaction.toChainId]}
+            fromChain={chains[transaction.fromChainId]}
+            {transaction}
+          />
+        {/each}
+      </tbody>
+    </table>
+  {:else}
+    No transactions
+  {/if}
 </div>

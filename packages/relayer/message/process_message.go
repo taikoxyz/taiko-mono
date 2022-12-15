@@ -32,17 +32,15 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.waitForConfirmations")
 	}
 
+	if err := p.waitHeaderSynced(ctx, event); err != nil {
+		return errors.Wrap(err, "p.waitHeaderSynced")
+	}
+
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
 	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
-	}
-
-	// if header hasnt been synced, we are unable to process this message
-	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
-		log.Warn("no headers have been synced, returning early")
-		return nil
 	}
 
 	hashed := crypto.Keccak256(
@@ -77,6 +75,7 @@ func (p *Processor) ProcessMessage(
 
 	// message will fail when we try to process it
 	if !received {
+		log.Warnf("signal %v not received on dest chain", common.Hash(event.Signal).Hex())
 		return errors.New("message not received")
 	}
 

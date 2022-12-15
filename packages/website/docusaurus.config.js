@@ -103,6 +103,11 @@ const config = {
             position: "left",
           },
           {
+            href: "https://github.com/taikoxyz/taiko-mono/discussions",
+            label: "Discussions",
+            position: "left",
+          },
+          {
             to: "talks",
             label: "Talks",
             position: "left",

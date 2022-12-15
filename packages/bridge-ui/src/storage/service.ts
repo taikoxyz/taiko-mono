@@ -6,6 +6,7 @@ import TokenVault from "../constants/abi/TokenVault";
 import { chainIdToTokenVaultAddress } from "../store/bridge";
 import { get } from "svelte/store";
 import ERC20 from "../constants/abi/ERC20";
+import { MessageStatus } from "../domain/message";
 
 interface storage {
   getItem(key: string): string;
@@ -27,7 +28,7 @@ class StorageService implements Transactioner {
     address: string,
     chainID?: number
   ): Promise<BridgeTransaction[]> {
-    const txs: ethers.Transaction[] = JSON.parse(
+    const txs: BridgeTransaction[] = JSON.parse(
       this.storage.getItem("transactions")
     );
 
@@ -35,19 +36,26 @@ class StorageService implements Transactioner {
 
     await Promise.all(
       (txs || []).map(async (tx) => {
-        const destChainId =
-          tx.chainId === CHAIN_MAINNET.id ? CHAIN_TKO.id : CHAIN_MAINNET.id;
+        if (tx.ethersTx.from.toLowerCase() !== address.toLowerCase()) return;
+        const destChainId = tx.toChainId;
         const destProvider = this.providerMap.get(destChainId);
 
-        const srcProvider = this.providerMap.get(tx.chainId);
+        const srcProvider = this.providerMap.get(tx.fromChainId);
 
-        const receipt = await srcProvider.getTransactionReceipt(tx.hash);
+        const receipt = await srcProvider.getTransactionReceipt(
+          tx.ethersTx.hash
+        );
 
-        if (!receipt) return;
+        if (!receipt) {
+          bridgeTxs.push(tx);
+          return;
+        }
+
+        tx.receipt = receipt;
 
         const destBridgeAddress = chains[destChainId].bridgeAddress;
 
-        const srcBridgeAddress = chains[tx.chainId].bridgeAddress;
+        const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
         const destContract: Contract = new Contract(
           destBridgeAddress,
@@ -71,7 +79,10 @@ class StorageService implements Transactioner {
           (e) => e.args.message.owner.toLowerCase() === address.toLowerCase()
         );
 
-        if (!event) return;
+        if (!event) {
+          bridgeTxs.push(tx);
+          return;
+        }
 
         const signal = event.args.signal;
 
@@ -83,7 +94,7 @@ class StorageService implements Transactioner {
         let symbol: string;
         if (event.args.message.data !== "0x") {
           const tokenVaultContract = new Contract(
-            get(chainIdToTokenVaultAddress).get(tx.chainId),
+            get(chainIdToTokenVaultAddress).get(tx.fromChainId),
             TokenVault,
             srcProvider
           );
@@ -112,10 +123,12 @@ class StorageService implements Transactioner {
           message: event.args.message,
           receipt: receipt,
           signal: event.args.signal,
-          ethersTx: tx,
+          ethersTx: tx.ethersTx,
           status: messageStatus,
           amountInWei: amountInWei,
           symbol: symbol,
+          fromChainId: tx.fromChainId,
+          toChainId: tx.toChainId,
         };
 
         bridgeTxs.push(bridgeTx);

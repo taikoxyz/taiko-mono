@@ -2,13 +2,12 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
-  import Loader from "./icons/Loader.svelte";
   import TransactionsIcon from "./icons/Transactions.svelte";
   import { MessageStatus } from "../domain/message";
-  import { ethers } from "ethers";
+  import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions } from "../store/transactions";
+  import { pendingTransactions, transactions } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import { switchEthereumChain } from "../utils/switchEthereumChain";
@@ -18,12 +17,22 @@
     toChain as toChainStore,
   } from "../store/chain";
   import { BridgeType } from "../domain/bridge";
+  import { onMount } from "svelte";
+
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+  import HeaderSync from "../constants/abi/HeaderSync";
+  import { providers } from "../store/providers";
 
   export let transaction: BridgeTransaction;
 
   export let fromChain: Chain;
   export let toChain: Chain;
 
+  let processable: boolean = false;
+
+  onMount(async () => {
+    processable = await isProcessable();
+  });
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
@@ -64,27 +73,43 @@
       errorToast($_("toast.errorSendingTransaction"));
     }
   }
+
+  async function isProcessable() {
+    if (!transaction.receipt) return false;
+    if (!transaction.message) return false;
+    if (transaction.status !== MessageStatus.New) return true;
+
+    const contract = new Contract(
+      chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
+      HeaderSync,
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+    );
+
+    const latestSyncedHeader = await contract.getLatestSyncedHeader();
+    const srcBlock = await $providers
+      .get(chains[transaction.message.srcChainId.toNumber()].id)
+      .getBlock(latestSyncedHeader);
+    return transaction.receipt.blockNumber >= srcBlock.number;
+  }
 </script>
 
-<div class="p-2">
-  <div class="flex items-center justify-between text-xs">
-    <div class="flex items-center">
-      <svelte:component this={fromChain.icon} height={18} width={18} />
-      <span class="ml-2">From {fromChain.name}</span>
-    </div>
-    <div class="flex items-center">
-      <svelte:component this={toChain.icon} height={18} width={18} />
-      <span class="ml-2">To {toChain.name}</span>
-    </div>
-  </div>
-  <div class="px-1 py-2 flex items-center justify-between">
-    {transaction.message.data === "0x"
+<tr>
+  <td>
+    <svelte:component this={fromChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
+  </td>
+  <td>
+    <svelte:component this={toChain.icon} height={18} width={18} />
+    <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
+  </td>
+  <td>
+    {transaction.message?.data === "0x"
       ? ethers.utils.formatEther(transaction.message.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message.data && transaction.message.data !== "0x"
-      ? transaction.symbol
-      : "ETH"}
+    {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
+  </td>
 
+  <td>
     <span
       class="cursor-pointer inline-block"
       on:click={() =>
@@ -95,12 +120,26 @@
     >
       <TransactionsIcon />
     </span>
+  </td>
 
-    {#if !transaction.receipt && transaction.status === MessageStatus.New}
-      <div class="animate-spin">
-        <Loader />
+  <td>
+    {#if !processable}
+      Pending...
+    {:else if !transaction.receipt && transaction.status === MessageStatus.New}
+      <div class="inline-block">
+        <LottiePlayer
+          src="/lottie/loader.json"
+          autoplay={true}
+          loop={true}
+          controls={false}
+          renderer="svg"
+          background="transparent"
+          height={26}
+          width={26}
+          controlsLayout={[]}
+        />
       </div>
-    {:else if transaction.status === MessageStatus.New}
+    {:else if transaction.receipt && transaction.status === MessageStatus.New}
       <span
         class="cursor-pointer"
         on:click={async () => await claim(transaction)}
@@ -120,5 +159,11 @@
     {:else if transaction.status === MessageStatus.Done}
       Claimed
     {/if}
-  </div>
-</div>
+  </td>
+</tr>
+
+<style>
+  td {
+    padding: 1rem;
+  }
+</style>
