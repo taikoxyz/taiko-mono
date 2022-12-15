@@ -99,8 +99,13 @@ library LibData {
         State storage state,
         uint256 number
     ) internal view returns (bytes32) {
-        require(number <= state.latestVerifiedHeight, "L1:id");
-        return state.l2Hashes[number];
+        require(
+            number <= state.latestVerifiedHeight &&
+                number + LibConstants.K_BLOCK_HASH_HISTORY >
+                state.latestVerifiedHeight,
+            "L1:id"
+        );
+        return state.l2Hashes[number % LibConstants.K_BLOCK_HASH_HISTORY];
     }
 
     function getStateVariables(

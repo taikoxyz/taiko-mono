@@ -73,6 +73,9 @@ library V1Verifying {
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
                     latestL2Height += 1;
                     latestL2Hash = fc.blockHash;
+                    state.l2Hashes[
+                        latestL2Height % LibConstants.K_BLOCK_HASH_HISTORY
+                    ] = latestL2Hash;
                 }
 
                 state.avgProofTime = V1Utils
@@ -94,7 +97,6 @@ library V1Verifying {
 
             if (latestL2Height > state.latestVerifiedHeight) {
                 state.latestVerifiedHeight = latestL2Height;
-                state.l2Hashes[latestL2Height] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }

@@ -25,6 +25,7 @@ library LibConstants {
     uint256 public constant K_TXLIST_MAX_BYTES = 10240; // TODO
     uint256 public constant K_TX_MIN_GAS_LIMIT = 21000; // TODO
     uint256 public constant K_ANCHOR_TX_GAS_LIMIT = 250000;
+    uint256 public constant K_BLOCK_HASH_HISTORY = 2048;
 
     uint256 public constant K_BLOCK_TIME_MAF = 1024;
     uint256 public constant K_PROOF_TIME_MAF = 1024;
