@@ -16,8 +16,8 @@
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
 
-  let address: string;
-  let addressAvatarImgData: string;
+  let address: string = "";
+  let addressAvatarImgData: string = "";
   let tokenBalance: string = "";
 
   onMount(async () => {
@@ -25,6 +25,8 @@
   });
 
   $: getUserBalance($signer);
+
+  $: setAddress($signer);
 
   async function getUserBalance(signer) {
     if (signer) {

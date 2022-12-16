@@ -37,7 +37,8 @@
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
-  let customFee: string = "0.01";
+  let customFee: string = "0";
+  let recommendedFee: string = "0";
   let memo: string = "";
   let loading: boolean = false;
 
@@ -245,7 +246,7 @@
     }
 
     if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return ethers.utils.parseEther("0.01");
+      return BigNumber.from(ethers.utils.parseEther(recommendedFee));
     }
   }
 </script>
@@ -277,7 +278,7 @@
   </label>
 </div>
 
-<ProcessingFee bind:customFee />
+<ProcessingFee bind:customFee bind:recommendedFee />
 
 <Memo bind:memo />
 
