@@ -20,7 +20,7 @@ Here are the best places to learn about Taiko.
 
 ## Try out the testnet
 
-Try out the [Alpha 1 testnet](/docs/category/A1-testnet/)!
+Try out the [Alpha 1 testnet](/docs/category/alpha-testnet-guide/)!
 
 ## Follow us
 
