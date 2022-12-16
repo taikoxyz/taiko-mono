@@ -42,7 +42,7 @@ library LibData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash
+        // block id => block hash (some blocks' hashes won't be persisted)
         mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;
@@ -99,13 +99,15 @@ library LibData {
         State storage state,
         uint256 number
     ) internal view returns (bytes32) {
-        require(
+        if (
             number <= state.latestVerifiedHeight &&
-                number + LibConstants.K_BLOCK_HASH_HISTORY >
-                state.latestVerifiedHeight,
-            "L1:id"
-        );
-        return state.l2Hashes[number % LibConstants.K_BLOCK_HASH_HISTORY];
+            number + LibConstants.K_BLOCK_HASH_HISTORY >
+            state.latestVerifiedHeight
+        ) {
+            return state.l2Hashes[number % LibConstants.K_BLOCK_HASH_HISTORY];
+        } else {
+            return 0;
+        }
     }
 
     function getStateVariables(

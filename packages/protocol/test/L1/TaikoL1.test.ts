@@ -65,7 +65,9 @@ describe("TaikoL1", function () {
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
             const { taikoL1 } = await deployTaikoL1Fixture()
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:id")
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
+                "L1:number"
+            )
         })
 
         it("should return appropraite hash for header", async function () {
