@@ -1,0 +1,28 @@
+---
+sidebar_position: 1
+---
+
+import AddEthereumChainButton from "../../src/components/AddEthereumChainButton";
+
+# Configure wallet
+
+In order to use the Taiko app, we need to add Taiko's private L1 and Taiko your wallet.
+
+## Automatically add networks to MetaMask
+
+You can use the buttons below to add Taiko's private L1 and Taiko to your MetaMask wallet.
+
+<AddEthereumChainButton
+  buttonText="Add Taiko's private L1 to MetaMask"
+  chain="l1"
+/>
+<br />
+<br />
+<AddEthereumChainButton buttonText="Add Taiko to MetaMask" chain="l2" />
+
+## RPC configuration for adding to other wallets
+
+| Network            | Chain ID | RPC URL                    | Symbol | Block Explorer URL              |
+| ------------------ | -------- | -------------------------- | ------ | ------------------------------- |
+| Taiko's private L1 | 31336    | https://l1rpc.a1.taiko.xyz | ETH    | https://l1explorer.a1.taiko.xyz |
+| Taiko              | 167001   | https://l2rpc.a1.taiko.xyz | ETH    | https://l2explorer.a1.taiko.xyz |

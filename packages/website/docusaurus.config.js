@@ -24,18 +24,7 @@ const config = {
     locales: ["en"],
   },
 
-  plugins: [
-    [
-      "content-docs",
-      {
-        id: "talks",
-        path: "talks",
-        routeBasePath: "talks",
-        editUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
-      },
-    ],
-  ],
+  plugins: [],
 
   presets: [
     [
@@ -84,46 +73,47 @@ const config = {
         items: [
           {
             to: "docs/intro",
-            label: "Learn",
-            position: "left",
+            label: "Docs",
           },
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
-            position: "left",
           },
           {
             href: "https://github.com/taikoxyz/taiko-mono/discussions",
             label: "Discussions",
-            position: "left",
-          },
-          {
-            to: "talks",
-            label: "Talks",
-            position: "left",
-          },
-          {
-            href: "https://l1faucet.a1.taiko.xyz/",
-            label: "L1 Faucet",
-            position: "left",
-          },
-          {
-            href: "https://l2faucet.a1.taiko.xyz/",
-            label: "L2 Faucet",
-            position: "left",
           },
           {
             href: "https://bridge.a1.taiko.xyz/",
             label: "Bridge",
-            position: "left",
           },
           {
-            href: "https://l1explorer.a1.taiko.xyz/",
-            label: "L1 Explorer",
+            label: "Faucet",
+            type: "dropdown",
+            items: [
+              {
+                href: "https://l1faucet.a1.taiko.xyz/",
+                label: "L1 Faucet",
+              },
+              {
+                href: "https://l2faucet.a1.taiko.xyz/",
+                label: "L2 Faucet",
+              },
+            ],
           },
           {
-            href: "https://l2explorer.a1.taiko.xyz/",
-            label: "L2 Explorer",
+            label: "Block Explorer",
+            type: "dropdown",
+            items: [
+              {
+                href: "https://l1explorer.a1.taiko.xyz/",
+                label: "L1 Explorer",
+              },
+              {
+                href: "https://l2explorer.a1.taiko.xyz/",
+                label: "L2 Explorer",
+              },
+            ],
           },
           {
             href: "https://discord.gg/taikoxyz",
@@ -171,6 +161,10 @@ const config = {
           {
             title: "Developers",
             items: [
+              {
+                label: "Discussions",
+                to: "https://github.com/taikoxyz/taiko-mono/discussions",
+              },
               {
                 label: "Getting started",
                 to: "docs/intro",
