@@ -11,7 +11,7 @@
 <div class="hero bg-base-100">
   <div class="hero-content text-center">
     <div class="">
-      <div class="tabs">
+      <div class="tabs mb-4">
         <span
           class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
           on:click={() => (activeTab = "bridge")}>Bridge</span

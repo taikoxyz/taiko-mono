@@ -20,7 +20,7 @@
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
-  import { switchNetwork } from "@wagmi/core";
+  import { fetchSigner, switchNetwork } from "@wagmi/core";
 
   export let transaction: BridgeTransaction;
 
@@ -47,7 +47,8 @@
       } else {
         toChainStore.set(CHAIN_MAINNET);
       }
-      signer.set(provider.getSigner());
+      const wagmiSigner = await fetchSigner();
+      signer.set(wagmiSigner);
     }
 
     try {

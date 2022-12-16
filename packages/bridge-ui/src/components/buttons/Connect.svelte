@@ -21,9 +21,9 @@
   import Modal from "../modals/Modal.svelte";
   import { wagmiClient } from "../../store/wagmi";
   import MetaMask from "../icons/MetaMask.svelte";
-  import { transactioner, transactions } from "../../store/transactions";
   import WalletConnect from "../icons/WalletConnect.svelte";
   import CoinbaseWallet from "../icons/CoinbaseWallet.svelte";
+  import { transactioner, transactions } from "../../store/transactions";
 
   const changeChain = async (chainId: number) => {
     if (chainId === CHAIN_TKO.id) {

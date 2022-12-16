@@ -99,6 +99,8 @@
     ],
   });
 
+  providers.set(providerMap);
+
   const prover: Prover = new ProofService(providerMap);
 
   const ethBridge = new ETHBridge(prover);
