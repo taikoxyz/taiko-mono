@@ -2,6 +2,8 @@ import { BigNumber, Wallet } from "ethers";
 import { mainnet, taiko } from "../domain/chain";
 import type { Bridge, BridgeOpts } from "../domain/bridge";
 import ETHBridge from "./bridge";
+import { Message, MessageStatus } from "../domain/message";
+import { src_url_equal } from "svelte/internal";
 
 const mockSigner = {
   getAddress: jest.fn(),
@@ -9,6 +11,13 @@ const mockSigner = {
 
 const mockContract = {
   sendEther: jest.fn(),
+  getMessageStatus: jest.fn(),
+  processMessage: jest.fn(),
+  retryMessage: jest.fn(),
+};
+
+const mockProver = {
+  GenerateProof: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
@@ -31,8 +40,7 @@ describe("bridge tests", () => {
   });
 
   it("requires allowance returns false", async () => {
-    const bridge: Bridge = new ETHBridge();
-    const wallet = new Wallet("0x");
+    const bridge: Bridge = new ETHBridge(null);
 
     const requires = await bridge.RequiresAllowance({
       amountInWei: BigNumber.from(1),
@@ -44,7 +52,7 @@ describe("bridge tests", () => {
   });
 
   it("approve returns empty transaction", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
 
     const tx = await bridge.Approve({
       amountInWei: BigNumber.from(1),
@@ -55,7 +63,7 @@ describe("bridge tests", () => {
   });
 
   it("bridges with processing fee", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
     const wallet = new Wallet("0x");
 
     const opts: BridgeOpts = {
@@ -64,7 +72,7 @@ describe("bridge tests", () => {
       tokenAddress: "",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
       processingFeeInWei: BigNumber.from(2),
       memo: "memo",
     };
@@ -79,15 +87,15 @@ describe("bridge tests", () => {
       BigNumber.from(100000),
       opts.processingFeeInWei,
       wallet.getAddress(),
-      opts.memo,
+      "memo",
       {
-        value: opts.amountInWei.add(opts.processingFeeInWei),
+        value: BigNumber.from(3),
       }
     );
   });
 
   it("bridges without processing fee", async () => {
-    const bridge: Bridge = new ETHBridge();
+    const bridge: Bridge = new ETHBridge(null);
 
     const wallet = new Wallet("0x");
 
@@ -97,7 +105,7 @@ describe("bridge tests", () => {
       tokenAddress: "",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
     };
 
     await bridge.Bridge(opts);
@@ -110,5 +118,124 @@ describe("bridge tests", () => {
       "",
       { value: opts.amountInWei }
     );
+  });
+
+  it("claim throws if message status is done", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Done;
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError("message already processed");
+  });
+
+  it("claim throws if message owner is not signer", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.New;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0xfake";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          owner: "0x",
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError(
+      "user can not process this, it is not their message"
+    );
+  });
+
+  it("claim processMessage", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.New;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(mockProver);
+
+    expect(mockContract.processMessage).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    await bridge.Claim({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(167001),
+        sender: "0x01",
+      } as unknown as Message,
+      signal: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+    });
+
+    expect(mockProver.GenerateProof).toHaveBeenCalled();
+
+    expect(mockContract.processMessage).toHaveBeenCalled();
+  });
+
+  it("claim retryMessage", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Retriable;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(mockProver);
+
+    expect(mockContract.retryMessage).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    await bridge.Claim({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(167001),
+        sender: "0x01",
+      } as unknown as Message,
+      signal: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+    });
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    expect(mockContract.retryMessage).toHaveBeenCalled();
   });
 });

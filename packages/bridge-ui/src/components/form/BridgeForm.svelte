@@ -1,15 +1,17 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
+  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
+
   import { token } from "../../store/token";
+  import { processingFee } from "../../store/fee";
   import { fromChain, toChain } from "../../store/chain";
   import {
     activeBridge,
-    chainIdToBridgeAddress,
+    chainIdToTokenVaultAddress,
     bridgeType,
   } from "../../store/bridge";
   import { signer } from "../../store/signer";
-  import { BigNumber, ethers, Signer } from "ethers";
-  import { toast } from "@zerodevx/svelte-toast";
+  import { BigNumber, Contract, ethers, Signer } from "ethers";
   import ProcessingFee from "./ProcessingFee.svelte";
   import { ETH } from "../../domain/token";
   import SelectToken from "../buttons/SelectToken.svelte";
@@ -18,22 +20,68 @@
   import type { BridgeType } from "../../domain/bridge";
   import type { Chain } from "../../domain/chain";
   import { truncateString } from "../../utils/truncateString";
-  import { pendingTransactions } from "../../store/transactions";
+  import {
+    pendingTransactions,
+    transactions as transactionsStore,
+    transactioner,
+  } from "../../store/transactions";
+  import { ProcessingFeeMethod } from "../../domain/fee";
+  import Memo from "./Memo.svelte";
+  import { errorToast, successToast } from "../../utils/toast";
+  import ERC20 from "../../constants/abi/ERC20";
+  import TokenVault from "../../constants/abi/TokenVault";
+  import type { BridgeTransaction } from "../../domain/transactions";
+  import { MessageStatus } from "../../domain/message";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
+  let customFee: string = "0.01";
+  let memo: string = "";
+  let loading: boolean = false;
 
-  $: getUserBalance($signer, $token);
+  $: getUserBalance($signer, $token, $fromChain);
 
-  async function getUserBalance(signer, token) {
+  async function getUserBalance(
+    signer: ethers.Signer,
+    token: Token,
+    fromChain: Chain
+  ) {
     if (signer && token) {
       if (token.symbol == ETH.symbol) {
         const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
-        // TODO: read ERC20 balance from contract
+        let addr = token.addresses.find(
+          (t) => t.chainId === fromChain.id
+        ).address;
+        if (!addr || addr === "0x00") {
+          const srcChainAddr = token.addresses.find(
+            (t) => t.chainId === $toChain.id
+          ).address;
+
+          const tokenVault = new Contract(
+            $chainIdToTokenVaultAddress.get(fromChain.id),
+            TokenVault,
+            signer
+          );
+
+          const bridged = await tokenVault.canonicalToBridged(
+            $toChain.id,
+            srcChainAddr
+          );
+
+          if (bridged == ethers.constants.AddressZero) {
+            tokenBalance = "0";
+            return;
+          }
+          addr = bridged;
+        }
+
+        const contract = new Contract(addr, ERC20, signer);
+        const userBalance = await contract.balanceOf(await signer.getAddress());
+        tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
     }
   }
@@ -53,13 +101,14 @@
     fromChain: Chain,
     signer: Signer
   ) {
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
+
     const allowance = await $activeBridge.RequiresAllowance({
-      amountInWei: amt
-        ? ethers.utils.parseUnits(amt, token.decimals)
-        : BigNumber.from(0),
+      amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
-      contractAddress: token.address,
-      spenderAddress: $chainIdToBridgeAddress.get(fromChain.id),
+      contractAddress: token.addresses.find((t) => t.chainId === fromChain.id)
+        .address,
+      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
     });
     return allowance;
   }
@@ -72,9 +121,12 @@
   ) {
     if (!signer) return true;
     if (!amount) return true;
-    if (requiresAllowance) return true;
-    const balance = await signer.getBalance("latest");
-    if (balance.lt(ethers.utils.parseUnits(amount, token.decimals)))
+    if (isNaN(parseFloat(amount))) return true;
+    if (
+      BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
+        ethers.utils.parseUnits(amount, token.decimals)
+      )
+    )
       return true;
 
     return false;
@@ -82,53 +134,96 @@
 
   async function approve() {
     try {
+      loading = true;
       if (!requiresAllowance)
         throw Error("does not require additional allowance");
 
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: $token.address,
-        spenderAddress: $chainIdToBridgeAddress.get($fromChain.id),
+        contractAddress: $token.addresses.find(
+          (t) => t.chainId === $fromChain.id
+        ).address,
+        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
       });
-      console.log("approved, waiting for confirmations ", tx);
-      await $signer.provider.waitForTransaction(tx.hash, 3);
+
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
       });
+
+      successToast($_("toast.transactionSent"));
+      await $signer.provider.waitForTransaction(tx.hash, 1);
+
       requiresAllowance = false;
-      toast.push($_("toast.transactionSent"));
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
     }
   }
 
   async function bridge() {
     try {
+      loading = true;
       if (requiresAllowance) throw Error("requires additional allowance");
 
+      const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
       const tx = await $activeBridge.Bridge({
-        amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
+        amountInWei: amountInWei,
         signer: $signer,
-        tokenAddress: "",
+        tokenAddress: $token.addresses.find((t) => t.chainId === $fromChain.id)
+          .address,
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        bridgeAddress: $chainIdToBridgeAddress.get($fromChain.id),
-        processingFeeInWei: BigNumber.from(100),
-        memo: "memo",
+        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        processingFeeInWei: getProcessingFee(),
+        memo: memo,
       });
+
+      // tx.chainId is not set immediately but we need it later. set it
+      // manually.
+      tx.chainId = $fromChain.id;
+      let transactions: BridgeTransaction[] = JSON.parse(
+        await window.localStorage.getItem("transactions")
+      );
+
+      const bridgeTransaction: BridgeTransaction = {
+        fromChainId: $fromChain.id,
+        toChainId: $toChain.id,
+        symbol: $token.symbol,
+        amountInWei: amountInWei,
+        ethersTx: tx,
+        status: MessageStatus.New,
+      };
+      if (!transactions) {
+        transactions = [bridgeTransaction];
+      } else {
+        transactions.push(bridgeTransaction);
+      }
+
+      await window.localStorage.setItem(
+        "transactions",
+        JSON.stringify(transactions)
+      );
 
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
       });
 
-      toast.push($_("toast.transactionSent"));
+      transactionsStore.set(
+        await $transactioner.GetAllByAddress(await $signer.getAddress())
+      );
+
+      successToast($_("toast.transactionSent"));
+      await $signer.provider.waitForTransaction(tx.hash, 1);
     } catch (e) {
       console.log(e);
-      toast.push($_("toast.errorSendingTransaction"));
+      errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
     }
   }
 
@@ -137,11 +232,25 @@
   }
 
   function updateAmount(e: any) {
-    amount = (e.data as number).toString();
+    amount = (e.target.value as number).toString();
+  }
+
+  function getProcessingFee() {
+    if ($processingFee === ProcessingFeeMethod.NONE) {
+      return undefined;
+    }
+
+    if ($processingFee === ProcessingFeeMethod.CUSTOM) {
+      return BigNumber.from(ethers.utils.parseEther(customFee));
+    }
+
+    if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
+      return ethers.utils.parseEther("0.01");
+    }
   }
 </script>
 
-<div class="form-control w-full my-8">
+<div class="form-control my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
     {#if $signer && tokenBalance}
@@ -149,33 +258,67 @@
         >{$_("bridgeForm.maxLabel")}
         {tokenBalance.length > 10
           ? `${truncateString(tokenBalance)}...`
-          : tokenBalance} ETH</button
-      >{/if}
+          : tokenBalance}
+        {$token.symbol}
+      </button>{/if}
   </label>
   <label
     class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
   >
     <input
       type="number"
-      step="0.01"
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-lg flex-1"
+      class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
     />
     <SelectToken />
   </label>
 </div>
 
-<ProcessingFee />
+<ProcessingFee bind:customFee />
+
+<Memo bind:memo />
 
 {#if !requiresAllowance}
-  <button class="btn btn-accent" on:click={bridge} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={bridge}
+    disabled={btnDisabled}
+  >
     {$_("home.bridge")}
   </button>
+{:else if loading}
+  <button class="btn btn-accent w-full" disabled={true}>
+    <LottiePlayer
+      src="/lottie/loader.json"
+      autoplay={true}
+      loop={true}
+      controls={false}
+      renderer="svg"
+      background="transparent"
+      height={26}
+      width={26}
+      controlsLayout={[]}
+    />
+  </button>
 {:else}
-  <button class="btn btn-accent" on:click={approve} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full"
+    on:click={approve}
+    disabled={btnDisabled}
+  >
     {$_("home.approve")}
   </button>
 {/if}
+
+<style>
+  /* hide number input arrows */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    -moz-appearance: textfield !important;
+  }
+</style>

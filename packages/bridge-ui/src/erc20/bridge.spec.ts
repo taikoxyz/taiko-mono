@@ -2,6 +2,7 @@ import { BigNumber, Wallet } from "ethers";
 import { mainnet, taiko } from "../domain/chain";
 import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
 import ERC20Bridge from "./bridge";
+import { Message, MessageStatus } from "../domain/message";
 
 const mockSigner = {
   getAddress: jest.fn(),
@@ -11,6 +12,13 @@ const mockContract = {
   sendERC20: jest.fn(),
   allowance: jest.fn(),
   approve: jest.fn(),
+  processMessage: jest.fn(),
+  retryMessage: jest.fn(),
+  getMessageStatus: jest.fn(),
+};
+
+const mockProver = {
+  GenerateProof: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
@@ -35,7 +43,7 @@ const opts: BridgeOpts = {
   tokenAddress: "0xtoken",
   fromChainId: mainnet.id,
   toChainId: taiko.id,
-  bridgeAddress: "0x456",
+  tokenVaultAddress: "0x456",
   processingFeeInWei: BigNumber.from(2),
   memo: "memo",
 };
@@ -59,7 +67,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -78,7 +86,7 @@ describe("bridge tests", () => {
     );
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -95,7 +103,7 @@ describe("bridge tests", () => {
     mockContract.allowance.mockImplementationOnce(() => opts.amountInWei);
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     const requires = await bridge.RequiresAllowance(approveOpts);
@@ -115,7 +123,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     await expect(bridge.Approve(approveOpts)).rejects.toThrowError(
@@ -136,7 +144,7 @@ describe("bridge tests", () => {
 
     mockSigner.getAddress.mockImplementationOnce(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.allowance).not.toHaveBeenCalled();
     await bridge.Approve(approveOpts);
@@ -157,7 +165,7 @@ describe("bridge tests", () => {
       opts.amountInWei.sub(1)
     );
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
@@ -168,13 +176,13 @@ describe("bridge tests", () => {
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
   });
 
-  it("bridge calls senderc20 when doesnt requires approval", async () => {
+  it("bridge calls senderc20 when doesnt require approval", async () => {
     mockContract.allowance.mockImplementationOnce(() =>
       opts.amountInWei.add(1)
     );
     mockSigner.getAddress.mockImplementation(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
@@ -187,9 +195,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(100000),
-      opts.processingFeeInWei,
+      0,
       "0xfake",
       opts.memo
+      // {
+      //   value: opts.processingFeeInWei,
+      // }
     );
   });
 
@@ -199,7 +210,7 @@ describe("bridge tests", () => {
     );
     mockSigner.getAddress.mockImplementation(() => "0xfake");
 
-    const bridge: Bridge = new ERC20Bridge();
+    const bridge: Bridge = new ERC20Bridge(null);
 
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
 
@@ -209,7 +220,7 @@ describe("bridge tests", () => {
       tokenAddress: "0xtoken",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
     };
 
     await bridge.Bridge(opts);
@@ -220,9 +231,150 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(0),
-      BigNumber.from(0),
+      0,
       "0xfake",
       ""
     );
+  });
+
+  it("claim throws if message status is done", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Done;
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError("message already processed");
+  });
+
+  it("claim throws if message status is failed", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Failed;
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError("message already processed");
+  });
+
+  it("claim throws if message owner is not signer", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.New;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0xfake";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          owner: "0x",
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError(
+      "user can not process this, it is not their message"
+    );
+  });
+
+  it("claim processMessage", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.New;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(mockProver);
+
+    expect(mockContract.processMessage).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    await bridge.Claim({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(167001),
+        sender: "0x01",
+      } as unknown as Message,
+      signal: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+    });
+
+    expect(mockProver.GenerateProof).toHaveBeenCalled();
+
+    expect(mockContract.processMessage).toHaveBeenCalled();
+  });
+
+  it("claim retryMessage", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Retriable;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(mockProver);
+
+    expect(mockContract.retryMessage).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    await bridge.Claim({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(167001),
+        sender: "0x01",
+      } as unknown as Message,
+      signal: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+    });
+
+    expect(mockProver.GenerateProof).not.toHaveBeenCalled();
+
+    expect(mockContract.retryMessage).toHaveBeenCalled();
   });
 });

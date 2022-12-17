@@ -78,8 +78,10 @@ library LibTxDecoder {
     function decodeTxList(
         bytes calldata encoded
     ) public pure returns (TxList memory txList) {
+        if (encoded.length == 0) {
+            return txList;
+        }
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
-        require(txs.length > 0, "empty txList");
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {

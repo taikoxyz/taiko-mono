@@ -2,11 +2,12 @@
   import { BigNumber, ethers } from "ethers";
   import { signer } from "../../store/signer";
   import { _ } from "svelte-i18n";
-  import { toast } from "@zerodevx/svelte-toast";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../..//domain/chain";
   import { fromChain, toChain } from "../../store/chain";
   import { ethereum } from "../../store/ethereum";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
+  import { errorToast, successToast } from "../../utils/toast";
+  import { transactioner, transactions } from "../../store/transactions";
 
   async function connect() {
     try {
@@ -15,7 +16,11 @@
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
 
-        signer.set(provider.getSigner());
+        const s = provider.getSigner();
+        signer.set(s);
+        transactions.set(
+          await $transactioner.GetAllByAddress(await s.getAddress())
+        );
       };
 
       const changeChain = async (chainId: number) => {
@@ -44,14 +49,14 @@
         await getAccounts();
       });
 
-      toast.push("Connected");
+      successToast("Connected");
     } catch (e) {
       console.log(e);
-      toast.push("Error connecting to wallet");
+      errorToast("Error connecting to wallet");
     }
   }
 </script>
 
-<button class="btn btn-wide" on:click={async () => await connect()}
+<button class="btn btn-md md:btn-wide" on:click={async () => await connect()}
   >{$_("nav.connect")}</button
 >

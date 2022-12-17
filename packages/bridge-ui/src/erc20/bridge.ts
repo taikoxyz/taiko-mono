@@ -1,10 +1,24 @@
 import { BigNumber, Contract, Signer } from "ethers";
 import type { Transaction } from "ethers";
-import type { ApproveOpts, Bridge, BridgeOpts } from "../domain/bridge";
+import type {
+  ApproveOpts,
+  Bridge,
+  BridgeOpts,
+  ClaimOpts,
+} from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 import ERC20 from "../constants/abi/ERC20";
+import type { Prover } from "../domain/proof";
+import { MessageStatus } from "../domain/message";
+import BridgeABI from "../constants/abi/Bridge";
 
 class ERC20Bridge implements Bridge {
+  private readonly prover: Prover;
+
+  constructor(prover: Prover) {
+    this.prover = prover;
+  }
+
   private async spenderRequiresAllowance(
     tokenAddress: string,
     signer: Signer,
@@ -55,14 +69,14 @@ class ERC20Bridge implements Bridge {
         opts.tokenAddress,
         opts.signer,
         opts.amountInWei,
-        opts.bridgeAddress
+        opts.tokenVaultAddress
       )
     ) {
       throw Error("token vault does not have required allowance");
     }
 
     const contract: Contract = new Contract(
-      opts.bridgeAddress,
+      opts.tokenVaultAddress,
       TokenVault,
       opts.signer
     );
@@ -90,12 +104,57 @@ class ERC20Bridge implements Bridge {
       opts.tokenAddress,
       opts.amountInWei,
       message.gasLimit,
-      message.processingFee,
+      0,
       message.refundAddress,
       message.memo
+      // {
+      //   value: message.processingFee.add(message.callValue),
+      // }
     );
 
     return tx;
+  }
+
+  async Claim(opts: ClaimOpts): Promise<Transaction> {
+    const contract: Contract = new Contract(
+      opts.destBridgeAddress,
+      BridgeABI,
+      opts.signer
+    );
+
+    const messageStatus: MessageStatus = await contract.getMessageStatus(
+      opts.signal
+    );
+
+    if (
+      messageStatus === MessageStatus.Done ||
+      messageStatus === MessageStatus.Failed
+    ) {
+      throw Error("message already processed");
+    }
+
+    const signerAddress = await opts.signer.getAddress();
+
+    if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
+      throw Error("user can not process this, it is not their message");
+    }
+
+    if (messageStatus === MessageStatus.New) {
+      const proof = await this.prover.GenerateProof({
+        srcChain: opts.message.srcChainId.toNumber(),
+        signal: opts.signal,
+        sender: opts.srcBridgeAddress,
+        srcBridgeAddress: opts.srcBridgeAddress,
+      });
+
+      return await contract.processMessage(opts.message, proof, {
+        gasLimit: 3500000,
+      });
+    } else {
+      return await contract.retryMessage(opts.message, false, {
+        gasLimit: 3500000,
+      });
+    }
   }
 }
 

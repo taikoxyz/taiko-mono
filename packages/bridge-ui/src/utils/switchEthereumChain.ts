@@ -1,5 +1,5 @@
 import type { Ethereum } from "@wagmi/core";
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "ethers";
 import type { Chain } from "../domain/chain";
 
 export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
@@ -10,7 +10,10 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
     });
   } catch (switchError) {
     // This error code indicates that the chain has not been added to MetaMask.
-    if (switchError.code === 4902) {
+    if (
+      switchError.code === 4902 ||
+      switchError?.data?.originalError?.code === 4902
+    ) {
       try {
         await ethereum.request({
           method: "wallet_addEthereumChain",
@@ -30,6 +33,8 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
       } catch (addError) {
         throw addError;
       }
+    } else {
+      throw switchError;
     }
   }
 };

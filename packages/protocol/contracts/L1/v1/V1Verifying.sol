@@ -61,15 +61,28 @@ library V1Verifying {
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            LibData.ProposedBlock storage target = LibData.getProposedBlock(
+                state,
+                i
+            );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (!_isVerifiable(state, fc)) {
+            if (!_isVerifiable(state, fc, i)) {
                 break;
             } else {
                 if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
                     latestL2Height += 1;
                     latestL2Hash = fc.blockHash;
                 }
+
+                state.avgProofTime = V1Utils
+                    .movingAverage({
+                        maValue: state.avgProofTime,
+                        newValue: fc.provenAt - target.proposedAt,
+                        maf: LibConstants.K_PROOF_TIME_MAF
+                    })
+                    .toUint64();
+
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
                 _cleanUp(fc);
@@ -98,10 +111,11 @@ library V1Verifying {
 
     function _isVerifiable(
         LibData.State storage state,
-        LibData.ForkChoice storage fc
+        LibData.ForkChoice storage fc,
+        uint256 blockId
     ) private view returns (bool) {
         return
             fc.blockHash != 0 &&
-            block.timestamp > V1Utils.uncleProofDeadline(state, fc);
+            block.timestamp > V1Utils.uncleProofDeadline(state, fc, blockId);
     }
 }

@@ -1,4 +1,5 @@
 import type { BigNumber, ethers, Transaction } from "ethers";
+import type { Message } from "./message";
 
 enum BridgeType {
   ERC20 = "ERC20",
@@ -20,16 +21,25 @@ type BridgeOpts = {
   tokenAddress: string;
   fromChainId: number;
   toChainId: number;
-  bridgeAddress: string;
+  tokenVaultAddress: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+};
+
+type ClaimOpts = {
+  message: Message;
+  signal: string;
+  signer: ethers.Signer;
+  destBridgeAddress: string;
+  srcBridgeAddress: string;
 };
 
 interface Bridge {
   RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
+  Claim(opts: ClaimOpts): Promise<Transaction>;
 }
 
-export { ApproveOpts, BridgeOpts, BridgeType, Bridge };
+export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts };

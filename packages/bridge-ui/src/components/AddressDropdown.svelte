@@ -1,24 +1,37 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-  import { toast } from "@zerodevx/svelte-toast";
 
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
   import { pendingTransactions } from "../store/transactions";
   import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import type { BridgeTransaction } from "src/domain/transactions";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
-  import type { Signer } from "ethers";
-
-  export let transactions: BridgeTransaction[] = [];
+  import { ethers, Signer } from "ethers";
+  import { errorToast } from "../utils/toast";
+  import CopyIcon from "./icons/Copy.svelte";
+  import DisconnectIcon from "./icons/Disconnect.svelte";
+  import { slide } from "svelte/transition";
+  import { fromChain } from "../store/chain";
+  import { truncateString } from "../utils/truncateString";
 
   let address: string;
   let addressAvatarImgData: string;
+  let tokenBalance: string = "";
+
   onMount(async () => {
-    setAddress($signer);
+    await setAddress($signer);
   });
+
+  $: getUserBalance($signer);
+
+  async function getUserBalance(signer) {
+    if (signer) {
+      const userBalance = await signer.getBalance("latest");
+      tokenBalance = ethers.utils.formatEther(userBalance);
+    }
+  }
 
   $: setAddress($signer).catch((e) => console.error(e));
 
@@ -36,13 +49,13 @@
       signer.set(null);
     } catch (e) {
       console.error(e);
-      toast.push($_("toast.errorDisconnecting"));
+      errorToast($_("toast.errorDisconnecting"));
     }
   }
 </script>
 
-<div class="dropdown dropdown-bottom">
-  <button tabindex="0" class="btn btn-wide justify-around">
+<div class="dropdown dropdown-bottom dropdown-end">
+  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
@@ -68,31 +81,51 @@
           alt="avatar"
         />
 
-        {addressSubsection(address)}
+        <span class="hidden md:inline-block">
+          {addressSubsection(address)}
+        </span>
       {/if}
     </span>
 
     <ChevDown />
-  </button>
+  </label>
   <ul
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-64 mt-2 pb-2"
   >
-    <li>
-      <span
-        class="cursor-pointer"
-        on:click={async () => await copyToClipboard(address)}>Copy Address</span
-      >
-    </li>
-    <li>
-      <span class="cursor-pointer" on:click={async () => await disconnect()}
-        >Disconnect</span
-      >
-    </li>
-    {#if transactions && transactions.length}
-      <li>
-        <span class="cursor-pointer"> {transactions.length} Transactions</span>
-      </li>
-    {/if}
+    <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
+      {#if $fromChain && $signer}
+        <svelte:component this={$fromChain.icon} />
+        <div class="text-lg mt-2">
+          {tokenBalance.length > 10
+            ? `${truncateString(tokenBalance)}...`
+            : tokenBalance} ETH
+        </div>
+      {/if}
+    </div>
+    <div class="divider" />
+    <div class="flex hover:bg-dark-5 items-center py-2 px-2">
+      <img
+        width="24"
+        height="24"
+        src="data:image/png;base64,{addressAvatarImgData}"
+        class="rounded-full mr-2 inline-block"
+        alt="avatar"
+      />
+      {addressSubsection(address)}
+    </div>
+    <div
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+      on:click={async () => await copyToClipboard(address)}
+    >
+      <CopyIcon />
+      Copy Address
+    </div>
+    <div
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
+      on:click={async () => await disconnect()}
+    >
+      <DisconnectIcon /> Disconnect
+    </div>
   </ul>
 </div>

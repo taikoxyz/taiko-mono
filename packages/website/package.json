@@ -31,8 +31,12 @@
     "@docusaurus/module-type-aliases": "2.2.0",
     "@docusaurus/theme-classic": "^2.2.0",
     "@docusaurus/types": "^2.2.0",
+    "@heroicons/react": "^2.0.13",
     "@tsconfig/docusaurus": "^1.0.6",
     "@types/node": "^12.20.45",
+    "autoprefixer": "^10.4.13",
+    "postcss": "^8.4.19",
+    "tailwindcss": "^3.2.4",
     "typescript": "^4.8.4"
   },
   "browserslist": {

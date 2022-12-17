@@ -42,11 +42,12 @@ func (svc *Service) FilterThenSubscribe(
 	}
 
 	if svc.processingBlockHeight == header.Number.Uint64() {
-		log.Info("caught up, subscribing to new incoming events")
+		log.Infof("chain ID %v caught up, subscribing to new incoming events", chainID.Uint64())
 		return svc.subscribe(ctx, chainID)
 	}
 
-	log.Infof("getting events between %v and %v in batches of %v",
+	log.Infof("chain ID %v getting events between %v and %v in batches of %v",
+		chainID.Uint64(),
 		svc.processingBlockHeight,
 		header.Number.Int64(),
 		svc.blockBatchSize,
@@ -82,8 +83,10 @@ func (svc *Service) FilterThenSubscribe(
 		group.SetLimit(svc.numGoroutines)
 
 		for {
+			event := events.Event
+
 			group.Go(func() error {
-				err := svc.handleEvent(groupCtx, chainID, events.Event)
+				err := svc.handleEvent(groupCtx, chainID, event)
 				if err != nil {
 					// log error but always return nil to keep other goroutines active
 					log.Error(err.Error())
@@ -109,7 +112,10 @@ func (svc *Service) FilterThenSubscribe(
 		}
 	}
 
-	log.Info("indexer fully caught up, checking latest block number to see if it's advanced")
+	log.Infof(
+		"chain id %v indexer fully caught up, checking latest block number to see if it's advanced",
+		chainID.Uint64(),
+	)
 
 	latestBlock, err := svc.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {

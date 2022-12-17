@@ -1,22 +1,41 @@
 <script lang="ts">
+  import { transactions } from "../../store/transactions";
   import { _ } from "svelte-i18n";
 
-  import SelectToken from "../../components/buttons/SelectToken.svelte";
   import BridgeForm from "../../components/form/BridgeForm.svelte";
   import TaikoBanner from "../../components/TaikoBanner.svelte";
+  import Transactions from "../../components/Transactions.svelte";
+  let activeTab: string = "bridge";
 </script>
 
-<div class="hero bg-base-100 mt-12">
+<div class="hero bg-base-100">
   <div class="hero-content text-center">
-    <div class="max-w-lg w-[460px]">
-      <TaikoBanner />
-      <!-- <div class="mt-8 flex items-center justify-center px-2">
-        <span class="font-bold mr-2">{$_("home.selectToken")}</span>
-        <SelectToken />
-      </div> -->
-      <div class="px-4">
-        <BridgeForm />
+    <div class="">
+      <div class="tabs mb-4">
+        <span
+          class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
+          on:click={() => (activeTab = "bridge")}>Bridge</span
+        >
+        <span
+          class="tab tab-bordered {activeTab !== 'bridge' ? 'tab-active' : ''}"
+          on:click={() => (activeTab = "transactions")}
+          >Transactions ({$transactions.length})
+        </span>
       </div>
+      {#if activeTab === "bridge"}
+        <TaikoBanner />
+        <div class="px-4">
+          <BridgeForm />
+        </div>
+      {:else}
+        <Transactions />
+      {/if}
     </div>
   </div>
 </div>
+
+<style>
+  .tabs {
+    display: block;
+  }
+</style>

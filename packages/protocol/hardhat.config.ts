@@ -14,6 +14,14 @@ const hardhatMnemonic =
     "test test test test test test test test test test test taik"
 const config: HardhatUserConfig = {
     docgen: {
+        exclude: [
+            "bridge/libs/",
+            "L1/v1/",
+            "libs/",
+            "test/",
+            "thirdparty/",
+            "common/EssentialContract.sol",
+        ],
         pages: "files",
         templates: "./solidity-docgen/templates",
     },
@@ -97,6 +105,8 @@ const config: HardhatUserConfig = {
                     "TAIKO_BLOCK_MAX_TXS",
                     "TAIKO_TXLIST_MAX_BYTES",
                     "TAIKO_BLOCK_MAX_GAS_LIMIT",
+                    "K_MAX_NUM_BLOCKS",
+                    "K_INITIAL_UNCLE_DELAY",
                 ]) {
                     if (
                         process.env[constantName] &&

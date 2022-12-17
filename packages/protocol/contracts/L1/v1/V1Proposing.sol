@@ -77,7 +77,7 @@ library V1Proposing {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
-                txList.length > 0 &&
+                txList.length >= 0 &&
                     txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
@@ -97,6 +97,14 @@ library V1Proposing {
             // their block.mixHash fields for randomness will be the same.
             meta.mixHash = bytes32(block.difficulty);
         }
+
+        state.avgBlockTime = V1Utils
+            .movingAverage({
+                maValue: state.avgBlockTime,
+                newValue: meta.timestamp - state.lastProposedAt,
+                maf: LibConstants.K_BLOCK_TIME_MAF
+            })
+            .toUint64();
 
         state.saveProposedBlock(
             state.nextBlockId,
