@@ -1,9 +1,11 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { V1TaikoL2 } from "../../typechain"
 
 describe("V1TaikoL2", function () {
-    async function deployV1TaikoL2Fixture() {
-        // Deploying addressManager Contract
+    let v1TaikoL2: V1TaikoL2
+
+    beforeEach(async function () {
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
@@ -19,14 +21,11 @@ describe("V1TaikoL2", function () {
                 LibTxDecoder: libTxDecoder.address,
             },
         })
-        const v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
-
-        return { v1TaikoL2 }
-    }
+        v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
+    })
 
     describe("anchor()", async function () {
         it("should revert since ancestor hashes not written", async function () {
-            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
             await expect(
                 v1TaikoL2.anchor(
                     Math.ceil(Math.random() * 1024),
@@ -38,7 +37,6 @@ describe("V1TaikoL2", function () {
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be 0 because no headers have been synced", async function () {
-            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
             const hash = await v1TaikoL2.getLatestSyncedHeader()
             expect(hash).to.be.eq(ethers.constants.HashZero)
         })
@@ -46,7 +44,6 @@ describe("V1TaikoL2", function () {
 
     describe("getSyncedHeader()", async function () {
         it("should be 0 because header number has not been synced", async function () {
-            const { v1TaikoL2 } = await deployV1TaikoL2Fixture()
             const hash = await v1TaikoL2.getSyncedHeader(1)
             expect(hash).to.be.eq(ethers.constants.HashZero)
         })

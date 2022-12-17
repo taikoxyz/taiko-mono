@@ -5,45 +5,27 @@ import { SecureTrie } from "merkle-patricia-tree"
 import { TestLibSecureMerkleTrie } from "../../typechain"
 import { MerkleTrie } from "../utils/trie"
 
-const defaultAmountOfNodes = 32
-const defaultNodeLength = 32
 describe("LibSecureMerkleTrie", function () {
-    async function deploylibSecureMerkleTrieFixture(
-        amountOfNodes: number,
-        len: number
-    ) {
-        const [owner] = await ethers.getSigners()
+    let libSecureMerkleTrie: TestLibSecureMerkleTrie
+    let defaultSecureMerkleTrie: MerkleTrie<SecureTrie>
+    const defaultAmountOfNodes = 32
+    const defaultNodeLength = 32
 
-        const LibSecureMerkleTrieFactory = await ethers.getContractFactory(
-            "TestLibSecureMerkleTrie"
-        )
+    beforeEach(async function () {
+        libSecureMerkleTrie = await (
+            await ethers.getContractFactory("TestLibSecureMerkleTrie")
+        ).deploy()
 
-        const libSecureMerkleTrie: TestLibSecureMerkleTrie =
-            await LibSecureMerkleTrieFactory.deploy()
-
-        const defaultSecureMerkleTrie = new MerkleTrie(
-            amountOfNodes,
-            len,
+        defaultSecureMerkleTrie = new MerkleTrie(
+            defaultAmountOfNodes,
+            defaultNodeLength,
             () => new SecureTrie()
         )
         await defaultSecureMerkleTrie.init()
-
-        return {
-            owner,
-            libSecureMerkleTrie,
-            defaultSecureMerkleTrie,
-            LibSecureMerkleTrieFactory,
-        }
-    }
+    })
 
     describe("verifyInclusionProof()", () => {
         it(`is included, ${defaultAmountOfNodes} bytes, ${defaultNodeLength} node length`, async () => {
-            const { libSecureMerkleTrie, defaultSecureMerkleTrie } =
-                await deploylibSecureMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
-
             const n = defaultSecureMerkleTrie.nodes[0]
             const key = n.key
             const t = await defaultSecureMerkleTrie.makeTest(key)
@@ -59,12 +41,6 @@ describe("LibSecureMerkleTrie", function () {
 
     describe("get()", () => {
         it(`is included`, async () => {
-            const { libSecureMerkleTrie, defaultSecureMerkleTrie } =
-                await deploylibSecureMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
-
             const key = defaultSecureMerkleTrie.nodes[0].key
             const t = await defaultSecureMerkleTrie.makeTest(key)
             const isIncluded = await libSecureMerkleTrie.get(
@@ -78,12 +54,8 @@ describe("LibSecureMerkleTrie", function () {
                 ethers.utils.hexlify(defaultSecureMerkleTrie.nodes[0].value)
             )
         })
+
         it(`is not included`, async () => {
-            const { libSecureMerkleTrie, defaultSecureMerkleTrie } =
-                await deploylibSecureMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
             const t = await defaultSecureMerkleTrie.makeTest(
                 defaultSecureMerkleTrie.nodes[0].key
             )
