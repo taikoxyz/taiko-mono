@@ -17,8 +17,6 @@ describe("LibBridgeRetry", function () {
     let nonOwner: any
     let refundAddress: any
     let etherVaultOwner: any
-    let addressManager: AddressManager
-    let badAddressManager: AddressManager
     let etherVault: EtherVault
     let libRetry: TestLibBridgeRetry
     let badLibRetry: TestLibBridgeRetry
@@ -30,12 +28,12 @@ describe("LibBridgeRetry", function () {
     })
 
     beforeEach(async function () {
-        addressManager = await (
+        const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
 
-        badAddressManager = await (
+        const badAddressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await badAddressManager.init()

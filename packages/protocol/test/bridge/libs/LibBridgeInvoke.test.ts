@@ -8,32 +8,27 @@ import {
 } from "../../../typechain"
 
 describe("LibBridgeInvoke", function () {
-    async function deployLibBridgeDataFixture() {
-        const libData: TestLibBridgeData = await (
+    let owner: any
+    let nonOwner: any
+    let libInvoke: TestLibBridgeInvoke
+    let libData: TestLibBridgeData
+
+    before(async function () {
+        ;[owner, nonOwner] = await ethers.getSigners()
+    })
+
+    beforeEach(async function () {
+        libInvoke = await (
+            await ethers.getContractFactory("TestLibBridgeInvoke")
+        ).deploy()
+
+        libData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
-        return { libData }
-    }
-
-    async function deployLibBridgeInvokeFixture() {
-        const [owner, nonOwner] = await ethers.getSigners()
-
-        const libInvoke: TestLibBridgeInvoke = await (
-            await ethers.getContractFactory("TestLibBridgeInvoke")
-        )
-            .connect(owner)
-            .deploy()
-
-        return { owner, nonOwner, libInvoke }
-    }
+    })
 
     describe("invokeMessageCall()", async function () {
         it("should throw when gasLimit <= 0", async function () {
-            const { owner, nonOwner, libInvoke } =
-                await deployLibBridgeInvokeFixture()
-
-            const { libData } = await deployLibBridgeDataFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -58,11 +53,6 @@ describe("LibBridgeInvoke", function () {
         })
 
         it("should emit event with success false if message does not actually invoke", async function () {
-            const { owner, nonOwner, libInvoke } =
-                await deployLibBridgeInvokeFixture()
-
-            const { libData } = await deployLibBridgeDataFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -89,10 +79,6 @@ describe("LibBridgeInvoke", function () {
         })
 
         it("should emit event with success true if message invokes successfully", async function () {
-            const { owner, libInvoke } = await deployLibBridgeInvokeFixture()
-
-            const { libData } = await deployLibBridgeDataFixture()
-
             const testReceiver: TestReceiver = await (
                 await ethers.getContractFactory("TestReceiver")
             ).deploy()
