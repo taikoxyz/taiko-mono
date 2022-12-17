@@ -17,7 +17,7 @@ describe("TaikoL2", function () {
         ).deploy()
 
         taikoL2 = await (
-            await ethers.getContractFactory("V1TaikoL2", {
+            await ethers.getContractFactory("TaikoL2", {
                 libraries: {
                     LibTxDecoder: libTxDecoder.address,
                 },
