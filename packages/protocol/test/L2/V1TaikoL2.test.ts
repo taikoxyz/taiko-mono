@@ -16,12 +16,13 @@ describe("V1TaikoL2", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
-        const v1TaikoL2Factory = await ethers.getContractFactory("V1TaikoL2", {
-            libraries: {
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
-        v1TaikoL2 = await v1TaikoL2Factory.deploy(addressManager.address)
+        v1TaikoL2 = await (
+            await ethers.getContractFactory("V1TaikoL2", {
+                libraries: {
+                    LibTxDecoder: libTxDecoder.address,
+                },
+            })
+        ).deploy(addressManager.address)
     })
 
     describe("anchor()", async function () {
