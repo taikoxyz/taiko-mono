@@ -1,8 +1,8 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
-import { V1TaikoL2 } from "../../typechain"
+import { TaikoL2 } from "../../typechain"
 
-describe("V1TaikoL2", function () {
+describe("TaikoL2", function () {
     let v1TaikoL2: V1TaikoL2
 
     beforeEach(async function () {
