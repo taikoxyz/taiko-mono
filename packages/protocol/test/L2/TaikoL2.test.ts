@@ -1,9 +1,11 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { TaikoL2 } from "../../typechain"
 
 describe("TaikoL2", function () {
-    async function deployTaikoL2Fixture() {
-        // Deploying addressManager Contract
+    let taikoL2: TaikoL2
+
+    beforeEach(async function () {
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
@@ -14,19 +16,17 @@ describe("TaikoL2", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
-        const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
-            libraries: {
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
-        const taikoL2 = await taikoL2Factory.deploy(addressManager.address)
-
-        return { taikoL2 }
-    }
+        taikoL2 = await (
+            await ethers.getContractFactory("TaikoL2", {
+                libraries: {
+                    LibTxDecoder: libTxDecoder.address,
+                },
+            })
+        ).deploy(addressManager.address)
+    })
 
     describe("anchor()", async function () {
         it("should revert since ancestor hashes not written", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
             await expect(
                 taikoL2.anchor(Math.ceil(Math.random() * 1024), randomBytes32())
             ).to.be.revertedWith("L2:publicInputHash")
@@ -35,7 +35,6 @@ describe("TaikoL2", function () {
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be 0 because no headers have been synced", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
             const hash = await taikoL2.getLatestSyncedHeader()
             expect(hash).to.be.eq(ethers.constants.HashZero)
         })
@@ -43,7 +42,6 @@ describe("TaikoL2", function () {
 
     describe("getSyncedHeader()", async function () {
         it("should be 0 because header number has not been synced", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
             const hash = await taikoL2.getSyncedHeader(1)
             expect(hash).to.be.eq(ethers.constants.HashZero)
         })
