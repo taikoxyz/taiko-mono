@@ -26,7 +26,7 @@ All of the relevant links can be found in this site's navigation. The relevant l
 | [L1 faucet](https://l1faucet.a1.taiko.xyz/)     | For receiving ETH on Taiko's private L1                |
 | [L2 faucet](https://l2faucet.a1.taiko.xyz/)     | For receiving ETH on Taiko                             |
 | [Bridge](https://bridge.a1.taiko.xyz/)          | Bridge ETH/tokens between Taiko's private L1 and Taiko |
-| [L1 explorer](https://l1explorer.a1.taiko.xyz/) | Explore blocks on Taiko's private                      |
+| [L1 explorer](https://l1explorer.a1.taiko.xyz/) | Explore blocks on Taiko's private L1                   |
 | [L2 explorer](https://l2explorer.a1.taiko.xyz/) | Explore blocks on Taiko                                |
 
 ## Guided walkthrough
