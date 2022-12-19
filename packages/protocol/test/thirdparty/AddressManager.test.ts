@@ -3,26 +3,23 @@ import { AddressManager } from "../../typechain"
 import { ethers } from "hardhat"
 
 describe("AddressManager", function () {
-    async function deployAddressManagerFixture() {
-        const [owner, nonOwner] = await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let addressManager: AddressManager
 
-        // Deploying addressManager Contract
-        const addressManager: AddressManager = await (
+    before(async function () {
+        ;[owner, nonOwner] = await ethers.getSigners()
+    })
+
+    beforeEach(async function () {
+        addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
-        return {
-            owner,
-            nonOwner,
-            addressManager,
-        }
-    }
+    })
 
     describe("setAddress()", async () => {
         it("throws when non-owner calls", async () => {
-            const { nonOwner, addressManager } =
-                await deployAddressManagerFixture()
-
             const name = "fakename"
             await expect(
                 addressManager
@@ -32,9 +29,6 @@ describe("AddressManager", function () {
         })
 
         it("emits setAddress event", async () => {
-            const { owner, nonOwner, addressManager } =
-                await deployAddressManagerFixture()
-
             const name = "fakename"
             await expect(
                 addressManager.connect(owner).setAddress(name, nonOwner.address)
