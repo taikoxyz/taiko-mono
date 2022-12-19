@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
-  import { fetchSigner } from "@wagmi/core";
+  import { fetchSigner, switchNetwork } from "@wagmi/core";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import type { Chain } from "../../domain/chain";
   import { isSwitchEthereumChainModalOpen } from "../../store/modal";
