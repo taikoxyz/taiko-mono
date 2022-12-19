@@ -18,6 +18,8 @@
 
   import type { Token } from "../../domain/token";
   import type { BridgeType } from "../../domain/bridge";
+  import { chains } from "../../domain/chain";
+
   import type { Chain } from "../../domain/chain";
   import { truncateString } from "../../utils/truncateString";
   import {
@@ -120,6 +122,8 @@
     requiresAllowance: boolean
   ) {
     if (!signer) return true;
+    const chainId = await signer.getChainId();
+    if (!chainId || !chains[chainId.toString()]) return true;
     if (!amount) return true;
     if (isNaN(parseFloat(amount))) return true;
     if (
