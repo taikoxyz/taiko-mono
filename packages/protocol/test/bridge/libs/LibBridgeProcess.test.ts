@@ -8,12 +8,11 @@ import { Message } from "../../utils/message"
 import {
     AddressManager,
     EtherVault,
-    LibTrieProof,
     TestLibBridgeData,
     TestLibBridgeProcess,
 } from "../../../typechain"
 
-describe("LibBridgeProcess", function () {
+describe("LibBridgeProcess", async function () {
     function getStateSlot() {
         const buildInfoDir = path.join(
             __dirname,
@@ -38,28 +37,30 @@ describe("LibBridgeProcess", function () {
         throw new Error("TestLibBridgeProcess.state slot number not found")
     }
 
-    async function deployLibBridgeProcessFixture() {
-        const [owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let etherVaultOwner: any
+    let addressManager: AddressManager
+    let etherVault: EtherVault
+    let libTrieLink
+    let libProcessLink
+    let libProcess: TestLibBridgeProcess
+    let testLibData: TestLibBridgeData
+    const stateSlot = getStateSlot()
+    const srcChainId = 1
+    const blockChainId = hre.network.config.chainId ?? 0
 
-        // slot number of IBridge.State for TestLibBridgeProcess.
-        // mapping destChains is at position 0
-        // mapping messageStatus is at position 1
-        // nextMessageId is at position 2
-        // Context takes up 3 slots, starts at position 3
-        const stateSlot = getStateSlot()
+    before(async function () {
+        ;[owner, nonOwner, etherVaultOwner] = await ethers.getSigners()
+    })
 
-        const srcChainId = 1
-
-        const messageOwner = ethers.Wallet.createRandom()
-
-        const addressManager: AddressManager = await (
+    beforeEach(async function () {
+        addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
 
-        const etherVault: EtherVault = await (
-            await ethers.getContractFactory("EtherVault")
-        )
+        etherVault = await (await ethers.getContractFactory("EtherVault"))
             .connect(etherVaultOwner)
             .deploy()
 
@@ -79,14 +80,12 @@ describe("LibBridgeProcess", function () {
             value: ethers.utils.parseEther("10.0"),
         })
 
-        const libTrieLink: LibTrieProof = await (
-            await ethers.getContractFactory("LibTrieProof")
-        )
+        libTrieLink = await (await ethers.getContractFactory("LibTrieProof"))
             .connect(owner)
             .deploy()
         await libTrieLink.deployed()
 
-        const libProcessLink = await (
+        libProcessLink = await (
             await ethers.getContractFactory("LibBridgeProcess", {
                 libraries: {
                     LibTrieProof: libTrieLink.address,
@@ -97,7 +96,7 @@ describe("LibBridgeProcess", function () {
             .deploy()
         await libProcessLink.deployed()
 
-        const libProcess: TestLibBridgeProcess = await (
+        libProcess = await (
             await ethers.getContractFactory("TestLibBridgeProcess", {
                 libraries: {
                     LibBridgeProcess: libProcessLink.address,
@@ -109,31 +108,17 @@ describe("LibBridgeProcess", function () {
 
         await libProcess.init(addressManager.address)
 
-        const testLibData: TestLibBridgeData = await (
+        testLibData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
 
         await etherVault
             .connect(etherVaultOwner)
             .authorize(libProcess.address, true)
-
-        return {
-            owner,
-            srcChainId,
-            messageOwner,
-            libProcess,
-            stateSlot,
-            blockChainId,
-            nonOwner,
-            testLibData,
-            addressManager,
-        }
-    }
+    })
 
     describe("processMessage()", async function () {
         it("should throw if gaslimit == 0 & msg.sender != message.owner", async function () {
-            const { owner, srcChainId, nonOwner, libProcess, blockChainId } =
-                await deployLibBridgeProcessFixture()
             const message: Message = {
                 id: 1,
                 sender: nonOwner.address,
@@ -155,8 +140,6 @@ describe("LibBridgeProcess", function () {
         })
 
         it("should throw if message.destChain != block.chainId", async function () {
-            const { owner, srcChainId, nonOwner, libProcess, blockChainId } =
-                await deployLibBridgeProcessFixture()
             const badBlockChainId = blockChainId + 1
             const message: Message = {
                 id: 1,
@@ -179,16 +162,6 @@ describe("LibBridgeProcess", function () {
         })
 
         it("should throw if message's status is not NEW", async function () {
-            const {
-                owner,
-                srcChainId,
-                nonOwner,
-                libProcess,
-                testLibData,
-                blockChainId,
-                stateSlot,
-            } = await deployLibBridgeProcessFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,

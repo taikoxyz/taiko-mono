@@ -6,14 +6,17 @@ import { MessageStatus } from "../../../tasks/utils"
 import { Message } from "../../utils/message"
 
 describe("LibBridgeData", function () {
-    async function deployLibBridgeDataFixture() {
-        const [owner, nonOwner] = await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let testMessage: Message
+    let testTypes: any
+    let testVar: any
+    let libData: TestLibBridgeData
 
-        const libData: TestLibBridgeData = await (
-            await ethers.getContractFactory("TestLibBridgeData")
-        ).deploy()
+    before(async function () {
+        ;[owner, nonOwner] = await ethers.getSigners()
 
-        const testMessage: Message = {
+        testMessage = {
             id: 1,
             sender: owner.address,
             srcChainId: 1,
@@ -28,30 +31,22 @@ describe("LibBridgeData", function () {
             data: ethers.constants.HashZero,
             memo: "",
         }
-
-        const testTypes = [
+        testTypes = [
             "string",
             "tuple(uint256 id, address sender, uint256 srcChainId, uint256 destChainId, address owner, address to, address refundAddress, uint256 depositValue, uint256 callValue, uint256 processingFee, uint256 gasLimit, bytes data, string memo)",
         ]
 
-        const testVar = [K_BRIDGE_MESSAGE, testMessage]
+        testVar = [K_BRIDGE_MESSAGE, testMessage]
+    })
 
-        return {
-            owner,
-            nonOwner,
-            libData,
-            testMessage,
-            testTypes,
-            testVar,
-        }
-    }
+    beforeEach(async function () {
+        libData = await (
+            await ethers.getContractFactory("TestLibBridgeData")
+        ).deploy()
+    })
 
     describe("hashMessage()", async function () {
         it("should return properly hashed message", async function () {
-            const { libData, testMessage, testTypes } =
-                await deployLibBridgeDataFixture()
-
-            const testVar = [K_BRIDGE_MESSAGE, testMessage]
             const hashed = await libData.hashMessage(testMessage)
             const expectedEncoded = ethers.utils.defaultAbiCoder.encode(
                 testTypes,
@@ -64,9 +59,6 @@ describe("LibBridgeData", function () {
         })
 
         it("should return properly hashed message from actual bridge message", async function () {
-            const { libData } = await deployLibBridgeDataFixture()
-            // dummy struct to test with
-
             const testMessage: Message = {
                 id: 0,
                 sender: "0xDA1Ea1362475997419D2055dD43390AEE34c6c37",
@@ -93,8 +85,6 @@ describe("LibBridgeData", function () {
 
     describe("updateMessageStatus()", async function () {
         it("should emit upon successful change, and value should be changed correctly", async function () {
-            const { libData, testMessage } = await deployLibBridgeDataFixture()
-
             const signal = await libData.hashMessage(testMessage)
 
             expect(
@@ -107,8 +97,6 @@ describe("LibBridgeData", function () {
         })
 
         it("unchanged MessageStatus should not emit event", async function () {
-            const { libData, testMessage } = await deployLibBridgeDataFixture()
-
             const signal = await libData.hashMessage(testMessage)
 
             await libData.updateMessageStatus(signal, MessageStatus.NEW)

@@ -31,6 +31,7 @@
   import { MessageStatus } from "./domain/message";
   import BridgeABI from "./constants/abi/Bridge";
   import { providers } from "./store/providers";
+  import HeaderAnnouncement from "./components/HeaderAnnouncement.svelte";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -148,6 +149,7 @@
 <QueryProvider>
   <div class="lg:container lg:mx-auto lg:px-64">
     <main>
+      <HeaderAnnouncement />
       <Navbar />
       <Router {routes} />
     </main>

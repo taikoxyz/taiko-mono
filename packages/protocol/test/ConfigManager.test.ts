@@ -1,11 +1,12 @@
 import { expect } from "chai"
+import { ConfigManager } from "../typechain"
 const hre = require("hardhat")
 const ethers = hre.ethers
 
 describe("ConfigManager", function () {
-    let configManager: any
-    let testKey: any
-    let testName: any
+    let configManager: ConfigManager
+    let testKey: string
+    let testName: string
 
     before(async function () {
         configManager = await (
