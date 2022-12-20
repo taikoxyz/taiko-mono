@@ -48,7 +48,9 @@ export const mainnet: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l1rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l1rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -56,13 +58,9 @@ export const mainnet: WagmiChain = {
       url: "https://l1explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };
 
 export const taiko: WagmiChain = {
@@ -71,7 +69,9 @@ export const taiko: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l2rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l2rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -79,11 +79,7 @@ export const taiko: WagmiChain = {
       url: "https://l2explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };

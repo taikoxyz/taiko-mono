@@ -4,14 +4,15 @@
   import ChevDown from "./icons/ChevDown.svelte";
   import { fromChain, toChain } from "../store/chain";
   import MetaMask from "./icons/MetaMask.svelte";
-  import { switchEthereumChain } from "../utils/switchEthereumChain";
-  import { ethereum } from "../store/ethereum";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
   import { ethers } from "ethers";
   import { signer } from "../store/signer";
+  import { switchNetwork } from "@wagmi/core";
   const changeChain = async (chain: Chain) => {
-    await switchEthereumChain($ethereum, chain);
+    await switchNetwork({
+      chainId: chain.id,
+    });
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
 

@@ -29,6 +29,9 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
             switchChainModal: {
                 title: "Not on the right network",
                 subtitle: "Your current network is not supported. Please select one:"
+            },
+            connectModal: {
+                title: "Connect Wallet"
             }
         }
     })
