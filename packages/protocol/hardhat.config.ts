@@ -99,18 +99,34 @@ const config: HardhatUserConfig = {
     preprocess: {
         eachLine: () => ({
             transform: (line) => {
-                for (const constantName of [
-                    "K_CHAIN_ID",
-                    "K_COMMIT_DELAY_CONFIRMS",
-                    "TAIKO_BLOCK_MAX_TXS",
-                    "TAIKO_TXLIST_MAX_BYTES",
-                    "TAIKO_BLOCK_MAX_GAS_LIMIT",
-                    "K_MAX_NUM_BLOCKS",
-                    "K_INITIAL_UNCLE_DELAY",
-                ]) {
+                const CONSTANTS = [
+                    { name: "K_CHAIN_ID", type: "uint256" },
+                    { name: "K_MAX_NUM_BLOCKS", type: "uint256" },
+                    { name: "K_ZKPROOFS_PER_BLOCK", type: "uint256" },
+                    { name: "K_MAX_VERIFICATIONS_PER_TX", type: "uint256" },
+                    { name: "K_COMMIT_DELAY_CONFIRMS", type: "uint256" },
+                    { name: "K_MAX_PROOFS_PER_FORK_CHOICE", type: "uint256" },
+                    { name: "K_BLOCK_MAX_GAS_LIMIT", type: "uint256" },
+                    { name: "K_BLOCK_MAX_TXS", type: "uint256" },
+                    { name: "K_TXLIST_MAX_BYTES", type: "uint256" },
+                    { name: "K_TX_MIN_GAS_LIMIT", type: "uint256" },
+                    { name: "K_ANCHOR_TX_GAS_LIMIT", type: "uint256" },
+                    { name: "K_BLOCK_TIME_MAF", type: "uint256" },
+                    { name: "K_PROOF_TIME_MAF", type: "uint256" },
+                    { name: "K_INITIAL_UNCLE_DELAY", type: "uint64" },
+                    { name: "K_ANCHOR_TX_SELECTOR", type: "bytes4" },
+                    { name: "K_BLOCK_DEADEND_HASH", type: "bytes32" },
+                    { name: "K_INVALIDATE_BLOCK_LOG_TOPIC", type: "bytes32" },
+                ]
+
+                for (let i = 0; i < CONSTANTS.length; i++) {
+                    const constantName = CONSTANTS[i].name
+                    const constantType = CONSTANTS[i].type
                     if (
                         process.env[constantName] &&
-                        line.includes(`uint256 public constant ${constantName}`)
+                        line.includes(
+                            `${constantType} public constant ${constantName}`
+                        )
                     ) {
                         return `${line.slice(0, line.indexOf(" ="))} = ${
                             process.env[constantName]
