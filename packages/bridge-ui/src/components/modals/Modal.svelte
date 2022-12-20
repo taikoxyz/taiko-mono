@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+
   export let title: string = null;
   export let isOpen: boolean = false;
   export let onClose: () => void = null;
@@ -12,11 +14,15 @@
   };
 </script>
 
-<div
-  class="modal bg-black/60"
-  class:modal-open={isOpen}
-  on:click|self={onCloseClicked}
->
+<svelte:window
+  on:keydown={function (e) {
+    if (e.key === "Escape") {
+      onCloseClicked();
+    }
+  }}
+/>
+
+<div class="modal bg-black/60" class:modal-open={isOpen}>
   <div class="modal-box bg-dark-3">
     <h3 class="font-bold text-lg text-center mt-4">{title}</h3>
     {#if showXButton}
