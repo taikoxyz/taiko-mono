@@ -3,7 +3,6 @@ import { mainnet, taiko } from "../domain/chain";
 import type { Bridge, BridgeOpts } from "../domain/bridge";
 import ETHBridge from "./bridge";
 import { Message, MessageStatus } from "../domain/message";
-import { src_url_equal } from "svelte/internal";
 
 const mockSigner = {
   getAddress: jest.fn(),
