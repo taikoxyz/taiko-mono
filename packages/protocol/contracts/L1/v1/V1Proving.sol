@@ -104,12 +104,13 @@ library V1Proving {
 
         // Check anchor tx is the 1st tx in the block
         require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: anchorTx,
-                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                _root: evidence.header.transactionsRoot
-            }),
+            LibConstants.K_SKIP_PROOF_VALIDATION ||
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: anchorTx,
+                    _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                    _root: evidence.header.transactionsRoot
+                }),
             "L1:tx:proof"
         );
 
@@ -119,12 +120,15 @@ library V1Proving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: anchorReceipt,
-                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK + 1],
-                _root: evidence.header.receiptsRoot
-            }),
+            LibConstants.K_SKIP_PROOF_VALIDATION ||
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: anchorReceipt,
+                    _proof: evidence.proofs[
+                        LibConstants.K_ZKPROOFS_PER_BLOCK + 1
+                    ],
+                    _root: evidence.header.receiptsRoot
+                }),
             "L1:receipt:proof"
         );
 
@@ -186,12 +190,13 @@ library V1Proving {
 
         // Check the event is the first one in the throw-away block
         require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: invalidateBlockReceipt,
-                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
-                _root: evidence.header.receiptsRoot
-            }),
+            LibConstants.K_SKIP_PROOF_VALIDATION ||
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: invalidateBlockReceipt,
+                    _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                    _root: evidence.header.receiptsRoot
+                }),
             "L1:receipt:proof"
         );
 
@@ -221,15 +226,19 @@ library V1Proving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         for (uint256 i = 0; i < LibConstants.K_ZKPROOFS_PER_BLOCK; i++) {
-            LibZKP.verify({
-                verificationKey: ConfigManager(
-                    resolver.resolve("config_manager")
-                ).getValue(string(abi.encodePacked("zk_vkey_", i))),
-                zkproof: evidence.proofs[i],
-                blockHash: blockHash,
-                prover: evidence.prover,
-                txListHash: evidence.meta.txListHash
-            });
+            require(
+                LibConstants.K_SKIP_PROOF_VALIDATION ||
+                    LibZKP.verify({
+                        verificationKey: ConfigManager(
+                            resolver.resolve("config_manager")
+                        ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                        zkproof: evidence.proofs[i],
+                        blockHash: blockHash,
+                        prover: evidence.prover,
+                        txListHash: evidence.meta.txListHash
+                    }),
+                "L1:ZKP"
+            );
         }
 
         _markBlockProven({
