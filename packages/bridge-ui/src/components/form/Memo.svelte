@@ -40,9 +40,9 @@
 
 <TooltipModal title="Memo" bind:isOpen={tooltipOpen}>
   <span slot="body">
-    <p>
-      You can attach an arbitrary message to your bridge transaction <br />
-      by using a memo. It will slightly increase gas costs.
+    <p class="text-left">
+      You can attach an arbitrary message to your bridge transaction by using a
+      memo — it will slightly increase gas costs.
     </p>
   </span>
 </TooltipModal>

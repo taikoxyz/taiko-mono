@@ -58,12 +58,25 @@
 
 <TooltipModal title="Processing Fees" bind:isOpen={tooltipOpen}>
   <span slot="body">
-    <p>
-      Processing Fees are the amount you pay to have your bridge message
-      processed on the destination chain.
-      <br /> Use the recommended fee to have a relayer pick it up as soon as they
-      can, use a custom fee if you okay with waiting, or no fee if you want to come
-      back here and claim it yourself.
-    </p>
+    <div class="text-left">
+      The amount you pay the relayer to process your bridge message on the
+      destination chain.
+      <br /><br />
+      <ul class="list-disc ml-4">
+        <li>
+          <strong>Recommended</strong>: The recommended fee is the lowest fee
+          that will get your transaction processed in a reasonable amount of
+          time.
+        </li>
+        <li>
+          <strong>Custom</strong>: You can set a custom fee if you want to pay
+          less (and wait).
+        </li>
+        <li>
+          <strong>None</strong>: You can select no fee if you want to come back
+          here and claim the bridged asset yourself.
+        </li>
+      </ul>
+    </div>
   </span>
 </TooltipModal>
