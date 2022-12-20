@@ -43,6 +43,7 @@ importers:
       rollup-plugin-polyfill-node: ^0.10.2
       svelte: ^3.53.1
       svelte-check: ^2.8.0
+      svelte-heros-v2: ^0.3.10
       svelte-i18n: ^3.5.1
       svelte-jester: ^2.1.5
       svelte-loader: ^3.1.2
@@ -94,6 +95,7 @@ importers:
       rollup-plugin-polyfill-node: 0.10.2_rollup@2.79.1
       svelte: 3.53.1
       svelte-check: 2.9.2_abcb4yglsprjylcfcbep3tcqgq
+      svelte-heros-v2: 0.3.10
       svelte-jester: 2.3.2_jest@27.5.1+svelte@3.53.1
       svelte-loader: 3.1.4_svelte@3.53.1
       svelte-preprocess: 4.10.7_axwq5llc4jwkf7awicvy3hu32q
@@ -18043,6 +18045,10 @@ packages:
 
   /svelte-dev-helper/1.1.9:
     resolution: {integrity: sha512-oU+Xv7Dl4kRU2kdFjsoPLfJfnt5hUhsFUZtuzI3Ku/f2iAFZqBoEuXOqK3N9ngD4dxQOmN4OKWPHVi3NeAeAfQ==}
+    dev: true
+
+  /svelte-heros-v2/0.3.10:
+    resolution: {integrity: sha512-e5ZhYN8blZwfhb2k4KYSfHnbbddonDNsglqMpwXLLwPVPBiJXeGpcPy2zkffq6kvkLS2tYipYOaAPSXimgtuUg==}
     dev: true
 
   /svelte-hmr/0.14.12_svelte@3.53.1:
