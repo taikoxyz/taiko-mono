@@ -86,8 +86,6 @@
         </span>
       {/if}
     </span>
-
-    <ChevDown />
   </label>
   <ul
     tabindex="0"

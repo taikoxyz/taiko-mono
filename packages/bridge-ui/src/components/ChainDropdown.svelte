@@ -35,8 +35,6 @@
         <span class="ml-2 hidden md:inline-block">Invalid Chain</span>
       {/if}
     </span>
-
-    <ChevDown />
   </label>
   <ul
     tabindex="0"
