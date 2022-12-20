@@ -1,6 +1,10 @@
 <script lang="ts">
+  import TooltipModal from "../modals/TooltipModal.svelte";
+  import Tooltip from "../Tooltip.svelte";
+
   export let memo: string = "";
   let showMemo: boolean = true;
+  let tooltipOpen: boolean = false;
 
   function onChange(e: any) {
     showMemo = e.target.checked;
@@ -9,7 +13,12 @@
 
 <div class="form-control mb-2">
   <label class="label cursor-pointer">
-    <span class="label-text">Memo</span>
+    <span class="label-text"
+      >Memo
+      <span class="inline-block" on:click={() => (tooltipOpen = true)}>
+        <Tooltip />
+      </span></span
+    >
     <input
       type="checkbox"
       class="toggle rounded-full"
@@ -28,3 +37,12 @@
     />
   {/if}
 </div>
+
+<TooltipModal title="Memo" bind:isOpen={tooltipOpen}>
+  <span slot="body">
+    <p>
+      You can attach an arbitrary message to your bridge transaction <br />
+      by using a memo. It will slightly increase gas costs.
+    </p>
+  </span>
+</TooltipModal>
