@@ -20,6 +20,10 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy()
 
+        const libZKP = await (
+            await ethers.getContractFactory("LibZKP")
+        ).deploy()
+
         const v1Proposing = await (
             await ethers.getContractFactory("V1Proposing")
         ).deploy()
@@ -29,6 +33,7 @@ describe("TaikoL1", function () {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
+                    LibZKP: libZKP.address,
                 },
             })
         ).deploy()
