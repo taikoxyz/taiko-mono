@@ -11,6 +11,7 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "test": "pnpm hardhat test --grep '^[^integration]'",
+    "test:protocol": "cp -f .env.l1tests .env && pnpm hardhat test test/L1/**.ts && rm -f .env",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm test && pnpm coverage",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
