@@ -6,9 +6,14 @@ import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
 import "hardhat-preprocessor"
 import { HardhatUserConfig } from "hardhat/config"
+import { config as dotenvConfig } from "dotenv"
+import { resolve } from "path"
 import "solidity-coverage"
 import "solidity-docgen"
 import "./tasks/deploy_L1"
+
+const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env"
+dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) })
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
@@ -99,38 +104,15 @@ const config: HardhatUserConfig = {
     preprocess: {
         eachLine: () => ({
             transform: (line) => {
-                const CONSTANTS = [
-                    { name: "K_CHAIN_ID", type: "uint256" },
-                    { name: "K_MAX_NUM_BLOCKS", type: "uint256" },
-                    { name: "K_ZKPROOFS_PER_BLOCK", type: "uint256" },
-                    { name: "K_MAX_VERIFICATIONS_PER_TX", type: "uint256" },
-                    { name: "K_COMMIT_DELAY_CONFIRMS", type: "uint256" },
-                    { name: "K_MAX_PROOFS_PER_FORK_CHOICE", type: "uint256" },
-                    { name: "K_BLOCK_MAX_GAS_LIMIT", type: "uint256" },
-                    { name: "K_BLOCK_MAX_TXS", type: "uint256" },
-                    { name: "K_TXLIST_MAX_BYTES", type: "uint256" },
-                    { name: "K_TX_MIN_GAS_LIMIT", type: "uint256" },
-                    { name: "K_ANCHOR_TX_GAS_LIMIT", type: "uint256" },
-                    { name: "K_BLOCK_TIME_MAF", type: "uint256" },
-                    { name: "K_PROOF_TIME_MAF", type: "uint256" },
-                    { name: "K_INITIAL_UNCLE_DELAY", type: "uint64" },
-                    { name: "K_ANCHOR_TX_SELECTOR", type: "bytes4" },
-                    { name: "K_BLOCK_DEADEND_HASH", type: "bytes32" },
-                    { name: "K_INVALIDATE_BLOCK_LOG_TOPIC", type: "bytes32" },
-                    { name: "K_SKIP_PROOF_VALIDATION", type: "bool" },
-                ]
+                const CONSTANTS = Object.keys(process.env).filter((k) =>
+                    k.startsWith("K_")
+                )
 
                 for (let i = 0; i < CONSTANTS.length; i++) {
-                    const constantName = CONSTANTS[i].name
-                    const constantType = CONSTANTS[i].type
-                    if (
-                        process.env[constantName] &&
-                        line.includes(
-                            `${constantType} public constant ${constantName}`
-                        )
-                    ) {
-                        return `${line.slice(0, line.indexOf(" ="))} = ${
-                            process.env[constantName]
+                    const name = CONSTANTS[i]
+                    if (line.includes(`public constant ${name}`)) {
+                        return `${line.slice(0, line.indexOf(" = "))} = ${
+                            process.env[name]
                         };`
                     }
                 }
