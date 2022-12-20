@@ -2,9 +2,11 @@
   import { _ } from "svelte-i18n";
   import { processingFee } from "../../store/fee";
   import { ProcessingFeeMethod, PROCESSING_FEE_META } from "../../domain/fee";
-  import Tooltip from "../icons/Tooltip.svelte";
+  import TooltipModal from "../modals/TooltipModal.svelte";
+  import Tooltip from "../Tooltip.svelte";
 
   export let customFee: string;
+  let tooltipOpen: boolean = false;
 
   function selectProcessingFee(fee) {
     $processingFee = fee;
@@ -18,7 +20,7 @@
 <div class="my-10 w-full">
   <h4 class="text-sm font-medium text-left mb-4">
     {$_("bridgeForm.processingFeeLabel")}
-    <span class="inline-block">
+    <span class="inline-block" on:click={() => (tooltipOpen = true)}>
       <Tooltip />
     </span>
   </h4>
@@ -53,3 +55,15 @@
     </div>
   {/if}
 </div>
+
+<TooltipModal title="Processing Fees" bind:isOpen={tooltipOpen}>
+  <span slot="body">
+    <p>
+      Processing Fees are the amount you pay to have your bridge message
+      processed on the destination chain.
+      <br /> Use the recommended fee to have a relayer pick it up as soon as they
+      can, use a custom fee if you okay with waiting, or no fee if you want to come
+      back here and claim it yourself.
+    </p>
+  </span>
+</TooltipModal>

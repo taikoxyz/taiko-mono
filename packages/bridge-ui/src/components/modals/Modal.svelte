@@ -12,7 +12,11 @@
   };
 </script>
 
-<div class="modal bg-black/60" class:modal-open={isOpen} on:click|self={onCloseClicked}>
+<div
+  class="modal bg-black/60"
+  class:modal-open={isOpen}
+  on:click|self={onCloseClicked}
+>
   <div class="modal-box bg-dark-3">
     <h3 class="font-bold text-lg text-center mt-4">{title}</h3>
     {#if showXButton}
@@ -31,3 +35,9 @@
     </div>
   </div>
 </div>
+
+<style>
+  .modal {
+    align-items: center;
+  }
+</style>
