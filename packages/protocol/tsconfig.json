@@ -7,6 +7,14 @@
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["./scripts", "./test", "./typechain", "./tasks"],
-  "files": ["./hardhat.config.ts"]
+  "include": [
+    "./scripts",
+    "./test",
+    "./typechain",
+    "./tasks",
+    "./integration_test"
+  ],
+  "files": [
+    "./hardhat.config.ts"
+  ]
 }

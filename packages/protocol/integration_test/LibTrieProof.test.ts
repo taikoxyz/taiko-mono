@@ -1,10 +1,10 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import RLP from "rlp"
-import { Message } from "../utils/message"
-import { EthGetProofResponse } from "../utils/rpc"
+import { Message } from "../test/utils/message"
+import { EthGetProofResponse } from "../test/utils/rpc"
 
-describe("integration:LibTrieProof", function () {
+describe("LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
             await ethers.getContractFactory("LibTrieProof")
