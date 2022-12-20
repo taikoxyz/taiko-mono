@@ -117,6 +117,7 @@ const config: HardhatUserConfig = {
                     { name: "K_ANCHOR_TX_SELECTOR", type: "bytes4" },
                     { name: "K_BLOCK_DEADEND_HASH", type: "bytes32" },
                     { name: "K_INVALIDATE_BLOCK_LOG_TOPIC", type: "bytes32" },
+                    { name: "K_SKIP_PROOF_VALIDATION", type: "bool" },
                 ]
 
                 for (let i = 0; i < CONSTANTS.length; i++) {
