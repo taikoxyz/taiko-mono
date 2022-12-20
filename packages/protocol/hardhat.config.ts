@@ -111,6 +111,9 @@ const config: HardhatUserConfig = {
                 for (let i = 0; i < CONSTANTS.length; i++) {
                     const name = CONSTANTS[i]
                     if (line.includes(`public constant ${name}`)) {
+                        console.log(
+                            `🥁 constant ${name} = ${process.env[name]} applied`
+                        )
                         return `${line.slice(0, line.indexOf(" = "))} = ${
                             process.env[name]
                         };`
