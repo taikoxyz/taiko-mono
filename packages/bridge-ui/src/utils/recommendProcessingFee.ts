@@ -23,7 +23,9 @@ export async function recommendProcessingFee(
   const p = get(providers);
   const provider = p.get(toChain.id);
   const gasPrice = await provider.getGasPrice();
-  let gasLimit = ethGasLimit; // gasLimit for processMessage call for ETH is about ~800k. to make it enticing, we say 900k.
+  // gasLimit for processMessage call for ETH is about ~800k.
+  // to make it enticing, we say 900k.
+  let gasLimit = ethGasLimit;
   if (token.symbol.toLowerCase() !== ETH.symbol.toLowerCase()) {
     const srcChainAddr = token.addresses.find(
       (t) => t.chainId === fromChain.id
@@ -41,12 +43,13 @@ export async function recommendProcessingFee(
       srcChainAddr
     );
 
-    // gas limit for erc20 if not deployed on the dest chain already is about ~2.9m
-    // so we add some to make it enticing
+    // gas limit for erc20 if not deployed on the dest chain already
+    // is about ~2.9m so we add some to make it enticing
     if (bridged == ethers.constants.AddressZero) {
       gasLimit = erc20NotDeployedGasLimit;
     } else {
       // gas limit for erc20 if already deployed on the dest chain is about ~1m
+      // so again, add some to ensure processing
       gasLimit = erc20DeployedGasLimit;
     }
   }
