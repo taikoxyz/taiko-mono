@@ -7,7 +7,9 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 export default defineConfig({
   define: {
     global: 'globalThis',
-    'process.env.NODE_DEBUG': false
+    'process.env.NODE_DEBUG': false,
+    'process.env.LINK_API_URL': false,
+    'process.env.SDK_VERSION': "'unknown'"
   },
   plugins: [
     svelte(),
