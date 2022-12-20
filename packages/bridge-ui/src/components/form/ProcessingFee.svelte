@@ -2,6 +2,7 @@
   import { _ } from "svelte-i18n";
   import { processingFee } from "../../store/fee";
   import { ProcessingFeeMethod, PROCESSING_FEE_META } from "../../domain/fee";
+  import Tooltip from "../icons/Tooltip.svelte";
 
   export let customFee: string;
 
@@ -17,6 +18,9 @@
 <div class="my-10 w-full">
   <h4 class="text-sm font-medium text-left mb-4">
     {$_("bridgeForm.processingFeeLabel")}
+    <span class="inline-block">
+      <Tooltip />
+    </span>
   </h4>
   <div class="flex items-center justify-around">
     {#each Array.from(PROCESSING_FEE_META) as fee}
