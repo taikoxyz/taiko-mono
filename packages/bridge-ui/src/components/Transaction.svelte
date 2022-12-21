@@ -95,7 +95,8 @@
   }
 </script>
 
-<tr>
+<tr
+  >qeqe
   <td>
     <svelte:component this={fromChain.icon} height={18} width={18} />
     <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
