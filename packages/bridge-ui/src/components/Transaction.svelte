@@ -91,15 +91,6 @@
     const srcBlock = await $providers
       .get(chains[transaction.message.srcChainId.toNumber()].id)
       .getBlock(latestSyncedHeader);
-    console.log(
-      "From ",
-      transaction.message.srcChainId,
-      "To ",
-      "Tx sent in block",
-      transaction.receipt.blockNumber,
-      "latest synced block",
-      srcBlock.number
-    );
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 </script>
