@@ -17,6 +17,8 @@ type GenerateProofOpts = {
   signal: string;
   sender: string;
   srcBridgeAddress: string;
+  destChain: number;
+  destHeaderSyncAddress: string;
   srcChain: number;
 };
 

@@ -250,6 +250,8 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -272,6 +274,8 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -299,6 +303,8 @@ describe("bridge tests", () => {
         message: {
           owner: "0x",
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -331,7 +337,9 @@ describe("bridge tests", () => {
       message: {
         owner: "0x",
         srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",
@@ -365,7 +373,9 @@ describe("bridge tests", () => {
       message: {
         owner: "0x",
         srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",

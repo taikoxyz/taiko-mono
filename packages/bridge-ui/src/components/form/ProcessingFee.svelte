@@ -2,11 +2,27 @@
   import { _ } from "svelte-i18n";
   import { processingFee } from "../../store/fee";
   import { ProcessingFeeMethod, PROCESSING_FEE_META } from "../../domain/fee";
-  import TooltipModal from "../modals/TooltipModal.svelte";
+  import { toChain, fromChain } from "../../store/chain";
+  import { token } from "../../store/token";
+  import { signer } from "../../store/signer";
+  import { recommendProcessingFee } from "../../utils/recommendProcessingFee";
   import Tooltip from "../Tooltip.svelte";
+  import TooltipModal from "../modals/TooltipModal.svelte";
 
   export let customFee: string;
+  export let recommendedFee: string = "0";
+
   let tooltipOpen: boolean = false;
+
+  $: recommendProcessingFee(
+    $toChain,
+    $fromChain,
+    $processingFee,
+    $token,
+    $signer
+  )
+    .then((fee) => (recommendedFee = fee))
+    .catch((e) => console.error(e));
 
   function selectProcessingFee(fee) {
     $processingFee = fee;
@@ -41,8 +57,8 @@
       <span class="!rounded-r-lg bg-dark-4">ETH</span>
     </label>
   {:else if $processingFee === ProcessingFeeMethod.RECOMMENDED}
-    <div class="flex flex-row">
-      <span class="mt-2 text-sm">0.01 ETH</span>
+    <div class="flex items-left justify-between">
+      <span class="mt-2 text-sm">{recommendedFee} ETH </span>
     </div>
   {/if}
 
@@ -61,17 +77,6 @@
 
 <TooltipModal title="Processing Fees" bind:isOpen={tooltipOpen}>
   <span slot="body">
-<<<<<<< HEAD
-    <p>
-      Processing Fees are the amount you pay to have your bridge message
-      processed on the destination chain.
-      <br /> Use the recommended fee to have a relayer pick it up as soon as they
-      can, use a custom fee if you okay with waiting, or no fee if you want to come
-      back here and claim it yourself.
-    </p>
-  </span>
-</TooltipModal>
-=======
     <div class="text-left">
       The amount you pay the relayer to process your bridge message on the
       destination chain.
@@ -104,4 +109,3 @@
     -moz-appearance: textfield !important;
   }
 </style>
->>>>>>> b90d041172378d710d794d0cd6a576accbdec13e

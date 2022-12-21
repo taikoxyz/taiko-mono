@@ -11,6 +11,7 @@ import ERC20 from "../constants/abi/ERC20";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
 import BridgeABI from "../constants/abi/Bridge";
+import { chains } from "../domain/chain";
 
 class ERC20Bridge implements Bridge {
   private readonly prover: Prover;
@@ -145,6 +146,9 @@ class ERC20Bridge implements Bridge {
         signal: opts.signal,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
+        destChain: opts.message.destChainId.toNumber(),
+        destHeaderSyncAddress:
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
       });
 
       return await contract.processMessage(opts.message, proof, {

@@ -14,8 +14,8 @@
   import { truncateString } from "../utils/truncateString";
   import { ChevronDown } from "svelte-heros-v2";
 
-  let address: string;
-  let addressAvatarImgData: string;
+  let address: string = "";
+  let addressAvatarImgData: string = "";
   let tokenBalance: string = "";
 
   onMount(async () => {
@@ -23,6 +23,8 @@
   });
 
   $: getUserBalance($signer);
+
+  $: setAddress($signer);
 
   async function getUserBalance(signer) {
     if (signer) {
