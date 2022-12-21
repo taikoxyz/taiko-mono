@@ -1,20 +1,18 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
   import { pendingTransactions } from "../store/transactions";
-  import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
-  import CopyIcon from "./icons/Copy.svelte";
-  import DisconnectIcon from "./icons/Disconnect.svelte";
+  import { ClipboardDocument, Power } from "svelte-heros-v2";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
+  import { ChevronDown } from "svelte-heros-v2";
 
   let address: string;
   let addressAvatarImgData: string;
@@ -55,7 +53,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end">
-  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
+  <label tabindex="0" class="btn btn-md justify-around">
     <span class="font-normal flex-1 text-left">
       {#if $pendingTransactions && $pendingTransactions.length}
         {$pendingTransactions.length} Pending
@@ -81,15 +79,16 @@
           alt="avatar"
         />
 
-        <span class="hidden md:inline-block">
+        <span class="hidden md:inline-block mr-2">
           {addressSubsection(address)}
         </span>
       {/if}
     </span>
+    <ChevronDown />
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-64 mt-2 pb-2"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2"
   >
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
@@ -116,14 +115,14 @@
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await copyToClipboard(address)}
     >
-      <CopyIcon />
+      <ClipboardDocument class="mr-2" />
       Copy Address
     </div>
     <div
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await disconnect()}
     >
-      <DisconnectIcon /> Disconnect
+      <Power class="mr-2" /> Disconnect
     </div>
   </ul>
 </div>

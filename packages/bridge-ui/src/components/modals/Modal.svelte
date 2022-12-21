@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
-
   export let title: string = null;
   export let isOpen: boolean = false;
   export let onClose: () => void = null;
