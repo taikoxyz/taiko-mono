@@ -2,7 +2,6 @@
   import { _ } from "svelte-i18n";
 
   import { fromChain, toChain } from "../store/chain";
-  import MetaMask from "./icons/MetaMask.svelte";
   import { switchEthereumChain } from "../utils/switchEthereumChain";
   import { ethereum } from "../store/ethereum";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
@@ -48,7 +47,6 @@
       >
         <svelte:component this={CHAIN_MAINNET.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
-        <MetaMask />
       </button>
     </li>
     <li>
@@ -60,7 +58,6 @@
       >
         <svelte:component this={CHAIN_TKO.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{CHAIN_TKO.name}</span>
-        <MetaMask />
       </button>
     </li>
   </ul>

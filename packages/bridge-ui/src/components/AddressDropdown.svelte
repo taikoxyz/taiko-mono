@@ -9,7 +9,7 @@
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
-  import { Clipboard, Power } from "svelte-heros-v2";
+  import { ClipboardDocument, Power } from "svelte-heros-v2";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
@@ -87,7 +87,7 @@
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-64 mt-2 pb-2"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2"
   >
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
@@ -114,14 +114,14 @@
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await copyToClipboard(address)}
     >
-      <Clipboard />
+      <ClipboardDocument class="mr-2" />
       Copy Address
     </div>
     <div
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await disconnect()}
     >
-      <Power /> Disconnect
+      <Power class="mr-2" /> Disconnect
     </div>
   </ul>
 </div>
