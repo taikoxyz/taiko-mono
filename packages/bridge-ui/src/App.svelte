@@ -202,7 +202,7 @@
 
 <QueryProvider>
   <div class="lg:container lg:mx-auto lg:px-64">
-    <main>
+    <main class="mt-48 lg:mt-20">
       <HeaderAnnouncement />
       <Navbar />
       <Router {routes} />

@@ -27,13 +27,13 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end mr-4">
-  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
+  <label tabindex="0" class="btn btn-md xl:btn-wide justify-around">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
-        <span class="ml-2 hidden md:inline-block">{$fromChain.name}</span>
+        <span class="ml-2 hidden xl:inline-block">{$fromChain.name}</span>
       {:else}
-        <span class="ml-2 hidden md:inline-block">Invalid Chain</span>
+        <span class="ml-2 hidden xl:inline-block">Invalid Chain</span>
       {/if}
     </span>
 

@@ -5,6 +5,7 @@
     viewBox="0 0 161 43"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    class="w-32 lg:w-full"
   >
     <path d="M86.2853 1.61096H80.9694V41.2532H86.2853V1.61096Z" fill="white" />
     <path

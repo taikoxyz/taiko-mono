@@ -25,6 +25,7 @@
       class="input input-primary bg-dark-4 input-md md:input-lg w-full"
       name="memo"
       bind:value={memo}
+      autocomplete="off"
     />
   {/if}
 </div>

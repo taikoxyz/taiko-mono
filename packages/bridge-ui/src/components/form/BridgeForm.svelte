@@ -276,6 +276,7 @@
       on:input={updateAmount}
       class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
+      autocomplete="off"
     />
     <SelectToken />
   </label>
