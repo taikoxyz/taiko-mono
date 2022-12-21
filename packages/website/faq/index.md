@@ -69,3 +69,6 @@ It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì). The literal me
 
 Taiko (太鼓) is the Japanese term for a drum. For us, Taiko is the "drum" that arouses courage and leads to accomplishing goals.
 
+## Where may I ask more questions?
+
+You can ask more questions at Taiko's Github [Discussions](https://github.com/taikoxyz/taiko-mono/discussions) page.
