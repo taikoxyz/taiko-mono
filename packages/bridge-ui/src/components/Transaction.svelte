@@ -7,7 +7,7 @@
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions } from "../store/transactions";
+  import { pendingTransactions, showTransactionDetails } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import {
@@ -113,20 +113,7 @@
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
-
-  <td>
-    <span
-      class="cursor-pointer inline-block"
-      on:click={() =>
-        window.open(
-          `${fromChain.explorerUrl}/tx/${transaction.ethersTx.hash}`,
-          "_blank"
-        )}
-    >
-      <ArrowTopRightOnSquare />
-    </span>
-  </td>
-
+  
   <td>
     {#if !processable}
       Pending...
@@ -166,6 +153,14 @@
     {/if}
     <span class="inline-block" on:click={() => (tooltipOpen = true)}>
       <Tooltip />
+    </span>
+  </td>
+
+  <td>
+    <span
+      class="cursor-pointer inline-block"
+      on:click={() => $showTransactionDetails = transaction}>
+      <ArrowTopRightOnSquare />
     </span>
   </td>
 </tr>
