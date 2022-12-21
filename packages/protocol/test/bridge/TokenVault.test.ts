@@ -190,4 +190,31 @@ describe("TokenVault", function () {
                 )
         })
     })
+
+    describe("sendERC20()", async () => { 
+        it("should throw if to == address(0)", async function () { 
+
+        })
+        
+        it("should throw if to == destChainId.token_vault", async function () { 
+            
+        })
+
+        it("should throw if token == address(0)", async function () { 
+            
+        })
+
+        it("should throw if amount <= 0", async function () { 
+            
+        })
+
+        it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () { 
+            
+        })
+
+        it("should pass and emit ERC20Sent Event", async function () { 
+            
+        })
+    })
+
 })
