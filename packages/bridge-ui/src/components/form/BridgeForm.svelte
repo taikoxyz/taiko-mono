@@ -309,7 +309,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full"
+    class="btn btn-accent w-full mt-6"
     on:click={approve}
     disabled={btnDisabled}
   >

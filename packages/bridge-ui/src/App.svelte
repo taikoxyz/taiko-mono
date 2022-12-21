@@ -4,6 +4,15 @@
   import Router from "svelte-spa-router";
   import { SvelteToast } from "@zerodevx/svelte-toast";
   import type { SvelteToastOptions } from "@zerodevx/svelte-toast";
+  import {
+    configureChains,
+    createClient,
+    InjectedConnector,
+  } from "@wagmi/core";
+  import { publicProvider } from "@wagmi/core/providers/public";
+  import { jsonRpcProvider } from "@wagmi/core/providers/jsonRpc";
+  import { CoinbaseWalletConnector } from "@wagmi/core/connectors/coinbaseWallet";
+  import { WalletConnectConnector } from "@wagmi/core/connectors/walletConnect";
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
@@ -19,9 +28,16 @@
   import Navbar from "./components/Navbar.svelte";
   import { signer } from "./store/signer";
   import type { Transactioner } from "./domain/transactions";
+  import { wagmiClient } from "./store/wagmi";
 
   setupI18n({ withLocale: "en" });
-  import { chains, CHAIN_MAINNET, CHAIN_TKO } from "./domain/chain";
+  import {
+    chains,
+    CHAIN_MAINNET,
+    CHAIN_TKO,
+    mainnet,
+    taiko,
+  } from "./domain/chain";
   import SwitchEthereumChainModal from "./components/modals/SwitchEthereumChainModal.svelte";
   import { ProofService } from "./proof/service";
   import { ethers } from "ethers";
@@ -45,6 +61,44 @@
     CHAIN_TKO.id,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
   );
+  providers.set(providerMap);
+
+  const {
+    chains: wagmiChains,
+    provider,
+    webSocketProvider,
+  } = configureChains(
+    [mainnet, taiko],
+    [
+      publicProvider(),
+      jsonRpcProvider({
+        rpc: (chain) => ({
+          http: providerMap.get(chain.id).connection.url,
+        }),
+      }),
+    ]
+  );
+
+  $wagmiClient = createClient({
+    provider,
+    connectors: [
+      new InjectedConnector({
+        chains: wagmiChains,
+      }),
+      new CoinbaseWalletConnector({
+        chains: wagmiChains,
+        options: {
+          appName: "Taiko Bridge",
+        },
+      }),
+      new WalletConnectConnector({
+        chains: wagmiChains,
+        options: {
+          qrcode: true,
+        },
+      }),
+    ],
+  });
 
   providers.set(providerMap);
 
@@ -147,16 +201,13 @@
 </script>
 
 <QueryProvider>
-  <div class="lg:container lg:mx-auto lg:px-64">
-    <main>
-      <HeaderAnnouncement />
-      <Navbar />
-      <Router {routes} />
-    </main>
-    <SvelteToast options={toastOptions} />
-
-    <SwitchEthereumChainModal />
-  </div>
+  <main>
+    <HeaderAnnouncement />
+    <Navbar />
+    <Router {routes} />
+  </main>
+  <SvelteToast options={toastOptions} />
+  <SwitchEthereumChainModal />
 </QueryProvider>
 
 <style global lang="postcss">
@@ -165,7 +216,6 @@
   @tailwind utilities;
 
   main {
-    margin: 0;
     font-family: "Inter", sans-serif;
   }
 </style>

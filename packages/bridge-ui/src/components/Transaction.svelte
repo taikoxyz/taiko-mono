@@ -2,16 +2,14 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
-  import TransactionsIcon from "./icons/Transactions.svelte";
+  import { ArrowTopRightOnSquare } from "svelte-heros-v2";
   import { MessageStatus } from "../domain/message";
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions, transactions } from "../store/transactions";
+  import { pendingTransactions } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
-  import { switchEthereumChain } from "../utils/switchEthereumChain";
-  import { ethereum } from "../store/ethereum";
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
@@ -22,6 +20,7 @@
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
+  import { fetchSigner, switchNetwork } from "@wagmi/core";
 
   export let transaction: BridgeTransaction;
 
@@ -36,7 +35,9 @@
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 
@@ -46,7 +47,8 @@
       } else {
         toChainStore.set(CHAIN_MAINNET);
       }
-      signer.set(provider.getSigner());
+      const wagmiSigner = await fetchSigner();
+      signer.set(wagmiSigner);
     }
 
     try {
@@ -77,7 +79,7 @@
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
-    if (transaction.status === MessageStatus.Done) return true;
+    if (transaction.status !== MessageStatus.New) return true;
 
     const contract = new Contract(
       chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
@@ -89,8 +91,7 @@
     const srcBlock = await $providers
       .get(chains[transaction.message.srcChainId.toNumber()].id)
       .getBlock(latestSyncedHeader);
-
-    return transaction.receipt.blockNumber <= srcBlock.number;
+    return transaction.receipt.blockNumber >= srcBlock.number;
   }
 </script>
 
@@ -119,7 +120,7 @@
           "_blank"
         )}
     >
-      <TransactionsIcon />
+      <ArrowTopRightOnSquare />
     </span>
   </td>
 
