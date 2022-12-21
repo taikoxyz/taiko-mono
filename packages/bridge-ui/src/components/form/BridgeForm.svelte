@@ -89,7 +89,7 @@
     }
   }
 
-  $: isBtnDisabled($signer, amount, $token, requiresAllowance)
+  $: isBtnDisabled($signer, amount, $token, tokenBalance, requiresAllowance)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -120,12 +120,15 @@
     signer: Signer,
     amount: string,
     token: Token,
+    tokenBalance: string,
     requiresAllowance: boolean
   ) {
     if (!signer) return true;
+    if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
     if (!chainId || !chains[chainId.toString()]) return true;
-    if (!amount) return true;
+    if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
+      return true;
     if (isNaN(parseFloat(amount))) return true;
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
