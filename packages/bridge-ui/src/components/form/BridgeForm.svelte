@@ -34,6 +34,7 @@
   import TokenVault from "../../constants/abi/TokenVault";
   import type { BridgeTransaction } from "../../domain/transactions";
   import { MessageStatus } from "../../domain/message";
+  import { getContractAddress } from "ethers/lib/utils.js";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -46,6 +47,30 @@
 
   $: getUserBalance($signer, $token, $fromChain);
 
+  async function addrForToken() {
+    let addr = $token.addresses.find(
+      (t) => t.chainId === $fromChain.id
+    ).address;
+    if (!addr || addr === "0x00") {
+      const srcChainAddr = $token.addresses.find(
+        (t) => t.chainId === $toChain.id
+      ).address;
+
+      const tokenVault = new Contract(
+        $chainIdToTokenVaultAddress.get($fromChain.id),
+        TokenVault,
+        $signer
+      );
+
+      const bridged = await tokenVault.canonicalToBridged(
+        $toChain.id,
+        srcChainAddr
+      );
+
+      addr = bridged;
+    }
+    return addr;
+  }
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -56,32 +81,11 @@
         const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
-        let addr = token.addresses.find(
-          (t) => t.chainId === fromChain.id
-        ).address;
-        if (!addr || addr === "0x00") {
-          const srcChainAddr = token.addresses.find(
-            (t) => t.chainId === $toChain.id
-          ).address;
-
-          const tokenVault = new Contract(
-            $chainIdToTokenVaultAddress.get(fromChain.id),
-            TokenVault,
-            signer
-          );
-
-          const bridged = await tokenVault.canonicalToBridged(
-            $toChain.id,
-            srcChainAddr
-          );
-
-          if (bridged == ethers.constants.AddressZero) {
-            tokenBalance = "0";
-            return;
-          }
-          addr = bridged;
+        const addr = await addrForToken();
+        if (addr == ethers.constants.AddressZero) {
+          tokenBalance = "0";
+          return;
         }
-
         const contract = new Contract(addr, ERC20, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
@@ -106,11 +110,11 @@
   ) {
     if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
 
+    const addr = await addrForToken();
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
-      contractAddress: token.addresses.find((t) => t.chainId === fromChain.id)
-        .address,
+      contractAddress: addr,
       spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
     });
     return allowance;
@@ -149,9 +153,7 @@
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: $token.addresses.find(
-          (t) => t.chainId === $fromChain.id
-        ).address,
+        contractAddress: contractAddress,
         spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
       });
 
@@ -181,8 +183,7 @@
       const tx = await $activeBridge.Bridge({
         amountInWei: amountInWei,
         signer: $signer,
-        tokenAddress: $token.addresses.find((t) => t.chainId === $fromChain.id)
-          .address,
+        tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),

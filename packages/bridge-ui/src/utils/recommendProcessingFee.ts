@@ -27,9 +27,15 @@ export async function recommendProcessingFee(
   // to make it enticing, we say 900k.
   let gasLimit = ethGasLimit;
   if (token.symbol.toLowerCase() !== ETH.symbol.toLowerCase()) {
-    const srcChainAddr = token.addresses.find(
+    let srcChainAddr = token.addresses.find(
       (t) => t.chainId === fromChain.id
     ).address;
+
+    if (!srcChainAddr || srcChainAddr === "0x00") {
+      srcChainAddr = token.addresses.find(
+        (t) => t.chainId === toChain.id
+      ).address;
+    }
 
     const chainIdsToTokenVault = get(chainIdToTokenVaultAddress);
     const tokenVault = new Contract(
