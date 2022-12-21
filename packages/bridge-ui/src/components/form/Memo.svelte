@@ -3,7 +3,7 @@
   import Tooltip from "../Tooltip.svelte";
 
   export let memo: string = "";
-  let showMemo: boolean = true;
+  let showMemo: boolean = false;
   let tooltipOpen: boolean = false;
 </script>
 
