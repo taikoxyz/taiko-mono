@@ -17,7 +17,7 @@
   }
 </script>
 
-<div class="my-10 w-full">
+<div class="my-10">
   <div class="flex flex-row justify-between">
     <span class="text-left label-text">
       {$_("bridgeForm.processingFeeLabel")}
@@ -51,7 +51,7 @@
       <button
         class="{$processingFee === fee[0]
           ? 'border-accent hover:border-accent'
-          : ''} btn btn-sm"
+          : ''} btn btn-md text-xs font-semibold md:w-32"
         on:click={() => selectProcessingFee(fee[0])}
         >{fee[1].displayText}</button
       >

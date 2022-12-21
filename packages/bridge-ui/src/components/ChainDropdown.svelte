@@ -24,8 +24,8 @@
   };
 </script>
 
-<div class="dropdown dropdown-bottom dropdown-end mr-4">
-  <label tabindex="0" class="btn btn-md justify-around">
+<div class="dropdown dropdown-end mr-4">
+  <label tabindex="0" class="btn btn-md justify-around w-[194px]">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -38,7 +38,7 @@
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content flex menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
+    class="dropdown-content flex my-2 menu p-2 shadow bg-dark-3 rounded-box w-[194px]"
   >
     <li>
       <button
@@ -64,9 +64,3 @@
     </li>
   </ul>
 </div>
-
-<style>
-  .menu li > span {
-    padding-left: 0px;
-  }
-</style>
