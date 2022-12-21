@@ -40,7 +40,22 @@ const storageProof: EthGetProofResponse = {
   storageProof: [
     {
       key: "0x01",
-      value: "0x01",
+      value: "0x1",
+      proof: [ethers.constants.HashZero],
+    },
+  ],
+};
+
+const invalidStorageProof: EthGetProofResponse = {
+  balance: "",
+  nonce: "",
+  codeHash: "",
+  storageHash: "",
+  accountProof: [],
+  storageProof: [
+    {
+      key: "0x01",
+      value: "0x0",
       proof: [ethers.constants.HashZero],
     },
   ],
@@ -56,6 +71,38 @@ describe("prover tests", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     block.baseFeePerGas = "0";
+  });
+
+  it("throws on invalid proof", async () => {
+    mockProvider.send.mockImplementation(
+      (method: string, params: unknown[]) => {
+        if (method === "eth_getBlockByNumber") {
+          return block;
+        }
+
+        if (method === "eth_getProof") {
+          return invalidStorageProof;
+        }
+      }
+    );
+
+    const srcChain = 167001;
+    const map = new Map<number, ethers.providers.JsonRpcProvider>();
+    map.set(
+      srcChain,
+      mockProvider as unknown as ethers.providers.JsonRpcProvider
+    );
+
+    const prover: ProofService = new ProofService(map);
+
+    await expect(
+      prover.GenerateProof({
+        signal: ethers.constants.HashZero,
+        sender: ethers.constants.AddressZero,
+        srcBridgeAddress: ethers.constants.AddressZero,
+        srcChain: srcChain,
+      })
+    ).rejects.toThrowError("invalid proof");
   });
 
   it("generates proof", async () => {

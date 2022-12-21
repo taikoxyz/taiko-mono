@@ -21,20 +21,25 @@ const weth: CanonicalERC20 = {
 }
 
 describe("TokenVault", function () {
-    async function deployTokenVaultFixture() {
-        const [owner, nonOwner] = await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let tokenVault: TokenVault
+    const defaultProcessingFee = 10
+    const destChainId = 167001
 
-        // Deploying addressManager Contract
+    before(async function () {
+        ;[owner, nonOwner] = await ethers.getSigners()
+    })
+
+    beforeEach(async function () {
         const tokenVaultAddressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await tokenVaultAddressManager.init()
 
-        const TokenVaultFactory = await ethers.getContractFactory("TokenVault")
-
-        const tokenVault: TokenVault = await TokenVaultFactory.connect(
-            owner
-        ).deploy()
+        tokenVault = await (await ethers.getContractFactory("TokenVault"))
+            .connect(owner)
+            .deploy()
 
         await tokenVault.init(tokenVaultAddressManager.address)
 
@@ -50,18 +55,10 @@ describe("TokenVault", function () {
             `${network.chainId}.bridge`,
             testMessageSender.address
         )
-        return {
-            owner,
-            nonOwner,
-            tokenVault,
-            tokenVaultAddressManager,
-        }
-    }
+    })
 
     describe("receiveERC20()", async () => {
         it("throws when named 'bridge' is not the caller", async () => {
-            const { owner, nonOwner, tokenVault } =
-                await deployTokenVaultFixture()
             const amount = BigNumber.from(1)
 
             await expect(
@@ -77,16 +74,12 @@ describe("TokenVault", function () {
 
     describe("sendEther()", async () => {
         it("throws when msg.value is 0", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 10
-
             await expect(
                 tokenVault.sendEther(
-                    167001,
+                    destChainId,
                     owner.address,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     ""
                 )
@@ -94,71 +87,55 @@ describe("TokenVault", function () {
         })
 
         it("throws when msg.value - processing fee is 0", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 10
-
             await expect(
                 tokenVault.sendEther(
-                    167001,
+                    destChainId,
                     owner.address,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     "",
                     {
-                        value: processingFee,
+                        value: defaultProcessingFee,
                     }
                 )
             ).to.be.revertedWith("V:msgValue")
         })
 
         it("throws when msg.value is < processingFee", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 10
-
             await expect(
                 tokenVault.sendEther(
-                    167001,
+                    destChainId,
                     owner.address,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     "",
                     {
-                        value: processingFee - 1,
+                        value: defaultProcessingFee - 1,
                     }
                 )
             ).to.be.revertedWith("V:msgValue")
         })
 
         it("throws when to is 0", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 10
-
             await expect(
                 tokenVault.sendEther(
-                    167001,
+                    destChainId,
                     ethers.constants.AddressZero,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     "",
                     {
-                        value: processingFee - 1,
+                        value: defaultProcessingFee - 1,
                     }
                 )
             ).to.be.revertedWith("V:to")
         })
 
         it("succeeds with processingFee", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 10
             const depositValue = 1000
-            const destChainId = 167001
 
             const testSignal =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab"
@@ -168,7 +145,7 @@ describe("TokenVault", function () {
                     destChainId,
                     owner.address,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     "",
                     {
@@ -180,17 +157,13 @@ describe("TokenVault", function () {
                 .withArgs(
                     owner.address,
                     destChainId,
-                    depositValue - processingFee,
+                    depositValue - defaultProcessingFee,
                     testSignal
                 )
         })
 
         it("succeeds with 0 processingFee", async () => {
-            const { owner, tokenVault } = await deployTokenVaultFixture()
-
-            const processingFee = 0
             const depositValue = 1000
-            const destChainId = 167001
 
             const testSignal =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab"
@@ -200,7 +173,7 @@ describe("TokenVault", function () {
                     destChainId,
                     owner.address,
                     10000,
-                    processingFee,
+                    defaultProcessingFee,
                     owner.address,
                     "",
                     {
@@ -212,7 +185,7 @@ describe("TokenVault", function () {
                 .withArgs(
                     owner.address,
                     destChainId,
-                    depositValue - processingFee,
+                    depositValue - defaultProcessingFee,
                     testSignal
                 )
         })

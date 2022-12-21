@@ -1,9 +1,12 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { TaikoL1 } from "../../typechain"
 
 describe("TaikoL1", function () {
-    async function deployTaikoL1Fixture() {
-        // Deploying addressManager Contract
+    let taikoL1: TaikoL1
+    let genesisHash: string
+
+    beforeEach(async function () {
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
@@ -39,24 +42,21 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("V1Verifying")
         ).deploy()
 
-        const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
-            libraries: {
-                V1Verifying: v1Verifying.address,
-                V1Proposing: v1Proposing.address,
-                V1Proving: v1Proving.address,
-            },
-        })
-
-        const genesisHash = randomBytes32()
-        const taikoL1 = await TaikoL1Factory.deploy()
+        genesisHash = randomBytes32()
+        taikoL1 = await (
+            await ethers.getContractFactory("TaikoL1", {
+                libraries: {
+                    V1Verifying: v1Verifying.address,
+                    V1Proposing: v1Proposing.address,
+                    V1Proving: v1Proving.address,
+                },
+            })
+        ).deploy()
         await taikoL1.init(addressManager.address, genesisHash)
-
-        return { taikoL1, genesisHash }
-    }
+    })
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be genesisHash because no headers have been synced", async function () {
-            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
             const hash = await taikoL1.getLatestSyncedHeader()
             expect(hash).to.be.eq(genesisHash)
         })
@@ -64,14 +64,10 @@ describe("TaikoL1", function () {
 
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
-            const { taikoL1 } = await deployTaikoL1Fixture()
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
-                "L1:number"
-            )
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:number")
         })
 
         it("should return appropraite hash for header", async function () {
-            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
             const hash = await taikoL1.getSyncedHeader(0)
             expect(hash).to.be.eq(genesisHash)
         })
@@ -79,8 +75,6 @@ describe("TaikoL1", function () {
 
     describe("getBlockProvers()", async function () {
         it("should return empty list when there is no proof for that block", async function () {
-            const { taikoL1 } = await deployTaikoL1Fixture()
-
             const provers = await taikoL1.getBlockProvers(
                 Math.ceil(Math.random() * 1024),
                 randomBytes32()

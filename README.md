@@ -18,10 +18,10 @@
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Solidity?label=Protocol&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Golang?label=Relayer&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Bridge%20UI?label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/taikoxyz/taiko-mono/Website?label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/solidity.yml?branch=main&label=Protocol&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/solidity.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/golang.yml?branch=main&label=Relayer&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/golang.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/typescript.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/typescript.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/website.yml?branch=main&label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
 
 [![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=protocol&label=Protocol&logo=codecov&token=E468X2PTJC)](https://app.codecov.io/gh/taikoxyz/taiko-mono/tree/main/packages/protocol)
 [![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=relayer&label=Relayer&logo=codecov&token=E468X2PTJC)](https://app.codecov.io/gh/taikoxyz/taiko-mono/tree/main/packages/relayer)

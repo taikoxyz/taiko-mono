@@ -4,13 +4,14 @@ enum MessageStatus {
   New,
   Retriable,
   Done,
+  Failed,
 }
 
 type Message = {
   id: number;
   sender: string;
-  srcChainId: number;
-  destChainId: number;
+  srcChainId: BigNumber;
+  destChainId: BigNumber;
   owner: string;
   to: string;
   refundAddress: string;

@@ -13,10 +13,21 @@ import {
 } from "../../../typechain"
 
 describe("LibBridgeRetry", function () {
-    async function deployLibBridgeRetryFixture() {
-        const [owner, refundAddress, nonOwner, etherVaultOwner] =
-            await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let refundAddress: any
+    let etherVaultOwner: any
+    let etherVault: EtherVault
+    let libRetry: TestLibBridgeRetry
+    let badLibRetry: TestLibBridgeRetry
+    let testLibData: TestLibBridgeData
 
+    before(async function () {
+        ;[owner, nonOwner, refundAddress, etherVaultOwner] =
+            await ethers.getSigners()
+    })
+
+    beforeEach(async function () {
         const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
@@ -27,9 +38,7 @@ describe("LibBridgeRetry", function () {
         ).deploy()
         await badAddressManager.init()
 
-        const etherVault: EtherVault = await (
-            await ethers.getContractFactory("EtherVault")
-        )
+        etherVault = await (await ethers.getContractFactory("EtherVault"))
             .connect(etherVaultOwner)
             .deploy()
 
@@ -67,11 +76,11 @@ describe("LibBridgeRetry", function () {
             })
         ).connect(owner)
 
-        const libRetry: TestLibBridgeRetry = await libRetryFactory.deploy()
+        libRetry = await libRetryFactory.deploy()
         await libRetry.init(addressManager.address)
         await libRetry.deployed()
 
-        const badLibRetry: TestLibBridgeRetry = await libRetryFactory.deploy()
+        badLibRetry = await libRetryFactory.deploy()
         await badLibRetry.init(badAddressManager.address)
         await badLibRetry.deployed()
 
@@ -79,26 +88,13 @@ describe("LibBridgeRetry", function () {
             .connect(etherVaultOwner)
             .authorize(libRetry.address, true)
 
-        const testLibData: TestLibBridgeData = await (
+        testLibData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy()
-
-        return {
-            owner,
-            refundAddress,
-            nonOwner,
-            libRetry,
-            testLibData,
-            badLibRetry,
-            etherVault,
-        }
-    }
+    })
 
     describe("retryMessage()", async function () {
         it("should throw if message.gaslimit == 0 && msg.sender != message.owner", async function () {
-            const { owner, nonOwner, libRetry } =
-                await deployLibBridgeRetryFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -121,9 +117,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("should throw if lastAttempt == true && msg.sender != message.owner", async function () {
-            const { owner, nonOwner, libRetry } =
-                await deployLibBridgeRetryFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -146,9 +139,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("should throw if message status is not RETRIABLE", async function () {
-            const { owner, nonOwner, libRetry } =
-                await deployLibBridgeRetryFixture()
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -171,9 +161,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("if etherVault resolves to address(0), retry should fail and messageStatus should not change if not lastAttempt since no ether received", async function () {
-            const { owner, refundAddress, testLibData, badLibRetry } =
-                await deployLibBridgeRetryFixture()
-
             const testReceiver: TestReceiver = await (
                 await ethers.getContractFactory("TestReceiver")
             ).deploy()
@@ -223,9 +210,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("should fail, but since lastAttempt == true messageStatus should be set to DONE", async function () {
-            const { owner, libRetry, refundAddress, testLibData } =
-                await deployLibBridgeRetryFixture()
-
             const testBadReceiver: TestBadReceiver = await (
                 await ethers.getContractFactory("TestBadReceiver")
             ).deploy()
@@ -278,9 +262,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("should fail, messageStatus is still RETRIABLE and balance is returned to etherVault", async function () {
-            const { owner, libRetry, testLibData, etherVault } =
-                await deployLibBridgeRetryFixture()
-
             const testBadReceiver: TestBadReceiver = await (
                 await ethers.getContractFactory("TestBadReceiver")
             ).deploy()
@@ -335,9 +316,6 @@ describe("LibBridgeRetry", function () {
         })
 
         it("should succeed, set message status to done, invoke message succesfsully", async function () {
-            const { owner, libRetry, refundAddress, testLibData } =
-                await deployLibBridgeRetryFixture()
-
             const testReceiver: TestReceiver = await (
                 await ethers.getContractFactory("TestReceiver")
             ).deploy()

@@ -10,6 +10,7 @@ import TokenVault from "../constants/abi/TokenVault";
 import ERC20 from "../constants/abi/ERC20";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
+import BridgeABI from "../constants/abi/Bridge";
 
 class ERC20Bridge implements Bridge {
   private readonly prover: Prover;
@@ -68,14 +69,14 @@ class ERC20Bridge implements Bridge {
         opts.tokenAddress,
         opts.signer,
         opts.amountInWei,
-        opts.bridgeAddress
+        opts.tokenVaultAddress
       )
     ) {
       throw Error("token vault does not have required allowance");
     }
 
     const contract: Contract = new Contract(
-      opts.bridgeAddress,
+      opts.tokenVaultAddress,
       TokenVault,
       opts.signer
     );
@@ -103,9 +104,12 @@ class ERC20Bridge implements Bridge {
       opts.tokenAddress,
       opts.amountInWei,
       message.gasLimit,
-      message.processingFee,
+      0,
       message.refundAddress,
       message.memo
+      // {
+      //   value: message.processingFee.add(message.callValue),
+      // }
     );
 
     return tx;
@@ -114,7 +118,7 @@ class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      TokenVault,
+      BridgeABI,
       opts.signer
     );
 
@@ -122,7 +126,10 @@ class ERC20Bridge implements Bridge {
       opts.signal
     );
 
-    if (messageStatus === MessageStatus.Done) {
+    if (
+      messageStatus === MessageStatus.Done ||
+      messageStatus === MessageStatus.Failed
+    ) {
       throw Error("message already processed");
     }
 
@@ -134,15 +141,19 @@ class ERC20Bridge implements Bridge {
 
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
-        srcChain: opts.message.srcChainId,
+        srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
-        sender: opts.message.sender,
+        sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
       });
 
-      return await contract.processMessage(opts.message, proof);
+      return await contract.processMessage(opts.message, proof, {
+        gasLimit: 3500000,
+      });
     } else {
-      return await contract.retryMessage(opts.message);
+      return await contract.retryMessage(opts.message, false, {
+        gasLimit: 3500000,
+      });
     }
   }
 }

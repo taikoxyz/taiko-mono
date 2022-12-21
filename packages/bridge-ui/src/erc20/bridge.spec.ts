@@ -43,7 +43,7 @@ const opts: BridgeOpts = {
   tokenAddress: "0xtoken",
   fromChainId: mainnet.id,
   toChainId: taiko.id,
-  bridgeAddress: "0x456",
+  tokenVaultAddress: "0x456",
   processingFeeInWei: BigNumber.from(2),
   memo: "memo",
 };
@@ -176,7 +176,7 @@ describe("bridge tests", () => {
     expect(mockContract.sendERC20).not.toHaveBeenCalled();
   });
 
-  it("bridge calls senderc20 when doesnt requires approval", async () => {
+  it("bridge calls senderc20 when doesnt require approval", async () => {
     mockContract.allowance.mockImplementationOnce(() =>
       opts.amountInWei.add(1)
     );
@@ -195,9 +195,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(100000),
-      opts.processingFeeInWei,
+      0,
       "0xfake",
       opts.memo
+      // {
+      //   value: opts.processingFeeInWei,
+      // }
     );
   });
 
@@ -217,7 +220,7 @@ describe("bridge tests", () => {
       tokenAddress: "0xtoken",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
     };
 
     await bridge.Bridge(opts);
@@ -228,7 +231,7 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(0),
-      BigNumber.from(0),
+      0,
       "0xfake",
       ""
     );
@@ -245,7 +248,31 @@ describe("bridge tests", () => {
 
     await expect(
       bridge.Claim({
-        message: {} as unknown as Message,
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
+        signal: "0x",
+        srcBridgeAddress: "0x",
+        destBridgeAddress: "0x",
+        signer: wallet,
+      })
+    ).rejects.toThrowError("message already processed");
+  });
+
+  it("claim throws if message status is failed", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Failed;
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(null);
+
+    await expect(
+      bridge.Claim({
+        message: {
+          srcChainId: BigNumber.from(167001),
+        } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
@@ -271,6 +298,7 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           owner: "0x",
+          srcChainId: BigNumber.from(167001),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -302,7 +330,7 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
         sender: "0x01",
       } as unknown as Message,
       signal: "0x",
@@ -336,7 +364,7 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
         sender: "0x01",
       } as unknown as Message,
       signal: "0x",
