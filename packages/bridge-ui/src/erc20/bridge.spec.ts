@@ -195,12 +195,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(100000),
-      0,
+      opts.processingFeeInWei,
       "0xfake",
-      opts.memo
-      // {
-      //   value: opts.processingFeeInWei,
-      // }
+      opts.memo,
+      {
+        value: opts.processingFeeInWei,
+      }
     );
   });
 
@@ -231,9 +231,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(0),
-      0,
+      BigNumber.from(0),
       "0xfake",
-      ""
+      "",
+      {
+        value: BigNumber.from(0),
+      }
     );
   });
 
