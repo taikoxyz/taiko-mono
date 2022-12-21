@@ -166,6 +166,8 @@
 
           const interval = setInterval(async () => {
             tx.interval = interval;
+            if (!tx.signal) return;
+
             const contract = new ethers.Contract(
               chains[tx.toChainId].bridgeAddress,
               BridgeABI,
