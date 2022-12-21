@@ -10,6 +10,7 @@ import TokenVault from "../constants/abi/TokenVault";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
 import Bridge from "../constants/abi/Bridge";
+import { chains } from "../domain/chain";
 
 class ETHBridge implements BridgeInterface {
   private readonly prover: Prover;
@@ -90,19 +91,24 @@ class ETHBridge implements BridgeInterface {
     }
 
     if (messageStatus === MessageStatus.New) {
-      const proof = await this.prover.GenerateProof({
+      const proofOpts = {
         srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
-      });
+        destChain: opts.message.destChainId.toNumber(),
+        destHeaderSyncAddress:
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+      };
+
+      const proof = await this.prover.GenerateProof(proofOpts);
 
       return await contract.processMessage(opts.message, proof, {
-        gasLimit: 1500000,
+        gasLimit: opts.message.gasLimit.add(1000000),
       });
     } else {
       return await contract.retryMessage(opts.message, {
-        gasLimit: 1500000,
+        gasLimit: opts.message.gasLimit.add(1000000),
       });
     }
   }

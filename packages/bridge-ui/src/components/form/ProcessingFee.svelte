@@ -2,8 +2,23 @@
   import { _ } from "svelte-i18n";
   import { processingFee } from "../../store/fee";
   import { ProcessingFeeMethod, PROCESSING_FEE_META } from "../../domain/fee";
+  import { toChain, fromChain } from "../../store/chain";
+  import { token } from "../../store/token";
+  import { signer } from "../../store/signer";
+  import { recommendProcessingFee } from "../../utils/recommendProcessingFee";
 
   export let customFee: string;
+  export let recommendedFee: string = "0";
+
+  $: recommendProcessingFee(
+    $toChain,
+    $fromChain,
+    $processingFee,
+    $token,
+    $signer
+  )
+    .then((fee) => (recommendedFee = fee))
+    .catch((e) => console.error(e));
 
   function selectProcessingFee(fee) {
     $processingFee = fee;
@@ -45,7 +60,7 @@
     </label>
   {:else if $processingFee === ProcessingFeeMethod.RECOMMENDED}
     <div class="flex items-left justify-between">
-      <span class="mt-2 text-sm">0.01 ETH </span>
+      <span class="mt-2 text-sm">{recommendedFee} ETH </span>
     </div>
   {/if}
 </div>
