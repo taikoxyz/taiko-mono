@@ -56,10 +56,10 @@
 
 <div class="dropdown dropdown-bottom dropdown-end">
   <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
-    <span class="font-normal flex-1 text-left">
+    <span class="font-normal flex flex-1 text-left items-center">
       {#if $pendingTransactions && $pendingTransactions.length}
-        {$pendingTransactions.length} Pending
-        <div class="inline-block">
+        <span>{$pendingTransactions.length} Pending</span>
+        <div class="inline-block ml-2">
           <LottiePlayer
             src="/lottie/loader.json"
             autoplay={true}

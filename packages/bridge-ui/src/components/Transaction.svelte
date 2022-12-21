@@ -7,7 +7,7 @@
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions } from "../store/transactions";
+  import { pendingTransactions, showTransactionDetails } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import {
@@ -112,19 +112,6 @@
   </td>
 
   <td>
-    <span
-      class="cursor-pointer inline-block"
-      on:click={() =>
-        window.open(
-          `${fromChain.explorerUrl}/tx/${transaction.ethersTx.hash}`,
-          "_blank"
-        )}
-    >
-      <TransactionsIcon />
-    </span>
-  </td>
-
-  <td>
     {#if !processable}
       Pending...
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
@@ -162,6 +149,16 @@
       Claimed
     {/if}
   </td>
+
+  <td>
+    <span
+      class="cursor-pointer inline-block"
+      on:click={() => $showTransactionDetails = transaction}>
+      <TransactionsIcon />
+    </span>
+  </td>
+
+  
 </tr>
 
 <style>
