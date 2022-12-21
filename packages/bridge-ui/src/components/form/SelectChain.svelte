@@ -2,16 +2,17 @@
   import ArrowRightLeft from "../icons/ArrowRightLeft.svelte";
   import { fromChain, toChain } from "../../store/chain";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
-  import { ethereum } from "../../store/ethereum";
   import { signer } from "../../store/signer";
-  import { switchEthereumChain } from "../../utils/switchEthereumChain";
   import { ethers } from "ethers";
   import { errorToast, successToast } from "../../utils/toast";
+  import { switchNetwork } from "@wagmi/core";
 
   const toggleChains = async () => {
     try {
       const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 
