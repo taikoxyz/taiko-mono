@@ -1,14 +1,12 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
-
-  import ChevDown from "./icons/ChevDown.svelte";
   import { fromChain, toChain } from "../store/chain";
-  import MetaMask from "./icons/MetaMask.svelte";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
   import { ethers } from "ethers";
   import { signer } from "../store/signer";
   import { switchNetwork } from "@wagmi/core";
+  import { ChevronDown } from "svelte-heros-v2";
   const changeChain = async (chain: Chain) => {
     await switchNetwork({
       chainId: chain.id,
@@ -27,7 +25,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom dropdown-end mr-4">
-  <label tabindex="0" class="btn btn-md md:btn-wide justify-around">
+  <label tabindex="0" class="btn btn-md justify-around">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -36,6 +34,7 @@
         <span class="ml-2 hidden md:inline-block">Invalid Chain</span>
       {/if}
     </span>
+    <ChevronDown />
   </label>
   <ul
     tabindex="0"
@@ -50,7 +49,6 @@
       >
         <svelte:component this={CHAIN_MAINNET.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{CHAIN_MAINNET.name}</span>
-        <MetaMask />
       </button>
     </li>
     <li>
@@ -62,7 +60,6 @@
       >
         <svelte:component this={CHAIN_TKO.icon} height={24} />
         <span class="pl-1.5 text-left flex-1">{CHAIN_TKO.name}</span>
-        <MetaMask />
       </button>
     </li>
   </ul>

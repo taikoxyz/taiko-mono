@@ -8,29 +8,27 @@
   let activeTab: string = "bridge";
 </script>
 
-<div class="hero bg-base-100">
-  <div class="hero-content text-center">
-    <div class="">
-      <div class="tabs mb-4">
-        <span
-          class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
-          on:click={() => (activeTab = "bridge")}>Bridge</span
-        >
-        <span
-          class="tab tab-bordered {activeTab !== 'bridge' ? 'tab-active' : ''}"
-          on:click={() => (activeTab = "transactions")}
-          >Transactions ({$transactions.length})
-        </span>
-      </div>
-      {#if activeTab === "bridge"}
-        <TaikoBanner />
-        <div class="px-4">
-          <BridgeForm />
-        </div>
-      {:else}
-        <Transactions />
-      {/if}
+<div class="container mx-auto max-w-fit text-center mt-10">
+  <div class="rounded-3xl border-2 border-zinc-800 border-solid p-6">
+    <div class="tabs mb-4">
+      <span
+        class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
+        on:click={() => (activeTab = "bridge")}>Bridge</span
+      >
+      <span
+        class="tab tab-bordered {activeTab !== 'bridge' ? 'tab-active' : ''}"
+        on:click={() => (activeTab = "transactions")}
+        >Transactions ({$transactions.length})
+      </span>
     </div>
+    {#if activeTab === "bridge"}
+      <TaikoBanner />
+      <div class="px-4">
+        <BridgeForm />
+      </div>
+    {:else}
+      <Transactions />
+    {/if}
   </div>
 </div>
 

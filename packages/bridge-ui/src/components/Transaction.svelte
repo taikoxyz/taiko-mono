@@ -2,7 +2,7 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
-  import TransactionsIcon from "./icons/Transactions.svelte";
+  import { ArrowTopRightOnSquare } from "svelte-heros-v2";
   import { MessageStatus } from "../domain/message";
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
@@ -120,7 +120,7 @@
           "_blank"
         )}
     >
-      <TransactionsIcon />
+      <ArrowTopRightOnSquare />
     </span>
   </td>
 

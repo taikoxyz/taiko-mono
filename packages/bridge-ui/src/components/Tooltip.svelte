@@ -1,9 +1,11 @@
 <script lang="ts">
-  import TooltipIcon from "./icons/TooltipIcon.svelte";
+  import { QuestionMarkCircle } from "svelte-heros-v2";
 
   export let isOpen: boolean = false;
 </script>
 
-<button type="button" on:click={() => (isOpen = true)} class="tooltip-button">
-  <TooltipIcon />
-</button>
+<QuestionMarkCircle
+  on:click={() => (isOpen = true)}
+  size="18"
+  variation="outline"
+/>
