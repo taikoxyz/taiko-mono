@@ -6,6 +6,18 @@ const mockProvider = {
   send: jest.fn(),
 };
 
+const mockContract = {
+  getLatestSyncedHeader: jest.fn(),
+};
+
+jest.mock("ethers", () => ({
+  /* eslint-disable-next-line */
+  ...(jest.requireActual("ethers") as object),
+  Contract: function () {
+    return mockContract;
+  },
+}));
+
 const block = {
   parentHash:
     "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb",
@@ -67,6 +79,13 @@ const expectedProof =
 const expectedProofWithBaseFee =
   "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000360a7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347000000000000000000000000ea674fdde714fd979de3edf0f56aa9716b898ec8c0dcf937b3f6136dd70a1ad11cc57b040fd410f3c49a5146f20c732895a3cc217273ade6b6ed865a9975ac281da23b90b141a8b607d874d2cd95e65e81336f8e74bb61e381e9238a08b169580f3cbf9b8b79d7d5ee708d3e286103eb291dfd0800000000000400000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000020000000000000000000000000000000000000000000000000100000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000007b00000000000000000000000000000000000000000000000000000000000002e0f5ba25df1e92e89a09e0b32063b81795f631100801158f5fa733f2ba26843bd0000000000000000000000000000000000000000000000000000000000000007b0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001265746865726d696e652d75732d7765737431000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022e1a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
+const srcChain = 167001;
+const destChain = 31336;
+
+const map = new Map<number, ethers.providers.JsonRpcProvider>();
+map.set(srcChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
+map.set(destChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
+
 describe("prover tests", () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -76,7 +95,7 @@ describe("prover tests", () => {
   it("throws on invalid proof", async () => {
     mockProvider.send.mockImplementation(
       (method: string, params: unknown[]) => {
-        if (method === "eth_getBlockByNumber") {
+        if (method === "eth_getBlockByHash") {
           return block;
         }
 
@@ -84,13 +103,6 @@ describe("prover tests", () => {
           return invalidStorageProof;
         }
       }
-    );
-
-    const srcChain = 167001;
-    const map = new Map<number, ethers.providers.JsonRpcProvider>();
-    map.set(
-      srcChain,
-      mockProvider as unknown as ethers.providers.JsonRpcProvider
     );
 
     const prover: ProofService = new ProofService(map);
@@ -101,6 +113,8 @@ describe("prover tests", () => {
         sender: ethers.constants.AddressZero,
         srcBridgeAddress: ethers.constants.AddressZero,
         srcChain: srcChain,
+        destChain: destChain,
+        destHeaderSyncAddress: ethers.constants.AddressZero,
       })
     ).rejects.toThrowError("invalid proof");
   });
@@ -108,7 +122,7 @@ describe("prover tests", () => {
   it("generates proof", async () => {
     mockProvider.send.mockImplementation(
       (method: string, params: unknown[]) => {
-        if (method === "eth_getBlockByNumber") {
+        if (method === "eth_getBlockByHash") {
           return block;
         }
 
@@ -118,13 +132,6 @@ describe("prover tests", () => {
       }
     );
 
-    const srcChain = 167001;
-    const map = new Map<number, ethers.providers.JsonRpcProvider>();
-    map.set(
-      srcChain,
-      mockProvider as unknown as ethers.providers.JsonRpcProvider
-    );
-
     const prover: ProofService = new ProofService(map);
 
     const proof = await prover.GenerateProof({
@@ -132,6 +139,8 @@ describe("prover tests", () => {
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
+      destChain: destChain,
+      destHeaderSyncAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
   });
@@ -139,7 +148,7 @@ describe("prover tests", () => {
   it("generates proof with baseFeePerGas set", async () => {
     mockProvider.send.mockImplementation(
       (method: string, params: unknown[]) => {
-        if (method === "eth_getBlockByNumber") {
+        if (method === "eth_getBlockByHash") {
           return block;
         }
 
@@ -150,12 +159,6 @@ describe("prover tests", () => {
     );
 
     block.baseFeePerGas = "1";
-    const srcChain = 167001;
-    const map = new Map<number, ethers.providers.JsonRpcProvider>();
-    map.set(
-      srcChain,
-      mockProvider as unknown as ethers.providers.JsonRpcProvider
-    );
 
     const prover: ProofService = new ProofService(map);
 
@@ -164,6 +167,8 @@ describe("prover tests", () => {
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
+      destChain: destChain,
+      destHeaderSyncAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProofWithBaseFee);
   });
