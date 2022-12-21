@@ -5,13 +5,11 @@
   import { addressSubsection } from "../utils/addressSubsection";
   import { signer } from "../store/signer";
   import { pendingTransactions } from "../store/transactions";
-  import ChevDown from "./icons/ChevDown.svelte";
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
   import { errorToast } from "../utils/toast";
-  import CopyIcon from "./icons/Copy.svelte";
-  import DisconnectIcon from "./icons/Disconnect.svelte";
+  import { Clipboard, Power } from "svelte-heros-v2";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
   import { truncateString } from "../utils/truncateString";
@@ -116,14 +114,14 @@
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await copyToClipboard(address)}
     >
-      <CopyIcon />
+      <Clipboard />
       Copy Address
     </div>
     <div
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-2"
       on:click={async () => await disconnect()}
     >
-      <DisconnectIcon /> Disconnect
+      <Power /> Disconnect
     </div>
   </ul>
 </div>

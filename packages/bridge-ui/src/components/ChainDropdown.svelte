@@ -1,7 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
 
-  import ChevDown from "./icons/ChevDown.svelte";
   import { fromChain, toChain } from "../store/chain";
   import MetaMask from "./icons/MetaMask.svelte";
   import { switchEthereumChain } from "../utils/switchEthereumChain";

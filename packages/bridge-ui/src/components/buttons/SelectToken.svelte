@@ -4,7 +4,7 @@
   import { ETH, tokens } from "../../domain/token";
   import type { Token } from "../../domain/token";
   import { BridgeType } from "../../domain/bridge";
-  import ChevDown from "../icons/ChevDown.svelte";
+  import { ChevronDown } from "svelte-heros-v2";
   import { successToast } from "../../utils/toast";
 
   async function select(t: Token) {
@@ -26,7 +26,7 @@
   >
     <svelte:component this={$token.logoComponent} class="inline-block" />
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
-    <ChevDown />
+    <ChevronDown />
   </label>
   <ul
     tabindex="0"
