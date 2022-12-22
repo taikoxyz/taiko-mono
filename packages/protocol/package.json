@@ -13,7 +13,7 @@
     "test:unit": "pnpm hardhat test test/unit/bridge/*.ts test/unit/bridge/**/*.ts test/unit/common/*.ts test/unit/L1/*.ts test/unit/L2/*.ts test/unit/libs/*.ts test/unit/thirdparty/*.ts",
     "test:protocol": "DOTENV_CONFIG_PATH=.env.protocol pnpm hardhat test test/unit/protocol/**.ts",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
-    "test:coverage": "pnpm test:unit && pnpm coverage",
+    "test:coverage": "pnpm test:unit && pnpm test:protocol && pnpm coverage",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "test:integration": "./test/integration/run.sh",

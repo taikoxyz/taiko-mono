@@ -112,7 +112,7 @@ const config: HardhatUserConfig = {
                     const name = CONSTANTS[i]
                     if (line.includes(`public constant ${name}`)) {
                         console.log(
-                            `🥁 constant ${name} = ${process.env[name]} applied`
+                            `🥁 constant override: ${name}  ⮕  ${process.env[name]}`
                         )
                         return `${line.slice(0, line.indexOf(" = "))} = ${
                             process.env[name]
