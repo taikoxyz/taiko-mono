@@ -68,4 +68,4 @@ PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat node --port 28545 &
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test test/integration/*.ts
+  npx hardhat test --network l1_test test/integration/*/**.ts
