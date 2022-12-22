@@ -166,6 +166,8 @@
 
           const interval = setInterval(async () => {
             tx.interval = interval;
+            if (!tx.signal) return;
+
             const contract = new ethers.Contract(
               chains[tx.toChainId].bridgeAddress,
               BridgeABI,
@@ -201,16 +203,13 @@
 </script>
 
 <QueryProvider>
-  <div class="lg:container lg:mx-auto lg:px-64">
-    <main>
-      <HeaderAnnouncement />
-      <Navbar />
-      <Router {routes} />
-    </main>
-    <SvelteToast options={toastOptions} />
-
-    <SwitchEthereumChainModal />
-  </div>
+  <main>
+    <HeaderAnnouncement />
+    <Navbar />
+    <Router {routes} />
+  </main>
+  <SvelteToast options={toastOptions} />
+  <SwitchEthereumChainModal />
 </QueryProvider>
 
 <style global lang="postcss">
@@ -219,7 +218,6 @@
   @tailwind utilities;
 
   main {
-    margin: 0;
     font-family: "Inter", sans-serif;
   }
 </style>

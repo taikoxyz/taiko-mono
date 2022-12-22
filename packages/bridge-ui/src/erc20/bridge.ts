@@ -105,12 +105,12 @@ class ERC20Bridge implements Bridge {
       opts.tokenAddress,
       opts.amountInWei,
       message.gasLimit,
-      0,
+      message.processingFee,
       message.refundAddress,
-      message.memo
-      // {
-      //   value: message.processingFee.add(message.callValue),
-      // }
+      message.memo,
+      {
+        value: message.processingFee.add(message.callValue),
+      }
     );
 
     return tx;
