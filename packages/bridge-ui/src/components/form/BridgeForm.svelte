@@ -228,6 +228,7 @@
 
       successToast($_("toast.transactionSent"));
       await $signer.provider.waitForTransaction(tx.hash, 1);
+      memo = "";
     } catch (e) {
       console.log(e);
       errorToast($_("toast.errorSendingTransaction"));
