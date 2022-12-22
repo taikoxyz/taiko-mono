@@ -153,7 +153,7 @@
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: contractAddress,
+        contractAddress: await addrForToken(),
         spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
       });
 
