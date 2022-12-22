@@ -1,15 +1,16 @@
 import type { Chain as WagmiChain } from "@wagmi/core";
+import { BigNumber } from "ethers";
 import type { ComponentType } from "svelte";
 
 import Eth from "../components/icons/ETH.svelte";
 import Taiko from "../components/icons/TKO.svelte";
 
 export const CHAIN_ID_MAINNET = import.meta.env
-  ? import.meta.env.VITE_MAINNET_CHAIN_ID
+  ? BigNumber.from(import.meta.env.VITE_MAINNET_CHAIN_ID).toNumber()
   : 31336;
 
 export const CHAIN_ID_TAIKO = import.meta.env
-  ? import.meta.env.VITE_TAIKO_CHAIN_ID
+  ? BigNumber.from(import.meta.env.VITE_TAIKO_CHAIN_ID).toNumber()
   : 167001;
 
 export type Chain = {
@@ -56,8 +57,8 @@ export const CHAIN_TKO = {
 };
 
 export const chains: Record<string, Chain> = {
-  CHAIN_ID_MAINNET: CHAIN_MAINNET,
-  CHAIN_ID_TAIKO: CHAIN_TKO,
+  [CHAIN_ID_MAINNET]: CHAIN_MAINNET,
+  [CHAIN_ID_TAIKO]: CHAIN_TKO,
 };
 
 export const mainnet: WagmiChain = {

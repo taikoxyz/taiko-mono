@@ -56,10 +56,6 @@
     ethers.providers.JsonRpcProvider
   >();
 
-  const p = new ethers.providers.JsonRpcProvider(
-    import.meta.env.VITE_L1_RPC_URL
-  );
-
   providerMap.set(
     CHAIN_ID_MAINNET,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL)
