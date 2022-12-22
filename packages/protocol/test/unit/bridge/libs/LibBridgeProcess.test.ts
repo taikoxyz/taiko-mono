@@ -3,7 +3,7 @@ import { expect } from "chai"
 import hre, { ethers } from "hardhat"
 import * as fs from "fs"
 import * as path from "path"
-import { getSlot, MessageStatus } from "../../../tasks/utils"
+import { getSlot, MessageStatus } from "../../../../tasks/utils"
 import { Message } from "../../utils/message"
 import {
     AddressManager,
