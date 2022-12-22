@@ -70,7 +70,7 @@ function getDeployments(_fileName: string) {
 
 async function getSlot(hre: any, signal: any, mappingSlot: any) {
     return hre.ethers.utils.solidityKeccak256(
-        ["bytes", "uint256"],
+        ["uint256", "uint256"],
         [signal, mappingSlot]
     )
 }
