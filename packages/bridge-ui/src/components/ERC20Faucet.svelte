@@ -51,17 +51,21 @@
   }
 </script>
 
-<button class="btn" on:click={mint}>
-  <Funnel class="mr-2" /> Faucet
-</button>
-<Tooltip />
+<div class="flex items-start">
+  <button class="btn" on:click={mint}>
+    <Funnel class="mr-2" /> Faucet
+  </button>
+  <button class="inline-block ml-2" on:click={() => (tooltipOpen = true)}>
+    <Tooltip />
+  </button>
+</div>
 
 <TooltipModal title="{$token.symbol} Faucet" bind:isOpen={tooltipOpen}>
   <span slot="body">
     <p class="text-left">
       You can request 1000 {$token.symbol}. {$token.symbol} is only available to
       be minted on Ethereum A1. If you are on Taiko A1, your network will be changed
-      first. You must have a small amount of ether in your Ethereum A1 wallet to
+      first. You must have a small amount of ETH in your Ethereum A1 wallet to
       send the transaction.
     </p>
   </span>
