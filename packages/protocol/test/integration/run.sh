@@ -22,6 +22,7 @@ docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NA
 
 # Start a test ethereum node
 docker run -d \
+  --platform linux/amd64 \
   --name $TEST_NODE_CONTAINER_NAME \
   -p 18545:8545 \
   ethereum/client-go:latest \
@@ -50,6 +51,7 @@ done
 
 # Import ETHs from the random pre-allocated developer account to the test account
 docker run -d \
+  --platform linux/amd64 \
   --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
   --add-host host.docker.internal:host-gateway \
   ethereum/client-go:latest \
@@ -66,4 +68,4 @@ PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
   npx hardhat node --port 28545 &
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "^integration"
+  npx hardhat test --network l1_test test/integration/*.ts

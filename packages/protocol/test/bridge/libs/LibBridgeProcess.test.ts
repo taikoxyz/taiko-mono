@@ -190,6 +190,5 @@ describe("LibBridgeProcess", async function () {
                 libProcess.processMessage(message, ethers.constants.HashZero)
             ).to.be.revertedWith("B:status")
         })
-        // Remaining test cases require integration, will be covered in Bridge.test.ts
     })
 })
