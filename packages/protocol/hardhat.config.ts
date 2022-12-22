@@ -6,9 +6,14 @@ import "hardhat-abi-exporter"
 import "hardhat-gas-reporter"
 import "hardhat-preprocessor"
 import { HardhatUserConfig } from "hardhat/config"
+import { config as dotenvConfig } from "dotenv"
+import { resolve } from "path"
 import "solidity-coverage"
 import "solidity-docgen"
 import "./tasks/deploy_L1"
+
+const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env"
+dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) })
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik"
@@ -99,21 +104,18 @@ const config: HardhatUserConfig = {
     preprocess: {
         eachLine: () => ({
             transform: (line) => {
-                for (const constantName of [
-                    "K_CHAIN_ID",
-                    "K_COMMIT_DELAY_CONFIRMS",
-                    "TAIKO_BLOCK_MAX_TXS",
-                    "TAIKO_TXLIST_MAX_BYTES",
-                    "TAIKO_BLOCK_MAX_GAS_LIMIT",
-                    "K_MAX_NUM_BLOCKS",
-                    "K_INITIAL_UNCLE_DELAY",
-                ]) {
-                    if (
-                        process.env[constantName] &&
-                        line.includes(`uint256 public constant ${constantName}`)
-                    ) {
-                        return `${line.slice(0, line.indexOf(" ="))} = ${
-                            process.env[constantName]
+                const CONSTANTS = Object.keys(process.env).filter((k) =>
+                    k.startsWith("K_")
+                )
+
+                for (let i = 0; i < CONSTANTS.length; i++) {
+                    const name = CONSTANTS[i]
+                    if (line.includes(`public constant ${name}`)) {
+                        console.log(
+                            `🥁 constant ${name} = ${process.env[name]} applied`
+                        )
+                        return `${line.slice(0, line.indexOf(" = "))} = ${
+                            process.env[name]
                         };`
                     }
                 }
