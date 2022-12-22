@@ -44,7 +44,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: protocol - Unit Tests
+      - name: protocol - Unit Tests (Coverage)
         working-directory: ./packages/protocol
         run: pnpm install && pnpm clean && pnpm test:coverage
 

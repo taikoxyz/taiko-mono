@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { ConfigManager } from "../typechain"
+import { ConfigManager } from "../../typechain"
 const hre = require("hardhat")
 const ethers = hre.ethers
 
