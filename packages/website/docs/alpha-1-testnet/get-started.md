@@ -4,7 +4,7 @@ sidebar_position: 0
 
 # Get started
 
-Welcome to Taiko's A1 testnet! Thank you in advance for helping. We are going to guide you through this, let's go!
+Welcome to Taiko's Alpha-1 (a1) testnet! Thank you in advance for helping. We are going to guide you through this, let's go!
 
 ## Create a feedback log
 
