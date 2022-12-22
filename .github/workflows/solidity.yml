@@ -52,10 +52,6 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:integration
 
-      - name: protocol - Export ABIs
-        working-directory: ./packages/protocol
-        run: pnpm export:abi
-
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
