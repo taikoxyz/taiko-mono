@@ -34,17 +34,43 @@
   import TokenVault from "../../constants/abi/TokenVault";
   import type { BridgeTransaction } from "../../domain/transactions";
   import { MessageStatus } from "../../domain/message";
+  import Erc20Faucet from "../ERC20Faucet.svelte";
 
   let amount: string;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
-  let customFee: string = "0.01";
+  let customFee: string = "0";
+  let recommendedFee: string = "0";
   let memo: string = "";
   let loading: boolean = false;
 
   $: getUserBalance($signer, $token, $fromChain);
 
+  async function addrForToken() {
+    let addr = $token.addresses.find(
+      (t) => t.chainId === $fromChain.id
+    ).address;
+    if (!addr || addr === "0x00") {
+      const srcChainAddr = $token.addresses.find(
+        (t) => t.chainId === $toChain.id
+      ).address;
+
+      const tokenVault = new Contract(
+        $chainIdToTokenVaultAddress.get($fromChain.id),
+        TokenVault,
+        $signer
+      );
+
+      const bridged = await tokenVault.canonicalToBridged(
+        $toChain.id,
+        srcChainAddr
+      );
+
+      addr = bridged;
+    }
+    return addr;
+  }
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -55,32 +81,11 @@
         const userBalance = await signer.getBalance("latest");
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
-        let addr = token.addresses.find(
-          (t) => t.chainId === fromChain.id
-        ).address;
-        if (!addr || addr === "0x00") {
-          const srcChainAddr = token.addresses.find(
-            (t) => t.chainId === $toChain.id
-          ).address;
-
-          const tokenVault = new Contract(
-            $chainIdToTokenVaultAddress.get(fromChain.id),
-            TokenVault,
-            signer
-          );
-
-          const bridged = await tokenVault.canonicalToBridged(
-            $toChain.id,
-            srcChainAddr
-          );
-
-          if (bridged == ethers.constants.AddressZero) {
-            tokenBalance = "0";
-            return;
-          }
-          addr = bridged;
+        const addr = await addrForToken();
+        if (addr == ethers.constants.AddressZero) {
+          tokenBalance = "0";
+          return;
         }
-
         const contract = new Contract(addr, ERC20, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
@@ -88,7 +93,7 @@
     }
   }
 
-  $: isBtnDisabled($signer, amount, $token, requiresAllowance)
+  $: isBtnDisabled($signer, amount, $token, tokenBalance, requiresAllowance)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -105,11 +110,11 @@
   ) {
     if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
 
+    const addr = await addrForToken();
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
-      contractAddress: token.addresses.find((t) => t.chainId === fromChain.id)
-        .address,
+      contractAddress: addr,
       spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
     });
     return allowance;
@@ -119,12 +124,15 @@
     signer: Signer,
     amount: string,
     token: Token,
+    tokenBalance: string,
     requiresAllowance: boolean
   ) {
     if (!signer) return true;
+    if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
     if (!chainId || !chains[chainId.toString()]) return true;
-    if (!amount) return true;
+    if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
+      return true;
     if (isNaN(parseFloat(amount))) return true;
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
@@ -145,9 +153,7 @@
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
-        contractAddress: $token.addresses.find(
-          (t) => t.chainId === $fromChain.id
-        ).address,
+        contractAddress: await addrForToken(),
         spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
       });
 
@@ -177,8 +183,7 @@
       const tx = await $activeBridge.Bridge({
         amountInWei: amountInWei,
         signer: $signer,
-        tokenAddress: $token.addresses.find((t) => t.chainId === $fromChain.id)
-          .address,
+        tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
@@ -249,7 +254,7 @@
     }
 
     if ($processingFee === ProcessingFeeMethod.RECOMMENDED) {
-      return ethers.utils.parseEther("0.01");
+      return BigNumber.from(ethers.utils.parseEther(recommendedFee));
     }
   }
 </script>
@@ -257,6 +262,7 @@
 <div class="form-control my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
+
     {#if $signer && tokenBalance}
       <button class="label-text" on:click={useFullAmount}
         >{$_("bridgeForm.maxLabel")}
@@ -266,6 +272,7 @@
         {$token.symbol}
       </button>{/if}
   </label>
+
   <label
     class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
   >
@@ -281,7 +288,17 @@
   </label>
 </div>
 
-<ProcessingFee bind:customFee />
+{#if $token.symbol === "HORSE" && $signer && tokenBalance && ethers.utils
+    .parseUnits(tokenBalance, $token.decimals)
+    .eq(BigNumber.from(0))}
+  <div class="flex" style="flex-direction:row-reverse">
+    <Erc20Faucet
+      onMint={async () => await getUserBalance($signer, $token, $fromChain)}
+    />
+  </div>
+{/if}
+
+<ProcessingFee bind:customFee bind:recommendedFee />
 
 <Memo bind:memo />
 
@@ -309,7 +326,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full"
+    class="btn btn-accent w-full mt-6"
     on:click={approve}
     disabled={btnDisabled}
   >

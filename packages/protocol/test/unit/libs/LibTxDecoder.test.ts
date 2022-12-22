@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { UnsignedTransaction } from "ethers"
 import { ethers } from "hardhat"
-import * as log from "../../tasks/log"
+import * as log from "../../../tasks/log"
 
 describe("LibTxDecoder", function () {
     let rlpWriter: any

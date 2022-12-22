@@ -2,7 +2,7 @@ import * as helpers from "@nomicfoundation/hardhat-network-helpers"
 import { expect } from "chai"
 import hre, { ethers } from "hardhat"
 import { Message } from "../../utils/message"
-import { getSlot, decode, MessageStatus } from "../../../tasks/utils"
+import { getSlot, decode, MessageStatus } from "../../../../tasks/utils"
 import {
     AddressManager,
     EtherVault,

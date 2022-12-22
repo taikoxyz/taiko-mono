@@ -2,7 +2,7 @@ import { expect } from "chai"
 import { ethers } from "hardhat"
 import { BaseTrie } from "merkle-patricia-tree"
 import { TestLibMerkleTrie } from "../../typechain"
-import { MerkleTrie } from "../utils/trie"
+import { MerkleTrie } from "../../utils/trie"
 import { randomBytes } from "crypto"
 
 describe("LibMerkleTrie", function () {

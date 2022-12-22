@@ -4,7 +4,7 @@
 </script>
 
 <div
-  class="taiko-banner bg-cover bg-center bg-no-repeat h-36 rounded-lg py-4 flex flex-col items-center justify-center md:w-[450px]"
+  class="taiko-banner bg-cover bg-center bg-no-repeat h-36 rounded-lg py-4 flex flex-col items-center justify-center"
 >
   <SelectChain />
 </div>

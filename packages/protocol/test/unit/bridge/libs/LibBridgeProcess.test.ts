@@ -3,7 +3,7 @@ import { expect } from "chai"
 import hre, { ethers } from "hardhat"
 import * as fs from "fs"
 import * as path from "path"
-import { getSlot, MessageStatus } from "../../../tasks/utils"
+import { getSlot, MessageStatus } from "../../../../tasks/utils"
 import { Message } from "../../utils/message"
 import {
     AddressManager,
@@ -190,6 +190,5 @@ describe("LibBridgeProcess", async function () {
                 libProcess.processMessage(message, ethers.constants.HashZero)
             ).to.be.revertedWith("B:status")
         })
-        // Remaining test cases require integration, will be covered in Bridge.test.ts
     })
 })
