@@ -8,7 +8,7 @@
   import { Funnel } from "svelte-heros-v2";
   import MintableERC20 from "../constants/abi/MintableERC20";
   import { fromChain } from "../store/chain";
-  import { switchNetwork } from "@wagmi/core";
+  import { fetchSigner, switchNetwork } from "@wagmi/core";
   import { CHAIN_MAINNET } from "../domain/chain";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./modals/TooltipModal.svelte";
@@ -24,6 +24,9 @@
         await switchNetwork({
           chainId: CHAIN_MAINNET.id,
         });
+        const wagmiSigner = await fetchSigner();
+
+        signer.set(wagmiSigner);
       }
       const contract = new ethers.Contract(
         HORSE.addresses[0].address,
