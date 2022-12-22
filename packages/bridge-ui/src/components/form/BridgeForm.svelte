@@ -34,7 +34,7 @@
   import TokenVault from "../../constants/abi/TokenVault";
   import type { BridgeTransaction } from "../../domain/transactions";
   import { MessageStatus } from "../../domain/message";
-  import { getContractAddress } from "ethers/lib/utils.js";
+  import Erc20Faucet from "../ERC20Faucet.svelte";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -262,6 +262,7 @@
 <div class="form-control my-4 md:my-8">
   <label class="label" for="amount">
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
+
     {#if $signer && tokenBalance}
       <button class="label-text" on:click={useFullAmount}
         >{$_("bridgeForm.maxLabel")}
@@ -271,6 +272,7 @@
         {$token.symbol}
       </button>{/if}
   </label>
+
   <label
     class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
   >
@@ -285,6 +287,16 @@
     <SelectToken />
   </label>
 </div>
+
+{#if $token.symbol === "HORSE" && $signer && tokenBalance && ethers.utils
+    .parseUnits(tokenBalance, $token.decimals)
+    .eq(BigNumber.from(0))}
+  <div class="flex" style="flex-direction:row-reverse">
+    <Erc20Faucet
+      onMint={async () => await getUserBalance($signer, $token, $fromChain)}
+    />
+  </div>
+{/if}
 
 <ProcessingFee bind:customFee bind:recommendedFee />
 
