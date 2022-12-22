@@ -103,13 +103,9 @@ class ETHBridge implements BridgeInterface {
 
       const proof = await this.prover.GenerateProof(proofOpts);
 
-      return await contract.processMessage(opts.message, proof, {
-        gasLimit: opts.message.gasLimit.add(1000000),
-      });
+      return await contract.processMessage(opts.message, proof);
     } else {
-      return await contract.retryMessage(opts.message, {
-        gasLimit: opts.message.gasLimit.add(1000000),
-      });
+      return await contract.retryMessage(opts.message);
     }
   }
 }

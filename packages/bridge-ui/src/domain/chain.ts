@@ -4,6 +4,14 @@ import type { ComponentType } from "svelte";
 import Eth from "../components/icons/ETH.svelte";
 import Taiko from "../components/icons/TKO.svelte";
 
+export const CHAIN_ID_MAINNET = import.meta.env
+  ? import.meta.env.VITE_MAINNET_CHAIN_ID
+  : 31336;
+
+export const CHAIN_ID_TAIKO = import.meta.env
+  ? import.meta.env.VITE_TAIKO_CHAIN_ID
+  : 167001;
+
 export type Chain = {
   id: number;
   name: string;
@@ -16,34 +24,44 @@ export type Chain = {
 };
 
 export const CHAIN_MAINNET = {
-  id: 31336,
-  name: "Ethereum A1",
+  id: CHAIN_ID_MAINNET,
+  name: import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A1",
   rpc: "https://l1rpc.a1.taiko.xyz",
   enabled: true,
   icon: Eth,
-  bridgeAddress: "0x0237443359aB0b11EcDC41A7aF1C90226a88c70f",
-  headerSyncAddress: "0xa7dF1d30f6456Dc72cE18fE011896105651a1f86",
+  bridgeAddress: import.meta.env
+    ? import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS
+    : "0x3612E284D763f42f5E4CB72B1602b23DAEC3cA60",
+  headerSyncAddress: import.meta.env
+    ? import.meta.env.VITE_MAINNET_HEADER_SYNC_ADDRESS
+    : "0x7B3AF414448ba906f02a1CA307C56c4ADFF27ce7",
   explorerUrl: "https://l1explorer.a1.taiko.xyz",
 };
 
 export const CHAIN_TKO = {
-  id: 167001,
-  name: "Taiko A1",
+  id: CHAIN_ID_TAIKO,
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A1",
   rpc: "https://l2rpc.a1.taiko.xyz",
   enabled: true,
   icon: Taiko,
-  bridgeAddress: "0x0000777700000000000000000000000000000004",
-  headerSyncAddress: "0x0000777700000000000000000000000000000001",
+  bridgeAddress: import.meta.env
+    ? import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS
+    : "0x0000777700000000000000000000000000000004",
+  headerSyncAddress: import.meta.env
+    ? import.meta.env.VITE_TAIKO_HEADER_SYNC_ADDRESS
+    : "0x0000777700000000000000000000000000000001",
   explorerUrl: "https://l2explorer.a1.taiko.xyz",
 };
 
 export const chains: Record<string, Chain> = {
-  31336: CHAIN_MAINNET,
-  167001: CHAIN_TKO,
+  CHAIN_ID_MAINNET: CHAIN_MAINNET,
+  CHAIN_ID_TAIKO: CHAIN_TKO,
 };
 
 export const mainnet: WagmiChain = {
-  id: 31336,
+  id: CHAIN_ID_MAINNET,
   name: "Ethereum A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
@@ -64,7 +82,7 @@ export const mainnet: WagmiChain = {
 };
 
 export const taiko: WagmiChain = {
-  id: 167001,
+  id: CHAIN_ID_TAIKO,
   name: "Taiko A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },

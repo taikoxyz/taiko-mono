@@ -151,13 +151,9 @@ class ERC20Bridge implements Bridge {
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
       });
 
-      return await contract.processMessage(opts.message, proof, {
-        gasLimit: 3500000,
-      });
+      return await contract.processMessage(opts.message, proof);
     } else {
-      return await contract.retryMessage(opts.message, false, {
-        gasLimit: 3500000,
-      });
+      return await contract.retryMessage(opts.message, false);
     }
   }
 }
