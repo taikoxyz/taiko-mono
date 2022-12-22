@@ -10,7 +10,7 @@
     "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
-    "test": "pnpm hardhat test test/unit/*/**.ts",
+    "test": "pnpm hardhat test test/unit/**/**.ts",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm test && pnpm coverage",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
