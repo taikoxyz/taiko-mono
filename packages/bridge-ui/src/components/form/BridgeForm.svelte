@@ -51,7 +51,7 @@
     let addr = $token.addresses.find(
       (t) => t.chainId === $fromChain.id
     ).address;
-    if (!addr || addr === "0x00") {
+    if ($token.symbol !== ETH.symbol && (!addr || addr === "0x00")) {
       const srcChainAddr = $token.addresses.find(
         (t) => t.chainId === $toChain.id
       ).address;
