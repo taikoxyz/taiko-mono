@@ -13,7 +13,6 @@ import hre, { ethers } from "hardhat"
 import { BigNumber, BigNumberish } from "ethers"
 import { getSlot } from "../../tasks/utils"
 import { ADDRESS_RESOLVER_DENIED } from "../constants/errors"
-import { AbiCoder } from "ethers/lib/utils"
 
 type CanonicalERC20 = {
     chainId: BigNumberish
