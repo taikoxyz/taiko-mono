@@ -1,7 +1,8 @@
 <script lang="ts">
   import { chains } from "../domain/chain";
-  import { transactions } from "../store/transactions";
+  import { transactions, showTransactionDetails } from "../store/transactions";
   import Transaction from "./Transaction.svelte";
+  import TransactionDetail from './TransactionDetail.svelte';
 </script>
 
 <div class="my-4 px-4">
@@ -12,8 +13,8 @@
           <th>From</th>
           <th>To</th>
           <th>Amount</th>
-          <th>View</th>
           <th>Status</th>
+          <th>Details</th>
         </tr>
       </thead>
       <tbody>
@@ -28,5 +29,9 @@
     </table>
   {:else}
     No transactions
+  {/if}
+
+  {#if $showTransactionDetails}
+    <TransactionDetail transaction={$showTransactionDetails} />
   {/if}
 </div>
