@@ -15,7 +15,8 @@ pnpm deploy:hardhat
 Run test cases on hardhat network:
 
 ```sh
-pnpm test
+pnpm test:unit
+pnpm test:protocol
 ```
 
 Run test cases that require a running go-ethereum node:
