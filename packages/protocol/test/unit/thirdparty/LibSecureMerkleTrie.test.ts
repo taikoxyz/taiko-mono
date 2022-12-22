@@ -3,7 +3,7 @@ import { randomBytes } from "crypto"
 import { ethers } from "hardhat"
 import { SecureTrie } from "merkle-patricia-tree"
 import { TestLibSecureMerkleTrie } from "../../typechain"
-import { MerkleTrie } from "../utils/trie"
+import { MerkleTrie } from "../../utils/trie"
 
 describe("LibSecureMerkleTrie", function () {
     let libSecureMerkleTrie: TestLibSecureMerkleTrie
