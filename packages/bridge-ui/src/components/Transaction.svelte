@@ -2,16 +2,14 @@
   import type { BridgeTransaction } from "../domain/transactions";
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
   import type { Chain } from "../domain/chain";
-  import TransactionsIcon from "./icons/Transactions.svelte";
+  import { ArrowTopRightOnSquare } from "svelte-heros-v2";
   import { MessageStatus } from "../domain/message";
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions, transactions } from "../store/transactions";
+  import { pendingTransactions, showTransactionDetails } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
-  import { switchEthereumChain } from "../utils/switchEthereumChain";
-  import { ethereum } from "../store/ethereum";
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
@@ -22,12 +20,16 @@
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
+  import { fetchSigner, switchNetwork } from "@wagmi/core";
+  import Tooltip from "./Tooltip.svelte";
+  import TooltipModal from "./modals/TooltipModal.svelte";
 
   export let transaction: BridgeTransaction;
 
   export let fromChain: Chain;
   export let toChain: Chain;
 
+  let tooltipOpen: boolean = false;
   let processable: boolean = false;
 
   onMount(async () => {
@@ -36,7 +38,9 @@
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 
@@ -46,7 +50,8 @@
       } else {
         toChainStore.set(CHAIN_MAINNET);
       }
-      signer.set(provider.getSigner());
+      const wagmiSigner = await fetchSigner();
+      signer.set(wagmiSigner);
     }
 
     try {
@@ -77,7 +82,7 @@
   async function isProcessable() {
     if (!transaction.receipt) return false;
     if (!transaction.message) return false;
-    if (transaction.status === MessageStatus.Done) return true;
+    if (transaction.status !== MessageStatus.New) return true;
 
     const contract = new Contract(
       chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
@@ -89,7 +94,6 @@
     const srcBlock = await $providers
       .get(chains[transaction.message.srcChainId.toNumber()].id)
       .getBlock(latestSyncedHeader);
-
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 </script>
@@ -109,20 +113,7 @@
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
-
-  <td>
-    <span
-      class="cursor-pointer inline-block"
-      on:click={() =>
-        window.open(
-          `${fromChain.explorerUrl}/tx/${transaction.ethersTx.hash}`,
-          "_blank"
-        )}
-    >
-      <TransactionsIcon />
-    </span>
-  </td>
-
+  
   <td>
     {#if !processable}
       Pending...
@@ -160,8 +151,51 @@
     {:else if transaction.status === MessageStatus.Done}
       Claimed
     {/if}
+    <span class="inline-block" on:click={() => (tooltipOpen = true)}>
+      <Tooltip />
+    </span>
+  </td>
+
+  <td>
+    <span
+      class="cursor-pointer inline-block"
+      on:click={() => $showTransactionDetails = transaction}>
+      <ArrowTopRightOnSquare />
+    </span>
   </td>
 </tr>
+
+<TooltipModal title="Message Status" bind:isOpen={tooltipOpen}>
+  <span slot="body">
+    <div class="text-left">
+      A bridge message will pass through various states:
+      <br /><br />
+      <ul class="list-disc ml-4">
+        <li class="mb-2">
+          <strong>Pending</strong>: Your asset is not ready to be bridged. Taiko
+          A1 => Ethereum A1 bridging can take several hours before being ready.
+          Ethereum A1 => Taiko A1 should be available to claim within minutes.
+        </li>
+        <li class="mb-2">
+          <strong>Claimable</strong>: Your asset is ready to be claimed on the
+          destination chain, and requires a transaction.
+        </li>
+        <li class="mb-2">
+          <strong>Claimed</strong>: Your asset has finished bridging, and is
+          available to you on the destination chain.
+        </li>
+        <li class="mb-2">
+          <strong>Retry</strong>: The relayer has failed to process this
+          message, and you must retry the processing yourself.
+        </li>
+        <li class="mb-2">
+          <strong>Failed</strong>: Your bridged asset is unable to be processed,
+          and is available to you on the source chain.
+        </li>
+      </ul>
+    </div>
+  </span>
+</TooltipModal>
 
 <style>
   td {

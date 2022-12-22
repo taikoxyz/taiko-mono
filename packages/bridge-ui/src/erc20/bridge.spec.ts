@@ -195,12 +195,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(100000),
-      0,
+      opts.processingFeeInWei,
       "0xfake",
-      opts.memo
-      // {
-      //   value: opts.processingFeeInWei,
-      // }
+      opts.memo,
+      {
+        value: opts.processingFeeInWei,
+      }
     );
   });
 
@@ -231,9 +231,12 @@ describe("bridge tests", () => {
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(0),
-      0,
+      BigNumber.from(0),
       "0xfake",
-      ""
+      "",
+      {
+        value: BigNumber.from(0),
+      }
     );
   });
 
@@ -250,6 +253,8 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -272,6 +277,8 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -299,6 +306,8 @@ describe("bridge tests", () => {
         message: {
           owner: "0x",
           srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -331,7 +340,9 @@ describe("bridge tests", () => {
       message: {
         owner: "0x",
         srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",
@@ -365,7 +376,9 @@ describe("bridge tests", () => {
       message: {
         owner: "0x",
         srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",

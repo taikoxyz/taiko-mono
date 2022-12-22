@@ -4,6 +4,11 @@ export default function Hero() {
   // Enlarges and decreases the opacity of the taikoGeom image upon scroll
   if (typeof window !== "undefined") {
     const changeTaikoGeom = () => {
+      // only do animation on home page
+      if (window.location.pathname !== "/") {
+        return;
+      }
+
       const taikoGeom = document.getElementById("taikoGeom");
       const taikoGeomParent = document.getElementById("taikoGeomParent");
       const elementHeight = window.pageYOffset;

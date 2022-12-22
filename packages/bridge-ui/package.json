@@ -42,6 +42,7 @@
     "rollup-plugin-polyfill-node": "^0.10.2",
     "svelte": "^3.53.1",
     "svelte-check": "^2.8.0",
+    "svelte-heros-v2": "^0.3.10",
     "svelte-jester": "^2.1.5",
     "svelte-loader": "^3.1.2",
     "svelte-preprocess": "^4.10.7",
@@ -56,11 +57,14 @@
     "vite-plugin-static-copy": "^0.12.0"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^3.6.3",
     "@ethersproject/experimental": "^5.7.0",
     "@lottiefiles/svelte-lottie-player": "^0.2.0",
     "@sveltestack/svelte-query": "^1.6.0",
-    "@wagmi/core": "^0.7.5",
+    "@wagmi/connectors": "^0.1.1",
+    "@wagmi/core": "^0.8.0",
     "axios": "^1.2.0",
+    "buffer": "^6.0.3",
     "ethers": "^5.7.1",
     "extend-expect": "link:@testing-library/jest-dom/extend-expect",
     "identicon.js": "^2.3.3",

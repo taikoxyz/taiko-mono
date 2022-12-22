@@ -2,6 +2,7 @@ import Eth from "../components/icons/ETH.svelte";
 import type { ComponentType } from "svelte";
 import Tko from "../components/icons/TKO.svelte";
 import { CHAIN_MAINNET, CHAIN_TKO } from "./chain";
+import Horse from "../components/icons/Horse.svelte";
 
 type Address = {
   chainId: number;
@@ -66,7 +67,7 @@ export const HORSE: Token = {
   ],
   decimals: 18,
   symbol: "HORSE",
-  logoComponent: Tko,
+  logoComponent: Horse,
 };
 
 export const tokens = [ETH, HORSE];
