@@ -55,7 +55,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
     function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
-        V1Proposing.commitBlock(state, commitSlot, commitHash);
+        V1Proposing.commitBlock(state, getConfigs(), commitSlot, commitHash);
     }
 
     /**
@@ -80,12 +80,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         V1Proposing.proposeBlock({
             state: state,
+            config: getConfigs(),
             tentative: tentative,
             resolver: AddressResolver(this),
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: getConfigs(),
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -111,15 +113,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
+        LibData.Config memory config = getConfigs();
         V1Proving.proveBlock({
             state: state,
             tentative: tentative,
+            config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -144,15 +149,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
+        LibData.Config memory config = getConfigs();
+
         V1Proving.proveBlockInvalid({
             state: state,
             tentative: tentative,
+            config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
             checkHalt: false
@@ -167,6 +176,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Verifying.verifyBlocks({
             state: state,
+            config: getConfigs(),
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks,
             checkHalt: true
@@ -254,7 +264,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = V1Proposing.getBlockFee(state);
+        (, uint fee, uint deposit) = V1Proposing.getBlockFee(
+            state,
+            getConfigs()
+        );
         return fee + deposit;
     }
 
@@ -264,6 +277,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     ) public view returns (uint256 reward) {
         (, reward, ) = V1Verifying.getProofReward({
             state: state,
+            config: getConfigs(),
             provenAt: provenAt,
             proposedAt: proposedAt
         });
@@ -285,6 +299,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return
             V1Proposing.isCommitValid(
                 state,
+                getConfigs(),
                 commitSlot,
                 commitHeight,
                 commitHash
@@ -294,7 +309,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
-        return state.getProposedBlock(id);
+        return state.getProposedBlock(getConfigs(), id);
     }
 
     function getSyncedHeader(
@@ -334,35 +349,38 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.forkChoices[id][parentHash].provers;
     }
 
-    function getConstants()
-        public
-        pure
-        returns (
-            uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // K_CHAIN_ID
-            uint256, // K_MAX_NUM_BLOCKS
-            uint256, // K_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMS
-            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // K_BLOCK_MAX_GAS_LIMIT
-            uint256, // K_BLOCK_MAX_TXS
-            uint256, // K_TXLIST_MAX_BYTES
-            uint256, // K_TX_MIN_GAS_LIMIT
-            uint256 // K_ANCHOR_TX_GAS_LIMIT
-        )
-    {
-        return (
-            LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.K_CHAIN_ID,
-            LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMS,
-            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_TXLIST_MAX_BYTES,
-            LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT
-        );
+    function getConfigs() public pure returns (LibData.Config memory config) {
+        config.K_CHAIN_ID = 167;
+        // up to 2048 pending blocks
+        config.K_MAX_NUM_BLOCKS = 2049;
+        // This number is calculated from K_MAX_NUM_BLOCKS to make
+        // the 'the maximum value of the multiplier' close to 20.0
+        config.K_ZKPROOFS_PER_BLOCK = 1;
+        config.K_MAX_VERIFICATIONS_PER_TX = 20;
+        config.K_COMMIT_DELAY_CONFIRMS = 0;
+        config.K_MAX_PROOFS_PER_FORK_CHOICE = 5;
+        config.K_BLOCK_MAX_GAS_LIMIT = 5000000; // TODO
+        config.K_BLOCK_MAX_TXS = 20; // TODO
+        config.K_TXLIST_MAX_BYTES = 10240; // TODO
+        config.K_TX_MIN_GAS_LIMIT = 21000; // TODO
+        config.K_ANCHOR_TX_GAS_LIMIT = 250000;
+        config.K_FEE_PREMIUM_LAMDA = 590;
+        config.K_REWARD_BURN_BP = 100; // 100 basis points or 1%
+        config.K_PROPOSER_DEPOSIT_PCTG = 25; // 25%
+
+        // Moving average factors
+        config.K_FEE_BASE_MAF = 1024;
+        config.K_BLOCK_TIME_MAF = 1024;
+        config.K_PROOF_TIME_MAF = 1024;
+
+        config.K_REWARD_MULTIPLIER_PCTG = 400; // 400%
+        config.K_FEE_GRACE_PERIOD_PCTG = 125; // 125%
+        config.K_FEE_MAX_PERIOD_PCTG = 375; // 375%
+        config.K_BLOCK_TIME_CAP = 48 seconds;
+        config.K_PROOF_TIME_CAP = 60 minutes;
+        config.K_HALVING = 180 days;
+        config.K_INITIAL_UNCLE_DELAY = 60 minutes;
+
+        config.K_ENABLE_TOKENOMICS = true;
     }
 }

@@ -10,7 +10,6 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "../../libs/LibConstants.sol";
 import "../../libs/LibMath.sol";
 import "../LibData.sol";
 
@@ -20,6 +19,8 @@ library V1Utils {
 
     uint64 public constant MASK_HALT = 1 << 0;
 
+    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+
     event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
     event ProposerWhitelisted(address indexed proposer, bool whitelisted);
     event ProverWhitelisted(address indexed prover, bool whitelisted);
@@ -27,10 +28,11 @@ library V1Utils {
 
     function saveProposedBlock(
         LibData.State storage state,
+        LibData.Config memory config,
         uint256 id,
         LibData.ProposedBlock memory blk
     ) internal {
-        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
+        state.proposedBlocks[id % config.K_MAX_NUM_BLOCKS] = blk;
     }
 
     function enableWhitelisting(
@@ -82,9 +84,10 @@ library V1Utils {
 
     function getProposedBlock(
         LibData.State storage state,
+        LibData.Config memory config,
         uint256 id
     ) internal view returns (LibData.ProposedBlock storage) {
-        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
+        return state.proposedBlocks[id % config.K_MAX_NUM_BLOCKS];
     }
 
     function getL2BlockHash(
@@ -138,25 +141,26 @@ library V1Utils {
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
         LibData.State storage state,
+        LibData.Config memory config,
         bool isProposal,
         uint64 tNow,
         uint64 tLast,
-        uint64 tAvg,
-        uint64 tCap
+        uint64 tAvg
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = state.feeBase;
             tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
-            uint256 tGrace = (LibConstants.K_FEE_GRACE_PERIOD_PCTG * _tAvg) /
-                100;
-            uint256 tMax = (LibConstants.K_FEE_MAX_PERIOD_PCTG * _tAvg) / 100;
+            uint256 _tAvg = tAvg > config.K_PROOF_TIME_CAP
+                ? config.K_PROOF_TIME_CAP
+                : tAvg;
+            uint256 tGrace = (config.K_FEE_GRACE_PERIOD_PCTG * _tAvg) / 100;
+            uint256 tMax = (config.K_FEE_MAX_PERIOD_PCTG * _tAvg) / 100;
             uint256 a = tLast + tGrace;
             uint256 b = tNow > a ? tNow - a : 0;
             tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
             uint256 alpha = 10000 +
-                ((LibConstants.K_REWARD_MULTIPLIER_PCTG - 100) * tRelBp) /
+                ((config.K_REWARD_MULTIPLIER_PCTG - 100) * tRelBp) /
                 100;
             if (isProposal) {
                 newFeeBase = (state.feeBase * 10000) / alpha; // fee
@@ -169,13 +173,12 @@ library V1Utils {
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(
         LibData.State storage state,
+        LibData.Config memory config,
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
         // m is the `n'` in the whitepaper
-        uint256 m = LibConstants.K_MAX_NUM_BLOCKS -
-            1 +
-            LibConstants.K_FEE_PREMIUM_LAMDA;
+        uint256 m = config.K_MAX_NUM_BLOCKS - 1 + config.K_FEE_PREMIUM_LAMDA;
         // n is the number of unverified blocks
         uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
@@ -186,10 +189,11 @@ library V1Utils {
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
     function getBootstrapDiscountedFee(
         LibData.State storage state,
+        LibData.Config memory config,
         uint256 feeBase
     ) internal view returns (uint256) {
         uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            LibConstants.K_HALVING;
+            config.K_HALVING;
         uint256 gamma = 1024 - (1024 >> halves);
         return (feeBase * gamma) / 1024;
     }
@@ -197,11 +201,12 @@ library V1Utils {
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
         LibData.State storage state,
+        LibData.Config memory config,
         LibData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
-        if (blockId <= 2 * LibConstants.K_MAX_NUM_BLOCKS) {
-            return fc.provenAt + LibConstants.K_INITIAL_UNCLE_DELAY;
+        if (blockId <= 2 * config.K_MAX_NUM_BLOCKS) {
+            return fc.provenAt + config.K_INITIAL_UNCLE_DELAY;
         } else {
             return fc.provenAt + state.avgProofTime;
         }

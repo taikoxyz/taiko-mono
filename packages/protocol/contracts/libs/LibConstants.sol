@@ -42,12 +42,5 @@ library LibConstants {
     uint64 public constant K_HALVING = 180 days;
     uint64 public constant K_INITIAL_UNCLE_DELAY = 60 minutes;
 
-    bytes32 public constant K_BLOCK_DEADEND_HASH = bytes32(uint256(1));
-    bytes32 public constant K_INVALIDATE_BLOCK_LOG_TOPIC =
-        keccak256("BlockInvalidated(bytes32)");
-
-    bytes4 public constant K_ANCHOR_TX_SELECTOR =
-        bytes4(keccak256("anchor(uint256,bytes32)"));
-
     bool public constant K_ENABLE_TOKENOMICS = true;
 }

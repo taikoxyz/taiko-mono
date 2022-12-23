@@ -9,7 +9,6 @@
 pragma solidity ^0.8.9;
 
 import "../../common/ConfigManager.sol";
-import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
 import "./V1Utils.sol";
@@ -36,10 +35,11 @@ library V1Proposing {
 
     function commitBlock(
         LibData.State storage state,
+        LibData.Config memory config,
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
-        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(config.K_COMMIT_DELAY_CONFIRMS > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
@@ -59,6 +59,7 @@ library V1Proposing {
 
     function proposeBlock(
         LibData.State storage state,
+        LibData.Config memory config,
         LibData.TentativeState storage tentative,
         AddressResolver resolver,
         bytes[] calldata inputs
@@ -70,21 +71,21 @@ library V1Proposing {
             inputs[0],
             (LibData.BlockMetadata)
         );
-        _verifyBlockCommit(state, meta);
-        _validateMetadata(meta);
+        _verifyBlockCommit(state, config, meta);
+        _validateMetadata(config, meta);
 
         {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
                 txList.length > 0 &&
-                    txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
+                    txList.length <= config.K_TXLIST_MAX_BYTES &&
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
             );
             require(
                 state.nextBlockId <
-                    state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+                    state.latestVerifiedId + config.K_MAX_NUM_BLOCKS,
                 "L1:tooMany"
             );
 
@@ -99,11 +100,11 @@ library V1Proposing {
         }
 
         uint256 deposit;
-        if (LibConstants.K_ENABLE_TOKENOMICS) {
+        if (config.K_ENABLE_TOKENOMICS) {
             uint256 newFeeBase;
             {
                 uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state);
+                (newFeeBase, fee, deposit) = getBlockFee(state, config);
                 TkoToken(resolver.resolve("tko_token")).burn(
                     msg.sender,
                     fee + deposit
@@ -113,11 +114,12 @@ library V1Proposing {
             state.feeBase = V1Utils.movingAverage({
                 maValue: state.feeBase,
                 newValue: newFeeBase,
-                maf: LibConstants.K_FEE_BASE_MAF
+                maf: config.K_FEE_BASE_MAF
             });
         }
 
         state.saveProposedBlock(
+            config,
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: V1Utils.hashMetadata(meta),
@@ -131,7 +133,7 @@ library V1Proposing {
             .movingAverage({
                 maValue: state.avgBlockTime,
                 newValue: meta.timestamp - state.lastProposedAt,
-                maf: LibConstants.K_BLOCK_TIME_MAF
+                maf: config.K_BLOCK_TIME_MAF
             })
             .toUint64();
 
@@ -141,43 +143,47 @@ library V1Proposing {
     }
 
     function getBlockFee(
-        LibData.State storage state
+        LibData.State storage state,
+        LibData.Config memory config
     ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
         (newFeeBase, ) = V1Utils.getTimeAdjustedFee({
             state: state,
+            config: config,
             isProposal: true,
             tNow: uint64(block.timestamp),
             tLast: state.lastProposedAt,
-            tAvg: state.avgBlockTime,
-            tCap: LibConstants.K_BLOCK_TIME_CAP
+            tAvg: state.avgBlockTime
         });
         fee = V1Utils.getSlotsAdjustedFee({
             state: state,
+            config: config,
             isProposal: true,
             feeBase: newFeeBase
         });
-        fee = V1Utils.getBootstrapDiscountedFee(state, fee);
-        deposit = (fee * LibConstants.K_PROPOSER_DEPOSIT_PCTG) / 100;
+        fee = V1Utils.getBootstrapDiscountedFee(state, config, fee);
+        deposit = (fee * config.K_PROPOSER_DEPOSIT_PCTG) / 100;
     }
 
     function isCommitValid(
         LibData.State storage state,
+        LibData.Config memory config,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(config.K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + config.K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _verifyBlockCommit(
         LibData.State storage state,
+        LibData.Config memory config,
         LibData.BlockMetadata memory meta
     ) private {
-        if (LibConstants.K_COMMIT_DELAY_CONFIRMS == 0) {
+        if (config.K_COMMIT_DELAY_CONFIRMS == 0) {
             return;
         }
         bytes32 commitHash = _calculateCommitHash(
@@ -188,6 +194,7 @@ library V1Proposing {
         require(
             isCommitValid({
                 state: state,
+                config: config,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
@@ -202,7 +209,10 @@ library V1Proposing {
         }
     }
 
-    function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
+    function _validateMetadata(
+        LibData.Config memory config,
+        LibData.BlockMetadata memory meta
+    ) private pure {
         require(
             meta.id == 0 &&
                 meta.l1Height == 0 &&
@@ -214,10 +224,7 @@ library V1Proposing {
             "L1:placeholder"
         );
 
-        require(
-            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            "L1:gasLimit"
-        );
+        require(meta.gasLimit <= config.K_BLOCK_MAX_GAS_LIMIT, "L1:gasLimit");
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 

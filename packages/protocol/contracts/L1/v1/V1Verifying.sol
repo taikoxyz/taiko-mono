@@ -45,6 +45,7 @@ library V1Verifying {
 
     function verifyBlocks(
         LibData.State storage state,
+        LibData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks,
         bool checkHalt
@@ -60,7 +61,6 @@ library V1Verifying {
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
         uint64 processed = 0;
-        TkoToken tkoToken;
 
         for (
             uint256 i = state.latestVerifiedId + 1;
@@ -68,51 +68,24 @@ library V1Verifying {
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
-            LibData.ProposedBlock storage target = state.getProposedBlock(i);
+            LibData.ProposedBlock storage target = state.getProposedBlock(
+                config,
+                i
+            );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (!_isVerifiable(state, fc, i)) {
+            if (!_isVerifiable(state, config, fc, i)) {
                 break;
             } else {
-                if (LibConstants.K_ENABLE_TOKENOMICS) {
-                    uint256 newFeeBase;
-                    {
-                        uint256 reward;
-                        uint256 tRelBp; // [0-10000], see the whitepaper
-                        (newFeeBase, reward, tRelBp) = getProofReward({
-                            state: state,
-                            provenAt: fc.provenAt,
-                            proposedAt: target.proposedAt
-                        });
-
-                        if (address(tkoToken) == address(0)) {
-                            tkoToken = TkoToken(resolver.resolve("tko_token"));
-                        }
-
-                        _rewardProvers(fc, reward, tkoToken);
-                        _refundProposerDeposit(target, tRelBp, tkoToken);
-                    }
-                    // Update feeBase and avgProofTime
-                    state.feeBase = V1Utils.movingAverage({
-                        maValue: state.feeBase,
-                        newValue: newFeeBase,
-                        maf: LibConstants.K_FEE_BASE_MAF
-                    });
-                }
-
-                if (fc.blockHash != LibConstants.K_BLOCK_DEADEND_HASH) {
-                    latestL2Height += 1;
-                    latestL2Hash = fc.blockHash;
-                }
-
-                state.avgProofTime = V1Utils
-                    .movingAverage({
-                        maValue: state.avgProofTime,
-                        newValue: fc.provenAt - target.proposedAt,
-                        maf: LibConstants.K_PROOF_TIME_MAF
-                    })
-                    .toUint64();
-
+                (latestL2Height, latestL2Hash) = _verifyBlock(
+                    state,
+                    config,
+                    resolver,
+                    fc,
+                    target,
+                    latestL2Height,
+                    latestL2Hash
+                );
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
                 _cleanUp(fc);
@@ -132,23 +105,25 @@ library V1Verifying {
 
     function getProofReward(
         LibData.State storage state,
+        LibData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
         (newFeeBase, tRelBp) = V1Utils.getTimeAdjustedFee({
             state: state,
+            config: config,
             isProposal: false,
             tNow: provenAt,
             tLast: proposedAt,
-            tAvg: state.avgProofTime,
-            tCap: LibConstants.K_PROOF_TIME_CAP
+            tAvg: state.avgProofTime
         });
         reward = V1Utils.getSlotsAdjustedFee({
             state: state,
+            config: config,
             isProposal: false,
             feeBase: newFeeBase
         });
-        reward = (reward * (10000 - LibConstants.K_REWARD_BURN_BP)) / 10000;
+        reward = (reward * (10000 - config.K_REWARD_BURN_BP)) / 10000;
     }
 
     function _refundProposerDeposit(
@@ -180,6 +155,57 @@ library V1Verifying {
         }
     }
 
+    function _verifyBlock(
+        LibData.State storage state,
+        LibData.Config memory config,
+        AddressResolver resolver,
+        LibData.ForkChoice storage fc,
+        LibData.ProposedBlock storage target,
+        uint64 latestL2Height,
+        bytes32 latestL2Hash
+    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
+        if (config.K_ENABLE_TOKENOMICS) {
+            uint256 newFeeBase;
+            {
+                uint256 reward;
+                uint256 tRelBp; // [0-10000], see the whitepaper
+                (newFeeBase, reward, tRelBp) = getProofReward({
+                    state: state,
+                    config: config,
+                    provenAt: fc.provenAt,
+                    proposedAt: target.proposedAt
+                });
+
+                TkoToken tkoToken = TkoToken(resolver.resolve("tko_token"));
+
+                _rewardProvers(fc, reward, tkoToken);
+                _refundProposerDeposit(target, tRelBp, tkoToken);
+            }
+            // Update feeBase and avgProofTime
+            state.feeBase = V1Utils.movingAverage({
+                maValue: state.feeBase,
+                newValue: newFeeBase,
+                maf: config.K_FEE_BASE_MAF
+            });
+        }
+
+        state.avgProofTime = V1Utils
+            .movingAverage({
+                maValue: state.avgProofTime,
+                newValue: fc.provenAt - target.proposedAt,
+                maf: config.K_PROOF_TIME_MAF
+            })
+            .toUint64();
+
+        if (fc.blockHash != V1Utils.BLOCK_DEADEND_HASH) {
+            _latestL2Height = latestL2Height + 1;
+            _latestL2Hash = fc.blockHash;
+        } else {
+            _latestL2Height = latestL2Height;
+            _latestL2Hash = latestL2Hash;
+        }
+    }
+
     function _cleanUp(LibData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
@@ -191,11 +217,13 @@ library V1Verifying {
 
     function _isVerifiable(
         LibData.State storage state,
+        LibData.Config memory config,
         LibData.ForkChoice storage fc,
         uint256 blockId
     ) private view returns (bool) {
         return
             fc.blockHash != 0 &&
-            block.timestamp > V1Utils.uncleProofDeadline(state, fc, blockId);
+            block.timestamp >
+            V1Utils.uncleProofDeadline(state, config, fc, blockId);
     }
 }
