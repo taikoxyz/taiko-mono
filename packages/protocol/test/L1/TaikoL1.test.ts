@@ -40,7 +40,7 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("V1Verifying")
         ).deploy()
 
-        const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
+        const TaikoL1Factory = await ethers.getContractFactory("TestTaikoL1", {
             libraries: {
                 V1Verifying: v1Verifying.address,
                 V1Proposing: v1Proposing.address,
