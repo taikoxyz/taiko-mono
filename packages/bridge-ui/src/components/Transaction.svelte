@@ -103,7 +103,7 @@
 
   const interval = setInterval(async () => {
     processable = await isProcessable();
-    if (processable) clearInterval(interval);
+    if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
 </script>
 
