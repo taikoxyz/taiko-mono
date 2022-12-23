@@ -108,7 +108,7 @@ library V1Verifying {
                 // Note that not all L2 hashes are stored on L1, only the last
                 // verified one in a batch.
                 state.l2Hashes[
-                    latestL2Height % LibConstants.K_BLOCK_HASH_HISTORY
+                    latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }

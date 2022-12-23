@@ -15,6 +15,7 @@ library LibSharedConfig {
     function getConfig() internal pure returns (LibData.Config memory config) {
         // up to 2048 pending blocks
         config.maxNumBlocks = 2049;
+        config.blockHashHistory = 100000;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
