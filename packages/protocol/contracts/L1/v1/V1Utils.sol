@@ -105,15 +105,29 @@ library V1Utils {
         view
         returns (
             uint64 genesisHeight,
+            uint64 genesisTimestamp,
+            uint64 statusBits,
+            uint256 feeBase,
+            uint64 nextBlockId,
+            uint64 lastProposedAt,
+            uint64 avgBlockTime,
             uint64 latestVerifiedHeight,
             uint64 latestVerifiedId,
-            uint64 nextBlockId
+            uint64 avgProofTime
         )
     {
         genesisHeight = state.genesisHeight;
+        genesisTimestamp = state.genesisTimestamp;
+        statusBits = state.statusBits;
+
+        feeBase = state.feeBase;
+        nextBlockId = state.nextBlockId;
+        lastProposedAt = state.lastProposedAt;
+        avgBlockTime = state.avgBlockTime;
+
         latestVerifiedHeight = state.latestVerifiedHeight;
         latestVerifiedId = state.latestVerifiedId;
-        nextBlockId = state.nextBlockId;
+        avgProofTime = state.avgProofTime;
     }
 
     function isHalted(
