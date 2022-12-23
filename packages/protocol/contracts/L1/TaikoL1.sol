@@ -306,7 +306,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return
             V1Proposing.isCommitValid(
                 state,
-                getConfig(),
+                getConfig().K_COMMIT_DELAY_CONFIRMS,
                 commitSlot,
                 commitHeight,
                 commitHash

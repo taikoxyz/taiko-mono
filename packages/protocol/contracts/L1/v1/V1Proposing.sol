@@ -17,6 +17,7 @@ import "./V1Utils.sol";
 library V1Proposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
+    using V1Utils for LibData.BlockMetadata;
     using V1Utils for LibData.State;
 
     event BlockCommitted(
@@ -71,7 +72,11 @@ library V1Proposing {
             inputs[0],
             (LibData.BlockMetadata)
         );
-        _verifyBlockCommit({state: state, config: config, meta: meta});
+        _verifyBlockCommit({
+            state: state,
+            K_COMMIT_DELAY_CONFIRMS: config.K_COMMIT_DELAY_CONFIRMS,
+            meta: meta
+        });
         _validateMetadata(config, meta);
 
         {
@@ -122,7 +127,7 @@ library V1Proposing {
             config,
             state.nextBlockId,
             LibData.ProposedBlock({
-                metaHash: V1Utils.hashMetadata(meta),
+                metaHash: meta.hashMetadata(),
                 deposit: deposit,
                 proposer: msg.sender,
                 proposedAt: meta.timestamp
@@ -166,24 +171,24 @@ library V1Proposing {
 
     function isCommitValid(
         LibData.State storage state,
-        LibData.Config memory config,
+        uint256 K_COMMIT_DELAY_CONFIRMS,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        assert(config.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(K_COMMIT_DELAY_CONFIRMS > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + config.K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + K_COMMIT_DELAY_CONFIRMS;
     }
 
     function _verifyBlockCommit(
         LibData.State storage state,
-        LibData.Config memory config,
+        uint256 K_COMMIT_DELAY_CONFIRMS,
         LibData.BlockMetadata memory meta
     ) private {
-        if (config.K_COMMIT_DELAY_CONFIRMS == 0) {
+        if (K_COMMIT_DELAY_CONFIRMS == 0) {
             return;
         }
         bytes32 commitHash = _calculateCommitHash(
@@ -194,7 +199,7 @@ library V1Proposing {
         require(
             isCommitValid({
                 state: state,
-                config: config,
+                K_COMMIT_DELAY_CONFIRMS: K_COMMIT_DELAY_CONFIRMS,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
