@@ -18,7 +18,7 @@ task("deploy_L1")
         "L2 genesis block hash",
         ethers.constants.HashZero
     )
-    .addOptionalParam("l2ChainId", "L2 chain id", config.kChainId, types.int)
+    .addOptionalParam("l2ChainId", "L2 chain id", config.K_CHAIN_ID, types.int)
     .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
