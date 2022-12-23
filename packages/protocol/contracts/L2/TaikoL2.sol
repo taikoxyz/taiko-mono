@@ -14,8 +14,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../common/AddressResolver.sol";
 import "../common/IHeaderSync.sol";
-import "../libs/LibConfig.sol";
 import "../libs/LibInvalidTxList.sol";
+import "../libs/LibSharedConfig.sol";
 import "../libs/LibTxDecoder.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -114,7 +114,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     function getConfig() public pure virtual returns (LibData.Config memory) {
-        return LibConfig.getConfig();
+        return LibSharedConfig.getConfig();
     }
 
     function getSyncedHeader(

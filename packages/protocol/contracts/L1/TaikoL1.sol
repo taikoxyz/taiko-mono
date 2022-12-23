@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
-import "../libs/LibConfig.sol";
+import "../libs/LibSharedConfig.sol";
 import "./LibData.sol";
 import "./v1/V1Events.sol";
 import "./v1/V1Proposing.sol";
@@ -357,6 +357,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     }
 
     function getConfig() public pure virtual returns (LibData.Config memory) {
-        return LibConfig.getConfig();
+        return LibSharedConfig.getConfig();
     }
 }
