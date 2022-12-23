@@ -196,8 +196,11 @@
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
       tx.chainId = $fromChain.id;
+      const storageKey = `transactions-${await (
+        await $signer.getAddress()
+      ).toLowerCase()}`;
       let transactions: BridgeTransaction[] = JSON.parse(
-        await window.localStorage.getItem("transactions")
+        await window.localStorage.getItem(storageKey)
       );
 
       const bridgeTransaction: BridgeTransaction = {
@@ -215,7 +218,7 @@
       }
 
       await window.localStorage.setItem(
-        "transactions",
+        storageKey,
         JSON.stringify(transactions)
       );
 

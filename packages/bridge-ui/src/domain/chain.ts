@@ -84,7 +84,7 @@ export const mainnet: WagmiChain = {
 
 export const taiko: WagmiChain = {
   id: CHAIN_ID_TAIKO,
-  name: "Taiko A1",
+  name: "Taiko Snæfellsjökull",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
