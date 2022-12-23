@@ -316,7 +316,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
-        return state.getProposedBlock(getConfig(), id);
+        return state.getProposedBlock(getConfig().K_MAX_NUM_BLOCKS, id);
     }
 
     function getSyncedHeader(

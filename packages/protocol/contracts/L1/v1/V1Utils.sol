@@ -28,11 +28,11 @@ library V1Utils {
 
     function saveProposedBlock(
         LibData.State storage state,
-        LibData.Config memory config,
+        uint256 K_MAX_NUM_BLOCKS,
         uint256 id,
         LibData.ProposedBlock memory blk
     ) internal {
-        state.proposedBlocks[id % config.K_MAX_NUM_BLOCKS] = blk;
+        state.proposedBlocks[id % K_MAX_NUM_BLOCKS] = blk;
     }
 
     function enableWhitelisting(
@@ -84,10 +84,10 @@ library V1Utils {
 
     function getProposedBlock(
         LibData.State storage state,
-        LibData.Config memory config,
+        uint256 K_MAX_NUM_BLOCKS,
         uint256 id
     ) internal view returns (LibData.ProposedBlock storage) {
-        return state.proposedBlocks[id % config.K_MAX_NUM_BLOCKS];
+        return state.proposedBlocks[id % K_MAX_NUM_BLOCKS];
     }
 
     function getL2BlockHash(

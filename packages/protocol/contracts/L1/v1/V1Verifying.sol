@@ -69,7 +69,7 @@ library V1Verifying {
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
             LibData.ProposedBlock storage target = state.getProposedBlock(
-                config,
+                config.K_MAX_NUM_BLOCKS,
                 i
             );
 
@@ -231,6 +231,11 @@ library V1Verifying {
         return
             fc.blockHash != 0 &&
             block.timestamp >
-            V1Utils.uncleProofDeadline(state, config, fc, blockId);
+            V1Utils.uncleProofDeadline({
+                state: state,
+                config: config,
+                fc: fc,
+                blockId: blockId
+            });
     }
 }

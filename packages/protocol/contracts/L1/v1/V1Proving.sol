@@ -25,8 +25,8 @@ import "./V1Utils.sol";
 /// @author david <david@taiko.xyz>
 library V1Proving {
     using LibBlockHeader for BlockHeader;
-    using V1Utils for LibData.State;
     using V1Utils for LibData.BlockMetadata;
+    using V1Utils for LibData.State;
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
@@ -336,7 +336,7 @@ library V1Proving {
             "L1:meta:id"
         );
         require(
-            state.getProposedBlock(config, meta.id).metaHash ==
+            state.getProposedBlock(config.K_MAX_NUM_BLOCKS, meta.id).metaHash ==
                 meta.hashMetadata(),
             "L1:metaHash"
         );

@@ -124,7 +124,7 @@ library V1Proposing {
         }
 
         state.saveProposedBlock(
-            config,
+            config.K_MAX_NUM_BLOCKS,
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: meta.hashMetadata(),
