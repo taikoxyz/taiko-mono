@@ -52,6 +52,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:integration
 
+      - name: protocol - Test Coverage
+        working-directory: ./packages/protocol
+        run: pnpm test:coverage
+
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
         run: pnpm test:genesis
