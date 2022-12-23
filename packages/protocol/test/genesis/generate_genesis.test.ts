@@ -149,12 +149,12 @@ action("Generate Genesis", function () {
                 signer
             )
 
-            await expect(
-                LibTxDecoder.decodeTxList(
-                    config.chainId,
-                    ethers.utils.RLP.encode([])
-                )
-            ).to.be.revertedWith("empty txList")
+            const decoded = await LibTxDecoder.callStatic.decodeTxList(
+                config.chainId,
+                ethers.utils.RLP.encode([])
+            )
+
+            expect(decoded.items.length).to.be.eql(0)
         })
 
         it("TaikoL2", async function () {

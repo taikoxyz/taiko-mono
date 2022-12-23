@@ -20,6 +20,18 @@ task("deploy_L1")
     )
     .addOptionalParam("l2ChainId", "L2 chain id", config.K_CHAIN_ID, types.int)
     .addOptionalParam(
+        "bridgeFunderPrivateKey",
+        "Private key of the L1 bridge funder",
+        "",
+        types.string
+    )
+    .addOptionalParam(
+        "bridgeFund",
+        "L1 bridge's initial fund in hex",
+        "",
+        types.string
+    )
+    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.K_DEPLOY_CONFIRMATIONS,
@@ -51,6 +63,8 @@ export async function deployContracts(hre: any) {
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash
     const taikoL2Address = hre.args.taikoL2
     const l2ChainId = hre.args.l2ChainId
+    const bridgeFunderPrivateKey = hre.args.bridgeFunderPrivateKey
+    const bridgeFund = hre.args.bridgeFund
 
     log.debug(`network: ${network}`)
     log.debug(`chainId: ${chainId}`)
@@ -59,6 +73,8 @@ export async function deployContracts(hre: any) {
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`)
     log.debug(`taikoL2Address: ${taikoL2Address}`)
     log.debug(`l2ChainId: ${l2ChainId}`)
+    log.debug(`bridgeFunderPrivateKey: ${bridgeFunderPrivateKey}`)
+    log.debug(`bridgeFund: ${bridgeFund}`)
     log.debug(`confirmations: ${hre.args.confirmations}`)
     log.debug()
 
@@ -132,6 +148,31 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${chainId}.bridge`, Bridge.address)
     )
+
+    // Fund L1 bridge, which is necessary when there is a L2 faucet
+    if (
+        bridgeFunderPrivateKey.length &&
+        hre.ethers.utils.isHexString(bridgeFund)
+    ) {
+        const funder = new hre.ethers.Wallet(
+            bridgeFunderPrivateKey,
+            hre.ethers.provider
+        )
+
+        await utils.waitTx(
+            hre,
+            await funder.sendTransaction({
+                to: Bridge.address,
+                value: hre.ethers.BigNumber.from(bridgeFund),
+            })
+        )
+
+        log.debug(
+            `L1 bridge balance: ${hre.ethers.utils.hexlify(
+                await hre.ethers.provider.getBalance(Bridge.address)
+            )}`
+        )
+    }
 
     // save deployments
     const deployments = {

@@ -1,5 +1,6 @@
-import { ethers } from "ethers";
+import { Contract, ethers } from "ethers";
 import { RLP } from "ethers/lib/utils.js";
+import HeaderSync from "../constants/abi/HeaderSync";
 import type { Block, BlockHeader } from "../domain/block";
 import type {
   Prover,
@@ -24,8 +25,16 @@ class ProofService implements Prover {
 
     const provider = this.providerMap.get(opts.srcChain);
 
-    const block: Block = await provider.send("eth_getBlockByNumber", [
-      "latest",
+    const contract = new Contract(
+      opts.destHeaderSyncAddress,
+      HeaderSync,
+      this.providerMap.get(opts.destChain)
+    );
+
+    const latestSyncedHeader = await contract.getLatestSyncedHeader();
+
+    const block: Block = await provider.send("eth_getBlockByHash", [
+      latestSyncedHeader,
       false,
     ]);
 
@@ -56,6 +65,10 @@ class ProofService implements Prover {
       [key],
       block.hash,
     ]);
+
+    if (proof.storageProof[0].value !== "0x1") {
+      throw Error("invalid proof");
+    }
 
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = ethers.utils.defaultAbiCoder.encode(

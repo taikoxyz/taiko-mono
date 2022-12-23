@@ -32,12 +32,20 @@ describe("LibTxDecoder", function () {
     }
 
     describe("decodeTxList", function () {
-        it("should revert if tx list is empty", async function () {
+        it("should not revert if tx list is empty", async function () {
             const txList: string[] = []
             const txListBytes = await rlpEncodeTxList(txList)
-            await expect(
-                libTxDecoder.callStatic.decodeTxList(chainId, txListBytes)
-            ).to.be.revertedWith("empty txList")
+
+            let decoded = await libTxDecoder.callStatic.decodeTxList(
+                chainId,
+                txListBytes
+            )
+
+            expect(decoded.items.length).to.be.eql(0)
+
+            decoded = await libTxDecoder.callStatic.decodeTxList([])
+
+            expect(decoded.items.length).to.be.eql(0)
         })
 
         it("should revert with random bytes", async function () {

@@ -3,7 +3,6 @@ import { mainnet, taiko } from "../domain/chain";
 import type { Bridge, BridgeOpts } from "../domain/bridge";
 import ETHBridge from "./bridge";
 import { Message, MessageStatus } from "../domain/message";
-import { src_url_equal } from "svelte/internal";
 
 const mockSigner = {
   getAddress: jest.fn(),
@@ -72,7 +71,7 @@ describe("bridge tests", () => {
       tokenAddress: "",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
       processingFeeInWei: BigNumber.from(2),
       memo: "memo",
     };
@@ -105,7 +104,7 @@ describe("bridge tests", () => {
       tokenAddress: "",
       fromChainId: mainnet.id,
       toChainId: taiko.id,
-      bridgeAddress: "0x456",
+      tokenVaultAddress: "0x456",
     };
 
     await bridge.Bridge(opts);
@@ -131,7 +130,11 @@ describe("bridge tests", () => {
 
     await expect(
       bridge.Claim({
-        message: {} as unknown as Message,
+        message: {
+          srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
+        } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
@@ -157,6 +160,9 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           owner: "0x",
+          srcChainId: BigNumber.from(167001),
+          destChainId: BigNumber.from(31336),
+          gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
         srcBridgeAddress: "0x",
@@ -188,8 +194,10 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",
@@ -222,8 +230,10 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: 167001,
+        srcChainId: BigNumber.from(167001),
+        destChainId: BigNumber.from(31336),
         sender: "0x01",
+        gasLimit: BigNumber.from(1),
       } as unknown as Message,
       signal: "0x",
       srcBridgeAddress: "0x",

@@ -21,7 +21,7 @@ type BridgeOpts = {
   tokenAddress: string;
   fromChainId: number;
   toChainId: number;
-  bridgeAddress: string;
+  tokenVaultAddress: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;

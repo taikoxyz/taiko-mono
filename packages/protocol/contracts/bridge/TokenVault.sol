@@ -220,7 +220,7 @@ contract TokenVault is EssentialContract {
 
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
-        message.depositValue = msg.value;
+        message.depositValue = msg.value - processingFee;
         message.refundAddress = refundAddress;
         message.memo = memo;
 

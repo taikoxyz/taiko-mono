@@ -25,3 +25,7 @@ Here are the best places to learn about Taiko.
 - [GitHub](https://github.com/taikoxyz/)
 - [Reddit](https://www.reddit.com/r/taiko_xyz/)
 - [Twitter](https://twitter.com/taikoxyz)
+
+### Ask questions and start discussions
+
+You can ask questions and start discussions on our [GitHub Discussions](https://github.com/taikoxyz/taiko-mono/discussions).
