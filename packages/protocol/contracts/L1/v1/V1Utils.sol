@@ -19,10 +19,21 @@ library V1Utils {
 
     uint64 public constant MASK_HALT = 1 << 0;
 
+    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+
     event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
     event ProposerWhitelisted(address indexed proposer, bool whitelisted);
     event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
+
+    function saveProposedBlock(
+        LibData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id,
+        LibData.ProposedBlock memory blk
+    ) internal {
+        state.proposedBlocks[id % maxNumBlocks] = blk;
+    }
 
     function enableWhitelisting(
         LibData.TentativeState storage tentative,
@@ -71,6 +82,54 @@ library V1Utils {
         emit Halted(toHalt);
     }
 
+    function getProposedBlock(
+        LibData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id
+    ) internal view returns (LibData.ProposedBlock storage) {
+        return state.proposedBlocks[id % maxNumBlocks];
+    }
+
+    function getL2BlockHash(
+        LibData.State storage state,
+        uint256 number
+    ) internal view returns (bytes32) {
+        require(number <= state.latestVerifiedHeight, "L1:id");
+        return state.l2Hashes[number];
+    }
+
+    function getStateVariables(
+        LibData.State storage state
+    )
+        internal
+        view
+        returns (
+            uint64 genesisHeight,
+            uint64 genesisTimestamp,
+            uint64 statusBits,
+            uint256 feeBase,
+            uint64 nextBlockId,
+            uint64 lastProposedAt,
+            uint64 avgBlockTime,
+            uint64 latestVerifiedHeight,
+            uint64 latestVerifiedId,
+            uint64 avgProofTime
+        )
+    {
+        genesisHeight = state.genesisHeight;
+        genesisTimestamp = state.genesisTimestamp;
+        statusBits = state.statusBits;
+
+        feeBase = state.feeBase;
+        nextBlockId = state.nextBlockId;
+        lastProposedAt = state.lastProposedAt;
+        avgBlockTime = state.avgBlockTime;
+
+        latestVerifiedHeight = state.latestVerifiedHeight;
+        latestVerifiedId = state.latestVerifiedId;
+        avgProofTime = state.avgProofTime;
+    }
+
     function isHalted(
         LibData.State storage state
     ) internal view returns (bool) {
@@ -93,17 +152,84 @@ library V1Utils {
         return tentative.provers[prover];
     }
 
+    // Implement "Incentive Multipliers", see the whitepaper.
+    function getTimeAdjustedFee(
+        LibData.State storage state,
+        LibData.Config memory config,
+        bool isProposal,
+        uint64 tNow,
+        uint64 tLast,
+        uint64 tAvg
+    ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
+        if (tAvg == 0) {
+            newFeeBase = state.feeBase;
+            tRelBp = 0;
+        } else {
+            uint256 _tAvg = tAvg > config.proofTimeCap
+                ? config.proofTimeCap
+                : tAvg;
+            uint256 tGrace = (config.feeGracePeriodPctg * _tAvg) / 100;
+            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
+            uint256 a = tLast + tGrace;
+            uint256 b = tNow > a ? tNow - a : 0;
+            tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
+            uint256 alpha = 10000 +
+                ((config.rewardMultiplierPctg - 100) * tRelBp) /
+                100;
+            if (isProposal) {
+                newFeeBase = (state.feeBase * 10000) / alpha; // fee
+            } else {
+                newFeeBase = (state.feeBase * alpha) / 10000; // reward
+            }
+        }
+    }
+
+    // Implement "Slot-availability Multipliers", see the whitepaper.
+    function getSlotsAdjustedFee(
+        LibData.State storage state,
+        LibData.Config memory config,
+        bool isProposal,
+        uint256 feeBase
+    ) internal view returns (uint256) {
+        // m is the `n'` in the whitepaper
+        uint256 m = config.maxNumBlocks - 1 + config.feePremiumLamda;
+        // n is the number of unverified blocks
+        uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
+        // k is `m − n + 1` or `m − n - 1`in the whitepaper
+        uint256 k = isProposal ? m - n - 1 : m - n + 1;
+        return (feeBase * (m - 1) * m) / (m - n) / k;
+    }
+
+    // Implement "Bootstrap Discount Multipliers", see the whitepaper.
+    function getBootstrapDiscountedFee(
+        LibData.State storage state,
+        LibData.Config memory config,
+        uint256 feeBase
+    ) internal view returns (uint256) {
+        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
+            config.boostrapDiscountHalvingPeriod;
+        uint256 gamma = 1024 - (1024 >> halves);
+        return (feeBase * gamma) / 1024;
+    }
+
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
         LibData.State storage state,
+        LibData.Config memory config,
         LibData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
-        if (blockId <= 2 * LibConstants.K_MAX_NUM_BLOCKS) {
-            return fc.provenAt + LibConstants.K_INITIAL_UNCLE_DELAY;
+        if (blockId <= 2 * config.maxNumBlocks) {
+            return fc.provenAt + config.initialUncleDelay;
         } else {
             return fc.provenAt + state.avgProofTime;
         }
+    }
+
+    function hashMetadata(
+        LibData.BlockMetadata memory meta
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(meta));
     }
 
     function movingAverage(

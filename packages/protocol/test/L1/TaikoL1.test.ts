@@ -1,5 +1,6 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
+import { BigNumber } from "ethers"
 import { TaikoL1 } from "../../typechain"
 
 describe("TaikoL1", function () {
@@ -43,6 +44,7 @@ describe("TaikoL1", function () {
         ).deploy()
 
         genesisHash = randomBytes32()
+        const feeBase = BigNumber.from(10).pow(18)
         taikoL1 = await (
             await ethers.getContractFactory("TaikoL1", {
                 libraries: {
@@ -52,7 +54,7 @@ describe("TaikoL1", function () {
                 },
             })
         ).deploy()
-        await taikoL1.init(addressManager.address, genesisHash)
+        await taikoL1.init(addressManager.address, genesisHash, feeBase)
     })
 
     describe("getLatestSyncedHeader()", async function () {
@@ -64,7 +66,9 @@ describe("TaikoL1", function () {
 
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:number")
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
+                "L1:number"
+            )
         })
 
         it("should return appropraite hash for header", async function () {

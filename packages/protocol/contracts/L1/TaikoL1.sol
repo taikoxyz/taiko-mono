@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
+import "../libs/LibSharedConfig.sol";
 import "./LibData.sol";
 import "./v1/V1Events.sol";
 import "./v1/V1Proposing.sol";
@@ -22,7 +23,9 @@ import "./v1/V1Verifying.sol";
  * @author dantaik <dan@taiko.xyz>
  */
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
-    using LibData for LibData.State;
+    using V1Utils for LibData.State;
+
+    uint256 private constant L2_CHAIN_ID = 167;
 
     LibData.State public state;
     LibData.TentativeState public tentative;
@@ -30,10 +33,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     function init(
         address _addressManager,
-        bytes32 _genesisBlockHash
+        bytes32 _genesisBlockHash,
+        uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Verifying.init({state: state, genesisBlockHash: _genesisBlockHash});
+        V1Verifying.init({
+            state: state,
+            genesisBlockHash: _genesisBlockHash,
+            feeBase: _feeBase
+        });
 
         tentative.whitelistProposers = false;
         tentative.whitelistProvers = true;
@@ -50,7 +58,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
     function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
-        V1Proposing.commitBlock(state, commitSlot, commitHash);
+        V1Proposing.commitBlock({
+            state: state,
+            config: getConfig(),
+            commitSlot: commitSlot,
+            commitHash: commitHash
+        });
     }
 
     /**
@@ -73,16 +86,19 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
+        LibData.Config memory config = getConfig();
         V1Proposing.proposeBlock({
             state: state,
+            config: config,
             tentative: tentative,
             resolver: AddressResolver(this),
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: getConfig(),
             resolver: AddressResolver(this),
-            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -106,17 +122,20 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
+        LibData.Config memory config = getConfig();
         V1Proving.proveBlock({
             state: state,
             tentative: tentative,
+            config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: config,
             resolver: AddressResolver(this),
-            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -139,17 +158,21 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
+        LibData.Config memory config = getConfig();
+
         V1Proving.proveBlockInvalid({
             state: state,
             tentative: tentative,
+            config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
             inputs: inputs
         });
         V1Verifying.verifyBlocks({
             state: state,
+            config: config,
             resolver: AddressResolver(this),
-            maxBlocks: LibConstants.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -162,6 +185,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         require(maxBlocks > 0, "L1:maxBlocks");
         V1Verifying.verifyBlocks({
             state: state,
+            config: getConfig(),
             resolver: AddressResolver(this),
             maxBlocks: maxBlocks,
             checkHalt: true
@@ -248,6 +272,26 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return V1Utils.isProverWhitelisted(tentative, prover);
     }
 
+    function getBlockFee() public view returns (uint256) {
+        (, uint fee, uint deposit) = V1Proposing.getBlockFee(
+            state,
+            getConfig()
+        );
+        return fee + deposit;
+    }
+
+    function getProofReward(
+        uint64 provenAt,
+        uint64 proposedAt
+    ) public view returns (uint256 reward) {
+        (, reward, ) = V1Verifying.getProofReward({
+            state: state,
+            config: getConfig(),
+            provenAt: provenAt,
+            proposedAt: proposedAt
+        });
+    }
+
     /**
      * Check if the L1 is halted.
      * @return True if halted, false otherwise.
@@ -264,6 +308,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return
             V1Proposing.isCommitValid(
                 state,
+                getConfig().commitConfirmations,
                 commitSlot,
                 commitHeight,
                 commitHash
@@ -273,7 +318,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
-        return state.getProposedBlock(id);
+        return state.getProposedBlock(getConfig().maxNumBlocks, id);
     }
 
     function getSyncedHeader(
@@ -292,9 +337,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         view
         returns (
             uint64 /*genesisHeight*/,
+            uint64 /*genesisTimestamp*/,
+            uint64 /*statusBits*/,
+            uint256 /*feeBase*/,
+            uint64 /*nextBlockId*/,
+            uint64 /*lastProposedAt*/,
+            uint64 /*avgBlockTime*/,
             uint64 /*latestVerifiedHeight*/,
             uint64 /*latestVerifiedId*/,
-            uint64 /*nextBlockId*/
+            uint64 /*avgProofTime*/
         )
     {
         return state.getStateVariables();
@@ -314,35 +365,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.forkChoices[id][parentHash].provers;
     }
 
-    function getConstants()
+    function getConfig()
         public
         pure
-        returns (
-            uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // K_CHAIN_ID
-            uint256, // K_MAX_NUM_BLOCKS
-            uint256, // K_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMS
-            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // K_BLOCK_MAX_GAS_LIMIT
-            uint256, // K_BLOCK_MAX_TXS
-            uint256, // K_TXLIST_MAX_BYTES
-            uint256, // K_TX_MIN_GAS_LIMIT
-            uint256 // K_ANCHOR_TX_GAS_LIMIT
-        )
+        virtual
+        returns (LibData.Config memory config)
     {
-        return (
-            LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.K_CHAIN_ID,
-            LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMS,
-            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_TXLIST_MAX_BYTES,
-            LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT
-        );
+        config = LibSharedConfig.getConfig();
+        config.chainId = L2_CHAIN_ID;
     }
 }

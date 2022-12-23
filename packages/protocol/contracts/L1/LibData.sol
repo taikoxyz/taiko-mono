@@ -8,10 +8,41 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
-
 /// @author dantaik <dan@taiko.xyz>
 library LibData {
+    struct Config {
+        uint256 chainId;
+        // up to 2048 pending blocks
+        uint256 maxNumBlocks;
+        // This number is calculated from maxNumBlocks to make
+        // the 'the maximum value of the multiplier' close to 20.0
+        uint256 zkProofsPerBlock;
+        uint256 maxVerificationsPerTx;
+        uint256 commitConfirmations;
+        uint256 maxProofsPerForkChoice;
+        uint256 blockMaxGasLimit;
+        uint256 maxTransactionsPerBlock;
+        uint256 maxBytesPerTxList;
+        uint256 minTxGasLimit;
+        uint256 anchorTxGasLimit;
+        uint256 feePremiumLamda;
+        uint256 rewardBurnBips;
+        uint256 proposerDepositPctg;
+        // Moving average factors
+        uint256 feeBaseMAF;
+        uint256 blockTimeMAF;
+        uint256 proofTimeMAF;
+        uint64 rewardMultiplierPctg;
+        uint64 feeGracePeriodPctg;
+        uint64 feeMaxPeriodPctg;
+        uint64 blockTimeCap;
+        uint64 proofTimeCap;
+        uint64 boostrapDiscountHalvingPeriod;
+        uint64 initialUncleDelay;
+        bool enableTokenomics;
+        bool skipProofValidation;
+    }
+
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
@@ -29,6 +60,7 @@ library LibData {
     // 3 slots
     struct ProposedBlock {
         bytes32 metaHash;
+        uint256 deposit;
         address proposer;
         uint64 proposedAt;
     }
@@ -55,6 +87,8 @@ library LibData {
         uint64 genesisTimestamp;
         uint64 __reservedA1;
         uint64 statusBits; // rarely change
+        // Changed when a block is proposed or proven/finalized
+        uint256 feeBase;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
@@ -78,59 +112,5 @@ library LibData {
         bool whitelistProvers;
         // // Reserved
         uint256[46] __gap;
-    }
-
-    function saveProposedBlock(
-        LibData.State storage state,
-        uint256 id,
-        ProposedBlock memory blk
-    ) internal {
-        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
-    }
-
-    function getProposedBlock(
-        State storage state,
-        uint256 id
-    ) internal view returns (ProposedBlock storage) {
-        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
-    }
-
-    function getL2BlockHash(
-        State storage state,
-        uint256 number
-    ) internal view returns (bytes32) {
-        if (
-            number <= state.latestVerifiedHeight &&
-            number + LibConstants.K_BLOCK_HASH_HISTORY >
-            state.latestVerifiedHeight
-        ) {
-            return state.l2Hashes[number % LibConstants.K_BLOCK_HASH_HISTORY];
-        } else {
-            return 0;
-        }
-    }
-
-    function getStateVariables(
-        State storage state
-    )
-        internal
-        view
-        returns (
-            uint64 genesisHeight,
-            uint64 latestVerifiedHeight,
-            uint64 latestVerifiedId,
-            uint64 nextBlockId
-        )
-    {
-        genesisHeight = state.genesisHeight;
-        latestVerifiedHeight = state.latestVerifiedHeight;
-        latestVerifiedId = state.latestVerifiedId;
-        nextBlockId = state.nextBlockId;
-    }
-
-    function hashMetadata(
-        BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(meta));
     }
 }

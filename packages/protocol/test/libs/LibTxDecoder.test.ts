@@ -8,6 +8,8 @@ describe("LibTxDecoder", function () {
     let libTxDecoder: any
     let signer0: any
 
+    const chainId = 167
+
     before(async function () {
         rlpWriter = await (
             await ethers.getContractFactory("TestLibRLPWriter")
@@ -35,6 +37,7 @@ describe("LibTxDecoder", function () {
             const txListBytes = await rlpEncodeTxList(txList)
 
             let decoded = await libTxDecoder.callStatic.decodeTxList(
+                chainId,
                 txListBytes
             )
 
@@ -50,14 +53,15 @@ describe("LibTxDecoder", function () {
                 ethers.utils.randomBytes(73)
             )
 
-            await expect(libTxDecoder.callStatic.decodeTxList(randomBytes)).to
-                .be.reverted
+            await expect(
+                libTxDecoder.callStatic.decodeTxList(chainId, randomBytes)
+            ).to.be.reverted
         })
 
         it("can decode txList with legacy transaction", async function () {
             const txLegacy: UnsignedTransaction = {
                 nonce: 1,
-                chainId: 167,
+                chainId: chainId,
                 gasPrice: 11e9,
                 gasLimit: 123456,
                 to: ethers.Wallet.createRandom().address,
@@ -77,6 +81,7 @@ describe("LibTxDecoder", function () {
             log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                chainId,
                 txListBytes
             )
             // log.debug('decodedT: ', decodedTxList)
@@ -107,6 +112,7 @@ describe("LibTxDecoder", function () {
             log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                chainId,
                 txListBytes
             )
             expect(decodedTxList.items.length).to.equal(1)
@@ -137,6 +143,7 @@ describe("LibTxDecoder", function () {
             log.debug("txListBytes: ", txListBytes)
 
             const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+                chainId,
                 txListBytes
             )
             expect(decodedTxList.items.length).to.equal(1)
@@ -149,7 +156,7 @@ describe("LibTxDecoder", function () {
         const signature = await signer0.signMessage("123456abcdef")
         const txLegacy: UnsignedTransaction = {
             nonce: 1,
-            chainId: 167,
+            chainId: chainId,
             gasPrice: 11e9,
             gasLimit: 123456,
             to: ethers.Wallet.createRandom().address,
@@ -191,6 +198,7 @@ describe("LibTxDecoder", function () {
         const txListBytes = await rlpEncodeTxList(txRawBytesArr)
 
         const decodedTxList = await libTxDecoder.callStatic.decodeTxList(
+            chainId,
             txListBytes
         )
         // log.debug('decodedT: ', decodedTxList)
