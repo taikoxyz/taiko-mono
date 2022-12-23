@@ -15,6 +15,8 @@ import "./V1Utils.sol";
 /// @author dantaik <dan@taiko.xyz>
 library V1Verifying {
     using SafeCastUpgradeable for uint256;
+    using V1Utils for LibData.State;
+
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
     event HeaderSynced(
@@ -51,20 +53,21 @@ library V1Verifying {
             return;
         }
 
+        uint256 _maxBlocks = maxBlocks == 0
+            ? LibConstants.K_MAX_VERIFICATIONS_PER_TX
+            : maxBlocks;
+
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
         uint64 processed = 0;
 
         for (
             uint256 i = state.latestVerifiedId + 1;
-            i < state.nextBlockId && processed <= maxBlocks;
+            i < state.nextBlockId && processed <= _maxBlocks;
             i++
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
-            LibData.ProposedBlock storage target = LibData.getProposedBlock(
-                state,
-                i
-            );
+            LibData.ProposedBlock storage target = state.getProposedBlock(i);
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (!_isVerifiable(state, fc, i)) {

@@ -18,7 +18,7 @@ import "./V1Utils.sol";
 library V1Proposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
-    using LibData for LibData.State;
+    using V1Utils for LibData.State;
 
     event BlockCommitted(
         uint64 commitSlot,
@@ -109,7 +109,7 @@ library V1Proposing {
         state.saveProposedBlock(
             state.nextBlockId,
             LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
+                metaHash: V1Utils.hashMetadata(meta),
                 proposer: msg.sender,
                 proposedAt: meta.timestamp
             })

@@ -10,6 +10,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import "../../libs/LibConstants.sol";
 import "../../libs/LibMath.sol";
 import "../LibData.sol";
 
@@ -23,6 +24,14 @@ library V1Utils {
     event ProposerWhitelisted(address indexed proposer, bool whitelisted);
     event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
+
+    function saveProposedBlock(
+        LibData.State storage state,
+        uint256 id,
+        LibData.ProposedBlock memory blk
+    ) internal {
+        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
+    }
 
     function enableWhitelisting(
         LibData.TentativeState storage tentative,
@@ -77,6 +86,39 @@ library V1Utils {
         return isBitOne(state, MASK_HALT);
     }
 
+    function getProposedBlock(
+        LibData.State storage state,
+        uint256 id
+    ) internal view returns (LibData.ProposedBlock storage) {
+        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
+    }
+
+    function getL2BlockHash(
+        LibData.State storage state,
+        uint256 number
+    ) internal view returns (bytes32) {
+        require(number <= state.latestVerifiedHeight, "L1:id");
+        return state.l2Hashes[number];
+    }
+
+    function getStateVariables(
+        LibData.State storage state
+    )
+        internal
+        view
+        returns (
+            uint64 genesisHeight,
+            uint64 latestVerifiedHeight,
+            uint64 latestVerifiedId,
+            uint64 nextBlockId
+        )
+    {
+        genesisHeight = state.genesisHeight;
+        latestVerifiedHeight = state.latestVerifiedHeight;
+        latestVerifiedId = state.latestVerifiedId;
+        nextBlockId = state.nextBlockId;
+    }
+
     function isProposerWhitelisted(
         LibData.TentativeState storage tentative,
         address proposer
@@ -104,6 +146,12 @@ library V1Utils {
         } else {
             return fc.provenAt + state.avgProofTime;
         }
+    }
+
+    function hashMetadata(
+        LibData.BlockMetadata memory meta
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(meta));
     }
 
     function movingAverage(
