@@ -26,6 +26,7 @@
   import { fetchSigner, switchNetwork } from "@wagmi/core";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./modals/TooltipModal.svelte";
+  import Bridge from "../constants/abi/Bridge";
 
   export let transaction: BridgeTransaction;
 
@@ -34,7 +35,6 @@
 
   let tooltipOpen: boolean = false;
   let processable: boolean = false;
-
   onMount(async () => {
     processable = await isProcessable();
   });
@@ -103,6 +103,14 @@
 
   const interval = setInterval(async () => {
     processable = await isProcessable();
+    const contract = new ethers.Contract(
+      chains[transaction.toChainId].bridgeAddress,
+      Bridge,
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+    );
+
+    transaction.status = await contract.getMessageStatus(transaction.signal);
+    transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
 </script>
