@@ -82,7 +82,10 @@ library V1Proving {
 
         {
             // Check anchor tx is valid
-            LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(anchorTx);
+            LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
+                config.K_CHAIN_ID,
+                anchorTx
+            );
             require(_tx.txType == 0, "L1:anchor:type");
             require(
                 _tx.destination == resolver.resolve(config.K_CHAIN_ID, "taiko"),
@@ -94,7 +97,7 @@ library V1Proving {
             );
 
             // Check anchor tx's signature is valid and deterministic
-            _validateAnchorTxSignature(_tx);
+            _validateAnchorTxSignature(config.K_CHAIN_ID, _tx);
 
             // Check anchor tx's calldata is valid
             require(
@@ -170,7 +173,7 @@ library V1Proving {
         // Check evidence
         require(evidence.meta.id == blockId, "L1:id");
         require(
-            evidence.proofs.length == 1 + LibConstants.K_ZKPROOFS_PER_BLOCK,
+            evidence.proofs.length == 1 + config.K_ZKPROOFS_PER_BLOCK,
             "L1:proof:size"
         );
 
@@ -183,8 +186,7 @@ library V1Proving {
 
         LibReceiptDecoder.Log memory log = receipt.logs[0];
         require(
-            log.contractAddress ==
-                resolver.resolve(LibConstants.K_CHAIN_ID, "taiko"),
+            log.contractAddress == resolver.resolve(config.K_CHAIN_ID, "taiko"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
@@ -200,7 +202,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof({
                 _key: LibRLPWriter.writeUint(0),
                 _value: invalidateBlockReceipt,
-                _proof: evidence.proofs[LibConstants.K_ZKPROOFS_PER_BLOCK],
+                _proof: evidence.proofs[config.K_ZKPROOFS_PER_BLOCK],
                 _root: evidence.header.receiptsRoot
             }),
             "L1:receipt:proof"
@@ -307,6 +309,7 @@ library V1Proving {
     }
 
     function _validateAnchorTxSignature(
+        uint256 chainId,
         LibTxDecoder.Tx memory _tx
     ) private view {
         require(
@@ -316,7 +319,7 @@ library V1Proving {
 
         if (_tx.r == LibAnchorSignature.GX2) {
             (, , uint256 s) = LibAnchorSignature.signTransaction(
-                LibTxUtils.hashUnsignedTx(_tx),
+                LibTxUtils.hashUnsignedTx(chainId, _tx),
                 1
             );
             require(s == 0, "L1:sig:s");

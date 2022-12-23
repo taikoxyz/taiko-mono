@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
 import "../thirdparty/LibBytesUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
 
@@ -76,6 +75,7 @@ library LibTxDecoder {
     }
 
     function decodeTxList(
+        uint256 chainId,
         bytes calldata encoded
     ) public pure returns (TxList memory txList) {
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
@@ -83,13 +83,14 @@ library LibTxDecoder {
 
         Tx[] memory _txList = new Tx[](txs.length);
         for (uint256 i = 0; i < txs.length; i++) {
-            _txList[i] = decodeTx(LibRLPReader.readBytes(txs[i]));
+            _txList[i] = decodeTx(chainId, LibRLPReader.readBytes(txs[i]));
         }
 
         txList = TxList(_txList);
     }
 
     function decodeTx(
+        uint256 chainId,
         bytes memory txBytes
     ) public pure returns (Tx memory _tx) {
         uint8 txType;
@@ -106,7 +107,7 @@ library LibTxDecoder {
             LibRLPReader.RLPItem[] memory txBody = LibRLPReader.readList(
                 txBytes
             );
-            TransactionLegacy memory txLegacy = decodeLegacyTx(txBody);
+            TransactionLegacy memory txLegacy = decodeLegacyTx(chainId, txBody);
             _tx.gasLimit = txLegacy.gasLimit;
             _tx.destination = txLegacy.destination;
             _tx.v = txLegacy.v;
@@ -150,6 +151,7 @@ library LibTxDecoder {
     }
 
     function decodeLegacyTx(
+        uint256 chainId,
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (TransactionLegacy memory txLegacy) {
         require(body.length == 9, "invalid items length");
@@ -162,7 +164,7 @@ library LibTxDecoder {
         txLegacy.data = LibRLPReader.readBytes(body[5]);
         // EIP-155 is enabled on L2
         txLegacy.v = uint8(
-            LibRLPReader.readUint256(body[6]) - LibConstants.K_CHAIN_ID * 2 + 35
+            LibRLPReader.readUint256(body[6]) - chainId * 2 + 35
         );
         txLegacy.r = LibRLPReader.readUint256(body[7]);
         txLegacy.s = LibRLPReader.readUint256(body[8]);

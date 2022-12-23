@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
+import "../L1/LibData.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibTxUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
@@ -49,24 +49,24 @@ library LibInvalidTxList {
     }
 
     function isTxListInvalid(
+        LibData.Config memory config,
         bytes calldata encoded,
         Reason hint,
         uint256 txIdx
     ) internal pure returns (Reason) {
-        if (encoded.length > LibConstants.K_TXLIST_MAX_BYTES) {
+        if (encoded.length > config.K_TXLIST_MAX_BYTES) {
             return Reason.BINARY_TOO_LARGE;
         }
 
-        try LibTxDecoder.decodeTxList(encoded) returns (
+        try LibTxDecoder.decodeTxList(config.K_CHAIN_ID, encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length > LibConstants.K_BLOCK_MAX_TXS) {
+            if (txList.items.length > config.K_BLOCK_MAX_TXS) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
             if (
-                LibTxDecoder.sumGasLimit(txList) >
-                LibConstants.K_BLOCK_MAX_GAS_LIMIT
+                LibTxDecoder.sumGasLimit(txList) > config.K_BLOCK_MAX_GAS_LIMIT
             ) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
@@ -76,17 +76,15 @@ library LibInvalidTxList {
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
-                    LibTxUtils.recoverSender(_tx) == address(0),
+                    LibTxUtils.recoverSender(config.K_CHAIN_ID, _tx) ==
+                        address(0),
                     "bad hint TX_INVALID_SIG"
                 );
                 return Reason.TX_INVALID_SIG;
             }
 
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
-                require(
-                    _tx.gasLimit >= LibConstants.K_TX_MIN_GAS_LIMIT,
-                    "bad hint"
-                );
+                require(_tx.gasLimit >= config.K_TX_MIN_GAS_LIMIT, "bad hint");
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;
             }
 

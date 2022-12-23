@@ -10,7 +10,6 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 import "../thirdparty/LibBytesUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
@@ -19,6 +18,7 @@ import "../thirdparty/LibRLPWriter.sol";
 /// @author david <david@taiko.xyz>
 library LibTxUtils {
     function hashUnsignedTx(
+        uint256 chainId,
         LibTxDecoder.Tx memory transaction
     )
         internal
@@ -72,7 +72,7 @@ library LibTxUtils {
             // For legacy transactions, there are three more RLP items to
             // encode defined in EIP-155.
             if (transaction.txType == 0 && i == list.length - 4) {
-                list[i + 1] = LibRLPWriter.writeUint(LibConstants.K_CHAIN_ID);
+                list[i + 1] = LibRLPWriter.writeUint(chainId);
                 list[i + 2] = LibRLPWriter.writeUint64(0);
                 list[i + 3] = LibRLPWriter.writeUint64(0);
                 break;
@@ -93,11 +93,12 @@ library LibTxUtils {
     }
 
     function recoverSender(
+        uint256 chainId,
         LibTxDecoder.Tx memory transaction
     ) internal pure returns (address) {
         return
             ecrecover(
-                hashUnsignedTx(transaction),
+                hashUnsignedTx(chainId, transaction),
                 transaction.v + 27,
                 bytes32(transaction.r),
                 bytes32(transaction.s)

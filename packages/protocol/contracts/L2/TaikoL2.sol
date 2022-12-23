@@ -14,8 +14,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../common/AddressResolver.sol";
 import "../common/IHeaderSync.sol";
+import "../libs/LibConfig.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibConstants.sol";
 import "../libs/LibTxDecoder.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -97,6 +97,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 txIdx
     ) external {
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+            config: getConfigs(),
             encoded: txList,
             hint: hint,
             txIdx: txIdx
@@ -111,6 +112,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * Public Functions   *
      **********************/
+
+    function getConfigs() public pure virtual returns (LibData.Config memory) {
+        return LibConfig.getConfigs();
+    }
 
     function getSyncedHeader(
         uint256 number
@@ -135,41 +140,6 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * Private Functions  *
      **********************/
-
-    // NOTE: If the order of the return values of this function changes, then
-    // some test cases that using this function in generate_genesis.test.ts
-    // may also needs to be modified accordingly.
-    function getConstants()
-        public
-        pure
-        returns (
-            uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // K_CHAIN_ID
-            uint256, // K_MAX_NUM_BLOCKS
-            uint256, // K_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMS
-            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // K_BLOCK_MAX_GAS_LIMIT
-            uint256, // K_BLOCK_MAX_TXS
-            uint256, // K_TXLIST_MAX_BYTES
-            uint256, // K_TX_MIN_GAS_LIMIT
-            uint256 // K_ANCHOR_TX_GAS_LIMIT
-        )
-    {
-        return (
-            LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.K_CHAIN_ID,
-            LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMS,
-            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_TXLIST_MAX_BYTES,
-            LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT
-        );
-    }
 
     function _checkPublicInputs() private {
         // Check the latest 256 block hashes (excluding the parent hash).
