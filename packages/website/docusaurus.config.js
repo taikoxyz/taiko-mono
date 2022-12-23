@@ -63,10 +63,10 @@ const config = {
       announcementBar: {
         id: "support_us",
         content:
-          'Snæfellsjökull is erupting 🌋 <a target="_blank" rel="noopener noreferrer" href="https://taiko.xyz/docs/alpha-1-testnet/start-here">start here</a>',
+          'Snæfellsjökull is erupting 🌋 <a href="/docs/alpha-1-testnet/start-here">start here</a>',
         backgroundColor: "#fafbfc",
         textColor: "#091E42",
-        isCloseable: true,
+        isCloseable: false,
       },
       colorMode: {
         defaultMode: "light",
