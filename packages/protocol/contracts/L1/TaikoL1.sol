@@ -96,7 +96,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
-            maxBlocks: config.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -133,7 +133,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            maxBlocks: config.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -170,7 +170,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            maxBlocks: config.K_MAX_VERIFICATIONS_PER_TX,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -306,7 +306,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return
             V1Proposing.isCommitValid(
                 state,
-                getConfig().K_COMMIT_DELAY_CONFIRMS,
+                getConfig().commitConfirmations,
                 commitSlot,
                 commitHeight,
                 commitHash
@@ -316,7 +316,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function getProposedBlock(
         uint256 id
     ) public view returns (LibData.ProposedBlock memory) {
-        return state.getProposedBlock(getConfig().K_MAX_NUM_BLOCKS, id);
+        return state.getProposedBlock(getConfig().maxNumBlocks, id);
     }
 
     function getSyncedHeader(

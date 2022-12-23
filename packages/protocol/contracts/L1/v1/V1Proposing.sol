@@ -40,7 +40,7 @@ library V1Proposing {
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
-        assert(config.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(config.commitConfirmations > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
@@ -74,7 +74,7 @@ library V1Proposing {
         );
         _verifyBlockCommit({
             state: state,
-            K_COMMIT_DELAY_CONFIRMS: config.K_COMMIT_DELAY_CONFIRMS,
+            commitConfirmations: config.commitConfirmations,
             meta: meta
         });
         _validateMetadata(config, meta);
@@ -84,13 +84,13 @@ library V1Proposing {
             // perform validation and populate some fields
             require(
                 txList.length > 0 &&
-                    txList.length <= config.K_TXLIST_MAX_BYTES &&
+                    txList.length <= config.maxBytesPerTxList &&
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
             );
             require(
                 state.nextBlockId <
-                    state.latestVerifiedId + config.K_MAX_NUM_BLOCKS,
+                    state.latestVerifiedId + config.maxNumBlocks,
                 "L1:tooMany"
             );
 
@@ -105,7 +105,7 @@ library V1Proposing {
         }
 
         uint256 deposit;
-        if (config.K_ENABLE_TOKENOMICS) {
+        if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
                 uint256 fee;
@@ -119,12 +119,12 @@ library V1Proposing {
             state.feeBase = V1Utils.movingAverage({
                 maValue: state.feeBase,
                 newValue: newFeeBase,
-                maf: config.K_FEE_BASE_MAF
+                maf: config.feeBaseMAF
             });
         }
 
         state.saveProposedBlock(
-            config.K_MAX_NUM_BLOCKS,
+            config.maxNumBlocks,
             state.nextBlockId,
             LibData.ProposedBlock({
                 metaHash: meta.hashMetadata(),
@@ -138,7 +138,7 @@ library V1Proposing {
             .movingAverage({
                 maValue: state.avgBlockTime,
                 newValue: meta.timestamp - state.lastProposedAt,
-                maf: config.K_BLOCK_TIME_MAF
+                maf: config.blockTimeMAF
             })
             .toUint64();
 
@@ -166,29 +166,29 @@ library V1Proposing {
             feeBase: newFeeBase
         });
         fee = V1Utils.getBootstrapDiscountedFee(state, config, fee);
-        deposit = (fee * config.K_PROPOSER_DEPOSIT_PCTG) / 100;
+        deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
     function isCommitValid(
         LibData.State storage state,
-        uint256 K_COMMIT_DELAY_CONFIRMS,
+        uint256 commitConfirmations,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        assert(K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(commitConfirmations > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + commitConfirmations;
     }
 
     function _verifyBlockCommit(
         LibData.State storage state,
-        uint256 K_COMMIT_DELAY_CONFIRMS,
+        uint256 commitConfirmations,
         LibData.BlockMetadata memory meta
     ) private {
-        if (K_COMMIT_DELAY_CONFIRMS == 0) {
+        if (commitConfirmations == 0) {
             return;
         }
         bytes32 commitHash = _calculateCommitHash(
@@ -199,7 +199,7 @@ library V1Proposing {
         require(
             isCommitValid({
                 state: state,
-                K_COMMIT_DELAY_CONFIRMS: K_COMMIT_DELAY_CONFIRMS,
+                commitConfirmations: commitConfirmations,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
@@ -229,7 +229,7 @@ library V1Proposing {
             "L1:placeholder"
         );
 
-        require(meta.gasLimit <= config.K_BLOCK_MAX_GAS_LIMIT, "L1:gasLimit");
+        require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 

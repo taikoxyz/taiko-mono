@@ -11,35 +11,35 @@ pragma solidity ^0.8.9;
 /// @author dantaik <dan@taiko.xyz>
 library LibData {
     struct Config {
-        uint256 K_CHAIN_ID;
+        uint256 chainId;
         // up to 2048 pending blocks
-        uint256 K_MAX_NUM_BLOCKS;
-        // This number is calculated from K_MAX_NUM_BLOCKS to make
+        uint256 maxNumBlocks;
+        // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
-        uint256 K_ZKPROOFS_PER_BLOCK;
-        uint256 K_MAX_VERIFICATIONS_PER_TX;
-        uint256 K_COMMIT_DELAY_CONFIRMS;
-        uint256 K_MAX_PROOFS_PER_FORK_CHOICE;
-        uint256 K_BLOCK_MAX_GAS_LIMIT;
-        uint256 K_BLOCK_MAX_TXS;
-        uint256 K_TXLIST_MAX_BYTES;
-        uint256 K_TX_MIN_GAS_LIMIT;
-        uint256 K_ANCHOR_TX_GAS_LIMIT;
-        uint256 K_FEE_PREMIUM_LAMDA;
-        uint256 K_REWARD_BURN_BP;
-        uint256 K_PROPOSER_DEPOSIT_PCTG;
+        uint256 zkProofsPerBlock;
+        uint256 maxVerificationsPerTx;
+        uint256 commitConfirmations;
+        uint256 maxProofsPerForkChoice;
+        uint256 blockMaxGasLimit;
+        uint256 maxTransactionsPerBlock;
+        uint256 maxBytesPerTxList;
+        uint256 minTxGasLimit;
+        uint256 anchorTxGasLimit;
+        uint256 feePremiumLamda;
+        uint256 rewardBurnBips;
+        uint256 proposerDepositPctg;
         // Moving average factors
-        uint256 K_FEE_BASE_MAF;
-        uint256 K_BLOCK_TIME_MAF;
-        uint256 K_PROOF_TIME_MAF;
-        uint64 K_REWARD_MULTIPLIER_PCTG;
-        uint64 K_FEE_GRACE_PERIOD_PCTG;
-        uint64 K_FEE_MAX_PERIOD_PCTG;
-        uint64 K_BLOCK_TIME_CAP;
-        uint64 K_PROOF_TIME_CAP;
-        uint64 K_HALVING;
-        uint64 K_INITIAL_UNCLE_DELAY;
-        bool K_ENABLE_TOKENOMICS;
+        uint256 feeBaseMAF;
+        uint256 blockTimeMAF;
+        uint256 proofTimeMAF;
+        uint64 rewardMultiplierPctg;
+        uint64 feeGracePeriodPctg;
+        uint64 feeMaxPeriodPctg;
+        uint64 blockTimeCap;
+        uint64 proofTimeCap;
+        uint64 boostrapDiscountHalvingPeriod;
+        uint64 initialUncleDelay;
+        bool enableTokenomics;
     }
 
     struct BlockMetadata {

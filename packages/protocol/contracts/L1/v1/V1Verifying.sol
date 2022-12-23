@@ -69,7 +69,7 @@ library V1Verifying {
         ) {
             LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
             LibData.ProposedBlock storage target = state.getProposedBlock(
-                config.K_MAX_NUM_BLOCKS,
+                config.maxNumBlocks,
                 i
             );
 
@@ -130,7 +130,7 @@ library V1Verifying {
             isProposal: false,
             feeBase: newFeeBase
         });
-        reward = (reward * (10000 - config.K_REWARD_BURN_BP)) / 10000;
+        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
     function _refundProposerDeposit(
@@ -171,7 +171,7 @@ library V1Verifying {
         uint64 latestL2Height,
         bytes32 latestL2Hash
     ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
-        if (config.K_ENABLE_TOKENOMICS) {
+        if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
                 uint256 reward;
@@ -192,7 +192,7 @@ library V1Verifying {
             state.feeBase = V1Utils.movingAverage({
                 maValue: state.feeBase,
                 newValue: newFeeBase,
-                maf: config.K_FEE_BASE_MAF
+                maf: config.feeBaseMAF
             });
         }
 
@@ -200,7 +200,7 @@ library V1Verifying {
             .movingAverage({
                 maValue: state.avgProofTime,
                 newValue: fc.provenAt - target.proposedAt,
-                maf: config.K_PROOF_TIME_MAF
+                maf: config.proofTimeMAF
             })
             .toUint64();
 

@@ -8,17 +8,22 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../L1/LibData.sol";
+import "../../L1/TaikoL1.sol";
 
-library LibConfig {
-    function getConfig() public pure returns (LibData.Config memory config) {
+contract TestTaikoL1 is TaikoL1 {
+    function getConfig()
+        public
+        pure
+        override
+        returns (LibData.Config memory config)
+    {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 2049;
+        config.maxNumBlocks = 4;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
-        config.maxVerificationsPerTx = 20;
+        config.maxVerificationsPerTx = 2;
         config.commitConfirmations = 0;
         config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 5000000; // TODO
@@ -32,8 +37,8 @@ library LibConfig {
 
         // Moving average factors
         config.feeBaseMAF = 1024;
-        config.blockTimeMAF = 1024;
-        config.proofTimeMAF = 1024;
+        config.blockTimeMAF = 64;
+        config.proofTimeMAF = 64;
 
         config.rewardMultiplierPctg = 400; // 400%
         config.feeGracePeriodPctg = 125; // 125%
@@ -41,7 +46,7 @@ library LibConfig {
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 60 minutes;
         config.boostrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 60 minutes;
-        config.enableTokenomics = true;
+        config.initialUncleDelay = 1 minutes;
+        config.enableTokenomics = false;
     }
 }

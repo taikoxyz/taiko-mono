@@ -28,11 +28,11 @@ library V1Utils {
 
     function saveProposedBlock(
         LibData.State storage state,
-        uint256 K_MAX_NUM_BLOCKS,
+        uint256 maxNumBlocks,
         uint256 id,
         LibData.ProposedBlock memory blk
     ) internal {
-        state.proposedBlocks[id % K_MAX_NUM_BLOCKS] = blk;
+        state.proposedBlocks[id % maxNumBlocks] = blk;
     }
 
     function enableWhitelisting(
@@ -84,10 +84,10 @@ library V1Utils {
 
     function getProposedBlock(
         LibData.State storage state,
-        uint256 K_MAX_NUM_BLOCKS,
+        uint256 maxNumBlocks,
         uint256 id
     ) internal view returns (LibData.ProposedBlock storage) {
-        return state.proposedBlocks[id % K_MAX_NUM_BLOCKS];
+        return state.proposedBlocks[id % maxNumBlocks];
     }
 
     function getL2BlockHash(
@@ -151,16 +151,16 @@ library V1Utils {
             newFeeBase = state.feeBase;
             tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > config.K_PROOF_TIME_CAP
-                ? config.K_PROOF_TIME_CAP
+            uint256 _tAvg = tAvg > config.proofTimeCap
+                ? config.proofTimeCap
                 : tAvg;
-            uint256 tGrace = (config.K_FEE_GRACE_PERIOD_PCTG * _tAvg) / 100;
-            uint256 tMax = (config.K_FEE_MAX_PERIOD_PCTG * _tAvg) / 100;
+            uint256 tGrace = (config.feeGracePeriodPctg * _tAvg) / 100;
+            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
             uint256 a = tLast + tGrace;
             uint256 b = tNow > a ? tNow - a : 0;
             tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
             uint256 alpha = 10000 +
-                ((config.K_REWARD_MULTIPLIER_PCTG - 100) * tRelBp) /
+                ((config.rewardMultiplierPctg - 100) * tRelBp) /
                 100;
             if (isProposal) {
                 newFeeBase = (state.feeBase * 10000) / alpha; // fee
@@ -178,7 +178,7 @@ library V1Utils {
         uint256 feeBase
     ) internal view returns (uint256) {
         // m is the `n'` in the whitepaper
-        uint256 m = config.K_MAX_NUM_BLOCKS - 1 + config.K_FEE_PREMIUM_LAMDA;
+        uint256 m = config.maxNumBlocks - 1 + config.feePremiumLamda;
         // n is the number of unverified blocks
         uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
@@ -193,7 +193,7 @@ library V1Utils {
         uint256 feeBase
     ) internal view returns (uint256) {
         uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.K_HALVING;
+            config.boostrapDiscountHalvingPeriod;
         uint256 gamma = 1024 - (1024 >> halves);
         return (feeBase * gamma) / 1024;
     }
@@ -205,8 +205,8 @@ library V1Utils {
         LibData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
-        if (blockId <= 2 * config.K_MAX_NUM_BLOCKS) {
-            return fc.provenAt + config.K_INITIAL_UNCLE_DELAY;
+        if (blockId <= 2 * config.maxNumBlocks) {
+            return fc.provenAt + config.initialUncleDelay;
         } else {
             return fc.provenAt + state.avgProofTime;
         }

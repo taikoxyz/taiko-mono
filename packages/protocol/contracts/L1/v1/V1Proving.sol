@@ -38,7 +38,7 @@ library V1Proving {
         LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first K_ZKPROOFS_PER_BLOCK are ZKPs
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs
     }
 
     event BlockProven(
@@ -76,28 +76,28 @@ library V1Proving {
         // Check evidence
         require(evidence.meta.id == blockId, "L1:id");
         require(
-            evidence.proofs.length == 2 + config.K_ZKPROOFS_PER_BLOCK,
+            evidence.proofs.length == 2 + config.zkProofsPerBlock,
             "L1:proof:size"
         );
 
         {
             // Check anchor tx is valid
             LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
-                config.K_CHAIN_ID,
+                config.chainId,
                 anchorTx
             );
             require(_tx.txType == 0, "L1:anchor:type");
             require(
-                _tx.destination == resolver.resolve(config.K_CHAIN_ID, "taiko"),
+                _tx.destination == resolver.resolve(config.chainId, "taiko"),
                 "L1:anchor:dest"
             );
             require(
-                _tx.gasLimit == config.K_ANCHOR_TX_GAS_LIMIT,
+                _tx.gasLimit == config.anchorTxGasLimit,
                 "L1:anchor:gasLimit"
             );
 
             // Check anchor tx's signature is valid and deterministic
-            _validateAnchorTxSignature(config.K_CHAIN_ID, _tx);
+            _validateAnchorTxSignature(config.chainId, _tx);
 
             // Check anchor tx's calldata is valid
             require(
@@ -118,7 +118,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof({
                 _key: LibRLPWriter.writeUint(0),
                 _value: anchorTx,
-                _proof: evidence.proofs[config.K_ZKPROOFS_PER_BLOCK],
+                _proof: evidence.proofs[config.zkProofsPerBlock],
                 _root: evidence.header.transactionsRoot
             }),
             "L1:tx:proof"
@@ -134,7 +134,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof({
                 _key: LibRLPWriter.writeUint(0),
                 _value: anchorReceipt,
-                _proof: evidence.proofs[config.K_ZKPROOFS_PER_BLOCK + 1],
+                _proof: evidence.proofs[config.zkProofsPerBlock + 1],
                 _root: evidence.header.receiptsRoot
             }),
             "L1:receipt:proof"
@@ -173,7 +173,7 @@ library V1Proving {
         // Check evidence
         require(evidence.meta.id == blockId, "L1:id");
         require(
-            evidence.proofs.length == 1 + config.K_ZKPROOFS_PER_BLOCK,
+            evidence.proofs.length == 1 + config.zkProofsPerBlock,
             "L1:proof:size"
         );
 
@@ -186,7 +186,7 @@ library V1Proving {
 
         LibReceiptDecoder.Log memory log = receipt.logs[0];
         require(
-            log.contractAddress == resolver.resolve(config.K_CHAIN_ID, "taiko"),
+            log.contractAddress == resolver.resolve(config.chainId, "taiko"),
             "L1:receipt:addr"
         );
         require(log.data.length == 0, "L1:receipt:data");
@@ -202,7 +202,7 @@ library V1Proving {
             LibMerkleTrie.verifyInclusionProof({
                 _key: LibRLPWriter.writeUint(0),
                 _value: invalidateBlockReceipt,
-                _proof: evidence.proofs[config.K_ZKPROOFS_PER_BLOCK],
+                _proof: evidence.proofs[config.zkProofsPerBlock],
                 _root: evidence.header.receiptsRoot
             }),
             "L1:receipt:proof"
@@ -235,7 +235,7 @@ library V1Proving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
-        for (uint256 i = 0; i < config.K_ZKPROOFS_PER_BLOCK; i++) {
+        for (uint256 i = 0; i < config.zkProofsPerBlock; i++) {
             LibZKP.verify({
                 verificationKey: ConfigManager(
                     resolver.resolve("config_manager")
@@ -281,7 +281,7 @@ library V1Proving {
             }
 
             require(
-                fc.provers.length < config.K_MAX_PROOFS_PER_FORK_CHOICE,
+                fc.provers.length < config.maxProofsPerForkChoice,
                 "L1:proof:tooMany"
             );
 
@@ -336,7 +336,7 @@ library V1Proving {
             "L1:meta:id"
         );
         require(
-            state.getProposedBlock(config.K_MAX_NUM_BLOCKS, meta.id).metaHash ==
+            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash ==
                 meta.hashMetadata(),
             "L1:metaHash"
         );
@@ -351,8 +351,7 @@ library V1Proving {
             header.parentHash != 0 &&
                 header.beneficiary == meta.beneficiary &&
                 header.difficulty == 0 &&
-                header.gasLimit ==
-                meta.gasLimit + config.K_ANCHOR_TX_GAS_LIMIT &&
+                header.gasLimit == meta.gasLimit + config.anchorTxGasLimit &&
                 header.gasUsed > 0 &&
                 header.timestamp == meta.timestamp &&
                 header.extraData.length == meta.extraData.length &&
