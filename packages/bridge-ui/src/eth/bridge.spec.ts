@@ -1,5 +1,10 @@
 import { BigNumber, Wallet } from "ethers";
-import { mainnet, taiko } from "../domain/chain";
+import {
+  CHAIN_ID_MAINNET,
+  CHAIN_ID_TAIKO,
+  mainnet,
+  taiko,
+} from "../domain/chain";
 import type { Bridge, BridgeOpts } from "../domain/bridge";
 import ETHBridge from "./bridge";
 import { Message, MessageStatus } from "../domain/message";
@@ -131,8 +136,8 @@ describe("bridge tests", () => {
     await expect(
       bridge.Claim({
         message: {
-          srcChainId: BigNumber.from(167001),
-          destChainId: BigNumber.from(31336),
+          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
@@ -160,8 +165,8 @@ describe("bridge tests", () => {
       bridge.Claim({
         message: {
           owner: "0x",
-          srcChainId: BigNumber.from(167001),
-          destChainId: BigNumber.from(31336),
+          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
         signal: "0x",
@@ -194,8 +199,8 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: BigNumber.from(167001),
-        destChainId: BigNumber.from(31336),
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
         sender: "0x01",
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
@@ -230,8 +235,8 @@ describe("bridge tests", () => {
     await bridge.Claim({
       message: {
         owner: "0x",
-        srcChainId: BigNumber.from(167001),
-        destChainId: BigNumber.from(31336),
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
         sender: "0x01",
         gasLimit: BigNumber.from(1),
       } as unknown as Message,

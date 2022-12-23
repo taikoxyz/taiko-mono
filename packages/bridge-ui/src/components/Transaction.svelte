@@ -7,7 +7,10 @@
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions, showTransactionDetails } from "../store/transactions";
+  import {
+    pendingTransactions,
+    showTransactionDetails,
+  } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import {
@@ -23,6 +26,7 @@
   import { fetchSigner, switchNetwork } from "@wagmi/core";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./modals/TooltipModal.svelte";
+  import Bridge from "../constants/abi/Bridge";
 
   export let transaction: BridgeTransaction;
 
@@ -31,10 +35,10 @@
 
   let tooltipOpen: boolean = false;
   let processable: boolean = false;
-
   onMount(async () => {
     processable = await isProcessable();
   });
+
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
@@ -96,6 +100,19 @@
       .getBlock(latestSyncedHeader);
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
+
+  const interval = setInterval(async () => {
+    processable = await isProcessable();
+    const contract = new ethers.Contract(
+      chains[transaction.toChainId].bridgeAddress,
+      Bridge,
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+    );
+
+    transaction.status = await contract.getMessageStatus(transaction.signal);
+    transaction = transaction;
+    if (transaction.status === MessageStatus.Done) clearInterval(interval);
+  }, 20 * 1000);
 </script>
 
 <tr>
@@ -113,7 +130,7 @@
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
-  
+
   <td>
     {#if !processable}
       Pending...
@@ -159,7 +176,8 @@
   <td>
     <span
       class="cursor-pointer inline-block"
-      on:click={() => $showTransactionDetails = transaction}>
+      on:click={() => ($showTransactionDetails = transaction)}
+    >
       <ArrowTopRightOnSquare />
     </span>
   </td>

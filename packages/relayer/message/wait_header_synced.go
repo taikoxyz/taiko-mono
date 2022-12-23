@@ -20,6 +20,11 @@ func (p *Processor) waitHeaderSynced(ctx context.Context, event *contracts.Bridg
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			log.Infof(
+				"signal: %v waiting to be processable. occured in block %v",
+				common.Hash(event.Signal).Hex(),
+				event.Raw.BlockNumber,
+			)
 			// get latest synced header since not every header is synced from L1 => L2,
 			// and later blocks still have the storage trie proof from previous blocks.
 			latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
