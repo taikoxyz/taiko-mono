@@ -237,11 +237,7 @@ library V1Proving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadata({
-            state: state,
-            config: config, //
-            target: target
-        });
+        _checkMetadata({state: state, config: config, target: target});
         _validateHeaderForMetadata({
             config: config,
             header: evidence.header,
