@@ -71,7 +71,7 @@ library V1Proposing {
             inputs[0],
             (LibData.BlockMetadata)
         );
-        _verifyBlockCommit(state, config, meta);
+        _verifyBlockCommit({state: state, config: config, meta: meta});
         _validateMetadata(config, meta);
 
         {
