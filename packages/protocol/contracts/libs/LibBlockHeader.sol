@@ -72,13 +72,13 @@ library LibBlockHeader {
     }
 
     function isPartiallyValidForTaiko(
-        uint256 K_BLOCK_MAX_GAS_LIMIT,
+        uint256 blockMaxGasLimit,
         BlockHeader calldata header
     ) internal pure returns (bool) {
         return
             header.parentHash != 0 &&
             header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= K_BLOCK_MAX_GAS_LIMIT &&
+            header.gasLimit <= blockMaxGasLimit &&
             header.extraData.length <= 32 &&
             header.difficulty == 0 &&
             header.nonce == 0;

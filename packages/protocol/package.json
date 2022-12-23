@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Taiko L2 Protocol",
   "scripts": {
-    "compile": "pnpm hardhat compile",
+    "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ./docs/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
