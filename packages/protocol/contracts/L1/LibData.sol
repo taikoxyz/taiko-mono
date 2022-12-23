@@ -14,6 +14,7 @@ library LibData {
         uint256 chainId;
         // up to 2048 pending blocks
         uint256 maxNumBlocks;
+        uint256 blockHashHistory;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 zkProofsPerBlock;
@@ -74,7 +75,7 @@ library LibData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash
+        // block id => block hash (some blocks' hashes won't be persisted)
         mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;

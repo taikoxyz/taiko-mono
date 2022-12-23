@@ -43,7 +43,7 @@ describe("LibTxDecoder", function () {
 
             expect(decoded.items.length).to.be.eql(0)
 
-            decoded = await libTxDecoder.callStatic.decodeTxList([])
+            decoded = await libTxDecoder.callStatic.decodeTxList(chainId, [])
 
             expect(decoded.items.length).to.be.eql(0)
         })
