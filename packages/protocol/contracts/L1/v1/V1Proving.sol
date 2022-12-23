@@ -75,8 +75,10 @@ library V1Proving {
 
         // Check evidence
         require(evidence.meta.id == blockId, "L1:id");
+
+        uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         require(
-            evidence.proofs.length == 2 + config.zkProofsPerBlock,
+            evidence.proofs.length == 2 + zkProofsPerBlock,
             "L1:proof:size"
         );
 
@@ -119,7 +121,7 @@ library V1Proving {
                 LibMerkleTrie.verifyInclusionProof({
                     _key: LibRLPWriter.writeUint(0),
                     _value: anchorTx,
-                    _proof: evidence.proofs[config.zkProofsPerBlock],
+                    _proof: evidence.proofs[zkProofsPerBlock],
                     _root: evidence.header.transactionsRoot
                 }),
                 "L1:tx:proof"
@@ -135,7 +137,7 @@ library V1Proving {
                 LibMerkleTrie.verifyInclusionProof({
                     _key: LibRLPWriter.writeUint(0),
                     _value: anchorReceipt,
-                    _proof: evidence.proofs[config.zkProofsPerBlock + 1],
+                    _proof: evidence.proofs[zkProofsPerBlock + 1],
                     _root: evidence.header.receiptsRoot
                 }),
                 "L1:receipt:proof"
