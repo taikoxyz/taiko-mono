@@ -44,10 +44,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      **********************/
 
     constructor(address _addressManager) {
-        require(
-            block.chainid != 0 && block.chainid == getConfig().chainId,
-            "L2:chainId"
-        );
+        require(block.chainid != 0, "L2:chainId");
         AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
@@ -116,8 +113,14 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Public Functions   *
      **********************/
 
-    function getConfig() public pure virtual returns (LibData.Config memory) {
-        return LibSharedConfig.getConfig();
+    function getConfig()
+        public
+        view
+        virtual
+        returns (LibData.Config memory config)
+    {
+        config = LibSharedConfig.getConfig();
+        config.chainId = block.chainid;
     }
 
     function getSyncedHeader(
