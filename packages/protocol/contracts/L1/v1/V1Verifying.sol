@@ -74,18 +74,18 @@ library V1Verifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (!_isVerifiable(state, config, fc, i)) {
+            if (!_isVerifiable({state: state, config: config, fc: fc, i: i})) {
                 break;
             } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock(
-                    state,
-                    config,
-                    resolver,
-                    fc,
-                    target,
-                    latestL2Height,
-                    latestL2Hash
-                );
+                (latestL2Height, latestL2Hash) = _verifyBlock({
+                    state: state,
+                    config: config,
+                    resolver: resolver,
+                    fc: fc,
+                    target: target,
+                    latestL2Height: latestL2Height,
+                    latestL2Hash: latestL2Hash
+                });
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
                 _cleanUp(fc);
