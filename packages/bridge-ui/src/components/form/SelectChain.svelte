@@ -1,5 +1,5 @@
 <script>
-  import ArrowRightLeft from "../icons/ArrowRightLeft.svelte";
+  import { ArrowRight } from "svelte-heros-v2";
   import { fromChain, toChain } from "../../store/chain";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
   import { signer } from "../../store/signer";
@@ -43,8 +43,8 @@
 
   <button
     on:click={toggleChains}
-    class="btn btn-square btn-xs"
-    disabled={!$signer}><ArrowRightLeft /></button
+    class="btn btn-square btn-sm"
+    disabled={!$signer}><ArrowRight size="16" /></button
   >
   <div class="flex items-center w-2/5 justify-center">
     {#if $toChain}
