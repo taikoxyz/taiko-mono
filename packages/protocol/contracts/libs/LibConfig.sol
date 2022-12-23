@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../L1/LibData.sol";
 
 library LibConfig {
-    function getConfigs() public pure returns (LibData.Config memory config) {
+    function getConfig() public pure returns (LibData.Config memory config) {
         config.K_CHAIN_ID = 167;
         // up to 2048 pending blocks
         config.K_MAX_NUM_BLOCKS = 2049;

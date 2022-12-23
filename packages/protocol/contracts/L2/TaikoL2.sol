@@ -97,7 +97,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 txIdx
     ) external {
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
-            config: getConfigs(),
+            config: getConfig(),
             encoded: txList,
             hint: hint,
             txIdx: txIdx
@@ -113,8 +113,8 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Public Functions   *
      **********************/
 
-    function getConfigs() public pure virtual returns (LibData.Config memory) {
-        return LibConfig.getConfigs();
+    function getConfig() public pure virtual returns (LibData.Config memory) {
+        return LibConfig.getConfig();
     }
 
     function getSyncedHeader(
