@@ -22,7 +22,7 @@ import "./v1/V1Verifying.sol";
  * @author dantaik <dan@taiko.xyz>
  */
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
-    using LibData for LibData.State;
+    using V1Utils for LibData.State;
 
     LibData.State public state;
     LibData.TentativeState public tentative;

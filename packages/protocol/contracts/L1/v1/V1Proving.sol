@@ -26,7 +26,8 @@ import "./V1Utils.sol";
 /// @author david <david@taiko.xyz>
 library V1Proving {
     using LibBlockHeader for BlockHeader;
-    using LibData for LibData.State;
+    using V1Utils for LibData.State;
+    using V1Utils for LibData.BlockMetadata;
 
     struct Evidence {
         LibData.BlockMetadata meta;
@@ -317,8 +318,7 @@ library V1Proving {
             "L1:meta:id"
         );
         require(
-            LibData.getProposedBlock(state, meta.id).metaHash ==
-                LibData.hashMetadata(meta),
+            state.getProposedBlock(meta.id).metaHash == meta.hashMetadata(),
             "L1:metaHash"
         );
     }

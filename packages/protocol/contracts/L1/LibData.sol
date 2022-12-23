@@ -8,8 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
-
 /// @author dantaik <dan@taiko.xyz>
 library LibData {
     struct BlockMetadata {
@@ -81,52 +79,5 @@ library LibData {
         bool whitelistProvers;
         // // Reserved
         uint256[46] __gap;
-    }
-
-    function saveProposedBlock(
-        LibData.State storage state,
-        uint256 id,
-        ProposedBlock memory blk
-    ) internal {
-        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
-    }
-
-    function getProposedBlock(
-        State storage state,
-        uint256 id
-    ) internal view returns (ProposedBlock storage) {
-        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
-    }
-
-    function getL2BlockHash(
-        State storage state,
-        uint256 number
-    ) internal view returns (bytes32) {
-        require(number <= state.latestVerifiedHeight, "L1:id");
-        return state.l2Hashes[number];
-    }
-
-    function getStateVariables(
-        State storage state
-    )
-        internal
-        view
-        returns (
-            uint64 genesisHeight,
-            uint64 latestVerifiedHeight,
-            uint64 latestVerifiedId,
-            uint64 nextBlockId
-        )
-    {
-        genesisHeight = state.genesisHeight;
-        latestVerifiedHeight = state.latestVerifiedHeight;
-        latestVerifiedId = state.latestVerifiedId;
-        nextBlockId = state.nextBlockId;
-    }
-
-    function hashMetadata(
-        BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(meta));
     }
 }
