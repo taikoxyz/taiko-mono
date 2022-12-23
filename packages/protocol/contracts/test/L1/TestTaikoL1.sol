@@ -48,5 +48,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.boostrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = false;
+        config.skipProofValidation = true;
     }
 }

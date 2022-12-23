@@ -43,5 +43,6 @@ library LibSharedConfig {
         config.boostrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 60 minutes;
         config.enableTokenomics = true;
+        config.skipProofValidation = false;
     }
 }

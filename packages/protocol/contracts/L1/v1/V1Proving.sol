@@ -113,32 +113,34 @@ library V1Proving {
             );
         }
 
-        // Check anchor tx is the 1st tx in the block
-        require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: anchorTx,
-                _proof: evidence.proofs[config.zkProofsPerBlock],
-                _root: evidence.header.transactionsRoot
-            }),
-            "L1:tx:proof"
-        );
+        if (!config.skipProofValidation) {
+            // Check anchor tx is the 1st tx in the block
+            require(
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: anchorTx,
+                    _proof: evidence.proofs[config.zkProofsPerBlock],
+                    _root: evidence.header.transactionsRoot
+                }),
+                "L1:tx:proof"
+            );
 
-        // Check anchor tx does not throw
+            // Check anchor tx does not throw
 
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(anchorReceipt);
+            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+                .decodeReceipt(anchorReceipt);
 
-        require(receipt.status == 1, "L1:receipt:status");
-        require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: anchorReceipt,
-                _proof: evidence.proofs[config.zkProofsPerBlock + 1],
-                _root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
+            require(receipt.status == 1, "L1:receipt:status");
+            require(
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: anchorReceipt,
+                    _proof: evidence.proofs[config.zkProofsPerBlock + 1],
+                    _root: evidence.header.receiptsRoot
+                }),
+                "L1:receipt:proof"
+            );
+        }
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
@@ -177,36 +179,39 @@ library V1Proving {
             "L1:proof:size"
         );
 
-        // Check the 1st receipt is for an InvalidateBlock tx with
-        // a BlockInvalidated event
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(invalidateBlockReceipt);
-        require(receipt.status == 1, "L1:receipt:status");
-        require(receipt.logs.length == 1, "L1:receipt:logsize");
+        if (!config.skipProofValidation) {
+            // Check the 1st receipt is for an InvalidateBlock tx with
+            // a BlockInvalidated event
+            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+                .decodeReceipt(invalidateBlockReceipt);
+            require(receipt.status == 1, "L1:receipt:status");
+            require(receipt.logs.length == 1, "L1:receipt:logsize");
 
-        LibReceiptDecoder.Log memory log = receipt.logs[0];
-        require(
-            log.contractAddress == resolver.resolve(config.chainId, "taiko"),
-            "L1:receipt:addr"
-        );
-        require(log.data.length == 0, "L1:receipt:data");
-        require(
-            log.topics.length == 2 &&
-                log.topics[0] == INVALIDATE_BLOCK_LOG_TOPIC &&
-                log.topics[1] == target.txListHash,
-            "L1:receipt:topics"
-        );
+            LibReceiptDecoder.Log memory log = receipt.logs[0];
+            require(
+                log.contractAddress ==
+                    resolver.resolve(config.chainId, "taiko"),
+                "L1:receipt:addr"
+            );
+            require(log.data.length == 0, "L1:receipt:data");
+            require(
+                log.topics.length == 2 &&
+                    log.topics[0] == INVALIDATE_BLOCK_LOG_TOPIC &&
+                    log.topics[1] == target.txListHash,
+                "L1:receipt:topics"
+            );
 
-        // Check the event is the first one in the throw-away block
-        require(
-            LibMerkleTrie.verifyInclusionProof({
-                _key: LibRLPWriter.writeUint(0),
-                _value: invalidateBlockReceipt,
-                _proof: evidence.proofs[config.zkProofsPerBlock],
-                _root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
+            // Check the event is the first one in the throw-away block
+            require(
+                LibMerkleTrie.verifyInclusionProof({
+                    _key: LibRLPWriter.writeUint(0),
+                    _value: invalidateBlockReceipt,
+                    _proof: evidence.proofs[config.zkProofsPerBlock],
+                    _root: evidence.header.receiptsRoot
+                }),
+                "L1:receipt:proof"
+            );
+        }
 
         // ZK-prove block and mark block proven as invalid.
         _proveBlock({
@@ -236,15 +241,17 @@ library V1Proving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         for (uint256 i = 0; i < config.zkProofsPerBlock; i++) {
-            LibZKP.verify({
-                verificationKey: ConfigManager(
-                    resolver.resolve("config_manager")
-                ).getValue(string(abi.encodePacked("zk_vkey_", i))),
-                zkproof: evidence.proofs[i],
-                blockHash: blockHash,
-                prover: evidence.prover,
-                txListHash: evidence.meta.txListHash
-            });
+            if (!config.skipProofValidation) {
+                LibZKP.verify({
+                    verificationKey: ConfigManager(
+                        resolver.resolve("config_manager")
+                    ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                    zkproof: evidence.proofs[i],
+                    blockHash: blockHash,
+                    prover: evidence.prover,
+                    txListHash: evidence.meta.txListHash
+                });
+            }
         }
 
         _markBlockProven({
