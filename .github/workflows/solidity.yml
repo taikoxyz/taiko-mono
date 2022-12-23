@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "16.15"
-          
+
       - uses: pnpm/action-setup@v2
         name: Install pnpm
         id: pnpm-install
@@ -51,10 +51,6 @@ jobs:
       - name: protocol - Integration Tests
         working-directory: ./packages/protocol
         run: pnpm test:integration
-
-      - name: protocol - Test Coverage
-        working-directory: ./packages/protocol
-        run: pnpm test:coverage
 
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
