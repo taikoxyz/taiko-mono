@@ -4,22 +4,22 @@ sidebar_position: 1
 
 import AddEthereumChainButton from "../../src/components/AddEthereumChainButton";
 
-# Configure wallet
+# ➕ Add networks to wallet
 
-In order to use the Taiko app, we need to add Taiko's private L1 and Taiko your wallet.
+## Automatically add networks
 
-## Add networks to MetaMask
+Use the buttons below to add Ethereum A1 and Taiko A1 to any wallet that supports `wallet_addEthereumChain` (e.g., MetaMask).
 
-You can use the buttons below to add Taiko's private L1 and Taiko to your MetaMask wallet.
+| Network     | Add to wallet                                                      |
+| ----------- | ------------------------------------------------------------------ |
+| Ethereum A1 | <AddEthereumChainButton buttonText="Add to wallet ☝" chain="l1"/> |
+| Taiko A1    | <AddEthereumChainButton buttonText="Add to wallet ✌" chain="l2"/> |
 
-| Network            | Add to MetaMask                                                   |
-| ------------------ | ----------------------------------------------------------------- |
-| Taiko's private L1 | <AddEthereumChainButton buttonText="Add to MetaMask" chain="l1"/> |
-| Taiko              | <AddEthereumChainButton buttonText="Add to MetaMask" chain="l2"/> |
+## Manually add networks
 
-## RPC configuration for adding to other wallets
+Use this RPC configuration to add Ethereum A1 and Taiko A1 to other wallets.
 
-| Network            | Chain ID | RPC URL                    | Symbol | Block Explorer URL              |
-| ------------------ | -------- | -------------------------- | ------ | ------------------------------- |
-| Taiko's private L1 | 31336    | https://l1rpc.a1.taiko.xyz | ETH    | https://l1explorer.a1.taiko.xyz |
-| Taiko              | 167001   | https://l2rpc.a1.taiko.xyz | ETH    | https://l2explorer.a1.taiko.xyz |
+| Network     | Chain ID | RPC URL                    | Symbol | Block Explorer URL              |
+| ----------- | -------- | -------------------------- | ------ | ------------------------------- |
+| Ethereum A1 | 31336    | https://l1rpc.a1.taiko.xyz | ETH    | https://l1explorer.a1.taiko.xyz |
+| Taiko A1    | 167001   | https://l2rpc.a1.taiko.xyz | ETH    | https://l2explorer.a1.taiko.xyz |

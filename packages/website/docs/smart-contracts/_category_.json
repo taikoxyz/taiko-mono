@@ -1,8 +1,7 @@
 {
-  "label": "Reference",
+  "label": "Contract documentation",
   "collapsed": true,
   "link": {
     "type": "generated-index"
-  },
-  "position": 3
+  }
 }

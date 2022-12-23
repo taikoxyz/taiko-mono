@@ -60,6 +60,14 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      announcementBar: {
+        id: "support_us",
+        content:
+          'Snæfellsjökull is erupting 🌋 <a target="_blank" rel="noopener noreferrer" href="https://taiko.xyz/docs/alpha-1-testnet/start-here">start here</a>',
+        backgroundColor: "#fafbfc",
+        textColor: "#091E42",
+        isCloseable: true,
+      },
       colorMode: {
         defaultMode: "light",
         respectPrefersColorScheme: false,
@@ -80,8 +88,8 @@ const config = {
             label: "Blog",
           },
           {
-            href: "https://github.com/taikoxyz/taiko-mono/discussions",
-            label: "Discussions",
+            href: "https://github.com/orgs/taikoxyz/discussions",
+            label: "Discuss",
           },
           {
             href: "https://bridge.a1.taiko.xyz/",

@@ -1,4 +1,8 @@
-# Frequently asked questions
+---
+sidebar_position: 4
+---
+
+# FAQs
 
 ## What is Taiko?
 
