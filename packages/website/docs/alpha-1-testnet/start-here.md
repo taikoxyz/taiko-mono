@@ -16,13 +16,17 @@ In this testnet, you can:
 - 🌉 Bridge tokens between Ethereum A1 and Taiko A1.
 - 🤝 Send transactions (e.g., deploy contracts).
 - 🌐 Run a node — this makes _you_ a part of Taiko!
-- 🥇 Submit feedback and earn a POAP for your efforts.
+- 📝 Submit feedback and be forever loved.
+- 🥇 Earn a POAP by completing any 2 of the 3 following actions (and we will send you a POAP to the address you use):
+  - Use the bridge
+  - Deploy a contract
+  - Transfer tokens
 
 ## Create a feedback log
 
 Create a feedback log by clicking [here](https://github.com/orgs/taikoxyz/discussions/new?category=feedback&title=Testnet%20feedback%20form&body=%23+Friction+log%0D%0A-+TODO%0D%0A%0D%0A%23+Other+notes%0D%0A-+TODO%0D%0A), and use this to write down any [friction points, bugs, suggestions, etc.] while testing Taiko.
 
-Once you are finished testing the network, you can submit the feedback log and earn a POAP!
+Once you are finished testing the network, please submit the feedback log to help improve Taiko!
 
 ## Navigating Snæfellsjökull
 
