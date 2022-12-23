@@ -34,7 +34,8 @@
   import TokenVault from "../../constants/abi/TokenVault";
   import type { BridgeTransaction } from "../../domain/transactions";
   import { MessageStatus } from "../../domain/message";
-  import Erc20Faucet from "../ERC20Faucet.svelte";
+  import { Funnel } from "svelte-heros-v2";
+  import FaucetModal from "../modals/FaucetModal.svelte";
 
   let amount: string;
   let requiresAllowance: boolean = true;
@@ -44,6 +45,7 @@
   let recommendedFee: string = "0";
   let memo: string = "";
   let loading: boolean = false;
+  let isFaucetModalOpen: boolean = false;
 
   $: getUserBalance($signer, $token, $fromChain);
 
@@ -293,10 +295,17 @@
     .parseUnits(tokenBalance, $token.decimals)
     .eq(BigNumber.from(0))}
   <div class="flex" style="flex-direction:row-reverse">
-    <Erc20Faucet
-      onMint={async () => await getUserBalance($signer, $token, $fromChain)}
-    />
+    <div class="flex items-start">
+      <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
+        <Funnel class="mr-2" /> Faucet
+      </button>
+    </div>
   </div>
+
+  <FaucetModal
+    onMint={async () => await getUserBalance($signer, $token, $fromChain)}
+    bind:isOpen={isFaucetModalOpen}
+  />
 {/if}
 
 <ProcessingFee bind:customFee bind:recommendedFee />
