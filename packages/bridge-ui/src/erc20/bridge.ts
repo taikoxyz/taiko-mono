@@ -152,12 +152,10 @@ class ERC20Bridge implements Bridge {
       });
 
       return await contract.processMessage(opts.message, proof, {
-        gasLimit: 3500000,
+        gasLimit: BigNumber.from(1200000),
       });
     } else {
-      return await contract.retryMessage(opts.message, false, {
-        gasLimit: 3500000,
-      });
+      return await contract.retryMessage(opts.message, false);
     }
   }
 }

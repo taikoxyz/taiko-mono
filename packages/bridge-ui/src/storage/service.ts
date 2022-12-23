@@ -29,7 +29,7 @@ class StorageService implements Transactioner {
     chainID?: number
   ): Promise<BridgeTransaction[]> {
     const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem("transactions")
+      this.storage.getItem(`transactions-${address.toLowerCase()}`)
     );
 
     const bridgeTxs: BridgeTransaction[] = [];
