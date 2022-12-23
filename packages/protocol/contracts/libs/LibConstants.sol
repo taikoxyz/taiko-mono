@@ -49,5 +49,5 @@ library LibConstants {
     bytes4 public constant K_ANCHOR_TX_SELECTOR =
         bytes4(keccak256("anchor(uint256,bytes32)"));
 
-    bool public constant K_ENABLE_TOKENOMICS = true;
+    bool public constant K_ENABLE_TOKENOMICS = false;
 }
