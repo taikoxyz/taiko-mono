@@ -28,10 +28,10 @@ linters:
 
 linters-settings:
   funlen:
-    lines: 117
-    statements: 50
+    lines: 130
+    statements: 52
   gocognit:
-    min-complexity: 37
+    min-complexity: 40
 
 issues:
   exclude-rules:

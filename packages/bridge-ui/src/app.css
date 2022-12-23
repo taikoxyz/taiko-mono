@@ -3,6 +3,13 @@
   height: 56px;
 }
 
+@media (min-width: 768px) {
+  .btn.md\:btn-wide {
+    width: 194px;
+    height: 56px;
+  }
+}
+
 .btn.btn-token-select {
   width: 140px;
   height: 60px;
@@ -43,4 +50,8 @@
 .taiko-banner {
   background-image: url('assets/taiko-banner.svg');
   background-repeat: no-repeat;
+}
+
+.dropdown-content.address-dropdown-content {
+  border-radius: 6px;
 }

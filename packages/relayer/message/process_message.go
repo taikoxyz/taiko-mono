@@ -3,8 +3,6 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,15 +24,16 @@ func (p *Processor) ProcessMessage(
 	event *contracts.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
-	log.Infof("processing message for signal: %v", common.Hash(event.Signal).Hex())
-
-	// TODO: if relayer can not process, save this to DB with status Unprocessable
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
 		return errors.New("only user can process this, gasLimit set to 0")
 	}
 
 	if err := p.waitForConfirmations(ctx, event.Raw.TxHash, event.Raw.BlockNumber); err != nil {
 		return errors.Wrap(err, "p.waitForConfirmations")
+	}
+
+	if err := p.waitHeaderSynced(ctx, event); err != nil {
+		return errors.Wrap(err, "p.waitHeaderSynced")
 	}
 
 	// get latest synced header since not every header is synced from L1 => L2,
@@ -44,14 +43,8 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
 
-	// if header hasnt been synced, we are unable to process this message
-	if common.BytesToHash(latestSyncedHeader[:]).Hex() == relayer.ZeroHash.Hex() {
-		log.Infof("header not synced, bailing")
-		return nil
-	}
-
 	hashed := crypto.Keccak256(
-		event.Raw.Address.Bytes(), // L1 bridge address
+		event.Raw.Address.Bytes(),
 		event.Signal[:],
 	)
 
@@ -59,6 +52,14 @@ func (p *Processor) ProcessMessage(
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
 	if err != nil {
+		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: signal: %v, from: %v",
+			event.Message.SrcChainId,
+			event.Message.DestChainId,
+			event.Raw.TxHash.Hex(),
+			common.Hash(event.Signal).Hex(),
+			event.Message.Owner.Hex(),
+		)
+
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
 	}
 
@@ -72,9 +73,9 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
-	// message will fail when we try to process is
-	// TODO: update status in db
+	// message will fail when we try to process it
 	if !received {
+		log.Warnf("signal %v not received on dest chain", common.Hash(event.Signal).Hex())
 		return errors.New("message not received")
 	}
 
@@ -119,10 +120,6 @@ func (p *Processor) sendProcessMessageCall(
 
 	auth.Context = ctx
 
-	// uncomment to skip `eth_estimateGas`
-	auth.GasLimit = 2000000
-	auth.GasPrice = new(big.Int).SetUint64(500000000)
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -130,6 +127,21 @@ func (p *Processor) sendProcessMessageCall(
 	if err != nil {
 		return nil, errors.New("p.getLatestNonce")
 	}
+
+	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.isProfitable")
+	}
+
+	if bool(p.profitableOnly) && !profitable {
+		return nil, relayer.ErrUnprofitable
+	}
+
+	if gas != 0 {
+		auth.GasLimit = gas
+		log.Infof("gasLimit: %v", gas)
+	}
+
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
 	if err != nil {
@@ -143,37 +155,4 @@ func (p *Processor) sendProcessMessageCall(
 
 func (p *Processor) setLatestNonce(nonce uint64) {
 	p.destNonce = nonce
-}
-
-func (p *Processor) getLatestNonce(ctx context.Context, auth *bind.TransactOpts) error {
-	pendingNonce, err := p.destEthClient.PendingNonceAt(ctx, p.relayerAddr)
-	if err != nil {
-		return err
-	}
-
-	if pendingNonce > p.destNonce {
-		p.setLatestNonce(pendingNonce)
-	}
-
-	auth.Nonce = big.NewInt(int64(p.destNonce))
-
-	return nil
-}
-
-func (p *Processor) waitForConfirmations(ctx context.Context, txHash common.Hash, blockNumber uint64) error {
-	// TODO: make timeout a config var
-	ctx, cancelFunc := context.WithTimeout(ctx, 2*time.Minute)
-
-	defer cancelFunc()
-
-	if err := relayer.WaitConfirmations(
-		ctx,
-		p.srcEthClient,
-		p.confirmations,
-		txHash,
-	); err != nil {
-		return errors.Wrap(err, "relayer.WaitConfirmations")
-	}
-
-	return nil
 }

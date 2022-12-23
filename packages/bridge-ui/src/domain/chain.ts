@@ -10,6 +10,9 @@ export type Chain = {
   rpc: string;
   enabled?: boolean;
   icon?: ComponentType;
+  bridgeAddress: string;
+  headerSyncAddress: string;
+  explorerUrl: string;
 };
 
 export const CHAIN_MAINNET = {
@@ -18,6 +21,9 @@ export const CHAIN_MAINNET = {
   rpc: "https://l1rpc.a1.taiko.xyz",
   enabled: true,
   icon: Eth,
+  bridgeAddress: "0x0237443359aB0b11EcDC41A7aF1C90226a88c70f",
+  headerSyncAddress: "0xa7dF1d30f6456Dc72cE18fE011896105651a1f86",
+  explorerUrl: "https://l1explorer.a1.taiko.xyz",
 };
 
 export const CHAIN_TKO = {
@@ -26,6 +32,9 @@ export const CHAIN_TKO = {
   rpc: "https://l2rpc.a1.taiko.xyz",
   enabled: true,
   icon: Taiko,
+  bridgeAddress: "0x0000777700000000000000000000000000000004",
+  headerSyncAddress: "0x0000777700000000000000000000000000000001",
+  explorerUrl: "https://l2explorer.a1.taiko.xyz",
 };
 
 export const chains: Record<string, Chain> = {
@@ -39,7 +48,9 @@ export const mainnet: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l1rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l1rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -47,13 +58,9 @@ export const mainnet: WagmiChain = {
       url: "https://l1explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };
 
 export const taiko: WagmiChain = {
@@ -62,7 +69,9 @@ export const taiko: WagmiChain = {
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l2rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l2rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -70,11 +79,7 @@ export const taiko: WagmiChain = {
       url: "https://l2explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };

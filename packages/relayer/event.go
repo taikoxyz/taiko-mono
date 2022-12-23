@@ -51,5 +51,13 @@ type SaveEventOpts struct {
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
-	FindAllByAddress(ctx context.Context, chainID *big.Int, address common.Address) ([]*Event, error)
+	FindAllByAddressAndChainID(
+		ctx context.Context,
+		chainID *big.Int,
+		address common.Address,
+	) ([]*Event, error)
+	FindAllByAddress(
+		ctx context.Context,
+		address common.Address,
+	) ([]*Event, error)
 }

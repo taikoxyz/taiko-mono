@@ -5,45 +5,27 @@ import { TestLibMerkleTrie } from "../../typechain"
 import { MerkleTrie } from "../utils/trie"
 import { randomBytes } from "crypto"
 
-const defaultAmountOfNodes = 32
-const defaultNodeLength = 32
 describe("LibMerkleTrie", function () {
-    async function deployLibMerkleTrieFixture(
-        amountOfNodes: number,
-        len: number
-    ) {
-        const [owner] = await ethers.getSigners()
+    let libMerkleTrie: TestLibMerkleTrie
+    let defaultMerkleTrie: MerkleTrie<BaseTrie>
+    const defaultAmountOfNodes = 32
+    const defaultNodeLength = 32
 
-        const LibMerkleTrieFactory = await ethers.getContractFactory(
-            "TestLibMerkleTrie"
-        )
+    beforeEach(async function () {
+        libMerkleTrie = await (
+            await ethers.getContractFactory("TestLibMerkleTrie")
+        ).deploy()
 
-        const libMerkleTrie: TestLibMerkleTrie =
-            await LibMerkleTrieFactory.deploy()
-
-        const defaultMerkleTrie = new MerkleTrie(
-            amountOfNodes,
-            len,
+        defaultMerkleTrie = new MerkleTrie(
+            defaultAmountOfNodes,
+            defaultNodeLength,
             () => new BaseTrie()
         )
         await defaultMerkleTrie.init()
-
-        return {
-            owner,
-            libMerkleTrie,
-            defaultMerkleTrie,
-            LibMerkleTrieFactory,
-        }
-    }
+    })
 
     describe("verifyInclusionProof()", () => {
         it(`is included, ${defaultAmountOfNodes} bytes, ${defaultNodeLength} node length`, async () => {
-            const { libMerkleTrie, defaultMerkleTrie } =
-                await deployLibMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
-
             for (const n of defaultMerkleTrie.nodes) {
                 const key = n.key
                 const t = await defaultMerkleTrie.makeTest(key)
@@ -60,12 +42,6 @@ describe("LibMerkleTrie", function () {
 
     describe("get()", () => {
         it(`is included`, async () => {
-            const { libMerkleTrie, defaultMerkleTrie } =
-                await deployLibMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
-
             const key = defaultMerkleTrie.nodes[0].key
             const t = await defaultMerkleTrie.makeTest(key)
             const isIncluded = await libMerkleTrie.get(
@@ -80,11 +56,6 @@ describe("LibMerkleTrie", function () {
             )
         })
         it(`is not included`, async () => {
-            const { libMerkleTrie, defaultMerkleTrie } =
-                await deployLibMerkleTrieFixture(
-                    defaultAmountOfNodes,
-                    defaultNodeLength
-                )
             const t = await defaultMerkleTrie.makeTest(
                 defaultMerkleTrie.nodes[0].key
             )

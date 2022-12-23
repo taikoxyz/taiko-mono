@@ -82,7 +82,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       colorMode: {
-        defaultMode: "dark",
+        defaultMode: "light",
         respectPrefersColorScheme: false,
       },
       navbar: {
@@ -100,6 +100,11 @@ const config = {
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
+            position: "left",
+          },
+          {
+            href: "https://github.com/taikoxyz/taiko-mono/discussions",
+            label: "Discussions",
             position: "left",
           },
           {

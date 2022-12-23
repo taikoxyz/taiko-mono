@@ -12,6 +12,6 @@ export const activeBridge = derived([bridgeType, bridges], ($values) =>
   $values[1].get($values[0])
 );
 
-export const chainIdToBridgeAddress = writable<Map<number, string>>(
+export const chainIdToTokenVaultAddress = writable<Map<number, string>>(
   new Map<number, string>()
 );

@@ -6,21 +6,28 @@ import {
     ERC20_BURN_AMOUNT_EXCEEDED,
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors"
+import { BigNumber } from "ethers"
 
 describe("TokenVault", function () {
-    async function deployTkoTokenFixture() {
-        const [owner, nonOwner, protoBroker] = await ethers.getSigners()
+    let owner: any
+    let nonOwner: any
+    let protoBroker: any
+    let token: TkoToken
+    let amountMinted: BigNumber
 
-        // Deploying addressManager Contract
+    before(async function () {
+        ;[owner, nonOwner, protoBroker] = await ethers.getSigners()
+    })
+
+    beforeEach(async function () {
         const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy()
         await addressManager.init()
 
-        const TkoTokenFactory = await ethers.getContractFactory("TkoToken")
-
-        const token: TkoToken = await TkoTokenFactory.connect(owner).deploy()
-
+        token = await (await ethers.getContractFactory("TkoToken"))
+            .connect(owner)
+            .deploy()
         await token.init(addressManager.address)
 
         const { chainId } = await ethers.provider.getNetwork()
@@ -29,44 +36,28 @@ describe("TokenVault", function () {
             `${chainId}.proto_broker`,
             protoBroker.address
         )
-        const amountMinted = ethers.utils.parseEther("100")
+
+        amountMinted = ethers.utils.parseEther("100")
         await token.connect(protoBroker).mint(owner.address, amountMinted)
 
         const ownerBalance = await token.balanceOf(owner.address)
         expect(ownerBalance).to.be.eq(amountMinted)
-
-        return {
-            owner,
-            nonOwner,
-            token,
-            addressManager,
-            amountMinted,
-            protoBroker,
-        }
-    }
+    })
 
     describe("mint()", async () => {
         it("throws when to is equal to the zero address", async () => {
-            const { token, protoBroker } = await deployTkoTokenFixture()
-
             await expect(
                 token.connect(protoBroker).mint(ethers.constants.AddressZero, 1)
             ).to.be.revertedWith("TKO: invalid address")
         })
 
         it("throws when minter is not the protoBroker", async () => {
-            const { owner, token, amountMinted, nonOwner } =
-                await deployTkoTokenFixture()
-
             await expect(
                 token.connect(owner).mint(nonOwner.address, amountMinted.add(1))
             ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED)
         })
 
         it("succeeds", async () => {
-            const { token, amountMinted, nonOwner, protoBroker } =
-                await deployTkoTokenFixture()
-
             const originalBalance = await token.balanceOf(nonOwner.address)
 
             await token
@@ -82,26 +73,18 @@ describe("TokenVault", function () {
 
     describe("burn()", async () => {
         it("throws when to is equal to the zero address", async () => {
-            const { token, protoBroker } = await deployTkoTokenFixture()
-
             await expect(
                 token.connect(protoBroker).burn(ethers.constants.AddressZero, 1)
             ).to.be.revertedWith("TKO: invalid address")
         })
 
         it("throws when burner is not the protoBroker", async () => {
-            const { owner, token, amountMinted, nonOwner } =
-                await deployTkoTokenFixture()
-
             await expect(
                 token.connect(owner).burn(nonOwner.address, amountMinted.add(1))
             ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED)
         })
 
         it("throws when account balance is < amount requested to burn", async () => {
-            const { owner, protoBroker, token, amountMinted } =
-                await deployTkoTokenFixture()
-
             await expect(
                 token
                     .connect(protoBroker)
@@ -110,9 +93,6 @@ describe("TokenVault", function () {
         })
 
         it("succeeds", async () => {
-            const { token, amountMinted, owner, protoBroker } =
-                await deployTkoTokenFixture()
-
             const originalBalance = await token.balanceOf(owner.address)
 
             await token.connect(protoBroker).burn(owner.address, amountMinted)
@@ -126,17 +106,12 @@ describe("TokenVault", function () {
 
     describe("transfer()", async () => {
         it("throws when to is equal to the contract address", async () => {
-            const { owner, token } = await deployTkoTokenFixture()
-
             await expect(
                 token.connect(owner).transfer(token.address, 1)
             ).to.be.revertedWith("TKO: invalid to")
         })
 
         it("throws when transfer is > user's amount", async () => {
-            const { owner, token, amountMinted, nonOwner } =
-                await deployTkoTokenFixture()
-
             await expect(
                 token
                     .connect(owner)
@@ -145,9 +120,6 @@ describe("TokenVault", function () {
         })
 
         it("succeeds", async () => {
-            const { owner, token, amountMinted, nonOwner } =
-                await deployTkoTokenFixture()
-
             const originalBalance = await token.balanceOf(nonOwner.address)
 
             await token.connect(owner).transfer(nonOwner.address, amountMinted)

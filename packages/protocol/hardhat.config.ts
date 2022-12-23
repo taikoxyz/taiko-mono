@@ -17,7 +17,6 @@ const config: HardhatUserConfig = {
         exclude: [
             "bridge/libs/",
             "L1/v1/",
-            "L1/LibData.sol",
             "libs/",
             "test/",
             "thirdparty/",
@@ -106,6 +105,8 @@ const config: HardhatUserConfig = {
                     "TAIKO_BLOCK_MAX_TXS",
                     "TAIKO_TXLIST_MAX_BYTES",
                     "TAIKO_BLOCK_MAX_GAS_LIMIT",
+                    "K_MAX_NUM_BLOCKS",
+                    "K_INITIAL_UNCLE_DELAY",
                 ]) {
                     if (
                         process.env[constantName] &&

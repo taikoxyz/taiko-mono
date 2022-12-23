@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/website/**"
+      - "packages/protocol/contracts/**"
   pull_request:
     paths:
       - "packages/website/**"
@@ -22,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "16.15"
-          
+
       - uses: pnpm/action-setup@v2
         name: Install pnpm
         id: pnpm-install
