@@ -182,7 +182,7 @@
               successToast("Bridge message processed successfully");
               clearInterval(tx.interval);
             }
-          }, 30 * 1000);
+          }, 20 * 1000);
         }
       });
     }

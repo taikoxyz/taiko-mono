@@ -7,7 +7,10 @@
   import { Contract, ethers } from "ethers";
   import { bridges } from "../store/bridge";
   import { signer } from "../store/signer";
-  import { pendingTransactions, showTransactionDetails } from "../store/transactions";
+  import {
+    pendingTransactions,
+    showTransactionDetails,
+  } from "../store/transactions";
   import { errorToast, successToast } from "../utils/toast";
   import { _ } from "svelte-i18n";
   import {
@@ -35,6 +38,7 @@
   onMount(async () => {
     processable = await isProcessable();
   });
+
   async function claim(bridgeTx: BridgeTransaction) {
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
@@ -96,6 +100,11 @@
       .getBlock(latestSyncedHeader);
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
+
+  const interval = setInterval(async () => {
+    processable = await isProcessable();
+    if (processable) clearInterval(interval);
+  }, 20 * 1000);
 </script>
 
 <tr>
@@ -113,7 +122,7 @@
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
-  
+
   <td>
     {#if !processable}
       Pending...
@@ -159,7 +168,8 @@
   <td>
     <span
       class="cursor-pointer inline-block"
-      on:click={() => $showTransactionDetails = transaction}>
+      on:click={() => ($showTransactionDetails = transaction)}
+    >
       <ArrowTopRightOnSquare />
     </span>
   </td>
