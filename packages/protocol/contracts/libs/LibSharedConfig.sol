@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import "../L1/LibData.sol";
 
 library LibSharedConfig {
-    function getConfig() public pure returns (LibData.Config memory config) {
+    function getConfig() internal pure returns (LibData.Config memory config) {
         config.chainId = 167;
         // up to 2048 pending blocks
         config.maxNumBlocks = 2049;
