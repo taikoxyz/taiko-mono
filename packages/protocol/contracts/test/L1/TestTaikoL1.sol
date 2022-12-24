@@ -15,7 +15,7 @@ contract TestTaikoL1NoTokenomicsNoProofValidation is TaikoL1 {
         public
         pure
         override
-        returns (LibData.Config memory config)
+        returns (TaikoData.Config memory config)
     {
         config.chainId = 167;
         // up to 2048 pending blocks

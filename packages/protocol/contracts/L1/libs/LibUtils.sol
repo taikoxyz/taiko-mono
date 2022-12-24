@@ -11,10 +11,10 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../../libs/LibMath.sol";
-import "../LibData.sol";
+import "../TaikoData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Utils {
+library LibUtils {
     using LibMath for uint256;
 
     uint64 public constant MASK_HALT = 1 << 0;
@@ -26,17 +26,8 @@ library V1Utils {
     event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
 
-    function saveProposedBlock(
-        LibData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id,
-        LibData.ProposedBlock memory blk
-    ) internal {
-        state.proposedBlocks[id % maxNumBlocks] = blk;
-    }
-
     function enableWhitelisting(
-        LibData.TentativeState storage tentative,
+        TaikoData.TentativeState storage tentative,
         bool whitelistProposers,
         bool whitelistProvers
     ) internal {
@@ -46,7 +37,7 @@ library V1Utils {
     }
 
     function whitelistProposer(
-        LibData.TentativeState storage tentative,
+        TaikoData.TentativeState storage tentative,
         address proposer,
         bool whitelisted
     ) internal {
@@ -62,7 +53,7 @@ library V1Utils {
     }
 
     function whitelistProver(
-        LibData.TentativeState storage tentative,
+        TaikoData.TentativeState storage tentative,
         address prover,
         bool whitelisted
     ) internal {
@@ -76,22 +67,22 @@ library V1Utils {
         emit ProverWhitelisted(prover, whitelisted);
     }
 
-    function halt(LibData.State storage state, bool toHalt) internal {
+    function halt(TaikoData.State storage state, bool toHalt) internal {
         require(isHalted(state) != toHalt, "L1:precondition");
         setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
 
     function getProposedBlock(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id
-    ) internal view returns (LibData.ProposedBlock storage) {
+    ) internal view returns (TaikoData.ProposedBlock storage) {
         return state.proposedBlocks[id % maxNumBlocks];
     }
 
     function getL2BlockHash(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint256 number
     ) internal view returns (bytes32) {
         require(number <= state.latestVerifiedHeight, "L1:id");
@@ -99,7 +90,7 @@ library V1Utils {
     }
 
     function getStateVariables(
-        LibData.State storage state
+        TaikoData.State storage state
     )
         internal
         view
@@ -131,13 +122,13 @@ library V1Utils {
     }
 
     function isHalted(
-        LibData.State storage state
+        TaikoData.State storage state
     ) internal view returns (bool) {
         return isBitOne(state, MASK_HALT);
     }
 
     function isProposerWhitelisted(
-        LibData.TentativeState storage tentative,
+        TaikoData.TentativeState storage tentative,
         address proposer
     ) internal view returns (bool) {
         assert(tentative.whitelistProposers);
@@ -145,7 +136,7 @@ library V1Utils {
     }
 
     function isProverWhitelisted(
-        LibData.TentativeState storage tentative,
+        TaikoData.TentativeState storage tentative,
         address prover
     ) internal view returns (bool) {
         assert(tentative.whitelistProvers);
@@ -154,8 +145,8 @@ library V1Utils {
 
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         bool isProposal,
         uint64 tNow,
         uint64 tLast,
@@ -186,8 +177,8 @@ library V1Utils {
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
@@ -202,8 +193,8 @@ library V1Utils {
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
     function getBootstrapDiscountedFee(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint256 feeBase
     ) internal view returns (uint256) {
         uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
@@ -214,9 +205,9 @@ library V1Utils {
 
     // Returns a deterministic deadline for uncle proof submission.
     function uncleProofDeadline(
-        LibData.State storage state,
-        LibData.Config memory config,
-        LibData.ForkChoice storage fc,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
         if (blockId <= 2 * config.maxNumBlocks) {
@@ -227,7 +218,7 @@ library V1Utils {
     }
 
     function hashMetadata(
-        LibData.BlockMetadata memory meta
+        TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32) {
         return keccak256(abi.encode(meta));
     }
@@ -245,7 +236,7 @@ library V1Utils {
     }
 
     function setBit(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint64 mask,
         bool one
     ) private {
@@ -255,7 +246,7 @@ library V1Utils {
     }
 
     function isBitOne(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint64 mask
     ) private view returns (bool) {
         return state.statusBits & mask != 0;

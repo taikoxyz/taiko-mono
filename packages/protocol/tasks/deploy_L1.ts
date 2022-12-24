@@ -89,7 +89,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${chainId}.team_vault`, teamVault)
     );
-    // Used by V1Proving
+    // Used by LibProving
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2Address)
@@ -202,19 +202,19 @@ async function deployBaseLibs(hre: any) {
     );
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
 
-    const v1Verifying = await utils.deployContract(hre, "V1Verifying", {});
-    const v1Proposing = await utils.deployContract(hre, "V1Proposing", {});
+    const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
+    const libProposing = await utils.deployContract(hre, "LibProposing", {});
 
-    const v1Proving = await utils.deployContract(hre, "V1Proving", {
+    const libProving = await utils.deployContract(hre, "LibProving", {
         LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
     });
 
     return {
-        V1Verifying: v1Verifying.address,
-        V1Proposing: v1Proposing.address,
-        V1Proving: v1Proving.address,
+        LibVerifying: libVerifying.address,
+        LibProposing: libProposing.address,
+        LibProving: libProving.address,
     };
 }
 

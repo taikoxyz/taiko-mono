@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
-library LibData {
+library TaikoData {
     struct Config {
         uint256 chainId;
         // up to 2048 pending blocks

@@ -25,12 +25,12 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibZKP")
         ).deploy();
 
-        const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
+        const libProposing = await (
+            await ethers.getContractFactory("LibProposing")
         ).deploy();
 
-        const v1Proving = await (
-            await ethers.getContractFactory("V1Proving", {
+        const libProving = await (
+            await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
@@ -39,8 +39,8 @@ describe("TaikoL1", function () {
             })
         ).deploy();
 
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying")
+        const libVerifying = await (
+            await ethers.getContractFactory("LibVerifying")
         ).deploy();
 
         genesisHash = randomBytes32();
@@ -50,9 +50,9 @@ describe("TaikoL1", function () {
                 "TestTaikoL1NoTokenomicsNoProofValidation",
                 {
                     libraries: {
-                        V1Verifying: v1Verifying.address,
-                        V1Proposing: v1Proposing.address,
-                        V1Proving: v1Proving.address,
+                        LibVerifying: libVerifying.address,
+                        LibProposing: libProposing.address,
+                        LibProving: libProving.address,
                     },
                 }
             )

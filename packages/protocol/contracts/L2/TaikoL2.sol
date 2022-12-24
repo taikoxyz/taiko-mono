@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -124,7 +123,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         public
         view
         virtual
-        returns (LibData.Config memory config)
+        returns (TaikoData.Config memory config)
     {
         config = LibSharedConfig.getConfig();
         config.chainId = block.chainid;

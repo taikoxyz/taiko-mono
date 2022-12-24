@@ -16,7 +16,7 @@ const config: HardhatUserConfig = {
     docgen: {
         exclude: [
             "bridge/libs/",
-            "L1/v1/",
+            "L1/libs/",
             "libs/",
             "test/",
             "thirdparty/",

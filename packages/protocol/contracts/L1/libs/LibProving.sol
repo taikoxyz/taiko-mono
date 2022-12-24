@@ -19,17 +19,17 @@ import "../../libs/LibZKP.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibMerkleTrie.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "./V1Utils.sol";
+import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
-library V1Proving {
+library LibProving {
     using LibBlockHeader for BlockHeader;
-    using V1Utils for LibData.BlockMetadata;
-    using V1Utils for LibData.State;
+    using LibUtils for TaikoData.BlockMetadata;
+    using LibUtils for TaikoData.State;
 
     struct Evidence {
-        LibData.BlockMetadata meta;
+        TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs
@@ -50,7 +50,7 @@ library V1Proving {
         address prover
     );
 
-    modifier onlyWhitelistedProver(LibData.TentativeState storage tentative) {
+    modifier onlyWhitelistedProver(TaikoData.TentativeState storage tentative) {
         if (tentative.whitelistProvers) {
             require(tentative.provers[msg.sender], "L1:whitelist");
         }
@@ -58,14 +58,14 @@ library V1Proving {
     }
 
     function proveBlock(
-        LibData.State storage state,
-        LibData.TentativeState storage tentative,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.TentativeState storage tentative,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(tentative) {
-        assert(!V1Utils.isHalted(state));
+        assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -156,21 +156,21 @@ library V1Proving {
     }
 
     function proveBlockInvalid(
-        LibData.State storage state,
-        LibData.TentativeState storage tentative,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.TentativeState storage tentative,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
         bytes[] calldata inputs
     ) public onlyWhitelistedProver(tentative) {
-        assert(!V1Utils.isHalted(state));
+        assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
-        LibData.BlockMetadata memory target = abi.decode(
+        TaikoData.BlockMetadata memory target = abi.decode(
             inputs[1],
-            (LibData.BlockMetadata)
+            (TaikoData.BlockMetadata)
         );
         bytes calldata invalidateBlockReceipt = inputs[2];
 
@@ -222,16 +222,16 @@ library V1Proving {
             resolver: resolver,
             evidence: evidence,
             target: target,
-            blockHashOverride: V1Utils.BLOCK_DEADEND_HASH
+            blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
         });
     }
 
     function _proveBlock(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         Evidence memory evidence,
-        LibData.BlockMetadata memory target,
+        TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
         require(evidence.meta.id == target.id, "L1:height");
@@ -271,14 +271,14 @@ library V1Proving {
     }
 
     function _markBlockProven(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         address prover,
-        LibData.BlockMetadata memory target,
+        TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
         bytes32 blockHash
     ) private {
-        LibData.ForkChoice storage fc = state.forkChoices[target.id][
+        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             parentHash
         ];
 
@@ -289,7 +289,7 @@ library V1Proving {
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
-                V1Utils.halt(state, true);
+                LibUtils.halt(state, true);
                 return;
             }
 
@@ -300,7 +300,7 @@ library V1Proving {
 
             require(
                 block.timestamp <
-                    V1Utils.uncleProofDeadline({
+                    LibUtils.uncleProofDeadline({
                         state: state,
                         config: config,
                         fc: fc,
@@ -345,9 +345,9 @@ library V1Proving {
     }
 
     function _checkMetadata(
-        LibData.State storage state,
-        LibData.Config memory config,
-        LibData.BlockMetadata memory meta
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.BlockMetadata memory meta
     ) private view {
         require(
             meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
@@ -361,9 +361,9 @@ library V1Proving {
     }
 
     function _validateHeaderForMetadata(
-        LibData.Config memory config,
+        TaikoData.Config memory config,
         BlockHeader memory header,
-        LibData.BlockMetadata memory meta
+        TaikoData.BlockMetadata memory meta
     ) private pure {
         require(
             header.parentHash != 0 &&
