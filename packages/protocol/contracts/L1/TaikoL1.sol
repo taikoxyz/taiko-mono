@@ -12,21 +12,21 @@ import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
 import "../libs/LibSharedConfig.sol";
-import "./LibData.sol";
-import "./v1/V1Events.sol";
-import "./v1/V1Proposing.sol";
-import "./v1/V1Proving.sol";
-import "./v1/V1Utils.sol";
-import "./v1/V1Verifying.sol";
+import "./TaikoData.sol";
+import "./TaikoEvents.sol";
+import "./libs/LibProposing.sol";
+import "./libs/LibProving.sol";
+import "./libs/LibUtils.sol";
+import "./libs/LibVerifying.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
  */
-contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
-    using V1Utils for LibData.State;
+contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
+    using LibUtils for TaikoData.State;
 
-    LibData.State public state;
-    LibData.TentativeState public tentative;
+    TaikoData.State public state;
+    TaikoData.TentativeState public tentative;
     uint256[50] private __gap;
 
     function init(
@@ -35,7 +35,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
-        V1Verifying.init({
+        LibVerifying.init({
             state: state,
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
@@ -56,7 +56,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *                  `calculateCommitHash(beneficiary, txListHash)`.
      */
     function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
-        V1Proposing.commitBlock({
+        LibProposing.commitBlock({
             state: state,
             config: getConfig(),
             commitSlot: commitSlot,
@@ -84,15 +84,15 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        LibData.Config memory config = getConfig();
-        V1Proposing.proposeBlock({
+        TaikoData.Config memory config = getConfig();
+        LibProposing.proposeBlock({
             state: state,
             config: config,
             tentative: tentative,
             resolver: AddressResolver(this),
             inputs: inputs
         });
-        V1Verifying.verifyBlocks({
+        LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
@@ -120,8 +120,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        LibData.Config memory config = getConfig();
-        V1Proving.proveBlock({
+        TaikoData.Config memory config = getConfig();
+        LibProving.proveBlock({
             state: state,
             tentative: tentative,
             config: config,
@@ -129,7 +129,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             blockId: blockId,
             inputs: inputs
         });
-        V1Verifying.verifyBlocks({
+        LibVerifying.verifyBlocks({
             state: state,
             config: config,
             resolver: AddressResolver(this),
@@ -156,9 +156,9 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint256 blockId,
         bytes[] calldata inputs
     ) external nonReentrant {
-        LibData.Config memory config = getConfig();
+        TaikoData.Config memory config = getConfig();
 
-        V1Proving.proveBlockInvalid({
+        LibProving.proveBlockInvalid({
             state: state,
             tentative: tentative,
             config: config,
@@ -166,7 +166,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
             blockId: blockId,
             inputs: inputs
         });
-        V1Verifying.verifyBlocks({
+        LibVerifying.verifyBlocks({
             state: state,
             config: config,
             resolver: AddressResolver(this),
@@ -181,7 +181,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         require(maxBlocks > 0, "L1:maxBlocks");
-        V1Verifying.verifyBlocks({
+        LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
@@ -199,7 +199,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bool whitelistProposers,
         bool whitelistProvers
     ) public onlyOwner {
-        V1Utils.enableWhitelisting({
+        LibUtils.enableWhitelisting({
             tentative: tentative,
             whitelistProposers: whitelistProposers,
             whitelistProvers: whitelistProvers
@@ -216,7 +216,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address proposer,
         bool whitelisted
     ) public onlyOwner {
-        V1Utils.whitelistProposer({
+        LibUtils.whitelistProposer({
             tentative: tentative,
             proposer: proposer,
             whitelisted: whitelisted
@@ -233,7 +233,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         address prover,
         bool whitelisted
     ) public onlyOwner {
-        V1Utils.whitelistProver({
+        LibUtils.whitelistProver({
             tentative: tentative,
             prover: prover,
             whitelisted: whitelisted
@@ -245,7 +245,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
-        V1Utils.halt(state, toHalt);
+        LibUtils.halt(state, toHalt);
     }
 
     /**
@@ -257,7 +257,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     function isProposerWhitelisted(
         address proposer
     ) public view returns (bool) {
-        return V1Utils.isProposerWhitelisted(tentative, proposer);
+        return LibUtils.isProposerWhitelisted(tentative, proposer);
     }
 
     /**
@@ -267,11 +267,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return V1Utils.isProverWhitelisted(tentative, prover);
+        return LibUtils.isProverWhitelisted(tentative, prover);
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = V1Proposing.getBlockFee(
+        (, uint fee, uint deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
@@ -282,7 +282,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward) {
-        (, reward, ) = V1Verifying.getProofReward({
+        (, reward, ) = LibVerifying.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
@@ -295,7 +295,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
      * @return True if halted, false otherwise.
      */
     function isHalted() public view returns (bool) {
-        return V1Utils.isHalted(state);
+        return LibUtils.isHalted(state);
     }
 
     function isCommitValid(
@@ -304,7 +304,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         bytes32 commitHash
     ) public view returns (bool) {
         return
-            V1Proposing.isCommitValid(
+            LibProposing.isCommitValid(
                 state,
                 getConfig().commitConfirmations,
                 commitSlot,
@@ -315,7 +315,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
 
     function getProposedBlock(
         uint256 id
-    ) public view returns (LibData.ProposedBlock memory) {
+    ) public view returns (TaikoData.ProposedBlock memory) {
         return state.getProposedBlock(getConfig().maxNumBlocks, id);
     }
 
@@ -363,7 +363,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.forkChoices[id][parentHash].provers;
     }
 
-    function getConfig() public pure virtual returns (LibData.Config memory) {
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
     }
 }

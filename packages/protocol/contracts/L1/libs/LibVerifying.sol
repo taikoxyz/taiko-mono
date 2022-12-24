@@ -10,12 +10,12 @@ pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
 import "../TkoToken.sol";
-import "./V1Utils.sol";
+import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Verifying {
+library LibVerifying {
     using SafeCastUpgradeable for uint256;
-    using V1Utils for LibData.State;
+    using LibUtils for TaikoData.State;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
@@ -26,7 +26,7 @@ library V1Verifying {
     );
 
     function init(
-        LibData.State storage state,
+        TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
@@ -44,13 +44,13 @@ library V1Verifying {
     }
 
     function verifyBlocks(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        bool halted = V1Utils.isHalted(state);
+        bool halted = LibUtils.isHalted(state);
         if (checkHalt) {
             require(!halted, "L1:halted");
         } else if (halted) {
@@ -67,8 +67,8 @@ library V1Verifying {
             i < state.nextBlockId && processed <= maxBlocks;
             i++
         ) {
-            LibData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
-            LibData.ProposedBlock storage target = state.getProposedBlock(
+            TaikoData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            TaikoData.ProposedBlock storage target = state.getProposedBlock(
                 config.maxNumBlocks,
                 i
             );
@@ -116,12 +116,12 @@ library V1Verifying {
     }
 
     function getProofReward(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
-        (newFeeBase, tRelBp) = V1Utils.getTimeAdjustedFee({
+        (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
             isProposal: false,
@@ -129,7 +129,7 @@ library V1Verifying {
             tLast: proposedAt,
             tAvg: state.avgProofTime
         });
-        reward = V1Utils.getSlotsAdjustedFee({
+        reward = LibUtils.getSlotsAdjustedFee({
             state: state,
             config: config,
             isProposal: false,
@@ -139,7 +139,7 @@ library V1Verifying {
     }
 
     function _refundProposerDeposit(
-        LibData.ProposedBlock storage target,
+        TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
         TkoToken tkoToken
     ) private {
@@ -150,7 +150,7 @@ library V1Verifying {
     }
 
     function _rewardProvers(
-        LibData.ForkChoice storage fc,
+        TaikoData.ForkChoice storage fc,
         uint256 reward,
         TkoToken tkoToken
     ) private {
@@ -168,11 +168,11 @@ library V1Verifying {
     }
 
     function _verifyBlock(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         AddressResolver resolver,
-        LibData.ForkChoice storage fc,
-        LibData.ProposedBlock storage target,
+        TaikoData.ForkChoice storage fc,
+        TaikoData.ProposedBlock storage target,
         uint64 latestL2Height,
         bytes32 latestL2Hash
     ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
@@ -194,14 +194,14 @@ library V1Verifying {
                 _refundProposerDeposit(target, tRelBp, tkoToken);
             }
             // Update feeBase and avgProofTime
-            state.feeBase = V1Utils.movingAverage({
+            state.feeBase = LibUtils.movingAverage({
                 maValue: state.feeBase,
                 newValue: newFeeBase,
                 maf: config.feeBaseMAF
             });
         }
 
-        state.avgProofTime = V1Utils
+        state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
                 newValue: fc.provenAt - target.proposedAt,
@@ -209,7 +209,7 @@ library V1Verifying {
             })
             .toUint64();
 
-        if (fc.blockHash != V1Utils.BLOCK_DEADEND_HASH) {
+        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
             _latestL2Height = latestL2Height + 1;
             _latestL2Hash = fc.blockHash;
         } else {
@@ -218,7 +218,7 @@ library V1Verifying {
         }
     }
 
-    function _cleanUp(LibData.ForkChoice storage fc) private {
+    function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
         for (uint i = 0; i < fc.provers.length; i++) {
@@ -228,15 +228,15 @@ library V1Verifying {
     }
 
     function _isVerifiable(
-        LibData.State storage state,
-        LibData.Config memory config,
-        LibData.ForkChoice storage fc,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.ForkChoice storage fc,
         uint256 blockId
     ) private view returns (bool) {
         return
             fc.blockHash != 0 &&
             block.timestamp >
-            V1Utils.uncleProofDeadline({
+            LibUtils.uncleProofDeadline({
                 state: state,
                 config: config,
                 fc: fc,

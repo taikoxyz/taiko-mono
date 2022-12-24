@@ -124,7 +124,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         public
         view
         virtual
-        returns (LibData.Config memory config)
+        returns (TaikoData.Config memory config)
     {
         config = LibSharedConfig.getConfig();
         config.chainId = block.chainid;

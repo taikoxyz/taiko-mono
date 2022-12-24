@@ -8,13 +8,13 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../L1/LibData.sol";
+import "../L1/TaikoData.sol";
 
 library LibSharedConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
-    function getConfig() internal pure returns (LibData.Config memory) {
+    function getConfig() internal pure returns (TaikoData.Config memory) {
         return
-            LibData.Config({
+            TaikoData.Config({
                 chainId: 167,
                 maxNumBlocks: 2049, // up to 2048 pending blocks
                 blockHashHistory: 100000,

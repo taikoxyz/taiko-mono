@@ -3,13 +3,13 @@
 ### state
 
 ```solidity
-struct LibData.State state
+struct TaikoData.State state
 ```
 
 ### tentative
 
 ```solidity
-struct LibData.TentativeState tentative
+struct TaikoData.TentativeState tentative
 ```
 
 ### init
@@ -217,7 +217,7 @@ function isCommitValid(uint256 commitSlot, uint256 commitHeight, bytes32 commitH
 ### getProposedBlock
 
 ```solidity
-function getProposedBlock(uint256 id) public view returns (struct LibData.ProposedBlock)
+function getProposedBlock(uint256 id) public view returns (struct TaikoData.ProposedBlock)
 ```
 
 ### getSyncedHeader

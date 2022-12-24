@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../L1/LibData.sol";
+import "../L1/TaikoData.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibTxUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
@@ -50,7 +50,7 @@ library LibInvalidTxList {
     }
 
     function isTxListInvalid(
-        LibData.Config memory config,
+        TaikoData.Config memory config,
         bytes calldata encoded,
         Reason hint,
         uint256 txIdx

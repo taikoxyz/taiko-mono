@@ -8,10 +8,10 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../LibData.sol";
+import "./TaikoData.sol";
 
 /// @author david <david@taiko.xyz>
-abstract contract V1Events {
+abstract contract TaikoEvents {
     // The following events must match the definitions in other V1 libraries.
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
@@ -21,7 +21,7 @@ abstract contract V1Events {
         bytes32 commitHash
     );
 
-    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     event BlockProven(
         uint256 indexed id,

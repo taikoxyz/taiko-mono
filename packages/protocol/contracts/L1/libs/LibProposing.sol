@@ -11,23 +11,23 @@ pragma solidity ^0.8.9;
 import "../../common/ConfigManager.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
-import "./V1Utils.sol";
+import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Proposing {
+library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
-    using V1Utils for LibData.BlockMetadata;
-    using V1Utils for LibData.State;
+    using LibUtils for TaikoData.BlockMetadata;
+    using LibUtils for TaikoData.State;
 
     event BlockCommitted(
         uint64 commitSlot,
         uint64 commitHeight,
         bytes32 commitHash
     );
-    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    modifier onlyWhitelistedProposer(LibData.TentativeState storage tentative) {
+    modifier onlyWhitelistedProposer(TaikoData.TentativeState storage tentative) {
         if (tentative.whitelistProposers) {
             require(tentative.proposers[msg.sender], "L1:whitelist");
         }
@@ -35,8 +35,8 @@ library V1Proposing {
     }
 
     function commitBlock(
-        LibData.State storage state,
-        LibData.Config memory config,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
@@ -44,7 +44,7 @@ library V1Proposing {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // assert(!V1Utils.isHalted(state));
+        // assert(!LibUtils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
@@ -59,18 +59,18 @@ library V1Proposing {
     }
 
     function proposeBlock(
-        LibData.State storage state,
-        LibData.Config memory config,
-        LibData.TentativeState storage tentative,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.TentativeState storage tentative,
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public onlyWhitelistedProposer(tentative) {
-        assert(!V1Utils.isHalted(state));
+        assert(!LibUtils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
-        LibData.BlockMetadata memory meta = abi.decode(
+        TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
-            (LibData.BlockMetadata)
+            (TaikoData.BlockMetadata)
         );
         _verifyBlockCommit({
             state: state,
@@ -116,7 +116,7 @@ library V1Proposing {
                 );
             }
             // Update feeBase and avgBlockTime
-            state.feeBase = V1Utils.movingAverage({
+            state.feeBase = LibUtils.movingAverage({
                 maValue: state.feeBase,
                 newValue: newFeeBase,
                 maf: config.feeBaseMAF
@@ -126,7 +126,7 @@ library V1Proposing {
         state.saveProposedBlock(
             config.maxNumBlocks,
             state.nextBlockId,
-            LibData.ProposedBlock({
+            TaikoData.ProposedBlock({
                 metaHash: meta.hashMetadata(),
                 deposit: deposit,
                 proposer: msg.sender,
@@ -134,7 +134,7 @@ library V1Proposing {
             })
         );
 
-        state.avgBlockTime = V1Utils
+        state.avgBlockTime = LibUtils
             .movingAverage({
                 maValue: state.avgBlockTime,
                 newValue: meta.timestamp - state.lastProposedAt,
@@ -148,10 +148,10 @@ library V1Proposing {
     }
 
     function getBlockFee(
-        LibData.State storage state,
-        LibData.Config memory config
+        TaikoData.State storage state,
+        TaikoData.Config memory config
     ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
-        (newFeeBase, ) = V1Utils.getTimeAdjustedFee({
+        (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
             isProposal: true,
@@ -159,18 +159,18 @@ library V1Proposing {
             tLast: state.lastProposedAt,
             tAvg: state.avgBlockTime
         });
-        fee = V1Utils.getSlotsAdjustedFee({
+        fee = LibUtils.getSlotsAdjustedFee({
             state: state,
             config: config,
             isProposal: true,
             feeBase: newFeeBase
         });
-        fee = V1Utils.getBootstrapDiscountedFee(state, config, fee);
+        fee = LibUtils.getBootstrapDiscountedFee(state, config, fee);
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
     function isCommitValid(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint256 commitConfirmations,
         uint256 commitSlot,
         uint256 commitHeight,
@@ -184,9 +184,9 @@ library V1Proposing {
     }
 
     function _verifyBlockCommit(
-        LibData.State storage state,
+        TaikoData.State storage state,
         uint256 commitConfirmations,
-        LibData.BlockMetadata memory meta
+        TaikoData.BlockMetadata memory meta
     ) private {
         if (commitConfirmations == 0) {
             return;
@@ -215,8 +215,8 @@ library V1Proposing {
     }
 
     function _validateMetadata(
-        LibData.Config memory config,
-        LibData.BlockMetadata memory meta
+        TaikoData.Config memory config,
+        TaikoData.BlockMetadata memory meta
     ) private pure {
         require(
             meta.id == 0 &&
