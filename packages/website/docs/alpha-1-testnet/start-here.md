@@ -17,10 +17,10 @@ In this testnet, you can:
 - 🤝 Send transactions (e.g., deploy contracts).
 - 🌐 Run a node — this makes _you_ a part of Taiko!
 - 📝 Submit feedback and be forever loved.
-- 🥇 Earn a POAP by completing any 2 of the 3 following actions (and we will send you a POAP to the address you use):
+- 🥇 Earn a POAP by using your wallet to complete any 2 of the 3 following actions by January 31st 23:59 UTC:
   - Use the bridge
-  - Deploy a contract
-  - Transfer tokens
+  - Contract interaction (e.g., interact w/ dapp, deploy a contract)
+  - Transfer between accounts
 
 ## Create a feedback log
 
