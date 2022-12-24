@@ -29,8 +29,8 @@ library TestLibAnchorSignature {
 
     function goldenTouchAddress() public pure returns (address, uint256) {
         return (
-            LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
-            LibAnchorSignature.K_GOLDEN_TOUCH_PRIVATEKEY
+            LibAnchorSignature.GOLDEN_TOUCH_ADDRESS,
+            LibAnchorSignature.GOLDEN_TOUCH_PRIVATEKEY
         );
     }
 }
