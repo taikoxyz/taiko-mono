@@ -65,7 +65,7 @@ const config = {
         content:
           'Snæfellsjökull is erupting 🌋 <a href="/docs/alpha-1-testnet/start-here">start here</a>',
         backgroundColor: "#fafbfc",
-        textColor: "#091E42",
+        textColor: "#171717",
         isCloseable: false,
       },
       colorMode: {
