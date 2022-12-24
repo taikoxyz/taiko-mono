@@ -1,7 +1,7 @@
 {
-  "name": "@taiko/proto",
-  "version": "1.0.0",
-  "description": "Taiko L2 Protocol",
+  "name": "@taiko/protocol",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
     "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",

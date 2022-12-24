@@ -14,6 +14,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../common/AddressResolver.sol";
 import "../common/IHeaderSync.sol";
+import "../libs/LibAnchorSignature.sol";
 import "../libs/LibInvalidTxList.sol";
 import "../libs/LibSharedConfig.sol";
 import "../libs/LibTxDecoder.sol";
@@ -96,6 +97,12 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Reason hint,
         uint256 txIdx
     ) external {
+        require(
+            msg.sender == LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
+            "L2:sender"
+        );
+        require(tx.gasprice == 0, "L2:gasPrice");
+
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
             config: getConfig(),
             encoded: txList,

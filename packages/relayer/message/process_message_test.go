@@ -77,20 +77,20 @@ func Test_ProcessMessage(t *testing.T) {
 	)
 }
 
-func Test_ProcessMessage_unprofitable(t *testing.T) {
-	p := newTestProcessor(true)
+// func Test_ProcessMessage_unprofitable(t *testing.T) {
+// 	p := newTestProcessor(true)
 
-	err := p.ProcessMessage(context.Background(), &contracts.BridgeMessageSent{
-		Message: contracts.IBridgeMessage{
-			GasLimit:    big.NewInt(1),
-			DestChainId: mock.MockChainID,
-		},
-		Signal: mock.SuccessSignal,
-	}, &relayer.Event{})
+// 	err := p.ProcessMessage(context.Background(), &contracts.BridgeMessageSent{
+// 		Message: contracts.IBridgeMessage{
+// 			GasLimit:    big.NewInt(1),
+// 			DestChainId: mock.MockChainID,
+// 		},
+// 		Signal: mock.SuccessSignal,
+// 	}, &relayer.Event{})
 
-	assert.EqualError(
-		t,
-		err,
-		"p.sendProcessMessageCall: "+relayer.ErrUnprofitable.Error(),
-	)
-}
+// 	assert.EqualError(
+// 		t,
+// 		err,
+// 		"p.sendProcessMessageCall: "+relayer.ErrUnprofitable.Error(),
+// 	)
+// }

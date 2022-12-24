@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.a1.env
+.s.env
 
 # vite
 vite.config.ts.timestamp-*.mjs

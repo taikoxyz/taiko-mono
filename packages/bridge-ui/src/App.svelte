@@ -33,6 +33,8 @@
   setupI18n({ withLocale: "en" });
   import {
     chains,
+    CHAIN_ID_MAINNET,
+    CHAIN_ID_TAIKO,
     CHAIN_MAINNET,
     CHAIN_TKO,
     mainnet,
@@ -53,12 +55,13 @@
     number,
     ethers.providers.JsonRpcProvider
   >();
+
   providerMap.set(
-    CHAIN_MAINNET.id,
+    CHAIN_ID_MAINNET,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL)
   );
   providerMap.set(
-    CHAIN_TKO.id,
+    CHAIN_ID_TAIKO,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL)
   );
   providers.set(providerMap);
@@ -122,8 +125,6 @@
     return store;
   });
 
-  // const relayerURL = import.meta.env.VITE_RELAYER_URL;
-
   const storageTransactioner: Transactioner = new StorageService(
     window.localStorage,
     providerMap
@@ -181,7 +182,7 @@
               successToast("Bridge message processed successfully");
               clearInterval(tx.interval);
             }
-          }, 30 * 1000);
+          }, 20 * 1000);
         }
       });
     }

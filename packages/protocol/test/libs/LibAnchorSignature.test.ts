@@ -1,6 +1,6 @@
-import { expect } from "chai"
-import { UnsignedTransaction } from "ethers"
-import { ethers } from "hardhat"
+import { expect } from "chai";
+import { UnsignedTransaction } from "ethers";
+import { ethers } from "hardhat";
 
 describe("LibAnchorSignature", function () {
     const unsignedLegacyTx: UnsignedTransaction = {
@@ -12,23 +12,23 @@ describe("LibAnchorSignature", function () {
         to: ethers.Wallet.createRandom().address,
         value: randomBigInt(),
         data: ethers.utils.randomBytes(32),
-    }
+    };
 
     it("should calculate correct signature values", async function () {
         const libAnchorSignature: any = await (
             await ethers.getContractFactory("TestLibAnchorSignature")
-        ).deploy()
+        ).deploy();
 
-        const validKs = [1, 2]
+        const validKs = [1, 2];
 
         for (const k of validKs) {
             const hash = ethers.utils.keccak256(
                 ethers.utils.serializeTransaction(unsignedLegacyTx)
-            )
+            );
 
-            const [v, r, s] = await libAnchorSignature.signTransaction(hash, k)
+            const [v, r, s] = await libAnchorSignature.signTransaction(hash, k);
 
-            const [addr] = await libAnchorSignature.goldenTouchAddress()
+            const [addr] = await libAnchorSignature.goldenTouchAddress();
             expect(
                 await libAnchorSignature.recover(
                     hash,
@@ -36,11 +36,11 @@ describe("LibAnchorSignature", function () {
                     ethers.utils.hexZeroPad(r, 32),
                     ethers.utils.hexZeroPad(s, 32)
                 )
-            ).to.be.equal(addr)
+            ).to.be.equal(addr);
         }
-    })
+    });
 
     function randomBigInt() {
-        return ethers.BigNumber.from(ethers.utils.randomBytes(32))
+        return ethers.BigNumber.from(ethers.utils.randomBytes(32));
     }
-})
+});

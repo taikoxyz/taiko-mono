@@ -1,6 +1,7 @@
 {
-  "name": "@taiko/ui",
+  "name": "@taiko/bridge-ui",
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "start": "pnpm run dev",
