@@ -180,10 +180,28 @@ action("Generate Genesis", function () {
 
             const [bytes, txNums] = await generateMaxSizeInvalidTxList(TaikoL2)
 
-            const tx = await TaikoL2.invalidateBlock(
+            await expect(
+                TaikoL2.invalidateBlock(
+                    bytes,
+                    5, // hint: TX_INVALID_SIG
+                    0
+                )
+            ).to.be.revertedWith("L2:sender")
+
+            const taikoL2WithGoldenTouchSigner = new hre.ethers.Contract(
+                TaikoL2Alloc.address,
+                require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
+                new hre.ethers.Wallet(
+                    "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38",
+                    provider
+                )
+            )
+
+            const tx = await taikoL2WithGoldenTouchSigner.invalidateBlock(
                 bytes,
                 5, // hint: TX_INVALID_SIG
-                0
+                0,
+                { gasPrice: 0 }
             )
 
             const receipt = await tx.wait()
