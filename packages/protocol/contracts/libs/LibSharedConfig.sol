@@ -12,39 +12,40 @@ import "../L1/LibData.sol";
 
 library LibSharedConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
-    function getConfig() internal pure returns (LibData.Config memory config) {
-        config.chainId = 167;
-        // up to 2048 pending blocks
-        config.maxNumBlocks = 2049;
-        config.blockHashHistory = 100000;
-        // This number is calculated from maxNumBlocks to make
-        // the 'the maximum value of the multiplier' close to 20.0
-        config.zkProofsPerBlock = 1;
-        config.maxVerificationsPerTx = 20;
-        config.commitConfirmations = 0;
-        config.maxProofsPerForkChoice = 5;
-        config.blockMaxGasLimit = 5000000; // TODO
-        config.maxTransactionsPerBlock = 20; // TODO
-        config.maxBytesPerTxList = 10240; // TODO
-        config.minTxGasLimit = 21000; // TODO
-        config.anchorTxGasLimit = 250000;
-        config.feePremiumLamda = 590;
-        config.rewardBurnBips = 100; // 100 basis points or 1%
-        config.proposerDepositPctg = 25; // 25%
-
-        // Moving average factors
-        config.feeBaseMAF = 1024;
-        config.blockTimeMAF = 1024;
-        config.proofTimeMAF = 1024;
-
-        config.rewardMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 60 minutes;
-        config.boostrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 60 minutes;
-        config.enableTokenomics = false;
-        config.skipProofValidation = false;
+    function getConfig() internal pure returns (LibData.Config memory) {
+        return
+            LibData.Config({
+                chainId: 167,
+                // up to 2048 pending blocks
+                maxNumBlocks: 2049,
+                blockHashHistory: 100000,
+                // This number is calculated from maxNumBlocks to make
+                // the 'the maximum value of the multiplier' close to 20.0
+                zkProofsPerBlock: 1,
+                maxVerificationsPerTx: 20,
+                commitConfirmations: 0,
+                maxProofsPerForkChoice: 5,
+                blockMaxGasLimit: 5000000, // TODO
+                maxTransactionsPerBlock: 20, // TODO
+                maxBytesPerTxList: 10240, // TODO
+                minTxGasLimit: 21000, // TODO
+                anchorTxGasLimit: 250000,
+                feePremiumLamda: 590,
+                rewardBurnBips: 100, // 100 basis points or 1%
+                proposerDepositPctg: 25, // 25%
+                // Moving average factors
+                feeBaseMAF: 1024,
+                blockTimeMAF: 1024,
+                proofTimeMAF: 1024,
+                rewardMultiplierPctg: 400, // 400%
+                feeGracePeriodPctg: 125, // 125%
+                feeMaxPeriodPctg: 375, // 375%
+                blockTimeCap: 48 seconds,
+                proofTimeCap: 60 minutes,
+                boostrapDiscountHalvingPeriod: 180 days,
+                initialUncleDelay: 60 minutes,
+                enableTokenomics: false,
+                skipProofValidation: false
+            });
     }
 }
