@@ -27,7 +27,9 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    modifier onlyWhitelistedProposer(TaikoData.TentativeState storage tentative) {
+    modifier onlyWhitelistedProposer(
+        TaikoData.TentativeState storage tentative
+    ) {
         if (tentative.whitelistProposers) {
             require(tentative.proposers[msg.sender], "L1:whitelist");
         }
@@ -123,7 +125,8 @@ library LibProposing {
             });
         }
 
-    _saveProposedBlock(state,
+        _saveProposedBlock(
+            state,
             config.maxNumBlocks,
             state.nextBlockId,
             TaikoData.ProposedBlock({
@@ -183,7 +186,7 @@ library LibProposing {
             block.number >= commitHeight + commitConfirmations;
     }
 
-        function _saveProposedBlock(
+    function _saveProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id,

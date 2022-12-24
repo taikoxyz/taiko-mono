@@ -67,7 +67,9 @@ library LibVerifying {
             i < state.nextBlockId && processed <= maxBlocks;
             i++
         ) {
-            TaikoData.ForkChoice storage fc = state.forkChoices[i][latestL2Hash];
+            TaikoData.ForkChoice storage fc = state.forkChoices[i][
+                latestL2Hash
+            ];
             TaikoData.ProposedBlock storage target = state.getProposedBlock(
                 config.maxNumBlocks,
                 i
