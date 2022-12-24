@@ -16,8 +16,7 @@ library LibSharedConfig {
         return
             LibData.Config({
                 chainId: 167,
-                // up to 2048 pending blocks
-                maxNumBlocks: 2049,
+                maxNumBlocks: 2049, // up to 2048 pending blocks
                 blockHashHistory: 100000,
                 // This number is calculated from maxNumBlocks to make
                 // the 'the maximum value of the multiplier' close to 20.0
