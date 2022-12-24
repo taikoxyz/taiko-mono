@@ -98,7 +98,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 txIdx
     ) external {
         require(
-            msg.sender == LibAnchorSignature.GOLDEN_TOUCH_ADDRESS,
+            msg.sender == LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
             "L2:sender"
         );
         require(tx.gasprice == 0, "L2:gasPrice");
