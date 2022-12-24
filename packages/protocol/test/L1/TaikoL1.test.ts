@@ -46,13 +46,16 @@ describe("TaikoL1", function () {
         genesisHash = randomBytes32()
         const feeBase = BigNumber.from(10).pow(18)
         taikoL1 = await (
-            await ethers.getContractFactory("TaikoL1", {
-                libraries: {
-                    V1Verifying: v1Verifying.address,
-                    V1Proposing: v1Proposing.address,
-                    V1Proving: v1Proving.address,
-                },
-            })
+            await ethers.getContractFactory(
+                "TestTaikoL1_NoTokenomics_NoProofValidation",
+                {
+                    libraries: {
+                        V1Verifying: v1Verifying.address,
+                        V1Proposing: v1Proposing.address,
+                        V1Proving: v1Proving.address,
+                    },
+                }
+            )
         ).deploy()
         await taikoL1.init(addressManager.address, genesisHash, feeBase)
     })

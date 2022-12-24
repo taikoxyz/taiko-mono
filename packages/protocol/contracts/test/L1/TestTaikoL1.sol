@@ -10,7 +10,7 @@ pragma solidity ^0.8.9;
 
 import "../../L1/TaikoL1.sol";
 
-contract TestTaikoL1 is TaikoL1 {
+contract TestTaikoL1_NoTokenomics_NoProofValidation is TaikoL1 {
     function getConfig()
         public
         pure
