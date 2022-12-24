@@ -13,6 +13,7 @@ import "../L1/LibData.sol";
 library LibSharedConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
     function getConfig() internal pure returns (LibData.Config memory config) {
+        config.chainId = 167;
         // up to 2048 pending blocks
         config.maxNumBlocks = 2049;
         config.blockHashHistory = 100000;

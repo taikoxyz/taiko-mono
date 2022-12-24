@@ -25,8 +25,6 @@ import "./v1/V1Verifying.sol";
 contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
     using V1Utils for LibData.State;
 
-    uint256 private constant L2_CHAIN_ID = 167;
-
     LibData.State public state;
     LibData.TentativeState public tentative;
     uint256[50] private __gap;
@@ -365,13 +363,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.forkChoices[id][parentHash].provers;
     }
 
-    function getConfig()
-        public
-        pure
-        virtual
-        returns (LibData.Config memory config)
-    {
-        config = LibSharedConfig.getConfig();
-        config.chainId = L2_CHAIN_ID;
+    function getConfig() public pure virtual returns (LibData.Config memory) {
+        return LibSharedConfig.getConfig();
     }
 }
