@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
+import "../L1/LibData.sol";
 import "../libs/LibTxDecoder.sol";
 import "../libs/LibTxUtils.sol";
 import "../thirdparty/LibRLPReader.sol";
@@ -18,18 +18,19 @@ import "../thirdparty/LibRLPWriter.sol";
  * A library to invalidate a txList using the following rules:
  *
  * A txList is valid if and only if:
- * 1. The txList's length is no more than `K_TXLIST_MAX_BYTES`.
+ * 1. The txList's length is no more than `maxBytesPerTxList`.
  * 2. The txList is well-formed RLP, with no additional trailing bytes.
- * 3. The total number of transactions is no more than `K_BLOCK_MAX_TXS`.
+ * 3. The total number of transactions is no more than
+ *    `maxTransactionsPerBlock`.
  * 4. The sum of all transaction gas limit is no more than
- *    `K_BLOCK_MAX_GAS_LIMIT`.
+ *    `blockMaxGasLimit`.
  *
  * A transaction is valid if and only if:
  * 1. The transaction is well-formed RLP, with no additional trailing bytes
  *    (rule #1 in Ethereum yellow paper).
  * 2. The transaction's signature is valid (rule #2 in Ethereum yellow paper).
  * 3. The transaction's the gas limit is no smaller than the intrinsic gas
- *    `K_TX_MIN_GAS_LIMIT` (rule #5 in Ethereum yellow paper).
+ *    `minTxGasLimit` (rule #5 in Ethereum yellow paper).
  *
  * @title LibInvalidTxList
  * @author david <david@taiko.xyz>
@@ -49,25 +50,23 @@ library LibInvalidTxList {
     }
 
     function isTxListInvalid(
+        LibData.Config memory config,
         bytes calldata encoded,
         Reason hint,
         uint256 txIdx
     ) internal pure returns (Reason) {
-        if (encoded.length > LibConstants.K_TXLIST_MAX_BYTES) {
+        if (encoded.length > config.maxBytesPerTxList) {
             return Reason.BINARY_TOO_LARGE;
         }
 
-        try LibTxDecoder.decodeTxList(encoded) returns (
+        try LibTxDecoder.decodeTxList(config.chainId, encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
-            if (txList.items.length > LibConstants.K_BLOCK_MAX_TXS) {
+            if (txList.items.length > config.maxTransactionsPerBlock) {
                 return Reason.BLOCK_TOO_MANY_TXS;
             }
 
-            if (
-                LibTxDecoder.sumGasLimit(txList) >
-                LibConstants.K_BLOCK_MAX_GAS_LIMIT
-            ) {
+            if (LibTxDecoder.sumGasLimit(txList) > config.blockMaxGasLimit) {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
 
@@ -76,17 +75,14 @@ library LibInvalidTxList {
 
             if (hint == Reason.TX_INVALID_SIG) {
                 require(
-                    LibTxUtils.recoverSender(_tx) == address(0),
+                    LibTxUtils.recoverSender(config.chainId, _tx) == address(0),
                     "bad hint TX_INVALID_SIG"
                 );
                 return Reason.TX_INVALID_SIG;
             }
 
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
-                require(
-                    _tx.gasLimit >= LibConstants.K_TX_MIN_GAS_LIMIT,
-                    "bad hint"
-                );
+                require(_tx.gasLimit >= config.minTxGasLimit, "bad hint");
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;
             }
 

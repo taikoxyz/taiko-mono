@@ -8,10 +8,42 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../libs/LibConstants.sol";
-
 /// @author dantaik <dan@taiko.xyz>
 library LibData {
+    struct Config {
+        uint256 chainId;
+        // up to 2048 pending blocks
+        uint256 maxNumBlocks;
+        uint256 blockHashHistory;
+        // This number is calculated from maxNumBlocks to make
+        // the 'the maximum value of the multiplier' close to 20.0
+        uint256 zkProofsPerBlock;
+        uint256 maxVerificationsPerTx;
+        uint256 commitConfirmations;
+        uint256 maxProofsPerForkChoice;
+        uint256 blockMaxGasLimit;
+        uint256 maxTransactionsPerBlock;
+        uint256 maxBytesPerTxList;
+        uint256 minTxGasLimit;
+        uint256 anchorTxGasLimit;
+        uint256 feePremiumLamda;
+        uint256 rewardBurnBips;
+        uint256 proposerDepositPctg;
+        // Moving average factors
+        uint256 feeBaseMAF;
+        uint256 blockTimeMAF;
+        uint256 proofTimeMAF;
+        uint64 rewardMultiplierPctg;
+        uint64 feeGracePeriodPctg;
+        uint64 feeMaxPeriodPctg;
+        uint64 blockTimeCap;
+        uint64 proofTimeCap;
+        uint64 boostrapDiscountHalvingPeriod;
+        uint64 initialUncleDelay;
+        bool enableTokenomics;
+        bool skipProofValidation;
+    }
+
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
@@ -43,7 +75,7 @@ library LibData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash
+        // block id => block hash (some blocks' hashes won't be persisted)
         mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;
@@ -81,52 +113,5 @@ library LibData {
         bool whitelistProvers;
         // // Reserved
         uint256[46] __gap;
-    }
-
-    function saveProposedBlock(
-        LibData.State storage state,
-        uint256 id,
-        ProposedBlock memory blk
-    ) internal {
-        state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS] = blk;
-    }
-
-    function getProposedBlock(
-        State storage state,
-        uint256 id
-    ) internal view returns (ProposedBlock storage) {
-        return state.proposedBlocks[id % LibConstants.K_MAX_NUM_BLOCKS];
-    }
-
-    function getL2BlockHash(
-        State storage state,
-        uint256 number
-    ) internal view returns (bytes32) {
-        require(number <= state.latestVerifiedHeight, "L1:id");
-        return state.l2Hashes[number];
-    }
-
-    function getStateVariables(
-        State storage state
-    )
-        internal
-        view
-        returns (
-            uint64 genesisHeight,
-            uint64 latestVerifiedHeight,
-            uint64 latestVerifiedId,
-            uint64 nextBlockId
-        )
-    {
-        genesisHeight = state.genesisHeight;
-        latestVerifiedHeight = state.latestVerifiedHeight;
-        latestVerifiedId = state.latestVerifiedId;
-        nextBlockId = state.nextBlockId;
-    }
-
-    function hashMetadata(
-        BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(meta));
     }
 }

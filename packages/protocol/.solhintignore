@@ -5,4 +5,5 @@ contracts/test/TestLibRLPWriter.sol
 contracts/libs/Lib1559Math.sol
 contracts/libs/LibAddress.sol
 contracts/libs/LibMath.sol
+contracts/libs/LibUint512Math.sol
 **/contracts/thirdparty/**/*.sol
