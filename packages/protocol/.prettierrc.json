@@ -1,5 +1,4 @@
 {
-  "semi": false,
   "overrides": [
     {
       "files": ["*.sol", "*.ts"],

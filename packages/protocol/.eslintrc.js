@@ -26,4 +26,4 @@ module.exports = {
     "node/no-missing-require": "off",
     "no-unused-expressions": "off",
   },
-}
+};
