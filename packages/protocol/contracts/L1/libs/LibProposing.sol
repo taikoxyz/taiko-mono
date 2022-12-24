@@ -191,7 +191,7 @@ library LibProposing {
         uint256 maxNumBlocks,
         uint256 id,
         TaikoData.ProposedBlock memory blk
-    ) internal {
+    ) private {
         state.proposedBlocks[id % maxNumBlocks] = blk;
     }
 
