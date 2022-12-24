@@ -9,7 +9,9 @@ describe("LibTxUtils", function () {
     let testUnsignedTxs: Array<UnsignedTransaction>;
     const chainId = 167;
 
-    const signingKey = new ethers.utils.SigningKey(ethers.utils.randomBytes(32));
+    const signingKey = new ethers.utils.SigningKey(
+        ethers.utils.randomBytes(32)
+    );
     const signerAddress = new ethers.Wallet(signingKey.privateKey).address;
 
     before(async function () {

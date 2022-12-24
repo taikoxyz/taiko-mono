@@ -58,7 +58,7 @@ describe("TaikoL1", function () {
             )
         ).deploy();
         await taikoL1.init(addressManager.address, genesisHash, feeBase);
-    })
+    });
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be genesisHash because no headers have been synced", async function () {

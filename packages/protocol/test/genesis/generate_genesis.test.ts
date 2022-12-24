@@ -194,7 +194,7 @@ action("Generate Genesis", function () {
                     5, // hint: TX_INVALID_SIG
                     0
                 )
-            ).to.be.revertedWith("L2:sender")
+            ).to.be.revertedWith("L2:sender");
 
             const taikoL2WithGoldenTouchSigner = new hre.ethers.Contract(
                 TaikoL2Alloc.address,
@@ -203,7 +203,7 @@ action("Generate Genesis", function () {
                     "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38",
                     provider
                 )
-            )
+            );
 
             const tx = await taikoL2WithGoldenTouchSigner.invalidateBlock(
                 bytes,

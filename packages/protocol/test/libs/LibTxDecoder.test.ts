@@ -8,7 +8,7 @@ describe("LibTxDecoder", function () {
     let libTxDecoder: any;
     let signer0: any;
 
-    const chainId = 167
+    const chainId = 167;
 
     before(async function () {
         rlpWriter = await (
