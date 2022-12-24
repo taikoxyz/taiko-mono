@@ -1,25 +1,25 @@
-import { expect } from "chai"
-import * as log from "../../tasks/log"
-const hre = require("hardhat")
-const ethers = hre.ethers
-const EBN = ethers.BigNumber
+import { expect } from "chai";
+import * as log from "../../tasks/log";
+const hre = require("hardhat");
+const ethers = hre.ethers;
+const EBN = ethers.BigNumber;
 
 describe("LibBlockHeader tests", function () {
-    let libBlockHeader: any
+    let libBlockHeader: any;
 
     before(async function () {
         libBlockHeader = await (
             await ethers.getContractFactory("TestLibBlockHeader")
-        ).deploy()
-    })
+        ).deploy();
+    });
 
     it("can calculate block header hash correctly", async function () {
         const blockHash =
-            "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8"
+            "0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8";
         // block 0xc0528bca43a7316776dddb92380cc3a5d9e717bc948ce71f6f1605d7281a4fe8 on Ethereum mainnet
 
         const parentHash =
-            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb"
+            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb";
 
         const l2BlockHeader: any = {
             parentHash: parentHash,
@@ -46,19 +46,19 @@ describe("LibBlockHeader tests", function () {
                 "0xf5ba25df1e92e89a09e0b32063b81795f631100801158f5fa733f2ba26843bd0",
             nonce: EBN.from("0x738b7e38476abe98"),
             baseFeePerGas: 0,
-        }
+        };
 
         const headerComputed = await libBlockHeader.hashBlockHeader(
             l2BlockHeader
-        )
-        log.debug("headerComputed:", headerComputed)
+        );
+        log.debug("headerComputed:", headerComputed);
 
-        expect(headerComputed).to.equal(blockHash)
-    })
+        expect(headerComputed).to.equal(blockHash);
+    });
 
     it("can hash block header which contains hash with leading zeros correctly", async function () {
         const blockHash =
-            "0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177"
+            "0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177";
         // block 0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177 on Rinkeby testnet
         // https://rinkeby.etherscan.io/block/0
 
@@ -87,20 +87,22 @@ describe("LibBlockHeader tests", function () {
             mixHash: ethers.constants.HashZero,
             nonce: EBN.from("0x0"),
             baseFeePerGas: 0,
-        }
+        };
 
-        const headerComputed = await libBlockHeader.hashBlockHeader(blockHeader)
+        const headerComputed = await libBlockHeader.hashBlockHeader(
+            blockHeader
+        );
 
-        expect(headerComputed).to.equal(blockHash)
-    })
+        expect(headerComputed).to.equal(blockHash);
+    });
 
     it("can calculate EIP1159", async function () {
         const blockHash =
-            "0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e"
+            "0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e";
         // block 0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e on our L1 testnet
 
         const parentHash =
-            "0xaafe1871246cecd3ff9b0025f731f227bad9f63525f46e83a6f140b5bd6bca00"
+            "0xaafe1871246cecd3ff9b0025f731f227bad9f63525f46e83a6f140b5bd6bca00";
 
         const l2BlockHeader: any = {
             parentHash: parentHash,
@@ -128,13 +130,13 @@ describe("LibBlockHeader tests", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
             nonce: "0x0",
             baseFeePerGas: EBN.from("0x37"),
-        }
+        };
 
         const headerComputed = await libBlockHeader.hashBlockHeader(
             l2BlockHeader
-        )
-        log.debug("headerComputed:", headerComputed)
+        );
+        log.debug("headerComputed:", headerComputed);
 
-        expect(headerComputed).to.equal(blockHash)
-    })
-})
+        expect(headerComputed).to.equal(blockHash);
+    });
+});

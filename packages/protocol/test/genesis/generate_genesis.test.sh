@@ -34,8 +34,6 @@ echo '
     "istanbulBlock": 0,
     "muirGlacierBlock": 0,
     "berlinBlock": 0,
-    "londonBlock": 0,
-    "arrowGlacierBlock": 0,
     "clique": {
       "period": 0,
       "epoch": 30000

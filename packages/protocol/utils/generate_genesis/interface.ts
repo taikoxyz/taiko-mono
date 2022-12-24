@@ -1,14 +1,14 @@
 export interface Config {
-    contractOwner: string
-    chainId: number
+    contractOwner: string;
+    chainId: number;
     seedAccounts: Array<{
-        [key: string]: number
-    }>
-    predeployERC20: boolean
-    contractAddresses: Object
+        [key: string]: number;
+    }>;
+    predeployERC20: boolean;
+    contractAddresses: Object;
 }
 
 export interface Result {
-    alloc: any
-    storageLayouts: any
+    alloc: any;
+    storageLayouts: any;
 }
