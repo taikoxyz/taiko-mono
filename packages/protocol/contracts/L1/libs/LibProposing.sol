@@ -123,7 +123,7 @@ library LibProposing {
             });
         }
 
-        state.saveProposedBlock(
+    _saveProposedBlock(state,
             config.maxNumBlocks,
             state.nextBlockId,
             TaikoData.ProposedBlock({
@@ -181,6 +181,15 @@ library LibProposing {
         return
             state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + commitConfirmations;
+    }
+
+        function _saveProposedBlock(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id,
+        TaikoData.ProposedBlock memory blk
+    ) internal {
+        state.proposedBlocks[id % maxNumBlocks] = blk;
     }
 
     function _verifyBlockCommit(

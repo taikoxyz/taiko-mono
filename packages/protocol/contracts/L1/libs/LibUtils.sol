@@ -26,15 +26,6 @@ library LibUtils {
     event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
 
-    function saveProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id,
-        TaikoData.ProposedBlock memory blk
-    ) internal {
-        state.proposedBlocks[id % maxNumBlocks] = blk;
-    }
-
     function enableWhitelisting(
         TaikoData.TentativeState storage tentative,
         bool whitelistProposers,
