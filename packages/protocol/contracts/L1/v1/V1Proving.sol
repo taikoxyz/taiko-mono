@@ -28,18 +28,18 @@ library V1Proving {
     using V1Utils for LibData.BlockMetadata;
     using V1Utils for LibData.State;
 
-    bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
-        keccak256("BlockInvalidated(bytes32)");
-
-    bytes4 public constant ANCHOR_TX_SELECTOR =
-        bytes4(keccak256("anchor(uint256,bytes32)"));
-
     struct Evidence {
         LibData.BlockMetadata meta;
         BlockHeader header;
         address prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs
     }
+
+    bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
+        keccak256("BlockInvalidated(bytes32)");
+
+    bytes4 public constant ANCHOR_TX_SELECTOR =
+        bytes4(keccak256("anchor(uint256,bytes32)"));
 
     event BlockProven(
         uint256 indexed id,

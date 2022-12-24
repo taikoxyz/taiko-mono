@@ -20,7 +20,8 @@ import "../thirdparty/LibRLPWriter.sol";
  * A txList is valid if and only if:
  * 1. The txList's length is no more than `maxBytesPerTxList`.
  * 2. The txList is well-formed RLP, with no additional trailing bytes.
- * 3. The total number of transactions is no more than `maxTransactionsPerBlock`.
+ * 3. The total number of transactions is no more than
+ *    `maxTransactionsPerBlock`.
  * 4. The sum of all transaction gas limit is no more than
  *    `blockMaxGasLimit`.
  *

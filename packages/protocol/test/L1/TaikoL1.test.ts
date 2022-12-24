@@ -47,7 +47,7 @@ describe("TaikoL1", function () {
         const feeBase = BigNumber.from(10).pow(18);
         taikoL1 = await (
             await ethers.getContractFactory(
-                "TestTaikoL1_NoTokenomics_NoProofValidation",
+                "TestTaikoL1NoTokenomicsNoProofValidation",
                 {
                     libraries: {
                         V1Verifying: v1Verifying.address,
