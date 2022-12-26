@@ -1,32 +1,32 @@
-import { expect } from "chai"
-import { ethers } from "hardhat"
-import { TaikoL1 } from "../../typechain"
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { TaikoL1 } from "../../typechain";
 
 describe("TaikoL1", function () {
-    let taikoL1: TaikoL1
-    let genesisHash: string
+    let taikoL1: TaikoL1;
+    let genesisHash: string;
 
     beforeEach(async function () {
         const addressManager = await (
             await ethers.getContractFactory("AddressManager")
-        ).deploy()
-        await addressManager.init()
+        ).deploy();
+        await addressManager.init();
 
         const libReceiptDecoder = await (
             await ethers.getContractFactory("LibReceiptDecoder")
-        ).deploy()
+        ).deploy();
 
         const libTxDecoder = await (
             await ethers.getContractFactory("LibTxDecoder")
-        ).deploy()
+        ).deploy();
 
         const libZKP = await (
             await ethers.getContractFactory("LibZKP")
-        ).deploy()
+        ).deploy();
 
         const v1Proposing = await (
             await ethers.getContractFactory("V1Proposing")
-        ).deploy()
+        ).deploy();
 
         const v1Proving = await (
             await ethers.getContractFactory("V1Proving", {
@@ -36,13 +36,13 @@ describe("TaikoL1", function () {
                     LibZKP: libZKP.address,
                 },
             })
-        ).deploy()
+        ).deploy();
 
         const v1Verifying = await (
             await ethers.getContractFactory("V1Verifying")
-        ).deploy()
+        ).deploy();
 
-        genesisHash = randomBytes32()
+        genesisHash = randomBytes32();
         taikoL1 = await (
             await ethers.getContractFactory("TaikoL1", {
                 libraries: {
@@ -51,40 +51,42 @@ describe("TaikoL1", function () {
                     V1Proving: v1Proving.address,
                 },
             })
-        ).deploy()
-        await taikoL1.init(addressManager.address, genesisHash)
-    })
+        ).deploy();
+        await taikoL1.init(addressManager.address, genesisHash);
+    });
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be genesisHash because no headers have been synced", async function () {
-            const hash = await taikoL1.getLatestSyncedHeader()
-            expect(hash).to.be.eq(genesisHash)
-        })
-    })
+            const hash = await taikoL1.getLatestSyncedHeader();
+            expect(hash).to.be.eq(genesisHash);
+        });
+    });
 
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:id")
-        })
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
+                "L1:id"
+            );
+        });
 
         it("should return appropraite hash for header", async function () {
-            const hash = await taikoL1.getSyncedHeader(0)
-            expect(hash).to.be.eq(genesisHash)
-        })
-    })
+            const hash = await taikoL1.getSyncedHeader(0);
+            expect(hash).to.be.eq(genesisHash);
+        });
+    });
 
     describe("getBlockProvers()", async function () {
         it("should return empty list when there is no proof for that block", async function () {
             const provers = await taikoL1.getBlockProvers(
                 Math.ceil(Math.random() * 1024),
                 randomBytes32()
-            )
+            );
 
-            expect(provers).to.be.empty
-        })
-    })
-})
+            expect(provers).to.be.empty;
+        });
+    });
+});
 
 function randomBytes32() {
-    return ethers.utils.hexlify(ethers.utils.randomBytes(32))
+    return ethers.utils.hexlify(ethers.utils.randomBytes(32));
 }
