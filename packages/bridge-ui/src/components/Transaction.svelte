@@ -133,7 +133,7 @@
 
   <td>
     {#if !processable}
-      Pending...
+      Pending {fromChain.id === CHAIN_TKO.id ? '(2-3hrs)': ''}...
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
       <div class="inline-block">
         <LottiePlayer
@@ -150,14 +150,14 @@
       </div>
     {:else if transaction.receipt && transaction.status === MessageStatus.New}
       <span
-        class="cursor-pointer"
+        class="cursor-pointer border rounded p-1"
         on:click={async () => await claim(transaction)}
       >
         Claim
       </span>
     {:else if transaction.status === MessageStatus.Retriable}
       <span
-        class="cursor-pointer"
+        class="cursor-pointer border rounded p-1"
         on:click={async () => await claim(transaction)}
       >
         Retry
