@@ -4,9 +4,10 @@
       <p class="font-medium text-white">
         <span class="md:inline"
           >Receive some tokens for bridging with our <a
-          href="https://twitter.com/taikoxyz"
-          class="font-bold text-white underline"
-        >faucet</a>.</span>
+            href="https://taiko.xyz/docs/alpha-1-testnet/request-eth-from-faucet"
+            class="font-bold text-white underline">faucet</a
+          >.</span
+        >
       </p>
     </div>
   </div>
