@@ -323,7 +323,7 @@
   >
     {$_("home.bridge")}
   </button>
-{:else if loading}
+{:else if loading || $pendingTransactions.length}
   <button class="btn btn-accent w-full" disabled={true}>
     <LottiePlayer
       src="/lottie/loader.json"
