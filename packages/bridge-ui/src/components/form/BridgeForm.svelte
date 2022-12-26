@@ -315,15 +315,7 @@
 
 <Memo bind:memo />
 
-{#if !requiresAllowance}
-  <button
-    class="btn btn-accent w-full"
-    on:click={bridge}
-    disabled={btnDisabled}
-  >
-    {$_("home.bridge")}
-  </button>
-{:else if loading || $pendingTransactions.length}
+{#if loading}
   <button class="btn btn-accent w-full" disabled={true}>
     <LottiePlayer
       src="/lottie/loader.json"
@@ -336,6 +328,14 @@
       width={26}
       controlsLayout={[]}
     />
+  </button>
+{:else if !requiresAllowance}
+  <button
+    class="btn btn-accent w-full"
+    on:click={bridge}
+    disabled={btnDisabled}
+  >
+    {$_("home.bridge")}
   </button>
 {:else}
   <button
