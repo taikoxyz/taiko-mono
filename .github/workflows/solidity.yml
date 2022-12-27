@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/protocol/**/*"
+      - "packages/protocol/**"
   pull_request:
     paths:
-      - "packages/protocol/**/*"
+      - "packages/protocol/**"
 
 jobs:
   build:
@@ -60,8 +60,8 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
-      # auto commit solidity doc changes unless on main branch
       - uses: stefanzweifel/git-auto-commit-action@v4
+        name: protocol - Auto Commit Solidity Docs
         if: github.ref != 'refs/heads/main'
         with:
           commit_message: "chore(docs): auto commit solidity docs"
