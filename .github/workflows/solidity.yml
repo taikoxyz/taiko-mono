@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/protocol/**"
+      - "packages/protocol/**/*"
   pull_request:
     paths:
-      - "packages/protocol/**"
+      - "packages/protocol/**/*"
 
 jobs:
   build:
