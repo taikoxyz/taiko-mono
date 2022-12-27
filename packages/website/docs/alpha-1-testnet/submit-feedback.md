@@ -6,4 +6,4 @@ sidebar_position: 7
 
 Submit your [feedback log](/docs/alpha-1-testnet/start-here#create-a-feedback-log) to GitHub Discussions.
 
-Thank you for participating in the Snæfellsjökull! 🌋
+Thank you for participating in the Snæfellsjökull testnet! 🌋
