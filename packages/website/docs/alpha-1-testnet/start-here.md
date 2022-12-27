@@ -15,11 +15,11 @@ In this testnet, you can:
 
 - 🌉 Bridge tokens between Ethereum A1 and Taiko A1.
 - 🤝 Send transactions (e.g., deploy contracts).
-- 🌐 Run a node — this makes _you_ a part of Taiko!
+- 🌐 Run a node — this makes **you** a part of Taiko!
 - 📝 Submit feedback and be forever loved.
 - 🥇 Earn a POAP by using your wallet to complete any 2 of the 3 following actions by January 31st 23:59 UTC:
   - Use the bridge
-  - Contract interaction (e.g., interact w/ dapp, deploy a contract)
+  - Interact with contract (e.g., interact with dapp, deploy a contract)
   - Transfer between accounts
 
 ## Create a feedback log
