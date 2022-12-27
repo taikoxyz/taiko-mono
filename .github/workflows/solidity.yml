@@ -60,9 +60,11 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
+      # auto commit solidity doc changes unless on main branch
       - uses: stefanzweifel/git-auto-commit-action@v4
+        if: github.ref != 'refs/heads/main'
         with:
-          commit_message: commit dat yuh
+          commit_message: "chore(docs): auto commit solidity docs"
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
