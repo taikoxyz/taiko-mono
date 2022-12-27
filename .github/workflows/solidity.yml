@@ -60,15 +60,9 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
-      - name: protocol - Commit Docs (will update the website)
-        working-directory: ./packages/protocol
-        uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "docs: update smart-contracts docs"
-          commit_options: "--no-verify"
-          commit_user_name: "github-actions[bot]"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          file_pattern: "./packages/website/docs/smart-contracts/"
+          commit_message: commit dat yuh
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
