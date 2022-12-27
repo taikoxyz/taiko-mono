@@ -61,9 +61,9 @@ jobs:
         run: pnpm export:docs
 
       - name: protocol - Check for changes in docs
-        working-directory: ./packages/protocol
+        working-directory: ./packages/website
         run: |
-          git diff --exit-code --quiet ./packages/website/docs/smart-contracts
+          git diff --exit-code --quiet ./docs/smart-contracts
           if [ $? -eq 0 ]; then
             echo "No changes to ./packages/website/docs/smart-contracts"
             exit 0
