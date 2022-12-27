@@ -5,7 +5,7 @@
   import TransactionDetail from './TransactionDetail.svelte';
 </script>
 
-<div class="my-4 px-4">
+<div class="my-4 md:px-4">
   {#if $transactions.length}
     <table class="table-auto">
       <thead>
@@ -17,7 +17,7 @@
           <th>Details</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
             toChain={chains[transaction.toChainId]}

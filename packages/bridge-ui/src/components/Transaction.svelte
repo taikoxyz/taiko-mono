@@ -131,7 +131,7 @@
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
 
-  <td>
+  <td class="flex">
     {#if !processable}
       Pending
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
