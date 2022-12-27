@@ -13,12 +13,13 @@ The bridge contract can be found:
 
 Use the [bridge](https://bridge.a1.taiko.xyz/) for the following actions:
 
-- Bridge ETH from Ethereum A1 to Taiko A1
-
-## Bridge contract explained
-
-Read the bridge documentation on our GitHub: https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/contracts/bridge.
+- Bridge ETH between Ethereum A1 and Taiko A1
+- Bridge HORSE between Ethereum A1 and Taiko A1
 
 ## Why is my L2 -> L1 transfer taking so long?
 
 The transfer from L2 to L1 can take a while because Taiko has a several hours delay in syncing block headers to allow uncle proof generation time, and we need the synced header to match so the Merkle proof of the message being sent on L2 is valid on L1.
+
+## Bridge contract explained
+
+Read the bridge documentation on our GitHub: https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/contracts/bridge.
