@@ -3,19 +3,11 @@
     <div class="sm:px-16 text-center">
       <p class="font-medium text-white">
         <span class="md:inline"
-          >Hello! At Taiko, we develop in open-source, so this URL, and others,
-          are publicly available. However, it is not ready to be used. We will
-          make an announcement when our public testnet is ready!</span
+          >Receive some tokens for bridging with our <a
+            href="https://taiko.xyz/docs/alpha-1-testnet/request-eth-from-faucet"
+            class="font-bold text-white underline">faucet</a
+          >.</span
         >
-        <span class="block sm:inline-block">
-          <a
-            href="https://twitter.com/taikoxyz"
-            class="font-bold text-white underline"
-          >
-            Follow @taikoxyz on Twitter
-            <span aria-hidden="true"> &rarr;</span>
-          </a>
-        </span>
       </p>
     </div>
   </div>

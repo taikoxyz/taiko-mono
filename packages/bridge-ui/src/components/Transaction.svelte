@@ -133,7 +133,7 @@
 
   <td>
     {#if !processable}
-      Pending {fromChain.id === CHAIN_TKO.id ? '(2-3hrs)': ''}...
+      Pending
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
       <div class="inline-block">
         <LottiePlayer
