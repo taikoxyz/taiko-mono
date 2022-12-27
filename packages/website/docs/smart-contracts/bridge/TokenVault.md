@@ -14,7 +14,6 @@ struct CanonicalERC20 {
   string symbol;
   string name;
 }
-
 ```
 
 ### isBridgedToken

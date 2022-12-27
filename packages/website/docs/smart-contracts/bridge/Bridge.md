@@ -11,6 +11,12 @@ _The code hash for the same address on L1 and L2 may be different._
 struct LibBridgeData.State state
 ```
 
+### \_\_gap
+
+```solidity
+uint256[50] __gap
+```
+
 ### MessageStatusChanged
 
 ```solidity

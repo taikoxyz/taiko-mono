@@ -12,6 +12,12 @@ address srcToken
 uint256 srcChainId
 ```
 
+### \_\_gap
+
+```solidity
+uint256[48] __gap
+```
+
 ### BridgeMint
 
 ```solidity

@@ -2,6 +2,11 @@
 
 _This is Taiko's governance and fee token._
 
+### \_\_gap
+
+```solidity
+uint256[50] __gap
+```
 
 ### Mint
 

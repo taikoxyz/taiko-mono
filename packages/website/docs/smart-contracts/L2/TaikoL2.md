@@ -24,6 +24,12 @@ bytes32 publicInputHash
 bytes32 latestSyncedHeader
 ```
 
+### \_\_gap
+
+```solidity
+uint256[46] __gap
+```
+
 ### BlockInvalidated
 
 ```solidity
@@ -94,4 +100,16 @@ function getBlockHash(uint256 number) public view returns (bytes32)
 
 ```solidity
 function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
+```
+
+### \_checkPublicInputs
+
+```solidity
+function _checkPublicInputs() private
+```
+
+### \_hashPublicInputs
+
+```solidity
+function _hashPublicInputs(uint256 chainId, uint256 number, uint256 baseFee, bytes32[255] ancestors) private pure returns (bytes32)
 ```
