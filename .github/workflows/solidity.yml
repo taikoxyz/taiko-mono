@@ -56,15 +56,21 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:abi
 
-      - name: protocol - Generate Docs
+      - name: protocol - Generate docs
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
-      # auto commit solidity doc changes unless on main branch
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        if: github.ref != 'refs/heads/main'
-        with:
-          commit_message: "chore(docs): auto commit solidity docs"
+      - name: protocol - Check for changes in docs
+        working-directory: ./packages/protocol
+        run: |
+          git diff --exit-code --quiet ./packages/website/docs/smart-contracts
+          if [ $? -eq 0 ]; then
+            echo "No changes to ./packages/website/docs/smart-contracts"
+            exit 0
+          else
+            echo "Make sure to run 'pnpm export:docs' and commit the changes."
+            exit 1
+          fi
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
