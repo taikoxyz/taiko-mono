@@ -19,7 +19,7 @@ async function addEthereumChain(chain: string) {
     iconUrls?: string[]; // Currently ignored.
   }
   const l1params: AddEthereumChainParameter = {
-    chainId: "0x7A68",
+    chainId: "0x7A6A",
     chainName: "Taiko Testnet L1",
     nativeCurrency: {
       name: "ETH",
@@ -32,7 +32,7 @@ async function addEthereumChain(chain: string) {
   };
 
   const l2params: AddEthereumChainParameter = {
-    chainId: "0x28C59",
+    chainId: "0x28C5B",
     chainName: "Taiko Testnet",
     nativeCurrency: {
       name: "ETH",
