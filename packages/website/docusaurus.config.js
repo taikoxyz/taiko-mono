@@ -60,6 +60,14 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      announcementBar: {
+        id: "alpha-1-testnet",
+        content:
+          'Snæfellsjökull is erupting 🌋 <a href="/docs/alpha-1-testnet/start-here">start here</a>',
+        backgroundColor: "#fafbfc",
+        textColor: "#171717",
+        isCloseable: false,
+      },
       colorMode: {
         defaultMode: "light",
         respectPrefersColorScheme: false,
