@@ -141,7 +141,7 @@ func (p *Processor) sendProcessMessageCall(
 	// 	auth.GasLimit = gas
 	// 	log.Infof("gasLimit: %v", gas)
 	// }
-	auth.GasLimit = 800000
+	auth.GasLimit = 1200000
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
