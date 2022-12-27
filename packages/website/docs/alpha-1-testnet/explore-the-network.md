@@ -23,7 +23,7 @@ The mining interval of the L1 node is set to 12 seconds.
 - **Block Explorer:** <https://l2explorer.a1.taiko.xyz>
 - **HTTP RPC Endpoint:** <https://l2rpc.a1.taiko.xyz>
 - **Web Socket RPC Endpoint:** <wss://l2ws.a1.taiko.xyz>
-- **Grafana Dashboard:** <https://grafana.a1.taiko.xyz/d/FPpjH6Hik/geth-overview?orgId=1&refresh=1m&from=now-24h&to=now>
+- **ETH faucet:** <https://l2faucet.a1.taiko.xyz>
 - **Chain ID:** `167003`
 
 ## Contract addresses
