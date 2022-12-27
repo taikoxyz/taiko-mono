@@ -88,8 +88,9 @@
           time.
         </li>
         <li>
-          <strong>Custom</strong>: You can set a custom fee if you want to pay
-          less (and wait).
+          <strong>Custom</strong>:You can set a custom fee for the relayer to
+          incentivize them to prioritize your request. A lower fee may result in
+          longer processing time.
         </li>
         <li>
           <strong>None</strong>: You can select no fee if you want to come back
