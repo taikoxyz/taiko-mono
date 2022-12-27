@@ -32,11 +32,10 @@ Once you are finished testing the network, please submit the feedback log to hel
 
 All of the relevant links can be found in this site's navigation. The relevant links are:
 
-| Link                                                                                                               | Purpose                                            |
-| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| [Bridge](https://bridge.a1.taiko.xyz/)                                                                             | Bridge ETH/tokens between Ethereum A1 and Taiko A1 |
-| [L1 faucet](https://l1faucet.a1.taiko.xyz/)                                                                        | For receiving ETH on Ethereum A1                   |
-| [L2 faucet](https://l2faucet.a1.taiko.xyz/)                                                                        | For receiving ETH on Taiko A1                      |
-| [L1 explorer](https://l1explorer.a1.taiko.xyz/)                                                                    | Explore blocks on Ethereum A1                      |
-| [L2 explorer](https://l2explorer.a1.taiko.xyz/)                                                                    | Explore blocks on Taiko A1                         |
-| [Grafana dashboard](https://grafana.a1.taiko.xyz/d/FPpjH6Hik/geth-overview?orgId=1&refresh=1m&from=now-24h&to=now) | Monitor the Taiko A1 network's health              |
+| Link                                            | Purpose                                            |
+| ----------------------------------------------- | -------------------------------------------------- |
+| [Bridge](https://bridge.a1.taiko.xyz/)          | Bridge ETH/tokens between Ethereum A1 and Taiko A1 |
+| [L1 faucet](https://l1faucet.a1.taiko.xyz/)     | For receiving ETH on Ethereum A1                   |
+| [L2 faucet](https://l2faucet.a1.taiko.xyz/)     | For receiving ETH on Taiko A1                      |
+| [L1 explorer](https://l1explorer.a1.taiko.xyz/) | Explore blocks on Ethereum A1                      |
+| [L2 explorer](https://l2explorer.a1.taiko.xyz/) | Explore blocks on Taiko A1                         |
