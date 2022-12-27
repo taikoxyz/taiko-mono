@@ -65,7 +65,6 @@ const config = {
         respectPrefersColorScheme: false,
       },
       navbar: {
-        hideOnScroll: true,
         logo: {
           alt: "Taiko Logo",
           src: "./img/Taiko_Logotype_Horiz_1_Fluo_Black.svg",
