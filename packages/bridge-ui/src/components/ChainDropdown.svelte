@@ -6,7 +6,7 @@
   import { ethers } from "ethers";
   import { signer } from "../store/signer";
   import { switchNetwork } from "@wagmi/core";
-  import { ChevronDown } from "svelte-heros-v2";
+  import { ChevronDown, ExclamationTriangle } from "svelte-heros-v2";
   const changeChain = async (chain: Chain) => {
     await switchNetwork({
       chainId: chain.id,
@@ -31,10 +31,13 @@
         <svelte:component this={$fromChain.icon} />
         <span class="ml-2 hidden md:inline-block">{$fromChain.name}</span>
       {:else}
-        <span class="ml-2 hidden md:inline-block">Invalid Chain</span>
+        <ExclamationTriangle class='mr-2' size='20' />
+        <span class="ml-2 hidden md:inline-flex items-center">
+          Invalid Chain
+        </span>
       {/if}
     </span>
-    <ChevronDown />
+    <ChevronDown size='20' />
   </label>
   <ul
     tabindex="0"
