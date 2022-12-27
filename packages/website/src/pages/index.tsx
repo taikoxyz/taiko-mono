@@ -5,6 +5,7 @@ import JoinUs from "../components/JoinUs";
 import Features from "../components/Features";
 import Hero from "../components/Hero";
 import Head from "@docusaurus/Head";
+import AddEthereumChainButton from "../components/AddEthereumChainButton";
 
 export default function Home(): JSX.Element {
   return (

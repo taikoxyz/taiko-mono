@@ -1,4 +1,8 @@
-# Frequently Asked Questions
+---
+sidebar_position: 4
+---
+
+# FAQs
 
 ## What is Taiko?
 
@@ -65,7 +69,7 @@ There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses 
 
 ## What does "Taiko" mean?
 
-It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì). The literal meaning is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort. 
+It comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì). The literal meaning is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort.
 
 Taiko (太鼓) is the Japanese term for a drum. For us, Taiko is the "drum" that arouses courage and leads to accomplishing goals.
 
