@@ -43,4 +43,4 @@ The mining interval of the L1 node is set to 12 seconds.
 
 ## Cron job
 
-There will be a cron job service that proposes empty blocks intervally (every 2 minutes).
+There will be a cron job service that proposes empty blocks periodically (every 2 minutes).
