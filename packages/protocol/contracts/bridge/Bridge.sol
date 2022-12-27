@@ -19,6 +19,8 @@ import "./libs/LibBridgeSignal.sol";
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See {IBridge} for more details.
+ * 
+ * dummy test
  *
  * @author dantaik <dan@taiko.xyz>
  * @dev The code hash for the same address on L1 and L2 may be different.
