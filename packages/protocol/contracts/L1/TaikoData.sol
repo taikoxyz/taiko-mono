@@ -105,13 +105,4 @@ library TaikoData {
         // Reserved
         uint256[42] __gap;
     }
-
-    struct TentativeState {
-        mapping(address => bool) proposers; // Whitelisted proposers
-        mapping(address => bool) provers; // Whitelisted provers
-        bool whitelistProposers;
-        bool whitelistProvers;
-        // // Reserved
-        uint256[46] __gap;
-    }
 }
