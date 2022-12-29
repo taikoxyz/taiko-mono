@@ -39,7 +39,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });
-
     }
 
     /**
@@ -85,7 +84,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         LibProposing.proposeBlock({
             state: state,
             config: config,
-
             resolver: AddressResolver(this),
             inputs: inputs
         });
@@ -120,7 +118,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
-
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
@@ -157,7 +154,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
 
         LibProving.proveBlockInvalid({
             state: state,
-
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
@@ -188,64 +184,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     /**
-     * Enable or disable proposer and prover whitelisting
-     * @param whitelistProposers True to enable proposer whitelisting.
-     * @param whitelistProvers True to enable prover whitelisting.
-     */
-    function enableWhitelisting(
-        bool whitelistProposers,
-        bool whitelistProvers
-    ) public onlyOwner {
-        LibUtils.enableWhitelisting({
-
-            whitelistProposers: whitelistProposers,
-            whitelistProvers: whitelistProvers
-        });
-    }
-
-    /**
-     *  Add or remove a proposer from the whitelist.
-     *
-     * @param proposer The proposer to be added or removed.
-     * @param whitelisted True to add; remove otherwise.
-     */
-    function whitelistProposer(
-        address proposer,
-        bool whitelisted
-    ) public onlyOwner {
-        LibUtils.whitelistProposer({
-
-            proposer: proposer,
-            whitelisted: whitelisted
-        });
-    }
-
-    /**
-     *  Add or remove a prover from the whitelist.
-     *
-     * @param prover The prover to be added or removed.
-     * @param whitelisted True to add; remove otherwise.
-     */
-    function whitelistProver(
-        address prover,
-        bool whitelisted
-    ) public onlyOwner {
-        LibUtils.whitelistProver({
-
-            prover: prover,
-            whitelisted: whitelisted
-        });
-    }
-
-    /**
      * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
     function halt(bool toHalt) public onlyOwner {
         LibUtils.halt(state, toHalt);
     }
-
-
 
     function getBlockFee() public view returns (uint256) {
         (, uint fee, uint deposit) = LibProposing.getBlockFee(

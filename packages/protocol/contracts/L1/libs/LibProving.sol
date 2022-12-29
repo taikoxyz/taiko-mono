@@ -50,7 +50,6 @@ library LibProving {
         address prover
     );
 
-
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -150,7 +149,6 @@ library LibProving {
 
     function proveBlockInvalid(
         TaikoData.State storage state,
-
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,

@@ -27,8 +27,6 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-
-
     function commitBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,

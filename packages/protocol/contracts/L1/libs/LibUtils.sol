@@ -23,7 +23,6 @@ library LibUtils {
 
     event Halted(bool halted);
 
-
     function halt(TaikoData.State storage state, bool toHalt) internal {
         require(isHalted(state) != toHalt, "L1:precondition");
         setBit(state, MASK_HALT, toHalt);
