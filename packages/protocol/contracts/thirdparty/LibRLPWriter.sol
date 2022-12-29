@@ -152,7 +152,7 @@ library LibRLPWriter {
 
             encoded = new bytes(lenLen + 1);
             encoded[0] = bytes1(uint8(lenLen) + uint8(_offset) + 55);
-            for (i = 1; i <= lenLen; i++) {
+            for (i = 1; i <= lenLen; ++i) {
                 encoded[i] = bytes1(
                     uint8((_len / (256 ** (lenLen - i))) % 256)
                 );
@@ -172,14 +172,14 @@ library LibRLPWriter {
         bytes memory b = abi.encodePacked(_x);
 
         uint256 i = 0;
-        for (; i < 32; i++) {
+        for (; i < 32; ++i) {
             if (b[i] != 0) {
                 break;
             }
         }
 
         bytes memory res = new bytes(32 - i);
-        for (uint256 j = 0; j < res.length; j++) {
+        for (uint256 j = 0; j < res.length; ++j) {
             res[j] = b[i++];
         }
 
@@ -200,7 +200,7 @@ library LibRLPWriter {
         uint256 i = 0;
 
         bytes memory res = new bytes(32);
-        for (uint256 j = 0; j < res.length; j++) {
+        for (uint256 j = 0; j < res.length; ++j) {
             res[j] = b[i++];
         }
 
@@ -253,7 +253,7 @@ library LibRLPWriter {
 
         uint256 len;
         uint256 i = 0;
-        for (; i < _list.length; i++) {
+        for (; i < _list.length; ++i) {
             len += _list[i].length;
         }
 
@@ -263,7 +263,7 @@ library LibRLPWriter {
             flattenedPtr := add(flattened, 0x20)
         }
 
-        for (i = 0; i < _list.length; i++) {
+        for (i = 0; i < _list.length; ++i) {
             bytes memory item = _list[i];
 
             uint256 listPtr;
