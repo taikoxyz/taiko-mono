@@ -20,7 +20,7 @@ async function addEthereumChain(chain: string) {
   }
   const l1params: AddEthereumChainParameter = {
     chainId: "0x7A6A",
-    chainName: "Taiko Testnet L1",
+    chainName: "Ethereum A1 (Taiko)",
     nativeCurrency: {
       name: "ETH",
       symbol: "eth",
@@ -33,7 +33,7 @@ async function addEthereumChain(chain: string) {
 
   const l2params: AddEthereumChainParameter = {
     chainId: "0x28C5B",
-    chainName: "Taiko Testnet",
+    chainName: "Taiko A1 (Taiko)",
     nativeCurrency: {
       name: "ETH",
       symbol: "eth",
