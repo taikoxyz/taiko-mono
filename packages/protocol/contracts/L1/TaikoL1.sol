@@ -26,7 +26,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
-    uint256[50] private __gap;
+    uint256[100] private __gap;
 
     function init(
         address _addressManager,
