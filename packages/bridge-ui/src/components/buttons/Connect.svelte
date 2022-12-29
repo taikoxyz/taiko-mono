@@ -49,7 +49,6 @@
 
   async function connectWithConnector(connector: Connector) {
     try {
-
       const { chain } = await wagmiConnect({ connector });
       await setSigner();
       await changeChain(chain.id);
