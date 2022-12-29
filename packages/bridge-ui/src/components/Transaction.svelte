@@ -130,7 +130,7 @@
     {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
   </td>
 
-  <td class="flex">
+  <td>
     {#if !processable}
       Pending
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
@@ -165,7 +165,7 @@
       <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
       Failed
     {:else if transaction.status === MessageStatus.Done}
-      Claimed
+      <span class="border border-transparent p-0">Claimed</span>
     {/if}
     <span class="inline-block" on:click={() => ($showMessageStatusTooltip = true)}>
       <Tooltip />
