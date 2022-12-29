@@ -9,6 +9,7 @@
     fetchSigner,
     watchAccount,
     watchNetwork,
+    ConnectorNotFoundError
   } from "@wagmi/core";
 
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
@@ -47,19 +48,28 @@
   }
 
   async function connectWithConnector(connector: Connector) {
-    const { chain } = await wagmiConnect({ connector });
-    await setSigner();
-    await changeChain(chain.id);
-    unwatchNetwork = watchNetwork(
-      async (network) => await changeChain(network.chain.id)
-    );
-    unwatchAccount = watchAccount(async () => {
-      const s = await setSigner();
-      transactions.set(
-        await $transactioner.GetAllByAddress(await s.getAddress())
-      );
-    });
-    successToast("Connected");
+    try {
+
+      const { chain } = await wagmiConnect({ connector });
+      await setSigner();
+      await changeChain(chain.id);
+      unwatchNetwork = watchNetwork(
+        async (network) => await changeChain(network.chain.id)
+        );
+        unwatchAccount = watchAccount(async () => {
+          const s = await setSigner();
+          transactions.set(
+            await $transactioner.GetAllByAddress(await s.getAddress())
+            );
+          });
+          successToast("Connected");
+    } catch(error) {
+      if(error instanceof ConnectorNotFoundError) {
+        errorToast(`${connector.name} not installed`);
+      } else {
+        errorToast(`Error while connecting to wallet`);
+      }
+    }
   }
 
   const iconMap = {
