@@ -86,11 +86,11 @@
         </span>
       {/if}
     </span>
-    <ChevronDown />
+    <ChevronDown size='20' />
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2 text-sm"
   >
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
@@ -100,6 +100,10 @@
             ? `${truncateString(tokenBalance)}...`
             : tokenBalance} ETH
         </div>
+      {:else}
+      <div class="text-lg mt-2">
+        -- ETH
+      </div>
       {/if}
     </div>
     <div class="divider" />
