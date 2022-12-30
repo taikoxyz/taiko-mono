@@ -7,12 +7,12 @@
   import {
     configureChains,
     createClient,
-    InjectedConnector,
   } from "@wagmi/core";
   import { publicProvider } from "@wagmi/core/providers/public";
   import { jsonRpcProvider } from "@wagmi/core/providers/jsonRpc";
   import { CoinbaseWalletConnector } from "@wagmi/core/connectors/coinbaseWallet";
   import { WalletConnectConnector } from "@wagmi/core/connectors/walletConnect";
+  import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask'
 
   import Home from "./pages/home/Home.svelte";
   import { setupI18n } from "./i18n";
@@ -85,7 +85,7 @@
   $wagmiClient = createClient({
     provider,
     connectors: [
-      new InjectedConnector({
+      new MetaMaskConnector({
         chains: wagmiChains,
       }),
       new CoinbaseWalletConnector({
