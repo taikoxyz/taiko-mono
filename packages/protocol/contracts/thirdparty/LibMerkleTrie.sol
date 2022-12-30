@@ -355,7 +355,7 @@ library LibMerkleTrie {
     ) private pure returns (uint256 _shared) {
         uint256 i = 0;
         while (_a.length > i && _b.length > i && _a[i] == _b[i]) {
-            i++;
+            ++i;
         }
         return i;
     }

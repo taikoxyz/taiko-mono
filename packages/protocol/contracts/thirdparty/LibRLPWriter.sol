@@ -146,7 +146,7 @@ library LibRLPWriter {
             uint256 lenLen;
             uint256 i = 1;
             while (_len / i != 0) {
-                lenLen++;
+                ++lenLen;
                 i *= 256;
             }
 
