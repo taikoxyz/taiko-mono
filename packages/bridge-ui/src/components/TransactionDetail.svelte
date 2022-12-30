@@ -8,7 +8,7 @@
   export let transaction;
 </script>
 <Modal onClose={() => $showTransactionDetails = null} isOpen={!!transaction} title="Transaction Detail">
-  <table class="table table-normal w-2/3 m-auto table-fixed border-spacing-0">
+  <table class="table table-normal w-full md:w-2/3 m-auto table-fixed border-spacing-0 text-sm md:text-base">
     <tr>
       <td>Tx Hash</td>
       <td class="text-right">
@@ -61,7 +61,7 @@
     </tr>
     <tr>
       <td>Data</td>
-      <td class="text-right overflow-auto">
+      <td class="text-center overflow-auto bg-dark-1 !px-1 border-x-4 border-dark-1">
         {transaction.message.data}
       </td>
     </tr>
