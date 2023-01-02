@@ -38,6 +38,7 @@
   import FaucetModal from "../modals/FaucetModal.svelte";
 
   let amount: string;
+  let amountInput: HTMLInputElement;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
@@ -244,6 +245,7 @@
 
   function useFullAmount() {
     amount = tokenBalance;
+    amountInput.value = tokenBalance.toString();
   }
 
   function updateAmount(e: any) {
@@ -289,6 +291,7 @@
       on:input={updateAmount}
       class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
+      bind:this={amountInput}
     />
     <SelectToken />
   </label>
