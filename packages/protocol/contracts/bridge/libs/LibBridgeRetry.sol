@@ -50,7 +50,7 @@ library LibBridgeRetry {
 
         bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[signal] ==
+            LibBridgeData.getMessageStatus(signal) ==
                 LibBridgeData.MessageStatus.RETRIABLE,
             "B:notFound"
         );

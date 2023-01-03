@@ -23,7 +23,7 @@ contract TestLibBridgeData {
     function getMessageStatus(
         bytes32 signal
     ) public view returns (LibBridgeData.MessageStatus) {
-        return state.messageStatus[signal];
+        return LibBridgeData.getMessageStatus(signal);
     }
 
     function hashMessage(

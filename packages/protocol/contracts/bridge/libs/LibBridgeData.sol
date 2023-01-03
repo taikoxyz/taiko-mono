@@ -32,11 +32,9 @@ library LibBridgeData {
     struct State {
         // chainId => isEnabled
         mapping(uint256 => bool) destChains;
-        // message hash => status
-        mapping(bytes32 => MessageStatus) messageStatus;
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[44] __gap;
+        uint256[45] __gap;
     }
 
     /*********************
@@ -76,8 +74,8 @@ library LibBridgeData {
         bytes32 signal,
         MessageStatus status
     ) internal {
-        if (state.messageStatus[signal] != status) {
-            state.messageStatus[signal] = status;
+        if (getMessageStatus(signal) != status) {
+            _setMessageStatus(signal, status);
             emit LibBridgeData.MessageStatusChanged(signal, status);
         }
     }
@@ -90,5 +88,28 @@ library LibBridgeData {
         IBridge.Message memory message
     ) internal pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
+    }
+
+    function _messageStatusKey(bytes32 signal) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked("status", signal));
+    }
+
+    function _setMessageStatus(bytes32 signal, MessageStatus status) private {
+        bytes32 key = _messageStatusKey(signal);
+        uint256 v = uint256(status);
+        assembly {
+            sstore(key, v)
+        }
+    }
+
+    function getMessageStatus(
+        bytes32 signal
+    ) internal view returns (MessageStatus) {
+        bytes32 key = _messageStatusKey(signal);
+        uint256 v;
+        assembly {
+            v := sload(key)
+        }
+        return MessageStatus(v);
     }
 }

@@ -55,7 +55,8 @@ library LibBridgeProcess {
         // LibBridgeRetry.sol
         bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[signal] == LibBridgeData.MessageStatus.NEW,
+            LibBridgeData.getMessageStatus(signal) ==
+                LibBridgeData.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)

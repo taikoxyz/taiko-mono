@@ -160,7 +160,7 @@ contract Bridge is EssentialContract, IBridge {
     function getMessageStatus(
         bytes32 signal
     ) public view virtual returns (LibBridgeData.MessageStatus) {
-        return state.messageStatus[signal];
+        return LibBridgeData.getMessageStatus(signal);
     }
 
     function context() public view returns (Context memory) {
