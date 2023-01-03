@@ -85,6 +85,26 @@ describe("TaikoL1", function () {
             expect(provers).to.be.empty;
         });
     });
+
+    describe("getDelayForBlockId()", async function () {
+        it("should return  initial uncle delay for block id <= 2 * K_MAX_NUM_BLOCKS", async function () {
+            const constants = await taikoL1.getConstants();
+            const maxNumBlocks = constants[2];
+            const delay = await taikoL1.getDelayForBlockId(maxNumBlocks.mul(2));
+            const initialUncleDelay = 3600;
+            expect(delay).to.be.eq(initialUncleDelay);
+        });
+
+        it("should return avg proof time for block id > 2 * K_MAX_NUM_BLOCKS", async function () {
+            const constants = await taikoL1.getConstants();
+            const maxNumBlocks = constants[2];
+            const delay = await taikoL1.getDelayForBlockId(
+                maxNumBlocks.mul(2).add(1)
+            );
+            const avgProofTime = 0; // no proofs have been generated
+            expect(delay).to.be.eq(avgProofTime);
+        });
+    });
 });
 
 function randomBytes32() {

@@ -99,10 +99,17 @@ library V1Utils {
         LibData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
+        return fc.provenAt + getDelay(state, blockId);
+    }
+
+    function getDelay(
+        LibData.State storage state,
+        uint256 blockId
+    ) internal view returns (uint64) {
         if (blockId <= 2 * LibConstants.K_MAX_NUM_BLOCKS) {
-            return fc.provenAt + LibConstants.K_INITIAL_UNCLE_DELAY;
+            return LibConstants.K_INITIAL_UNCLE_DELAY;
         } else {
-            return fc.provenAt + state.avgProofTime;
+            return state.avgProofTime;
         }
     }
 

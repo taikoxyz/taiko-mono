@@ -313,6 +313,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, V1Events {
         return state.forkChoices[id][parentHash].provers;
     }
 
+    function getDelayForBlockId(uint256 blockId) public view returns (uint64) {
+        return V1Utils.getDelay(state, blockId);
+    }
+
     function getConstants()
         public
         pure
