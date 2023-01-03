@@ -85,7 +85,7 @@ library LibProposing {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
-                txList.length > 0 &&
+                txList.length >= 0 &&
                     txList.length <= config.maxBytesPerTxList &&
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
