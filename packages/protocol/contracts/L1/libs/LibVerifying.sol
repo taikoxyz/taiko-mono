@@ -41,7 +41,9 @@ library LibVerifying {
         state.l2Hashes[0] = genesisBlockHash;
 
         require(proofVerifier != address(0), "L1:verifier");
-        state.lookups["proofVerifier"] = uint256(uint160(proofVerifier));
+        state.lookups["proofVerifier"] = bytes32(
+            uint256(uint160(proofVerifier))
+        );
 
         emit BlockVerified(0, genesisBlockHash);
         emit HeaderSynced(block.number, 0, genesisBlockHash);
