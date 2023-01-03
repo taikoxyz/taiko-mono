@@ -31,7 +31,7 @@ contract Verifier is IVerifier {
             });
     }
 
-    function verifyInclusionProof(
+    function verifyMKP(
         bytes memory key,
         bytes memory value,
         bytes memory proof,

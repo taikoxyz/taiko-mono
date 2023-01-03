@@ -31,7 +31,7 @@ interface IVerifier {
      * @return verified `true` if the k/v pair exists in the trie,
      *         `false` otherwise.
      */
-    function verifyInclusionProof(
+    function verifyMKP(
         bytes memory key,
         bytes memory value,
         bytes memory proof,

@@ -110,7 +110,7 @@ library LibProving {
 
         // Check anchor tx is the 1st tx in the block
         require(
-            verifier.verifyInclusionProof({
+            verifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorTx,
                 proof: evidence.proofs[zkProofsPerBlock],
@@ -126,7 +126,7 @@ library LibProving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            verifier.verifyInclusionProof({
+            verifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorReceipt,
                 proof: evidence.proofs[zkProofsPerBlock + 1],
@@ -176,7 +176,7 @@ library LibProving {
 
         // Check the event is the first one in the throw-away block
         require(
-            verifier.verifyInclusionProof({
+            verifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: invalidateBlockReceipt,
                 proof: evidence.proofs[config.zkProofsPerBlock],

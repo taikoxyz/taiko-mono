@@ -62,7 +62,7 @@ contract TestTaikoL1 is TaikoL1, IVerifier {
         return true;
     }
 
-    function verifyInclusionProof(
+    function verifyMKP(
         bytes memory /*key*/,
         bytes memory /*value*/,
         bytes memory /*proof*/,
