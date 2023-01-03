@@ -106,7 +106,9 @@ library LibProving {
             );
         }
 
-        IProofVerifier proofVerifier = IProofVerifier(state.lookups["proofVerifier"]);
+        IProofVerifier proofVerifier = IProofVerifier(
+            state.lookups["proofVerifier"]
+        );
 
         // Check anchor tx is the 1st tx in the block
         require(
@@ -172,7 +174,9 @@ library LibProving {
             "L1:proof:size"
         );
 
-        IProofVerifier proofVerifier = IProofVerifier(state.lookups["proofVerifier"]);
+        IProofVerifier proofVerifier = IProofVerifier(
+            state.lookups["proofVerifier"]
+        );
 
         // Check the event is the first one in the throw-away block
         require(

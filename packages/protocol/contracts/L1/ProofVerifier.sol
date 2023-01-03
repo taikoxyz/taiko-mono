@@ -11,7 +11,6 @@ pragma solidity ^0.8.9;
 import "../thirdparty/LibMerkleTrie.sol";
 import "../libs/LibZKP.sol";
 
-
 /// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
     function verifyZKP(
@@ -29,7 +28,6 @@ interface IProofVerifier {
         bytes32 root
     ) external pure returns (bool verified);
 }
-
 
 /// @author dantaik <dan@taiko.xyz>
 contract ProofVerifier is IProofVerifier {
