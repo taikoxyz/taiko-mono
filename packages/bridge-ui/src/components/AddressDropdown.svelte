@@ -18,8 +18,10 @@
   let addressAvatarImgData: string = "";
   let tokenBalance: string = "";
 
-  onMount(async () => {
-    await setAddress($signer);
+  onMount(() => {
+    (async () => {
+      await setAddress($signer);
+    })();
   });
 
   $: getUserBalance($signer);
