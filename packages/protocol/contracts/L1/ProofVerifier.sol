@@ -29,7 +29,6 @@ interface IProofVerifier {
     ) external pure returns (bool verified);
 }
 
-/// @author dantaik <dan@taiko.xyz>
 contract ProofVerifier is IProofVerifier {
     function verifyZKP(
         bytes memory verificationKey,
