@@ -107,7 +107,7 @@ library LibProving {
         }
 
         IProofVerifier proofVerifier = IProofVerifier(
-            address(uint160(uint256(state.lookups["proofVerifier"])))
+            resolver.resolve("proof_verifier")
         );
 
         // Check anchor tx is the 1st tx in the block
@@ -175,7 +175,7 @@ library LibProving {
         );
 
         IProofVerifier proofVerifier = IProofVerifier(
-            address(uint160(uint256(state.lookups["proofVerifier"])))
+            resolver.resolve("proof_verifier")
         );
 
         // Check the event is the first one in the throw-away block

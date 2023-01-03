@@ -52,7 +52,7 @@ describe("TaikoL1", function () {
                 }
             )
         ).deploy();
-        await taikoL1.init(taikoL1.address, addressManager.address, genesisHash, feeBase);
+        await taikoL1.init(addressManager.address, genesisHash, feeBase);
     });
 
     describe("getLatestSyncedHeader()", async function () {

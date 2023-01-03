@@ -79,9 +79,15 @@ export async function deployContracts(hre: any) {
     log.debug();
 
     // AddressManager
-    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
+
+    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(`${chainId}.proof_verifier`, ProofVerifier.address)
+    );
+
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
@@ -129,7 +135,7 @@ export async function deployContracts(hre: any) {
 
     await utils.waitTx(
         hre,
-        await TaikoL1.init(ProofVerifier.address, AddressManager.address, l2GenesisBlockHash, feeBase)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
     );
 
     // Used by LibBridgeRead

@@ -27,7 +27,6 @@ library LibVerifying {
 
     function init(
         TaikoData.State storage state,
-        address proofVerifier,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
@@ -39,11 +38,6 @@ library LibVerifying {
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
         state.l2Hashes[0] = genesisBlockHash;
-
-        require(proofVerifier != address(0), "L1:proofVerifier");
-        state.lookups["proofVerifier"] = bytes32(
-            uint256(uint160(proofVerifier))
-        );
 
         emit BlockVerified(0, genesisBlockHash);
         emit HeaderSynced(block.number, 0, genesisBlockHash);

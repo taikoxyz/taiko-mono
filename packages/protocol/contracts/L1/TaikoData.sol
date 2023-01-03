@@ -82,7 +82,6 @@ library TaikoData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         // proposer => commitSlot => hash(commitHash, commitHeight)
         mapping(address => mapping(uint256 => bytes32)) commits;
-        mapping(string => bytes32) lookups;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -103,6 +102,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[41] __gap;
+        uint256[42] __gap;
     }
 }
