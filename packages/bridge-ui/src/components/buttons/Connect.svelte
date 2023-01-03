@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
-  import { BigNumber, ethers } from "ethers";
+  import { onDestroy, onMount } from "svelte";
   import { signer } from "../../store/signer";
   import { _ } from "svelte-i18n";
   import {
@@ -9,7 +8,9 @@
     fetchSigner,
     watchAccount,
     watchNetwork,
-    ConnectorNotFoundError
+    ConnectorNotFoundError,
+    getNetwork,
+    getAccount
   } from "@wagmi/core";
 
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
@@ -38,30 +39,32 @@
     }
   };
 
-  let unwatchNetwork;
-  let unwatchAccount;
-
   async function setSigner() {
     const wagmiSigner = await fetchSigner();
     signer.set(wagmiSigner);
     return wagmiSigner;
   }
 
+  async function onConnect() {
+    const { chain } = getNetwork();
+    await setSigner();
+    await changeChain(chain.id);
+    watchNetwork(
+      async (network) => await changeChain(network.chain.id)
+    );
+    watchAccount(async () => {
+      const s = await setSigner();
+      transactions.set(
+        await $transactioner.GetAllByAddress(await s.getAddress())
+      );
+    });
+  }
+
   async function connectWithConnector(connector: Connector) {
     try {
-      const { chain } = await wagmiConnect({ connector });
-      await setSigner();
-      await changeChain(chain.id);
-      unwatchNetwork = watchNetwork(
-        async (network) => await changeChain(network.chain.id)
-        );
-        unwatchAccount = watchAccount(async () => {
-          const s = await setSigner();
-          transactions.set(
-            await $transactioner.GetAllByAddress(await s.getAddress())
-            );
-          });
-          successToast("Connected");
+      await wagmiConnect({ connector });
+      await onConnect();
+      successToast("Connected");
     } catch(error) {
       if(error instanceof ConnectorNotFoundError) {
         errorToast(`${connector.name} not installed`);
@@ -77,12 +80,12 @@
     "coinbase wallet": CoinbaseWallet,
   };
 
-  onDestroy(() => {
-    if (unwatchNetwork) {
-      unwatchNetwork();
-    }
-    if (unwatchAccount) {
-      unwatchAccount();
+  onMount(() => {
+    const account = getAccount();
+    if(account.isConnected) {
+      (async () => {
+        await onConnect();
+      })();
     }
   });
 </script>
