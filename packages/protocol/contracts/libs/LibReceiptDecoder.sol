@@ -62,7 +62,7 @@ library LibReceiptDecoder {
     ) internal pure returns (Log[] memory) {
         Log[] memory logs = new Log[](logsRlp.length);
 
-        for (uint256 i = 0; i < logsRlp.length; i++) {
+        for (uint256 i = 0; i < logsRlp.length; ++i) {
             LibRLPReader.RLPItem[] memory rlpItems = LibRLPReader.readList(
                 logsRlp[i]
             );
@@ -79,7 +79,7 @@ library LibReceiptDecoder {
     ) internal pure returns (bytes32[] memory) {
         bytes32[] memory topics = new bytes32[](topicsRlp.length);
 
-        for (uint256 i = 0; i < topicsRlp.length; i++) {
+        for (uint256 i = 0; i < topicsRlp.length; ++i) {
             topics[i] = LibRLPReader.readBytes32(topicsRlp[i]);
         }
 
