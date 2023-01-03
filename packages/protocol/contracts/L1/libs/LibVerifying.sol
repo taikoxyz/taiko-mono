@@ -40,7 +40,7 @@ library LibVerifying {
         state.lastProposedAt = uint64(block.timestamp);
         state.l2Hashes[0] = genesisBlockHash;
 
-        require(proofVerifier != address(0), "L1:verifier");
+        require(proofVerifier != address(0), "L1:proofVerifier");
         state.lookups["proofVerifier"] = bytes32(
             uint256(uint160(proofVerifier))
         );
