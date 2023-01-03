@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { disconnect as wagmiDisconnect } from '@wagmi/core'
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
   import { addressSubsection } from "../utils/addressSubsection";
@@ -49,6 +50,7 @@
 
   async function disconnect() {
     try {
+      await wagmiDisconnect();
       signer.set(null);
     } catch (e) {
       console.error(e);
