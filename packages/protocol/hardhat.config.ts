@@ -102,9 +102,9 @@ const config: HardhatUserConfig = {
                 for (const constantName of [
                     "K_CHAIN_ID",
                     "K_COMMIT_DELAY_CONFIRMS",
-                    "TAIKO_BLOCK_MAX_TXS",
-                    "TAIKO_TXLIST_MAX_BYTES",
-                    "TAIKO_BLOCK_MAX_GAS_LIMIT",
+                    "K_BLOCK_MAX_TXS",
+                    "K_TXLIST_MAX_BYTES",
+                    "K_BLOCK_MAX_GAS_LIMIT",
                     "K_MAX_NUM_BLOCKS",
                     "K_INITIAL_UNCLE_DELAY",
                 ]) {
