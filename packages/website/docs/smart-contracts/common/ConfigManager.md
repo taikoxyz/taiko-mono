@@ -1,11 +1,5 @@
 ## ConfigManager
 
-### kv
-
-```solidity
-mapping(bytes32 => bytes) kv
-```
-
 ### Updated
 
 ```solidity

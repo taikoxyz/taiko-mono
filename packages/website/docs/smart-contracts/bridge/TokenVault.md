@@ -34,12 +34,6 @@ mapping(address => struct TokenVault.CanonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
-### \_\_gap
-
-```solidity
-uint256[47] __gap
-```
-
 ### BridgedERC20Deployed
 
 ```solidity
@@ -139,15 +133,3 @@ invoking a message call._
 | from           | address                          | The source address.                                                                                                  |
 | to             | address                          | The destination address.                                                                                             |
 | amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
-
-### \_getOrDeployBridgedToken
-
-```solidity
-function _getOrDeployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address)
-```
-
-### \_deployBridgedToken
-
-```solidity
-function _deployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address bridgedToken)
-```

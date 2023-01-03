@@ -12,12 +12,6 @@ struct LibData.State state
 struct LibData.TentativeState tentative
 ```
 
-### \_\_gap
-
-```solidity
-uint256[50] __gap
-```
-
 ### init
 
 ```solidity

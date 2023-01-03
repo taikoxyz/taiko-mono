@@ -71,7 +71,7 @@
     "rlp": "^3.0.0",
     "solhint": "^3.3.7",
     "solidity-coverage": "^0.8.2",
-    "solidity-docgen": "^0.6.0-beta.29",
+    "solidity-docgen": "^0.6.0-beta.34",
     "ts-node": "^10.5.0",
     "typechain": "^5.2.0",
     "typescript": "^4.5.5"
