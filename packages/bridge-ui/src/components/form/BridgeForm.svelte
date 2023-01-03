@@ -275,7 +275,7 @@
       <button class="label-text" on:click={useFullAmount}
         >{$_("bridgeForm.maxLabel")}
         {tokenBalance.length > 10
-          ? `${truncateString(tokenBalance)}...`
+          ? `${truncateString(tokenBalance, 6)}...`
           : tokenBalance}
         {$token.symbol}
       </button>{/if}
