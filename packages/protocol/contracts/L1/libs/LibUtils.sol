@@ -21,51 +21,7 @@ library LibUtils {
 
     bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
-    event WhitelistingEnabled(bool whitelistProposers, bool whitelistProvers);
-    event ProposerWhitelisted(address indexed proposer, bool whitelisted);
-    event ProverWhitelisted(address indexed prover, bool whitelisted);
     event Halted(bool halted);
-
-    function enableWhitelisting(
-        TaikoData.TentativeState storage tentative,
-        bool whitelistProposers,
-        bool whitelistProvers
-    ) internal {
-        tentative.whitelistProposers = whitelistProvers;
-        tentative.whitelistProvers = whitelistProvers;
-        emit WhitelistingEnabled(whitelistProposers, whitelistProvers);
-    }
-
-    function whitelistProposer(
-        TaikoData.TentativeState storage tentative,
-        address proposer,
-        bool whitelisted
-    ) internal {
-        assert(tentative.whitelistProposers);
-        require(
-            proposer != address(0) &&
-                tentative.proposers[proposer] != whitelisted,
-            "L1:precondition"
-        );
-
-        tentative.proposers[proposer] = whitelisted;
-        emit ProposerWhitelisted(proposer, whitelisted);
-    }
-
-    function whitelistProver(
-        TaikoData.TentativeState storage tentative,
-        address prover,
-        bool whitelisted
-    ) internal {
-        assert(tentative.whitelistProvers);
-        require(
-            prover != address(0) && tentative.provers[prover] != whitelisted,
-            "L1:precondition"
-        );
-
-        tentative.provers[prover] = whitelisted;
-        emit ProverWhitelisted(prover, whitelisted);
-    }
 
     function halt(TaikoData.State storage state, bool toHalt) internal {
         require(isHalted(state) != toHalt, "L1:precondition");
@@ -125,22 +81,6 @@ library LibUtils {
         TaikoData.State storage state
     ) internal view returns (bool) {
         return isBitOne(state, MASK_HALT);
-    }
-
-    function isProposerWhitelisted(
-        TaikoData.TentativeState storage tentative,
-        address proposer
-    ) internal view returns (bool) {
-        assert(tentative.whitelistProposers);
-        return tentative.proposers[proposer];
-    }
-
-    function isProverWhitelisted(
-        TaikoData.TentativeState storage tentative,
-        address prover
-    ) internal view returns (bool) {
-        assert(tentative.whitelistProvers);
-        return tentative.provers[prover];
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
