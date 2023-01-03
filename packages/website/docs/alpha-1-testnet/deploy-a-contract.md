@@ -21,6 +21,7 @@ These steps will show you how to deploy a smart contract to Taiko A1 using Found
    ```sh
    forge create --legacy --rpc-url https://l2rpc.a1.taiko.xyz --private-key <YOUR_PRIVATE_KEY> src/Counter.sol:Counter
    ```
+   Note: Remove "<" and ">" from <YOUR_PRIVATE_KEY>
 
 We are using the `--legacy` flag because EIP-1559 is currently disabled on Taiko. We have plans to re-enable it in the future.
 
