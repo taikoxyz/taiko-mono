@@ -26,7 +26,7 @@
   >
     <svelte:component this={$token.logoComponent} class="inline-block" />
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
-    <ChevronDown />
+    <ChevronDown size='20' />
   </label>
   <ul
     tabindex="0"

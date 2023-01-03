@@ -9,7 +9,7 @@
 </script>
 
 <div class="container mx-auto max-w-fit text-center my-10">
-  <div class="rounded-3xl border-2 border-zinc-800 border-solid p-6">
+  <div class="rounded-3xl border-2 border-zinc-800 border-solid p-2 md:p-6">
     <div class="tabs mb-4">
       <span
         class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
