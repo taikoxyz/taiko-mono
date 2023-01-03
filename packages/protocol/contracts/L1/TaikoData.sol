@@ -41,7 +41,6 @@ library TaikoData {
         uint64 boostrapDiscountHalvingPeriod;
         uint64 initialUncleDelay;
         bool enableTokenomics;
-        bool skipProofValidation;
     }
 
     struct BlockMetadata {
@@ -83,6 +82,7 @@ library TaikoData {
         mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
         // proposer => commitSlot => hash(commitHash, commitHeight)
         mapping(address => mapping(uint256 => bytes32)) commits;
+        mapping(string => address) lookups;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

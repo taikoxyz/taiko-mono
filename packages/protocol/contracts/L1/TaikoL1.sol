@@ -30,12 +30,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
 
     function init(
         address _addressManager,
+        address _verifier,
         bytes32 _genesisBlockHash,
         uint256 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
+            verifier: _verifier,
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });

@@ -15,10 +15,9 @@ import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibReceiptDecoder.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
-import "../../libs/LibZKP.sol";
 import "../../thirdparty/LibBytesUtils.sol";
-import "../../thirdparty/LibMerkleTrie.sol";
 import "../../thirdparty/LibRLPWriter.sol";
+import "../IVerifier.sol";
 import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -107,40 +106,41 @@ library LibProving {
             );
         }
 
-        if (!config.skipProofValidation) {
-            // Check anchor tx is the 1st tx in the block
-            require(
-                LibMerkleTrie.verifyInclusionProof({
-                    _key: LibRLPWriter.writeUint(0),
-                    _value: anchorTx,
-                    _proof: evidence.proofs[zkProofsPerBlock],
-                    _root: evidence.header.transactionsRoot
-                }),
-                "L1:tx:proof"
-            );
+        IVerifier verifier = IVerifier(state.lookups["verifier"]);
 
-            // Check anchor tx does not throw
+        // Check anchor tx is the 1st tx in the block
+        require(
+            verifier.verifyInclusionProof({
+                key: LibRLPWriter.writeUint(0),
+                value: anchorTx,
+                proof: evidence.proofs[zkProofsPerBlock],
+                root: evidence.header.transactionsRoot
+            }),
+            "L1:tx:proof"
+        );
 
-            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-                .decodeReceipt(anchorReceipt);
+        // Check anchor tx does not throw
 
-            require(receipt.status == 1, "L1:receipt:status");
-            require(
-                LibMerkleTrie.verifyInclusionProof({
-                    _key: LibRLPWriter.writeUint(0),
-                    _value: anchorReceipt,
-                    _proof: evidence.proofs[zkProofsPerBlock + 1],
-                    _root: evidence.header.receiptsRoot
-                }),
-                "L1:receipt:proof"
-            );
-        }
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(anchorReceipt);
+
+        require(receipt.status == 1, "L1:receipt:status");
+        require(
+            verifier.verifyInclusionProof({
+                key: LibRLPWriter.writeUint(0),
+                value: anchorReceipt,
+                proof: evidence.proofs[zkProofsPerBlock + 1],
+                root: evidence.header.receiptsRoot
+            }),
+            "L1:receipt:proof"
+        );
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
+            verifier: verifier,
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
@@ -172,14 +172,27 @@ library LibProving {
             "L1:proof:size"
         );
 
-        if (!config.skipProofValidation) {
-            // Check the 1st receipt is for an InvalidateBlock tx with
-            // a BlockInvalidated event
-            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-                .decodeReceipt(invalidateBlockReceipt);
-            require(receipt.status == 1, "L1:receipt:status");
-            require(receipt.logs.length == 1, "L1:receipt:logsize");
+        IVerifier verifier = IVerifier(state.lookups["verifier"]);
 
+        // Check the event is the first one in the throw-away block
+        require(
+            verifier.verifyInclusionProof({
+                key: LibRLPWriter.writeUint(0),
+                value: invalidateBlockReceipt,
+                proof: evidence.proofs[config.zkProofsPerBlock],
+                root: evidence.header.receiptsRoot
+            }),
+            "L1:receipt:proof"
+        );
+
+        // Check the 1st receipt is for an InvalidateBlock tx with
+        // a BlockInvalidated event
+        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+            .decodeReceipt(invalidateBlockReceipt);
+        require(receipt.status == 1, "L1:receipt:status");
+        require(receipt.logs.length == 1, "L1:receipt:logsize");
+
+        {
             LibReceiptDecoder.Log memory log = receipt.logs[0];
             require(
                 log.contractAddress ==
@@ -193,17 +206,6 @@ library LibProving {
                     log.topics[1] == target.txListHash,
                 "L1:receipt:topics"
             );
-
-            // Check the event is the first one in the throw-away block
-            require(
-                LibMerkleTrie.verifyInclusionProof({
-                    _key: LibRLPWriter.writeUint(0),
-                    _value: invalidateBlockReceipt,
-                    _proof: evidence.proofs[config.zkProofsPerBlock],
-                    _root: evidence.header.receiptsRoot
-                }),
-                "L1:receipt:proof"
-            );
         }
 
         // ZK-prove block and mark block proven as invalid.
@@ -211,6 +213,7 @@ library LibProving {
             state: state,
             config: config,
             resolver: resolver,
+            verifier: verifier,
             evidence: evidence,
             target: target,
             blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
@@ -221,6 +224,7 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
+        IVerifier verifier,
         Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
@@ -238,8 +242,8 @@ library LibProving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         for (uint256 i = 0; i < config.zkProofsPerBlock; i++) {
-            if (!config.skipProofValidation) {
-                LibZKP.verify({
+            require(
+                verifier.verifyZKP({
                     verificationKey: ConfigManager(
                         resolver.resolve("config_manager")
                     ).getValue(string(abi.encodePacked("zk_vkey_", i))),
@@ -247,8 +251,9 @@ library LibProving {
                     blockHash: blockHash,
                     prover: evidence.prover,
                     txListHash: evidence.meta.txListHash
-                });
-            }
+                }),
+                "L1:zkp"
+            );
         }
 
         _markBlockProven({
