@@ -8,6 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import {IProofVerifier} from "../ProofVerifier.sol";
 import "../../common/AddressResolver.sol";
 import "../../common/ConfigManager.sol";
 import "../../libs/LibAnchorSignature.sol";
@@ -17,7 +18,6 @@ import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "../ProofVerifier.sol";
 import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
