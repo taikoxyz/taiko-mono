@@ -81,6 +81,13 @@ export async function deployContracts(hre: any) {
     // AddressManager
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
+
+    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(`${chainId}.proof_verifier`, ProofVerifier.address)
+    );
+
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
@@ -195,7 +202,6 @@ export async function deployContracts(hre: any) {
 }
 
 async function deployBaseLibs(hre: any) {
-    const libZKP = await utils.deployContract(hre, "LibZKP");
     const libReceiptDecoder = await utils.deployContract(
         hre,
         "LibReceiptDecoder"
@@ -206,7 +212,6 @@ async function deployBaseLibs(hre: any) {
     const libProposing = await utils.deployContract(hre, "LibProposing", {});
 
     const libProving = await utils.deployContract(hre, "LibProving", {
-        LibZKP: libZKP.address,
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
     });

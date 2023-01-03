@@ -41,7 +41,6 @@ library TaikoData {
         uint64 boostrapDiscountHalvingPeriod;
         uint64 initialUncleDelay;
         bool enableTokenomics;
-        bool skipProofValidation;
     }
 
     struct BlockMetadata {
