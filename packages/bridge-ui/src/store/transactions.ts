@@ -7,4 +7,5 @@ const pendingTransactions = writable<Transaction[]>([]);
 const transactions = writable<BridgeTransaction[]>([]);
 const transactioner = writable<Transactioner>();
 const showTransactionDetails = writable<BridgeTransaction>();
-export { pendingTransactions, transactions, transactioner, showTransactionDetails };
+const showMessageStatusTooltip = writable<boolean>();
+export { pendingTransactions, transactions, transactioner, showTransactionDetails, showMessageStatusTooltip };

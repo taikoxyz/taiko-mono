@@ -1,6 +1,6 @@
 name: Bug report 🐛
 description: Report a bug
-title: "[Bug] <insert descriptive title>"
+title: "fix: INSERT_DESCRIPTIVE_TITLE"
 labels: ["bug", "triage"]
 body:
   - type: markdown
