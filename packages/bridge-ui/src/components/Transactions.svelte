@@ -1,11 +1,12 @@
 <script lang="ts">
   import { chains } from "../domain/chain";
-  import { transactions, showTransactionDetails } from "../store/transactions";
+  import { transactions, showTransactionDetails, showMessageStatusTooltip } from "../store/transactions";
   import Transaction from "./Transaction.svelte";
   import TransactionDetail from './TransactionDetail.svelte';
+  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
 </script>
 
-<div class="my-4 px-4">
+<div class="my-4 md:px-4">
   {#if $transactions.length}
     <table class="table-auto">
       <thead>
@@ -17,7 +18,7 @@
           <th>Details</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
             toChain={chains[transaction.toChainId]}
@@ -33,5 +34,9 @@
 
   {#if $showTransactionDetails}
     <TransactionDetail transaction={$showTransactionDetails} />
+  {/if}
+
+  {#if $showMessageStatusTooltip}
+    <MessageStatusTooltip />
   {/if}
 </div>
