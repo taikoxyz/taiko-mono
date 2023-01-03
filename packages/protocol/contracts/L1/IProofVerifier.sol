@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 /// @author dantaik <dan@taiko.xyz>
-interface IVerifier {
+interface IProofVerifier {
     function verifyZKP(
         bytes memory verificationKey,
         bytes calldata zkproof,

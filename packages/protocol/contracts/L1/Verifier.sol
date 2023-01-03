@@ -10,10 +10,10 @@ pragma solidity ^0.8.9;
 
 import "../thirdparty/LibMerkleTrie.sol";
 import "../libs/LibZKP.sol";
-import "./IVerifier.sol";
+import "./IProofVerifier.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-contract Verifier is IVerifier {
+contract ProofVerifier is IProofVerifier {
     function verifyZKP(
         bytes memory verificationKey,
         bytes calldata zkproof,

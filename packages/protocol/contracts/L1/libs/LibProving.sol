@@ -17,7 +17,7 @@ import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "../IVerifier.sol";
+import "../IProofVerifier.sol";
 import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -106,11 +106,11 @@ library LibProving {
             );
         }
 
-        IVerifier verifier = IVerifier(state.lookups["verifier"]);
+        IProofVerifier proofVerifier = IProofVerifier(state.lookups["proofVerifier"]);
 
         // Check anchor tx is the 1st tx in the block
         require(
-            verifier.verifyMKP({
+            proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorTx,
                 proof: evidence.proofs[zkProofsPerBlock],
@@ -126,7 +126,7 @@ library LibProving {
 
         require(receipt.status == 1, "L1:receipt:status");
         require(
-            verifier.verifyMKP({
+            proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorReceipt,
                 proof: evidence.proofs[zkProofsPerBlock + 1],
@@ -140,7 +140,7 @@ library LibProving {
             state: state,
             config: config,
             resolver: resolver,
-            verifier: verifier,
+            proofVerifier: proofVerifier,
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
@@ -172,11 +172,11 @@ library LibProving {
             "L1:proof:size"
         );
 
-        IVerifier verifier = IVerifier(state.lookups["verifier"]);
+        IProofVerifier proofVerifier = IProofVerifier(state.lookups["proofVerifier"]);
 
         // Check the event is the first one in the throw-away block
         require(
-            verifier.verifyMKP({
+            proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: invalidateBlockReceipt,
                 proof: evidence.proofs[config.zkProofsPerBlock],
@@ -213,7 +213,7 @@ library LibProving {
             state: state,
             config: config,
             resolver: resolver,
-            verifier: verifier,
+            proofVerifier: proofVerifier,
             evidence: evidence,
             target: target,
             blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
@@ -224,7 +224,7 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        IVerifier verifier,
+        IProofVerifier proofVerifier,
         Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
@@ -243,7 +243,7 @@ library LibProving {
 
         for (uint256 i = 0; i < config.zkProofsPerBlock; i++) {
             require(
-                verifier.verifyZKP({
+                proofVerifier.verifyZKP({
                     verificationKey: ConfigManager(
                         resolver.resolve("config_manager")
                     ).getValue(string(abi.encodePacked("zk_vkey_", i))),

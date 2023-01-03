@@ -79,6 +79,7 @@ export async function deployContracts(hre: any) {
     log.debug();
 
     // AddressManager
+    const ProofVerifier = await untils.deployContract(hre, "ProofVerifier");
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
     await utils.waitTx(
@@ -128,7 +129,7 @@ export async function deployContracts(hre: any) {
 
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
+        await TaikoL1.init(ProofVerifier.address, AddressManager.address, l2GenesisBlockHash, feeBase)
     );
 
     // Used by LibBridgeRead
