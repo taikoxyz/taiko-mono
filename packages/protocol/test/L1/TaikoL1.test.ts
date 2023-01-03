@@ -21,10 +21,6 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy();
 
-        const libZKP = await (
-            await ethers.getContractFactory("LibZKP")
-        ).deploy();
-
         const libProposing = await (
             await ethers.getContractFactory("LibProposing")
         ).deploy();
@@ -33,8 +29,7 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
-                    LibTxDecoder: libTxDecoder.address,
-                    LibZKP: libZKP.address,
+                    LibTxDecoder: libTxDecoder.address
                 },
             })
         ).deploy();
@@ -47,7 +42,7 @@ describe("TaikoL1", function () {
         const feeBase = BigNumber.from(10).pow(18);
         taikoL1 = await (
             await ethers.getContractFactory(
-                "TestTaikoL1NoTokenomicsNoProofValidation",
+                "TestTaikoL1",
                 {
                     libraries: {
                         LibVerifying: libVerifying.address,
@@ -57,7 +52,7 @@ describe("TaikoL1", function () {
                 }
             )
         ).deploy();
-        await taikoL1.init(addressManager.address, genesisHash, feeBase);
+        await taikoL1.init(taikoL1.address, addressManager.address, genesisHash, feeBase);
     });
 
     describe("getLatestSyncedHeader()", async function () {
