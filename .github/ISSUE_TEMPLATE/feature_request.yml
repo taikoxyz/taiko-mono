@@ -1,6 +1,6 @@
 name: Feature request 💡
 description: Request a feature
-title: "[Feat] <insert descriptive title>"
+title: "feat: INSERT_DESCRIPTIVE_TITLE"
 labels: ["feat", "triage"]
 body:
   - type: markdown
