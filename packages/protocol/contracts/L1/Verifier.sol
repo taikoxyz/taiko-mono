@@ -20,7 +20,7 @@ contract Verifier is IVerifier {
         bytes32 blockHash,
         address prover,
         bytes32 txListHash
-    ) external pure returns (bool verified) {
+    ) external pure returns (bool) {
         return
             LibZKP.verify({
                 verificationKey: verificationKey,
@@ -36,7 +36,7 @@ contract Verifier is IVerifier {
         bytes memory value,
         bytes memory proof,
         bytes32 root
-    ) external pure returns (bool verified) {
+    ) external pure returns (bool) {
         return
             LibMerkleTrie.verifyInclusionProof({
                 _key: key,
