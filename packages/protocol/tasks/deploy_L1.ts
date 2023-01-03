@@ -79,7 +79,7 @@ export async function deployContracts(hre: any) {
     log.debug();
 
     // AddressManager
-    const ProofVerifier = await untils.deployContract(hre, "ProofVerifier");
+    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
     await utils.waitTx(

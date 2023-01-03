@@ -17,7 +17,7 @@ import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "../IProofVerifier.sol";
+import "../ProofVerifier.sol";
 import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>

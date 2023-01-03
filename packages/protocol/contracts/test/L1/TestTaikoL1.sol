@@ -8,7 +8,7 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "../../L1/IProofVerifier.sol";
+import "../../L1/ProofVerifier.sol";
 import "../../L1/TaikoL1.sol";
 
 contract TestTaikoL1 is TaikoL1, IProofVerifier {
