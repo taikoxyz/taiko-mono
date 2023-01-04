@@ -41,6 +41,7 @@ contract SignalService is ISignalService, EssentialContract {
         address user,
         bytes32 signal
     ) public view returns (bool) {
+        require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
         bytes32 k = getSignalSlot(app, user, signal);
@@ -57,8 +58,8 @@ contract SignalService is ISignalService, EssentialContract {
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool) {
-        require(signal != 0, "B:signal");
         require(app != address(0), "B:app");
+        require(signal != 0, "B:signal");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify({
