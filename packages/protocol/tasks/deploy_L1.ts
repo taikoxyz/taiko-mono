@@ -192,7 +192,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(
             `${chainId}.signal_service`,
-            Bridge.address
+            SignalService.address
         )
     );
 
