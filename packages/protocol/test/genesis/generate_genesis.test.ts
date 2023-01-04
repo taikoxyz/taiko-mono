@@ -281,21 +281,6 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner);
 
-            const tx = await TokenVault.sendEther(
-                1,
-                ethers.Wallet.createRandom().address,
-                100,
-                0,
-                ethers.Wallet.createRandom().address,
-                "memo",
-                {
-                    gasLimit: 10000000,
-                    value: hre.ethers.utils.parseEther("100"),
-                }
-            );
-
-            await tx.wait();
-
             await expect(
                 TokenVault.sendEther(
                     1,
