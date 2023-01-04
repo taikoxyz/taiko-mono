@@ -62,7 +62,7 @@ echo '}' >> $GENESIS_JSON
 echo ""
 echo "Start docker compose network..."
 
-docker compose -f $TESTNET_CONFIG down --remove-orphans &> /dev/null
+docker compose -f $TESTNET_CONFIG down -v --remove-orphans &> /dev/null
 docker compose -f $TESTNET_CONFIG up -d
 
 echo ""
