@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
-import * as helpers from "@nomicfoundation/hardhat-network-helpers"
-import { expect } from "chai"
+import * as helpers from "@nomicfoundation/hardhat-network-helpers";
+import { expect } from "chai";
 import {
     AddressManager,
     AddressManager__factory,
@@ -8,20 +8,20 @@ import {
     TestMessageSender__factory,
     TokenVault,
     TokenVault__factory,
-} from "../../typechain"
-import hre, { ethers } from "hardhat"
-import { BigNumber, BigNumberish } from "ethers"
-import { getSlot } from "../../tasks/utils"
-import { ADDRESS_RESOLVER_DENIED } from "../constants/errors"
-import { smock } from "@defi-wonderland/smock"
+} from "../../typechain";
+import hre, { ethers } from "hardhat";
+import { BigNumber, BigNumberish } from "ethers";
+import { getSlot } from "../../tasks/utils";
+import { ADDRESS_RESOLVER_DENIED } from "../constants/errors";
+import { smock } from "@defi-wonderland/smock";
 
 type CanonicalERC20 = {
-    chainId: BigNumberish
-    addr: string
-    decimals: BigNumberish
-    symbol: string
-    name: string
-}
+    chainId: BigNumberish;
+    addr: string;
+    decimals: BigNumberish;
+    symbol: string;
+    name: string;
+};
 
 const weth: CanonicalERC20 = {
     chainId: 5,
@@ -29,64 +29,64 @@ const weth: CanonicalERC20 = {
     decimals: 18,
     symbol: "WETH",
     name: "Wrapped Ether",
-}
+};
 
 describe("TokenVault", function () {
-    let owner: any
-    let nonOwner: any
-    let L1TokenVault: TokenVault
-    let tokenVaultAddressManager: AddressManager
-    let destChainTokenVault: TokenVault
-    const defaultProcessingFee = 10
-    const destChainId = 167001
-    let bridgedToken: BridgedERC20
+    let owner: any;
+    let nonOwner: any;
+    let L1TokenVault: TokenVault;
+    let tokenVaultAddressManager: AddressManager;
+    let destChainTokenVault: TokenVault;
+    const defaultProcessingFee = 10;
+    const destChainId = 167001;
+    let bridgedToken: BridgedERC20;
 
     before(async function () {
-        ;[owner, nonOwner] = await ethers.getSigners()
-    })
+        [owner, nonOwner] = await ethers.getSigners();
+    });
 
     beforeEach(async function () {
-        const network = await ethers.provider.getNetwork()
+        const network = await ethers.provider.getNetwork();
         const addressManagerFactory: AddressManager__factory =
-            await ethers.getContractFactory("AddressManager")
+            await ethers.getContractFactory("AddressManager");
         const tokenVaultFactory: TokenVault__factory =
-            await ethers.getContractFactory("TokenVault")
+            await ethers.getContractFactory("TokenVault");
 
-        tokenVaultAddressManager = await addressManagerFactory.deploy()
-        await tokenVaultAddressManager.init()
+        tokenVaultAddressManager = await addressManagerFactory.deploy();
+        await tokenVaultAddressManager.init();
 
-        L1TokenVault = await tokenVaultFactory.connect(owner).deploy()
-        await L1TokenVault.init(tokenVaultAddressManager.address)
+        L1TokenVault = await tokenVaultFactory.connect(owner).deploy();
+        await L1TokenVault.init(tokenVaultAddressManager.address);
 
-        destChainTokenVault = await tokenVaultFactory.connect(owner).deploy()
-        await destChainTokenVault.init(tokenVaultAddressManager.address)
+        destChainTokenVault = await tokenVaultFactory.connect(owner).deploy();
+        await destChainTokenVault.init(tokenVaultAddressManager.address);
 
         const TestMessageSenderFactory: TestMessageSender__factory =
-            await ethers.getContractFactory("TestMessageSender")
+            await ethers.getContractFactory("TestMessageSender");
 
-        const testMessageSender = await TestMessageSenderFactory.deploy()
-        const testMessageSender2 = await TestMessageSenderFactory.deploy()
+        const testMessageSender = await TestMessageSenderFactory.deploy();
+        const testMessageSender2 = await TestMessageSenderFactory.deploy();
 
         await tokenVaultAddressManager.setAddress(
             `${network.chainId}.bridge`,
             testMessageSender.address
-        )
+        );
         await tokenVaultAddressManager.setAddress(
             `${destChainId}.bridge`,
             testMessageSender2.address
-        )
+        );
         await tokenVaultAddressManager.setAddress(
             `${network.chainId}.token_vault`,
             L1TokenVault.address
-        )
+        );
         await tokenVaultAddressManager.setAddress(
             `${destChainId}.token_vault`,
             destChainTokenVault.address
-        )
+        );
 
         bridgedToken = await (
             await ethers.getContractFactory("BridgedERC20")
-        ).deploy()
+        ).deploy();
 
         await bridgedToken.init(
             tokenVaultAddressManager.address,
@@ -95,12 +95,12 @@ describe("TokenVault", function () {
             18,
             weth.symbol,
             weth.name
-        )
-    })
+        );
+    });
 
     describe("receiveERC20()", async () => {
         it("throws when named 'bridge' is not the caller", async () => {
-            const amount = BigNumber.from(1)
+            const amount = BigNumber.from(1);
 
             await expect(
                 L1TokenVault.receiveERC20(
@@ -109,9 +109,9 @@ describe("TokenVault", function () {
                     nonOwner.address,
                     amount
                 )
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED)
-        })
-    })
+            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+        });
+    });
 
     describe("sendEther()", async () => {
         it("throws when msg.value is 0", async () => {
@@ -124,8 +124,8 @@ describe("TokenVault", function () {
                     owner.address,
                     ""
                 )
-            ).to.be.revertedWith("V:msgValue")
-        })
+            ).to.be.revertedWith("V:msgValue");
+        });
 
         it("throws when msg.value - processing fee is 0", async () => {
             await expect(
@@ -140,8 +140,8 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee,
                     }
                 )
-            ).to.be.revertedWith("V:msgValue")
-        })
+            ).to.be.revertedWith("V:msgValue");
+        });
 
         it("throws when msg.value is < processingFee", async () => {
             await expect(
@@ -156,8 +156,8 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("V:msgValue")
-        })
+            ).to.be.revertedWith("V:msgValue");
+        });
 
         it("throws when to is 0", async () => {
             await expect(
@@ -172,14 +172,14 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("V:to")
-        })
+            ).to.be.revertedWith("V:to");
+        });
 
         it("succeeds with processingFee", async () => {
-            const depositValue = 1000
+            const depositValue = 1000;
 
             const testSignal =
-                "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab"
+                "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
                 L1TokenVault.sendEther(
@@ -200,14 +200,14 @@ describe("TokenVault", function () {
                     destChainId,
                     depositValue - defaultProcessingFee,
                     testSignal
-                )
-        })
+                );
+        });
 
         it("succeeds with 0 processingFee", async () => {
-            const depositValue = 1000
+            const depositValue = 1000;
 
             const testSignal =
-                "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab"
+                "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
                 L1TokenVault.sendEther(
@@ -228,9 +228,9 @@ describe("TokenVault", function () {
                     destChainId,
                     depositValue - defaultProcessingFee,
                     testSignal
-                )
-        })
-    })
+                );
+        });
+    });
 
     describe("sendERC20()", async () => {
         it("should throw if to == address(0)", async function () {
@@ -248,8 +248,8 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:to")
-        })
+            ).to.be.revertedWith("V:to");
+        });
 
         it("should throw if to == destChainId.token_vault", async function () {
             await expect(
@@ -266,8 +266,8 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:to")
-        })
+            ).to.be.revertedWith("V:to");
+        });
 
         it("should throw if token == address(0)", async function () {
             await expect(
@@ -284,8 +284,8 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:token")
-        })
+            ).to.be.revertedWith("V:token");
+        });
 
         it("should throw if amount <= 0", async function () {
             await expect(
@@ -302,45 +302,45 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:amount")
-        })
+            ).to.be.revertedWith("V:amount");
+        });
 
         it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () {
             const toBytes32 = (bn: BigNumber) => {
                 return ethers.utils.hexlify(
                     ethers.utils.zeroPad(bn.toHexString(), 32)
-                )
-            }
+                );
+            };
 
             const isBridgedTokenSlot = await getSlot(
                 hre,
                 bridgedToken.address,
                 201
-            )
+            );
             await helpers.setStorageAt(
                 L1TokenVault.address,
                 isBridgedTokenSlot,
                 1
-            )
+            );
             const bridgedToCanonicalSlot = await getSlot(
                 hre,
                 bridgedToken.address,
                 202
-            )
+            );
             await helpers.setStorageAt(
                 L1TokenVault.address,
                 bridgedToCanonicalSlot,
                 ethers.constants.AddressZero
-            )
+            );
 
-            await helpers.setStorageAt(bridgedToken.address, 203, 1000000)
-            await bridgedToken.approve(owner.address, 1000)
-            const accountBalanceSlot = await getSlot(hre, owner.address, 201)
+            await helpers.setStorageAt(bridgedToken.address, 203, 1000000);
+            await bridgedToken.approve(owner.address, 1000);
+            const accountBalanceSlot = await getSlot(hre, owner.address, 201);
             await helpers.setStorageAt(
                 bridgedToken.address,
                 accountBalanceSlot,
                 toBytes32(ethers.BigNumber.from("10")).toString()
-            )
+            );
 
             await expect(
                 L1TokenVault.connect(owner).sendERC20(
@@ -356,42 +356,42 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:canonicalToken")
-        })
+            ).to.be.revertedWith("V:canonicalToken");
+        });
 
         it("should pass and emit ERC20Sent Event", async function () {
             const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
                 "TokenVault"
-            )
-            const L1TokenVault = await mockTokenVaultFactory.deploy()
-            await L1TokenVault.init(tokenVaultAddressManager.address)
+            );
+            const L1TokenVault = await mockTokenVaultFactory.deploy();
+            await L1TokenVault.init(tokenVaultAddressManager.address);
             await tokenVaultAddressManager.setAddress(
                 `${hre.network.config.chainId}.token_vault`,
                 L1TokenVault.address
-            )
+            );
 
             const toBytes32 = (bn: BigNumber) => {
                 return ethers.utils.hexlify(
                     ethers.utils.zeroPad(bn.toHexString(), 32)
-                )
-            }
+                );
+            };
 
             await L1TokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
-            })
+            });
 
             await L1TokenVault.setVariable("bridgedToCanonical", {
                 [bridgedToken.address]: weth,
-            })
+            });
 
-            await helpers.setStorageAt(bridgedToken.address, 203, 1000000)
-            await bridgedToken.approve(owner.address, 1000)
-            const accountBalanceSlot = await getSlot(hre, owner.address, 201)
+            await helpers.setStorageAt(bridgedToken.address, 203, 1000000);
+            await bridgedToken.approve(owner.address, 1000);
+            const accountBalanceSlot = await getSlot(hre, owner.address, 201);
             await helpers.setStorageAt(
                 bridgedToken.address,
                 accountBalanceSlot,
                 toBytes32(ethers.BigNumber.from("10")).toString()
-            )
+            );
 
             await expect(
                 L1TokenVault.connect(owner).sendERC20(
@@ -407,7 +407,7 @@ describe("TokenVault", function () {
                         value: 1000,
                     }
                 )
-            ).to.emit(L1TokenVault, "ERC20Sent")
-        })
-    })
-})
+            ).to.emit(L1TokenVault, "ERC20Sent");
+        });
+    });
+});
