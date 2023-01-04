@@ -6,16 +6,10 @@
 struct TaikoData.State state
 ```
 
-### tentative
-
-```solidity
-struct TaikoData.TentativeState tentative
-```
-
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
 ```
 
 ### commitBlock
@@ -95,51 +89,6 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### enableWhitelisting
-
-```solidity
-function enableWhitelisting(bool whitelistProposers, bool whitelistProvers) public
-```
-
-Enable or disable proposer and prover whitelisting
-
-#### Parameters
-
-| Name               | Type | Description                           |
-| ------------------ | ---- | ------------------------------------- |
-| whitelistProposers | bool | True to enable proposer whitelisting. |
-| whitelistProvers   | bool | True to enable prover whitelisting.   |
-
-### whitelistProposer
-
-```solidity
-function whitelistProposer(address proposer, bool whitelisted) public
-```
-
-Add or remove a proposer from the whitelist.
-
-#### Parameters
-
-| Name        | Type    | Description                          |
-| ----------- | ------- | ------------------------------------ |
-| proposer    | address | The proposer to be added or removed. |
-| whitelisted | bool    | True to add; remove otherwise.       |
-
-### whitelistProver
-
-```solidity
-function whitelistProver(address prover, bool whitelisted) public
-```
-
-Add or remove a prover from the whitelist.
-
-#### Parameters
-
-| Name        | Type    | Description                        |
-| ----------- | ------- | ---------------------------------- |
-| prover      | address | The prover to be added or removed. |
-| whitelisted | bool    | True to add; remove otherwise.     |
-
 ### halt
 
 ```solidity
@@ -154,45 +103,17 @@ Halt or resume the chain.
 | ------ | ---- | ------------------------------ |
 | toHalt | bool | True to halt, false to resume. |
 
-### isProposerWhitelisted
+### getBlockFee
 
 ```solidity
-function isProposerWhitelisted(address proposer) public view returns (bool)
+function getBlockFee() public view returns (uint256)
 ```
 
-Check whether a proposer is whitelisted.
-
-#### Parameters
-
-| Name     | Type    | Description   |
-| -------- | ------- | ------------- |
-| proposer | address | The proposer. |
-
-#### Return Values
-
-| Name | Type | Description                                           |
-| ---- | ---- | ----------------------------------------------------- |
-| [0]  | bool | True if the proposer is whitelisted, false otherwise. |
-
-### isProverWhitelisted
+### getProofReward
 
 ```solidity
-function isProverWhitelisted(address prover) public view returns (bool)
+function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
 ```
-
-Check whether a prover is whitelisted.
-
-#### Parameters
-
-| Name   | Type    | Description |
-| ------ | ------- | ----------- |
-| prover | address | The prover. |
-
-#### Return Values
-
-| Name | Type | Description                                         |
-| ---- | ---- | --------------------------------------------------- |
-| [0]  | bool | True if the prover is whitelisted, false otherwise. |
 
 ### isHalted
 
@@ -223,7 +144,7 @@ function getProposedBlock(uint256 id) public view returns (struct TaikoData.Prop
 ### getSyncedHeader
 
 ```solidity
-function getSyncedHeader(uint256 number) public view returns (bytes32)
+function getSyncedHeader(uint256 number) public view returns (bytes32 header)
 ```
 
 ### getLatestSyncedHeader
@@ -235,7 +156,7 @@ function getLatestSyncedHeader() public view returns (bytes32)
 ### getStateVariables
 
 ```solidity
-function getStateVariables() public view returns (uint64, uint64, uint64, uint64)
+function getStateVariables() public view returns (uint64, uint64, uint64, uint256, uint64, uint64, uint64, uint64, uint64, uint64)
 ```
 
 ### signWithGoldenTouch
@@ -250,8 +171,14 @@ function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v
 function getBlockProvers(uint256 id, bytes32 parentHash) public view returns (address[])
 ```
 
-### getConstants
+### getUncleProofDelay
 
 ```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
+function getUncleProofDelay(uint256 blockId) public view returns (uint64)
+```
+
+### getConfig
+
+```solidity
+function getConfig() public pure virtual returns (struct TaikoData.Config)
 ```
