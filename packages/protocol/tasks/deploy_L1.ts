@@ -81,6 +81,16 @@ export async function deployContracts(hre: any) {
     // AddressManager
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
+
+    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            `${chainId}.proof_verifier`,
+            ProofVerifier.address
+        )
+    );
+
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
@@ -89,7 +99,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(`${chainId}.team_vault`, teamVault)
     );
-    // Used by V1Proving
+    // Used by LibProving
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2Address)
@@ -124,9 +134,11 @@ export async function deployContracts(hre: any) {
         await deployBaseLibs(hre)
     );
 
+    const feeBase = hre.ethers.BigNumber.from(10).pow(18);
+
     await utils.waitTx(
         hre,
-        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash)
+        await TaikoL1.init(AddressManager.address, l2GenesisBlockHash, feeBase)
     );
 
     // Used by LibBridgeRead
@@ -193,26 +205,24 @@ export async function deployContracts(hre: any) {
 }
 
 async function deployBaseLibs(hre: any) {
-    const libZKP = await utils.deployContract(hre, "LibZKP");
     const libReceiptDecoder = await utils.deployContract(
         hre,
         "LibReceiptDecoder"
     );
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
 
-    const v1Verifying = await utils.deployContract(hre, "V1Verifying", {});
-    const v1Proposing = await utils.deployContract(hre, "V1Proposing", {});
+    const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
+    const libProposing = await utils.deployContract(hre, "LibProposing", {});
 
-    const v1Proving = await utils.deployContract(hre, "V1Proving", {
-        LibZKP: libZKP.address,
+    const libProving = await utils.deployContract(hre, "LibProving", {
         LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
     });
 
     return {
-        V1Verifying: v1Verifying.address,
-        V1Proposing: v1Proposing.address,
-        V1Proving: v1Proving.address,
+        LibVerifying: libVerifying.address,
+        LibProposing: libProposing.address,
+        LibProving: libProving.address,
     };
 }
 

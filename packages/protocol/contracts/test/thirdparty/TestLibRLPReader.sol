@@ -10,7 +10,7 @@ contract TestLibRLPReader {
     function readList(bytes memory _in) public pure returns (bytes[] memory) {
         LibRLPReader.RLPItem[] memory decoded = LibRLPReader.readList(_in);
         bytes[] memory out = new bytes[](decoded.length);
-        for (uint256 i = 0; i < out.length; i++) {
+        for (uint256 i = 0; i < out.length; ++i) {
             out[i] = LibRLPReader.readRawBytes(decoded[i]);
         }
         return out;

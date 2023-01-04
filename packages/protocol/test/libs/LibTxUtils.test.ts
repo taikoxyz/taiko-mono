@@ -6,9 +6,8 @@ describe("LibTxUtils", function () {
     let libTxUtils: any;
     let libRLPWriter: any;
     let libRLPReader: any;
-    let libConstants: any;
     let testUnsignedTxs: Array<UnsignedTransaction>;
-    let chainId: any;
+    const chainId = 167;
 
     const signingKey = new ethers.utils.SigningKey(
         ethers.utils.randomBytes(32)
@@ -16,10 +15,6 @@ describe("LibTxUtils", function () {
     const signerAddress = new ethers.Wallet(signingKey.privateKey).address;
 
     before(async function () {
-        libConstants = await (
-            await ethers.getContractFactory("LibConstants")
-        ).deploy();
-
         libTxUtils = await (
             await ethers.getContractFactory("TestLibTxUtils")
         ).deploy();
@@ -31,8 +26,6 @@ describe("LibTxUtils", function () {
         libRLPWriter = await (
             await ethers.getContractFactory("TestLibRLPWriter")
         ).deploy();
-
-        chainId = (await libConstants.K_CHAIN_ID()).toNumber();
 
         const unsignedLegacyTx: UnsignedTransaction = {
             type: 0,
@@ -93,19 +86,23 @@ describe("LibTxUtils", function () {
 
             const signature = signingKey.signDigest(expectedHash);
 
-            const hash = await libTxUtils.hashUnsignedTx({
-                txType: unsignedTx.type,
-                destination: unsignedTx.to,
-                data: unsignedTx.data,
-                gasLimit: unsignedTx.gasLimit,
-                v: signature.v,
-                r: signature.r,
-                s: signature.s,
-                txData: ethers.utils.serializeTransaction(
-                    unsignedTx,
-                    signature
-                ),
-            });
+            const hash = await libTxUtils.hashUnsignedTx(
+                chainId,
+
+                {
+                    txType: unsignedTx.type,
+                    destination: unsignedTx.to,
+                    data: unsignedTx.data,
+                    gasLimit: unsignedTx.gasLimit,
+                    v: signature.v,
+                    r: signature.r,
+                    s: signature.s,
+                    txData: ethers.utils.serializeTransaction(
+                        unsignedTx,
+                        signature
+                    ),
+                }
+            );
 
             expect(hash).to.be.equal(expectedHash);
         }
@@ -119,7 +116,7 @@ describe("LibTxUtils", function () {
             const signature = signingKey.signDigest(expectedHash);
 
             expect(
-                await libTxUtils.recoverSender({
+                await libTxUtils.recoverSender(chainId, {
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,
@@ -158,7 +155,7 @@ describe("LibTxUtils", function () {
             );
 
             expect(
-                await libTxUtils.recoverSender({
+                await libTxUtils.recoverSender(chainId, {
                     txType: unsignedTx.type,
                     destination: unsignedTx.to,
                     data: unsignedTx.data,

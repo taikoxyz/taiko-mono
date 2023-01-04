@@ -41,8 +41,8 @@ library LibUint512Math {
     }
 
     /**
-     * Simple 512-bit addition.
-     * Taken from: https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
+     * Simple 512-bit addition. Taken from:
+     * https://xn--2-umb.com/17/512-bit-division/#add-subtract-two-512-bit-numbers
      */
     function add(
         uint256 a0,

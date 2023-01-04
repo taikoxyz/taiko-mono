@@ -38,6 +38,7 @@
   import FaucetModal from "../modals/FaucetModal.svelte";
 
   let amount: string;
+  let amountInput: HTMLInputElement;
   let requiresAllowance: boolean = true;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
@@ -244,6 +245,7 @@
 
   function useFullAmount() {
     amount = tokenBalance;
+    amountInput.value = tokenBalance.toString();
   }
 
   function updateAmount(e: any) {
@@ -273,7 +275,7 @@
       <button class="label-text" on:click={useFullAmount}
         >{$_("bridgeForm.maxLabel")}
         {tokenBalance.length > 10
-          ? `${truncateString(tokenBalance)}...`
+          ? `${truncateString(tokenBalance, 6)}...`
           : tokenBalance}
         {$token.symbol}
       </button>{/if}
@@ -289,6 +291,7 @@
       on:input={updateAmount}
       class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
       name="amount"
+      bind:this={amountInput}
     />
     <SelectToken />
   </label>
@@ -315,15 +318,7 @@
 
 <Memo bind:memo />
 
-{#if !requiresAllowance}
-  <button
-    class="btn btn-accent w-full"
-    on:click={bridge}
-    disabled={btnDisabled}
-  >
-    {$_("home.bridge")}
-  </button>
-{:else if loading}
+{#if loading}
   <button class="btn btn-accent w-full" disabled={true}>
     <LottiePlayer
       src="/lottie/loader.json"
@@ -336,6 +331,14 @@
       width={26}
       controlsLayout={[]}
     />
+  </button>
+{:else if !requiresAllowance}
+  <button
+    class="btn btn-accent w-full"
+    on:click={bridge}
+    disabled={btnDisabled}
+  >
+    {$_("home.bridge")}
   </button>
 {:else}
   <button

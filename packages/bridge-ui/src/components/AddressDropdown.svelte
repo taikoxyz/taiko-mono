@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { disconnect as wagmiDisconnect } from '@wagmi/core'
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
   import { addressSubsection } from "../utils/addressSubsection";
@@ -7,7 +8,7 @@
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
-  import { errorToast } from "../utils/toast";
+  import { errorToast, successToast } from "../utils/toast";
   import { ClipboardDocument, Power } from "svelte-heros-v2";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
@@ -18,8 +19,10 @@
   let addressAvatarImgData: string = "";
   let tokenBalance: string = "";
 
-  onMount(async () => {
-    await setAddress($signer);
+  onMount(() => {
+    (async () => {
+      await setAddress($signer);
+    })();
   });
 
   $: getUserBalance($signer);
@@ -42,10 +45,12 @@
 
   async function copyToClipboard(clip: string) {
     await navigator.clipboard.writeText(clip);
+    successToast('Address copied to clipboard');
   }
 
   async function disconnect() {
     try {
+      await wagmiDisconnect();
       signer.set(null);
     } catch (e) {
       console.error(e);
@@ -86,11 +91,11 @@
         </span>
       {/if}
     </span>
-    <ChevronDown />
+    <ChevronDown size='20' />
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2 text-sm"
   >
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
@@ -100,6 +105,10 @@
             ? `${truncateString(tokenBalance)}...`
             : tokenBalance} ETH
         </div>
+      {:else}
+      <div class="text-lg mt-2">
+        -- ETH
+      </div>
       {/if}
     </div>
     <div class="divider" />

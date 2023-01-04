@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "16.15"
-          
+
       - uses: pnpm/action-setup@v2
         name: Install pnpm
         id: pnpm-install
@@ -46,7 +46,15 @@ jobs:
 
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: pnpm install && pnpm clean && pnpm test:coverage && pnpm test:integration && pnpm export:abi
+        run: pnpm install && pnpm clean && pnpm test
+
+      - name: protocol - Integration Tests
+        working-directory: ./packages/protocol
+        run: pnpm test:integration
+
+      - name: protocol - Test Coverage
+        working-directory: ./packages/protocol
+        run: pnpm test:coverage
 
       - name: protocol - Generate Genesis
         working-directory: ./packages/protocol
@@ -59,6 +67,12 @@ jobs:
       - name: protocol - Generate Docs
         working-directory: ./packages/protocol
         run: pnpm export:docs
+
+      # - uses: stefanzweifel/git-auto-commit-action@v4
+      #   name: protocol - Auto Commit Solidity Docs
+      #   if: github.ref != 'refs/heads/main'
+      #   with:
+      #     commit_message: "chore(docs): auto commit solidity docs"
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol

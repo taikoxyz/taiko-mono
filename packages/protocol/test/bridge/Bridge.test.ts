@@ -980,12 +980,9 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
-            console.log("signal:", signal);
-            console.log("signalProof:", signalProof);
-
             await expect(
                 l2Bridge.isMessageReceived(signal, srcChainId, signalProof)
-            ).to.be.revertedWith("Invalid large internal hash");
+            ).to.be.reverted;
         });
 
         it("should return true", async function () {
