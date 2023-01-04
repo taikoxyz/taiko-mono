@@ -157,7 +157,7 @@ importers:
       rlp: ^3.0.0
       solhint: ^3.3.7
       solidity-coverage: ^0.8.2
-      solidity-docgen: ^0.6.0-beta.29
+      solidity-docgen: ^0.6.0-beta.34
       ts-node: ^10.5.0
       typechain: ^5.2.0
       typescript: ^4.5.5
@@ -203,7 +203,7 @@ importers:
       rlp: 3.0.0
       solhint: 3.3.7
       solidity-coverage: 0.8.2_hardhat@2.12.2
-      solidity-docgen: 0.6.0-beta.30_hardhat@2.12.2
+      solidity-docgen: 0.6.0-beta.34_hardhat@2.12.2
       ts-node: 10.9.1_vw4thnff6td543szquzqpxymti
       typechain: 5.2.0_typescript@4.9.3
       typescript: 4.9.3
@@ -18185,8 +18185,8 @@ packages:
       - supports-color
     dev: true
 
-  /solidity-docgen/0.6.0-beta.30_hardhat@2.12.2:
-    resolution: {integrity: sha512-CfwhhM/hQIWm0LHyUIJse4Lz4kR+VahBfns5Z0l7l+2V3Emv8LNIG8a6aM1+r0k49iOVfO1xyFaJyXFS1UD8cA==}
+  /solidity-docgen/0.6.0-beta.34_hardhat@2.12.2:
+    resolution: {integrity: sha512-igdGrkg8gT1jn+B2NwzjEtSf+7NTrSi/jz88zO7MZWgETmcWbXaxgAsQP4BQeC4YFeH0Pie1NsLP7+9qDgvFtA==}
     peerDependencies:
       hardhat: ^2.8.0
     dependencies:
