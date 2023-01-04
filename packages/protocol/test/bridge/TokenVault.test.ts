@@ -98,6 +98,10 @@ describe("TokenVault", function () {
         );
     });
 
+    const toBytes32 = (bn: BigNumber) => {
+        return ethers.utils.hexlify(ethers.utils.zeroPad(bn.toHexString(), 32));
+    };
+
     describe("receiveERC20()", async () => {
         it("throws when named 'bridge' is not the caller", async () => {
             const amount = BigNumber.from(1);
@@ -306,32 +310,23 @@ describe("TokenVault", function () {
         });
 
         it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () {
-            const toBytes32 = (bn: BigNumber) => {
-                return ethers.utils.hexlify(
-                    ethers.utils.zeroPad(bn.toHexString(), 32)
-                );
-            };
+            const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
+                "TokenVault"
+            );
+            const L1TokenVault = await mockTokenVaultFactory.deploy();
+            await L1TokenVault.init(tokenVaultAddressManager.address);
+            await tokenVaultAddressManager.setAddress(
+                `${hre.network.config.chainId}.token_vault`,
+                L1TokenVault.address
+            );
 
-            const isBridgedTokenSlot = await getSlot(
-                hre,
-                bridgedToken.address,
-                201
-            );
-            await helpers.setStorageAt(
-                L1TokenVault.address,
-                isBridgedTokenSlot,
-                1
-            );
-            const bridgedToCanonicalSlot = await getSlot(
-                hre,
-                bridgedToken.address,
-                202
-            );
-            await helpers.setStorageAt(
-                L1TokenVault.address,
-                bridgedToCanonicalSlot,
-                ethers.constants.AddressZero
-            );
+            await L1TokenVault.setVariable("isBridgedToken", {
+                [bridgedToken.address]: true,
+            });
+
+            await L1TokenVault.setVariable("bridgedToCanonical", {
+                [bridgedToken.address]: ethers.constants.AddressZero,
+            });
 
             await helpers.setStorageAt(bridgedToken.address, 203, 1000000);
             await bridgedToken.approve(owner.address, 1000);
@@ -369,12 +364,6 @@ describe("TokenVault", function () {
                 `${hre.network.config.chainId}.token_vault`,
                 L1TokenVault.address
             );
-
-            const toBytes32 = (bn: BigNumber) => {
-                return ethers.utils.hexlify(
-                    ethers.utils.zeroPad(bn.toHexString(), 32)
-                );
-            };
 
             await L1TokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
