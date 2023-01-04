@@ -169,7 +169,7 @@ describe("integration:TaikoL1", function () {
         );
 
         l2Signer = await l2Provider.getSigner(
-            "0x4D9E82AC620246f6782EAaBaC3E3c86895f3f0F8"
+            (await l2Provider.listAccounts())[0]
         );
 
         const addressManager = await (
