@@ -9,12 +9,6 @@ it uses an AddressManager to manage the name-to-address mapping.
 contract IAddressManager _addressManager
 ```
 
-### \_\_gap
-
-```solidity
-uint256[49] __gap
-```
-
 ### onlyFromNamed
 
 ```solidity
@@ -90,10 +84,4 @@ Returns the AddressManager's address.
 
 ```solidity
 function _init(address addressManager_) internal virtual
-```
-
-### \_resolve
-
-```solidity
-function _resolve(uint256 chainId, string name) private view returns (address payable)
 ```

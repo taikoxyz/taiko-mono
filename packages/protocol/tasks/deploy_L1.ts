@@ -85,7 +85,10 @@ export async function deployContracts(hre: any) {
     const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${chainId}.proof_verifier`, ProofVerifier.address)
+        await AddressManager.setAddress(
+            `${chainId}.proof_verifier`,
+            ProofVerifier.address
+        )
     );
 
     await utils.waitTx(

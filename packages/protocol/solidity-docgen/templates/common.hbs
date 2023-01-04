@@ -9,7 +9,9 @@
 {{{natspec.notice}}}
 
 {{#if natspec.dev}}
+{{#unless (eq visibility "internal")}}
 _{{{natspec.dev}}}_
+{{/unless}}
 {{/if}}
 
 {{#if natspec.params}}
@@ -31,4 +33,3 @@ _{{{natspec.dev}}}_
 | {{#if name}}{{name}}{{else}}[{{@index}}]{{/if}} | {{type}} | {{{joinLines natspec}}} |
 {{/each}}
 {{/if}}
-

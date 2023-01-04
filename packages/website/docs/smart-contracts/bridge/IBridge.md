@@ -22,7 +22,6 @@ struct Message {
   bytes data;
   string memo;
 }
-
 ```
 
 ### Context
@@ -33,7 +32,6 @@ struct Context {
   address sender;
   uint256 srcChainId;
 }
-
 ```
 
 ### SignalSent

@@ -2,7 +2,6 @@
 
 _This is Taiko's governance and fee token._
 
-
 ### Mint
 
 ```solidity

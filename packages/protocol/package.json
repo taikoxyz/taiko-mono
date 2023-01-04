@@ -5,7 +5,7 @@
   "scripts": {
     "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
-    "export:docs": "pnpm hardhat docgen && pnpm prettier --write ./docs/**/*.md",
+    "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/docs/smart-contracts/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
     "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
@@ -71,7 +71,7 @@
     "rlp": "^3.0.0",
     "solhint": "^3.3.7",
     "solidity-coverage": "^0.8.2",
-    "solidity-docgen": "^0.6.0-beta.29",
+    "solidity-docgen": "^0.6.0-beta.34",
     "ts-node": "^10.5.0",
     "typechain": "^5.2.0",
     "typescript": "^4.5.5"

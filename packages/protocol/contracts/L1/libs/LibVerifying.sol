@@ -238,7 +238,7 @@ library LibVerifying {
         return
             fc.blockHash != 0 &&
             block.timestamp >
-            LibUtils.uncleProofDeadline({
+            LibUtils.getUncleProofDeadline({
                 state: state,
                 config: config,
                 fc: fc,
