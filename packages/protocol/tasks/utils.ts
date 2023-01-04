@@ -71,7 +71,7 @@ function getDeployments(_fileName: string) {
 async function getMessageStatusSlot(hre: any, signal: any) {
     return hre.ethers.utils.solidityKeccak256(
         ["string", "bytes"],
-        ["status", signal]
+        ["message_status", signal]
     );
 }
 

@@ -57,6 +57,6 @@ library LibBridgeStatus {
     }
 
     function _statusSlot(bytes32 signal) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("status", signal));
+        return keccak256(abi.encodePacked("message_status", signal));
     }
 }
