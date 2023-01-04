@@ -93,7 +93,7 @@ library LibBridgeSend {
             ISignalService(resolver.resolve("signal_service")).isSignalSent({
                 app: address(this),
                 user: address(0),
-                singal: msgHash
+                signal: msgHash
             });
     }
 
