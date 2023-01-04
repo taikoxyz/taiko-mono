@@ -1,9 +1,7 @@
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import * as fs from "fs";
-import * as path from "path";
-import { getSlot, MessageStatus } from "../../../tasks/utils";
+import { getMessageStatusSlot, MessageStatus } from "../../../tasks/utils";
 import { Message } from "../../utils/message";
 import {
     AddressManager,
@@ -13,30 +11,6 @@ import {
 } from "../../../typechain";
 
 describe("LibBridgeProcess", async function () {
-    function getStateSlot() {
-        const buildInfoDir = path.join(
-            __dirname,
-            "../../../artifacts/build-info"
-        );
-        const contractPath =
-            "contracts/test/bridge/libs/TestLibBridgeProcess.sol";
-        const contractName = "TestLibBridgeProcess";
-
-        for (const buildInfoJson of fs.readdirSync(buildInfoDir)) {
-            const { output } = require(path.join(buildInfoDir, buildInfoJson));
-
-            if (!output.contracts[contractPath]) continue;
-
-            const slotInfo = output.contracts[contractPath][
-                contractName
-            ].storageLayout.storage.find(({ label }: any) => label === "state");
-
-            if (slotInfo) return Number(slotInfo.slot);
-        }
-
-        throw new Error("TestLibBridgeProcess.state slot number not found");
-    }
-
     let owner: any;
     let nonOwner: any;
     let etherVaultOwner: any;
@@ -46,7 +20,6 @@ describe("LibBridgeProcess", async function () {
     let libProcessLink;
     let libProcess: TestLibBridgeProcess;
     let testTaikoData: TestLibBridgeData;
-    const stateSlot = getStateSlot();
     const srcChainId = 1;
     const blockChainId = hre.network.config.chainId ?? 0;
 
@@ -184,7 +157,7 @@ describe("LibBridgeProcess", async function () {
 
             await helpers.setStorageAt(
                 libProcess.address,
-                await getSlot(hre, signal, stateSlot + 1),
+                await getMessageStatusSlot(hre, signal),
                 MessageStatus.RETRIABLE
             );
 
