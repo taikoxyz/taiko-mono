@@ -79,6 +79,15 @@ async function decode(hre: any, type: any, data: any) {
     return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString();
 }
 
+function getSignalSlot(hre: any, sender: any, signal: any) {
+    return hre.ethers.utils.keccak256(
+        hre.ethers.utils.solidityPack(
+            ["string", "address", "bytes32"],
+            ["SIGNAL", sender, signal]
+        )
+    );
+}
+
 const MessageStatus = {
     NEW: 0,
     RETRIABLE: 1,
@@ -155,6 +164,7 @@ export {
     saveDeployments,
     getDeployments,
     getMessageStatusSlot,
+    getSignalSlot,
     decode,
     MessageStatus,
     getLatestBlockHeader,
