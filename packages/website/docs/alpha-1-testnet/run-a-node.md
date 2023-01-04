@@ -9,19 +9,19 @@ This is arguably the most important part of the testnet! Taiko is fully decentra
 Follow the guide at [simple-taiko-node/README.md](https://github.com/taikoxyz/simple-taiko-node/blob/main/README.md) to get started.
 
 :::note
-You will only be able to run a node regularly or as a proposer. In this testnet we are not running any provers.
+You will only be able to run a node regularly or as a proposer. In this testnet we're not running any provers.
 :::
 
 ## System requirements
 
-Because we are a fork of geth, you can consult the [geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), which are outlined below.
+Because we're a fork of Geth, you can consult the [Geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), which are outlined below.
 
 ### Minimum:
 
 - CPU with 2+ cores
 - 4GB RAM
 - 1TB free storage space to sync the Mainnet
-  - (**only ~50GB for Testnet**)
+  - (**only ~50GB for the Taiko A1 testnet**)
 - 8 MBit/sec download Internet service
 
 ### Recommended:
