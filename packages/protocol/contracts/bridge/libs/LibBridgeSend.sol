@@ -90,11 +90,11 @@ library LibBridgeSend {
         bytes32 msgHash
     ) internal view returns (bool) {
         return
-            ISignalService(resolver.resolve("signal_service")).isSignalSent(
-                address(this),
-                address(0),
-                msgHash
-            );
+            ISignalService(resolver.resolve("signal_service")).isSignalSent({
+                app: address(this),
+                user: address(0),
+                singal: msgHash
+            });
     }
 
     function isMessageReceived(
