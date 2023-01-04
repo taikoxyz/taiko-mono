@@ -13,6 +13,7 @@ import hre, { ethers } from "hardhat"
 import { BigNumber, BigNumberish } from "ethers"
 import { getSlot } from "../../tasks/utils"
 import { ADDRESS_RESOLVER_DENIED } from "../constants/errors"
+import { smock } from "@defi-wonderland/smock"
 
 type CanonicalERC20 = {
     chainId: BigNumberish
@@ -34,6 +35,7 @@ describe("TokenVault", function () {
     let owner: any
     let nonOwner: any
     let L1TokenVault: TokenVault
+    let tokenVaultAddressManager: AddressManager
     let destChainTokenVault: TokenVault
     const defaultProcessingFee = 10
     const destChainId = 167001
@@ -50,9 +52,9 @@ describe("TokenVault", function () {
         const tokenVaultFactory: TokenVault__factory =
             await ethers.getContractFactory("TokenVault")
 
-        const tokenVaultAddressManager: AddressManager =
-            await addressManagerFactory.deploy()
+        tokenVaultAddressManager = await addressManagerFactory.deploy()
         await tokenVaultAddressManager.init()
+
         L1TokenVault = await tokenVaultFactory.connect(owner).deploy()
         await L1TokenVault.init(tokenVaultAddressManager.address)
 
@@ -357,36 +359,30 @@ describe("TokenVault", function () {
             ).to.be.revertedWith("V:canonicalToken")
         })
 
-        it.skip("should pass and emit ERC20Sent Event", async function () {
+        it("should pass and emit ERC20Sent Event", async function () {
+            const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
+                "TokenVault"
+            )
+            const L1TokenVault = await mockTokenVaultFactory.deploy()
+            await L1TokenVault.init(tokenVaultAddressManager.address)
+            await tokenVaultAddressManager.setAddress(
+                `${hre.network.config.chainId}.token_vault`,
+                L1TokenVault.address
+            )
+
             const toBytes32 = (bn: BigNumber) => {
                 return ethers.utils.hexlify(
                     ethers.utils.zeroPad(bn.toHexString(), 32)
                 )
             }
 
-            const isBridgedTokenSlot = await getSlot(
-                hre,
-                bridgedToken.address,
-                201
-            )
-            await helpers.setStorageAt(
-                L1TokenVault.address,
-                isBridgedTokenSlot,
-                1
-            )
-            const bridgedToCanonicalSlot = await getSlot(
-                hre,
-                bridgedToken.address,
-                202
-            )
-            // await helpers.setStorageAt(
-            //     L1TokenVault.address,
-            //     bridgedToCanonicalSlot,
-            //     ethers.utils.defaultAbiCoder.encode(
-            //         ["struct TokenVault.CanonicalERC20"],
-            //         weth
-            //     )
-            // )
+            await L1TokenVault.setVariable("isBridgedToken", {
+                [bridgedToken.address]: true,
+            })
+
+            await L1TokenVault.setVariable("bridgedToCanonical", {
+                [bridgedToken.address]: weth,
+            })
 
             await helpers.setStorageAt(bridgedToken.address, 203, 1000000)
             await bridgedToken.approve(owner.address, 1000)
@@ -408,7 +404,7 @@ describe("TokenVault", function () {
                     owner.address,
                     "",
                     {
-                        value: 1,
+                        value: 1000,
                     }
                 )
             ).to.emit(L1TokenVault, "ERC20Sent")
