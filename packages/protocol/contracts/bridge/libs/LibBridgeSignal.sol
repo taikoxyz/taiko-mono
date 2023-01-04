@@ -111,51 +111,37 @@ library LibBridgeSignal {
             syncedHeaderHash == sp.header.hashBlockHeader();
     }
 
-    /**
-     * Check if signal has been received on the destination chain (current).
-     *
-     * @param resolver The address resolver.
-     * @param destBridge Address of the destination bridge where the bridge
-     *                  was initiated.
-     * @param sender Address of the sender of the signal
-     *               (also should be destBridge).
-     * @param signal The signal to check.
-     * @param proof The proof of the signal being sent on the source chain.
-     */
-    function verifySignalStatus(
-        AddressResolver resolver,
-        address destBridge,
-        address sender,
-        bytes32 signal,
-        LibBridgeStatus.MessageStatus status,
-        bytes calldata proof
-    ) internal view returns (bool) {
-        require(destBridge != address(0), "B:srcBridge");
+    // function verifySignalStatus(
+    //     AddressResolver resolver,
+    //     address destBridge,
+    //     address sender,
+    //     bytes32 signal,
+    //     LibBridgeStatus.MessageStatus status,
+    //     bytes calldata proof
+    // ) internal view returns (bool) {
+    //     require(destBridge != address(0), "B:srcBridge");
 
-        StatusProof memory sp = abi.decode(proof, (StatusProof));
-        LibTrieProof.verify({
-            stateRoot: sp.header.stateRoot,
-            addr: destBridge,
-            key: _signalSlot(sender, signal),
-            value: bytes32(uint256(status)),
-            mkproof: sp.proof
-        });
-        // get synced header hash of the header height specified in the proof
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-            .getSyncedHeader(sp.header.height);
-        // check header hash specified in the proof matches the current chain
-        return
-            syncedHeaderHash != 0 &&
-            syncedHeaderHash == sp.header.hashBlockHeader();
-    }
+    //     StatusProof memory sp = abi.decode(proof, (StatusProof));
+    //     LibTrieProof.verify({
+    //         stateRoot: sp.header.stateRoot,
+    //         addr: destBridge,
+    //         key: _signalSlot(sender, signal),
+    //         value: bytes32(uint256(status)),
+    //         mkproof: sp.proof
+    //     });
+    //     // get synced header hash of the header height specified in the proof
+    //     bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
+    //         .getSyncedHeader(sp.header.height);
+    //     // check header hash specified in the proof matches the current chain
+    //     return
+    //         syncedHeaderHash != 0 &&
+    //         syncedHeaderHash == sp.header.hashBlockHeader();
+    // }
 
-    /**
-     * Generate the storage key for a signal.
-     */
     function _signalSlot(
         address sender,
         bytes32 signal
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("signal", sender, signal));
+        return keccak256(abi.encodePacked("SIGNAL", sender, signal));
     }
 }
