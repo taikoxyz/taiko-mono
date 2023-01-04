@@ -131,6 +131,14 @@ action("Generate Genesis", function () {
             );
 
             expect(taikoL2).to.be.equal(getContractAlloc("TaikoL2").address);
+
+            const signalService = await addressManager.getAddress(
+                `${testConfig.chainId}.signal_service`
+            );
+
+            expect(signalService).to.be.equal(
+                getContractAlloc("SignalService").address
+            );
         });
 
         it("LibTxDecoder", async function () {
@@ -311,6 +319,25 @@ action("Generate Genesis", function () {
                     ethers.Wallet.createRandom().address
                 )
             ).to.be.false;
+        });
+
+        it("SignalService", async function () {
+            const SignalService = new hre.ethers.Contract(
+                getContractAlloc("SignalService").address,
+                require("../../artifacts/contracts/signal/SignalService.sol/SignalService.json").abi,
+                signer
+            );
+
+            const owner = await SignalService.owner();
+
+            expect(owner).to.be.equal(testConfig.contractOwner);
+
+            await expect(
+                SignalService.sendSignal(
+                    ethers.Wallet.createRandom().address,
+                    ethers.utils.randomBytes(32)
+                )
+            ).not.to.reverted;
         });
 
         it("ERC20", async function () {
