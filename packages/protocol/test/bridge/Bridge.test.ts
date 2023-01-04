@@ -10,7 +10,6 @@ import {
     AddressManager,
     Bridge,
     EtherVault,
-    LibTrieProof,
     TestBadReceiver,
     TestHeaderSync,
     TestLibBridgeData,
@@ -23,18 +22,8 @@ async function deployBridge(
     destChain: number,
     srcChain: number
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
-    const libTrieProof: LibTrieProof = await (
-        await ethers.getContractFactory("LibTrieProof")
-    )
-        .connect(signer)
-        .deploy();
-
     const libBridgeProcess = await (
-        await ethers.getContractFactory("LibBridgeProcess", {
-            libraries: {
-                LibTrieProof: libTrieProof.address,
-            },
-        })
+        await ethers.getContractFactory("LibBridgeProcess")
     )
         .connect(signer)
         .deploy();
@@ -49,7 +38,6 @@ async function deployBridge(
         libraries: {
             LibBridgeProcess: libBridgeProcess.address,
             LibBridgeRetry: libBridgeRetry.address,
-            LibTrieProof: libTrieProof.address,
         },
     });
 
@@ -264,32 +252,6 @@ describe("Bridge", function () {
             expect(etherVaultUpdatedBalance).to.be.eq(
                 etherVaultOriginalBalance.add(expectedAmount)
             );
-        });
-    });
-
-    describe("sendSignal()", async function () {
-        it("throws when signal is empty", async function () {
-            const { owner, l1Bridge } = await deployBridgeFixture();
-
-            await expect(
-                l1Bridge.connect(owner).sendSignal(ethers.constants.HashZero)
-            ).to.be.revertedWith("B:signal");
-        });
-
-        it("sends signal, confirms it was sent", async function () {
-            const { owner, l1Bridge } = await deployBridgeFixture();
-
-            const hash =
-                "0xf2e08f6b93d8cf4f37a3b38f91a8c37198095dde8697463ca3789e25218a8e9d";
-            await expect(l1Bridge.connect(owner).sendSignal(hash))
-                .to.emit(l1Bridge, "SignalSent")
-                .withArgs(owner.address, hash);
-
-            const isSignalSent = await l1Bridge.isSignalSent(
-                owner.address,
-                hash
-            );
-            expect(isSignalSent).to.be.eq(true);
         });
     });
 
