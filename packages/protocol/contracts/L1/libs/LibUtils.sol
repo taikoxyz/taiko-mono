@@ -143,7 +143,7 @@ library LibUtils {
         return (feeBase * gamma) / 1024;
     }
 
-    function getDelay(
+    function getUncleProofDelay(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
@@ -156,13 +156,13 @@ library LibUtils {
     }
 
     // Returns a deterministic deadline for uncle proof submission.
-    function uncleProofDeadline(
+    function getUncleProofDeadline(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 blockId
     ) internal view returns (uint64) {
-        return fc.provenAt + getDelay(state, config, blockId);
+        return fc.provenAt + getUncleProofDelay(state, config, blockId);
     }
 
     function hashMetadata(

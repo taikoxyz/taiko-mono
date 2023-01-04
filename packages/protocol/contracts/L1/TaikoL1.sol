@@ -288,7 +288,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return LibSharedConfig.getConfig();
     }
 
-    function getDelayForBlockId(uint256 blockId) public view returns (uint64) {
-        return LibUtils.getDelay(state, getConfig(), blockId);
+    function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
+        return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
     }
 }
