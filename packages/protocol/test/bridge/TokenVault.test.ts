@@ -1,19 +1,18 @@
 /* eslint-disable camelcase */
-import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import {
     AddressManager,
     AddressManager__factory,
     BridgedERC20,
+    BridgedERC20__factory,
     TestMessageSender__factory,
     TokenVault,
     TokenVault__factory,
 } from "../../typechain";
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { BigNumber, BigNumberish } from "ethers";
-import { getSlot } from "../../tasks/utils";
 import { ADDRESS_RESOLVER_DENIED } from "../constants/errors";
-import { smock } from "@defi-wonderland/smock";
+import { MockContract, smock } from "@defi-wonderland/smock";
 
 type CanonicalERC20 = {
     chainId: BigNumberish;
@@ -34,12 +33,12 @@ const weth: CanonicalERC20 = {
 describe("TokenVault", function () {
     let owner: any;
     let nonOwner: any;
-    let L1TokenVault: TokenVault;
+    let L1TokenVault: MockContract<TokenVault>;
     let tokenVaultAddressManager: AddressManager;
     let destChainTokenVault: TokenVault;
     const defaultProcessingFee = 10;
     const destChainId = 167001;
-    let bridgedToken: BridgedERC20;
+    let bridgedToken: MockContract<BridgedERC20>;
 
     before(async function () {
         [owner, nonOwner] = await ethers.getSigners();
@@ -55,7 +54,11 @@ describe("TokenVault", function () {
         tokenVaultAddressManager = await addressManagerFactory.deploy();
         await tokenVaultAddressManager.init();
 
-        L1TokenVault = await tokenVaultFactory.connect(owner).deploy();
+        const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
+            "TokenVault"
+        );
+
+        L1TokenVault = await mockTokenVaultFactory.connect(owner).deploy();
         await L1TokenVault.init(tokenVaultAddressManager.address);
 
         destChainTokenVault = await tokenVaultFactory.connect(owner).deploy();
@@ -84,9 +87,11 @@ describe("TokenVault", function () {
             destChainTokenVault.address
         );
 
-        bridgedToken = await (
-            await ethers.getContractFactory("BridgedERC20")
-        ).deploy();
+        const bridgedTokenFactory = await smock.mock<BridgedERC20__factory>(
+            "BridgedERC20"
+        );
+
+        bridgedToken = await bridgedTokenFactory.deploy();
 
         await bridgedToken.init(
             tokenVaultAddressManager.address,
@@ -96,11 +101,11 @@ describe("TokenVault", function () {
             weth.symbol,
             weth.name
         );
-    });
 
-    const toBytes32 = (bn: BigNumber) => {
-        return ethers.utils.hexlify(ethers.utils.zeroPad(bn.toHexString(), 32));
-    };
+        await bridgedToken.setVariable("_totalSupply", 1000000);
+        await bridgedToken.approve(owner.address, 1000);
+        await bridgedToken.setVariable("_balances", { [owner.address]: 10 });
+    });
 
     describe("receiveERC20()", async () => {
         it("throws when named 'bridge' is not the caller", async () => {
@@ -310,32 +315,10 @@ describe("TokenVault", function () {
         });
 
         it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () {
-            const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
-                "TokenVault"
-            );
-            const L1TokenVault = await mockTokenVaultFactory.deploy();
-            await L1TokenVault.init(tokenVaultAddressManager.address);
-            await tokenVaultAddressManager.setAddress(
-                `${hre.network.config.chainId}.token_vault`,
-                L1TokenVault.address
-            );
-
             await L1TokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
             });
-
-            await L1TokenVault.setVariable("bridgedToCanonical", {
-                [bridgedToken.address]: ethers.constants.AddressZero,
-            });
-
-            await helpers.setStorageAt(bridgedToken.address, 203, 1000000);
-            await bridgedToken.approve(owner.address, 1000);
-            const accountBalanceSlot = await getSlot(hre, owner.address, 201);
-            await helpers.setStorageAt(
-                bridgedToken.address,
-                accountBalanceSlot,
-                toBytes32(ethers.BigNumber.from("10")).toString()
-            );
+            // don't need to manually set bridgedToCanonical since default value is addressZero
 
             await expect(
                 L1TokenVault.connect(owner).sendERC20(
@@ -355,16 +338,6 @@ describe("TokenVault", function () {
         });
 
         it("should pass and emit ERC20Sent Event", async function () {
-            const mockTokenVaultFactory = await smock.mock<TokenVault__factory>(
-                "TokenVault"
-            );
-            const L1TokenVault = await mockTokenVaultFactory.deploy();
-            await L1TokenVault.init(tokenVaultAddressManager.address);
-            await tokenVaultAddressManager.setAddress(
-                `${hre.network.config.chainId}.token_vault`,
-                L1TokenVault.address
-            );
-
             await L1TokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
             });
@@ -372,15 +345,6 @@ describe("TokenVault", function () {
             await L1TokenVault.setVariable("bridgedToCanonical", {
                 [bridgedToken.address]: weth,
             });
-
-            await helpers.setStorageAt(bridgedToken.address, 203, 1000000);
-            await bridgedToken.approve(owner.address, 1000);
-            const accountBalanceSlot = await getSlot(hre, owner.address, 201);
-            await helpers.setStorageAt(
-                bridgedToken.address,
-                accountBalanceSlot,
-                toBytes32(ethers.BigNumber.from("10")).toString()
-            );
 
             await expect(
                 L1TokenVault.connect(owner).sendERC20(
