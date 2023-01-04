@@ -25,11 +25,11 @@ After your pull request is merged, a bot will automatically leave a comment with
 
 # Coding standards
 
-## Pull requests
+### Pull requests
 
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch.
 
-## Source code comments
+### Source code comments
 
 Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-format.html) for documenting smart contract source code. Please adhere to a few additional standards:
 
@@ -41,13 +41,13 @@ Follow the [NatSpec format](https://docs.soliditylang.org/en/latest/natspec-form
 
 Use the [Microsoft Writing Style Guide](https://learn.microsoft.com/en-us/style-guide/welcome/) as a base point of reference.
 
-## Philosophy
+### Philosophy
 
 - Create the minimum viable documentation.
 - Don't repeat yourself, use links to existing documentation or inherit it.
 - Keep documentation close to what it's describing (for example, in the source code).
 
-## Document types
+### Document types
 
 Group documentation under one of the four categories (adopted from [Diátaxis](https://diataxis.fr/)):
 
@@ -56,7 +56,7 @@ Group documentation under one of the four categories (adopted from [Diátaxis](h
 - Tutorials
 - Reference
 
-## Images
+### Images
 
 - Use SVG files or crushed PNG images.
 - Provide alt text.
