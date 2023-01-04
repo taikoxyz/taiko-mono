@@ -139,6 +139,53 @@ describe("TaikoL1", function () {
             ).to.be.revertedWith("0x1");
         });
     });
+
+    describe("whitelisting()", async function () {
+        it("proposers", async function () {
+            const proposer = (await ethers.getSigners())[1];
+            await taikoL1.enableWhitelisting(true, true);
+            const initIsWhitelisted = await taikoL1.isProposerWhitelisted(
+                proposer.address
+            );
+            expect(initIsWhitelisted).to.be.eq(false);
+
+            await taikoL1.whitelistProposer(proposer.address, true);
+
+            const isWhitelisted = await taikoL1.isProposerWhitelisted(
+                proposer.address
+            );
+            expect(isWhitelisted).to.be.eq(true);
+
+            await taikoL1.whitelistProposer(proposer.address, false);
+
+            const isWhitelistAfterDelisting =
+                await taikoL1.isProposerWhitelisted(proposer.address);
+            expect(isWhitelistAfterDelisting).to.be.eq(false);
+        });
+
+        it("proposers", async function () {
+            const prover = (await ethers.getSigners())[1];
+            await taikoL1.enableWhitelisting(true, true);
+            const initIsWhitelisted = await taikoL1.isProverWhitelisted(
+                prover.address
+            );
+            expect(initIsWhitelisted).to.be.eq(false);
+
+            await taikoL1.whitelistProver(prover.address, true);
+
+            const isWhitelisted = await taikoL1.isProverWhitelisted(
+                prover.address
+            );
+            expect(isWhitelisted).to.be.eq(true);
+
+            await taikoL1.whitelistProver(prover.address, false);
+
+            const isWhitelistAfterDelisting = await taikoL1.isProverWhitelisted(
+                prover.address
+            );
+            expect(isWhitelistAfterDelisting).to.be.eq(false);
+        });
+    });
 });
 
 describe("integration: TaikoL1", function () {
@@ -229,7 +276,34 @@ describe("integration: TaikoL1", function () {
         await taikoL1.init(addressManager.address, genesisHash as string);
     });
 
-    describe("commitBlock() -> proposeBlock()", async function () {
+    describe("isCommitValid()", async function () {
+        it("should not be valid", async function () {
+            const block = await l2Provider.getBlock("latest");
+            const txListHash = ethers.utils.keccak256(
+                RLP.encode(block.transactions)
+            );
+            const hash = ethers.utils.keccak256(
+                ethers.utils.solidityPack(
+                    ["address", "bytes32"],
+                    [block.miner, txListHash]
+                )
+            );
+
+            const isCommitValid = await taikoL1.isCommitValid(1, 1, hash);
+
+            expect(isCommitValid).to.be.eq(false);
+        });
+    });
+
+    describe("getProposedBlock()", function () {
+        it("proposed block does not exist", async function () {
+            const block = await taikoL1.getProposedBlock(123);
+            expect(block[0]).to.be.eq(ethers.constants.HashZero);
+            expect(block[1]).to.be.eq(ethers.constants.AddressZero);
+            expect(block[2]).to.be.eq(BigNumber.from(0));
+        });
+    });
+    describe("commitBlock() -> proposeBlock() integration", async function () {
         it("should revert with invalid meta", async function () {
             const block = await l2Provider.getBlock("latest");
             const txListHash = ethers.utils.keccak256(
@@ -423,6 +497,23 @@ describe("integration: TaikoL1", function () {
                 taikoL1,
                 "BlockProposed"
             );
+
+            const stateVariables = await taikoL1.getStateVariables();
+            const proposedBlock = await taikoL1.getProposedBlock(
+                stateVariables[3].sub(1)
+            );
+
+            expect(proposedBlock[0]).not.to.be.eq(ethers.constants.HashZero);
+            expect(proposedBlock[1]).not.to.be.eq(ethers.constants.AddressZero);
+            expect(proposedBlock[2]).not.to.be.eq(BigNumber.from(0));
+
+            const isCommitValid = await taikoL1.isCommitValid(
+                1,
+                tx.blockNumber as number,
+                hash
+            );
+
+            expect(isCommitValid).to.be.eq(true);
         });
     });
 });
