@@ -14,7 +14,7 @@ You will only be able to run a node regularly or as a proposer. In this testnet 
 
 ## System requirements
 
-Because we are a fork of geth, you can consult the (geth minimum requirements)[https://github.com/ethereum/go-ethereum#hardware-requirements], which are outlined below.
+Because we are a fork of geth, you can consult the [geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), which are outlined below.
 
 ### Minimum:
 
