@@ -60,6 +60,12 @@ Invalidate a L2 block by verifying its txList is not intrinsically valid.
 | hint   | enum LibInvalidTxList.Reason | A hint for this method to invalidate the txList.                                                 |
 | txIdx  | uint256                      | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
 
+### getConfig
+
+```solidity
+function getConfig() public view virtual returns (struct TaikoData.Config config)
+```
+
 ### getSyncedHeader
 
 ```solidity
@@ -76,10 +82,4 @@ function getLatestSyncedHeader() public view returns (bytes32)
 
 ```solidity
 function getBlockHash(uint256 number) public view returns (bytes32)
-```
-
-### getConstants
-
-```solidity
-function getConstants() public pure returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
 ```
