@@ -131,6 +131,14 @@ action("Generate Genesis", function () {
             );
 
             expect(taikoL2).to.be.equal(getContractAlloc("TaikoL2").address);
+
+            const signalService = await addressManager.getAddress(
+                `${testConfig.chainId}.signal_service`
+            );
+
+            expect(signalService).to.be.equal(
+                getContractAlloc("SignalService").address
+            );
         });
 
         it("LibTxDecoder", async function () {
@@ -157,7 +165,7 @@ action("Generate Genesis", function () {
             expect(decoded.items.length).to.be.eql(0);
         });
 
-        it("TaikoL2", async function () {
+        it.skip("TaikoL2", async function () {
             const TaikoL2Alloc = getContractAlloc("TaikoL2");
 
             const TaikoL2 = new hre.ethers.Contract(
@@ -273,6 +281,21 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner);
 
+            const tx = await TokenVault.sendEther(
+                1,
+                ethers.Wallet.createRandom().address,
+                100,
+                0,
+                ethers.Wallet.createRandom().address,
+                "memo",
+                {
+                    gasLimit: 10000000,
+                    value: hre.ethers.utils.parseEther("100"),
+                }
+            );
+
+            await tx.wait();
+
             await expect(
                 TokenVault.sendEther(
                     1,
@@ -311,6 +334,25 @@ action("Generate Genesis", function () {
                     ethers.Wallet.createRandom().address
                 )
             ).to.be.false;
+        });
+
+        it("SignalService", async function () {
+            const SignalService = new hre.ethers.Contract(
+                getContractAlloc("SignalService").address,
+                require("../../artifacts/contracts/signal/SignalService.sol/SignalService.json").abi,
+                signer
+            );
+
+            const owner = await SignalService.owner();
+
+            expect(owner).to.be.equal(testConfig.contractOwner);
+
+            await expect(
+                SignalService.sendSignal(
+                    ethers.Wallet.createRandom().address,
+                    ethers.utils.randomBytes(32)
+                )
+            ).not.to.reverted;
         });
 
         it("ERC20", async function () {

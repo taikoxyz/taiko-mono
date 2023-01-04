@@ -184,6 +184,18 @@ export async function deployContracts(hre: any) {
         );
     }
 
+    // SignalService
+    const SignalService = await deploySignalSerive(hre, AddressManager.address);
+
+    // Used by Bridge
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            `${chainId}.signal_service`,
+            Bridge.address
+        )
+    );
+
     // save deployments
     const deployments = {
         network,
@@ -195,6 +207,7 @@ export async function deployContracts(hre: any) {
             { TkoToken: TkoToken.address },
             { TaikoL1: TaikoL1.address },
             { Bridge: Bridge.address },
+            { SignalService: SignalService.address },
             { TokenVault: TokenVault.address }
         ),
     };
@@ -227,18 +240,13 @@ async function deployBaseLibs(hre: any) {
 }
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
-    const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
     const libBridgeRetry = await utils.deployContract(hre, "LibBridgeRetry");
     const libBridgeProcess = await utils.deployContract(
         hre,
-        "LibBridgeProcess",
-        {
-            LibTrieProof: libTrieProof.address,
-        }
+        "LibBridgeProcess"
     );
 
     const Bridge = await utils.deployContract(hre, "Bridge", {
-        LibTrieProof: libTrieProof.address,
         LibBridgeRetry: libBridgeRetry.address,
         LibBridgeProcess: libBridgeProcess.address,
     });
@@ -257,4 +265,19 @@ async function deployTokenVault(
     await utils.waitTx(hre, await TokenVault.init(addressManager));
 
     return TokenVault;
+}
+
+async function deploySignalSerive(
+    hre: any,
+    addressManager: string
+): Promise<any> {
+    const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
+
+    const SignalService = await utils.deployContract(hre, "SignalService", {
+        LibTrieProof: libTrieProof.address,
+    });
+
+    await utils.waitTx(hre, await SignalService.init(addressManager));
+
+    return SignalService;
 }
