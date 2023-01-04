@@ -22,39 +22,35 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy();
 
-        const libZKP = await (
-            await ethers.getContractFactory("LibZKP")
+        const libProposing = await (
+            await ethers.getContractFactory("LibProposing")
         ).deploy();
 
-        const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
-        ).deploy();
-
-        const v1Proving = await (
-            await ethers.getContractFactory("V1Proving", {
+        const libProving = await (
+            await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
-                    LibZKP: libZKP.address,
                 },
             })
         ).deploy();
 
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying")
+        const libVerifying = await (
+            await ethers.getContractFactory("LibVerifying")
         ).deploy();
 
         genesisHash = randomBytes32();
+        const feeBase = BigNumber.from(10).pow(18);
         taikoL1 = await (
-            await ethers.getContractFactory("TaikoL1", {
+            await ethers.getContractFactory("TestTaikoL1", {
                 libraries: {
-                    V1Verifying: v1Verifying.address,
-                    V1Proposing: v1Proposing.address,
-                    V1Proving: v1Proving.address,
+                    LibVerifying: libVerifying.address,
+                    LibProposing: libProposing.address,
+                    LibProving: libProving.address,
                 },
             })
         ).deploy();
-        await taikoL1.init(addressManager.address, genesisHash);
+        await taikoL1.init(addressManager.address, genesisHash, feeBase);
     });
 
     describe("getLatestSyncedHeader()", async function () {
@@ -139,53 +135,6 @@ describe("TaikoL1", function () {
             ).to.be.revertedWith("0x1");
         });
     });
-
-    describe("whitelisting()", async function () {
-        it("proposers", async function () {
-            const proposer = (await ethers.getSigners())[1];
-            await taikoL1.enableWhitelisting(true, true);
-            const initIsWhitelisted = await taikoL1.isProposerWhitelisted(
-                proposer.address
-            );
-            expect(initIsWhitelisted).to.be.eq(false);
-
-            await taikoL1.whitelistProposer(proposer.address, true);
-
-            const isWhitelisted = await taikoL1.isProposerWhitelisted(
-                proposer.address
-            );
-            expect(isWhitelisted).to.be.eq(true);
-
-            await taikoL1.whitelistProposer(proposer.address, false);
-
-            const isWhitelistAfterDelisting =
-                await taikoL1.isProposerWhitelisted(proposer.address);
-            expect(isWhitelistAfterDelisting).to.be.eq(false);
-        });
-
-        it("proposers", async function () {
-            const prover = (await ethers.getSigners())[1];
-            await taikoL1.enableWhitelisting(true, true);
-            const initIsWhitelisted = await taikoL1.isProverWhitelisted(
-                prover.address
-            );
-            expect(initIsWhitelisted).to.be.eq(false);
-
-            await taikoL1.whitelistProver(prover.address, true);
-
-            const isWhitelisted = await taikoL1.isProverWhitelisted(
-                prover.address
-            );
-            expect(isWhitelisted).to.be.eq(true);
-
-            await taikoL1.whitelistProver(prover.address, false);
-
-            const isWhitelistAfterDelisting = await taikoL1.isProverWhitelisted(
-                prover.address
-            );
-            expect(isWhitelistAfterDelisting).to.be.eq(false);
-        });
-    });
 });
 
 describe("integration: TaikoL1", function () {
@@ -216,26 +165,21 @@ describe("integration: TaikoL1", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy();
 
-        const libZKP = await (
-            await ethers.getContractFactory("LibZKP")
+        const libProposing = await (
+            await ethers.getContractFactory("LibProposing")
         ).deploy();
 
-        const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
-        ).deploy();
-
-        const v1Proving = await (
-            await ethers.getContractFactory("V1Proving", {
+        const libProving = await (
+            await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
-                    LibZKP: libZKP.address,
                 },
             })
         ).deploy();
 
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying")
+        const libVerifying = await (
+            await ethers.getContractFactory("LibVerifying")
         ).deploy();
 
         const l2AddressManager = await (
@@ -267,9 +211,9 @@ describe("integration: TaikoL1", function () {
         taikoL1 = await (
             await ethers.getContractFactory("TaikoL1", {
                 libraries: {
-                    V1Verifying: v1Verifying.address,
-                    V1Proposing: v1Proposing.address,
-                    V1Proving: v1Proving.address,
+                    LibVerifying: libVerifying.address,
+                    LibProposing: libProposing.address,
+                    LibProving: libProving.address,
                 },
             })
         ).deploy();

@@ -16,7 +16,7 @@ const config: HardhatUserConfig = {
     docgen: {
         exclude: [
             "bridge/libs/",
-            "L1/v1/",
+            "L1/libs/",
             "libs/",
             "test/",
             "thirdparty/",
@@ -95,33 +95,6 @@ const config: HardhatUserConfig = {
             },
         },
         version: "0.8.9",
-    },
-    preprocess: {
-        eachLine: () => ({
-            transform: (line) => {
-                for (const constantName of [
-                    "K_CHAIN_ID",
-                    "K_COMMIT_DELAY_CONFIRMS",
-                    "K_BLOCK_MAX_TXS",
-                    "K_TXLIST_MAX_BYTES",
-                    "K_BLOCK_MAX_GAS_LIMIT",
-                    "K_MAX_NUM_BLOCKS",
-                    "K_INITIAL_UNCLE_DELAY",
-                ]) {
-                    if (
-                        process.env[constantName] &&
-                        line.includes(`uint256 public constant ${constantName}`)
-                    ) {
-                        return `${line.slice(0, line.indexOf(" ="))} = ${
-                            process.env[constantName]
-                        };`;
-                    }
-                }
-
-                return line;
-            },
-            files: "libs/LibConstants.sol",
-        }),
     },
 };
 
