@@ -68,6 +68,12 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:docs
 
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        name: protocol - Auto Commit Solidity Docs
+        if: github.ref != 'refs/heads/main'
+        with:
+          commit_message: "chore(docs): auto commit solidity docs"
+
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: pnpm deploy:hardhat

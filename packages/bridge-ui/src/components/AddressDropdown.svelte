@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { disconnect as wagmiDisconnect } from '@wagmi/core'
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
   import { addressSubsection } from "../utils/addressSubsection";
@@ -7,7 +8,7 @@
   import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
   import { ethers, Signer } from "ethers";
-  import { errorToast } from "../utils/toast";
+  import { errorToast, successToast } from "../utils/toast";
   import { ClipboardDocument, Power } from "svelte-heros-v2";
   import { slide } from "svelte/transition";
   import { fromChain } from "../store/chain";
@@ -44,10 +45,12 @@
 
   async function copyToClipboard(clip: string) {
     await navigator.clipboard.writeText(clip);
+    successToast('Address copied to clipboard');
   }
 
   async function disconnect() {
     try {
+      await wagmiDisconnect();
       signer.set(null);
     } catch (e) {
       console.error(e);

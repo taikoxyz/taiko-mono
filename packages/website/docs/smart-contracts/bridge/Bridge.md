@@ -5,12 +5,6 @@ which calls the library implementations. See {IBridge} for more details.
 
 _The code hash for the same address on L1 and L2 may be different._
 
-### state
-
-```solidity
-struct LibBridgeData.State state
-```
-
 ### MessageStatusChanged
 
 ```solidity
