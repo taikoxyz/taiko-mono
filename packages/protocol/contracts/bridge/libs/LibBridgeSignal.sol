@@ -29,11 +29,6 @@ library LibBridgeSignal {
         bytes proof;
     }
 
-    struct StatusProof {
-        BlockHeader header;
-        bytes proof;
-    }
-
     modifier onlyValidSenderAndSignal(address sender, bytes32 signal) {
         require(sender != address(0), "B:sender");
         require(signal != 0, "B:signal");
@@ -110,33 +105,6 @@ library LibBridgeSignal {
             syncedHeaderHash != 0 &&
             syncedHeaderHash == sp.header.hashBlockHeader();
     }
-
-    // function verifySignalStatus(
-    //     AddressResolver resolver,
-    //     address destBridge,
-    //     address sender,
-    //     bytes32 signal,
-    //     LibBridgeStatus.MessageStatus status,
-    //     bytes calldata proof
-    // ) internal view returns (bool) {
-    //     require(destBridge != address(0), "B:srcBridge");
-
-    //     StatusProof memory sp = abi.decode(proof, (StatusProof));
-    //     LibTrieProof.verify({
-    //         stateRoot: sp.header.stateRoot,
-    //         addr: destBridge,
-    //         key: _signalSlot(sender, signal),
-    //         value: bytes32(uint256(status)),
-    //         mkproof: sp.proof
-    //     });
-    //     // get synced header hash of the header height specified in the proof
-    //     bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-    //         .getSyncedHeader(sp.header.height);
-    //     // check header hash specified in the proof matches the current chain
-    //     return
-    //         syncedHeaderHash != 0 &&
-    //         syncedHeaderHash == sp.header.hashBlockHeader();
-    // }
 
     function _signalSlot(
         address sender,
