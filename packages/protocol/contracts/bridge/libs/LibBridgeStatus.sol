@@ -40,19 +40,19 @@ library LibBridgeStatus {
     function getMessageStatus(
         bytes32 signal
     ) internal view returns (MessageStatus) {
-        bytes32 key = _statusSlot(signal);
+        bytes32 k = _statusSlot(signal);
         uint256 v;
         assembly {
-            v := sload(key)
+            v := sload(k)
         }
         return MessageStatus(v);
     }
 
     function _setMessageStatus(bytes32 signal, MessageStatus status) private {
-        bytes32 key = _statusSlot(signal);
+        bytes32 k = _statusSlot(signal);
         uint256 v = uint256(status);
         assembly {
-            sstore(key, v)
+            sstore(k, v)
         }
     }
 

@@ -50,9 +50,9 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal onlyValidSenderAndSignal(sender, signal) {
-        bytes32 key = _signalSlot(sender, signal);
+        bytes32 k = _signalSlot(sender, signal);
         assembly {
-            sstore(key, 1)
+            sstore(k, 1)
         }
     }
 
@@ -66,10 +66,10 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
-        bytes32 key = _signalSlot(sender, signal);
+        bytes32 k = _signalSlot(sender, signal);
         uint256 v;
         assembly {
-            v := sload(key)
+            v := sload(k)
         }
         return v == 1;
     }
