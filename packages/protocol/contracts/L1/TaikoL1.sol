@@ -284,11 +284,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return state.forkChoices[id][parentHash].provers;
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory) {
-        return LibSharedConfig.getConfig();
-    }
-
     function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
+    }
+
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
+        return LibSharedConfig.getConfig();
     }
 }
