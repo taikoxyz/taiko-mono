@@ -231,19 +231,6 @@ contract TokenVault is EssentialContract {
         emit ERC20Sent(to, destChainId, token, _amount, signal);
     }
 
-    function releaseERC20(
-        CanonicalERC20 calldata canonicalToken,
-        address from,
-        address to,
-        uint256 amount
-    ) external nonReentrant {}
-
-    function releaseEther(
-        address from,
-        address to,
-        uint256 amount
-    ) external nonReentrant {}
-
     /**
      * @dev This function can only be called by the bridge contract while
      *      invoking a message call.

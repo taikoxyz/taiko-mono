@@ -15,6 +15,7 @@ import "./libs/LibBridgeProcess.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeSignal.sol";
+import "./libs/LibBridgeStatus.sol";
 
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
@@ -39,7 +40,7 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageStatusChanged(
         bytes32 indexed signal,
-        LibBridgeData.MessageStatus status
+        LibBridgeStatus.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -159,8 +160,8 @@ contract Bridge is EssentialContract, IBridge {
 
     function getMessageStatus(
         bytes32 signal
-    ) public view virtual returns (LibBridgeData.MessageStatus) {
-        return LibBridgeData.getMessageStatus(signal);
+    ) public view virtual returns (LibBridgeStatus.MessageStatus) {
+        return LibBridgeStatus.getMessageStatus(signal);
     }
 
     function context() public view returns (Context memory) {

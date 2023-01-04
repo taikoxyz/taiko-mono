@@ -13,6 +13,7 @@ import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibTrieProof.sol";
 import "./LibBridgeData.sol";
+import "./LibBridgeStatus.sol";
 
 /**
  * Library for working with bridge signals.
@@ -49,7 +50,7 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal onlyValidSenderAndSignal(sender, signal) {
-        bytes32 key = _signalKey(sender, signal);
+        bytes32 key = _signalSlot(sender, signal);
         assembly {
             sstore(key, 1)
         }
@@ -65,7 +66,7 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
-        bytes32 key = _signalKey(sender, signal);
+        bytes32 key = _signalSlot(sender, signal);
         uint256 v;
         assembly {
             v := sload(key)
@@ -97,7 +98,7 @@ library LibBridgeSignal {
         LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
             addr: srcBridge,
-            key: _signalKey(sender, signal),
+            key: _signalSlot(sender, signal),
             value: bytes32(uint256(1)),
             mkproof: sp.proof
         });
@@ -126,7 +127,7 @@ library LibBridgeSignal {
         address destBridge,
         address sender,
         bytes32 signal,
-        LibBridgeData.MessageStatus status,
+        LibBridgeStatus.MessageStatus status,
         bytes calldata proof
     ) internal view returns (bool) {
         require(destBridge != address(0), "B:srcBridge");
@@ -135,7 +136,7 @@ library LibBridgeSignal {
         LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
             addr: destBridge,
-            key: _signalKey(sender, signal),
+            key: _signalSlot(sender, signal),
             value: bytes32(uint256(status)),
             mkproof: sp.proof
         });
@@ -151,7 +152,7 @@ library LibBridgeSignal {
     /**
      * Generate the storage key for a signal.
      */
-    function _signalKey(
+    function _signalSlot(
         address sender,
         bytes32 signal
     ) private pure returns (bytes32) {

@@ -12,6 +12,7 @@ import "../EtherVault.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeSignal.sol";
+import "./LibBridgeStatus.sol";
 
 /**
  * Process bridge messages on the destination chain.
@@ -55,8 +56,8 @@ library LibBridgeProcess {
         // LibBridgeRetry.sol
         bytes32 signal = message.hashMessage();
         require(
-            LibBridgeData.getMessageStatus(signal) ==
-                LibBridgeData.MessageStatus.NEW,
+            LibBridgeStatus.getMessageStatus(signal) ==
+                LibBridgeStatus.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
@@ -84,13 +85,13 @@ library LibBridgeProcess {
         // will actually consume the Ether.
         message.owner.sendEther(message.depositValue);
 
-        LibBridgeData.MessageStatus status;
+        LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
-            status = LibBridgeData.MessageStatus.DONE;
+            status = LibBridgeStatus.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else {
             uint256 gasLimit = msg.sender == message.owner
@@ -105,16 +106,16 @@ library LibBridgeProcess {
             });
 
             if (success) {
-                status = LibBridgeData.MessageStatus.DONE;
+                status = LibBridgeStatus.MessageStatus.DONE;
             } else {
-                status = LibBridgeData.MessageStatus.RETRIABLE;
+                status = LibBridgeStatus.MessageStatus.RETRIABLE;
                 if (ethVault != address(0)) {
                     ethVault.sendEther(message.callValue);
                 }
             }
         }
 
-        LibBridgeData.updateMessageStatus(signal, status);
+        LibBridgeStatus.updateMessageStatus(signal, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
