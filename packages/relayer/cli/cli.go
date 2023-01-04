@@ -44,7 +44,7 @@ var (
 
 	defaultBlockBatchSize                = 2
 	defaultNumGoroutines                 = 10
-	defaultSubscriptionBackoff           = 2 * time.Second
+	defaultSubscriptionBackoff           = 600 * time.Second
 	defaultConfirmations                 = 15
 	defaultHeaderSyncIntervalSeconds int = 60
 )

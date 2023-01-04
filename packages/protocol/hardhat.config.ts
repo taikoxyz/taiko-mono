@@ -1,17 +1,17 @@
-import "@nomiclabs/hardhat-etherscan"
-import "@nomiclabs/hardhat-waffle"
-import "@openzeppelin/hardhat-upgrades"
-import "@typechain/hardhat"
-import "hardhat-abi-exporter"
-import "hardhat-gas-reporter"
-import "hardhat-preprocessor"
-import { HardhatUserConfig } from "hardhat/config"
-import "solidity-coverage"
-import "solidity-docgen"
-import "./tasks/deploy_L1"
+import "@nomiclabs/hardhat-etherscan";
+import "@nomiclabs/hardhat-waffle";
+import "@openzeppelin/hardhat-upgrades";
+import "@typechain/hardhat";
+import "hardhat-abi-exporter";
+import "hardhat-gas-reporter";
+import "hardhat-preprocessor";
+import { HardhatUserConfig } from "hardhat/config";
+import "solidity-coverage";
+import "solidity-docgen";
+import "./tasks/deploy_L1";
 
 const hardhatMnemonic =
-    "test test test test test test test test test test test taik"
+    "test test test test test test test test test test test taik";
 const config: HardhatUserConfig = {
     docgen: {
         exclude: [
@@ -114,15 +114,15 @@ const config: HardhatUserConfig = {
                     ) {
                         return `${line.slice(0, line.indexOf(" ="))} = ${
                             process.env[constantName]
-                        };`
+                        };`;
                     }
                 }
 
-                return line
+                return line;
             },
             files: "libs/LibConstants.sol",
         }),
     },
-}
+};
 
-export default config
+export default config;

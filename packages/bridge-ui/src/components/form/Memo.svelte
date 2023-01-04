@@ -19,7 +19,7 @@
   </span>
   <input
     type="checkbox"
-    class="toggle rounded-full"
+    class="toggle rounded-full duration-300"
     on:click={() => {
       showMemo = !showMemo;
     }}
