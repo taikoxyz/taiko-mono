@@ -308,12 +308,7 @@ describe("integration:TaikoL1", function () {
                 commitHeight: tx.blockNumber,
             };
 
-            const blockMetadataBytes = ethers.utils.defaultAbiCoder.encode(
-                [
-                    "tuple(uint256 id, uint256 l1Height, bytes32 l1Hash, address beneficiary, bytes32 txListHash, bytes32 mixHash, bytes extraData, uint64 gasLimit, uint64 timestamp, uint64 commitHeight, uint64 commitSlot)",
-                ],
-                [meta]
-            );
+            const blockMetadataBytes = encodeBlockMetadata(meta);
 
             inputs[0] = blockMetadataBytes;
             inputs[1] = RLP.encode(block.transactions);
@@ -358,12 +353,7 @@ describe("integration:TaikoL1", function () {
                 commitHeight: tx.blockNumber,
             };
 
-            const blockMetadataBytes = ethers.utils.defaultAbiCoder.encode(
-                [
-                    "tuple(uint256 id, uint256 l1Height, bytes32 l1Hash, address beneficiary, bytes32 txListHash, bytes32 mixHash, bytes extraData, uint64 gasLimit, uint64 timestamp, uint64 commitHeight, uint64 commitSlot)",
-                ],
-                [meta]
-            );
+            const blockMetadataBytes = encodeBlockMetadata(meta);
 
             inputs[0] = blockMetadataBytes;
             inputs[1] = RLP.encode(block.transactions);
@@ -406,12 +396,7 @@ describe("integration:TaikoL1", function () {
                 commitHeight: tx.blockNumber,
             };
 
-            const blockMetadataBytes = ethers.utils.defaultAbiCoder.encode(
-                [
-                    "tuple(uint256 id, uint256 l1Height, bytes32 l1Hash, address beneficiary, bytes32 txListHash, bytes32 mixHash, bytes extraData, uint64 gasLimit, uint64 timestamp, uint64 commitHeight, uint64 commitSlot)",
-                ],
-                [meta]
-            );
+            const blockMetadataBytes = encodeBlockMetadata(meta);
 
             inputs[0] = blockMetadataBytes;
             inputs[1] = RLP.encode(block.transactions);
@@ -454,12 +439,7 @@ describe("integration:TaikoL1", function () {
                 commitHeight: tx.blockNumber,
             };
 
-            const blockMetadataBytes = ethers.utils.defaultAbiCoder.encode(
-                [
-                    "tuple(uint256 id, uint256 l1Height, bytes32 l1Hash, address beneficiary, bytes32 txListHash, bytes32 mixHash, bytes extraData, uint64 gasLimit, uint64 timestamp, uint64 commitHeight, uint64 commitSlot)",
-                ],
-                [meta]
-            );
+            const blockMetadataBytes = encodeBlockMetadata(meta);
 
             inputs[0] = blockMetadataBytes;
             inputs[1] = RLP.encode(block.transactions);
@@ -492,4 +472,13 @@ describe("integration:TaikoL1", function () {
 
 function randomBytes32() {
     return ethers.utils.hexlify(ethers.utils.randomBytes(32));
+}
+
+function encodeBlockMetadata(meta: unknown) {
+    return ethers.utils.defaultAbiCoder.encode(
+        [
+            "tuple(uint256 id, uint256 l1Height, bytes32 l1Hash, address beneficiary, bytes32 txListHash, bytes32 mixHash, bytes extraData, uint64 gasLimit, uint64 timestamp, uint64 commitHeight, uint64 commitSlot)",
+        ],
+        [meta]
+    );
 }
