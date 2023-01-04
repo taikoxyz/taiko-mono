@@ -70,4 +70,4 @@ echo "Start testing..."
 
 TEST_L2_GENESIS=true pnpm hardhat test --grep "Generate Genesis"
 
-docker compose -f $TESTNET_CONFIG down
+docker compose -f $TESTNET_CONFIG down -v

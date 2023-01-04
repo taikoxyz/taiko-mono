@@ -165,7 +165,7 @@ action("Generate Genesis", function () {
             expect(decoded.items.length).to.be.eql(0);
         });
 
-        it.skip("TaikoL2", async function () {
+        it("TaikoL2", async function () {
             const TaikoL2Alloc = getContractAlloc("TaikoL2");
 
             const TaikoL2 = new hre.ethers.Contract(
