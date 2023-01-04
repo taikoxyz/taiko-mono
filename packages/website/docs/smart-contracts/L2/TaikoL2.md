@@ -1,17 +1,5 @@
 ## TaikoL2
 
-### l2Hashes
-
-```solidity
-mapping(uint256 => bytes32) l2Hashes
-```
-
-### l1Hashes
-
-```solidity
-mapping(uint256 => bytes32) l1Hashes
-```
-
 ### publicInputHash
 
 ```solidity
