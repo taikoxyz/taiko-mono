@@ -209,7 +209,7 @@ describe("integration: TaikoL1", function () {
         const genesisHash = taikoL2.deployTransaction.blockHash;
 
         taikoL1 = await (
-            await ethers.getContractFactory("TaikoL1", {
+            await ethers.getContractFactory("TestTaikoL1", {
                 libraries: {
                     LibVerifying: libVerifying.address,
                     LibProposing: libProposing.address,
@@ -217,7 +217,14 @@ describe("integration: TaikoL1", function () {
                 },
             })
         ).deploy();
-        await taikoL1.init(addressManager.address, genesisHash as string);
+
+        const feeBase = BigNumber.from(10).pow(18);
+
+        await taikoL1.init(
+            addressManager.address,
+            genesisHash as string,
+            feeBase
+        );
     });
 
     describe("isCommitValid()", async function () {
@@ -314,6 +321,8 @@ describe("integration: TaikoL1", function () {
             );
 
             // blockMetadata is inputs[0], txListBytes = inputs[1]
+            const config = await taikoL1.getConfig();
+            const gasLimit = config[7];
             const inputs = [];
             const meta = {
                 id: 0,
@@ -323,9 +332,7 @@ describe("integration: TaikoL1", function () {
                 txListHash: txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
-                gasLimit: BigNumber.from(process.env.K_BLOCK_MAX_GAS_LIMIT).add(
-                    1
-                ),
+                gasLimit: gasLimit.add(1),
                 timestamp: 0,
                 commitSlot: 1,
                 commitHeight: tx.blockNumber,
@@ -346,7 +353,7 @@ describe("integration: TaikoL1", function () {
             );
         });
 
-        it("should revert with invalid gasLimit", async function () {
+        it("should revert with invalid extraData", async function () {
             const block = await l2Provider.getBlock("latest");
             const txListHash = ethers.utils.keccak256(
                 RLP.encode(block.transactions)
@@ -443,13 +450,14 @@ describe("integration: TaikoL1", function () {
             );
 
             const stateVariables = await taikoL1.getStateVariables();
+            const nextBlockId = stateVariables[4];
             const proposedBlock = await taikoL1.getProposedBlock(
-                stateVariables[3].sub(1)
+                nextBlockId.sub(1)
             );
 
             expect(proposedBlock[0]).not.to.be.eq(ethers.constants.HashZero);
-            expect(proposedBlock[1]).not.to.be.eq(ethers.constants.AddressZero);
-            expect(proposedBlock[2]).not.to.be.eq(BigNumber.from(0));
+            expect(proposedBlock[2]).not.to.be.eq(ethers.constants.AddressZero);
+            expect(proposedBlock[3]).not.to.be.eq(BigNumber.from(0));
 
             const isCommitValid = await taikoL1.isCommitValid(
                 1,
