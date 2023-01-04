@@ -68,10 +68,10 @@ function getDeployments(_fileName: string) {
     return JSON.parse(`${json}`);
 }
 
-async function getSlot(hre: any, signal: any, mappingSlot: any) {
+async function getMessageStatusSlot(hre: any, signal: any) {
     return hre.ethers.utils.solidityKeccak256(
-        ["bytes", "uint256"],
-        [signal, mappingSlot]
+        ["string", "bytes"],
+        ["status", signal]
     );
 }
 
@@ -154,7 +154,7 @@ export {
     getContract,
     saveDeployments,
     getDeployments,
-    getSlot,
+    getMessageStatusSlot,
     decode,
     MessageStatus,
     getLatestBlockHeader,

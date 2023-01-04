@@ -29,7 +29,7 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
-                    LibTxDecoder: libTxDecoder.address
+                    LibTxDecoder: libTxDecoder.address,
                 },
             })
         ).deploy();
@@ -41,16 +41,13 @@ describe("TaikoL1", function () {
         genesisHash = randomBytes32();
         const feeBase = BigNumber.from(10).pow(18);
         taikoL1 = await (
-            await ethers.getContractFactory(
-                "TestTaikoL1",
-                {
-                    libraries: {
-                        LibVerifying: libVerifying.address,
-                        LibProposing: libProposing.address,
-                        LibProving: libProving.address,
-                    },
-                }
-            )
+            await ethers.getContractFactory("TestTaikoL1", {
+                libraries: {
+                    LibVerifying: libVerifying.address,
+                    LibProposing: libProposing.address,
+                    LibProving: libProving.address,
+                },
+            })
         ).deploy();
         await taikoL1.init(addressManager.address, genesisHash, feeBase);
     });
