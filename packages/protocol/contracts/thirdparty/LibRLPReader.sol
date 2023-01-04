@@ -423,7 +423,7 @@ library LibRLPReader {
         }
 
         // Copy over as many complete words as we can.
-        for (uint256 i = 0; i < _length / 32; i++) {
+        for (uint256 i = 0; i < _length / 32; ++i) {
             assembly {
                 mstore(dest, mload(src))
             }

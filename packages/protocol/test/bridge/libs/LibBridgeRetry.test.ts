@@ -20,7 +20,7 @@ describe("LibBridgeRetry", function () {
     let etherVault: EtherVault;
     let libRetry: TestLibBridgeRetry;
     let badLibRetry: TestLibBridgeRetry;
-    let testLibData: TestLibBridgeData;
+    let testTaikoData: TestLibBridgeData;
 
     before(async function () {
         [owner, nonOwner, refundAddress, etherVaultOwner] =
@@ -90,7 +90,7 @@ describe("LibBridgeRetry", function () {
             .connect(etherVaultOwner)
             .authorize(libRetry.address, true);
 
-        testLibData = await (
+        testTaikoData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy();
     });
@@ -186,7 +186,7 @@ describe("LibBridgeRetry", function () {
                 memo: "",
             };
 
-            const signal = await testLibData.hashMessage(message);
+            const signal = await testTaikoData.hashMessage(message);
 
             await helpers.setStorageAt(
                 badLibRetry.address,
@@ -235,7 +235,7 @@ describe("LibBridgeRetry", function () {
                 memo: "",
             };
 
-            const signal = await testLibData.hashMessage(message);
+            const signal = await testTaikoData.hashMessage(message);
 
             await helpers.setStorageAt(
                 libRetry.address,
@@ -287,7 +287,7 @@ describe("LibBridgeRetry", function () {
                 memo: "",
             };
 
-            const signal = await testLibData.hashMessage(message);
+            const signal = await testTaikoData.hashMessage(message);
 
             await helpers.setStorageAt(
                 libRetry.address,
@@ -341,7 +341,7 @@ describe("LibBridgeRetry", function () {
                 memo: "",
             };
 
-            const signal = await testLibData.hashMessage(message);
+            const signal = await testTaikoData.hashMessage(message);
 
             await helpers.setStorageAt(
                 libRetry.address,

@@ -92,7 +92,7 @@
           }
         ],
         "indexed": false,
-        "internalType": "struct LibData.BlockMetadata",
+        "internalType": "struct TaikoData.BlockMetadata",
         "name": "meta",
         "type": "tuple"
       }
@@ -415,7 +415,7 @@
             "type": "bytes32"
           }
         ],
-        "internalType": "struct LibData.ProposedBlock",
+        "internalType": "struct TaikoData.ProposedBlock",
         "name": "",
         "type": "tuple"
       }
