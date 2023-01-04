@@ -2,18 +2,6 @@
 
 Vault that holds Ether.
 
-### authorizedAddrs
-
-```solidity
-mapping(address => bool) authorizedAddrs
-```
-
-### \_\_gap
-
-```solidity
-uint256[49] __gap
-```
-
 ### Authorized
 
 ```solidity
