@@ -1,7 +1,7 @@
 import { expect } from "chai";
-import hre, { ethers } from "hardhat";
 import { BigNumber, Signer } from "ethers";
-import { Message } from "../utils/message";
+import hre, { ethers } from "hardhat";
+import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils";
 import {
     AddressManager,
     Bridge,
@@ -11,7 +11,7 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
-import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils";
+import { Message } from "../utils/message";
 
 async function deployBridge(
     signer: Signer,
@@ -443,7 +443,9 @@ describe("integration:Bridge", function () {
         );
 
         const l2Signer = await l2Provider.getSigner(
-            "0x4D9E82AC620246f6782EAaBaC3E3c86895f3f0F8"
+            (
+                await l2Provider.listAccounts()
+            )[0]
         );
 
         const l2NonOwner = await l2Provider.getSigner();
