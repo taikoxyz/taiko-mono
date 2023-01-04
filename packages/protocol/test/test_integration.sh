@@ -19,18 +19,12 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-PLATFORM_ARG=""
-if [[ `uname -m` == "arm64" ]]; then
-    PLATFORM_ARG="--platform linux/amd64"
-fi
-
 docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
   $TEST_NODE_CONTAINER_NAME_L2 \
   $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
 
 # Start a test ethereum node
 docker run -d \
-  $PLATFORM_ARG \
   --name $TEST_NODE_CONTAINER_NAME_L1 \
   -p 18545:8545 \
   ethereum/client-go:latest \
@@ -38,7 +32,6 @@ docker run -d \
   --http.api debug,eth,net,web3,txpool,miner
 
 docker run -d \
-  $PLATFORM_ARG \
   --name $TEST_NODE_CONTAINER_NAME_L2 \
   -p 28545:8545 \
   gcr.io/evmchain/hardhat-node:latest \
@@ -72,7 +65,6 @@ waitTestNode http://localhost:28545
 
 # Import ETHs from the random pre-allocated developer account to the test account
 docker run -d \
-  $PLATFORM_ARG \
   --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
   --add-host host.docker.internal:host-gateway \
   ethereum/client-go:latest \
