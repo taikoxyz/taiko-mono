@@ -65,40 +65,16 @@ library LibBridgeData {
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
      *      does nothing.
-     * @param state The current bridge state.
      * @param signal The messageHash of the message.
      * @param status The status of the message.
      */
     function updateMessageStatus(
-        State storage state,
         bytes32 signal,
         MessageStatus status
     ) internal {
         if (getMessageStatus(signal) != status) {
             _setMessageStatus(signal, status);
             emit LibBridgeData.MessageStatusChanged(signal, status);
-        }
-    }
-
-    /**
-     * @dev Hashes messages and returns the hash signed with
-     * "TAIKO_BRIDGE_MESSAGE" for verification.
-     */
-    function hashMessage(
-        IBridge.Message memory message
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
-    }
-
-    function _messageStatusKey(bytes32 signal) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("status", signal));
-    }
-
-    function _setMessageStatus(bytes32 signal, MessageStatus status) private {
-        bytes32 key = _messageStatusKey(signal);
-        uint256 v = uint256(status);
-        assembly {
-            sstore(key, v)
         }
     }
 
@@ -111,5 +87,27 @@ library LibBridgeData {
             v := sload(key)
         }
         return MessageStatus(v);
+    }
+
+    /**
+     * @dev Hashes messages and returns the hash signed with
+     * "TAIKO_BRIDGE_MESSAGE" for verification.
+     */
+    function hashMessage(
+        IBridge.Message memory message
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
+    }
+
+    function _setMessageStatus(bytes32 signal, MessageStatus status) private {
+        bytes32 key = _messageStatusKey(signal);
+        uint256 v = uint256(status);
+        assembly {
+            sstore(key, v)
+        }
+    }
+
+    function _messageStatusKey(bytes32 signal) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked("status", signal));
     }
 }

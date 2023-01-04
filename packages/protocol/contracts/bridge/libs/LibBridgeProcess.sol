@@ -114,7 +114,7 @@ library LibBridgeProcess {
             }
         }
 
-        state.updateMessageStatus(signal, status);
+        LibBridgeData.updateMessageStatus(signal, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner

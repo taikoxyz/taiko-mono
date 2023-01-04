@@ -11,13 +11,11 @@ pragma solidity ^0.8.9;
 import "../../../bridge/libs/LibBridgeData.sol";
 
 contract TestLibBridgeData {
-    LibBridgeData.State public state;
-
     function updateMessageStatus(
         bytes32 signal,
         LibBridgeData.MessageStatus status
     ) public {
-        LibBridgeData.updateMessageStatus(state, signal, status);
+        LibBridgeData.updateMessageStatus(signal, status);
     }
 
     function getMessageStatus(

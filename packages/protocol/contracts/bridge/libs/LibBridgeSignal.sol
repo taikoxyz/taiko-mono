@@ -90,7 +90,7 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal,
         bytes calldata proof
-    ) internal view returns (bool) {
+    ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
         require(srcBridge != address(0), "B:srcBridge");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));

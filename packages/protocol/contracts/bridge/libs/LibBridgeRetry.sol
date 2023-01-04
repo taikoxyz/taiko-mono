@@ -69,9 +69,12 @@ library LibBridgeRetry {
                 gasLimit: gasleft()
             })
         ) {
-            state.updateMessageStatus(signal, LibBridgeData.MessageStatus.DONE);
+            LibBridgeData.updateMessageStatus(
+                signal,
+                LibBridgeData.MessageStatus.DONE
+            );
         } else if (isLastAttempt) {
-            state.updateMessageStatus(
+            LibBridgeData.updateMessageStatus(
                 signal,
                 LibBridgeData.MessageStatus.FAILED
             );
