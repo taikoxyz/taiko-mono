@@ -141,7 +141,7 @@ library LibBytesUtils {
     ) internal pure returns (bytes memory) {
         bytes memory nibbles = new bytes(_bytes.length * 2);
 
-        for (uint256 i = 0; i < _bytes.length; i++) {
+        for (uint256 i = 0; i < _bytes.length; ++i) {
             nibbles[i * 2] = _bytes[i] >> 4;
             nibbles[i * 2 + 1] = bytes1(uint8(_bytes[i]) % 16);
         }
@@ -154,7 +154,7 @@ library LibBytesUtils {
     ) internal pure returns (bytes memory) {
         bytes memory ret = new bytes(_bytes.length / 2);
 
-        for (uint256 i = 0; i < ret.length; i++) {
+        for (uint256 i = 0; i < ret.length; ++i) {
             ret[i] = (_bytes[i * 2] << 4) | (_bytes[i * 2 + 1]);
         }
 

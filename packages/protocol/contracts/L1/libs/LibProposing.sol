@@ -9,41 +9,35 @@
 pragma solidity ^0.8.9;
 
 import "../../common/ConfigManager.sol";
-import "../../libs/LibConstants.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
-import "./V1Utils.sol";
+import "./LibUtils.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library V1Proposing {
+library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
-    using LibData for LibData.State;
+    using LibUtils for TaikoData.BlockMetadata;
+    using LibUtils for TaikoData.State;
 
     event BlockCommitted(
         uint64 commitSlot,
         uint64 commitHeight,
         bytes32 commitHash
     );
-    event BlockProposed(uint256 indexed id, LibData.BlockMetadata meta);
-
-    modifier onlyWhitelistedProposer(LibData.TentativeState storage tentative) {
-        if (tentative.whitelistProposers) {
-            require(tentative.proposers[msg.sender], "L1:whitelist");
-        }
-        _;
-    }
+    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     function commitBlock(
-        LibData.State storage state,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         uint64 commitSlot,
         bytes32 commitHash
     ) public {
-        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(config.commitConfirmations > 0);
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // assert(!V1Utils.isHalted(state));
+        // assert(!LibUtils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
@@ -58,33 +52,37 @@ library V1Proposing {
     }
 
     function proposeBlock(
-        LibData.State storage state,
-        LibData.TentativeState storage tentative,
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProposer(tentative) {
-        assert(!V1Utils.isHalted(state));
+    ) public {
+        assert(!LibUtils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
-        LibData.BlockMetadata memory meta = abi.decode(
+        TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
-            (LibData.BlockMetadata)
+            (TaikoData.BlockMetadata)
         );
-        _verifyBlockCommit(state, meta);
-        _validateMetadata(meta);
+        _verifyBlockCommit({
+            state: state,
+            commitConfirmations: config.commitConfirmations,
+            meta: meta
+        });
+        _validateMetadata(config, meta);
 
         {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             require(
                 txList.length >= 0 &&
-                    txList.length <= LibConstants.K_TXLIST_MAX_BYTES &&
+                    txList.length <= config.maxBytesPerTxList &&
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
             );
             require(
                 state.nextBlockId <
-                    state.latestVerifiedId + LibConstants.K_MAX_NUM_BLOCKS,
+                    state.latestVerifiedId + config.maxNumBlocks,
                 "L1:tooMany"
             );
 
@@ -98,45 +96,101 @@ library V1Proposing {
             meta.mixHash = bytes32(block.difficulty);
         }
 
-        state.avgBlockTime = V1Utils
-            .movingAverage({
-                maValue: state.avgBlockTime,
-                newValue: meta.timestamp - state.lastProposedAt,
-                maf: LibConstants.K_BLOCK_TIME_MAF
-            })
-            .toUint64();
+        uint256 deposit;
+        if (config.enableTokenomics) {
+            uint256 newFeeBase;
+            {
+                uint256 fee;
+                (newFeeBase, fee, deposit) = getBlockFee(state, config);
+                TkoToken(resolver.resolve("tko_token")).burn(
+                    msg.sender,
+                    fee + deposit
+                );
+            }
+            // Update feeBase and avgBlockTime
+            state.feeBase = LibUtils.movingAverage({
+                maValue: state.feeBase,
+                newValue: newFeeBase,
+                maf: config.feeBaseMAF
+            });
+        }
 
-        state.saveProposedBlock(
+        _saveProposedBlock(
+            state,
+            config.maxNumBlocks,
             state.nextBlockId,
-            LibData.ProposedBlock({
-                metaHash: LibData.hashMetadata(meta),
+            TaikoData.ProposedBlock({
+                metaHash: meta.hashMetadata(),
+                deposit: deposit,
                 proposer: msg.sender,
                 proposedAt: meta.timestamp
             })
         );
 
+        state.avgBlockTime = LibUtils
+            .movingAverage({
+                maValue: state.avgBlockTime,
+                newValue: meta.timestamp - state.lastProposedAt,
+                maf: config.blockTimeMAF
+            })
+            .toUint64();
+
         state.lastProposedAt = meta.timestamp;
+
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
+    function getBlockFee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
+        (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: true,
+            tNow: uint64(block.timestamp),
+            tLast: state.lastProposedAt,
+            tAvg: state.avgBlockTime
+        });
+        fee = LibUtils.getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: true,
+            feeBase: newFeeBase
+        });
+        fee = LibUtils.getBootstrapDiscountedFee(state, config, fee);
+        deposit = (fee * config.proposerDepositPctg) / 100;
+    }
+
     function isCommitValid(
-        LibData.State storage state,
+        TaikoData.State storage state,
+        uint256 commitConfirmations,
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
     ) public view returns (bool) {
-        assert(LibConstants.K_COMMIT_DELAY_CONFIRMS > 0);
+        assert(commitConfirmations > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
             state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + LibConstants.K_COMMIT_DELAY_CONFIRMS;
+            block.number >= commitHeight + commitConfirmations;
+    }
+
+    function _saveProposedBlock(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id,
+        TaikoData.ProposedBlock memory blk
+    ) private {
+        state.proposedBlocks[id % maxNumBlocks] = blk;
     }
 
     function _verifyBlockCommit(
-        LibData.State storage state,
-        LibData.BlockMetadata memory meta
+        TaikoData.State storage state,
+        uint256 commitConfirmations,
+        TaikoData.BlockMetadata memory meta
     ) private {
-        if (LibConstants.K_COMMIT_DELAY_CONFIRMS == 0) {
+        if (commitConfirmations == 0) {
             return;
         }
         bytes32 commitHash = _calculateCommitHash(
@@ -147,6 +201,7 @@ library V1Proposing {
         require(
             isCommitValid({
                 state: state,
+                commitConfirmations: commitConfirmations,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
@@ -161,7 +216,10 @@ library V1Proposing {
         }
     }
 
-    function _validateMetadata(LibData.BlockMetadata memory meta) private pure {
+    function _validateMetadata(
+        TaikoData.Config memory config,
+        TaikoData.BlockMetadata memory meta
+    ) private pure {
         require(
             meta.id == 0 &&
                 meta.l1Height == 0 &&
@@ -173,10 +231,7 @@ library V1Proposing {
             "L1:placeholder"
         );
 
-        require(
-            meta.gasLimit <= LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            "L1:gasLimit"
-        );
+        require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 

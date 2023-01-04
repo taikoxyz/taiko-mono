@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { BigNumber } from "ethers";
 import { TaikoL1 } from "../../typechain";
 
 describe("TaikoL1", function () {
@@ -20,39 +21,35 @@ describe("TaikoL1", function () {
             await ethers.getContractFactory("LibTxDecoder")
         ).deploy();
 
-        const libZKP = await (
-            await ethers.getContractFactory("LibZKP")
+        const libProposing = await (
+            await ethers.getContractFactory("LibProposing")
         ).deploy();
 
-        const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
-        ).deploy();
-
-        const v1Proving = await (
-            await ethers.getContractFactory("V1Proving", {
+        const libProving = await (
+            await ethers.getContractFactory("LibProving", {
                 libraries: {
                     LibReceiptDecoder: libReceiptDecoder.address,
                     LibTxDecoder: libTxDecoder.address,
-                    LibZKP: libZKP.address,
                 },
             })
         ).deploy();
 
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying")
+        const libVerifying = await (
+            await ethers.getContractFactory("LibVerifying")
         ).deploy();
 
         genesisHash = randomBytes32();
+        const feeBase = BigNumber.from(10).pow(18);
         taikoL1 = await (
-            await ethers.getContractFactory("TaikoL1", {
+            await ethers.getContractFactory("TestTaikoL1", {
                 libraries: {
-                    V1Verifying: v1Verifying.address,
-                    V1Proposing: v1Proposing.address,
-                    V1Proving: v1Proving.address,
+                    LibVerifying: libVerifying.address,
+                    LibProposing: libProposing.address,
+                    LibProving: libProving.address,
                 },
             })
         ).deploy();
-        await taikoL1.init(addressManager.address, genesisHash);
+        await taikoL1.init(addressManager.address, genesisHash, feeBase);
     });
 
     describe("getLatestSyncedHeader()", async function () {
@@ -88,16 +85,16 @@ describe("TaikoL1", function () {
 
     describe("getDelayForBlockId()", async function () {
         it("should return  initial uncle delay for block id <= 2 * K_MAX_NUM_BLOCKS", async function () {
-            const constants = await taikoL1.getConstants();
-            const maxNumBlocks = constants[2];
+            const constants = await taikoL1.getConfig();
+            const maxNumBlocks = constants[1];
             const delay = await taikoL1.getDelayForBlockId(maxNumBlocks.mul(2));
-            const initialUncleDelay = 3600;
+            const initialUncleDelay = 60;
             expect(delay).to.be.eq(initialUncleDelay);
         });
 
         it("should return avg proof time for block id > 2 * K_MAX_NUM_BLOCKS", async function () {
-            const constants = await taikoL1.getConstants();
-            const maxNumBlocks = constants[2];
+            const constants = await taikoL1.getConfig();
+            const maxNumBlocks = constants[1];
             const delay = await taikoL1.getDelayForBlockId(
                 maxNumBlocks.mul(2).add(1)
             );

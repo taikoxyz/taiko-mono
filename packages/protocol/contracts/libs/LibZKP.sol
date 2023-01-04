@@ -19,7 +19,7 @@ library LibZKP {
         bytes32 blockHash,
         address prover,
         bytes32 txListHash
-    ) public pure {
+    ) internal pure returns (bool verified) {
         // TODO
     }
 }

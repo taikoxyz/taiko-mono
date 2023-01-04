@@ -12,14 +12,16 @@ import "../../libs/LibTxUtils.sol";
 
 contract TestLibTxUtils {
     function hashUnsignedTx(
+        uint256 chainId,
         LibTxDecoder.Tx memory transaction
     ) public pure returns (bytes32 hash) {
-        return LibTxUtils.hashUnsignedTx(transaction);
+        return LibTxUtils.hashUnsignedTx(chainId, transaction);
     }
 
     function recoverSender(
+        uint256 chainId,
         LibTxDecoder.Tx memory transaction
     ) public pure returns (address) {
-        return LibTxUtils.recoverSender(transaction);
+        return LibTxUtils.recoverSender(chainId, transaction);
     }
 }
