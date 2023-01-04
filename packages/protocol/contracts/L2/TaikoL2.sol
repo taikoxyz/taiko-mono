@@ -8,7 +8,6 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -16,7 +15,7 @@ import "../common/AddressResolver.sol";
 import "../common/IHeaderSync.sol";
 import "../libs/LibAnchorSignature.sol";
 import "../libs/LibInvalidTxList.sol";
-import "../libs/LibConstants.sol";
+import "../libs/LibSharedConfig.sol";
 import "../libs/LibTxDecoder.sol";
 
 /// @author dantaik <dan@taiko.xyz>
@@ -50,7 +49,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
-        for (uint256 i = 0; i < 255 && number >= i + 2; i++) {
+        for (uint256 i = 0; i < 255 && number >= i + 2; ++i) {
             ancestors[i] = blockhash(number - i - 2);
         }
 
@@ -104,6 +103,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         require(tx.gasprice == 0, "L2:gasPrice");
 
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+            config: getConfig(),
             encoded: txList,
             hint: hint,
             txIdx: txIdx
@@ -118,6 +118,16 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * Public Functions   *
      **********************/
+
+    function getConfig()
+        public
+        view
+        virtual
+        returns (TaikoData.Config memory config)
+    {
+        config = LibSharedConfig.getConfig();
+        config.chainId = block.chainid;
+    }
 
     function getSyncedHeader(
         uint256 number
@@ -143,48 +153,13 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
-    // NOTE: If the order of the return values of this function changes, then
-    // some test cases that using this function in generate_genesis.test.ts
-    // may also needs to be modified accordingly.
-    function getConstants()
-        public
-        pure
-        returns (
-            uint256, // K_ZKPROOFS_PER_BLOCK
-            uint256, // K_CHAIN_ID
-            uint256, // K_MAX_NUM_BLOCKS
-            uint256, // K_MAX_VERIFICATIONS_PER_TX
-            uint256, // K_COMMIT_DELAY_CONFIRMS
-            uint256, // K_MAX_PROOFS_PER_FORK_CHOICE
-            uint256, // K_BLOCK_MAX_GAS_LIMIT
-            uint256, // K_BLOCK_MAX_TXS
-            uint256, // K_TXLIST_MAX_BYTES
-            uint256, // K_TX_MIN_GAS_LIMIT
-            uint256 // K_ANCHOR_TX_GAS_LIMIT
-        )
-    {
-        return (
-            LibConstants.K_ZKPROOFS_PER_BLOCK,
-            LibConstants.K_CHAIN_ID,
-            LibConstants.K_MAX_NUM_BLOCKS,
-            LibConstants.K_MAX_VERIFICATIONS_PER_TX,
-            LibConstants.K_COMMIT_DELAY_CONFIRMS,
-            LibConstants.K_MAX_PROOFS_PER_FORK_CHOICE,
-            LibConstants.K_BLOCK_MAX_GAS_LIMIT,
-            LibConstants.K_BLOCK_MAX_TXS,
-            LibConstants.K_TXLIST_MAX_BYTES,
-            LibConstants.K_TX_MIN_GAS_LIMIT,
-            LibConstants.K_ANCHOR_TX_GAS_LIMIT
-        );
-    }
-
     function _checkPublicInputs() private {
         // Check the latest 256 block hashes (excluding the parent hash).
         bytes32[255] memory ancestors;
         uint256 number = block.number;
         uint256 chainId = block.chainid;
 
-        for (uint256 i = 2; i <= 256 && number >= i; i++) {
+        for (uint256 i = 2; i <= 256 && number >= i; ++i) {
             ancestors[(number - i) % 255] = blockhash(number - i);
         }
 

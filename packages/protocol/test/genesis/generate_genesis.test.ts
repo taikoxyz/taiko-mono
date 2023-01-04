@@ -134,6 +134,13 @@ action("Generate Genesis", function () {
         });
 
         it("LibTxDecoder", async function () {
+            const TaikoL2Alloc = getContractAlloc("TaikoL2");
+            const TaikoL2 = new hre.ethers.Contract(
+                TaikoL2Alloc.address,
+                require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
+                signer
+            );
+            const config = await TaikoL2.getConfig();
             const LibTxDecoderAlloc = getContractAlloc("LibTxDecoder");
 
             const LibTxDecoder = new hre.ethers.Contract(
@@ -143,6 +150,7 @@ action("Generate Genesis", function () {
             );
 
             const decoded = await LibTxDecoder.callStatic.decodeTxList(
+                config.chainId,
                 ethers.utils.RLP.encode([])
             );
 
@@ -186,7 +194,7 @@ action("Generate Genesis", function () {
                     5, // hint: TX_INVALID_SIG
                     0
                 )
-            ).to.be.revertedWith("L2:sender")
+            ).to.be.revertedWith("L2:sender");
 
             const taikoL2WithGoldenTouchSigner = new hre.ethers.Contract(
                 TaikoL2Alloc.address,
@@ -195,7 +203,7 @@ action("Generate Genesis", function () {
                     "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38",
                     provider
                 )
-            )
+            );
 
             const tx = await taikoL2WithGoldenTouchSigner.invalidateBlock(
                 bytes,
@@ -351,11 +359,11 @@ action("Generate Genesis", function () {
 });
 
 async function generateMaxSizeInvalidTxList(TaikoL2: any) {
-    const constants = await TaikoL2.getConstants();
+    const config = await TaikoL2.getConfig();
 
-    const chainId = constants[0].toNumber();
-    const blockMaxTxNums = constants[7].toNumber();
-    const txListMaxBytes = constants[9].toNumber();
+    const chainId = config.chainId;
+    const maxTransactionsPerBlock = config.maxTransactionsPerBlock;
+    const maxBytesPerTxList = config.maxBytesPerTxList;
 
     const tx = {
         type: 2,
@@ -368,7 +376,7 @@ async function generateMaxSizeInvalidTxList(TaikoL2: any) {
         gasLimit: Math.ceil(Math.random() * 1024000),
         accessList: [],
         data: ethers.utils.randomBytes(
-            Math.floor(txListMaxBytes / blockMaxTxNums)
+            Math.floor(maxBytesPerTxList / maxTransactionsPerBlock)
         ),
     };
 
@@ -378,13 +386,13 @@ async function generateMaxSizeInvalidTxList(TaikoL2: any) {
         s: "0x5cf4b3b2b3957e7016366d180493c2c226ea8ad12aed7faddbc0ce3a6789256d",
     };
 
-    const txs = new Array(blockMaxTxNums).fill(tx);
+    const txs = new Array(maxTransactionsPerBlock).fill(tx);
 
     let txListBytes = ethers.utils.RLP.encode(
         txs.map((tx) => ethers.utils.serializeTransaction(tx, invalidSig))
     );
 
-    while (ethers.utils.arrayify(txListBytes).length > txListMaxBytes) {
+    while (ethers.utils.arrayify(txListBytes).length > maxBytesPerTxList) {
         txs[0] = Object.assign(txs[0], { data: txs[0].data.slice(10) });
 
         txListBytes = ethers.utils.RLP.encode(
