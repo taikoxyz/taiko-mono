@@ -18,10 +18,16 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+PLATFORM_ARG=""
+if [[ `uname -m` == "arm64" ]]; then
+    PLATFORM_ARG="--platform linux/amd64"
+fi
+
 docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
 
 # Start a test ethereum node
 docker run -d \
+  $PLATFORM_ARG \
   --name $TEST_NODE_CONTAINER_NAME \
   -p 18545:8545 \
   ethereum/client-go:latest \
@@ -50,12 +56,13 @@ done
 
 # Import ETHs from the random pre-allocated developer account to the test account
 docker run -d \
+  $PLATFORM_ARG \
   --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
   --add-host host.docker.internal:host-gateway \
   ethereum/client-go:latest \
   --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
-function cleanup { 
+function cleanup {
   docker rm --force $TEST_NODE_CONTAINER_NAME $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
   kill -9 $(lsof -ti:28545) &> /dev/null
 }
