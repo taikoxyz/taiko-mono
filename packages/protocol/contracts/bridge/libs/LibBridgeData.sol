@@ -27,13 +27,13 @@ library LibBridgeData {
         uint256[45] __gap;
     }
 
-    bytes32 internal constant SIGNAL_PLACEHOLDER = bytes32(uint256(1));
+    bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         0x0000000000000000000000000000000000000001;
 
     // Note: These events must match the ones defined in Bridge.sol.
-    event MessageSent(bytes32 indexed signal, IBridge.Message message);
+    event MessageSent(bytes32 indexed msgHash, IBridge.Message message);
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 

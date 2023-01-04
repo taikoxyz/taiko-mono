@@ -8,8 +8,8 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../../signal/ISignalService.sol";
 import "./LibBridgeData.sol";
-import "./LibBridgeSignal.sol";
 
 /**
  * Entry point for starting a bridge transaction.
@@ -29,7 +29,7 @@ library LibBridgeSend {
      * `destChainId` which must be first enabled via `enableDestChain`,
      * and differ from the current chain ID.
      *
-     * @return signal The message is hashed, stored, and emitted as a signal.
+     * @return msgHash The message is hashed, stored, and emitted as a signal.
      * This is picked up by an off-chain relayer which indicates a
      * bridge message has been sent and is ready to be processed on the
      * destination chain.
@@ -38,7 +38,7 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 signal) {
+    ) internal returns (bytes32 msgHash) {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
@@ -62,11 +62,14 @@ library LibBridgeSend {
         message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
-        signal = message.hashMessage();
+        msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // signal, with a value of 1.
-        LibBridgeSignal.sendSignal(address(this), signal);
-        emit LibBridgeData.MessageSent(signal, message);
+        ISignalService(resolver.resolve("signal_service")).sendSignal(
+            address(0),
+            msgHash
+        );
+        emit LibBridgeData.MessageSent(msgHash, message);
     }
 
     /**
@@ -80,5 +83,34 @@ library LibBridgeSend {
         require(chainId > 0 && chainId != block.chainid, "B:chainId");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
+    }
+
+    function isMessageSent(
+        AddressResolver resolver,
+        bytes32 msgHash
+    ) internal view returns (bool) {
+        return
+            ISignalService(resolver.resolve("signal_service")).isSignalSent(
+                address(this),
+                address(0),
+                msgHash
+            );
+    }
+
+    function isMessageReceived(
+        AddressResolver resolver,
+        bytes32 msgHash,
+        uint256 srcChainId,
+        bytes calldata proof
+    ) internal view returns (bool) {
+        address srcBridge = resolver.resolve(srcChainId, "bridge");
+        return
+            ISignalService(resolver.resolve("signal_service"))
+                .isSignalReceived({
+                    app: srcBridge,
+                    user: address(0),
+                    signal: msgHash,
+                    proof: proof
+                });
     }
 }

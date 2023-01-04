@@ -31,7 +31,7 @@ interface IBridge {
     }
 
     struct Context {
-        bytes32 signal; // messageHash
+        bytes32 msgHash;
         address sender;
         uint256 srcChainId;
     }
@@ -46,10 +46,6 @@ interface IBridge {
         Message memory message
     ) external payable returns (bytes32 signal);
 
-    /// Stores a signal on the bridge contract and emits an event for the
-    /// relayer to pick up.
-    function sendSignal(bytes32 signal) external;
-
     /// Checks if a signal has been stored on the bridge contract by the
     /// current address.
     function isMessageSent(bytes32 signal) external view returns (bool);
@@ -59,22 +55,6 @@ interface IBridge {
     function isMessageReceived(
         bytes32 signal,
         uint256 srcChainId,
-        bytes calldata proof
-    ) external view returns (bool);
-
-    /// Checks if a signal has been stored on the bridge contract by the
-    /// specified address.
-    function isSignalSent(
-        address sender,
-        bytes32 signal
-    ) external view returns (bool);
-
-    /// Check if a signal has been received on the destination chain and sent
-    /// by the specified sender.
-    function isSignalReceived(
-        bytes32 signal,
-        uint256 srcChainId,
-        address sender,
         bytes calldata proof
     ) external view returns (bool);
 

@@ -37,12 +37,13 @@ contract SignalService is ISignalService, EssentialContract {
     }
 
     function isSignalSent(
+        address app,
         address user,
         bytes32 signal
     ) public view returns (bool) {
         require(signal != 0, "B:signal");
 
-        bytes32 k = getSignalSlot(msg.sender, user, signal);
+        bytes32 k = getSignalSlot(app, user, signal);
         uint256 v;
         assembly {
             v := sload(k)
@@ -51,19 +52,19 @@ contract SignalService is ISignalService, EssentialContract {
     }
 
     function isSignalReceived(
-        address srcApp,
+        address app,
         address user,
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool) {
         require(signal != 0, "B:signal");
-        require(srcApp != address(0), "B:srcApp");
+        require(app != address(0), "B:app");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
-            addr: srcApp,
-            key: getSignalSlot(srcApp, user, signal),
+            addr: app,
+            key: getSignalSlot(app, user, signal),
             value: bytes32(uint256(1)),
             mkproof: sp.proof
         });

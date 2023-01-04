@@ -24,6 +24,7 @@ interface ISignalService {
      * @param signal The signal to check.
      */
     function isSignalSent(
+        address app,
         address user,
         bytes32 signal
     ) external view returns (bool);
@@ -31,15 +32,15 @@ interface ISignalService {
     /**
      * Check if signal has been received on the destination chain (current).
      *
-     * @param srcApp Address of the source bridge where the bridge
+     * @param app Address of the source bridge where the bridge
      *                  was initiated.
      * @param user Address of the sender of the signal
-     *               (also should be srcApp).
+     *               (also should be app).
      * @param signal The signal to check.
      * @param proof The proof of the signal being sent on the source chain.
      */
     function isSignalReceived(
-        address srcApp,
+        address app,
         address user,
         bytes32 signal,
         bytes calldata proof
