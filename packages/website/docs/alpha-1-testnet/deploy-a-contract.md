@@ -8,7 +8,10 @@ These steps will show you how to deploy a smart contract to Taiko A1 using Found
 
 ## Prerequisites
 
-- Have the private key to an account that has some ETH on Taiko A1. This is to pay the small transaction fee for deploying the contract.
+- Have the private key to an account that has some ETH on Taiko A1. This is to pay the small transaction fee for deploying the contract. You can check the following articles if you are unsure how to do this:
+  - [With MetaMask](https://www.herongyang.com/Ethereum/Ethereum-Account-Public-Private-Key-Example.html)
+  - [With OpenSSL](https://gist.github.com/miguelmota/3793b160992b4ea0b616497b8e5aee2f)
+  - [With ethereumjs-wallet](https://piyopiyo.medium.com/how-to-generate-ethereum-private-key-and-address-in-local-offline-environment-90294308593c)
 
 ## Steps
 

@@ -45,7 +45,7 @@ describe("LibBridgeProcess", async function () {
     let libTrieLink;
     let libProcessLink;
     let libProcess: TestLibBridgeProcess;
-    let testLibData: TestLibBridgeData;
+    let testTaikoData: TestLibBridgeData;
     const stateSlot = getStateSlot();
     const srcChainId = 1;
     const blockChainId = hre.network.config.chainId ?? 0;
@@ -110,7 +110,7 @@ describe("LibBridgeProcess", async function () {
 
         await libProcess.init(addressManager.address);
 
-        testLibData = await (
+        testTaikoData = await (
             await ethers.getContractFactory("TestLibBridgeData")
         ).deploy();
 
@@ -180,7 +180,7 @@ describe("LibBridgeProcess", async function () {
                 memo: "",
             };
 
-            const signal = await testLibData.hashMessage(message);
+            const signal = await testTaikoData.hashMessage(message);
 
             await helpers.setStorageAt(
                 libProcess.address,

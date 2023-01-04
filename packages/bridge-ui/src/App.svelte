@@ -69,7 +69,6 @@
   const {
     chains: wagmiChains,
     provider,
-    webSocketProvider,
   } = configureChains(
     [mainnet, taiko],
     [
@@ -83,6 +82,7 @@
   );
 
   $wagmiClient = createClient({
+    autoConnect: true,
     provider,
     connectors: [
       new MetaMaskConnector({
