@@ -101,51 +101,6 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### enableWhitelisting
-
-```solidity
-function enableWhitelisting(bool whitelistProposers, bool whitelistProvers) public
-```
-
-Enable or disable proposer and prover whitelisting
-
-#### Parameters
-
-| Name               | Type | Description                           |
-| ------------------ | ---- | ------------------------------------- |
-| whitelistProposers | bool | True to enable proposer whitelisting. |
-| whitelistProvers   | bool | True to enable prover whitelisting.   |
-
-### whitelistProposer
-
-```solidity
-function whitelistProposer(address proposer, bool whitelisted) public
-```
-
-Add or remove a proposer from the whitelist.
-
-#### Parameters
-
-| Name        | Type    | Description                          |
-| ----------- | ------- | ------------------------------------ |
-| proposer    | address | The proposer to be added or removed. |
-| whitelisted | bool    | True to add; remove otherwise.       |
-
-### whitelistProver
-
-```solidity
-function whitelistProver(address prover, bool whitelisted) public
-```
-
-Add or remove a prover from the whitelist.
-
-#### Parameters
-
-| Name        | Type    | Description                        |
-| ----------- | ------- | ---------------------------------- |
-| prover      | address | The prover to be added or removed. |
-| whitelisted | bool    | True to add; remove otherwise.     |
-
 ### halt
 
 ```solidity
