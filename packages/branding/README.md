@@ -23,7 +23,7 @@ Please use SVG or PNG wherever possible, as the image quality is better.
 Downloabable vector assets of the Taiko logotype:
 
 
-<a href="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_1_Fluo_Black.svg"><img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/JPG/Taiko_Logotype_Horiz_1_Fluo_Black.jpg" width="75px" a="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_1_Fluo_Black.svg"></a> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_2_Fluo_White.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Square_Fluo_White.svg" width="75px">
+<a href="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_1_Fluo_Black.svg"><img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/JPG/Taiko_Logotype_Horiz_1_Fluo_Black.jpg" width="75px"></a> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_2_Fluo_White.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Square_Fluo_White.svg" width="75px">
 
 [Browse Logotypes](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logotype)
 
