@@ -1,6 +1,7 @@
 # Taiko Brand Resources
 
 This package contains all the branding assets for Taiko. 
+
 Included: Logos, Logotypes, Backgrounds, Backdrops and Mockups.
 
 ## Naming
