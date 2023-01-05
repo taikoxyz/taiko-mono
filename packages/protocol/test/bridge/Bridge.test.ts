@@ -648,12 +648,12 @@ describe("integration:Bridge", function () {
             console.log("l2Bridge: ", l2Bridge.address)
 
             // upon successful processing, this immediately gets marked as DONE
-            // await l2Bridge.processMessage(message, signalProof);
+            await l2Bridge.processMessage(message, signalProof);
 
-            // // recalling this process should be prevented as it's status is no longer NEW
-            // await expect(
-            //     l2Bridge.processMessage(message, signalProof)
-            // ).to.be.revertedWith("B:status");
+            // recalling this process should be prevented as it's status is no longer NEW
+            await expect(
+                l2Bridge.processMessage(message, signalProof)
+            ).to.be.revertedWith("B:status");
         });
 /*
         it("should throw if message signalproof is not valid", async function () {
