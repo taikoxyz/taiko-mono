@@ -27,4 +27,4 @@ L2: https://l2explorer.a1.taiko.xyz/address/0xb8ea36284d1fa062cc0c969e28a49f3531
 
 ## Bridge contract explained
 
-Read the bridge documentation on our GitHub: https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/contracts/bridge.
+Read the bridge documentation on GitHub: https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/contracts/bridge.

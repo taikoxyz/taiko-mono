@@ -4,11 +4,13 @@ sidebar_position: 2
 
 # 💧 Request from faucet
 
-## Request ETH
+**ETH**
 
-- Request ETH from Ethereum A1: https://l1faucet.a1.taiko.xyz/.
-- Request ETH from Taiko A1: https://l2faucet.a1.taiko.xyz/.
+- Ethereum A1: https://l1faucet.a1.taiko.xyz/
+- Taiko A1: https://l2faucet.a1.taiko.xyz/
 
-## Request HORSE
+**HORSE**
 
-- Select HORSE from the token dropdown on the [bridge](https://bridge.a1.taiko.xyz/) and a faucet button should appear.
+1. Visit the [bridge](https://bridge.a1.taiko.xyz/)
+2. Select the network as Taiko A1 and the token dropdown as HORSE
+3. Click the faucet button that appears

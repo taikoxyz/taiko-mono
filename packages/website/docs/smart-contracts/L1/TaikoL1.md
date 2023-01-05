@@ -171,12 +171,6 @@ function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v
 function getBlockProvers(uint256 id, bytes32 parentHash) public view returns (address[])
 ```
 
-### getUncleProofDelay
-
-```solidity
-function getUncleProofDelay(uint256 blockId) public view returns (uint64)
-```
-
 ### getConfig
 
 ```solidity

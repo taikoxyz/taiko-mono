@@ -157,16 +157,29 @@
     });
   });
 
+  const transactionToIntervalMap = new Map();
+
   transactions.subscribe((store) => {
     if (store) {
       store.forEach(async (tx) => {
-        if (tx.interval) clearInterval(tx.interval);
+        const txInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+        if (txInterval) {
+          clearInterval(txInterval);
+          transactionToIntervalMap.delete(tx.ethersTx.hash);
+        }
 
         if (tx.status === MessageStatus.New) {
           const provider = providerMap.get(tx.toChainId);
 
+          
           const interval = setInterval(async () => {
-            tx.interval = interval;
+            const txInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+            if (txInterval !== interval) {
+              clearInterval(txInterval);
+              transactionToIntervalMap.delete(tx.ethersTx.hash);
+            }
+
+            transactionToIntervalMap.set(tx.ethersTx.hash, interval);
             if (!tx.signal) return;
 
             const contract = new ethers.Contract(
@@ -180,7 +193,9 @@
 
             if (messageStatus === MessageStatus.Done) {
               successToast("Bridge message processed successfully");
-              clearInterval(tx.interval);
+              const txOngoingInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+              clearInterval(txOngoingInterval);
+              transactionToIntervalMap.delete(tx.ethersTx.hash);
             }
           }, 20 * 1000);
         }
