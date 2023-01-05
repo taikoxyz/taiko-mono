@@ -27,24 +27,23 @@ contract SignalService is ISignalService, EssentialContract {
         EssentialContract._init(_addressManager);
     }
 
-    function sendSignal(address user, bytes32 signal) public {
+    function sendSignal(bytes32 signal) public returns (bytes32 storageSlot) {
         require(signal != 0, "B:signal");
 
-        bytes32 k = getSignalSlot(msg.sender, user, signal);
+        storageSlot = getSignalSlot(msg.sender, signal);
         assembly {
-            sstore(k, 1)
+            sstore(storageSlot, 1)
         }
     }
 
     function isSignalSent(
         address app,
-        address user,
         bytes32 signal
     ) public view returns (bool) {
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
-        bytes32 k = getSignalSlot(app, user, signal);
+        bytes32 k = getSignalSlot(app,  signal);
         uint256 v;
         assembly {
             v := sload(k)
@@ -54,7 +53,6 @@ contract SignalService is ISignalService, EssentialContract {
 
     function isSignalReceived(
         address app,
-        address user,
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool received) {
@@ -65,7 +63,7 @@ contract SignalService is ISignalService, EssentialContract {
         received = LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
             addr: app,
-            key: getSignalSlot(app, user, signal),
+            key: getSignalSlot(app, signal),
             value: bytes32(uint256(1)),
             mkproof: sp.proof
         });
@@ -84,9 +82,8 @@ contract SignalService is ISignalService, EssentialContract {
 
     function getSignalSlot(
         address app,
-        address user,
         bytes32 signal
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(app, user, signal));
+        return keccak256(abi.encodePacked(app, signal));
     }
 }

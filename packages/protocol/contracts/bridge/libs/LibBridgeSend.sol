@@ -66,7 +66,6 @@ library LibBridgeSend {
         // Store a key which is the hash of this contract address and the
         // signal, with a value of 1.
         ISignalService(resolver.resolve("signal_service")).sendSignal(
-            address(0),
             msgHash
         );
         emit LibBridgeData.MessageSent(msgHash, message);
@@ -92,7 +91,6 @@ library LibBridgeSend {
         return
             ISignalService(resolver.resolve("signal_service")).isSignalSent({
                 app: address(this),
-                user: address(0),
                 signal: msgHash
             });
     }
@@ -108,7 +106,6 @@ library LibBridgeSend {
             ISignalService(resolver.resolve("signal_service"))
                 .isSignalReceived({
                     app: srcBridge,
-                    user: address(0),
                     signal: msgHash,
                     proof: proof
                 });

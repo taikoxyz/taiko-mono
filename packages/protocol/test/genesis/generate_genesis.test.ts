@@ -334,7 +334,6 @@ action("Generate Genesis", function () {
 
             await expect(
                 SignalService.sendSignal(
-                    ethers.Wallet.createRandom().address,
                     ethers.utils.randomBytes(32)
                 )
             ).not.to.reverted;
