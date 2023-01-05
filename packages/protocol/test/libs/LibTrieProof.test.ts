@@ -1,8 +1,9 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import hre, { ethers } from "hardhat";
 import RLP from "rlp";
 import { Message } from "../utils/message";
 import { EthGetProofResponse } from "../utils/rpc";
+import { getSignalSlot } from "../../tasks/utils";
 
 describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
@@ -106,12 +107,7 @@ describe("integration:LibTrieProof", function () {
 
             const sender = bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // in the response

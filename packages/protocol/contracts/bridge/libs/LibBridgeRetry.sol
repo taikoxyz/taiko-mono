@@ -11,6 +11,7 @@ pragma solidity ^0.8.9;
 import "../EtherVault.sol";
 import "./LibBridgeInvoke.sol";
 import "./LibBridgeData.sol";
+import "./LibBridgeStatus.sol";
 
 /**
  * Retry bridge messages.
@@ -50,8 +51,8 @@ library LibBridgeRetry {
 
         bytes32 signal = message.hashMessage();
         require(
-            state.messageStatus[signal] ==
-                LibBridgeData.MessageStatus.RETRIABLE,
+            LibBridgeStatus.getMessageStatus(signal) ==
+                LibBridgeStatus.MessageStatus.RETRIABLE,
             "B:notFound"
         );
 
@@ -69,11 +70,14 @@ library LibBridgeRetry {
                 gasLimit: gasleft()
             })
         ) {
-            state.updateMessageStatus(signal, LibBridgeData.MessageStatus.DONE);
-        } else if (isLastAttempt) {
-            state.updateMessageStatus(
+            LibBridgeStatus.updateMessageStatus(
                 signal,
-                LibBridgeData.MessageStatus.FAILED
+                LibBridgeStatus.MessageStatus.DONE
+            );
+        } else if (isLastAttempt) {
+            LibBridgeStatus.updateMessageStatus(
+                signal,
+                LibBridgeStatus.MessageStatus.FAILED
             );
 
             address refundAddress = message.refundAddress == address(0)
