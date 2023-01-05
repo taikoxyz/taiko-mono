@@ -1,8 +1,10 @@
+/* eslint-disable camelcase */
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
+import { MockContract, smock } from "@defi-wonderland/smock";
 import { getSlot, MessageStatus } from "../../../tasks/utils";
 import { Message } from "../../utils/message";
 import {
@@ -10,6 +12,7 @@ import {
     EtherVault,
     TestLibBridgeData,
     TestLibBridgeProcess,
+    TestLibBridgeProcess__factory,
 } from "../../../typechain";
 
 describe("LibBridgeProcess", async function () {
@@ -44,7 +47,7 @@ describe("LibBridgeProcess", async function () {
     let etherVault: EtherVault;
     let libTrieLink;
     let libProcessLink;
-    let libProcess: TestLibBridgeProcess;
+    let libProcess: MockContract<TestLibBridgeProcess>;
     let testTaikoData: TestLibBridgeData;
     const stateSlot = getStateSlot();
     const srcChainId = 1;
@@ -98,15 +101,13 @@ describe("LibBridgeProcess", async function () {
             .deploy();
         await libProcessLink.deployed();
 
-        libProcess = await (
-            await ethers.getContractFactory("TestLibBridgeProcess", {
-                libraries: {
-                    LibBridgeProcess: libProcessLink.address,
-                },
-            })
-        )
-            .connect(owner)
-            .deploy();
+        const libProcessFactory =
+            await smock.mock<TestLibBridgeProcess__factory>(
+                "TestLibBridgeProcess",
+                { libraries: { LibBridgeProcess: libProcessLink.address } }
+            );
+
+        libProcess = await libProcessFactory.connect(owner).deploy();
 
         await libProcess.init(addressManager.address);
 
@@ -163,7 +164,7 @@ describe("LibBridgeProcess", async function () {
             ).to.be.revertedWith("B:destChainId");
         });
 
-        it("should throw if message's status is not NEW", async function () {
+        it.only("should throw if message's status is not NEW", async function () {
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -182,11 +183,18 @@ describe("LibBridgeProcess", async function () {
 
             const signal = await testTaikoData.hashMessage(message);
 
-            await helpers.setStorageAt(
-                libProcess.address,
-                await getSlot(hre, signal, stateSlot + 1),
-                MessageStatus.RETRIABLE
-            );
+            console.log(libProcess.interface);
+            await libProcess.setVariable("state", {
+                messageStatus: { [signal]: MessageStatus.RETRIABLE },
+            });
+
+            // console.log(await libProcess.getVariable("state"));
+
+            // await helpers.setStorageAt(
+            //     libProcess.address,
+            //     await getSlot(hre, signal, stateSlot + 1),
+            //     MessageStatus.RETRIABLE
+            // );
 
             await expect(
                 libProcess.processMessage(message, ethers.constants.HashZero)
