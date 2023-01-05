@@ -66,6 +66,7 @@ library LibBridgeProcess {
         require(
             ISignalService(resolver.resolve("signal_service"))
                 .isSignalReceived({
+                    srcChainId: message.srcChainId,
                     app: srcBridge,
                     signal: msgHash,
                     proof: proof

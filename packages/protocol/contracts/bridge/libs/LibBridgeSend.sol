@@ -97,14 +97,15 @@ library LibBridgeSend {
 
     function isMessageReceived(
         AddressResolver resolver,
-        bytes32 msgHash,
         uint256 srcChainId,
+        bytes32 msgHash,
         bytes calldata proof
     ) internal view returns (bool) {
         address srcBridge = resolver.resolve(srcChainId, "bridge");
         return
             ISignalService(resolver.resolve("signal_service"))
                 .isSignalReceived({
+                    srcChainId: srcChainId,
                     app: srcBridge,
                     signal: msgHash,
                     proof: proof

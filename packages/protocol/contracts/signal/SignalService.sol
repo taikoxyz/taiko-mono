@@ -52,17 +52,19 @@ contract SignalService is ISignalService, EssentialContract {
     }
 
     function isSignalReceived(
+        uint256 srcChainId,
         address app,
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool received) {
+        require(srcChainId != block.chainid, "B:srcChainId");
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         received = LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
-            addr: app,
+            addr: resolve(srcChainId, "taiko"),
             key: getSignalSlot(app, signal),
             value: bytes32(uint256(1)),
             mkproof: sp.proof
