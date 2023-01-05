@@ -12,6 +12,8 @@ import "../../common/AddressResolver.sol";
 import "../../common/IHeaderSync.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibTrieProof.sol";
+import "./LibBridgeData.sol";
+import "./LibBridgeStatus.sol";
 
 /**
  * Library for working with bridge signals.
@@ -43,9 +45,9 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal onlyValidSenderAndSignal(sender, signal) {
-        bytes32 key = _key(sender, signal);
+        bytes32 k = _signalSlot(sender, signal);
         assembly {
-            sstore(key, 1)
+            sstore(k, 1)
         }
     }
 
@@ -59,10 +61,10 @@ library LibBridgeSignal {
         address sender,
         bytes32 signal
     ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
-        bytes32 key = _key(sender, signal);
+        bytes32 k = _signalSlot(sender, signal);
         uint256 v;
         assembly {
-            v := sload(key)
+            v := sload(k)
         }
         return v == 1;
     }
@@ -87,30 +89,27 @@ library LibBridgeSignal {
     ) internal view onlyValidSenderAndSignal(sender, signal) returns (bool) {
         require(srcBridge != address(0), "B:srcBridge");
 
-        SignalProof memory mkp = abi.decode(proof, (SignalProof));
+        SignalProof memory sp = abi.decode(proof, (SignalProof));
         LibTrieProof.verify({
-            stateRoot: mkp.header.stateRoot,
+            stateRoot: sp.header.stateRoot,
             addr: srcBridge,
-            key: _key(sender, signal),
+            key: _signalSlot(sender, signal),
             value: bytes32(uint256(1)),
-            mkproof: mkp.proof
+            mkproof: sp.proof
         });
         // get synced header hash of the header height specified in the proof
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko"))
-            .getSyncedHeader(mkp.header.height);
+            .getSyncedHeader(sp.header.height);
         // check header hash specified in the proof matches the current chain
         return
             syncedHeaderHash != 0 &&
-            syncedHeaderHash == mkp.header.hashBlockHeader();
+            syncedHeaderHash == sp.header.hashBlockHeader();
     }
 
-    /**
-     * Generate the storage key for a signal.
-     */
-    function _key(
+    function _signalSlot(
         address sender,
         bytes32 signal
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(sender, signal));
+        return keccak256(abi.encodePacked("SIGNAL", sender, signal));
     }
 }
