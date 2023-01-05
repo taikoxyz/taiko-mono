@@ -19,7 +19,7 @@ In this testnet, you can:
 - 📝 Submit feedback and be forever loved.
 - 🥇 Earn a POAP by using your wallet to complete any 2 of the 3 following actions by ~~January 31st 23:59 UTC~~ January 5th 23:59 UTC:
   - Use the bridge.
-  - Interact with contract (e.g., interact with dapp, deploy a contract).
+  - Interact with a contract (e.g., interact with dapp, deploy a contract).
   - Transfer between accounts.
 
 ## Create a feedback log
