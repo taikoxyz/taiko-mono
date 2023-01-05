@@ -10,11 +10,44 @@ import {
     AddressManager,
     Bridge,
     EtherVault,
+    SignalService,
     TestBadReceiver,
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
 import { Message } from "../utils/message";
+
+async function deploySignalService(
+    signer: Signer,
+    addressManager: AddressManager,
+    srcChain: number
+): Promise<{ signalService: SignalService }> {
+    const libTrieProof = await (await ethers.getContractFactory("LibTrieProof"))
+        .connect(signer)
+        .deploy();
+
+    const SignalServiceFactory = await ethers.getContractFactory(
+        "SignalService",
+        {
+            libraries: {
+                LibTrieProof: libTrieProof.address,
+            },
+        }
+    );
+
+    const signalService: SignalService = await SignalServiceFactory.connect(
+        signer
+    ).deploy();
+
+    await signalService.connect(signer).init(addressManager.address);
+
+    await addressManager.setAddress(
+        `${srcChain}.signal_service`,
+        signalService.address
+    );
+
+    return { signalService };
+}
 
 async function deployBridge(
     signer: Signer,
@@ -87,6 +120,12 @@ describe("Bridge", function () {
         ).deploy();
         await addressManager.init();
 
+        const { signalService } = await deploySignalService(
+            owner,
+            addressManager,
+            srcChainId
+        );
+
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
             await deployBridge(
                 owner,
@@ -99,6 +138,7 @@ describe("Bridge", function () {
         return {
             owner,
             nonOwner,
+            signalService,
             l1Bridge,
             addressManager,
             enabledDestChainId,

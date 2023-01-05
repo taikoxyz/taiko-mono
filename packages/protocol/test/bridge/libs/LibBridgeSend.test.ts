@@ -2,6 +2,7 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import {
     AddressManager,
+    SignalService,
     TestLibBridgeSend,
     EtherVault,
 } from "../../../typechain";
@@ -39,6 +40,34 @@ describe("LibBridgeSend", function () {
         await addressManager.setAddress(
             `${blockChainId}.ether_vault`,
             etherVault.address
+        );
+
+        const libTrieProof = await (
+            await ethers.getContractFactory("LibTrieProof")
+        )
+            .connect(etherVaultOwner)
+            .deploy();
+
+        const SignalServiceFactory = await ethers.getContractFactory(
+            "SignalService",
+            {
+                libraries: {
+                    LibTrieProof: libTrieProof.address,
+                },
+            }
+        );
+
+        const signalService: SignalService = await SignalServiceFactory.connect(
+            etherVaultOwner
+        ).deploy();
+
+        await signalService
+            .connect(etherVaultOwner)
+            .init(addressManager.address);
+
+        await addressManager.setAddress(
+            `${blockChainId}.signal_service`,
+            signalService.address
         );
 
         libSend = await (await ethers.getContractFactory("TestLibBridgeSend"))
