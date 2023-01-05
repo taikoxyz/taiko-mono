@@ -8,9 +8,9 @@ For naming, we use Taiko or Taiko Labs. For our social media handle, we refer to
 
 ## Logos
 
-Use SVG and PNG where you can, as the image quality is better.
+<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_White-on-Black.svg" width="75px">
 
-<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px">
+Use SVG and PNG where you can, as the image quality is better.
 
 ## Fonts
 
