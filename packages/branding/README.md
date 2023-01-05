@@ -12,7 +12,7 @@ For naming, we use Taiko or Taiko Labs. For our social media handle, we refer to
 
 Downloabable vector assets of the Taiko logo:
 
-<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" width="75px"> &nbsp;&nbsp;&nbsp;  <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_White-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_White-on-Fluo.svg" width="75px">
+<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/JPG/Taiko_Logotype_Horiz_1_Fluo_Black.jpg" width="75px" a="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_1_Fluo_Black.svg"> &nbsp;&nbsp;&nbsp;  <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_White-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_White-on-Fluo.svg" width="75px">
 
 [Browse Logos](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logo)
 
