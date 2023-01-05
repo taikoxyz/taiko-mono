@@ -67,7 +67,6 @@ library LibBridgeProcess {
             ISignalService(resolver.resolve("signal_service"))
                 .isSignalReceived({
                     app: srcBridge,
-                    user: address(0),
                     signal: msgHash,
                     proof: proof
                 }),
