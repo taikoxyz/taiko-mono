@@ -7,10 +7,11 @@
   import Transactions from "../../components/Transactions.svelte";
   let activeTab: string = "bridge";
   let bridgeWidth;
+  let bridgeHeight;
 </script>
 
-<div class="container mx-auto {activeTab === 'bridge' ? 'max-w-fit' : ''} text-center my-10" style="{activeTab === 'bridge' ? '' : 'width: '+bridgeWidth+'px;'}" bind:clientWidth={bridgeWidth}>
-  <div class="rounded-3xl border-2 border-zinc-800 border-solid p-2 md:p-6">
+<div class="container mx-auto {activeTab === 'bridge' ? 'max-w-fit' : ''} text-center my-10" style="{activeTab === 'bridge' ? '' : 'width: '+bridgeWidth+'px;'}" bind:clientWidth={bridgeWidth} bind:clientHeight={bridgeHeight}>
+  <div class="rounded-3xl border-2 border-zinc-800 border-solid p-2 md:p-6" style="{activeTab === 'bridge' ? '' : 'min-height: '+bridgeHeight+'px;'}">
     <div class="tabs mb-4">
       <span
         class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
