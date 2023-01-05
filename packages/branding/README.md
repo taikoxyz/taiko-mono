@@ -10,10 +10,28 @@ For naming, we use Taiko or Taiko Labs. For our social media handle, we refer to
 
 ## Logos
 
+Downloabable vector assets of the Taiko logo:
+
 <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_White-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_White-on-Fluo.svg" width="75px">
 
-Please use SVG and PNG wherever possible, as the image quality is better.
+[Browse Logos](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logo)
+
+Please use SVG or PNG wherever possible, as the image quality is better.
+
+## Logotypes
+
+<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Vertical_Fluo_White.svg" width="75px">
+
 
 ## Fonts
 
-Taiko uses Oxanium as the global font across its identity. The font is licensed under the [Open Font License](https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL) and its specimen and font family can be accessed at: https://fonts.google.com/specimen/Oxanium
+Taiko uses Oxanium as the global font across its identity. The font is licensed under the [Open Font License](https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL). Its specimen and font family can be accessed at: https://fonts.google.com/specimen/Oxanium
+
+## Colors
+
+We use these primary colors and their shades across our brand and products.
+
+Fluo #fc0fc0
+Black #000000
+Navy #000018
+White #ffffff
