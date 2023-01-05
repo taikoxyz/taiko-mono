@@ -64,7 +64,7 @@ contract SignalService is ISignalService, EssentialContract {
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         received = LibTrieProof.verify({
             stateRoot: sp.header.stateRoot,
-            addr: resolve(srcChainId, "taiko"),
+            addr: resolve(srcChainId, "signal_service"),
             key: getSignalSlot(app, signal),
             value: bytes32(uint256(1)),
             mkproof: sp.proof
