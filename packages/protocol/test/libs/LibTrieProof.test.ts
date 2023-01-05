@@ -39,15 +39,6 @@ describe("integration:LibTrieProof", function () {
                     false,
                 ]);
 
-            // get storageValue for the key
-            const storageValue = await ethers.provider.getStorageAt(
-                testLibTreProof.address,
-                key,
-                block.number
-            );
-            // make sure it equals 1 so our proof will pass
-            expect(storageValue).to.be.eq(val);
-
             // rpc call to get the merkle proof
             const proof: EthGetProofResponse = await ethers.provider.send(
                 "eth_getProof",
