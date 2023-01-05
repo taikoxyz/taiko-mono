@@ -37,6 +37,6 @@ Taiko uses Oxanium as the global font across its identity. The font is licensed 
 We use these primary colors and their shades across our brand and products.
 
 Fluo <code>#fc0fc0</code>  
-Black #000000  
-Navy #000018  
-White #ffffff  
+Black <code>#000000</code>    
+Navy <code>#000018</code>    
+White <code>#ffffff</code>    
