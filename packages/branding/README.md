@@ -20,7 +20,7 @@ Please use SVG or PNG wherever possible, as the image quality is better.
 
 ## Logotypes
 
-<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Vertical_Fluo_White.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Square_Fluo_White.svg" width="75px">
+<img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Horiz_2_Fluo_White.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Vertical_Fluo_White.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logotype/SVG/Taiko_Logotype_Square_Fluo_White.svg" width="75px">
 
 [Browse Logotypes](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logotype)
 
