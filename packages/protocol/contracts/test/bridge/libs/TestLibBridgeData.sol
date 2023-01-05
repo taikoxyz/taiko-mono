@@ -9,21 +9,20 @@
 pragma solidity ^0.8.9;
 
 import "../../../bridge/libs/LibBridgeData.sol";
+import "../../../bridge/libs/LibBridgeStatus.sol";
 
 contract TestLibBridgeData {
-    LibBridgeData.State public state;
-
     function updateMessageStatus(
         bytes32 signal,
-        LibBridgeData.MessageStatus status
+        LibBridgeStatus.MessageStatus status
     ) public {
-        LibBridgeData.updateMessageStatus(state, signal, status);
+        LibBridgeStatus.updateMessageStatus(signal, status);
     }
 
     function getMessageStatus(
         bytes32 signal
-    ) public view returns (LibBridgeData.MessageStatus) {
-        return state.messageStatus[signal];
+    ) public view returns (LibBridgeStatus.MessageStatus) {
+        return LibBridgeStatus.getMessageStatus(signal);
     }
 
     function hashMessage(

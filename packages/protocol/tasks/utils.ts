@@ -68,15 +68,24 @@ function getDeployments(_fileName: string) {
     return JSON.parse(`${json}`);
 }
 
-async function getSlot(hre: any, signal: any, mappingSlot: any) {
+async function getMessageStatusSlot(hre: any, signal: any) {
     return hre.ethers.utils.solidityKeccak256(
-        ["bytes", "uint256"],
-        [signal, mappingSlot]
+        ["string", "bytes"],
+        ["MESSAGE_STATUS", signal]
     );
 }
 
 async function decode(hre: any, type: any, data: any) {
     return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString();
+}
+
+function getSignalSlot(hre: any, sender: any, signal: any) {
+    return hre.ethers.utils.keccak256(
+        hre.ethers.utils.solidityPack(
+            ["string", "address", "bytes32"],
+            ["SIGNAL", sender, signal]
+        )
+    );
 }
 
 const MessageStatus = {
@@ -154,7 +163,8 @@ export {
     getContract,
     saveDeployments,
     getDeployments,
-    getSlot,
+    getMessageStatusSlot,
+    getSignalSlot,
     decode,
     MessageStatus,
     getLatestBlockHeader,
