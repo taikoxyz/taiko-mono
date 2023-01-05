@@ -120,8 +120,8 @@ contract Bridge is EssentialContract, IBridge {
         return
             LibBridgeSend.isMessageReceived({
                 resolver: AddressResolver(this),
-                srcChainId: srcChainId,
                 msgHash: msgHash,
+                srcChainId: srcChainId,
                 proof: proof
             });
     }

@@ -65,9 +65,7 @@ library LibBridgeSend {
         msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // signal, with a value of 1.
-        ISignalService(resolver.resolve("signal_service")).sendSignal(
-            msgHash
-        );
+        ISignalService(resolver.resolve("signal_service")).sendSignal(msgHash);
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
@@ -97,8 +95,8 @@ library LibBridgeSend {
 
     function isMessageReceived(
         AddressResolver resolver,
-        uint256 srcChainId,
         bytes32 msgHash,
+        uint256 srcChainId,
         bytes calldata proof
     ) internal view returns (bool) {
         address srcBridge = resolver.resolve(srcChainId, "bridge");

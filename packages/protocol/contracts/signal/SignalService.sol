@@ -43,7 +43,7 @@ contract SignalService is ISignalService, EssentialContract {
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
-        bytes32 k = getSignalSlot(app,  signal);
+        bytes32 k = getSignalSlot(app, signal);
         uint256 v;
         assembly {
             v := sload(k)
@@ -56,30 +56,30 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal,
         bytes calldata proof
-    ) public view returns (bool received) {
+    ) public view returns (bool) {
         require(srcChainId != block.chainid, "B:srcChainId");
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
-        received = LibTrieProof.verify({
-            stateRoot: sp.header.stateRoot,
-            addr: resolve(srcChainId, "signal_service"),
-            key: getSignalSlot(app, signal),
-            value: bytes32(uint256(1)),
-            mkproof: sp.proof
-        });
+        bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko"))
+            .getSyncedHeader(sp.header.height);
 
-        if (received) {
-            // get synced header hash of the header height specified in the proof
-            bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko"))
-                .getSyncedHeader(sp.header.height);
-
-            // check header hash specified in the proof matches the current chain
-            received =
-                syncedHeaderHash != 0 &&
-                syncedHeaderHash == sp.header.hashBlockHeader();
+        if (
+            syncedHeaderHash == 0 ||
+            syncedHeaderHash != sp.header.hashBlockHeader()
+        ) {
+            return false;
         }
+
+        return
+            LibTrieProof.verify({
+                stateRoot: sp.header.stateRoot,
+                addr: resolve(srcChainId, "signal_service"),
+                key: getSignalSlot(app, signal),
+                value: bytes32(uint256(1)),
+                mkproof: sp.proof
+            });
     }
 
     function getSignalSlot(
