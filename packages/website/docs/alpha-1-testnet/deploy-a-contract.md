@@ -26,6 +26,6 @@ These steps will show you how to deploy a smart contract to Taiko A1 using Found
    ```
    Note: Remove "<" and ">" from <YOUR_PRIVATE_KEY>
 
-We are using the `--legacy` flag because EIP-1559 is currently disabled on Taiko. We have plans to re-enable it in the future.
+We're using the `--legacy` flag because EIP-1559 is currently disabled on Taiko. We've plans to re-enable it in the future.
 
 You can use the block explorer to verify that the contract was deployed: https://l2explorer.a1.taiko.xyz/
