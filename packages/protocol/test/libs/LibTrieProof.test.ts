@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import RLP from "rlp";
 import { EthGetProofResponse } from "../utils/rpc";
 
-describe("integration2:LibTrieProof", function () {
+describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
             await ethers.getContractFactory("LibTrieProof")
