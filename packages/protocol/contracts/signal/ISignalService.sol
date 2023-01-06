@@ -9,7 +9,6 @@
 pragma solidity ^0.8.9;
 
 interface ISignalService {
-
     /**
      * Send a signal by storing the key with a value of 1.
      *

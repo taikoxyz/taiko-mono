@@ -333,9 +333,7 @@ action("Generate Genesis", function () {
             expect(owner).to.be.equal(testConfig.contractOwner);
 
             await expect(
-                SignalService.sendSignal(
-                    ethers.utils.randomBytes(32)
-                )
+                SignalService.sendSignal(ethers.utils.randomBytes(32))
             ).not.to.reverted;
         });
 

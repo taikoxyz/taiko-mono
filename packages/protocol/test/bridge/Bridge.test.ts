@@ -477,11 +477,12 @@ describe("integration:Bridge", function () {
             enabledDestChainId
         );
 
-
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${srcChainId}.signal_service`, l1SignalService.address);
-
+            .setAddress(
+                `${srcChainId}.signal_service`,
+                l1SignalService.address
+            );
 
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
             await deployBridge(
@@ -507,8 +508,6 @@ describe("integration:Bridge", function () {
         await l2AddressManager
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
-
-
 
         const headerSync: TestHeaderSync = await (
             await ethers.getContractFactory("TestHeaderSync")
@@ -570,15 +569,14 @@ describe("integration:Bridge", function () {
     }
 
     async function sendMessage(bridge, m) {
+        const tx = await bridge.sendMessage(m, {
+            value: m.depositValue + m.callValue + m.processingFee,
+        });
 
-          const tx = await bridge.sendMessage(m, {
-                value: m.depositValue + m.callValue + m.processingFee,
-            });
-
-            const receipt = await tx.wait();
-            const [messageSentEvent] = receipt.events as any as Event[];
-            const { msgHash, message } = (messageSentEvent as any).args;
-            return {msgHash, message};
+        const receipt = await tx.wait();
+        const [messageSentEvent] = receipt.events as any as Event[];
+        const { msgHash, message } = (messageSentEvent as any).args;
+        return { msgHash, message };
     }
 
     describe("processMessage()", function () {
@@ -637,18 +635,15 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:destChainId");
         }); */
 
-
         it("should throw if the message's Merkel proof is invalid", async function () {
             const { l1SignalService, l1Bridge, l2Bridge, headerSync, m } =
                 await deployBridgeFixture2();
 
-
-            const { msgHash, message } = await sendMessage(l1Bridge, m);
+            const { msgHash } = await sendMessage(l1Bridge, m);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
             await headerSync.setSyncedHeader(ethers.constants.HashZero);
-
 
             const merkelProof = await getSignalProof(
                 hre,
@@ -658,25 +653,22 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
-
             await expect(
                 l2Bridge.processMessage(m, merkelProof)
             ).to.be.revertedWith("B:notReceived");
         });
 
-
         it("can process a message only once", async () => {
-           const { l1SignalService, l1Bridge, l2Bridge, headerSync, m } =
+            const { l1SignalService, l1Bridge, l2Bridge, headerSync, m } =
                 await deployBridgeFixture2();
 
-             const { msgHash, message } = await sendMessage(l1Bridge, m);
-
+            const { msgHash, message } = await sendMessage(l1Bridge, m);
 
             expect(await l2Bridge.getMessageStatus(msgHash)).to.be.eq(0); // NEW = 0
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
-             await headerSync.setSyncedHeader(block.hash);
+            await headerSync.setSyncedHeader(block.hash);
 
             const merkelProof = await getSignalProof(
                 hre,
@@ -694,8 +686,7 @@ describe("integration:Bridge", function () {
 
             expect(await l2Bridge.getMessageStatus(msgHash)).to.be.eq(2); // DONE = 2
 
-
-             // recalling this process should be prevented as it's status is no longer NEW
+            // recalling this process should be prevented as it's status is no longer NEW
             await expect(
                 l2Bridge.processMessage(message, merkelProof)
             ).to.be.revertedWith("B:status");
