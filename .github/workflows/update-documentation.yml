@@ -26,10 +26,10 @@ jobs:
           run_install: false
 
       # Run the command to update the documentation
-      - run: pnpm --filter "@taiko/protocol" export:docs
+      - run: pnpm -F protocol export:docs
 
       # Stage all modified and untracked files
-      - run: git add -A
+      - run: git add .
 
       # Check if there are any changes to be committed
       - run: git diff --exit-code --cached
