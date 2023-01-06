@@ -1,18 +1,13 @@
 import { expect } from "chai";
 import { BigNumber, Signer } from "ethers";
 import hre, { ethers } from "hardhat";
-import {
-    getLatestBlockHeader,
-    getSignalProof,
-} from "../../tasks/utils";
+import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils";
 import {
     AddressManager,
     Bridge,
     EtherVault,
     SignalService,
-    TestBadReceiver,
     TestHeaderSync,
-    TestLibBridgeData,
 } from "../../typechain";
 import { Message } from "../utils/message";
 
@@ -119,7 +114,7 @@ describe("Bridge", function () {
         ).deploy();
         await addressManager.init();
 
-        const signalService  = await deploySignalService(
+        const signalService = await deploySignalService(
             owner,
             addressManager,
             srcChainId
@@ -470,20 +465,17 @@ describe("integration:Bridge", function () {
             .deploy();
         await l2AddressManager.init();
 
-        const  l1SignalService  = await deploySignalService(
+        const l1SignalService = await deploySignalService(
             owner,
             addressManager,
             srcChainId
         );
 
-
-        const  l2SignalService  = await deploySignalService(
+        const l2SignalService = await deploySignalService(
             l2Signer,
             l2AddressManager,
             enabledDestChainId
         );
-
-
 
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
             await deployBridge(
@@ -519,6 +511,20 @@ describe("integration:Bridge", function () {
         await l2AddressManager
             .connect(l2Signer)
             .setAddress(`${enabledDestChainId}.taiko`, headerSync.address);
+
+        await l2AddressManager
+            .connect(l2Signer)
+            .setAddress(
+                `${srcChainId}.signal_service`,
+                l1SignalService.address
+            );
+
+        await addressManager
+            .connect(l2Signer)
+            .setAddress(
+                `${enabledDestChainId}.signal_service`,
+                l2SignalService.address
+            );
 
         const m: Message = {
             id: 1,
@@ -556,7 +562,7 @@ describe("integration:Bridge", function () {
     }
 
     describe("processMessage()", function () {
-        /*it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+        /* it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const {
                 owner,
                 l2NonOwner,
@@ -609,11 +615,17 @@ describe("integration:Bridge", function () {
             await expect(
                 l2Bridge.processMessage(m, ethers.constants.HashZero)
             ).to.be.revertedWith("B:destChainId");
-        });*/
+        }); */
 
         it("should throw if messageStatus of message is != NEW", async function () {
-            const { l1SignalService, l2SignalService, l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture2();
+            const {
+                l1SignalService,
+                l2SignalService,
+                l1Bridge,
+                l2Bridge,
+                headerSync,
+                m,
+            } = await deployBridgeFixture2();
 
             const expectedAmount =
                 m.depositValue + m.callValue + m.processingFee;
@@ -627,8 +639,11 @@ describe("integration:Bridge", function () {
 
             const { signal, message } = (messageSentEvent as any).args;
 
-            const key = await l1SignalService.getSignalSlot(l1Bridge.address, signal)
-            console.log("key", key)
+            const key = await l1SignalService.getSignalSlot(
+                l1Bridge.address,
+                signal
+            );
+            console.log("key", key);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -642,10 +657,10 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
-            console.log("l1SignalService: ", l1SignalService.address)
-            console.log("l2SignalService: ", l2SignalService.address)
-            console.log("l1Bridge: ", l1Bridge.address)
-            console.log("l2Bridge: ", l2Bridge.address)
+            console.log("l1SignalService: ", l1SignalService.address);
+            console.log("l2SignalService: ", l2SignalService.address);
+            console.log("l1Bridge: ", l1Bridge.address);
+            console.log("l2Bridge: ", l2Bridge.address);
 
             // upon successful processing, this immediately gets marked as DONE
             await l2Bridge.processMessage(message, signalProof);
@@ -655,7 +670,7 @@ describe("integration:Bridge", function () {
                 l2Bridge.processMessage(message, signalProof)
             ).to.be.revertedWith("B:status");
         });
-/*
+        /*
         it("should throw if message signalproof is not valid", async function () {
             const { l1Bridge, l2Bridge, headerSync, m } =
                 await deployBridgeFixture2();
@@ -798,7 +813,7 @@ describe("integration:Bridge", function () {
    */
     });
 
-/*
+    /*
 
     describe("isMessageSent()", function () {
         it("should return false, since no message was sent", async function () {
