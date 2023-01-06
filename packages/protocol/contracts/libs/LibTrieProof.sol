@@ -39,6 +39,7 @@ library LibTrieProof {
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding state proof and storage
      *        proof.
+     * @return verified The verification result.
      */
     function verify(
         bytes32 stateRoot,
@@ -46,7 +47,7 @@ library LibTrieProof {
         bytes32 key,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure {
+    ) public pure returns (bool verified) {
         (bytes memory accountProof, bytes memory storageProof) = abi.decode(
             mkproof,
             (bytes, bytes)
@@ -67,13 +68,11 @@ library LibTrieProof {
             accountState[ACCOUNT_FIELD_INDEX_STORAGE_HASH]
         );
 
-        bool verified = LibSecureMerkleTrie.verifyInclusionProof(
+        verified = LibSecureMerkleTrie.verifyInclusionProof(
             abi.encodePacked(key),
             LibRLPWriter.writeBytes32(value),
             storageProof,
             storageRoot
         );
-
-        require(verified, "LTP:invalid storage proof");
     }
 }

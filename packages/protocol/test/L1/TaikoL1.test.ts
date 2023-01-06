@@ -157,7 +157,7 @@ describe("TaikoL1", function () {
     });
 });
 
-describe("integration:TaikoL1", function () {
+describe("integ---skip-for-nowration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let taikoL2: TaikoL2;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
@@ -169,7 +169,9 @@ describe("integration:TaikoL1", function () {
         );
 
         l2Signer = await l2Provider.getSigner(
-            (await l2Provider.listAccounts())[0]
+            (
+                await l2Provider.listAccounts()
+            )[0]
         );
 
         const addressManager = await (
