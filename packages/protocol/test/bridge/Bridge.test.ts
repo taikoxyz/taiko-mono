@@ -569,6 +569,18 @@ describe("integration:Bridge", function () {
         };
     }
 
+    async function sendMessage(bridge, m) {
+
+          const tx = await bridge.sendMessage(m, {
+                value: m.depositValue + m.callValue + m.processingFee,
+            });
+
+            const receipt = await tx.wait();
+            const [messageSentEvent] = receipt.events as any as Event[];
+            const { msgHash, message } = (messageSentEvent as any).args;
+            return {msgHash, message};
+    }
+
     describe("processMessage()", function () {
         /* it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const {
@@ -625,195 +637,69 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:destChainId");
         }); */
 
-        it("should throw if messageStatus of message is != NEW", async function () {
-            const {
-                l1SignalService,
-                l2SignalService,
-                l1Bridge,
-                l2Bridge,
-                headerSync,
-                m,
-            } = await deployBridgeFixture2();
 
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
+        it("should throw if the message's Merkel proof is invalid", async function () {
+            const { l1SignalService, l1Bridge, l2Bridge, headerSync, m } =
+                await deployBridgeFixture2();
 
-            const receipt = await tx.wait();
 
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
-
-            const key = await l1SignalService.getSignalSlot(
-                l1Bridge.address,
-                signal
-            );
-            console.log("key", key);
+            const { msgHash, message } = await sendMessage(l1Bridge, m);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
-            await headerSync.setSyncedHeader(block.hash);
+            await headerSync.setSyncedHeader(ethers.constants.HashZero);
 
-            const signalProof = await getSignalProof(
+
+            const merkelProof = await getSignalProof(
                 hre,
                 l1SignalService.address,
-                key,
+                await l1SignalService.getSignalSlot(l1Bridge.address, msgHash),
                 block.number,
                 blockHeader
             );
 
-            // upon successful processing, this immediately gets marked as DONE
-            await l2Bridge.processMessage(message, signalProof);
-
-            // recalling this process should be prevented as it's status is no longer NEW
-            await expect(
-                l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:status");
-        });
-        /*
-        it("should throw if message signalproof is not valid", async function () {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture2();
-
-            const libData: TestLibBridgeData = await (
-                await ethers.getContractFactory("TestLibBridgeData")
-            ).deploy();
-
-            const signal = await libData.hashMessage(m);
-
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
-
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
-
-            const signalProof = await getSignalProof(
-                hre,
-                l1Bridge.address,
-                key,
-                block.number,
-                blockHeader
-            );
 
             await expect(
-                l2Bridge.processMessage(m, signalProof)
-            ).to.be.revertedWith("LTP:invalid storage proof");
-        });
-
-        it("should throw if message has not been received", async function () {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture2();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
-
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
-
-            const messageStatus = await l1Bridge.getMessageStatus(signal);
-
-            expect(messageStatus).to.be.eq(0);
-
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
-
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
-
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
-
-            // get storageValue for the key
-            const storageValue = await ethers.provider.getStorageAt(
-                l1Bridge.address,
-                key,
-                block.number
-            );
-            // make sure it equals 1 so our proof will pass
-            expect(storageValue).to.be.eq(
-                "0x0000000000000000000000000000000000000000000000000000000000000001"
-            );
-
-            const signalProof = await getSignalProof(
-                hre,
-                l1Bridge.address,
-                key,
-                block.number,
-                blockHeader
-            );
-
-            await expect(
-                l2Bridge.processMessage(message, signalProof)
+                l2Bridge.processMessage(m, merkelProof)
             ).to.be.revertedWith("B:notReceived");
         });
 
-        it("processes a message when the signal has been verified from the sending chain", async () => {
-            const { l1Bridge, l2Bridge, headerSync, m } =
+
+        it("can process a message only once", async () => {
+           const { l1SignalService, l1Bridge, l2Bridge, headerSync, m } =
                 await deployBridgeFixture2();
 
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
+             const { msgHash, message } = await sendMessage(l1Bridge, m);
 
-            const receipt = await tx.wait();
 
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
-
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
-
-            const messageStatus = await l1Bridge.getMessageStatus(signal);
-
-            expect(messageStatus).to.be.eq(0);
-
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
+            expect(await l2Bridge.getMessageStatus(msgHash)).to.be.eq(0); // NEW = 0
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
-            await headerSync.setSyncedHeader(block.hash);
+             await headerSync.setSyncedHeader(block.hash);
 
-            // get storageValue for the key
-            const storageValue = await ethers.provider.getStorageAt(
-                l1Bridge.address,
-                key,
-                block.number
-            );
-            // make sure it equals 1 so our proof will pass
-            expect(storageValue).to.be.eq(
-                "0x0000000000000000000000000000000000000000000000000000000000000001"
-            );
-
-            const signalProof = await getSignalProof(
+            const merkelProof = await getSignalProof(
                 hre,
-                l1Bridge.address,
-                key,
+                l1SignalService.address,
+                await l1SignalService.getSignalSlot(l1Bridge.address, msgHash),
                 block.number,
                 blockHeader
             );
 
             expect(
-                await l2Bridge.processMessage(message, signalProof, {
+                await l2Bridge.processMessage(message, merkelProof, {
                     gasLimit: BigNumber.from(2000000),
                 })
             ).to.emit(l2Bridge, "MessageStatusChanged");
+
+            expect(await l2Bridge.getMessageStatus(msgHash)).to.be.eq(2); // DONE = 2
+
+
+             // recalling this process should be prevented as it's status is no longer NEW
+            await expect(
+                l2Bridge.processMessage(message, merkelProof)
+            ).to.be.revertedWith("B:status");
         });
-   */
     });
 
     /*

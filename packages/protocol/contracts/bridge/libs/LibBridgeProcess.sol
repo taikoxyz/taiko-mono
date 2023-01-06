@@ -71,7 +71,7 @@ library LibBridgeProcess {
                     signal: msgHash,
                     proof: proof
                 }),
-            "B:signalProof"
+            "B:notReceived"
         );
 
         // We retrieve the necessary ether from EtherVault
