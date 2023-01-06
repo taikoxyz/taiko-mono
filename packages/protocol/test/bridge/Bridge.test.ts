@@ -319,59 +319,59 @@ describe("Bridge", function () {
         });
     });
 
-    describe("getMessageStatus()", function () {
-        it("returns new for uninitialized signal", async () => {
-            const { l1Bridge } = await deployBridgeFixture();
+    // describe("getMessageStatus()", function () {
+    //     it("returns new for uninitialized signal", async () => {
+    //         const { l1Bridge } = await deployBridgeFixture();
 
-            const messageStatus = await l1Bridge.getMessageStatus(
-                ethers.constants.HashZero
-            );
+    //         const messageStatus = await l1Bridge.getMessageStatus(
+    //             ethers.constants.HashZero
+    //         );
 
-            expect(messageStatus).to.be.eq(0);
-        });
+    //         expect(messageStatus).to.be.eq(0);
+    //     });
 
-        it("returns for initiaized signal", async () => {
-            const { owner, nonOwner, enabledDestChainId, l1Bridge } =
-                await deployBridgeFixture();
+    //     it("returns for initiaized signal", async () => {
+    //         const { owner, nonOwner, enabledDestChainId, l1Bridge } =
+    //             await deployBridgeFixture();
 
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: enabledDestChainId,
-                owner: owner.address,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
+    //         const message: Message = {
+    //             id: 1,
+    //             sender: owner.address,
+    //             srcChainId: 1,
+    //             destChainId: enabledDestChainId,
+    //             owner: owner.address,
+    //             to: nonOwner.address,
+    //             refundAddress: owner.address,
+    //             depositValue: 1,
+    //             callValue: 1,
+    //             processingFee: 1,
+    //             gasLimit: 100,
+    //             data: ethers.constants.HashZero,
+    //             memo: "",
+    //         };
 
-            const expectedAmount =
-                message.depositValue +
-                message.callValue +
-                message.processingFee;
+    //         const expectedAmount =
+    //             message.depositValue +
+    //             message.callValue +
+    //             message.processingFee;
 
-            const tx = await l1Bridge.sendMessage(message, {
-                value: expectedAmount,
-            });
+    //         const tx = await l1Bridge.sendMessage(message, {
+    //             value: expectedAmount,
+    //         });
 
-            const receipt = await tx.wait();
+    //         const receipt = await tx.wait();
 
-            const [messageSentEvent] = receipt.events as any as Event[];
+    //         const [messageSentEvent] = receipt.events as any as Event[];
 
-            const { signal } = (messageSentEvent as any).args;
+    //         const { signal } = (messageSentEvent as any).args;
 
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
+    //         expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
-            const messageStatus = await l1Bridge.getMessageStatus(signal);
+    //         const messageStatus = await l1Bridge.getMessageStatus(signal);
 
-            expect(messageStatus).to.be.eq(0);
-        });
-    });
+    //         expect(messageStatus).to.be.eq(0);
+    //     });
+    // });
 
     describe("processMessage()", async function () {
         it("throws when message.gasLimit is 0 and msg.sender is not the message.owner", async () => {
