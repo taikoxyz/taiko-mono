@@ -1,56 +1,16 @@
 import { expect } from "chai";
-import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 import { TaikoL1 } from "../../typechain";
 import { randomBytes32 } from "../utils/bytes";
+import { deployTaikoL1 } from "../utils/taikoL1";
 
 describe("TaikoL1", function () {
     let taikoL1: TaikoL1;
     let genesisHash: string;
 
     beforeEach(async function () {
-        const addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
-
-        const libReceiptDecoder = await (
-            await ethers.getContractFactory("LibReceiptDecoder")
-        ).deploy();
-
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        ).deploy();
-
-        const libProposing = await (
-            await ethers.getContractFactory("LibProposing")
-        ).deploy();
-
-        const libProving = await (
-            await ethers.getContractFactory("LibProving", {
-                libraries: {
-                    LibReceiptDecoder: libReceiptDecoder.address,
-                    LibTxDecoder: libTxDecoder.address,
-                },
-            })
-        ).deploy();
-
-        const libVerifying = await (
-            await ethers.getContractFactory("LibVerifying")
-        ).deploy();
-
         genesisHash = randomBytes32();
-        const feeBase = BigNumber.from(10).pow(18);
-        taikoL1 = await (
-            await ethers.getContractFactory("TestTaikoL1", {
-                libraries: {
-                    LibVerifying: libVerifying.address,
-                    LibProposing: libProposing.address,
-                    LibProving: libProving.address,
-                },
-            })
-        ).deploy();
-        await taikoL1.init(addressManager.address, genesisHash, feeBase);
+        taikoL1 = await deployTaikoL1(genesisHash);
     });
 
     describe("getLatestSyncedHeader()", async function () {

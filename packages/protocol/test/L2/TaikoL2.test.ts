@@ -2,28 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TaikoL2 } from "../../typechain";
 import { randomBytes32 } from "../utils/bytes";
+import { deployTaikoL2 } from "../utils/taikoL2";
 
 describe("TaikoL2", function () {
     let taikoL2: TaikoL2;
 
     beforeEach(async function () {
-        const addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
-
-        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        ).deploy();
-
-        taikoL2 = await (
-            await ethers.getContractFactory("TaikoL2", {
-                libraries: {
-                    LibTxDecoder: libTxDecoder.address,
-                },
-            })
-        ).deploy(addressManager.address);
+        taikoL2 = await deployTaikoL2((await ethers.getSigners())[0]);
     });
 
     describe("anchor()", async function () {

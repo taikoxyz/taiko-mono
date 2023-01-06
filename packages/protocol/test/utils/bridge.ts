@@ -91,4 +91,5 @@ async function sendMessage(bridge: Bridge, m: Message) {
 
     return { bridge, messageSentEvent, signal, message };
 }
+
 export { deployBridge, sendMessage };

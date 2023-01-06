@@ -5,6 +5,8 @@ import { TaikoL1, TaikoL2 } from "../../typechain";
 import { BlockMetadata } from "../utils/block_metadata";
 import { commitBlock, generateCommitHash } from "../utils/commit";
 import { buildProposeBlockInputs, proposeBlock } from "../utils/propose";
+import { deployTaikoL1 } from "../utils/taikoL1";
+import { deployTaikoL2 } from "../utils/taikoL2";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -23,79 +25,11 @@ describe("integration:TaikoL1", function () {
             )[0]
         );
 
-        const addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        taikoL2 = await deployTaikoL2(l2Signer);
 
-        const libReceiptDecoder = await (
-            await ethers.getContractFactory("LibReceiptDecoder")
-        ).deploy();
+        const genesisHash = taikoL2.deployTransaction.blockHash as string;
 
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        ).deploy();
-
-        const libProposing = await (
-            await ethers.getContractFactory("LibProposing")
-        ).deploy();
-
-        const libProving = await (
-            await ethers.getContractFactory("LibProving", {
-                libraries: {
-                    LibReceiptDecoder: libReceiptDecoder.address,
-                    LibTxDecoder: libTxDecoder.address,
-                },
-            })
-        ).deploy();
-
-        const libVerifying = await (
-            await ethers.getContractFactory("LibVerifying")
-        ).deploy();
-
-        const l2AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        )
-            .connect(l2Signer)
-            .deploy();
-        await l2AddressManager.init();
-
-        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
-        const l2LibTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        )
-            .connect(l2Signer)
-            .deploy();
-
-        taikoL2 = await (
-            await ethers.getContractFactory("TaikoL2", {
-                libraries: {
-                    LibTxDecoder: l2LibTxDecoder.address,
-                },
-            })
-        )
-            .connect(l2Signer)
-            .deploy(l2AddressManager.address);
-
-        const genesisHash = taikoL2.deployTransaction.blockHash;
-
-        taikoL1 = await (
-            await ethers.getContractFactory("TestTaikoL1", {
-                libraries: {
-                    LibVerifying: libVerifying.address,
-                    LibProposing: libProposing.address,
-                    LibProving: libProving.address,
-                },
-            })
-        ).deploy();
-
-        const feeBase = BigNumber.from(10).pow(18);
-
-        await taikoL1.init(
-            addressManager.address,
-            genesisHash as string,
-            feeBase
-        );
+        taikoL1 = await deployTaikoL1(genesisHash);
     });
 
     describe("isCommitValid()", async function () {

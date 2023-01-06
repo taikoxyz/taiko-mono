@@ -2,18 +2,16 @@ import { expect } from "chai";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
 import {
-    getLatestBlockHeader,
-    getSignalProof,
-    getSignalSlot,
-} from "../../tasks/utils";
-import {
     AddressManager,
     Bridge,
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
 import { deployBridge, sendMessage } from "../utils/bridge";
+import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
+import { getLatestBlockHeader } from "../utils/rpc";
+import { getSignalProof, getSignalSlot } from "../utils/signal";
 
 describe("integration:Bridge", function () {
     let owner: any;
@@ -396,7 +394,7 @@ describe("integration:Bridge", function () {
 
     describe("isSignalReceived()", function () {
         it("should throw if sender == address(0)", async function () {
-            const signal = ethers.utils.randomBytes(32);
+            const signal = randomBytes32();
             const sender = ethers.constants.AddressZero;
             const signalProof = ethers.constants.HashZero;
 
@@ -426,7 +424,7 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if calling from same layer", async function () {
-            const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
+            const signal = randomBytes32();
 
             const tx = await l1Bridge.connect(owner).sendSignal(signal);
 

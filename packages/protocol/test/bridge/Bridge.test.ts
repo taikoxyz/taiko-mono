@@ -262,10 +262,8 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            const proof = ethers.constants.HashZero;
-
             await expect(
-                l1Bridge.processMessage(message, proof)
+                l1Bridge.processMessage(message, ethers.constants.HashZero)
             ).to.be.revertedWith("B:forbidden");
         });
 
@@ -286,10 +284,8 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            const proof = ethers.constants.HashZero;
-
             await expect(
-                l1Bridge.processMessage(message, proof)
+                l1Bridge.processMessage(message, ethers.constants.HashZero)
             ).to.be.revertedWith("B:destChainId");
         });
     });
