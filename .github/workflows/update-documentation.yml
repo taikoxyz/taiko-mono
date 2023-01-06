@@ -22,7 +22,7 @@ jobs:
         name: Install pnpm
         id: pnpm-install
         with:
-          version: 7
+          version: 7.x.x
           run_install: false
 
       # Run the command to update the documentation
