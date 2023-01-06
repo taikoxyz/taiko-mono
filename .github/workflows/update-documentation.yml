@@ -59,12 +59,14 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-          git commit -am "docs(protocol): auto-update protocol documentation"
+          git commit -m "docs(protocol): auto-update protocol documentation"
           git push
 
       # Create a pull request
       - name: Create pull request
-        if: github.event.pull_request.merged == true && github.event.diff_status == 'modified'
+        if: |
+          github.event.pull_request.merged == true &&
+          github.event.diff_status == 'modified'
         uses: peter-evans/create-pull-request@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
