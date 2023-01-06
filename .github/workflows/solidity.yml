@@ -19,9 +19,10 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
-          node-version: "16.15"
+          node-version: "16.15.x"
 
       - uses: pnpm/action-setup@v2
         name: Install pnpm
@@ -63,16 +64,6 @@ jobs:
       - name: protocol - Export ABIs
         working-directory: ./packages/protocol
         run: pnpm export:abi
-
-      - name: protocol - Generate Docs
-        working-directory: ./packages/protocol
-        run: pnpm export:docs
-
-      # - uses: stefanzweifel/git-auto-commit-action@v4
-      #   name: protocol - Auto Commit Solidity Docs
-      #   if: github.ref != 'refs/heads/main'
-      #   with:
-      #     commit_message: "chore(docs): auto commit solidity docs"
 
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
