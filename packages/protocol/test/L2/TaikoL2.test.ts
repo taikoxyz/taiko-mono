@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TaikoL2 } from "../../typechain";
+import { randomBytes32 } from "../utils/bytes";
 
 describe("TaikoL2", function () {
     let taikoL2: TaikoL2;
@@ -47,7 +48,3 @@ describe("TaikoL2", function () {
         });
     });
 });
-
-function randomBytes32() {
-    return ethers.utils.hexlify(ethers.utils.randomBytes(32));
-}
