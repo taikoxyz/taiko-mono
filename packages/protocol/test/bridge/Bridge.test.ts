@@ -477,6 +477,12 @@ describe("integration:Bridge", function () {
             enabledDestChainId
         );
 
+
+        await l2AddressManager
+            .connect(l2Signer)
+            .setAddress(`${srcChainId}.signal_service`, l1SignalService.address);
+
+
         const { bridge: l1Bridge, etherVault: l1EtherVault } =
             await deployBridge(
                 owner,
@@ -501,6 +507,8 @@ describe("integration:Bridge", function () {
         await l2AddressManager
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
+
+
 
         const headerSync: TestHeaderSync = await (
             await ethers.getContractFactory("TestHeaderSync")
@@ -656,11 +664,6 @@ describe("integration:Bridge", function () {
                 block.number,
                 blockHeader
             );
-
-            console.log("l1SignalService: ", l1SignalService.address);
-            console.log("l2SignalService: ", l2SignalService.address);
-            console.log("l1Bridge: ", l1Bridge.address);
-            console.log("l2Bridge: ", l2Bridge.address);
 
             // upon successful processing, this immediately gets marked as DONE
             await l2Bridge.processMessage(message, signalProof);

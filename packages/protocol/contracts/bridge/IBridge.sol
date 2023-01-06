@@ -36,24 +36,22 @@ interface IBridge {
         uint256 srcChainId;
     }
 
-    event SignalSent(address sender, bytes32 signal);
-
-    event MessageSent(bytes32 indexed signal, Message message);
+    event MessageSent(bytes32 indexed msgHash, Message message);
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     function sendMessage(
         Message memory message
-    ) external payable returns (bytes32 signal);
+    ) external payable returns (bytes32 msgHash);
 
-    /// Checks if a signal has been stored on the bridge contract by the
-    /// current address.
-    function isMessageSent(bytes32 signal) external view returns (bool);
+    /// Checks if a message hash  has been stored on the bridge contract by
+    /// the current address.
+    function isMessageSent(bytes32 msgHash) external view returns (bool);
 
-    /// Checks if a signal has been received on the destination chain and
-    /// sent by the src chain.
+    /// Checks if a message hash has been received on the destination chain
+    /// and sent by the src chain.
     function isMessageReceived(
-        bytes32 signal,
+        bytes32 msgHash,
         uint256 srcChainId,
         bytes calldata proof
     ) external view returns (bool);

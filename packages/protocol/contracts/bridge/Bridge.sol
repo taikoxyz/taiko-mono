@@ -139,4 +139,8 @@ contract Bridge is EssentialContract, IBridge {
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
         return state.destChains[_chainId];
     }
+
+    function hashMessage(Message memory message) public pure returns (bytes32) {
+        return LibBridgeData.hashMessage(message);
+    }
 }
