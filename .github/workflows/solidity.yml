@@ -10,14 +10,9 @@ on:
       - "packages/protocol/**"
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -50,6 +45,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
@@ -79,3 +83,25 @@ jobs:
         with:
           directory: ./packages/protocol/coverage
           flags: protocol
+
+  post-merge:
+    needs: setup
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the command to update the documentation
+        run: pnpm -F protocol export:docs
+
+      - name: Stage all modified and untracked files
+        run: git add .
+
+      - name: Exit if there are no changes
+        run: git diff --exit-code --cached
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          title: "docs(protocol): auto-update protocol documentation"
+          commit-message: "docs(protocol): auto-update protocol documentation"
+          branch: update-docs-${{ github.sha }}
+          delete-branch: true
