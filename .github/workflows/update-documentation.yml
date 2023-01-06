@@ -9,52 +9,45 @@ jobs:
   update_docs:
     runs-on: ubuntu-latest
     steps:
-      # Check out the repository
       - uses: actions/checkout@v3
 
-      # Install dependencies
       - uses: actions/setup-node@v3
         with:
           node-version: 16
 
-      # Install pnpm
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
         id: pnpm-install
         with:
           version: 7
           run_install: false
 
-      # Get pnpm store directory
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      # Setup pnpm cache
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Install dependencies
       - name: Install dependencies
         run: pnpm install
 
-      # Run the command to update the documentation
-      - run: pnpm -F protocol export:docs
+      - name: Run the command to update the documentation
+        run: pnpm -F protocol export:docs
 
-      # Stage all modified and untracked files
-      - run: git add .
+      - name: Stage all modified and untracked files
+        run: git add .
 
-      # Check if there are any changes to be committed
-      - run: git diff --exit-code --cached
+      - name: Exit if there are no changes
+        run: git diff --exit-code --cached
 
-      # If there are changes, create a new commit and push it
       - name: Commit and push changes
         run: |
           git config --global user.email "action@github.com"
@@ -62,7 +55,6 @@ jobs:
           git commit -m "docs(protocol): auto-update protocol documentation"
           git push
 
-      # Create a pull request
       - name: Create pull request
         if: |
           github.event.pull_request.merged == true &&
