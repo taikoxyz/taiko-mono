@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+import { BigNumber, ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
 import {
     getLatestBlockHeader,
@@ -8,36 +8,48 @@ import {
 } from "../../tasks/utils";
 import {
     AddressManager,
-    TestBadReceiver,
+    Bridge,
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
-import { deployBridge } from "../utils/bridge";
+import { deployBridge, sendMessage } from "../utils/bridge";
 import { Message } from "../utils/message";
 
 describe("integration:Bridge", function () {
-    async function deployBridgeFixture() {
-        const [owner, nonOwner] = await ethers.getSigners();
+    let owner: any;
+    let l2Provider: ethersLib.providers.JsonRpcProvider;
+    let l2Signer: ethersLib.Signer;
+    let srcChainId: number;
+    let enabledDestChainId: number;
+    let l2NonOwner: ethersLib.Signer;
+    let l1Bridge: Bridge;
+    let l2Bridge: Bridge;
+    let m: Message;
+    let headerSync: TestHeaderSync;
+
+    beforeEach(async () => {
+        [owner] = await ethers.getSigners();
 
         const { chainId } = await ethers.provider.getNetwork();
 
-        const srcChainId = chainId;
+        srcChainId = chainId;
 
         // seondary node to deploy L2 on
-        const l2Provider = new ethers.providers.JsonRpcProvider(
+        l2Provider = new ethers.providers.JsonRpcProvider(
             "http://localhost:28545"
         );
 
-        const l2Signer = await l2Provider.getSigner(
+        l2Signer = await l2Provider.getSigner(
             (
                 await l2Provider.listAccounts()
             )[0]
         );
 
-        const l2NonOwner = await l2Provider.getSigner();
+        l2NonOwner = await l2Provider.getSigner();
 
         const l2Network = await l2Provider.getNetwork();
-        const enabledDestChainId = l2Network.chainId;
+
+        enabledDestChainId = l2Network.chainId;
 
         const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
@@ -51,21 +63,19 @@ describe("integration:Bridge", function () {
             .deploy();
         await l2AddressManager.init();
 
-        const { bridge: l1Bridge, etherVault: l1EtherVault } =
-            await deployBridge(
-                owner,
-                addressManager,
-                enabledDestChainId,
-                srcChainId
-            );
+        ({ bridge: l1Bridge } = await deployBridge(
+            owner,
+            addressManager,
+            enabledDestChainId,
+            srcChainId
+        ));
 
-        const { bridge: l2Bridge, etherVault: l2EtherVault } =
-            await deployBridge(
-                l2Signer,
-                l2AddressManager,
-                srcChainId,
-                enabledDestChainId
-            );
+        ({ bridge: l2Bridge } = await deployBridge(
+            l2Signer,
+            l2AddressManager,
+            srcChainId,
+            enabledDestChainId
+        ));
 
         await addressManager.setAddress(
             `${enabledDestChainId}.bridge`,
@@ -76,9 +86,7 @@ describe("integration:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
 
-        const headerSync: TestHeaderSync = await (
-            await ethers.getContractFactory("TestHeaderSync")
-        )
+        headerSync = await (await ethers.getContractFactory("TestHeaderSync"))
             .connect(l2Signer)
             .deploy();
 
@@ -86,7 +94,7 @@ describe("integration:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${enabledDestChainId}.taiko`, headerSync.address);
 
-        const m: Message = {
+        m = {
             id: 1,
             sender: owner.address,
             srcChainId: srcChainId,
@@ -101,34 +109,10 @@ describe("integration:Bridge", function () {
             data: ethers.constants.HashZero,
             memo: "",
         };
-
-        return {
-            owner,
-            l2Signer,
-            nonOwner,
-            l2NonOwner,
-            l1Bridge,
-            l2Bridge,
-            addressManager,
-            enabledDestChainId,
-            l1EtherVault,
-            l2EtherVault,
-            srcChainId,
-            headerSync,
-            m,
-        };
-    }
+    });
 
     describe("processMessage()", function () {
         it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
-            const {
-                owner,
-                l2NonOwner,
-                srcChainId,
-                enabledDestChainId,
-                l2Bridge,
-            } = await deployBridgeFixture();
-
             const m: Message = {
                 id: 1,
                 sender: await l2NonOwner.getAddress(),
@@ -151,9 +135,6 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {
-            const { owner, srcChainId, enabledDestChainId, l2Bridge } =
-                await deployBridgeFixture();
-
             const m: Message = {
                 id: 1,
                 sender: owner.address,
@@ -176,21 +157,7 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if messageStatus of message is != NEW", async function () {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
-
+            const { signal, message } = await sendMessage(l1Bridge, m);
             const sender = l1Bridge.address;
 
             const key = getSignalSlot(hre, sender, signal);
@@ -217,9 +184,6 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if message signalproof is not valid", async function () {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture();
-
             const libData: TestLibBridgeData = await (
                 await ethers.getContractFactory("TestLibBridgeData")
             ).deploy();
@@ -247,20 +211,7 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if message has not been received", async function () {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
+            const { signal, message } = await sendMessage(l1Bridge, m);
 
             expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
@@ -301,20 +252,7 @@ describe("integration:Bridge", function () {
         });
 
         it("processes a message when the signal has been verified from the sending chain", async () => {
-            const { l1Bridge, l2Bridge, headerSync, m } =
-                await deployBridgeFixture();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
+            const { signal, message } = await sendMessage(l1Bridge, m);
 
             expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
@@ -359,8 +297,6 @@ describe("integration:Bridge", function () {
 
     describe("isMessageSent()", function () {
         it("should return false, since no message was sent", async function () {
-            const { l1Bridge, m } = await deployBridgeFixture();
-
             const libData = await (
                 await ethers.getContractFactory("TestLibBridgeData")
             ).deploy();
@@ -370,19 +306,7 @@ describe("integration:Bridge", function () {
         });
 
         it("should return true if message was sent properly", async function () {
-            const { l1Bridge, m } = await deployBridgeFixture();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal } = (messageSentEvent as any).args;
+            const { signal } = await sendMessage(l1Bridge, m);
 
             expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
@@ -390,121 +314,8 @@ describe("integration:Bridge", function () {
         });
     });
 
-    describe("retryMessage()", function () {
-        async function retriableMessageSetup() {
-            const {
-                owner,
-                l2Signer,
-                nonOwner,
-                l2NonOwner,
-                l1Bridge,
-                l2Bridge,
-                addressManager,
-                enabledDestChainId,
-                l1EtherVault,
-                l2EtherVault,
-                srcChainId,
-                headerSync,
-            } = await deployBridgeFixture();
-
-            const testBadReceiver: TestBadReceiver = await (
-                await ethers.getContractFactory("TestBadReceiver")
-            )
-                .connect(l2Signer)
-                .deploy();
-
-            await testBadReceiver.deployed();
-
-            const m: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: srcChainId,
-                destChainId: enabledDestChainId,
-                owner: owner.address,
-                to: testBadReceiver.address,
-                refundAddress: owner.address,
-                depositValue: 1000,
-                callValue: 1000,
-                processingFee: 1000,
-                gasLimit: 1,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.connect(owner).sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal, message } = (messageSentEvent as any).args;
-
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
-
-            const messageStatus = await l1Bridge.getMessageStatus(signal);
-
-            expect(messageStatus).to.be.eq(0);
-
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
-
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
-
-            await headerSync.setSyncedHeader(block.hash);
-
-            const signalProof = await getSignalProof(
-                hre,
-                l1Bridge.address,
-                key,
-                block.number,
-                blockHeader
-            );
-
-            await l2Bridge
-                .connect(l2NonOwner)
-                .processMessage(message, signalProof, {
-                    gasLimit: BigNumber.from(2000000),
-                });
-
-            const status = await l2Bridge.getMessageStatus(signal);
-            expect(status).to.be.eq(1); // message is retriable now
-            // because the LibBridgeInvoke call failed, because
-            // message.to is a bad receiver and throws upon receipt
-
-            return {
-                message,
-                l2Signer,
-                l2NonOwner,
-                l1Bridge,
-                l2Bridge,
-                addressManager,
-                headerSync,
-                owner,
-                nonOwner,
-                srcChainId,
-                enabledDestChainId,
-                l1EtherVault,
-                l2EtherVault,
-                signal,
-            };
-        }
-        it("setup message to fail first processMessage", async function () {
-            const { l2Bridge, signal } = await retriableMessageSetup();
-            l2Bridge;
-            signal;
-        });
-    });
-
     describe("isMessageReceived()", function () {
         it("should throw if signal is not a bridge message; proof is invalid since sender != bridge.", async function () {
-            const { owner, l1Bridge, l2Bridge, headerSync, srcChainId } =
-                await deployBridgeFixture();
-
             const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
             const tx = await l1Bridge.connect(owner).sendSignal(signal);
@@ -544,20 +355,7 @@ describe("integration:Bridge", function () {
         });
 
         it("should return true", async function () {
-            const { l1Bridge, srcChainId, l2Bridge, headerSync, m } =
-                await deployBridgeFixture();
-
-            const expectedAmount =
-                m.depositValue + m.callValue + m.processingFee;
-            const tx = await l1Bridge.sendMessage(m, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal } = (messageSentEvent as any).args;
+            const { signal } = await sendMessage(l1Bridge, m);
 
             const sender = l1Bridge.address;
 
@@ -598,8 +396,6 @@ describe("integration:Bridge", function () {
 
     describe("isSignalReceived()", function () {
         it("should throw if sender == address(0)", async function () {
-            const { l2Bridge, srcChainId } = await deployBridgeFixture();
-
             const signal = ethers.utils.randomBytes(32);
             const sender = ethers.constants.AddressZero;
             const signalProof = ethers.constants.HashZero;
@@ -615,8 +411,6 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if signal == HashZero", async function () {
-            const { owner, l2Bridge, srcChainId } = await deployBridgeFixture();
-
             const signal = ethers.constants.HashZero;
             const sender = owner.address;
             const signalProof = ethers.constants.HashZero;
@@ -632,8 +426,6 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if calling from same layer", async function () {
-            const { owner, l1Bridge, headerSync, srcChainId } =
-                await deployBridgeFixture();
             const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
             const tx = await l1Bridge.connect(owner).sendSignal(signal);
@@ -678,9 +470,6 @@ describe("integration:Bridge", function () {
         });
 
         it("should return true and pass", async function () {
-            const { owner, l1Bridge, l2Bridge, headerSync, srcChainId } =
-                await deployBridgeFixture();
-
             const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
             const tx = await l1Bridge.connect(owner).sendSignal(signal);

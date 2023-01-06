@@ -6,6 +6,7 @@ import {
     EtherVault,
     LibTrieProof,
 } from "../../typechain";
+import { Message } from "./message";
 
 async function deployBridge(
     signer: Signer,
@@ -75,4 +76,19 @@ async function deployBridge(
     return { bridge, etherVault };
 }
 
-export { deployBridge };
+async function sendMessage(bridge: Bridge, m: Message) {
+    const expectedAmount = m.depositValue + m.callValue + m.processingFee;
+
+    const tx = await bridge.sendMessage(m, {
+        value: expectedAmount,
+    });
+
+    const receipt = await tx.wait();
+
+    const [messageSentEvent] = receipt.events as any as Event[];
+
+    const { signal, message } = (messageSentEvent as any).args;
+
+    return { bridge, messageSentEvent, signal, message };
+}
+export { deployBridge, sendMessage };

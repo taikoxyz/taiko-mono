@@ -1,49 +1,42 @@
 import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import { AddressManager } from "../../typechain";
-import { deployBridge } from "../utils/bridge";
+import { AddressManager, Bridge, EtherVault } from "../../typechain";
+import { deployBridge, sendMessage } from "../utils/bridge";
 import { Message } from "../utils/message";
 
 describe("Bridge", function () {
-    async function deployBridgeFixture() {
-        const [owner, nonOwner] = await ethers.getSigners();
+    let owner: any;
+    let nonOwner: any;
+    let srcChainId: number;
+    let enabledDestChainId: number;
+    let l1Bridge: Bridge;
+    let l1EtherVault: EtherVault;
+
+    beforeEach(async () => {
+        [owner, nonOwner] = await ethers.getSigners();
 
         const { chainId } = await ethers.provider.getNetwork();
 
-        const srcChainId = chainId;
+        srcChainId = chainId;
 
-        const enabledDestChainId = srcChainId + 1;
+        enabledDestChainId = srcChainId + 1;
 
         const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy();
         await addressManager.init();
 
-        const { bridge: l1Bridge, etherVault: l1EtherVault } =
-            await deployBridge(
-                owner,
-                addressManager,
-                enabledDestChainId,
-                srcChainId
-            );
-
-        // deploy protocol contract
-        return {
+        ({ bridge: l1Bridge, etherVault: l1EtherVault } = await deployBridge(
             owner,
-            nonOwner,
-            l1Bridge,
             addressManager,
             enabledDestChainId,
-            l1EtherVault,
-            srcChainId,
-        };
-    }
+            srcChainId
+        ));
+    });
 
     describe("sendMessage()", function () {
         it("throws when owner is the zero address", async () => {
-            const { owner, nonOwner, l1Bridge } = await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -66,8 +59,6 @@ describe("Bridge", function () {
         });
 
         it("throws when dest chain id is same as block.chainid", async () => {
-            const { owner, nonOwner, l1Bridge } = await deployBridgeFixture();
-
             const network = await ethers.provider.getNetwork();
             const message: Message = {
                 id: 1,
@@ -91,8 +82,6 @@ describe("Bridge", function () {
         });
 
         it("throws when dest chain id is not enabled", async () => {
-            const { owner, nonOwner, l1Bridge } = await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -115,9 +104,6 @@ describe("Bridge", function () {
         });
 
         it("throws when msg.value is not the same as expected amount", async () => {
-            const { owner, nonOwner, l1Bridge, enabledDestChainId } =
-                await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -140,14 +126,6 @@ describe("Bridge", function () {
         });
 
         it("emits event and is successful when message is valid, ether_vault receives the expectedAmount", async () => {
-            const {
-                owner,
-                nonOwner,
-                l1EtherVault,
-                l1Bridge,
-                enabledDestChainId,
-            } = await deployBridgeFixture();
-
             const etherVaultOriginalBalance = await ethers.provider.getBalance(
                 l1EtherVault.address
             );
@@ -172,11 +150,8 @@ describe("Bridge", function () {
                 message.depositValue +
                 message.callValue +
                 message.processingFee;
-            await expect(
-                l1Bridge.sendMessage(message, {
-                    value: expectedAmount,
-                })
-            ).to.emit(l1Bridge, "MessageSent");
+
+            await sendMessage(l1Bridge, message);
 
             const etherVaultUpdatedBalance = await ethers.provider.getBalance(
                 l1EtherVault.address
@@ -190,16 +165,12 @@ describe("Bridge", function () {
 
     describe("sendSignal()", async function () {
         it("throws when signal is empty", async function () {
-            const { owner, l1Bridge } = await deployBridgeFixture();
-
             await expect(
                 l1Bridge.connect(owner).sendSignal(ethers.constants.HashZero)
             ).to.be.revertedWith("B:signal");
         });
 
         it("sends signal, confirms it was sent", async function () {
-            const { owner, l1Bridge } = await deployBridgeFixture();
-
             const hash =
                 "0xf2e08f6b93d8cf4f37a3b38f91a8c37198095dde8697463ca3789e25218a8e9d";
             await expect(l1Bridge.connect(owner).sendSignal(hash))
@@ -216,16 +187,11 @@ describe("Bridge", function () {
 
     describe("isDestChainEnabled()", function () {
         it("is disabled for unabled chainIds", async () => {
-            const { l1Bridge } = await deployBridgeFixture();
-
             const enabled = await l1Bridge.isDestChainEnabled(68);
             expect(enabled).to.be.eq(false);
         });
 
         it("is enabled for enabled chainId", async () => {
-            const { l1Bridge, enabledDestChainId } =
-                await deployBridgeFixture();
-
             const enabled = await l1Bridge.isDestChainEnabled(
                 enabledDestChainId
             );
@@ -235,8 +201,6 @@ describe("Bridge", function () {
 
     describe("context()", function () {
         it("returns unitialized context", async () => {
-            const { l1Bridge } = await deployBridgeFixture();
-
             const ctx = await l1Bridge.context();
             expect(ctx[0]).to.be.eq(ethers.constants.HashZero);
             expect(ctx[1]).to.be.eq(ethers.constants.AddressZero);
@@ -246,8 +210,6 @@ describe("Bridge", function () {
 
     describe("getMessageStatus()", function () {
         it("returns new for uninitialized signal", async () => {
-            const { l1Bridge } = await deployBridgeFixture();
-
             const messageStatus = await l1Bridge.getMessageStatus(
                 ethers.constants.HashZero
             );
@@ -256,9 +218,6 @@ describe("Bridge", function () {
         });
 
         it("returns for initiaized signal", async () => {
-            const { owner, nonOwner, enabledDestChainId, l1Bridge } =
-                await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -275,20 +234,7 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            const expectedAmount =
-                message.depositValue +
-                message.callValue +
-                message.processingFee;
-
-            const tx = await l1Bridge.sendMessage(message, {
-                value: expectedAmount,
-            });
-
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal } = (messageSentEvent as any).args;
+            const { signal } = await sendMessage(l1Bridge, message);
 
             expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
@@ -300,9 +246,6 @@ describe("Bridge", function () {
 
     describe("processMessage()", async function () {
         it("throws when message.gasLimit is 0 and msg.sender is not the message.owner", async () => {
-            const { owner, nonOwner, l1Bridge, enabledDestChainId } =
-                await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -327,8 +270,6 @@ describe("Bridge", function () {
         });
 
         it("throws message.destChainId is not block.chainId", async () => {
-            const { owner, nonOwner, l1Bridge } = await deployBridgeFixture();
-
             const message: Message = {
                 id: 1,
                 sender: nonOwner.address,
