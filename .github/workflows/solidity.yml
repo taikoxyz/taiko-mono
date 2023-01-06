@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: "16.15.x"
+          node-version: 16
 
       - uses: pnpm/action-setup@v2
         name: Install pnpm
@@ -45,9 +45,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Install dependencies
+        run: pnpm install
+
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: pnpm install && pnpm clean && pnpm test
+        run: pnpm clean && pnpm test
 
       - name: protocol - Integration Tests
         working-directory: ./packages/protocol
