@@ -1,4 +1,4 @@
-# Taiko Brand Resources
+# Taiko branding guide
 
 This package contains all the branding assets for Taiko. 
 
