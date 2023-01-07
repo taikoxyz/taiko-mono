@@ -8,7 +8,7 @@ export const getProposers = async (
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   let events = [];
   const latestBlock = await provider.getBlockNumber();
-  const batchSize = 5000;
+  const batchSize = 1000;
   for (let i = 0; i < latestBlock; i += batchSize) {
     const end = i + batchSize > latestBlock ? latestBlock : i + batchSize;
     const e = await contract.queryFilter("BlockProposed", i, end);

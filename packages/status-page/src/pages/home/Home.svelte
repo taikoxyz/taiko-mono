@@ -11,6 +11,7 @@
   import { getProposers } from "../../utils/getProposers";
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
   import { getNextBlockId } from "../../utils/getNextBlockId";
+  import { getGasPrice } from "../../utils/getGasPrice";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -142,9 +143,23 @@
         }
       },
     },
+    {
+      statusFunc: getGasPrice,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Gas Price (gwei)",
+      intervalInMs: 10000,
+      colorFunc: (value: string | number | boolean) => {
+        return "green";
+      },
+    },
   ];
 </script>
 
+<div class="text-center">
+  <h1 class="text-2xl">Taiko Network Status</h1>
+</div>
 <div
   class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center my-10"
 >
