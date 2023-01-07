@@ -158,10 +158,10 @@
     {
       statusFunc: getPeerCount,
       watchStatusFunc: null,
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
+      provider: l2Provider,
+      contractAddress: l2TaikoAddress,
       header: "Peers",
-      intervalInMs: 0,
+      intervalInMs: 30000,
       colorFunc: (value: string | number | boolean) => {
         return "green";
       },
