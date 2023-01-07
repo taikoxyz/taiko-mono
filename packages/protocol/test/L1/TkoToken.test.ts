@@ -8,7 +8,7 @@ import {
 } from "../constants/errors";
 import { BigNumber } from "ethers";
 
-describe("TKOToken", function () {
+describe("TkoToken", function () {
     let owner: any;
     let nonOwner: any;
     let protoBroker: any;
