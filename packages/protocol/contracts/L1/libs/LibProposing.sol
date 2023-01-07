@@ -146,7 +146,7 @@ library LibProposing {
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
         require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
-        return LibUtils.getProposedBlock(state, maxNumBlocks, id);
+        return state.getProposedBlock(maxNumBlocks, id);
     }
 
     function getBlockFee(
