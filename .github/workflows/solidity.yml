@@ -55,33 +55,33 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: protocol - Unit Tests
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
       - name: protocol - Integration Tests
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm test:integration
 
       - name: protocol - Test Coverage
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm test:coverage
 
       - name: protocol - Generate Genesis
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm test:genesis
 
       - name: protocol - Export ABIs
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm export:abi
 
       - name: protocol - Deploy L1 Contracts
-        working-directory: packages/protocol
+        working-directory: ./packages/protocol
         run: pnpm deploy:hardhat
 
       - name: protocol - Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          directory: packages/protocol/coverage
+          directory: ./packages/protocol/coverage
           flags: protocol
 
   post-merge:
