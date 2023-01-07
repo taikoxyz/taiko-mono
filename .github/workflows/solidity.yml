@@ -10,21 +10,19 @@ on:
       - "packages/protocol/**"
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          access_token: ${{ github.token }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: "16.15"
+          node-version: 16
 
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
         id: pnpm-install
         with:
           version: 7
@@ -36,17 +34,29 @@ jobs:
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Install dependencies
+        run: pnpm install
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
-        run: pnpm install && pnpm clean && pnpm test
+        run: pnpm clean && pnpm test
 
       - name: protocol - Integration Tests
         working-directory: ./packages/protocol
@@ -64,16 +74,6 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm export:abi
 
-      - name: protocol - Generate Docs
-        working-directory: ./packages/protocol
-        run: pnpm export:docs
-
-      # - uses: stefanzweifel/git-auto-commit-action@v4
-      #   name: protocol - Auto Commit Solidity Docs
-      #   if: github.ref != 'refs/heads/main'
-      #   with:
-      #     commit_message: "chore(docs): auto commit solidity docs"
-
       - name: protocol - Deploy L1 Contracts
         working-directory: ./packages/protocol
         run: pnpm deploy:hardhat
@@ -83,3 +83,25 @@ jobs:
         with:
           directory: ./packages/protocol/coverage
           flags: protocol
+
+  post-merge:
+    needs: setup
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the command to update the documentation
+        run: pnpm -F protocol export:docs
+
+      - name: Stage all modified and untracked files
+        run: git add .
+
+      - name: Exit if there are no changes
+        run: git diff --exit-code --cached
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          title: "docs(protocol): auto-update protocol documentation"
+          commit-message: "docs(protocol): auto-update protocol documentation"
+          branch: update-docs-${{ github.sha }}
+          delete-branch: true
