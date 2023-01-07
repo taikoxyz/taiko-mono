@@ -1,4 +1,4 @@
-import { Contract, ethers } from "ethers";
+import { BigNumber, Contract, ethers } from "ethers";
 import TaikoL1 from "../constants/abi/TaikoL1";
 
 export const getLastVerifiedBlockId = async (
@@ -8,5 +8,5 @@ export const getLastVerifiedBlockId = async (
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
   const latestVerifiedId = stateVariables[2];
-  return latestVerifiedId;
+  return BigNumber.from(latestVerifiedId).toNumber();
 };

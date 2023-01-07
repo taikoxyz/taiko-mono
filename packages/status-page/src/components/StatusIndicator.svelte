@@ -56,7 +56,7 @@
 
 <div class="rounded-3xl border-2 border-zinc-800 border-solid p-4">
   <h2 class="font-bold">{header}</h2>
-  {#if statusValue || (typeof statusValue === "number" && statusValue === 0)}
+  {#if statusValue || typeof statusValue === "number"}
     <span class={colorFunc(statusValue)}>
       {displayStatusValue(statusValue)}
     </span>
