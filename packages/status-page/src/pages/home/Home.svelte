@@ -13,6 +13,7 @@
   import { getNextBlockId } from "../../utils/getNextBlockId";
   import { getGasPrice } from "../../utils/getGasPrice";
   import { getPeerCount } from "../../utils/getPeerCount";
+  import { getQueuedTransactions } from "../../utils/getQueuedTransactions";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -58,7 +59,19 @@
       watchStatusFunc: null,
       provider: l1Provider,
       contractAddress: "",
-      header: "Tx Mempool",
+      header: "Tx Mempool (pending)",
+      intervalInMs: 10000,
+      colorFunc: (value: string | number | boolean) => {
+        if (BigNumber.from(value).gt(4000)) return "red";
+        return "green";
+      },
+    },
+    {
+      statusFunc: getQueuedTransactions,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: "",
+      header: "Tx Mempool (queued)",
       intervalInMs: 10000,
       colorFunc: (value: string | number | boolean) => {
         if (BigNumber.from(value).gt(4000)) return "red";
