@@ -6,7 +6,9 @@ Included: Logos, Logotypes, Backgrounds, Backdrops and Mockups.
 
 ## Naming
 
-For naming, we use Taiko or Taiko Labs. For our social media handle, we refer to Taiko with `taikoxyz`, which is where you can find us (ie. twitter: [@taikoxyz](https://twitter.com/taikoxyz), github: [@taikoxyz](https://github.com/taikoxyz)). Please maintain this convention.
+Use `Taiko` or `Taiko Labs` for the name.
+
+Use `taikoxyz` for the social handle (e.g., Twitter: [@taikoxyz](https://twitter.com/taikoxyz), GitHub: [@taikoxyz](https://github.com/taikoxyz)).
 
 ## Logos
 
