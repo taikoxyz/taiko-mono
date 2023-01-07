@@ -12,6 +12,7 @@
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
   import { getNextBlockId } from "../../utils/getNextBlockId";
   import { getGasPrice } from "../../utils/getGasPrice";
+  import { getPeerCount } from "../../utils/getPeerCount";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -150,6 +151,17 @@
       contractAddress: l1TaikoAddress,
       header: "Gas Price (gwei)",
       intervalInMs: 10000,
+      colorFunc: (value: string | number | boolean) => {
+        return "green";
+      },
+    },
+    {
+      statusFunc: getPeerCount,
+      watchStatusFunc: null,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Peers",
+      intervalInMs: 0,
       colorFunc: (value: string | number | boolean) => {
         return "green";
       },
