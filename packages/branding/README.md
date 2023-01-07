@@ -18,7 +18,7 @@ Download vector assets of the Taiko logo:
 
 [Browse Logos](https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/Logo)
 
-Please use SVG or PNG wherever possible, as the image quality is better.
+Please use SVG or crushed PNG wherever possible for improved image quality and performance.
 
 ## Logotypes
 
