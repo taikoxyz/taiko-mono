@@ -12,7 +12,7 @@ Use `taikoxyz` for the social handle (e.g., Twitter: [@taikoxyz](https://twitter
 
 ## Logos
 
-Downloabable vector assets of the Taiko logo:
+Download vector assets of the Taiko logo:
 
 <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_Fluo-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Token_White-on-Black.svg" width="75px"> &nbsp;&nbsp;&nbsp; <img src="https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/Logo/SVG/Taiko_Logo_White-on-Fluo.svg" width="75px">
 
