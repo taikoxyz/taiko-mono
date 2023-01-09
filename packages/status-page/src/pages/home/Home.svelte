@@ -203,7 +203,7 @@
 </script>
 
 <div class="text-center">
-  <h1 class="text-2xl">Taiko Network Status</h1>
+  <h1 class="text-2xl">Taiko Protocol Status</h1>
 </div>
 <div
   class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center my-10"
