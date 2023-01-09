@@ -41,6 +41,7 @@ const proposeBlock = async (
     const inputs = buildProposeBlockInputs(block, meta);
 
     const tx = await taikoL1.proposeBlock(inputs);
-    return tx;
+    const receipt = await tx.wait();
+    return receipt;
 };
 export { buildProposeBlockInputs, proposeBlock };

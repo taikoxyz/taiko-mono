@@ -48,7 +48,7 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("getProposedBlock()", function () {
-        it("proposed block does not exist", async function () {
+        it("should return zero values for non-existing blocks without exception to be thrown", async function () {
             const block = await taikoL1.getProposedBlock(123);
             expect(block[0]).to.be.eq(ethers.constants.HashZero);
             expect(block[1]).to.be.eq(ethers.constants.AddressZero);
@@ -56,7 +56,7 @@ describe("integration:TaikoL1", function () {
         });
     });
     describe("commitBlock() -> proposeBlock() integration", async function () {
-        it("should revert with invalid meta", async function () {
+        it("should fail if a proposed block's placeholder field values are not default", async function () {
             const block = await l2Provider.getBlock("latest");
             const { tx, commit } = await commitBlock(taikoL1, block);
 
@@ -79,7 +79,7 @@ describe("integration:TaikoL1", function () {
             // blockMetadata is inputs[0], txListBytes = inputs[1]
             const config = await taikoL1.getConfig();
             const gasLimit = config[7];
-            await proposeBlock(
+            const proposeReceipt = await proposeBlock(
                 taikoL1,
                 block,
                 commit.txListHash,
@@ -87,6 +87,8 @@ describe("integration:TaikoL1", function () {
                 0,
                 block.gasLimit
             );
+
+            expect(proposeReceipt.status).to.be.eq(1);
 
             await expect(
                 proposeBlock(
