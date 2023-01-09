@@ -11,5 +11,6 @@
   background="transparent"
   height={26}
   width={26}
+  style={"display:inline-block;"}
   controlsLayout={[]}
 />

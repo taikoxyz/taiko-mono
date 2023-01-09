@@ -31,9 +31,18 @@
 
   let statusValue: Status;
 
+  let loading: boolean = false;
+
   onMount(async () => {
-    statusValue = await statusFunc(provider, contractAddress);
-    console.log(statusValue);
+    try {
+      loading = true;
+      statusValue = await statusFunc(provider, contractAddress);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      loading = false;
+    }
+
     if (watchStatusFunc) {
       watchStatusFunc(provider, contractAddress, (value: Status) => {
         statusValue = value;
@@ -41,10 +50,16 @@
     }
 
     if (intervalInMs !== 0) {
-      interval = setInterval(
-        async () => (statusValue = await statusFunc(provider, contractAddress)),
-        intervalInMs
-      );
+      interval = setInterval(async () => {
+        try {
+          loading = true;
+          statusValue = await statusFunc(provider, contractAddress);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          loading = false;
+        }
+      }, intervalInMs);
     }
   });
 
@@ -55,7 +70,9 @@
 
 <div class="rounded-3xl border-2 border-zinc-800 border-solid p-4">
   <h2 class="font-bold">{header}</h2>
-  {#if statusValue || typeof statusValue === "number"}
+  {#if loading}
+    <Loader />
+  {:else if statusValue || typeof statusValue === "number"}
     <span
       class={onClick ? "cursor-pointer" : ""}
       on:click={() => onClick(statusValue)}
@@ -64,7 +81,5 @@
         {displayStatusValue(statusValue)}
       </span>
     </span>
-  {:else}
-    <Loader />
   {/if}
 </div>

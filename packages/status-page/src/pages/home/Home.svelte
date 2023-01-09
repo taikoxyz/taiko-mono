@@ -217,6 +217,7 @@
       header={statusIndicator.header}
       colorFunc={statusIndicator.colorFunc}
       onClick={statusIndicator.onClick}
+      intervalInMs={statusIndicator.intervalInMs}
     />
   {/each}
 </div>
