@@ -182,8 +182,8 @@
       statusIndicators.push({
         statusFunc: getBlockFee,
         watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
+        provider: l2Provider,
+        contractAddress: l2TaikoAddress,
         header: "Block Fee",
         intervalInMs: 15000,
         colorFunc: null,
@@ -192,8 +192,8 @@
       statusIndicators.push({
         statusFunc: getProofReward,
         watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
+        provider: l2Provider,
+        contractAddress: l2TaikoAddress,
         header: "Proof Reward",
         intervalInMs: 15000,
         colorFunc: null,
