@@ -2,7 +2,11 @@ import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { Message } from "../../utils/message";
-import { getSlot, decode, MessageStatus } from "../../../tasks/utils";
+import {
+    getMessageStatusSlot,
+    decode,
+    MessageStatus,
+} from "../../../tasks/utils";
 import {
     AddressManager,
     EtherVault,
@@ -190,7 +194,7 @@ describe("LibBridgeRetry", function () {
 
             await helpers.setStorageAt(
                 badLibRetry.address,
-                await getSlot(hre, signal, 202),
+                await getMessageStatusSlot(hre, signal),
                 MessageStatus.RETRIABLE
             );
 
@@ -203,7 +207,7 @@ describe("LibBridgeRetry", function () {
                     "uint256",
                     await ethers.provider.getStorageAt(
                         badLibRetry.address,
-                        getSlot(hre, signal, 202)
+                        getMessageStatusSlot(hre, signal)
                     )
                 )
             ).to.equal(MessageStatus.RETRIABLE.toString());
@@ -239,7 +243,7 @@ describe("LibBridgeRetry", function () {
 
             await helpers.setStorageAt(
                 libRetry.address,
-                await getSlot(hre, signal, 202),
+                await getMessageStatusSlot(hre, signal),
                 MessageStatus.RETRIABLE
             );
 
@@ -253,7 +257,7 @@ describe("LibBridgeRetry", function () {
                     "uint256",
                     await ethers.provider.getStorageAt(
                         libRetry.address,
-                        getSlot(hre, signal, 202)
+                        getMessageStatusSlot(hre, signal)
                     )
                 )
             ).to.equal(MessageStatus.FAILED.toString());
@@ -291,7 +295,7 @@ describe("LibBridgeRetry", function () {
 
             await helpers.setStorageAt(
                 libRetry.address,
-                await getSlot(hre, signal, 202),
+                await getMessageStatusSlot(hre, signal),
                 MessageStatus.RETRIABLE
             );
 
@@ -309,7 +313,7 @@ describe("LibBridgeRetry", function () {
                     "uint256",
                     await ethers.provider.getStorageAt(
                         libRetry.address,
-                        getSlot(hre, signal, 202)
+                        getMessageStatusSlot(hre, signal)
                     )
                 )
             ).to.equal(MessageStatus.RETRIABLE.toString());
@@ -345,7 +349,7 @@ describe("LibBridgeRetry", function () {
 
             await helpers.setStorageAt(
                 libRetry.address,
-                await getSlot(hre, signal, 202),
+                await getMessageStatusSlot(hre, signal),
                 MessageStatus.RETRIABLE
             );
 
@@ -359,7 +363,7 @@ describe("LibBridgeRetry", function () {
                     "uint256",
                     await ethers.provider.getStorageAt(
                         libRetry.address,
-                        getSlot(hre, signal, 202)
+                        getMessageStatusSlot(hre, signal)
                     )
                 )
             ).to.equal(MessageStatus.DONE.toString());

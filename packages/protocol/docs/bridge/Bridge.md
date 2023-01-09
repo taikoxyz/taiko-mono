@@ -20,7 +20,7 @@ uint256[50] __gap
 ### MessageStatusChanged
 
 ```solidity
-event MessageStatusChanged(bytes32 signal, enum LibBridgeData.MessageStatus status)
+event MessageStatusChanged(bytes32 signal, enum LibBridgeStatus.MessageStatus status)
 ```
 
 ### DestChainEnabled
@@ -120,7 +120,7 @@ by the specified sender.
 ### getMessageStatus
 
 ```solidity
-function getMessageStatus(bytes32 signal) public view virtual returns (enum LibBridgeData.MessageStatus)
+function getMessageStatus(bytes32 signal) public view virtual returns (enum LibBridgeStatus.MessageStatus)
 ```
 
 ### context

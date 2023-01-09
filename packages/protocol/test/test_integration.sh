@@ -38,7 +38,7 @@ docker run -d \
   hardhat node --hostname "0.0.0.0"
 
 function waitTestNode {
-  echo "Waiting test node: $1"
+  echo "Waiting for test node: $1"
   # Wait till the test node fully started
   RETRIES=30
   i=0

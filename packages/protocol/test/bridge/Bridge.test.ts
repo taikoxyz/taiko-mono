@@ -1,7 +1,11 @@
 import { expect } from "chai";
 import { BigNumber, Signer } from "ethers";
 import hre, { ethers } from "hardhat";
-import { getLatestBlockHeader, getSignalProof } from "../../tasks/utils";
+import {
+    getLatestBlockHeader,
+    getSignalProof,
+    getSignalSlot,
+} from "../../tasks/utils";
 import {
     AddressManager,
     Bridge,
@@ -607,12 +611,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -647,12 +646,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
             await headerSync.setSyncedHeader(ethers.constants.HashZero);
@@ -694,12 +688,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -753,12 +742,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -885,12 +869,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -952,12 +931,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -1005,12 +979,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -1091,12 +1060,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 
@@ -1143,12 +1107,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = ethers.utils.keccak256(
-                ethers.utils.solidityPack(
-                    ["address", "bytes32"],
-                    [sender, signal]
-                )
-            );
+            const key = getSignalSlot(hre, sender, signal);
 
             const { block, blockHeader } = await getLatestBlockHeader(hre);
 

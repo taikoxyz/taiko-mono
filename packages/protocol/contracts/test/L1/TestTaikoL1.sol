@@ -26,9 +26,9 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
         config.maxVerificationsPerTx = 2;
-        config.commitConfirmations = 0;
+        config.commitConfirmations = 1;
         config.maxProofsPerForkChoice = 5;
-        config.blockMaxGasLimit = 5000000; // TODO
+        config.blockMaxGasLimit = 30000000; // TODO
         config.maxTransactionsPerBlock = 20; // TODO
         config.maxBytesPerTxList = 10240; // TODO
         config.minTxGasLimit = 21000; // TODO
