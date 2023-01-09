@@ -10,49 +10,16 @@ on:
       - "packages/protocol/**"
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        id: pnpm-install
-        with:
-          version: 7
-          run_install: false
-
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install
-
   build:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
+
+      - name: Set up protocol
+        uses: ./.github/actions/set-up-protocol
 
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol
@@ -85,10 +52,12 @@ jobs:
           flags: protocol
 
   post-merge:
-    needs: setup
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Set up protocol
+        uses: ./.github/actions/set-up-protocol
+
       - name: Run the command to update the documentation
         run: pnpm -F protocol export:docs
 
