@@ -10,5 +10,5 @@ export const getAvailableSlots = async (
   const nextBlockId = stateVariables[3];
   const latestVerifiedId = stateVariables[2];
   const pendingBlocks = nextBlockId - latestVerifiedId - 1;
-  return pendingBlocks - 2048;
+  return Math.abs(pendingBlocks - 2048);
 };
