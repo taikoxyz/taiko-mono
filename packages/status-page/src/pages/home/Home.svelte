@@ -72,7 +72,7 @@
       provider: l2Provider,
       contractAddress: "",
       header: "Tx Mempool (pending)",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         if (BigNumber.from(value).gt(4000)) return "red";
         return "green";
@@ -84,7 +84,7 @@
       provider: l2Provider,
       contractAddress: "",
       header: "Tx Mempool (queued)",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         if (BigNumber.from(value).gt(4000)) return "red";
         return "green";
@@ -108,7 +108,7 @@
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Available Slots",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         if (BigNumber.from(value).eq(0)) return "red";
         return "green";
@@ -120,7 +120,7 @@
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Last Verified Block ID",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -131,7 +131,7 @@
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Next Block ID",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -142,7 +142,7 @@
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Pending Blocks",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         if (BigNumber.from(value).eq(0)) {
           return "red";
@@ -159,7 +159,7 @@
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Gas Price (gwei)",
-      intervalInMs: 10000,
+      intervalInMs: 20000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -170,7 +170,7 @@
       provider: l2BootnodeProvider,
       contractAddress: "",
       header: "Peers",
-      intervalInMs: 30000,
+      intervalInMs: 60000,
       colorFunc: (value: Status) => {
         return "green";
       },
@@ -185,7 +185,7 @@
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Block Fee",
-        intervalInMs: 5000,
+        intervalInMs: 15000,
         colorFunc: null,
       });
 
@@ -195,7 +195,7 @@
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Proof Reward",
-        intervalInMs: 5000,
+        intervalInMs: 15000,
         colorFunc: null,
       });
     }
