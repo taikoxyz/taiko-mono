@@ -10,7 +10,7 @@ or on any POSIX systems by wget one-line official command:
 ```sh
 wget -qO- https://get.pnpm.io/install.sh | sh -
 ```
-for any specific cases or OS check the official page https://pnpm.io/installation
+for any specific cases or systems check the official page https://pnpm.io/installation
 
 
 ```sh
