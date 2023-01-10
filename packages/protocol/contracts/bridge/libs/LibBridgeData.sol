@@ -20,11 +20,9 @@ import "../IBridge.sol";
  */
 library LibBridgeData {
     struct State {
-        // chainId => isEnabled
-        mapping(uint256 => bool) destChains;
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[45] __gap;
+        uint256[46] __gap;
     }
 
     bytes32 internal constant SIGNAL_PLACEHOLDER = bytes32(uint256(1));

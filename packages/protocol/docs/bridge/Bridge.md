@@ -75,12 +75,6 @@ function processMessage(struct IBridge.Message message, bytes proof) external
 function retryMessage(struct IBridge.Message message, bool isLastAttempt) external
 ```
 
-### enableDestChain
-
-```solidity
-function enableDestChain(uint256 _chainId, bool enabled) external
-```
-
 ### isMessageSent
 
 ```solidity
