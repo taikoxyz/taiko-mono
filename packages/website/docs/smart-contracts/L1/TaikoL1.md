@@ -89,6 +89,15 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
+### revertToBlock
+
+```solidity
+function revertToBlock(uint64 latestVerifiedHeight, uint64 latestVerifiedId, bytes[] inputs) external
+```
+
+Revert the chain to a previously verified block and also update
+certain internal state variables.
+
 ### halt
 
 ```solidity
@@ -169,6 +178,12 @@ function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v
 
 ```solidity
 function getBlockProvers(uint256 id, bytes32 parentHash) public view returns (address[])
+```
+
+### getUncleProofDelay
+
+```solidity
+function getUncleProofDelay(uint256 blockId) public view returns (uint64)
 ```
 
 ### getConfig

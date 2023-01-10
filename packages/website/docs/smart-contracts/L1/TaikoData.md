@@ -76,13 +76,12 @@ struct ForkChoice {
 
 ```solidity
 struct State {
-  mapping(uint256 => bytes32) l2Hashes;
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
   mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(address => mapping(uint256 => bytes32)) commits;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reservedA1;
+  uint64 revertCount;
   uint64 statusBits;
   uint256 feeBase;
   uint64 nextBlockId;
