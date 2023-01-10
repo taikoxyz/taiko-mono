@@ -65,17 +65,19 @@
   class="rounded-3xl border-2 border-zinc-800 border-solid p-4 min-h-full h-28"
 >
   <h2 class="font-bold">{header}</h2>
-  {#if statusValue || typeof statusValue === "number"}
-    <span
-      transition:fade
-      class="pt-2 inline-block align-bottom {onClick ? 'cursor-pointer' : ''}"
-      on:click={() => onClick(statusValue)}
-    >
-      <span class={colorFunc(statusValue)}>
-        {displayStatusValue(statusValue)}
+  {#key statusValue}
+    {#if statusValue || typeof statusValue === "number"}
+      <span
+        transition:fade
+        class="pt-2 inline-block align-bottom {onClick ? 'cursor-pointer' : ''}"
+        on:click={() => onClick(statusValue)}
+      >
+        <span class={colorFunc(statusValue)}>
+          {displayStatusValue(statusValue)}
+        </span>
       </span>
-    </span>
-  {:else}
-    <Loader />
-  {/if}
+    {:else}
+      <Loader />
+    {/if}
+  {/key}
 </div>
