@@ -147,7 +147,7 @@
         return "green";
       },
       tooltip:
-        "The ID that the next proposed block on the TaikoL1 smart contract will receive",
+        "The ID that the next proposed block on the TaikoL1 smart contract will receive.",
     },
     {
       statusFunc: getPendingBlocks,
