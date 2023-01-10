@@ -27,6 +27,7 @@
   import { fetchSigner, switchNetwork } from "@wagmi/core";
   import Tooltip from "./Tooltip.svelte";
   import Bridge from "../constants/abi/Bridge";
+  import ButtonWithTooltip from "./ButtonWithTooltip.svelte";
 
   export let transaction: BridgeTransaction;
 
@@ -131,6 +132,8 @@
   </td>
 
   <td>
+    <ButtonWithTooltip onClick={() => ($showMessageStatusTooltip = true)}>
+      <span slot="buttonText">
     {#if !processable}
       Pending
     {:else if !transaction.receipt && transaction.status === MessageStatus.New}
@@ -147,29 +150,28 @@
           controlsLayout={[]}
         />
       </div>
-    {:else if transaction.receipt && transaction.status === MessageStatus.New}
-      <span
-        class="cursor-pointer border rounded p-1"
-        on:click={async () => await claim(transaction)}
-      >
-        Claim
+        {:else if transaction.receipt && transaction.status === MessageStatus.New}
+          <span
+            class="cursor-pointer border rounded p-1"
+            on:click={async () => await claim(transaction)}
+          >
+            Claim
+          </span>
+        {:else if transaction.status === MessageStatus.Retriable}
+          <span
+            class="cursor-pointer border rounded p-1"
+            on:click={async () => await claim(transaction)}
+          >
+            Retry
+          </span>
+        {:else if transaction.status === MessageStatus.Failed}
+          <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
+          Failed
+        {:else if transaction.status === MessageStatus.Done}
+          <span class="border border-transparent p-0">Claimed</span>
+        {/if}
       </span>
-    {:else if transaction.status === MessageStatus.Retriable}
-      <span
-        class="cursor-pointer border rounded p-1"
-        on:click={async () => await claim(transaction)}
-      >
-        Retry
-      </span>
-    {:else if transaction.status === MessageStatus.Failed}
-      <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
-      Failed
-    {:else if transaction.status === MessageStatus.Done}
-      <span class="border border-transparent p-0">Claimed</span>
-    {/if}
-    <span class="inline-block" on:click={() => ($showMessageStatusTooltip = true)}>
-      <Tooltip />
-    </span>
+    </ButtonWithTooltip>
   </td>
 
   <td>

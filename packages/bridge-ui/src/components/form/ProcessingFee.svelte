@@ -8,6 +8,7 @@
   import { recommendProcessingFee } from "../../utils/recommendProcessingFee";
   import Tooltip from "../Tooltip.svelte";
   import TooltipModal from "../modals/TooltipModal.svelte";
+  import ButtonWithTooltip from "../ButtonWithTooltip.svelte";
 
   export let customFee: string;
   export let recommendedFee: string = "0";
@@ -35,12 +36,9 @@
 
 <div class="my-10">
   <div class="flex flex-row justify-between">
-    <span class="text-left label-text">
-      {$_("bridgeForm.processingFeeLabel")}
-      <span class="inline-block" on:click={() => (tooltipOpen = true)}>
-        <Tooltip />
-      </span>
-    </span>
+    <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
+      <span slot="buttonText">{$_("bridgeForm.processingFeeLabel")}</span>
+    </ButtonWithTooltip>
   </div>
 
   {#if $processingFee === ProcessingFeeMethod.CUSTOM}
