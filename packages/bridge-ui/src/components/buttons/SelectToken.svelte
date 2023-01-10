@@ -7,7 +7,7 @@
   import { ChevronDown } from "svelte-heros-v2";
   import { successToast } from "../../utils/toast";
 
-  let dropdownElement;
+  let dropdownElement: HTMLDivElement;
 
   async function select(t: Token) {
     if (t === $token) return;

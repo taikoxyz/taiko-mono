@@ -1,7 +1,7 @@
 <script lang="ts">
   import Tooltip from "./Tooltip.svelte";
 
-  export let onClick;
+  export let onClick: () => void;
 </script>
 
 <div class="label-text flex items-center">
