@@ -140,13 +140,66 @@ library LibProposing {
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
-    function getProposedBlock(
+    function revertToBlock(
         TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
-        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
-        return state.getProposedBlock(maxNumBlocks, id);
+        TaikoData.Config memory config,
+        AddressResolver /*resolver*/,
+        uint64 latestVerifiedHeight,
+        uint64 latestVerifiedId,
+        bytes[] calldata inputs
+    ) public {
+        require(
+            latestVerifiedHeight > 0 &&
+                latestVerifiedHeight < state.latestVerifiedHeight,
+            "L1:latestVerifiedHeight"
+        );
+        require(
+            latestVerifiedId > 0 && latestVerifiedId < state.latestVerifiedId,
+            "L1:latestVerifiedId"
+        );
+
+        state.latestVerifiedHeight = latestVerifiedHeight;
+        state.latestVerifiedId = latestVerifiedId;
+        state.nextBlockId = latestVerifiedId + 1;
+
+        require(inputs.length == 2, "L1:inputs:size");
+        TaikoData.BlockMetadata memory meta = abi.decode(
+            inputs[0],
+            (TaikoData.BlockMetadata)
+        );
+
+        _validateMetadata(config, meta);
+
+        {
+            bytes calldata txList = inputs[1];
+            // perform validation and populate some fields
+            require(
+                txList.length >= 0 &&
+                    txList.length <= config.maxBytesPerTxList &&
+                    meta.txListHash == txList.hashTxList(),
+                "L1:txList"
+            );
+
+            meta.id = state.latestVerifiedId;
+            meta.l1Height = block.number - 1;
+            meta.l1Hash = blockhash(block.number - 1);
+            meta.timestamp = uint64(block.timestamp);
+            meta.mixHash = bytes32(block.difficulty);
+        }
+
+        _saveProposedBlock(
+            state,
+            config.maxNumBlocks,
+            state.latestVerifiedId,
+            TaikoData.ProposedBlock({
+                metaHash: meta.hashMetadata(),
+                deposit: 0,
+                proposer: msg.sender,
+                proposedAt: meta.timestamp
+            })
+        );
+
+        state.lastProposedAt = meta.timestamp;
     }
 
     function getBlockFee(
@@ -183,6 +236,15 @@ library LibProposing {
         return
             state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + commitConfirmations;
+    }
+
+    function getProposedBlock(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id
+    ) internal view returns (TaikoData.ProposedBlock storage) {
+        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
+        return state.getProposedBlock(maxNumBlocks, id);
     }
 
     function _saveProposedBlock(

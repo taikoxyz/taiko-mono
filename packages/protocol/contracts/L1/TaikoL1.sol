@@ -184,6 +184,26 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     /**
+     * Revert the chain to a previously verified block and also update
+     * certain internal state variables.
+     */
+    function revertToBlock(
+        uint64 latestVerifiedHeight,
+        uint64 latestVerifiedId,
+        bytes[] calldata inputs
+    ) external onlyOwner {
+        return
+            LibProposing.revertToBlock(
+                state,
+                getConfig(),
+                AddressResolver(this),
+                latestVerifiedHeight,
+                latestVerifiedId,
+                inputs
+            );
+    }
+
+    /**
      * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
