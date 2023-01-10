@@ -146,9 +146,13 @@ describe("integration:TaikoL1", function () {
                 nextBlockId.sub(1)
             );
 
-            expect(proposedBlock[0]).not.to.be.eq(ethers.constants.HashZero);
-            expect(proposedBlock[2]).not.to.be.eq(ethers.constants.AddressZero);
-            expect(proposedBlock[3]).not.to.be.eq(BigNumber.from(0));
+            expect(proposedBlock.metaHash).not.to.be.eq(
+                ethers.constants.HashZero
+            );
+            expect(proposedBlock.proposer).not.to.be.eq(
+                ethers.constants.AddressZero
+            );
+            expect(proposedBlock.proposedAt).not.to.be.eq(BigNumber.from(0));
 
             const isCommitValid = await taikoL1.isCommitValid(
                 1,
@@ -157,6 +161,67 @@ describe("integration:TaikoL1", function () {
             );
 
             expect(isCommitValid).to.be.eq(true);
+        });
+
+        it("should commit and be able to propose for all available slots, then revert when all slots are taken", async function () {
+            const { maxNumBlocks } = await taikoL1.getConfig();
+            // propose blocks and fill up maxNumBlocks number of slots,
+            // expect each one to be successful.
+            for (let i = 0; i < maxNumBlocks.toNumber() - 1; i++) {
+                const block = await l2Provider.getBlock("latest");
+                const { tx, commit } = await commitBlock(taikoL1, block);
+
+                const receipt = await proposeBlock(
+                    taikoL1,
+                    block,
+                    commit.txListHash,
+                    tx.blockNumber as number,
+                    0,
+                    block.gasLimit
+                );
+
+                expect(receipt.status).to.be.eq(1);
+
+                const stateVariables = await taikoL1.getStateVariables();
+                const nextBlockId = stateVariables[4];
+                const proposedBlock = await taikoL1.getProposedBlock(
+                    nextBlockId.sub(1)
+                );
+
+                expect(proposedBlock.metaHash).not.to.be.eq(
+                    ethers.constants.HashZero
+                );
+                expect(proposedBlock.proposer).not.to.be.eq(
+                    ethers.constants.AddressZero
+                );
+                expect(proposedBlock.proposedAt).not.to.be.eq(
+                    BigNumber.from(0)
+                );
+
+                const isCommitValid = await taikoL1.isCommitValid(
+                    1,
+                    tx.blockNumber as number,
+                    commit.hash
+                );
+
+                expect(isCommitValid).to.be.eq(true);
+            }
+
+            // now expect another proposed block to be invalid since all slots are full and none have
+            // been proven.
+            const block = await l2Provider.getBlock("latest");
+            const { tx, commit } = await commitBlock(taikoL1, block);
+
+            await expect(
+                proposeBlock(
+                    taikoL1,
+                    block,
+                    commit.txListHash,
+                    tx.blockNumber as number,
+                    0,
+                    block.gasLimit
+                )
+            ).to.be.revertedWith("L1:tooMany");
         });
     });
 });
