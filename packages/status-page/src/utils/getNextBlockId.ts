@@ -1,4 +1,3 @@
-import { next } from "cheerio/lib/api/traversing";
 import { BigNumber, Contract, ethers } from "ethers";
 import TaikoL1 from "../constants/abi/TaikoL1";
 
