@@ -74,8 +74,6 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash (some blocks' hashes won't be persisted)
-        mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;
         // block id => parent hash => fork choice
@@ -85,7 +83,7 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reservedA1;
+        uint64 revertCount;
         uint64 statusBits; // rarely change
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;

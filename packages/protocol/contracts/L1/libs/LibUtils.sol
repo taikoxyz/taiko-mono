@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
+import "./LibL2Hashes.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibUtils {
@@ -35,14 +36,6 @@ library LibUtils {
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
         return state.proposedBlocks[id % maxNumBlocks];
-    }
-
-    function getL2BlockHash(
-        TaikoData.State storage state,
-        uint256 number
-    ) internal view returns (bytes32) {
-        require(number <= state.latestVerifiedHeight, "L1:id");
-        return state.l2Hashes[number];
     }
 
     function getStateVariables(

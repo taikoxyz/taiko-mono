@@ -200,6 +200,7 @@ library LibProposing {
         );
 
         state.lastProposedAt = meta.timestamp;
+        state.revertCount += 1;
     }
 
     function getBlockFee(

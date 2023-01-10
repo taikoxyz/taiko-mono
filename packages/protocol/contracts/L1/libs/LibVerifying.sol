@@ -27,6 +27,7 @@ library LibVerifying {
 
     function init(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
@@ -37,7 +38,7 @@ library LibVerifying {
         state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = genesisBlockHash;
+        LibL2Hashes.setL2Hash(state, config, 0, genesisBlockHash);
 
         emit BlockVerified(0, genesisBlockHash);
         emit HeaderSynced(block.number, 0, genesisBlockHash);
@@ -59,7 +60,11 @@ library LibVerifying {
         }
 
         uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
+        bytes32 latestL2Hash = LibL2Hashes.getL2Hash(
+            state,
+            config,
+            latestL2Height
+        );
         uint64 processed = 0;
 
         for (
@@ -109,9 +114,12 @@ library LibVerifying {
 
                 // Note that not all L2 hashes are stored on L1, only the last
                 // verified one in a batch.
-                state.l2Hashes[
-                    latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
+                LibL2Hashes.setL2Hash(
+                    state,
+                    config,
+                    latestL2Height,
+                    latestL2Hash
+                );
                 emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
             }
         }
