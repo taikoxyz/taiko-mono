@@ -134,7 +134,7 @@
         return "green";
       },
       tooltip:
-        "The most recently verified Layer 2 block on the TaikoL1 smart contract",
+        "The most recently verified Layer 2 block on the TaikoL1 smart contract.",
     },
     {
       statusFunc: getNextBlockId,
