@@ -21,7 +21,6 @@
   export let l1TaikoAddress: string;
   export let l2Provider: ethers.providers.JsonRpcProvider;
   export let l2TaikoAddress: string;
-  export let l2BootnodeProvider: ethers.providers.JsonRpcProvider;
   export let isTokenomicsEnabled: boolean = false;
   export let l1ExplorerUrl: string;
   export let l2ExplorerUrl: string;
