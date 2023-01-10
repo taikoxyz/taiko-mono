@@ -154,8 +154,8 @@
     {
       statusFunc: getGasPrice,
       watchStatusFunc: null,
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
+      provider: l2Provider,
+      contractAddress: "",
       header: "Gas Price (gwei)",
       intervalInMs: 20000,
       colorFunc: (value: Status) => {
