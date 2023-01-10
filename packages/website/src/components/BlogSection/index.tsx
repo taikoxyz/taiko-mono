@@ -2,6 +2,36 @@ import React from "react";
 
 const posts = [
   {
+    title: "Taiko Ambassador Program",
+    href: "https://mirror.xyz/labs.taiko.eth/BvcEyYeVIiHnjc-i5qf3zR4s67Jc6nz_R6OSGj5rzOE",
+    description:
+      "Ethereum has come a long way in its seven-year life — changing the world, in our opinion — but it is only just getting started.",
+    date: "Jan 04, 2023",
+    datetime: "2023-01-04",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/5Ed-TXJIB3LTC2HJdPuEN.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "2 min",
+    author: {
+      name: "finestone",
+      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+    },
+  },
+  {
+    title: "Taiko Alpha-1 Testnet is Live",
+    href: "https://mirror.xyz/labs.taiko.eth/-lahy4KbGkeAcqhs0ETG3Up3oTVzZ0wLoE1eK_ao5h4",
+    description:
+      "Today, the Taiko Alpha-1 testnet (a1) is live - our first public testnet! We’ve codenamed this testnet, Snæfellsjökull.",
+    date: "Dec 27, 2022",
+    datetime: "2022-12-27",
+    imageUrl:
+      "https://mirror-media.imgix.net/publication-images/4qVW-dWhNmMQr61g91hGt.png?height=512&width=1024&h=512&w=1024&auto=compress",
+    readingTime: "4 min",
+    author: {
+      name: "finestone",
+      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+    },
+  },
+  {
     title: "Rollup Decentralization",
     href: "https://mirror.xyz/labs.taiko.eth/sxR3iKyD-GvTuyI9moCg4_ggDI4E4CqnvhdwRq5yL0A",
     description:
@@ -14,36 +44,6 @@ const posts = [
     author: {
       name: "finestone",
       imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-  {
-    title: "Taiko Community Update #3",
-    href: "https://mirror.xyz/labs.taiko.eth/8E_7fjFNFjY7dIGAppqaNyuM-1QXp78AekXMA9--q6o",
-    description:
-      "Taiko Community Update #3 has arrived 🥁 We do these to provide transparency into the progress we’ve made since our last community update.",
-    date: "Dec 08, 2022",
-    datetime: "2022-12-08",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/FaV63QrEdHnxGHdHMFw8p.png?height=960&width=1920&h=960&w=1920&auto=compress",
-    readingTime: "2 min",
-    author: {
-      name: "d1onys1us",
-      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
-    },
-  },
-  {
-    title: "Taiko Is Fully Open Source",
-    href: "https://mirror.xyz/labs.taiko.eth/31vzkwgNaKNrze0oIv_wTKCw6Tha8OYQ6ffrquS3XUg",
-    description:
-      'Taiko is fully open source -- you can view all the code on our GitHub. By "open source" we mean free to see the source and modify it.',
-    date: "Dec 01, 2022",
-    datetime: "2022-12-01",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/h-KI5JueXbaUalAJeiMvA.png?height=1024&width=2048&h=1024&w=2048&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "d1onys1us",
-      imageUrl: "https://avatars.githubusercontent.com/u/13951458?v=4",
     },
   },
 ];
