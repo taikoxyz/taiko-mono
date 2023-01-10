@@ -269,11 +269,10 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("getProposedBlock()", function () {
-        it("proposed block does not exist", async function () {
-            const block = await taikoL1.getProposedBlock(123);
-            expect(block[0]).to.be.eq(ethers.constants.HashZero);
-            expect(block[1]).to.be.eq(ethers.constants.AddressZero);
-            expect(block[2]).to.be.eq(BigNumber.from(0));
+        it("reverts when id is not a valid proposed block in range", async function () {
+            await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
+                "L1:id"
+            );
         });
     });
     describe("commitBlock() -> proposeBlock() integration", async function () {
