@@ -7,6 +7,8 @@
   import { ChevronDown } from "svelte-heros-v2";
   import { successToast } from "../../utils/toast";
 
+  let dropdownElement;
+
   async function select(t: Token) {
     if (t === $token) return;
     token.set(t);
@@ -16,15 +18,21 @@
       bridgeType.set(BridgeType.ERC20);
     }
     successToast(`Token changed to ${t.symbol.toUpperCase()}`);
+
+    // to close the dropdown on click
+    dropdownElement?.classList.remove('dropdown-open');
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   }
 </script>
 
-<div class="dropdown dropdown-bottom">
+<div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
   <label
     tabindex="0"
     class="flex items-center justify-center hover:cursor-pointer"
   >
-    <svelte:component this={$token.logoComponent} class="inline-block" />
+    <svelte:component this={$token.logoComponent} />
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevronDown size='20' />
   </label>
