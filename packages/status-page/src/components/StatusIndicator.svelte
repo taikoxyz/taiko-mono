@@ -4,6 +4,7 @@
   import { onDestroy, onMount } from "svelte";
   import Loader from "../components/Loader.svelte";
   import type Status from "../domain/status";
+  import { fade } from "svelte/transition";
 
   export let provider: ethers.providers.JsonRpcProvider;
   export let contractAddress: string;
@@ -35,17 +36,16 @@
 
   onMount(async () => {
     try {
-      loading = true;
       statusValue = await statusFunc(provider, contractAddress);
     } catch (e) {
       console.error(e);
-    } finally {
-      loading = false;
     }
 
     if (watchStatusFunc) {
       watchStatusFunc(provider, contractAddress, (value: Status) => {
+        loading = true;
         statusValue = value;
+        loading = false;
       });
     }
 
@@ -68,13 +68,16 @@
   });
 </script>
 
-<div class="rounded-3xl border-2 border-zinc-800 border-solid p-4">
+<div
+  class="rounded-3xl border-2 border-zinc-800 border-solid p-4 min-h-full h-28"
+>
   <h2 class="font-bold">{header}</h2>
   {#if loading}
     <Loader />
   {:else if statusValue || typeof statusValue === "number"}
     <span
-      class={onClick ? "cursor-pointer" : ""}
+      transition:fade
+      class="pt-2 inline-block align-bottom {onClick ? 'cursor-pointer' : ''}"
       on:click={() => onClick(statusValue)}
     >
       <span class={colorFunc(statusValue)}>

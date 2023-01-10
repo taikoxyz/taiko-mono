@@ -167,9 +167,9 @@
     {
       statusFunc: getPeerCount,
       watchStatusFunc: null,
-      provider: l2BootnodeProvider,
+      provider: l2Provider,
       contractAddress: "",
-      header: "Peers",
+      header: "Peers (Taiko Node)",
       intervalInMs: 60000,
       colorFunc: (value: Status) => {
         return "green";
