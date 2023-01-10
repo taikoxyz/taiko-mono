@@ -11,7 +11,6 @@
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
   import { getNextBlockId } from "../../utils/getNextBlockId";
   import { getGasPrice } from "../../utils/getGasPrice";
-  import { getPeerCount } from "../../utils/getPeerCount";
   import { getQueuedTransactions } from "../../utils/getQueuedTransactions";
   import { onMount } from "svelte";
   import { getProofReward } from "../../utils/getProofReward";
@@ -159,17 +158,6 @@
       contractAddress: l1TaikoAddress,
       header: "Gas Price (gwei)",
       intervalInMs: 20000,
-      colorFunc: (value: Status) => {
-        return "green";
-      },
-    },
-    {
-      statusFunc: getPeerCount,
-      watchStatusFunc: null,
-      provider: l2Provider,
-      contractAddress: "",
-      header: "Peers (Taiko Node)",
-      intervalInMs: 60000,
       colorFunc: (value: Status) => {
         return "green";
       },
