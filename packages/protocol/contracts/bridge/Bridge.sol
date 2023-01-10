@@ -93,17 +93,6 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function enableDestChain(
-        uint256 _chainId,
-        bool enabled
-    ) external nonReentrant {
-        LibBridgeSend.enableDestChain({
-            state: state,
-            chainId: _chainId,
-            enabled: enabled
-        });
-    }
-
     /*********************
      * Public Functions  *
      *********************/
@@ -137,7 +126,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return state.destChains[_chainId];
+        return
+            LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
     function hashMessage(Message memory message) public pure returns (bytes32) {

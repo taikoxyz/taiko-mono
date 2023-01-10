@@ -72,8 +72,6 @@ async function deployBridge(
 
     await bridge.connect(signer).init(addressManager.address);
 
-    await bridge.connect(signer).enableDestChain(destChain, true);
-
     const etherVault: EtherVault = await (
         await ethers.getContractFactory("EtherVault")
     )
@@ -127,6 +125,11 @@ describe("Bridge", function () {
                 enabledDestChainId,
                 srcChainId
             );
+
+        await addressManager.setAddress(
+            `${enabledDestChainId}.bridge`,
+            "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
+        );
 
         // deploy protocol contract
         return {

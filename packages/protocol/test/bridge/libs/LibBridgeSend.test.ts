@@ -28,6 +28,11 @@ describe("LibBridgeSend", function () {
         ).deploy();
         await addressManager.init();
 
+        await addressManager.setAddress(
+            `${enabledDestChainId}.bridge`,
+            "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
+        );
+
         const etherVault: EtherVault = await (
             await ethers.getContractFactory("EtherVault")
         )
@@ -78,26 +83,6 @@ describe("LibBridgeSend", function () {
         await etherVault
             .connect(etherVaultOwner)
             .authorize(libSend.address, true);
-    });
-
-    describe("enableDestChain()", async function () {
-        it("should throw when chainId <= 0", async function () {
-            await expect(libSend.enableDestChain(0, true)).to.be.revertedWith(
-                "B:chainId"
-            );
-        });
-
-        it("should throw when chainId == block.chainId", async function () {
-            await expect(
-                libSend.enableDestChain(blockChainId, true)
-            ).to.be.revertedWith("B:chainId");
-        });
-
-        it("should emit DestChainEnabled() event", async function () {
-            expect(
-                await libSend.enableDestChain(enabledDestChainId, true)
-            ).to.emit(libSend, "DestChainEnabled");
-        });
     });
 
     describe("sendMessage()", async function () {
@@ -172,8 +157,6 @@ describe("LibBridgeSend", function () {
         });
 
         it("should throw when expectedAmount != msg.value", async function () {
-            await libSend.enableDestChain(enabledDestChainId, true);
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,
@@ -196,8 +179,6 @@ describe("LibBridgeSend", function () {
         });
 
         it("should emit MessageSent() event and signal should be hashed correctly", async function () {
-            await libSend.enableDestChain(enabledDestChainId, true);
-
             const message: Message = {
                 id: 1,
                 sender: owner.address,

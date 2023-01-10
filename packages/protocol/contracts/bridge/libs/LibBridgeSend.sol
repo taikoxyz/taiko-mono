@@ -26,7 +26,7 @@ library LibBridgeSend {
      *
      * @param message Specifies the `depositValue`, `callValue`,
      * and `processingFee`. These must sum to `msg.value`. It also specifies the
-     * `destChainId` which must be first enabled via `enableDestChain`,
+     * `destChainId` which must have a `bridge` address set on the AddressResolver
      * and differ from the current chain ID.
      *
      * @return msgHash The message is hashed, stored, and emitted as a signal.
@@ -42,7 +42,7 @@ library LibBridgeSend {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
-                state.destChains[message.destChainId],
+                isDestChainEnabled(resolver, message.destChainId),
             "B:destChainId"
         );
 
@@ -69,17 +69,11 @@ library LibBridgeSend {
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    /**
-     * Enable a destination chain ID for bridge transactions.
-     */
-    function enableDestChain(
-        LibBridgeData.State storage state,
-        uint256 chainId,
-        bool enabled
-    ) internal {
-        require(chainId > 0 && chainId != block.chainid, "B:chainId");
-        state.destChains[chainId] = enabled;
-        emit LibBridgeData.DestChainEnabled(chainId, enabled);
+    function isDestChainEnabled(
+        AddressResolver resolver,
+        uint256 chainId
+    ) internal view returns (bool) {
+        return resolver.resolve(chainId, "bridge") != address(0);
     }
 
     function isMessageSent(

@@ -16,9 +16,9 @@ describe("integration:LibTrieProof", function () {
                 },
             })
         ).deploy();
-
         return { testLibTreProof };
     }
+
     describe("verify()", function () {
         it("verifies", async function () {
             const { testLibTreProof } = await deployLibTrieProofFixture();

@@ -220,24 +220,6 @@ export default [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "_chainId",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "enabled",
-        type: "bool",
-      },
-    ],
-    name: "enableDestChain",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "bytes32",
         name: "signal",
         type: "bytes32",
