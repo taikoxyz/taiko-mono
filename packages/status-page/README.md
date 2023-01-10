@@ -1,4 +1,4 @@
-# Bridge UI
+# Status Page
 
 ## Installation
 
