@@ -38,6 +38,8 @@
       onClick: (value: Status) => {
         window.open(`${l2ExplorerUrl}/block/${value.toString()}`, "_blank");
       },
+      tooltip:
+        "The most recent Layer 2 Header that has been synchronized with the TaikoL1 smart contract.",
     },
     {
       statusFunc: getLatestSyncedHeader,
@@ -52,6 +54,8 @@
       onClick: (value: Status) => {
         window.open(`${l1ExplorerUrl}/block/${value.toString()}`, "_blank");
       },
+      tooltip:
+        "The most recent Layer 1 Header that has been synchronized with the TaikoL2 smart contract. The headers are synchronized with every L2 block.",
     },
     // {
     //   statusFunc: getProposers,
@@ -75,6 +79,8 @@
         if (BigNumber.from(value).gt(4000)) return "red";
         return "green";
       },
+      tooltip:
+        "The current processable transactions in the mempool that have not been added to a block yet.",
     },
     {
       statusFunc: getQueuedTransactions,
@@ -87,6 +93,8 @@
         if (BigNumber.from(value).gt(4000)) return "red";
         return "green";
       },
+      tooltip:
+        "The current transactions in the mempool where the transaction nonce is not in sequence. They are currently non-processable.",
     },
     {
       statusFunc: getIsHalted,
@@ -99,6 +107,7 @@
         if (value.toString() === "true") return "red";
         return "green";
       },
+      tooltip: "Whether the Taiko smart contract on Layer 1 has been halted",
     },
     {
       statusFunc: getAvailableSlots,
@@ -111,6 +120,8 @@
         if (BigNumber.from(value).eq(0)) return "red";
         return "green";
       },
+      tooltip:
+        "The amount of slots for proposed blocks on the TaikoL1 smart contract. When this number is 0, no blocks can be proposed until a block has been proven.",
     },
     {
       statusFunc: getLastVerifiedBlockId,
@@ -122,6 +133,8 @@
       colorFunc: (value: Status) => {
         return "green";
       },
+      tooltip:
+        "The most recently verified Layer 2 block on the TaikoL1 smart contract",
     },
     {
       statusFunc: getNextBlockId,
@@ -133,6 +146,8 @@
       colorFunc: (value: Status) => {
         return "green";
       },
+      tooltip:
+        "The ID that the next proposed block on the TaikoL1 smart contract will receive",
     },
     {
       statusFunc: getPendingBlocks,
@@ -150,6 +165,8 @@
           return "green";
         }
       },
+      tooltip:
+        "The amount of pending proposed blocks that have not been proven on the TaikoL1 smart contract.",
     },
     {
       statusFunc: getGasPrice,
@@ -161,6 +178,7 @@
       colorFunc: (value: Status) => {
         return "green";
       },
+      tooltip: "The current recommended gas price for a transaction on Layer 2",
     },
   ];
 
@@ -169,21 +187,25 @@
       statusIndicators.push({
         statusFunc: getBlockFee,
         watchStatusFunc: null,
-        provider: l2Provider,
-        contractAddress: l2TaikoAddress,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
         header: "Block Fee",
         intervalInMs: 15000,
         colorFunc: null,
+        tooltip:
+          "The current fee to propose a block to the TaikoL1 smart contract.",
       });
 
       statusIndicators.push({
         statusFunc: getProofReward,
         watchStatusFunc: null,
-        provider: l2Provider,
-        contractAddress: l2TaikoAddress,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
         header: "Proof Reward",
         intervalInMs: 15000,
         colorFunc: null,
+        tooltip:
+          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
       });
     }
   });
@@ -205,6 +227,7 @@
       colorFunc={statusIndicator.colorFunc}
       onClick={statusIndicator.onClick}
       intervalInMs={statusIndicator.intervalInMs}
+      tooltip={statusIndicator.tooltip}
     />
   {/each}
 </div>
