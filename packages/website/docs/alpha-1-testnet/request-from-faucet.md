@@ -1,7 +1,3 @@
----
-sidebar_position: 2
----
-
 # 💧 Request from faucet
 
 **ETH**
