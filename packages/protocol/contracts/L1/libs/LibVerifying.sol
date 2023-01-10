@@ -38,7 +38,7 @@ library LibVerifying {
         state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        LibL2Hashes.setL2Hash(state, config, 0, genesisBlockHash);
+        LibHeaderSyncing.setL2Hash(state, config, 0, genesisBlockHash);
 
         emit BlockVerified(0, genesisBlockHash);
         emit HeaderSynced(block.number, 0, genesisBlockHash);
@@ -60,7 +60,7 @@ library LibVerifying {
         }
 
         uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = LibL2Hashes.getL2Hash(
+        bytes32 latestL2Hash = LibHeaderSyncing.getL2Hash(
             state,
             config,
             latestL2Height
@@ -114,7 +114,7 @@ library LibVerifying {
 
                 // Note that not all L2 hashes are stored on L1, only the last
                 // verified one in a batch.
-                LibL2Hashes.setL2Hash(
+                LibHeaderSyncing.setL2Hash(
                     state,
                     config,
                     latestL2Height,

@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import "../../libs/LibMath.sol";
 import "../TaikoData.sol";
-import "./LibL2Hashes.sol";
+import "./LibHeaderSyncing.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibUtils {
