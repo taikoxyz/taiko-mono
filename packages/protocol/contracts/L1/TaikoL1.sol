@@ -194,12 +194,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         uint64 latestVerifiedId,
         bytes[] calldata inputs
     ) external {
-        // Only owner or a emergency-handling admin can
+        // Only owner or a emergency-handling multisig admin can
         // authorize this transaction.
         require(
             msg.sender == owner() ||
-                msg.sender == AddressResolver(this).resolve("multisig_admin"),
-            "L1:admin"
+                msg.sender == AddressResolver(this).resolve("admin"),
+            "L1:auth"
         );
         return
             LibProposing.revertToBlock(
