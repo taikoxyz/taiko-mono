@@ -53,7 +53,7 @@ library LibBridgeRetry {
         require(
             LibBridgeStatus.getMessageStatus(msgHash) ==
                 LibBridgeStatus.MessageStatus.RETRIABLE,
-            "B:notFound"
+            "B:status"
         );
 
         address ethVault = resolver.resolve("ether_vault");
