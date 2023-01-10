@@ -33,6 +33,11 @@ describe("Bridge", function () {
             enabledDestChainId,
             srcChainId
         ));
+
+        await addressManager.setAddress(
+            `${enabledDestChainId}.bridge`,
+            "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
+        );
     });
 
     describe("sendMessage()", function () {

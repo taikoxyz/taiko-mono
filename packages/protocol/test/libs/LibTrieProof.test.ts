@@ -26,9 +26,16 @@ describe("integration:LibTrieProof", function () {
 
         const { chainId } = await ethers.provider.getNetwork();
 
+        const enabledDestChainId = chainId + 1;
+
         await addressManager.setAddress(
             `${chainId}.ether_vault`,
             "0xEA3dD11036f668F08940E13e3bcB097C93b09E07"
+        );
+
+        await addressManager.setAddress(
+            `${enabledDestChainId}.bridge`,
+            "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 
         const libBridgeRetry = await (
@@ -57,23 +64,21 @@ describe("integration:LibTrieProof", function () {
 
         const [owner] = await ethers.getSigners();
 
-        return { owner, testLibTreProof, bridge };
+        return { owner, testLibTreProof, bridge, enabledDestChainId };
     }
     describe("verify()", function () {
         it("verifies", async function () {
-            const { owner, testLibTreProof, bridge } =
+            const { owner, testLibTreProof, bridge, enabledDestChainId } =
                 await deployLibTrieProofFixture();
 
             const { chainId } = await ethers.provider.getNetwork();
             const srcChainId = chainId;
-            const destChainId = srcChainId + 1;
-            await (await bridge.enableDestChain(destChainId, true)).wait();
 
             const message: Message = {
                 id: 1,
                 sender: owner.address,
                 srcChainId: srcChainId,
-                destChainId: destChainId,
+                destChainId: enabledDestChainId,
                 owner: owner.address,
                 to: owner.address,
                 refundAddress: owner.address,

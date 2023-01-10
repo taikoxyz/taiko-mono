@@ -11,7 +11,6 @@
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
   import { getNextBlockId } from "../../utils/getNextBlockId";
   import { getGasPrice } from "../../utils/getGasPrice";
-  import { getPeerCount } from "../../utils/getPeerCount";
   import { getQueuedTransactions } from "../../utils/getQueuedTransactions";
   import { onMount } from "svelte";
   import { getProofReward } from "../../utils/getProofReward";
@@ -21,7 +20,6 @@
   export let l1TaikoAddress: string;
   export let l2Provider: ethers.providers.JsonRpcProvider;
   export let l2TaikoAddress: string;
-  export let l2BootnodeProvider: ethers.providers.JsonRpcProvider;
   export let isTokenomicsEnabled: boolean = false;
   export let l1ExplorerUrl: string;
   export let l2ExplorerUrl: string;
@@ -160,17 +158,6 @@
       contractAddress: l1TaikoAddress,
       header: "Gas Price (gwei)",
       intervalInMs: 20000,
-      colorFunc: (value: Status) => {
-        return "green";
-      },
-    },
-    {
-      statusFunc: getPeerCount,
-      watchStatusFunc: null,
-      provider: l2BootnodeProvider,
-      contractAddress: "",
-      header: "Peers",
-      intervalInMs: 60000,
       colorFunc: (value: Status) => {
         return "green";
       },
