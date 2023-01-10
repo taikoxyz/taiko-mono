@@ -14,9 +14,9 @@ import "../libs/LibAnchorSignature.sol";
 import "../libs/LibSharedConfig.sol";
 import "./TaikoData.sol";
 import "./TaikoEvents.sol";
-import "./libs/LibHeaderSyncing.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
+import "./libs/LibSyncedHeader.sol";
 import "./libs/LibUtils.sol";
 import "./libs/LibVerifying.sol";
 
@@ -266,13 +266,13 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     function getSyncedHeader(
         uint256 number
     ) public view override returns (bytes32 header) {
-        header = LibHeaderSyncing.getL2BlockHash(state, getConfig(), number);
+        header = LibSyncedHeader.getSyncedHeader(state, getConfig(), number);
         require(header != 0, "L1:number");
     }
 
     function getLatestSyncedHeader() public view override returns (bytes32) {
         return
-            LibHeaderSyncing.getL2Hash(
+            LibSyncedHeader.getL2Hash(
                 state,
                 getConfig(),
                 state.latestVerifiedHeight

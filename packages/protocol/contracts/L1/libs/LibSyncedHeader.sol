@@ -11,8 +11,8 @@ pragma solidity ^0.8.9;
 import "../TaikoData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
-library LibHeaderSyncing {
-    function getL2BlockHash(
+library LibSyncedHeader {
+    function getSyncedHeader(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 number
