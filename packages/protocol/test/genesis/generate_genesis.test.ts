@@ -97,7 +97,7 @@ action("Generate Genesis", function () {
             const addressManager = new hre.ethers.Contract(
                 addressManagerAlloc.address,
                 require("../../artifacts/contracts/thirdparty/AddressManager.sol/AddressManager.json").abi,
-                provider
+                signer
             );
 
             const owner = await addressManager.owner();
@@ -110,11 +110,11 @@ action("Generate Genesis", function () {
 
             expect(bridge).to.be.equal(getContractAlloc("Bridge").address);
 
-            const tokenValut = await addressManager.getAddress(
+            const tokenVault = await addressManager.getAddress(
                 `${testConfig.chainId}.token_vault`
             );
 
-            expect(tokenValut).to.be.equal(
+            expect(tokenVault).to.be.equal(
                 getContractAlloc("TokenVault").address
             );
 
@@ -270,6 +270,19 @@ action("Generate Genesis", function () {
             const owner = await TokenVault.owner();
 
             expect(owner).to.be.equal(testConfig.contractOwner);
+
+            const addressManager = new hre.ethers.Contract(
+                getContractAlloc("AddressManager").address,
+                require("../../artifacts/contracts/thirdparty/AddressManager.sol/AddressManager.json").abi,
+                signer
+            );
+
+            await expect(
+                addressManager.setAddress(
+                    "1.bridge",
+                    getContractAlloc("Bridge").address
+                )
+            ).not.to.be.reverted;
 
             await expect(
                 TokenVault.sendEther(
