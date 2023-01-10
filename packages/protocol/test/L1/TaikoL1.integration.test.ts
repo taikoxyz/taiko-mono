@@ -48,11 +48,10 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("getProposedBlock()", function () {
-        it("should return zero values for non-existing blocks without exception to be thrown", async function () {
-            const block = await taikoL1.getProposedBlock(123);
-            expect(block[0]).to.be.eq(ethers.constants.HashZero);
-            expect(block[1]).to.be.eq(ethers.constants.AddressZero);
-            expect(block[2]).to.be.eq(BigNumber.from(0));
+        it("should revfert if block is out of range and not a valid proposed block", async function () {
+            await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
+                "L1:id"
+            );
         });
     });
     describe("commitBlock() -> proposeBlock() integration", async function () {

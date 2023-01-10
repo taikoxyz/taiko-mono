@@ -48,8 +48,6 @@ async function deployBridge(
 
     await bridge.connect(signer).init(addressManager.address);
 
-    await bridge.connect(signer).enableDestChain(destChain, true);
-
     const etherVault: EtherVault = await (
         await ethers.getContractFactory("EtherVault")
     )
@@ -72,6 +70,8 @@ async function deployBridge(
         value: BigNumber.from(100000000),
         gasLimit: 1000000,
     });
+
+    await addressManager.setAddress(`${destChain}.bridge`, bridge.address);
 
     return { bridge, etherVault };
 }
