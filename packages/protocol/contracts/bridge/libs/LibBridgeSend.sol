@@ -78,6 +78,7 @@ library LibBridgeSend {
         bool enabled
     ) internal {
         require(chainId > 0 && chainId != block.chainid, "B:chainId");
+        require(state.destChains[chainId] != enabled, "B:enabled");
         state.destChains[chainId] = enabled;
         emit LibBridgeData.DestChainEnabled(chainId, enabled);
     }

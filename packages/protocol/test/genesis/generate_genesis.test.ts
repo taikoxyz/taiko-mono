@@ -237,7 +237,7 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner);
 
-            await expect(Bridge.enableDestChain(1, true)).not.to.reverted;
+            await expect(Bridge.enableDestChain(1)).not.to.reverted;
 
             await expect(
                 Bridge.processMessage(

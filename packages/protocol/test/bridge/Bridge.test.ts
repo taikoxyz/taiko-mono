@@ -57,7 +57,7 @@ async function deployBridge(
 
     await bridge.connect(signer).init(addressManager.address);
 
-    await bridge.connect(signer).enableDestChain(destChain, true);
+    await bridge.connect(signer).enableDestChain(destChain);
 
     const etherVault: EtherVault = await (
         await ethers.getContractFactory("EtherVault")
@@ -429,6 +429,65 @@ describe("Bridge", function () {
             await expect(
                 l1Bridge.processMessage(message, proof)
             ).to.be.revertedWith("B:destChainId");
+        });
+    });
+
+    describe("enableDestChain", async () => {
+        it("should not revert, can be enabled by a non owner", async () => {
+            const { nonOwner, l1Bridge } = await deployBridgeFixture();
+            await expect(l1Bridge.connect(nonOwner).enableDestChain(123)).to.not
+                .be.reverted;
+        });
+
+        it("should revert when called by owner and the chainId is already enabled", async () => {
+            const { nonOwner, l1Bridge } = await deployBridgeFixture();
+            await expect(l1Bridge.connect(nonOwner).enableDestChain(123)).to.not
+                .be.reverted;
+
+            await expect(
+                l1Bridge.connect(nonOwner).enableDestChain(123)
+            ).to.be.revertedWith("B:enabled");
+        });
+
+        it("should revert if the destination chain id is the same as the currnet block chain id", async () => {
+            const { nonOwner, l1Bridge, srcChainId } =
+                await deployBridgeFixture();
+            await expect(
+                l1Bridge.connect(nonOwner).enableDestChain(srcChainId)
+            ).to.be.revertedWith("B:chainId");
+        });
+    });
+
+    describe("disableChainId", async () => {
+        it("should revert, can not be disabled by a non owner", async () => {
+            const { nonOwner, l1Bridge } = await deployBridgeFixture();
+            await expect(
+                l1Bridge.connect(nonOwner).disableDestChain(123)
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("should revert if the destination chain id is the same as the current block chain id", async () => {
+            const { owner, l1Bridge, srcChainId } = await deployBridgeFixture();
+            await expect(
+                l1Bridge.connect(owner).disableDestChain(srcChainId)
+            ).to.be.revertedWith("B:chainId");
+        });
+
+        it("should revert when called by owner and chainId is not enabled", async () => {
+            const { owner, l1Bridge } = await deployBridgeFixture();
+            await expect(
+                l1Bridge.connect(owner).disableDestChain(123)
+            ).to.be.revertedWith("B:enabled");
+        });
+
+        it("should not revert when called by owner and chainId is enabled", async () => {
+            const { owner, l1Bridge } = await deployBridgeFixture();
+
+            await expect(l1Bridge.connect(owner).enableDestChain(123)).not.to.be
+                .reverted;
+
+            await expect(l1Bridge.connect(owner).disableDestChain(123)).not.to
+                .be.reverted;
         });
     });
 });

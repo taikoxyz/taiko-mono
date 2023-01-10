@@ -67,7 +67,7 @@ describe("integration:LibTrieProof", function () {
             const { chainId } = await ethers.provider.getNetwork();
             const srcChainId = chainId;
             const destChainId = srcChainId + 1;
-            await (await bridge.enableDestChain(destChainId, true)).wait();
+            await (await bridge.enableDestChain(destChainId)).wait();
 
             const message: Message = {
                 id: 1,

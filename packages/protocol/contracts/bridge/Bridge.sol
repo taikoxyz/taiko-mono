@@ -99,14 +99,21 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function enableDestChain(
-        uint256 _chainId,
-        bool enabled
-    ) external nonReentrant {
+    function enableDestChain(uint256 _chainId) external nonReentrant {
         LibBridgeSend.enableDestChain({
             state: state,
             chainId: _chainId,
-            enabled: enabled
+            enabled: true
+        });
+    }
+
+    function disableDestChain(
+        uint256 _chainId
+    ) external onlyOwner nonReentrant {
+        LibBridgeSend.enableDestChain({
+            state: state,
+            chainId: _chainId,
+            enabled: false
         });
     }
 
