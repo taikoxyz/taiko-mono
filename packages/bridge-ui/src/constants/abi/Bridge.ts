@@ -128,7 +128,7 @@ export default [
       },
       {
         indexed: false,
-        internalType: "enum LibBridgeData.MessageStatus",
+        internalType: "enum LibBridgeStatus.MessageStatus",
         name: "status",
         type: "uint8",
       },
@@ -220,24 +220,6 @@ export default [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "_chainId",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "enabled",
-        type: "bool",
-      },
-    ],
-    name: "enableDestChain",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "bytes32",
         name: "signal",
         type: "bytes32",
@@ -246,7 +228,7 @@ export default [
     name: "getMessageStatus",
     outputs: [
       {
-        internalType: "enum LibBridgeData.MessageStatus",
+        internalType: "enum LibBridgeStatus.MessageStatus",
         name: "",
         type: "uint8",
       },
@@ -616,7 +598,7 @@ export default [
       },
       {
         internalType: "bool",
-        name: "lastAttempt",
+        name: "isLastAttempt",
         type: "bool",
       },
     ],
