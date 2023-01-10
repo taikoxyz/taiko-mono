@@ -568,7 +568,7 @@ describe("integration:Bridge", function () {
         };
     }
 
-    async function sendMessage(bridge, m) {
+    async function sendMessage(bridge: Bridge, m: Message) {
         const tx = await bridge.sendMessage(m, {
             value: m.depositValue + m.callValue + m.processingFee,
         });
