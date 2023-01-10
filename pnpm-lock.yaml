@@ -210,6 +210,113 @@ importers:
       typechain: 5.2.0_typescript@4.9.3
       typescript: 4.9.3
 
+  packages/status-page:
+    specifiers:
+      '@babel/preset-env': ^7.16.0
+      '@coinbase/wallet-sdk': ^3.6.3
+      '@ethersproject/experimental': ^5.7.0
+      '@lottiefiles/svelte-lottie-player': ^0.2.0
+      '@sveltejs/vite-plugin-svelte': ^1.0.1
+      '@sveltestack/svelte-query': ^1.6.0
+      '@tsconfig/svelte': ^3.0.0
+      '@types/eslint': ^8.2.1
+      '@types/estree': ^0.0.50
+      '@types/jest': ^27.0.2
+      '@types/mixpanel': ^2.14.3
+      '@types/sanitize-html': ^2.6.2
+      '@typescript-eslint/eslint-plugin': ^5.16.0
+      '@typescript-eslint/parser': ^5.16.0
+      '@wagmi/connectors': ^0.1.1
+      '@wagmi/core': ^0.8.0
+      '@zerodevx/svelte-toast': ^0.6.3
+      autoprefixer: ^10.4.13
+      axios: ^1.2.0
+      babel-jest: ^27.3.1
+      babel-plugin-transform-es2015-modules-commonjs: ^6.26.2
+      buffer: ^6.0.3
+      daisyui: 1.16.6
+      ethers: ^5.7.1
+      extend-expect: link:@testing-library/jest-dom/extend-expect
+      identicon.js: ^2.3.3
+      jest: ^27.5.1
+      node-sass: ^7.0.1
+      postcss: ^8.4.19
+      postcss-cli: ^7.1.2
+      postcss-loader: ^6.2.0
+      prettier: 2.7.1
+      rollup-plugin-node-builtins: ^2.0.0
+      rollup-plugin-polyfill-node: ^0.10.2
+      svelte: ^3.53.1
+      svelte-check: ^2.8.0
+      svelte-heros-v2: ^0.3.10
+      svelte-i18n: ^3.5.1
+      svelte-jester: ^2.1.5
+      svelte-loader: ^3.1.2
+      svelte-preprocess: ^4.10.7
+      svelte-spa-router: ^3.2.0
+      tailwindcss: ^3.2.4
+      theme-change: ^2.2.0
+      ts-jest: ^27.0.7
+      ts-jest-mock-import-meta: ^0.12.0
+      ts-loader: ^9.2.6
+      tslib: ^2.4.0
+      typescript: ^4.6.4
+      vite: ^3.0.0
+      vite-plugin-static-copy: ^0.12.0
+    dependencies:
+      '@coinbase/wallet-sdk': 3.6.3_@babel+core@7.20.2
+      '@ethersproject/experimental': 5.7.0
+      '@lottiefiles/svelte-lottie-player': 0.2.0
+      '@sveltestack/svelte-query': 1.6.0
+      '@wagmi/connectors': 0.1.1_igzkohdkbvuxwssjqsbqwxprka
+      '@wagmi/core': 0.8.4_3yqrazoypcxohxu3uqfcqjka5u
+      axios: 1.2.0
+      buffer: 6.0.3
+      ethers: 5.7.2
+      extend-expect: link:@testing-library/jest-dom/extend-expect
+      identicon.js: 2.3.3
+      svelte-i18n: 3.5.2_svelte@3.53.1
+      svelte-spa-router: 3.3.0
+    devDependencies:
+      '@babel/preset-env': 7.20.2_@babel+core@7.20.2
+      '@sveltejs/vite-plugin-svelte': 1.3.1_svelte@3.53.1+vite@3.2.4
+      '@tsconfig/svelte': 3.0.0
+      '@types/eslint': 8.4.10
+      '@types/estree': 0.0.50
+      '@types/jest': 27.5.2
+      '@types/mixpanel': 2.14.4
+      '@types/sanitize-html': 2.6.2
+      '@typescript-eslint/eslint-plugin': 5.44.0_e2lvjb2eg2mgv3h5oqf6kw3to4
+      '@typescript-eslint/parser': 5.44.0_77fvizpdb3y4icyeo2mf4eo7em
+      '@zerodevx/svelte-toast': 0.6.3
+      autoprefixer: 10.4.13_postcss@8.4.19
+      babel-jest: 27.5.1_@babel+core@7.20.2
+      babel-plugin-transform-es2015-modules-commonjs: 6.26.2
+      daisyui: 1.16.6
+      jest: 27.5.1
+      node-sass: 7.0.3
+      postcss: 8.4.19
+      postcss-cli: 7.1.2
+      postcss-loader: 6.2.1_upg3rk2kpasnbk27hkqapxaxfq
+      prettier: 2.7.1
+      rollup-plugin-node-builtins: 2.1.2
+      rollup-plugin-polyfill-node: 0.10.2_rollup@2.79.1
+      svelte: 3.53.1
+      svelte-check: 2.9.2_abcb4yglsprjylcfcbep3tcqgq
+      svelte-heros-v2: 0.3.10
+      svelte-jester: 2.3.2_jest@27.5.1+svelte@3.53.1
+      svelte-loader: 3.1.4_svelte@3.53.1
+      svelte-preprocess: 4.10.7_axwq5llc4jwkf7awicvy3hu32q
+      tailwindcss: 3.2.4_postcss@8.4.19
+      theme-change: 2.2.0
+      ts-jest: 27.1.5_hf2lt5tikeukj66wl5cvus5z2u
+      ts-jest-mock-import-meta: 0.12.0_ts-jest@27.1.5
+      ts-loader: 9.4.1_vfotqvx6lgcbf3upbs6hgaza4q
+      tslib: 2.4.1
+      typescript: 4.9.3
+      vite: 3.2.4
+      vite-plugin-static-copy: 0.12.0_vite@3.2.4
+
   packages/website:
     specifiers:
       '@docusaurus/core': 2.2.0
@@ -795,7 +902,7 @@ packages:
       '@babel/core': ^7.0.0-0
     dependencies:
       '@babel/core': 7.12.9
-      '@babel/helper-plugin-utils': 7.10.4
+      '@babel/helper-plugin-utils': 7.20.2
       '@babel/plugin-syntax-object-rest-spread': 7.8.3_@babel+core@7.12.9
       '@babel/plugin-transform-parameters': 7.20.3_@babel+core@7.12.9
 
@@ -11403,7 +11510,7 @@ packages:
       signal-exit: 3.0.7
       string-width: 4.2.3
       strip-ansi: 6.0.1
-      wide-align: 1.1.3
+      wide-align: 1.1.5
     dev: true
 
   /gauge/4.0.4:
@@ -14130,7 +14237,7 @@ packages:
   /level-post/1.0.7:
     resolution: {integrity: sha512-PWYqG4Q00asOrLhX7BejSajByB4EmG2GaKHfj3h5UmmZ2duciXLPGYWIjBzLECFWUGOZWlm5B20h/n3Gs3HKew==}
     dependencies:
-      ltgt: 2.1.3
+      ltgt: 2.2.1
     dev: true
 
   /level-sublevel/5.2.3:
@@ -18729,6 +18836,7 @@ packages:
 
   /sourcemap-codec/1.4.8:
     resolution: {integrity: sha512-9NykojV5Uih4lgo5So5dtw+f0JgJX30KCNI8gwhz2J9A15wD0Ml6tjHKwf6fTSa6fAdVBdZeNOs9eJ71qCk8vA==}
+    deprecated: Please use @jridgewell/sourcemap-codec instead
     dev: true
 
   /space-separated-tokens/1.1.5:
