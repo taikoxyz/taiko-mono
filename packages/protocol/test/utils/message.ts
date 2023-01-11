@@ -14,4 +14,18 @@ type Message = {
     memo: string;
 };
 
-export { Message };
+const MessageStatus = {
+    NEW: 0,
+    RETRIABLE: 1,
+    DONE: 2,
+    FAILED: 3,
+};
+
+async function getMessageStatusSlot(hre: any, signal: any) {
+    return hre.ethers.utils.solidityKeccak256(
+        ["string", "bytes"],
+        ["MESSAGE_STATUS", signal]
+    );
+}
+
+export { Message, MessageStatus, getMessageStatusSlot };

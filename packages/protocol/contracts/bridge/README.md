@@ -18,7 +18,7 @@ Let's go deeper into the steps that occur when bridging ETH from srcChain to des
 User initiates a bridge transaction with `sendMessage` on the source chain which includes:
 
 - `depositValue`, `callValue`, and `processingFee` -- these must sum to `msg.value`.
-- The destination chain's ID (must be enabled via `Bridge.enableDestChain()`).
+- The destination chain's ID (must be enabled via setting `addressResolver` for `${chainID}.bridge`).
 
 Inside the `sendMessage` call, the `msg.value` amount of Ether is sent to the srcChain `EtherVault` contract. Next, a `signal` is created from the message, and a `key` is stored on the srcChain bridge contract address. The `key` is a hash of the `signal` and the srcChain bridge contract address. The `key` is stored on the `Bridge` contract with a value of `1`, and a `MessageSent` event is emitted for the relayer to pick up.
 

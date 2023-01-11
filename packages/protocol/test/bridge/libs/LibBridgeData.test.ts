@@ -2,8 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TestLibBridgeData } from "../../../typechain";
 import { K_BRIDGE_MESSAGE } from "../../constants/messages";
-import { MessageStatus } from "../../../tasks/utils";
-import { Message } from "../../utils/message";
+import { Message, MessageStatus } from "../../utils/message";
 
 describe("LibBridgeData", function () {
     let owner: any;

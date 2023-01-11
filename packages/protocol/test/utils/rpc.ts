@@ -56,4 +56,40 @@ type BlockHeader = {
     baseFeePerGas: number;
 };
 
-export { Block, BlockHeader, StorageEntry, EthGetProofResponse };
+async function getLatestBlockHeader(hre: any) {
+    const block: Block = await hre.ethers.provider.send(
+        "eth_getBlockByNumber",
+        ["latest", false]
+    );
+
+    const logsBloom = block.logsBloom.toString().substring(2);
+
+    const blockHeader: BlockHeader = {
+        parentHash: block.parentHash,
+        ommersHash: block.sha3Uncles,
+        beneficiary: block.miner,
+        stateRoot: block.stateRoot,
+        transactionsRoot: block.transactionsRoot,
+        receiptsRoot: block.receiptsRoot,
+        logsBloom: logsBloom.match(/.{1,64}/g)!.map((s: string) => "0x" + s),
+        difficulty: block.difficulty,
+        height: block.number,
+        gasLimit: block.gasLimit,
+        gasUsed: block.gasUsed,
+        timestamp: block.timestamp,
+        extraData: block.extraData,
+        mixHash: block.mixHash,
+        nonce: block.nonce,
+        baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+    };
+
+    return { block, blockHeader };
+}
+
+export {
+    Block,
+    BlockHeader,
+    StorageEntry,
+    EthGetProofResponse,
+    getLatestBlockHeader,
+};

@@ -32,6 +32,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:integration
 
+      - name: protocol - Tokenomics Tests
+        working-directory: ./packages/protocol
+        run: pnpm test:tokenomics
+
       - name: protocol - Test Coverage
         working-directory: ./packages/protocol
         run: pnpm test:coverage

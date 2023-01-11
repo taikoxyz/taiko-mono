@@ -3,7 +3,7 @@ import hre, { ethers } from "hardhat";
 import RLP from "rlp";
 import { Message } from "../utils/message";
 import { EthGetProofResponse } from "../utils/rpc";
-import { getSignalSlot } from "../../tasks/utils";
+import { getSignalSlot } from "../utils/signal";
 
 describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {

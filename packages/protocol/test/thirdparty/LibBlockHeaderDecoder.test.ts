@@ -1,14 +1,15 @@
 // eslint-disable-next-line no-unused-vars
 import { expect } from "chai";
 import { keccak256 } from "ethers/lib/utils";
+import { LibBlockHeaderDecoder, TestLibBlockHeader } from "../../typechain";
 const hre = require("hardhat");
 const ethers = hre.ethers;
 const EBN = ethers.BigNumber;
 
 describe("LibBlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
-    let blockHeaderDecoder: any;
-    let hashBlockHeader: any;
+    let blockHeaderDecoder: LibBlockHeaderDecoder;
+    let hashBlockHeader: TestLibBlockHeader;
 
     before(async function () {
         // Deploying Lib to Link
