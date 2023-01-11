@@ -16,6 +16,7 @@ import "./TaikoData.sol";
 import "./TaikoEvents.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
+import "./libs/LibSyncedHeader.sol";
 import "./libs/LibUtils.sol";
 import "./libs/LibVerifying.sol";
 
@@ -36,6 +37,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
+            config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });
@@ -184,6 +186,33 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     /**
+     * Revert the chain to a previously verified block and also update
+     * certain internal state variables.
+     */
+    function revertToBlock(
+        uint64 latestVerifiedHeight,
+        uint64 latestVerifiedId,
+        bytes[] calldata inputs
+    ) external {
+        // Only owner or a emergency-handling multisig admin can
+        // authorize this transaction.
+        require(
+            msg.sender == owner() ||
+                msg.sender == AddressResolver(this).resolve("admin"),
+            "L1:auth"
+        );
+        return
+            LibProposing.revertToBlock(
+                state,
+                getConfig(),
+                AddressResolver(this),
+                latestVerifiedHeight,
+                latestVerifiedId,
+                inputs
+            );
+    }
+
+    /**
      * Halt or resume the chain.
      * @param toHalt True to halt, false to resume.
      */
@@ -244,12 +273,17 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     function getSyncedHeader(
         uint256 number
     ) public view override returns (bytes32 header) {
-        header = state.getL2BlockHash(number);
+        header = LibSyncedHeader.getSyncedHeader(state, getConfig(), number);
         require(header != 0, "L1:number");
     }
 
     function getLatestSyncedHeader() public view override returns (bytes32) {
-        return state.getL2BlockHash(state.latestVerifiedHeight);
+        return
+            LibSyncedHeader.getL2Hash(
+                state,
+                getConfig(),
+                state.latestVerifiedHeight
+            );
     }
 
     function getStateVariables()
