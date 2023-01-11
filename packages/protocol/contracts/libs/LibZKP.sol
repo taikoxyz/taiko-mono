@@ -21,5 +21,6 @@ library LibZKP {
         bytes32 txListHash
     ) internal pure returns (bool verified) {
         // TODO
+        return true;
     }
 }
