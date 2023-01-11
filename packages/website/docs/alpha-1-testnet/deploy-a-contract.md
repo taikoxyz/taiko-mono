@@ -1,7 +1,3 @@
----
-sidebar_position: 4
----
-
 # 🚀 Deploy a contract
 
 These steps will show you how to deploy a smart contract to Taiko A1 using Foundry. You can find the latest Foundry docs at the Foundry Book: https://book.getfoundry.sh/getting-started/first-steps. This guide uses snippets / examples from there.
