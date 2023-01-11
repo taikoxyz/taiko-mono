@@ -468,7 +468,7 @@ describe("integration:Bridge", function () {
             .deploy();
         await l2AddressManager.init();
 
-        const l1SignalService = await deploySignalService(
+        const { signalService: l1SignalService } = await deploySignalService(
             owner,
             addressManager,
             srcChainId
