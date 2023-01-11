@@ -39,6 +39,7 @@ interface Bridge {
   RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
+  EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
   Claim(opts: ClaimOpts): Promise<Transaction>;
 }
 

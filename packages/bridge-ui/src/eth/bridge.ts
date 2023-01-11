@@ -19,16 +19,7 @@ class ETHBridge implements BridgeInterface {
     this.prover = prover;
   }
 
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-
-  // ETH does not need to be approved for transacting
-  Approve(opts: ApproveOpts): Promise<Transaction> {
-    return new Promise((resolve) => resolve({} as unknown as Transaction));
-  }
-
-  async Bridge(opts: BridgeOpts): Promise<Transaction> {
+  static async prepareTransaction(opts: BridgeOpts): Promise<{contract: Contract, message: any, owner: string}> {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
       TokenVault,
@@ -52,6 +43,21 @@ class ETHBridge implements BridgeInterface {
       memo: opts.memo ?? "",
     };
 
+    return { contract, owner, message };
+  }
+
+  RequiresAllowance(opts: ApproveOpts): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  // ETH does not need to be approved for transacting
+  Approve(opts: ApproveOpts): Promise<Transaction> {
+    return new Promise((resolve) => resolve({} as unknown as Transaction));
+  }
+
+  async Bridge(opts: BridgeOpts): Promise<Transaction> {
+    const { contract, owner, message } = await ETHBridge.prepareTransaction(opts);
+
     const tx = await contract.sendEther(
       message.destChainId,
       owner,
@@ -67,6 +73,26 @@ class ETHBridge implements BridgeInterface {
     );
 
     return tx;
+  }
+
+  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
+    const { contract, owner, message } = await ETHBridge.prepareTransaction(opts);
+
+    const gasEstimate = await contract.estimateGas.sendEther(
+      message.destChainId,
+      owner,
+      message.gasLimit,
+      message.processingFee,
+      message.refundAddress,
+      message.memo,
+      {
+        value: message.depositValue
+          .add(message.processingFee)
+          .add(message.callValue),
+      }
+    );
+
+    return gasEstimate;
   }
 
   async Claim(opts: ClaimOpts): Promise<Transaction> {
