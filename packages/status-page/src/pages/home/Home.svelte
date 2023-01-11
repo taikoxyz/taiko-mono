@@ -107,7 +107,7 @@
         if (value.toString() === "true") return "red";
         return "green";
       },
-      tooltip: "Whether the Taiko smart contract on Layer 1 has been halted",
+      tooltip: "Whether the Taiko smart contract on Layer 1 has been halted.",
     },
     {
       statusFunc: getAvailableSlots,
