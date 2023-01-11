@@ -40,7 +40,7 @@ async function deploySignalService(
         signalService.address
     );
 
-    return signalService;
+    return { signalService };
 }
 
 async function deployBridge(
@@ -474,7 +474,7 @@ describe("integration:Bridge", function () {
             srcChainId
         );
 
-        const l2SignalService = await deploySignalService(
+        const { signalService: l2SignalService } = await deploySignalService(
             l2Signer,
             l2AddressManager,
             enabledDestChainId
