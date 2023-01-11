@@ -178,7 +178,7 @@
       colorFunc: (value: Status) => {
         return "green";
       },
-      tooltip: "The current recommended gas price for a transaction on Layer 2",
+      tooltip: "The current recommended gas price for a transaction on Layer 2.",
     },
   ];
 
