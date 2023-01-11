@@ -134,6 +134,10 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./bridge/EtherVault.sol/EtherVault.json"
         )),
+        SignalService: require(path.join(
+            ARTIFACTS_PATH,
+            "./signal/SignalService.sol/SignalService.json"
+        )),
     };
 
     const addressMap: any = {};
@@ -141,33 +145,54 @@ async function generateContractConfigs(
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         let bytecode = (artifact as any).bytecode;
 
-        if (contractName === "TaikoL2") {
-            if (!addressMap.LibTxDecoder) {
-                throw new Error("LibTxDecoder not initialized");
-            }
+        switch (contractName) {
+            case "TaikoL2":
+                if (!addressMap.LibTxDecoder) {
+                    throw new Error("LibTxDecoder not initialized");
+                }
 
-            bytecode = linkContractLibs(contractArtifacts.TaikoL2, addressMap);
-        } else if (contractName === "LibBridgeProcess") {
-            if (!addressMap.LibTrieProof) {
-                throw new Error("LibTrieProof not initialized");
-            }
-
-            bytecode = linkContractLibs(
-                contractArtifacts.LibBridgeProcess,
-                addressMap
-            );
-        } else if (contractName === "Bridge") {
-            if (
-                !addressMap.LibTrieProof ||
-                !addressMap.LibBridgeRetry ||
-                !addressMap.LibBridgeProcess
-            ) {
-                throw new Error(
-                    "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
+                bytecode = linkContractLibs(
+                    contractArtifacts.TaikoL2,
+                    addressMap
                 );
-            }
+                break;
+            case "LibBridgeProcess":
+                if (!addressMap.LibTrieProof) {
+                    throw new Error("LibTrieProof not initialized");
+                }
 
-            bytecode = linkContractLibs(contractArtifacts.Bridge, addressMap);
+                bytecode = linkContractLibs(
+                    contractArtifacts.LibBridgeProcess,
+                    addressMap
+                );
+                break;
+            case "Bridge":
+                if (
+                    !addressMap.LibBridgeRetry ||
+                    !addressMap.LibBridgeProcess
+                ) {
+                    throw new Error(
+                        "LibBridgeRetry/LibBridgeProcess not initialized"
+                    );
+                }
+
+                bytecode = linkContractLibs(
+                    contractArtifacts.Bridge,
+                    addressMap
+                );
+                break;
+            case "SignalService":
+                if (!addressMap.LibTrieProof) {
+                    throw new Error("LibTrieProof not initialized");
+                }
+
+                bytecode = linkContractLibs(
+                    contractArtifacts.SignalService,
+                    addressMap
+                );
+                break;
+            default:
+                break;
         }
 
         if (
@@ -242,6 +267,10 @@ async function generateContractConfigs(
                         ["string"],
                         [`${chainId}.ether_vault`]
                     )}`]: addressMap.EtherVault,
+                    [`${ethers.utils.solidityKeccak256(
+                        ["string"],
+                        [`${chainId}.signal_service`]
+                    )}`]: addressMap.SignalService,
                 },
             },
         },
@@ -320,6 +349,24 @@ async function generateContractConfigs(
                 // EtherVault
                 // Authorize L2 bridge
                 authorizedAddrs: { [`${addressMap.Bridge}`]: true },
+            },
+        },
+        SignalService: {
+            address: addressMap.SignalService,
+            deployedBytecode: linkContractLibs(
+                contractArtifacts.SignalService,
+                addressMap
+            ),
+            variables: {
+                // initializer
+                _initialized: 1,
+                _initializing: false,
+                // ReentrancyGuardUpgradeable
+                _status: 1, // _NOT_ENTERED
+                // OwnableUpgradeable
+                _owner: contractOwner,
+                // AddressResolver
+                _addressManager: addressMap.AddressManager,
             },
         },
     };

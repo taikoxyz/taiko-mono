@@ -16,7 +16,6 @@ describe("LibBridgeProcess", async function () {
     let etherVaultOwner: any;
     let addressManager: AddressManager;
     let etherVault: EtherVault;
-    let libTrieLink;
     let libProcessLink;
     let libProcess: TestLibBridgeProcess;
     let testTaikoData: TestLibBridgeData;
@@ -55,17 +54,8 @@ describe("LibBridgeProcess", async function () {
             value: ethers.utils.parseEther("10.0"),
         });
 
-        libTrieLink = await (await ethers.getContractFactory("LibTrieProof"))
-            .connect(owner)
-            .deploy();
-        await libTrieLink.deployed();
-
         libProcessLink = await (
-            await ethers.getContractFactory("LibBridgeProcess", {
-                libraries: {
-                    LibTrieProof: libTrieLink.address,
-                },
-            })
+            await ethers.getContractFactory("LibBridgeProcess")
         )
             .connect(owner)
             .deploy();

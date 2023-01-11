@@ -163,7 +163,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("B:notFound");
+            ).to.be.revertedWith("B:status");
         });
 
         it("if etherVault resolves to address(0), retry should fail and messageStatus should not change if not lastAttempt since no ether received", async function () {
