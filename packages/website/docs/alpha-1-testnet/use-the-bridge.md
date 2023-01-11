@@ -1,7 +1,3 @@
----
-sidebar_position: 3
----
-
 # 🌉 Use the bridge
 
 The bridge contract can be found:
