@@ -124,6 +124,7 @@ describe("tokenomics", function () {
 
         let lastProofReward = BigNumber.from(0);
 
+        let hasFailedAssertions: boolean = false;
         l2Provider.on("block", async (blockNumber) => {
             if (blockNumber <= genesisHeight) return;
             try {
@@ -171,12 +172,14 @@ describe("tokenomics", function () {
 
                 lastBlockFee = newBlockFee;
             } catch (e) {
+                hasFailedAssertions = true;
                 console.error(e);
-                expect(true).to.be.eq(false);
+                throw e;
             }
         });
 
         await sleep(20 * 1000);
+        expect(hasFailedAssertions).to.be.eq(false);
     });
 
     // it("tests tokenomics, propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
