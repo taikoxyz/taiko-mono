@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import RLP from "rlp";
 import { TaikoL1, TaikoL2 } from "../../typechain";
 import { BlockMetadata } from "./block_metadata";
 import Evidence from "./evidence";
@@ -8,7 +9,7 @@ const buildProveBlockInputs = (
     meta: BlockMetadata,
     header: BlockHeader,
     prover: string,
-    anchorTx: any,
+    anchorTx: Uint8Array,
     anchorReceipt: any
 ) => {
     const inputs = [];
@@ -16,7 +17,7 @@ const buildProveBlockInputs = (
         meta: meta,
         header: header,
         prover: prover,
-        proofs: [],
+        proofs: [], // TODO
     };
 
     inputs[0] = evidence;
@@ -37,20 +38,23 @@ const proveBlock = async (
 ) => {
     const header = await getBlockHeader(l2Provider, blockNumber);
     const anchorTx = await taikoL2.anchor(meta.l1Height, meta.l1Hash);
+    const anchorTxRLPEncoded = await RLP.encode(
+        ethers.utils.serializeTransaction(anchorTx)
+    );
     const anchorReceipt = await anchorTx.wait(1);
-    const [encodedReceipt] = await l2Provider.send("debug_getRawReceipts", [
-        anchorReceipt.blockHash,
-    ]);
+    const anchorReceiptRLPEncoded = RLP.encode(
+        ethers.utils.serializeTransaction(anchorReceipt)
+    );
 
     const inputs = buildProveBlockInputs(
         meta,
         header.blockHeader,
         proverAddress,
-        anchorTx,
-        encodedReceipt
+        anchorTxRLPEncoded,
+        anchorReceiptRLPEncoded
     );
     const tx = await taikoL1.proveBlock(blockId, inputs);
-    console.log("Proved block", tx.hash);
+    console.log("Proved block tx", tx.hash);
     const receipt = await tx.wait(1);
     return receipt;
 };

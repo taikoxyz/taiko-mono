@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
 import { TaikoL1, TaikoL2 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
@@ -98,10 +98,11 @@ describe("tokenomics", function () {
         setInterval(async () => await sendTransaction(l1Signer), 1 * 500);
     });
 
-    it("tests tokenomics, propose blocks, blockFee should increase", async function () {
+    it("proposes blocks, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         const blockIdsToNumber: any = {};
 
+        // set up a proposer to continually propose new blocks
         const proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
@@ -110,9 +111,18 @@ describe("tokenomics", function () {
             0
         );
 
-        // const initialBlockFee = await taikoL1.getBlockFee();
+        // get the initiaal tkoBalance, which should decrease every block proposal
+        let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
+            await proposerSigner.getAddress()
+        );
 
-        // expect(initialBlockFee).not.to.be.eq(0);
+        // do the same for the blockFee, which should increase every block proposal
+        // with proofs not being submitted.
+        let lastBlockFee = await taikoL1.getBlockFee();
+
+        expect(lastBlockFee).not.to.be.eq(0);
+
+        let lastProofReward = BigNumber.from(0);
 
         l2Provider.on("block", async (blockNumber) => {
             if (blockNumber <= genesisHeight) return;
@@ -124,23 +134,49 @@ describe("tokenomics", function () {
                     (e) => e.event === "BlockProposed"
                 );
 
-                const { id } = (proposedEvent as any).args;
+                const { id, meta } = (proposedEvent as any).args;
                 console.log(
                     "-----------PROPOSED---------------",
                     block.number,
                     id
                 );
                 blockIdsToNumber[id.toString()] = block.number;
+
+                const proofReward = await taikoL1.getProofReward(
+                    new Date().getMilliseconds(),
+                    meta.timestamp
+                );
+                // proofReward should grow every time since slots are increasing
+                expect(proofReward.gt(lastProofReward)).to.be.eq(true);
+                // set lastProofReward equal to this once, for further comparison
+                // on next block proposal.
+                lastProofReward = proofReward;
+
+                // get the balance of the tkoToken for proposer, and make sure it decreased
+                // ie: they paid the block proposal fee.
+                const newProposerTkoBalance = await tkoTokenL1.balanceOf(
+                    await proposerSigner.getAddress()
+                );
+
+                expect(
+                    newProposerTkoBalance.lt(lastProposerTkoBalance)
+                ).to.be.eq(true);
+
+                lastProposerTkoBalance = newProposerTkoBalance;
+
+                // after all proposing the block fee should be greater
+                // than it originally was.
+                const newBlockFee = await taikoL1.getBlockFee();
+                expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
+
+                lastBlockFee = newBlockFee;
             } catch (e) {
                 console.error(e);
                 expect(true).to.be.eq(false);
             }
         });
 
-        await sleep(30 * 1000);
-
-        // const newBlockFee = await taikoL1.getBlockFee();
-        // expect(newBlockFee.gt(initialBlockFee)).to.be.eq(true);
+        await sleep(20 * 1000);
     });
 
     // it("tests tokenomics, propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
@@ -155,7 +191,7 @@ describe("tokenomics", function () {
     //         0
     //     );
 
-    //     const prover: Prover = new Prover(taikoL1.connect(proverSigner));
+    //     // const prover: Prover = new Prover(taikoL1.connect(proverSigner));
 
     //     l2Provider.on("block", async (blockNumber) => {
     //         if (blockNumber <= genesisHeight) return;
