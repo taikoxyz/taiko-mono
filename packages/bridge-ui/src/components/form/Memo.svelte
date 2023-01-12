@@ -1,6 +1,7 @@
 <script lang="ts">
   import TooltipModal from "../modals/TooltipModal.svelte";
   import Tooltip from "../Tooltip.svelte";
+  import ButtonWithTooltip from "../ButtonWithTooltip.svelte";
 
   export let memo: string = "";
   let showMemo: boolean = false;
@@ -8,15 +9,9 @@
 </script>
 
 <div class="flex flex-row justify-between mb-2">
-  <span class="label-text">
-    Memo
-    <span
-      class="inline-block cursor-pointer"
-      on:click={() => (tooltipOpen = true)}
-    >
-      <Tooltip />
-    </span>
-  </span>
+  <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
+    <span slot="buttonText">Memo</span>
+  </ButtonWithTooltip>
   <input
     type="checkbox"
     class="toggle rounded-full duration-300"

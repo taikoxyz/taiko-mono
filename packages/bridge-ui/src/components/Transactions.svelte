@@ -10,7 +10,7 @@
   {#if $transactions.length}
     <table class="table-auto">
       <thead>
-        <tr>
+        <tr class="text-white">
           <th>From</th>
           <th>To</th>
           <th>Amount</th>
