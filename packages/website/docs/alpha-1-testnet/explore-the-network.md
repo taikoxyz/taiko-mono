@@ -1,7 +1,3 @@
----
-sidebar_position: 7
----
-
 # 🔍 Explore the network
 
 Taiko's Alpha-1 testnet consists of L1 / L2 nodes with all [Taiko protocol contracts](/docs/category/contract-documentation) deployed. The mining interval of the L1 node is set to 12 seconds.

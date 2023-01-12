@@ -88,10 +88,6 @@ const config = {
             label: "Blog",
           },
           {
-            href: "https://github.com/orgs/taikoxyz/discussions",
-            label: "Discuss",
-          },
-          {
             href: "https://bridge.a1.taiko.xyz/",
             label: "Bridge",
           },
@@ -169,10 +165,6 @@ const config = {
           {
             title: "Developers",
             items: [
-              {
-                label: "Discussions",
-                to: "https://github.com/taikoxyz/taiko-mono/discussions",
-              },
               {
                 label: "Getting started",
                 to: "docs/intro",

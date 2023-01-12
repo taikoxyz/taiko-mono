@@ -5,6 +5,8 @@
   import Loader from "../components/Loader.svelte";
   import type Status from "../domain/status";
   import { fade } from "svelte/transition";
+  import Tooltip from "./Tooltip.svelte";
+  import TooltipModal from "./TooltipModal.svelte";
 
   export let provider: ethers.providers.JsonRpcProvider;
   export let contractAddress: string;
@@ -28,9 +30,13 @@
 
   export let intervalInMs: number = 0;
 
+  export let tooltip: string = "";
+
   let interval: NodeJS.Timer;
 
   let statusValue: Status;
+
+  let tooltipOpen: boolean = false;
 
   onMount(async () => {
     try {
@@ -64,7 +70,12 @@
 <div
   class="rounded-3xl border-2 border-zinc-800 border-solid p-4 min-h-full h-28"
 >
-  <h2 class="font-bold">{header}</h2>
+  <span class="cursor-pointer float-right"
+    ><Tooltip bind:isOpen={tooltipOpen} /></span
+  >
+  <h2 class="font-bold">
+    {header}
+  </h2>
   {#key statusValue}
     {#if statusValue || typeof statusValue === "number"}
       <span
@@ -81,3 +92,13 @@
     {/if}
   {/key}
 </div>
+
+{#if tooltip}
+  <TooltipModal title={header} bind:isOpen={tooltipOpen}>
+    <span slot="body">
+      <p class="text-left">
+        {tooltip}
+      </p>
+    </span>
+  </TooltipModal>
+{/if}
