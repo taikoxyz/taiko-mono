@@ -1,9 +1,12 @@
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
-import { TaikoL1, TaikoL2 } from "../../typechain";
+import { TaikoL1, TaikoL2, TkoToken } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+// import { BlockMetadata } from "../utils/block_metadata";
 import Proposer from "../utils/proposer";
+// import { proveBlock } from "../utils/prove";
+import createAndSeedWallets from "../utils/seed";
 import sleep from "../utils/sleep";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
@@ -58,20 +61,10 @@ describe("tokenomics", function () {
 
         const { chainId } = await l1Provider.getNetwork();
 
-        proposerSigner = ethers.Wallet.createRandom().connect(l1Provider);
-        proverSigner = ethers.Wallet.createRandom().connect(l1Provider);
-        await l1Signer.sendTransaction({
-            to: await proposerSigner.getAddress(),
-            value: ethers.utils.parseEther("1"),
-        });
-
-        await l1Signer.sendTransaction({
-            to: await proverSigner.getAddress(),
-            value: ethers.utils.parseEther("1"),
-        });
-
-        const balance = await proposerSigner.getBalance();
-        expect(balance).to.be.eq(ethers.utils.parseEther("1"));
+        [proposerSigner, proverSigner] = await createAndSeedWallets(
+            2,
+            l1Signer
+        );
 
         tkoTokenL1 = await deployTkoToken(l1Signer, taikoL1.address);
 
@@ -96,9 +89,11 @@ describe("tokenomics", function () {
 
         // send transactions to L1 so we always get new blocks
         setInterval(async () => await sendTransaction(l1Signer), 1 * 500);
+
+        console.log(proverSigner); // TODO ;remove, just to use variable.
     });
 
-    it("proposes blocks, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
+    it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         const blockIdsToNumber: any = {};
 
@@ -125,53 +120,32 @@ describe("tokenomics", function () {
         let lastProofReward = BigNumber.from(0);
 
         let hasFailedAssertions: boolean = false;
+        // every time a l2 block is created, we should try to propose it on L1.
         l2Provider.on("block", async (blockNumber) => {
             if (blockNumber <= genesisHeight) return;
             try {
-                const block = await l2Provider.getBlock(blockNumber);
-                const receipt = await proposer.commitThenProposeBlock(block);
-                expect(receipt.status).to.be.eq(1);
-                const proposedEvent = (receipt.events as any[]).find(
-                    (e) => e.event === "BlockProposed"
-                );
-
-                const { id, meta } = (proposedEvent as any).args;
-                console.log(
-                    "-----------PROPOSED---------------",
-                    block.number,
-                    id
-                );
-                blockIdsToNumber[id.toString()] = block.number;
-
-                const proofReward = await taikoL1.getProofReward(
-                    new Date().getMilliseconds(),
-                    meta.timestamp
-                );
-                // proofReward should grow every time since slots are increasing
-                expect(proofReward.gt(lastProofReward)).to.be.eq(true);
-                // set lastProofReward equal to this once, for further comparison
-                // on next block proposal.
-                lastProofReward = proofReward;
-
-                // get the balance of the tkoToken for proposer, and make sure it decreased
-                // ie: they paid the block proposal fee.
-                const newProposerTkoBalance = await tkoTokenL1.balanceOf(
-                    await proposerSigner.getAddress()
-                );
+                const { newProposerTkoBalance, newBlockFee, newProofReward } =
+                    await onNewL2Block(
+                        l2Provider,
+                        blockNumber,
+                        proposer,
+                        blockIdsToNumber,
+                        taikoL1,
+                        proposerSigner,
+                        tkoTokenL1
+                    );
 
                 expect(
                     newProposerTkoBalance.lt(lastProposerTkoBalance)
                 ).to.be.eq(true);
-
-                lastProposerTkoBalance = newProposerTkoBalance;
-
-                // after all proposing the block fee should be greater
-                // than it originally was.
-                const newBlockFee = await taikoL1.getBlockFee();
                 expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
+                expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
 
                 lastBlockFee = newBlockFee;
+                lastProofReward = newProofReward;
+                lastProposerTkoBalance = newProposerTkoBalance;
             } catch (e) {
+                console.log("HAS FAILED ASSERTIONS");
                 hasFailedAssertions = true;
                 console.error(e);
                 throw e;
@@ -182,7 +156,7 @@ describe("tokenomics", function () {
         expect(hasFailedAssertions).to.be.eq(false);
     });
 
-    // it("tests tokenomics, propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
+    // it("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
     //     const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
     //     const blockIdsToNumber: any = {};
 
@@ -196,27 +170,25 @@ describe("tokenomics", function () {
 
     //     // const prover: Prover = new Prover(taikoL1.connect(proverSigner));
 
+    //     let hasFailedAssertions: boolean = false;
     //     l2Provider.on("block", async (blockNumber) => {
     //         if (blockNumber <= genesisHeight) return;
     //         try {
-    //             console.log("new block", blockNumber);
-    //             const block = await l2Provider.getBlock(blockNumber);
-    //             const receipt = await proposer.commitThenProposeBlock(block);
-    //             expect(receipt.status).to.be.eq(1);
-    //             const proposedEvent = (receipt.events as any[]).find(
-    //                 (e) => e.event === "BlockProposed"
-    //             );
-
-    //             const { id } = (proposedEvent as any).args;
-    //             console.log(
-    //                 "-----------PROPOSED---------------",
-    //                 block.number,
-    //                 id
-    //             );
-    //             blockIdsToNumber[id.toString()] = block.number;
+    //             await expect(
+    //                 onNewL2Block(
+    //                     l2Provider,
+    //                     blockNumber,
+    //                     proposer,
+    //                     blockIdsToNumber,
+    //                     taikoL1,
+    //                     proposerSigner,
+    //                     tkoTokenL1
+    //                 )
+    //             ).not.to.throw;
     //         } catch (e) {
+    //             hasFailedAssertions = true;
     //             console.error(e);
-    //             expect(true).to.be.eq(false);
+    //             throw e;
     //         }
     //     });
 
@@ -242,6 +214,65 @@ describe("tokenomics", function () {
     //         }
     //     );
 
-    //     await sleep(60 * 1000);
+    //     await sleep(30 * 1000);
+
+    //     expect(hasFailedAssertions).to.be.eq(false);
     // });
 });
+
+async function onNewL2Block(
+    l2Provider: ethers.providers.JsonRpcProvider,
+    blockNumber: number,
+    proposer: Proposer,
+    blockIdsToNumber: any,
+    taikoL1: TaikoL1,
+    proposerSigner: any,
+    tkoTokenL1: TkoToken
+): Promise<{
+    newProposerTkoBalance: BigNumber;
+    newBlockFee: BigNumber;
+    newProofReward: BigNumber;
+}> {
+    const block = await l2Provider.getBlock(blockNumber);
+    const receipt = await proposer.commitThenProposeBlock(block);
+    expect(receipt.status).to.be.eq(1);
+    const proposedEvent = (receipt.events as any[]).find(
+        (e) => e.event === "BlockProposed"
+    );
+
+    const { id, meta } = (proposedEvent as any).args;
+
+    console.log("-----------PROPOSED---------------", block.number, id);
+
+    blockIdsToNumber[id.toString()] = block.number;
+
+    const newProofReward = await taikoL1.getProofReward(
+        new Date().getMilliseconds(),
+        meta.timestamp
+    );
+
+    console.log(
+        "NEW PROOF REWARD",
+        ethers.utils.formatEther(newProofReward.toString()),
+        " TKO"
+    );
+
+    const newProposerTkoBalance = await tkoTokenL1.balanceOf(
+        await proposerSigner.getAddress()
+    );
+
+    console.log(
+        "NEW PROPOSER TKO BALANCE",
+        ethers.utils.formatEther(newProposerTkoBalance.toString()),
+        " TKO"
+    );
+
+    const newBlockFee = await taikoL1.getBlockFee();
+
+    console.log(
+        "NEW BLOCK FEE",
+        ethers.utils.formatEther(newBlockFee.toString()),
+        " TKO"
+    );
+    return { newProposerTkoBalance, newBlockFee, newProofReward };
+}
