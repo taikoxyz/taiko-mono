@@ -48,7 +48,7 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("getProposedBlock()", function () {
-        it("should revfert if block is out of range and not a valid proposed block", async function () {
+        it("should revert if block is out of range and not a valid proposed block", async function () {
             await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
                 "L1:id"
             );
