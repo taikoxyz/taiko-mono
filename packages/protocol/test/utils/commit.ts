@@ -18,13 +18,14 @@ const generateCommitHash = (
 
 const commitBlock = async (
     taikoL1: TaikoL1,
-    block: ethers.providers.Block
+    block: ethers.providers.Block,
+    commitSlot: number = 0
 ): Promise<{
     tx: ethers.ContractTransaction;
     commit: { hash: string; txListHash: string };
 }> => {
     const commit = generateCommitHash(block);
-    const tx = await taikoL1.commitBlock(1, commit.hash);
+    const tx = await taikoL1.commitBlock(commitSlot, commit.hash);
     return { tx, commit };
 };
 

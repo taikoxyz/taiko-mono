@@ -10,7 +10,7 @@ import {
 import { deployBridge, sendMessage } from "../utils/bridge";
 import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
-import { getLatestBlockHeader } from "../utils/rpc";
+import { getBlockHeader } from "../utils/rpc";
 import { getSignalProof, getSignalSlot } from "../utils/signal";
 
 describe("integration:Bridge", function () {
@@ -160,7 +160,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 
@@ -191,7 +193,9 @@ describe("integration:Bridge", function () {
             const sender = l1Bridge.address;
 
             const key = getSignalSlot(hre, sender, signal);
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(ethers.constants.HashZero);
 
@@ -221,7 +225,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(ethers.constants.HashZero);
 
@@ -262,7 +268,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 
@@ -324,7 +332,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 
@@ -359,7 +369,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 
@@ -434,7 +446,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 
@@ -478,7 +492,9 @@ describe("integration:Bridge", function () {
 
             const key = getSignalSlot(hre, sender, signal);
 
-            const { block, blockHeader } = await getLatestBlockHeader(hre);
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
 
             await headerSync.setSyncedHeader(block.hash);
 

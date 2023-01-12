@@ -5,7 +5,7 @@ import { TaikoL1, TaikoL2 } from "../../typechain";
 import { BlockMetadata } from "../utils/block_metadata";
 import { commitBlock, generateCommitHash } from "../utils/commit";
 import { buildProposeBlockInputs, proposeBlock } from "../utils/propose";
-import { deployTaikoL1 } from "../utils/taikoL1";
+import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 
 describe("integration:TaikoL1", function () {
@@ -29,7 +29,7 @@ describe("integration:TaikoL1", function () {
 
         const genesisHash = taikoL2.deployTransaction.blockHash as string;
 
-        taikoL1 = await deployTaikoL1(genesisHash);
+        ({ taikoL1 } = await deployTaikoL1(genesisHash, false, defaultFeeBase));
     });
 
     describe("isCommitValid()", async function () {
@@ -57,48 +57,64 @@ describe("integration:TaikoL1", function () {
     describe("commitBlock() -> proposeBlock() integration", async function () {
         it("should fail if a proposed block's placeholder field values are not default", async function () {
             const block = await l2Provider.getBlock("latest");
-            const { tx, commit } = await commitBlock(taikoL1, block);
+            const commitSlot = 0;
+            const { tx, commit } = await commitBlock(
+                taikoL1,
+                block,
+                commitSlot
+            );
 
-            await expect(
-                proposeBlock(
-                    taikoL1,
-                    block,
-                    commit.txListHash,
-                    tx.blockNumber as number,
-                    1,
-                    block.gasLimit
-                )
-            ).to.be.revertedWith("L1:placeholder");
+            const receipt = await tx.wait(1);
+
+            const meta: BlockMetadata = {
+                id: 1,
+                l1Height: 0,
+                l1Hash: ethers.constants.HashZero,
+                beneficiary: block.miner,
+                txListHash: commit.txListHash,
+                mixHash: ethers.constants.HashZero,
+                extraData: block.extraData,
+                gasLimit: block.gasLimit,
+                timestamp: 0,
+                commitSlot: commitSlot,
+                commitHeight: receipt.blockNumber as number,
+            };
+
+            const inputs = buildProposeBlockInputs(block, meta);
+
+            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
+                "L1:placeholder"
+            );
         });
 
         it("should revert with invalid gasLimit", async function () {
             const block = await l2Provider.getBlock("latest");
-            const { tx, commit } = await commitBlock(taikoL1, block);
-
             // blockMetadata is inputs[0], txListBytes = inputs[1]
             const config = await taikoL1.getConfig();
             const gasLimit = config[7];
-            const proposeReceipt = await proposeBlock(
-                taikoL1,
-                block,
-                commit.txListHash,
-                tx.blockNumber as number,
-                0,
-                block.gasLimit
+
+            const { tx, commit } = await commitBlock(taikoL1, block);
+
+            const receipt = await tx.wait(1);
+            const meta: BlockMetadata = {
+                id: 0,
+                l1Height: 0,
+                l1Hash: ethers.constants.HashZero,
+                beneficiary: block.miner,
+                txListHash: commit.txListHash,
+                mixHash: ethers.constants.HashZero,
+                extraData: block.extraData,
+                gasLimit: gasLimit.add(1),
+                timestamp: 0,
+                commitSlot: 0,
+                commitHeight: receipt.blockNumber as number,
+            };
+
+            const inputs = buildProposeBlockInputs(block, meta);
+
+            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
+                "L1:gasLimit"
             );
-
-            expect(proposeReceipt.status).to.be.eq(1);
-
-            await expect(
-                proposeBlock(
-                    taikoL1,
-                    block,
-                    commit.txListHash,
-                    tx.blockNumber as number,
-                    0,
-                    gasLimit.add(1)
-                )
-            ).to.be.revertedWith("L1:gasLimit");
         });
 
         it("should revert with invalid extraData", async function () {
@@ -115,7 +131,7 @@ describe("integration:TaikoL1", function () {
                 extraData: ethers.utils.hexlify(ethers.utils.randomBytes(33)), // invalid extradata
                 gasLimit: block.gasLimit,
                 timestamp: 0,
-                commitSlot: 1,
+                commitSlot: 0,
                 commitHeight: tx.blockNumber as number,
             };
 
@@ -128,16 +144,25 @@ describe("integration:TaikoL1", function () {
 
         it("should commit and be able to propose", async function () {
             const block = await l2Provider.getBlock("latest");
-            const { tx, commit } = await commitBlock(taikoL1, block);
+            const commitSlot = 0;
+            const { tx, commit } = await commitBlock(
+                taikoL1,
+                block,
+                commitSlot
+            );
 
-            await proposeBlock(
+            const { commitConfirmations } = await taikoL1.getConfig();
+
+            await tx.wait(commitConfirmations.toNumber());
+            const receipt = await proposeBlock(
                 taikoL1,
                 block,
                 commit.txListHash,
                 tx.blockNumber as number,
-                0,
-                block.gasLimit
+                block.gasLimit,
+                commitSlot
             );
+            expect(receipt.status).to.be.eq(1);
 
             const stateVariables = await taikoL1.getStateVariables();
             const nextBlockId = stateVariables[4];
@@ -152,14 +177,6 @@ describe("integration:TaikoL1", function () {
                 ethers.constants.AddressZero
             );
             expect(proposedBlock.proposedAt).not.to.be.eq(BigNumber.from(0));
-
-            const isCommitValid = await taikoL1.isCommitValid(
-                1,
-                tx.blockNumber as number,
-                commit.hash
-            );
-
-            expect(isCommitValid).to.be.eq(true);
         });
 
         it("should commit and be able to propose for all available slots, then revert when all slots are taken", async function () {
@@ -168,15 +185,15 @@ describe("integration:TaikoL1", function () {
             // expect each one to be successful.
             for (let i = 0; i < maxNumBlocks.toNumber() - 1; i++) {
                 const block = await l2Provider.getBlock("latest");
-                const { tx, commit } = await commitBlock(taikoL1, block);
+                const { tx, commit } = await commitBlock(taikoL1, block, i);
 
                 const receipt = await proposeBlock(
                     taikoL1,
                     block,
                     commit.txListHash,
                     tx.blockNumber as number,
-                    0,
-                    block.gasLimit
+                    block.gasLimit,
+                    i
                 );
 
                 expect(receipt.status).to.be.eq(1);
@@ -196,14 +213,6 @@ describe("integration:TaikoL1", function () {
                 expect(proposedBlock.proposedAt).not.to.be.eq(
                     BigNumber.from(0)
                 );
-
-                const isCommitValid = await taikoL1.isCommitValid(
-                    1,
-                    tx.blockNumber as number,
-                    commit.hash
-                );
-
-                expect(isCommitValid).to.be.eq(true);
             }
 
             // now expect another proposed block to be invalid since all slots are full and none have
@@ -217,7 +226,6 @@ describe("integration:TaikoL1", function () {
                     block,
                     commit.txListHash,
                     tx.blockNumber as number,
-                    0,
                     block.gasLimit
                 )
             ).to.be.revertedWith("L1:tooMany");

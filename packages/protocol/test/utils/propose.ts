@@ -10,7 +10,6 @@ const buildProposeBlockInputs = (
 ) => {
     const inputs = [];
     const blockMetadataBytes = encodeBlockMetadata(meta);
-
     inputs[0] = blockMetadataBytes;
     inputs[1] = RLP.encode(block.transactions);
     return inputs;
@@ -21,11 +20,11 @@ const proposeBlock = async (
     block: ethers.providers.Block,
     txListHash: string,
     commitHeight: number,
-    id: number,
-    gasLimit: BigNumber
+    gasLimit: BigNumber,
+    commitSlot: number = 0
 ) => {
     const meta: BlockMetadata = {
-        id: id,
+        id: 0,
         l1Height: 0,
         l1Hash: ethers.constants.HashZero,
         beneficiary: block.miner,
@@ -34,14 +33,16 @@ const proposeBlock = async (
         extraData: block.extraData,
         gasLimit: gasLimit,
         timestamp: 0,
-        commitSlot: 1,
+        commitSlot: commitSlot,
         commitHeight: commitHeight,
     };
 
     const inputs = buildProposeBlockInputs(block, meta);
 
     const tx = await taikoL1.proposeBlock(inputs);
-    const receipt = await tx.wait();
+    console.log("Proposed block", tx.hash);
+    const receipt = await tx.wait(1);
     return receipt;
 };
+
 export { buildProposeBlockInputs, proposeBlock };

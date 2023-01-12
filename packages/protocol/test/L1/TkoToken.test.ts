@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import { AddressManager, TkoToken } from "../../typechain";
 import { ethers } from "hardhat";
 import {
     ADDRESS_RESOLVER_DENIED,
@@ -7,12 +6,14 @@ import {
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors";
 import { BigNumber } from "ethers";
+import deployTkoToken from "../utils/tkoToken";
+import { TestTkoToken } from "../../typechain/TestTkoToken";
 
 describe("TkoToken", function () {
     let owner: any;
     let nonOwner: any;
     let protoBroker: any;
-    let token: TkoToken;
+    let token: TestTkoToken;
     let amountMinted: BigNumber;
 
     before(async function () {
@@ -20,23 +21,7 @@ describe("TkoToken", function () {
     });
 
     beforeEach(async function () {
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
-
-        token = await (await ethers.getContractFactory("TkoToken"))
-            .connect(owner)
-            .deploy();
-        await token.init(addressManager.address);
-
-        const { chainId } = await ethers.provider.getNetwork();
-
-        await addressManager.setAddress(
-            `${chainId}.proto_broker`,
-            protoBroker.address
-        );
-
+        token = await deployTkoToken(owner, protoBroker.address);
         amountMinted = ethers.utils.parseEther("100");
         await token.connect(protoBroker).mint(owner.address, amountMinted);
 

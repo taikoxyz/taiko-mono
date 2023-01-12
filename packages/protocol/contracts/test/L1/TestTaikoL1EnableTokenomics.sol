@@ -20,7 +20,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 4;
+        config.maxNumBlocks = 2048;
         config.blockHashHistory = 3;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
@@ -46,10 +46,11 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.feeGracePeriodPctg = 125; // 125%
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 60 minutes;
+        config.proofTimeCap = 5 seconds;
         config.boostrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 1 minutes;
+        config.initialUncleDelay = 5 seconds;
         config.enableTokenomics = true;
+        config.enablePublicInputsCheck = false;
     }
 
     function verifyZKP(

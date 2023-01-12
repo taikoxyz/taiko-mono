@@ -43,7 +43,8 @@ library LibSharedConfig {
                 proofTimeCap: 60 minutes,
                 boostrapDiscountHalvingPeriod: 180 days,
                 initialUncleDelay: 60 minutes,
-                enableTokenomics: false
+                enableTokenomics: false,
+                enablePublicInputsCheck: true
             });
     }
 }

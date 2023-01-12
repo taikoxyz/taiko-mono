@@ -10,7 +10,7 @@ describe("TaikoL1", function () {
 
     beforeEach(async function () {
         genesisHash = randomBytes32();
-        taikoL1 = await deployTaikoL1(genesisHash);
+        ({ taikoL1 } = await deployTaikoL1(genesisHash, false));
     });
 
     describe("getLatestSyncedHeader()", async function () {

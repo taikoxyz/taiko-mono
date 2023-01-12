@@ -50,6 +50,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.boostrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = false;
+        config.enablePublicInputsCheck = true;
     }
 
     function verifyZKP(

@@ -1,3 +1,5 @@
+import { BigNumber } from "ethers";
+
 type StorageEntry = {
     key: string;
     value: string;
@@ -56,11 +58,11 @@ type BlockHeader = {
     baseFeePerGas: number;
 };
 
-async function getLatestBlockHeader(hre: any) {
-    const block: Block = await hre.ethers.provider.send(
-        "eth_getBlockByNumber",
-        ["latest", false]
-    );
+async function getBlockHeader(provider: any, blockNumber?: number) {
+    const block: Block = await provider.send("eth_getBlockByNumber", [
+        blockNumber ? BigNumber.from(blockNumber).toHexString() : "latest",
+        false,
+    ]);
 
     const logsBloom = block.logsBloom.toString().substring(2);
 
@@ -91,5 +93,5 @@ export {
     BlockHeader,
     StorageEntry,
     EthGetProofResponse,
-    getLatestBlockHeader,
+    getBlockHeader,
 };
