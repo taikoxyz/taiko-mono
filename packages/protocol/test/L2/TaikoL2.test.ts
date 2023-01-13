@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TaikoL2 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
 import { randomBytes32 } from "../utils/bytes";
 import { deployTaikoL2 } from "../utils/taikoL2";
 
@@ -8,7 +9,9 @@ describe("TaikoL2", function () {
     let taikoL2: TaikoL2;
 
     beforeEach(async function () {
-        taikoL2 = await deployTaikoL2((await ethers.getSigners())[0]);
+        const signer = (await ethers.getSigners())[0];
+        const addressManager = await deployAddressManager(signer);
+        taikoL2 = await deployTaikoL2(signer, addressManager);
     });
 
     describe("anchor()", async function () {

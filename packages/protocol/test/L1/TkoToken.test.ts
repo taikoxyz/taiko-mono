@@ -8,6 +8,7 @@ import {
 import { BigNumber } from "ethers";
 import deployTkoToken from "../utils/tkoToken";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+import deployAddressManager from "../utils/addressManager";
 
 describe("TkoToken", function () {
     let owner: any;
@@ -21,7 +22,12 @@ describe("TkoToken", function () {
     });
 
     beforeEach(async function () {
-        token = await deployTkoToken(owner, protoBroker.address);
+        const addressManager = await deployAddressManager(owner);
+        token = await deployTkoToken(
+            owner,
+            addressManager,
+            protoBroker.address
+        );
         amountMinted = ethers.utils.parseEther("100");
         await token.connect(protoBroker).mint(owner.address, amountMinted);
 

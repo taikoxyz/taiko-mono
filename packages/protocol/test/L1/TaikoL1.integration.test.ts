@@ -2,9 +2,11 @@ import { expect } from "chai";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
 import { TaikoL1, TaikoL2 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
 import { BlockMetadata } from "../utils/block_metadata";
 import { commitBlock, generateCommitHash } from "../utils/commit";
 import { buildProposeBlockInputs, proposeBlock } from "../utils/propose";
+import { getDefaultL2Signer, getL1Provider } from "../utils/provider";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 
@@ -19,17 +21,27 @@ describe("integration:TaikoL1", function () {
             "http://localhost:28545"
         );
 
-        l2Signer = await l2Provider.getSigner(
-            (
-                await l2Provider.listAccounts()
-            )[0]
-        );
+        l2Signer = await getDefaultL2Signer();
 
-        taikoL2 = await deployTaikoL2(l2Signer);
+        const l2AddressManager = await deployAddressManager(l2Signer);
+        taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager);
 
         const genesisHash = taikoL2.deployTransaction.blockHash as string;
 
-        ({ taikoL1 } = await deployTaikoL1(genesisHash, false, defaultFeeBase));
+        const l1Provider = getL1Provider();
+
+        l1Provider.pollingInterval = 100;
+
+        const signers = await ethers.getSigners();
+
+        const l1AddressManager = await deployAddressManager(signers[0]);
+
+        taikoL1 = await deployTaikoL1(
+            l1AddressManager,
+            genesisHash,
+            false,
+            defaultFeeBase
+        );
     });
 
     describe("isCommitValid()", async function () {

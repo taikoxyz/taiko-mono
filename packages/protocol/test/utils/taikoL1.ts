@@ -5,15 +5,11 @@ import { AddressManager, TaikoL1 } from "../../typechain";
 const defaultFeeBase = BigNumber.from(10).pow(18);
 
 async function deployTaikoL1(
+    addressManager: AddressManager,
     genesisHash: string,
     enableTokenomics: boolean,
     feeBase?: BigNumber
-): Promise<{ taikoL1: TaikoL1; addressManager: AddressManager }> {
-    const addressManager = await (
-        await ethers.getContractFactory("AddressManager")
-    ).deploy();
-    await addressManager.init();
-
+): Promise<TaikoL1> {
     const libReceiptDecoder = await (
         await ethers.getContractFactory("LibReceiptDecoder")
     ).deploy();
@@ -58,7 +54,7 @@ async function deployTaikoL1(
         feeBase ?? defaultFeeBase
     );
 
-    return { taikoL1: taikoL1 as TaikoL1, addressManager: addressManager };
+    return taikoL1 as TaikoL1;
 }
 
 export { deployTaikoL1, defaultFeeBase };

@@ -3,13 +3,18 @@ import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
 import { TaikoL1, TaikoL2, TkoToken } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+import deployAddressManager from "../utils/addressManager";
 import Proposer from "../utils/proposer";
+import {
+    getDefaultL2Signer,
+    getL1Provider,
+    getL2Provider,
+} from "../utils/provider";
 import createAndSeedWallets from "../utils/seed";
 import sleep from "../utils/sleep";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
-import sendTransaction from "../utils/transaction";
 
 describe("tokenomics", function () {
     let taikoL1: TaikoL1;
@@ -25,38 +30,30 @@ describe("tokenomics", function () {
     let tkoTokenL1: TestTkoToken;
 
     beforeEach(async () => {
-        l1Provider = new ethers.providers.JsonRpcProvider(
-            "http://localhost:18545"
-        );
+        l1Provider = getL1Provider();
 
         l1Provider.pollingInterval = 100;
 
         const signers = await hardhatEthers.getSigners();
         l1Signer = signers[0];
 
-        l2Provider = new ethers.providers.JsonRpcProvider(
-            "http://localhost:28545"
-        );
+        l2Provider = getL2Provider();
 
-        l2Signer = await l2Provider.getSigner(
-            (
-                await l2Provider.listAccounts()
-            )[0]
-        );
+        l2Signer = await getDefaultL2Signer();
 
-        taikoL2 = await deployTaikoL2(l2Signer);
+        const l2AddressManager = await deployAddressManager(l2Signer);
+        taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager);
 
         genesisHash = taikoL2.deployTransaction.blockHash as string;
         genesisHeight = taikoL2.deployTransaction.blockNumber as number;
 
-        const { taikoL1: tL1, addressManager } = await deployTaikoL1(
+        const l1AddressManager = await deployAddressManager(l1Signer);
+        taikoL1 = await deployTaikoL1(
+            l1AddressManager,
             genesisHash,
             true,
             defaultFeeBase
         );
-
-        taikoL1 = tL1;
-
         const { chainId } = await l1Provider.getNetwork();
 
         [proposerSigner, proverSigner] = await createAndSeedWallets(
@@ -64,9 +61,13 @@ describe("tokenomics", function () {
             l1Signer
         );
 
-        tkoTokenL1 = await deployTkoToken(l1Signer, taikoL1.address);
+        tkoTokenL1 = await deployTkoToken(
+            l1Signer,
+            l1AddressManager,
+            taikoL1.address
+        );
 
-        await addressManager.setAddress(
+        await l1AddressManager.setAddress(
             `${chainId}.tko_token`,
             tkoTokenL1.address
         );
@@ -83,10 +84,13 @@ describe("tokenomics", function () {
         ).to.be.eq(ethers.utils.parseEther("100"));
 
         // set up interval mining so we always get new blocks
-        await l2Provider.send("evm_setIntervalMining", [2000]);
+        await l2Provider.send("evm_setAutomine", [true]);
 
         // send transactions to L1 so we always get new blocks
-        setInterval(async () => await sendTransaction(l1Signer), 1 * 500);
+        setInterval(
+            async () => await sendTinyEtherToZeroAddress(l1Signer),
+            1 * 500
+        );
 
         console.log(proverSigner.address); // TODO ;remove, just to use variable.
     });
@@ -296,3 +300,10 @@ async function onNewL2Block(
     );
     return { newProposerTkoBalance, newBlockFee, newProofReward };
 }
+
+const sendTinyEtherToZeroAddress = async (signer: any) => {
+    signer.sendTransaction({
+        to: ethers.constants.AddressZero,
+        value: BigNumber.from(1),
+    });
+};

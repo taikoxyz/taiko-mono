@@ -33,8 +33,7 @@ class Proposer {
         }
         this.proposingMutex = true;
         if (!block) block = await this.l2Provider.getBlock("latest");
-        const commitSlot = this.nextCommitSlot;
-        this.nextCommitSlot++;
+        const commitSlot = this.nextCommitSlot++;
         console.log("commiting ", block.number, "with commit slot", commitSlot);
         const { tx, commit } = await commitBlock(
             this.taikoL1,

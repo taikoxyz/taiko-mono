@@ -8,10 +8,12 @@ const createAndSeedWallets = async (
     const wallets: ethers.Wallet[] = [];
     for (let i = 0; i < len; i++) {
         const wallet = ethers.Wallet.createRandom().connect(signer.provider);
-        await signer.sendTransaction({
+        const tx = await signer.sendTransaction({
             to: await wallet.getAddress(),
             value: amount,
         });
+
+        await tx.wait(1);
         wallets.push(wallet);
     }
 

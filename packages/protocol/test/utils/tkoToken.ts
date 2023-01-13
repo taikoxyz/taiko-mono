@@ -2,14 +2,11 @@ import { ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
 import { AddressManager } from "../../typechain";
 
-const deployTkoToken = async (signer: ethers.Signer, protoBroker: string) => {
-    const addressManager: AddressManager = await (
-        await hardhatEthers.getContractFactory("AddressManager")
-    )
-        .connect(signer)
-        .deploy();
-    await addressManager.init();
-
+const deployTkoToken = async (
+    signer: ethers.Signer,
+    addressManager: AddressManager,
+    protoBroker: string
+) => {
     const token = await (await hardhatEthers.getContractFactory("TestTkoToken"))
         .connect(signer)
         .deploy();

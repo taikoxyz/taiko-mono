@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TaikoL1 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
 import { randomBytes32 } from "../utils/bytes";
 import { deployTaikoL1 } from "../utils/taikoL1";
 
@@ -9,8 +10,10 @@ describe("TaikoL1", function () {
     let genesisHash: string;
 
     beforeEach(async function () {
+        const l1Signer = (await ethers.getSigners())[0];
+        const addressManager = await deployAddressManager(l1Signer);
         genesisHash = randomBytes32();
-        ({ taikoL1 } = await deployTaikoL1(genesisHash, false));
+        taikoL1 = await deployTaikoL1(addressManager, genesisHash, false);
     });
 
     describe("getLatestSyncedHeader()", async function () {

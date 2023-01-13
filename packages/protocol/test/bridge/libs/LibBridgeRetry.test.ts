@@ -15,6 +15,7 @@ import {
     TestLibBridgeRetry,
     TestReceiver,
 } from "../../../typechain";
+import deployAddressManager from "../../utils/addressManager";
 
 describe("LibBridgeRetry", function () {
     let owner: any;
@@ -32,15 +33,13 @@ describe("LibBridgeRetry", function () {
     });
 
     beforeEach(async function () {
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        const addressManager: AddressManager = await deployAddressManager(
+            owner
+        );
 
-        const badAddressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await badAddressManager.init();
+        const badAddressManager: AddressManager = await deployAddressManager(
+            owner
+        );
 
         etherVault = await (await ethers.getContractFactory("EtherVault"))
             .connect(etherVaultOwner)

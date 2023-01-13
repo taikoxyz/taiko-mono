@@ -7,6 +7,7 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
 import {
     deployBridge,
     processMessage,
@@ -15,6 +16,7 @@ import {
 } from "../utils/bridge";
 import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
+import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
 import { getSignalProof, getSignalSlot } from "../utils/signal";
 
@@ -38,15 +40,9 @@ describe("integration:Bridge", function () {
         srcChainId = chainId;
 
         // seondary node to deploy L2 on
-        l2Provider = new ethers.providers.JsonRpcProvider(
-            "http://localhost:28545"
-        );
+        l2Provider = getL2Provider();
 
-        l2Signer = await l2Provider.getSigner(
-            (
-                await l2Provider.listAccounts()
-            )[0]
-        );
+        l2Signer = await getDefaultL2Signer();
 
         l2NonOwner = await l2Provider.getSigner();
 
@@ -54,17 +50,13 @@ describe("integration:Bridge", function () {
 
         enabledDestChainId = l2Network.chainId;
 
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        const addressManager: AddressManager = await deployAddressManager(
+            owner
+        );
 
-        const l2AddressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        )
-            .connect(l2Signer)
-            .deploy();
-        await l2AddressManager.init();
+        const l2AddressManager: AddressManager = await deployAddressManager(
+            l2Signer
+        );
 
         ({ bridge: l1Bridge } = await deployBridge(
             owner,
