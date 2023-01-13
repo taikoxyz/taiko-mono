@@ -26,8 +26,8 @@ library LibBridgeSend {
      *
      * @param message Specifies the `depositValue`, `callValue`,
      * and `processingFee`. These must sum to `msg.value`. It also specifies the
-     * `destChainId` which must have a `bridge` address set on the AddressResolver
-     * and differ from the current chain ID.
+     * `destChainId` which must have a `bridge` address set on the
+     * AddressResolver and differ from the current chain ID.
      *
      * @return signal The message is hashed, stored, and emitted as a signal.
      * This is picked up by an off-chain relayer which indicates a

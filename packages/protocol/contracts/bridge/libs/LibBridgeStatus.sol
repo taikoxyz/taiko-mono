@@ -40,23 +40,25 @@ library LibBridgeStatus {
     function getMessageStatus(
         bytes32 signal
     ) internal view returns (MessageStatus) {
-        bytes32 k = _statusSlot(signal);
-        uint256 v;
+        bytes32 slot = getMessageStatusSlot(signal);
+        uint256 value;
         assembly {
-            v := sload(k)
+            value := sload(slot)
         }
-        return MessageStatus(v);
+        return MessageStatus(value);
+    }
+
+    function getMessageStatusSlot(
+        bytes32 signal
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("MESSAGE_STATUS", signal));
     }
 
     function _setMessageStatus(bytes32 signal, MessageStatus status) private {
-        bytes32 k = _statusSlot(signal);
-        uint256 v = uint256(status);
+        bytes32 slot = getMessageStatusSlot(signal);
+        uint256 value = uint256(status);
         assembly {
-            sstore(k, v)
+            sstore(slot, value)
         }
-    }
-
-    function _statusSlot(bytes32 signal) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("MESSAGE_STATUS", signal));
     }
 }
