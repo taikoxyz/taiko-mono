@@ -83,12 +83,12 @@ describe("tokenomics", function () {
         ).to.be.eq(ethers.utils.parseEther("100"));
 
         // set up interval mining so we always get new blocks
-        await l2Provider.send("evm_setIntervalMining", [2000]);
+        await l2Provider.send("evm_setAutomine", [true]);
 
         // send transactions to L1 so we always get new blocks
         setInterval(async () => await sendTransaction(l1Signer), 1 * 500);
 
-        console.log(proverSigner); // TODO ;remove, just to use variable.
+        console.log(proverSigner.address); // TODO ;remove, just to use variable.
     });
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
