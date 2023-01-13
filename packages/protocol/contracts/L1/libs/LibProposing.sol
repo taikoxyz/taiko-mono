@@ -167,7 +167,7 @@ library LibProposing {
             isProposal: true,
             feeBase: newFeeBase
         });
-        //fee = LibUtils.getBootstrapDiscountedFee(state, config, fee);
+        fee = LibUtils.getBootstrapDiscountedFee(state, config, fee);
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 

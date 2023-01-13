@@ -95,6 +95,7 @@ describe("tokenomics", function () {
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
+        // wait for one period of halving to occur, so fee is not 0.
         const blockIdsToNumber: any = {};
 
         // set up a proposer to continually propose new blocks
@@ -114,8 +115,6 @@ describe("tokenomics", function () {
         // do the same for the blockFee, which should increase every block proposal
         // with proofs not being submitted.
         let lastBlockFee = await taikoL1.getBlockFee();
-
-        expect(lastBlockFee).not.to.be.eq(0);
 
         let lastProofReward = BigNumber.from(0);
 
@@ -154,6 +153,33 @@ describe("tokenomics", function () {
 
         await sleep(20 * 1000);
         expect(hasFailedAssertions).to.be.eq(false);
+    });
+
+    describe("bootstrapHalvingPeriod", function () {
+        it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
+            const { bootstrapDiscountHalvingPeriod } =
+                await taikoL1.getConfig();
+
+            const iterations: number = 5;
+            const period: number = bootstrapDiscountHalvingPeriod
+                .mul(1000)
+                .toNumber();
+
+            let lastBlockFee: BigNumber = await taikoL1.getBlockFee();
+            expect(lastBlockFee.eq(0)).to.be.eq(true);
+
+            for (let i = 0; i < iterations; i++) {
+                await sleep(period);
+                const blockFee = await taikoL1.getBlockFee();
+                expect(blockFee.gt(lastBlockFee)).to.be.eq(true);
+                lastBlockFee = blockFee;
+            }
+        });
+    });
+
+    it("expects the blockFee to go be 0 when no periods have passed", async function () {
+        const blockFee = await taikoL1.getBlockFee();
+        expect(blockFee.eq(0)).to.be.eq(true);
     });
 
     // it("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
