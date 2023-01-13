@@ -140,15 +140,6 @@ library LibProposing {
         emit BlockProposed(state.nextBlockId++, meta);
     }
 
-    function getProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
-        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
-        return state.getProposedBlock(maxNumBlocks, id);
-    }
-
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
@@ -183,6 +174,15 @@ library LibProposing {
         return
             state.commits[msg.sender][commitSlot] == hash &&
             block.number >= commitHeight + commitConfirmations;
+    }
+
+    function getProposedBlock(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id
+    ) internal view returns (TaikoData.ProposedBlock storage) {
+        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
+        return state.getProposedBlock(maxNumBlocks, id);
     }
 
     function _saveProposedBlock(
