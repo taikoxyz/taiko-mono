@@ -42,6 +42,13 @@ describe("integration:TaikoL1", function () {
             false,
             defaultFeeBase
         );
+
+        const { chainId: l2ChainId } = await l2Provider.getNetwork();
+
+        await l1AddressManager.setAddress(
+            `${l2ChainId}.taiko`,
+            taikoL2.address
+        );
     });
 
     describe("isCommitValid()", async function () {
