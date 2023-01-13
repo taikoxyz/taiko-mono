@@ -26,6 +26,7 @@ const buildProveBlockInputs = (
     return inputs;
 };
 
+// TODO
 const proveBlock = async (
     taikoL1: TaikoL1,
     taikoL2: TaikoL2,
