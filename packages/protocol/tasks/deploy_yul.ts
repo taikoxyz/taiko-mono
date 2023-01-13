@@ -1,9 +1,16 @@
 const hre = require("hardhat");
-const { spawn } = require("node:child_process");
+const fs = require("fs");
+const { spawn, spawnSync } = require("node:child_process");
 
 async function compilePlonkVerifier(callback: any) {
-    const SOLC_COMMAND = "bin/solc-static-linux";
-    // TODO: download solc if not exist.
+    const SOLC_COMMAND = "./bin/solc-static-linux";
+
+    // download solc if not exist.
+    if (!fs.existsSync(SOLC_COMMAND)) {
+        console.log("downloading solc ...");
+        spawnSync("tasks/download_solc.sh");
+        console.log("download finished.");
+    }
 
     const sourceFile = "contracts/test/yul/PlonkVerifier.yulp";
 
@@ -45,7 +52,7 @@ async function testVerifier(verifierAddr: string) {
 
 async function main() {
     const [signer] = await hre.ethers.getSigners();
-    console.log(signer.address);
+    // console.log(signer.address);
 
     compilePlonkVerifier(async function (bin: string) {
         // console.log("bin:", bin)
