@@ -161,4 +161,10 @@ contract Bridge is EssentialContract, IBridge {
         return
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
+
+    function getMessageStatusSlot(
+        bytes32 signal
+    ) public pure returns (bytes32) {
+        return LibBridgeStatus.getMessageStatusSlot(signal);
+    }
 }
