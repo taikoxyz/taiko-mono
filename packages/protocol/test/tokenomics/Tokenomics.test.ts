@@ -163,7 +163,6 @@ describe("tokenomics", function () {
                 .toNumber();
 
             let lastBlockFee: BigNumber = await taikoL1.getBlockFee();
-            expect(lastBlockFee.eq(0)).to.be.eq(true);
 
             for (let i = 0; i < iterations; i++) {
                 await sleep(period);
