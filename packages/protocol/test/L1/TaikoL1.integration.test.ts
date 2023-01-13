@@ -91,7 +91,7 @@ describe("integration:TaikoL1", function () {
             const block = await l2Provider.getBlock("latest");
             // blockMetadata is inputs[0], txListBytes = inputs[1]
             const config = await taikoL1.getConfig();
-            const gasLimit = config[7];
+            const gasLimit = config.blockMaxGasLimit;
 
             const { tx, commit } = await commitBlock(taikoL1, block);
 
