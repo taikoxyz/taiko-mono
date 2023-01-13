@@ -1,6 +1,7 @@
 import { expect } from "chai";
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 import RLP from "rlp";
+import { sendMessage } from "../utils/bridge";
 import { Message } from "../utils/message";
 import { EthGetProofResponse } from "../utils/rpc";
 import { getSignalSlot } from "../utils/signal";
@@ -90,19 +91,9 @@ describe("integration:LibTrieProof", function () {
                 memo: "",
             };
 
-            const expectedAmount =
-                message.depositValue +
-                message.callValue +
-                message.processingFee;
-            const tx = await bridge.sendMessage(message, {
-                value: expectedAmount,
-            });
+            const { tx, signal } = await sendMessage(bridge, message);
 
-            const receipt = await tx.wait();
-
-            const [messageSentEvent] = receipt.events as any as Event[];
-
-            const { signal } = (messageSentEvent as any).args;
+            await tx.wait();
 
             expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
@@ -110,9 +101,7 @@ describe("integration:LibTrieProof", function () {
 
             expect(messageStatus).to.be.eq(0);
 
-            const sender = bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(bridge.address, signal);
 
             // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // in the response

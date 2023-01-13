@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { BigNumber, ethers as ethersLib } from "ethers";
+import { ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
 import {
     AddressManager,
@@ -7,10 +7,15 @@ import {
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
-import { deployBridge, sendMessage } from "../utils/bridge";
+import {
+    deployBridge,
+    processMessage,
+    sendAndProcessMessage,
+    sendMessage,
+} from "../utils/bridge";
 import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
-import { getBlockHeader } from "../utils/rpc";
+import { Block, getBlockHeader } from "../utils/rpc";
 import { getSignalProof, getSignalSlot } from "../utils/signal";
 
 describe("integration:Bridge", function () {
@@ -155,27 +160,13 @@ describe("integration:Bridge", function () {
         });
 
         it("should throw if messageStatus of message is != NEW", async function () {
-            const { signal, message } = await sendMessage(l1Bridge, m);
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
-
-            const { block, blockHeader } = await getBlockHeader(
-                hre.ethers.provider
+            const { message, signalProof } = await sendAndProcessMessage(
+                hre.ethers.provider,
+                headerSync,
+                m,
+                l1Bridge,
+                l2Bridge
             );
-
-            await headerSync.setSyncedHeader(block.hash);
-
-            const signalProof = await getSignalProof(
-                hre,
-                l1Bridge.address,
-                key,
-                block.number,
-                blockHeader
-            );
-
-            // upon successful processing, this immediately gets marked as DONE
-            await l2Bridge.processMessage(message, signalProof);
 
             // recalling this process should be prevented as it's status is no longer NEW
             await expect(
@@ -192,7 +183,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
             );
@@ -200,7 +191,7 @@ describe("integration:Bridge", function () {
             await headerSync.setSyncedHeader(ethers.constants.HashZero);
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
@@ -223,7 +214,7 @@ describe("integration:Bridge", function () {
 
             const sender = l1Bridge.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -243,7 +234,7 @@ describe("integration:Bridge", function () {
             );
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
@@ -263,16 +254,19 @@ describe("integration:Bridge", function () {
             const messageStatus = await l1Bridge.getMessageStatus(signal);
 
             expect(messageStatus).to.be.eq(0);
+            let block: Block;
+            expect(
+                ({ block } = await processMessage(
+                    l1Bridge,
+                    l2Bridge,
+                    signal,
+                    hre.ethers.provider,
+                    headerSync,
+                    message
+                ))
+            ).to.emit(l2Bridge, "MessageStatusChanged");
 
-            const sender = l1Bridge.address;
-
-            const key = getSignalSlot(hre, sender, signal);
-
-            const { block, blockHeader } = await getBlockHeader(
-                hre.ethers.provider
-            );
-
-            await headerSync.setSyncedHeader(block.hash);
+            const key = getSignalSlot(l1Bridge.address, signal);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -284,20 +278,6 @@ describe("integration:Bridge", function () {
             expect(storageValue).to.be.eq(
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
-
-            const signalProof = await getSignalProof(
-                hre,
-                l1Bridge.address,
-                key,
-                block.number,
-                blockHeader
-            );
-
-            expect(
-                await l2Bridge.processMessage(message, signalProof, {
-                    gasLimit: BigNumber.from(2000000),
-                })
-            ).to.emit(l2Bridge, "MessageStatusChanged");
         });
     });
 
@@ -330,7 +310,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -350,7 +330,7 @@ describe("integration:Bridge", function () {
             );
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
@@ -362,12 +342,12 @@ describe("integration:Bridge", function () {
             ).to.be.reverted;
         });
 
-        it("should return true", async function () {
+        it("if message is valid and sent by the bridge it should return true", async function () {
             const { signal } = await sendMessage(l1Bridge, m);
 
             const sender = l1Bridge.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -387,7 +367,7 @@ describe("integration:Bridge", function () {
             );
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
@@ -444,7 +424,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -464,7 +444,7 @@ describe("integration:Bridge", function () {
             );
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
@@ -490,7 +470,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const key = getSignalSlot(hre, sender, signal);
+            const key = getSignalSlot(sender, signal);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -510,7 +490,7 @@ describe("integration:Bridge", function () {
             );
 
             const signalProof = await getSignalProof(
-                hre,
+                hre.ethers.provider,
                 l1Bridge.address,
                 key,
                 block.number,
