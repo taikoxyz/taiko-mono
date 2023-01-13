@@ -19,3 +19,6 @@ artifacts
 
 # Editors
 .vscode
+
+# executable
+bin/
