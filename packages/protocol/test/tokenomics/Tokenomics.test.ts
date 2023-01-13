@@ -1,10 +1,12 @@
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
-import { TaikoL1, TaikoL2, TkoToken } from "../../typechain";
+import { TaikoL1, TaikoL2 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import deployAddressManager from "../utils/addressManager";
+import { BlockMetadata } from "../utils/block_metadata";
 import Proposer from "../utils/proposer";
+import { proveBlock } from "../utils/prove";
 import {
     getDefaultL2Signer,
     getL1Provider,
@@ -15,6 +17,7 @@ import sleep from "../utils/sleep";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
+import { onNewL2Block, sendTinyEtherToZeroAddress } from "./utils";
 
 describe("tokenomics", function () {
     let taikoL1: TaikoL1;
@@ -189,128 +192,64 @@ describe("tokenomics", function () {
         expect(blockFee.eq(0)).to.be.eq(true);
     });
 
-    // it("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
-    //     const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
-    //     const blockIdsToNumber: any = {};
+    it("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
+        const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
+        const blockIdsToNumber: any = {};
 
-    //     const proposer = new Proposer(
-    //         taikoL1.connect(proposerSigner),
-    //         l2Provider,
-    //         commitConfirmations.toNumber(),
-    //         maxNumBlocks.toNumber(),
-    //         0
-    //     );
+        const proposer = new Proposer(
+            taikoL1.connect(proposerSigner),
+            l2Provider,
+            commitConfirmations.toNumber(),
+            maxNumBlocks.toNumber(),
+            0
+        );
 
-    //     let hasFailedAssertions: boolean = false;
-    //     l2Provider.on("block", async (blockNumber) => {
-    //         if (blockNumber <= genesisHeight) return;
-    //         try {
-    //             await expect(
-    //                 onNewL2Block(
-    //                     l2Provider,
-    //                     blockNumber,
-    //                     proposer,
-    //                     blockIdsToNumber,
-    //                     taikoL1,
-    //                     proposerSigner,
-    //                     tkoTokenL1
-    //                 )
-    //             ).not.to.throw;
-    //         } catch (e) {
-    //             hasFailedAssertions = true;
-    //             console.error(e);
-    //             throw e;
-    //         }
-    //     });
+        let hasFailedAssertions: boolean = false;
+        l2Provider.on("block", async (blockNumber) => {
+            if (blockNumber <= genesisHeight) return;
+            try {
+                await expect(
+                    onNewL2Block(
+                        l2Provider,
+                        blockNumber,
+                        proposer,
+                        blockIdsToNumber,
+                        taikoL1,
+                        proposerSigner,
+                        tkoTokenL1
+                    )
+                ).not.to.throw;
+            } catch (e) {
+                hasFailedAssertions = true;
+                console.error(e);
+                throw e;
+            }
+        });
 
-    //     taikoL1.on(
-    //         "BlockProposed",
-    //         async (id: BigNumber, meta: BlockMetadata) => {
-    //             console.log("proving block: id", id.toString());
-    //             try {
-    //                 await proveBlock(
-    //                     taikoL1,
-    //                     taikoL2,
-    //                     l1Provider,
-    //                     l2Provider,
-    //                     await proverSigner.getAddress(),
-    //                     id.toNumber(),
-    //                     blockIdsToNumber[id.toString()],
-    //                     meta
-    //                 );
-    //             } catch (e) {
-    //                 console.error(e);
-    //                 throw e;
-    //             }
-    //         }
-    //     );
+        taikoL1.on(
+            "BlockProposed",
+            async (id: BigNumber, meta: BlockMetadata) => {
+                console.log("proving block: id", id.toString());
+                try {
+                    await proveBlock(
+                        taikoL1,
+                        taikoL2,
+                        l1Provider,
+                        l2Provider,
+                        await proverSigner.getAddress(),
+                        id.toNumber(),
+                        blockIdsToNumber[id.toString()],
+                        meta
+                    );
+                } catch (e) {
+                    console.error(e);
+                    throw e;
+                }
+            }
+        );
 
-    //     await sleep(30 * 1000);
+        await sleep(30 * 1000);
 
-    //     expect(hasFailedAssertions).to.be.eq(false);
-    // });
-});
-
-async function onNewL2Block(
-    l2Provider: ethers.providers.JsonRpcProvider,
-    blockNumber: number,
-    proposer: Proposer,
-    blockIdsToNumber: any,
-    taikoL1: TaikoL1,
-    proposerSigner: any,
-    tkoTokenL1: TkoToken
-): Promise<{
-    newProposerTkoBalance: BigNumber;
-    newBlockFee: BigNumber;
-    newProofReward: BigNumber;
-}> {
-    const block = await l2Provider.getBlock(blockNumber);
-    const receipt = await proposer.commitThenProposeBlock(block);
-    expect(receipt.status).to.be.eq(1);
-    const proposedEvent = (receipt.events as any[]).find(
-        (e) => e.event === "BlockProposed"
-    );
-
-    const { id, meta } = (proposedEvent as any).args;
-
-    console.log("-----------PROPOSED---------------", block.number, id);
-
-    blockIdsToNumber[id.toString()] = block.number;
-
-    const newProofReward = await taikoL1.getProofReward(
-        new Date().getMilliseconds(),
-        meta.timestamp
-    );
-
-    console.log(
-        "NEW PROOF REWARD",
-        ethers.utils.formatEther(newProofReward.toString()),
-        " TKO"
-    );
-
-    const newProposerTkoBalance = await tkoTokenL1.balanceOf(
-        await proposerSigner.getAddress()
-    );
-
-    console.log(
-        "NEW PROPOSER TKO BALANCE",
-        ethers.utils.formatEther(newProposerTkoBalance.toString()),
-        " TKO"
-    );
-
-    const newBlockFee = await taikoL1.getBlockFee();
-
-    console.log(
-        "NEW BLOCK FEE",
-        ethers.utils.formatEther(newBlockFee.toString()),
-        " TKO"
-    );
-    return { newProposerTkoBalance, newBlockFee, newProofReward };
-}
-
-const sendTinyEtherToZeroAddress = async (signer: any) => {
-    signer.sendTransaction({
-        to: ethers.constants.AddressZero,
-        value: BigNumber.from(1),
+        expect(hasFailedAssertions).to.be.eq(false);
     });
-};
+});

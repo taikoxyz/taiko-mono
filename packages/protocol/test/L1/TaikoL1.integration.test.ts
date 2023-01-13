@@ -108,7 +108,6 @@ describe("integration:TaikoL1", function () {
 
         it("should revert with invalid gasLimit", async function () {
             const block = await l2Provider.getBlock("latest");
-            // blockMetadata is inputs[0], txListBytes = inputs[1]
             const config = await taikoL1.getConfig();
             const gasLimit = config.blockMaxGasLimit;
 
