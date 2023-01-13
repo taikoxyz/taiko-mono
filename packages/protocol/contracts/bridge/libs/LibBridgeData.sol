@@ -25,7 +25,7 @@ library LibBridgeData {
         uint256[46] __gap;
     }
 
-    bytes32 internal constant SIGNAL_PLACEHOLDER = bytes32(uint256(1));
+    bytes32 internal constant MSG_HASH_PLACEHOLDER = bytes32(uint256(1));
     uint256 internal constant CHAINID_PLACEHOLDER = type(uint256).max;
     address internal constant SRC_CHAIN_SENDER_PLACEHOLDER =
         0x0000000000000000000000000000000000000001;

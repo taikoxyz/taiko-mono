@@ -29,7 +29,7 @@ library LibBridgeSend {
      * `destChainId` which must have a `bridge` address set on the AddressResolver
      * and differ from the current chain ID.
      *
-     * @return signal The message is hashed, stored, and emitted as a signal.
+     * @return msgHash The hash of the message.
      * This is picked up by an off-chain relayer which indicates a
      * bridge message has been sent and is ready to be processed on the
      * destination chain.
@@ -38,7 +38,7 @@ library LibBridgeSend {
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message memory message
-    ) internal returns (bytes32 signal) {
+    ) internal returns (bytes32 msgHash) {
         require(message.owner != address(0), "B:owner");
         require(
             message.destChainId != block.chainid &&
@@ -62,11 +62,11 @@ library LibBridgeSend {
         message.sender = msg.sender;
         message.srcChainId = block.chainid;
 
-        signal = message.hashMessage();
+        msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
-        // signal, with a value of 1.
-        LibBridgeSignal.sendSignal(address(this), signal);
-        emit LibBridgeData.MessageSent(signal, message);
+        // msgHash, with a value of 1.
+        LibBridgeSignal.sendSignal(address(this), msgHash);
+        emit LibBridgeData.MessageSent(msgHash, message);
     }
 
     function isDestChainEnabled(

@@ -24,13 +24,13 @@ library LibBridgeInvoke {
     function invokeMessageCall(
         LibBridgeData.State storage state,
         IBridge.Message memory message,
-        bytes32 signal,
+        bytes32 msgHash,
         uint256 gasLimit
     ) internal returns (bool success) {
         require(gasLimit > 0, "B:gasLimit");
 
         state.ctx = IBridge.Context({
-            signal: signal,
+            msgHash: msgHash,
             sender: message.sender,
             srcChainId: message.srcChainId
         });
@@ -40,7 +40,7 @@ library LibBridgeInvoke {
         );
 
         state.ctx = IBridge.Context({
-            signal: LibBridgeData.SIGNAL_PLACEHOLDER,
+            msgHash: LibBridgeData.MSG_HASH_PLACEHOLDER,
             sender: LibBridgeData.SRC_CHAIN_SENDER_PLACEHOLDER,
             srcChainId: LibBridgeData.CHAINID_PLACEHOLDER
         });

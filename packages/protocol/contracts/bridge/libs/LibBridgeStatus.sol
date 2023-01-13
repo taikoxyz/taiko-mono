@@ -19,28 +19,28 @@ library LibBridgeStatus {
         FAILED
     }
 
-    event MessageStatusChanged(bytes32 indexed signal, MessageStatus status);
+    event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status);
 
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
      *      does nothing.
-     * @param signal The messageHash of the message.
+     * @param msgHash The messageHash of the message.
      * @param status The status of the message.
      */
     function updateMessageStatus(
-        bytes32 signal,
+        bytes32 msgHash,
         MessageStatus status
     ) internal {
-        if (getMessageStatus(signal) != status) {
-            _setMessageStatus(signal, status);
-            emit LibBridgeStatus.MessageStatusChanged(signal, status);
+        if (getMessageStatus(msgHash) != status) {
+            _setMessageStatus(msgHash, status);
+            emit LibBridgeStatus.MessageStatusChanged(msgHash, status);
         }
     }
 
     function getMessageStatus(
-        bytes32 signal
+        bytes32 msgHash
     ) internal view returns (MessageStatus) {
-        bytes32 k = _statusSlot(signal);
+        bytes32 k = getMessageStatusSlot(msgHash);
         uint256 v;
         assembly {
             v := sload(k)
@@ -48,15 +48,17 @@ library LibBridgeStatus {
         return MessageStatus(v);
     }
 
-    function _setMessageStatus(bytes32 signal, MessageStatus status) private {
-        bytes32 k = _statusSlot(signal);
+    function getMessageStatusSlot(
+        bytes32 msgHash
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
+    }
+
+    function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {
+        bytes32 k = getMessageStatusSlot(msgHash);
         uint256 v = uint256(status);
         assembly {
             sstore(k, v)
         }
-    }
-
-    function _statusSlot(bytes32 signal) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked("MESSAGE_STATUS", signal));
     }
 }

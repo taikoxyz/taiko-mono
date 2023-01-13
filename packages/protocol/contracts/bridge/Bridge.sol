@@ -39,7 +39,7 @@ contract Bridge is EssentialContract, IBridge {
      *********************/
 
     event MessageStatusChanged(
-        bytes32 indexed signal,
+        bytes32 indexed msgHash,
         LibBridgeStatus.MessageStatus status
     );
 
@@ -59,7 +59,7 @@ contract Bridge is EssentialContract, IBridge {
 
     function sendMessage(
         Message calldata message
-    ) external payable nonReentrant returns (bytes32 signal) {
+    ) external payable nonReentrant returns (bytes32 msgHash) {
         return
             LibBridgeSend.sendMessage({
                 state: state,
@@ -68,9 +68,9 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function sendSignal(bytes32 signal) external override {
-        LibBridgeSignal.sendSignal(msg.sender, signal);
-        emit SignalSent(msg.sender, signal);
+    function sendSignal(bytes32 msgHash) external override {
+        LibBridgeSignal.sendSignal(msg.sender, msgHash);
+        emit SignalSent(msg.sender, msgHash);
     }
 
     function processMessage(
@@ -103,12 +103,12 @@ contract Bridge is EssentialContract, IBridge {
      * Public Functions  *
      *********************/
 
-    function isMessageSent(bytes32 signal) public view virtual returns (bool) {
-        return LibBridgeSignal.isSignalSent(address(this), signal);
+    function isMessageSent(bytes32 msgHash) public view virtual returns (bool) {
+        return LibBridgeSignal.isSignalSent(address(this), msgHash);
     }
 
     function isMessageReceived(
-        bytes32 signal,
+        bytes32 msgHash,
         uint256 srcChainId,
         bytes calldata proof
     ) public view virtual override returns (bool) {
@@ -118,20 +118,20 @@ contract Bridge is EssentialContract, IBridge {
                 resolver: AddressResolver(this),
                 srcBridge: srcBridge,
                 sender: srcBridge,
-                signal: signal,
+                signal: msgHash,
                 proof: proof
             });
     }
 
     function isSignalSent(
         address sender,
-        bytes32 signal
+        bytes32 msgHash
     ) public view virtual override returns (bool) {
-        return LibBridgeSignal.isSignalSent(sender, signal);
+        return LibBridgeSignal.isSignalSent(sender, msgHash);
     }
 
     function isSignalReceived(
-        bytes32 signal,
+        bytes32 msgHash,
         uint256 srcChainId,
         address sender,
         bytes calldata proof
@@ -142,15 +142,15 @@ contract Bridge is EssentialContract, IBridge {
                 resolver: AddressResolver(this),
                 srcBridge: srcBridge,
                 sender: sender,
-                signal: signal,
+                signal: msgHash,
                 proof: proof
             });
     }
 
     function getMessageStatus(
-        bytes32 signal
+        bytes32 msgHash
     ) public view virtual returns (LibBridgeStatus.MessageStatus) {
-        return LibBridgeStatus.getMessageStatus(signal);
+        return LibBridgeStatus.getMessageStatus(msgHash);
     }
 
     function context() public view returns (Context memory) {
@@ -160,5 +160,11 @@ contract Bridge is EssentialContract, IBridge {
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
         return
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+    }
+
+    function getMessageStatusSlot(
+        bytes32 msgHash
+    ) public pure returns (bytes32) {
+        return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 }
