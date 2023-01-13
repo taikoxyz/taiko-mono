@@ -336,7 +336,6 @@ describe("Bridge", function () {
 
             expect(messageStatus).to.be.eq(0);
         });
-
         it("returns for initiaized signal", async () => {
             const { owner, nonOwner, enabledDestChainId, l1Bridge } =
                 await deployBridgeFixture();
