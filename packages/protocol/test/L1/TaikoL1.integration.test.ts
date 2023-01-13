@@ -33,7 +33,7 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("isCommitValid()", async function () {
-        it("should not be valid", async function () {
+        it("should not be valid if it has not been committed", async function () {
             const block = await l2Provider.getBlock("latest");
             const commit = generateCommitHash(block);
 
