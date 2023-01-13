@@ -83,7 +83,7 @@ describe("tokenomics", function () {
         ).to.be.eq(ethers.utils.parseEther("100"));
 
         // set up interval mining so we always get new blocks
-        await l2Provider.send("evm_setAutomine", [true]);
+        await l2Provider.send("evm_setIntervalMining", [2000]);
 
         // send transactions to L1 so we always get new blocks
         setInterval(async () => await sendTransaction(l1Signer), 1 * 500);
