@@ -72,6 +72,13 @@ describe("tokenomics", function () {
             tkoTokenL1.address
         );
 
+        const { chainId: l2ChainId } = await l2Provider.getNetwork();
+
+        await l1AddressManager.setAddress(
+            `${l2ChainId}.taiko`,
+            taikoL2.address
+        );
+
         await tkoTokenL1
             .connect(l1Signer)
             .mintAnyone(
