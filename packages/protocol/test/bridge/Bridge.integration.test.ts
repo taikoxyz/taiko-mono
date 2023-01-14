@@ -18,7 +18,11 @@ import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
 import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
-import { getSignalProof, getSignalSlot } from "../utils/signal";
+import {
+    deploySignalService,
+    getSignalProof,
+    getSignalSlot,
+} from "../utils/signal";
 
 describe("integration:Bridge", function () {
     let owner: any;
@@ -56,6 +60,28 @@ describe("integration:Bridge", function () {
 
         const l2AddressManager: AddressManager = await deployAddressManager(
             l2Signer
+        );
+
+        const { signalService: l1SignalService } = await deploySignalService(
+            owner,
+            addressManager,
+            srcChainId
+        );
+
+        const { signalService: l2SignalService } = await deploySignalService(
+            owner,
+            l2AddressManager,
+            enabledDestChainId
+        );
+
+        await addressManager.setAddress(
+            `${enabledDestChainId}.signal_service`,
+            l2SignalService.address
+        );
+
+        await l2AddressManager.setAddress(
+            `${srcChainId}.signal_service`,
+            l1SignalService.address
         );
 
         ({ bridge: l1Bridge } = await deployBridge(
