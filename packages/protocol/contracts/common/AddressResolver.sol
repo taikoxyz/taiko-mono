@@ -29,14 +29,6 @@ abstract contract AddressResolver {
         _;
     }
 
-    modifier onlyFromNamedEither(string memory name1, string memory name2) {
-        require(
-            msg.sender == resolve(name1) || msg.sender == resolve(name2),
-            "AR:denied"
-        );
-        _;
-    }
-
     /**
      * Resolves a name to an address on the current chain.
      *
