@@ -4,7 +4,6 @@ import {
     AddressManager,
     Bridge,
     EtherVault,
-    LibTrieProof,
     TestHeaderSync,
 } from "../../typechain";
 import { Message } from "./message";
@@ -17,18 +16,8 @@ async function deployBridge(
     destChain: number,
     srcChain: number
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
-    const libTrieProof: LibTrieProof = await (
-        await hardhatEthers.getContractFactory("LibTrieProof")
-    )
-        .connect(signer)
-        .deploy();
-
     const libBridgeProcess = await (
-        await hardhatEthers.getContractFactory("LibBridgeProcess", {
-            libraries: {
-                LibTrieProof: libTrieProof.address,
-            },
-        })
+        await hardhatEthers.getContractFactory("LibBridgeProcess")
     )
         .connect(signer)
         .deploy();
@@ -43,7 +32,6 @@ async function deployBridge(
         libraries: {
             LibBridgeProcess: libBridgeProcess.address,
             LibBridgeRetry: libBridgeRetry.address,
-            LibTrieProof: libTrieProof.address,
         },
     });
 

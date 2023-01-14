@@ -1,6 +1,41 @@
-import { ethers } from "ethers";
+import { ethers, Signer } from "ethers";
 import RLP from "rlp";
+import { ethers as hardhatEthers } from "hardhat";
 import { BlockHeader, EthGetProofResponse } from "./rpc";
+import { AddressManager, SignalService, LibTrieProof } from "../../typechain";
+
+async function deploySignalService(
+    signer: Signer,
+    addressManager: AddressManager,
+    srcChain: number
+): Promise<{ signalService: SignalService }> {
+    const libTrieProof: LibTrieProof = await (
+        await hardhatEthers.getContractFactory("LibTrieProof")
+    )
+        .connect(signer)
+        .deploy();
+
+    const SignalServiceFactory = await hardhatEthers.getContractFactory(
+        "SignalService",
+        {
+            libraries: {
+                LibTrieProof: libTrieProof.address,
+            },
+        }
+    );
+
+    const signalService: SignalService = await SignalServiceFactory.connect(
+        signer
+    ).deploy();
+
+    await signalService.connect(signer).init(addressManager.address);
+
+    await addressManager.setAddress(
+        `${srcChain}.signal_service`,
+        signalService.address
+    );
+    return { signalService };
+}
 
 function getSignalSlot(sender: string, signal: any) {
     return ethers.utils.keccak256(
@@ -43,4 +78,4 @@ async function getSignalProof(
     return signalProof;
 }
 
-export { getSignalSlot, getSignalProof };
+export { deploySignalService, getSignalSlot, getSignalProof };
