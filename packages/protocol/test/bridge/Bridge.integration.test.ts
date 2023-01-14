@@ -4,6 +4,7 @@ import hre, { ethers } from "hardhat";
 import {
     AddressManager,
     Bridge,
+    SignalService,
     TestHeaderSync,
     TestLibBridgeData,
 } from "../../typechain";
@@ -31,6 +32,7 @@ describe("integration:Bridge", function () {
     let srcChainId: number;
     let enabledDestChainId: number;
     let l2NonOwner: ethersLib.Signer;
+    let l1SignalService: SignalService;
     let l1Bridge: Bridge;
     let l2Bridge: Bridge;
     let m: Message;
@@ -62,11 +64,11 @@ describe("integration:Bridge", function () {
             l2Signer
         );
 
-        const { signalService: l1SignalService } = await deploySignalService(
+        ({ signalService: l1SignalService } = await deploySignalService(
             owner,
             addressManager,
             srcChainId
-        );
+        ));
 
         const { signalService: l2SignalService } = await deploySignalService(
             owner,
@@ -210,7 +212,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
@@ -253,7 +255,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
@@ -349,7 +351,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
@@ -386,7 +388,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
@@ -463,7 +465,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
@@ -509,7 +511,7 @@ describe("integration:Bridge", function () {
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
-                l1Bridge.address,
+                l1SignalService.address,
                 key,
                 block.number,
                 blockHeader
