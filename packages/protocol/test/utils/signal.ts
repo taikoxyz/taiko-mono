@@ -48,13 +48,13 @@ function getSignalSlot(sender: string, signal: any) {
 
 async function getSignalProof(
     provider: ethers.providers.JsonRpcProvider,
-    contractAddress: string,
+    signalServiceAddress: string,
     key: string,
     blockNumber: number,
     blockHeader: BlockHeader
 ) {
     const proof: EthGetProofResponse = await provider.send("eth_getProof", [
-        contractAddress,
+        signalServiceAddress,
         [key],
         blockNumber,
     ]);
