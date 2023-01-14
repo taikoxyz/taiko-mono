@@ -29,7 +29,7 @@ async function deployTaikoL2(
         .connect(signer)
         .deploy(addressManager.address);
 
-    return taikoL2;
+    return taikoL2 as TaikoL2;
 }
 
 export { deployTaikoL2 };
