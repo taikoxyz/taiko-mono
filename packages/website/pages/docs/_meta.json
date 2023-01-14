@@ -2,7 +2,11 @@
   "learn": {
     "title": "Learn"
   },
+<<<<<<< HEAD
   "alpha-1-testnet-guide": {
+=======
+  "alpha-testnet-guide": {
+>>>>>>> 3c38a3c (feat: migrate to nextra)
     "title": "Alpha-1 Testnet Guide"
   },
   "contract-documentation": {
