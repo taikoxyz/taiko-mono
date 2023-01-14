@@ -27,7 +27,7 @@ pnpm install
 Start a local development server:
 
 ```sh
-pnpm start
+pnpm dev
 ```
 
 ## Contributing
