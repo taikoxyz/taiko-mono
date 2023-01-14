@@ -76,7 +76,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * @param l1Hash The latest L1 block hash when this block was proposed.
      */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        _checkPublicInputs();
+        TaikoData.Config memory config = getConfig();
+        if (config.enablePublicInputsCheck) {
+            _checkPublicInputs();
+        }
 
         l1Hashes[l1Height] = l1Hash;
         latestSyncedHeader = l1Hash;
@@ -102,15 +105,18 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         );
         require(tx.gasprice == 0, "L2:gasPrice");
 
+        TaikoData.Config memory config = getConfig();
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
-            config: getConfig(),
+            config: config,
             encoded: txList,
             hint: hint,
             txIdx: txIdx
         });
         require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
-        _checkPublicInputs();
+        if (config.enablePublicInputsCheck) {
+            _checkPublicInputs();
+        }
 
         emit BlockInvalidated(txList.hashTxList());
     }
@@ -159,6 +165,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 number = block.number;
         uint256 chainId = block.chainid;
 
+        // from 2 to 256, while nnumber is greater than that number
         for (uint256 i = 2; i <= 256 && number >= i; ++i) {
             ancestors[(number - i) % 255] = blockhash(number - i);
         }
