@@ -103,7 +103,7 @@ describe("tokenomics", function () {
         // send transactions to L1 so we always get new blocks
         setInterval(
             async () => await sendTinyEtherToZeroAddress(l1Signer),
-            1 * 500
+            1 * 1000
         );
 
         const tx = await l2Signer.sendTransaction({
@@ -135,6 +135,10 @@ describe("tokenomics", function () {
         // do the same for the blockFee, which should increase every block proposal
         // with proofs not being submitted.
         let lastBlockFee = await taikoL1.getBlockFee();
+        while (lastBlockFee.eq(0)) {
+            await sleep(500);
+            lastBlockFee = await taikoL1.getBlockFee();
+        }
 
         let lastProofReward = BigNumber.from(0);
 
