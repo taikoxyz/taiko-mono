@@ -44,7 +44,7 @@ describe("tokenomics", function () {
         l2Signer = await getDefaultL2Signer();
 
         const l2AddressManager = await deployAddressManager(l2Signer);
-        taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager);
+        taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager, false);
 
         genesisHash = taikoL2.deployTransaction.blockHash as string;
         genesisHeight = taikoL2.deployTransaction.blockNumber as number;
