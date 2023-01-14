@@ -23,7 +23,7 @@ contract TestLibTrieProof {
         bytes32 key,
         bytes32 value,
         bytes calldata mkproof
-    ) public pure returns (bool verified) {
+    ) public pure returns (bool) {
         return LibTrieProof.verify(stateRoot, addr, key, value, mkproof);
     }
 }
