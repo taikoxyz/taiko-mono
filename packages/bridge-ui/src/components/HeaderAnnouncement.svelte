@@ -4,8 +4,9 @@
       <p class="font-medium text-white">
         <span class="md:inline"
           >Receive some tokens for bridging with our <a
-            href="https://taiko.xyz/docs/alpha-1-testnet/request-from-faucet"
+            href="https://taiko.xyz/docs/alpha-1-testnet-guide/request-from-faucet"
             target="_blank"
+            rel="noopener noreferrer"
             class="font-bold text-white underline">faucet</a
           >.</span
         >
