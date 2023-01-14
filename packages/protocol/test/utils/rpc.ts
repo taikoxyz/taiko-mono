@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber, ethers } from "ethers";
 
 type StorageEntry = {
     key: string;
@@ -58,9 +58,16 @@ type BlockHeader = {
     baseFeePerGas: number;
 };
 
-async function getBlockHeader(provider: any, blockNumber?: number) {
-    const block: Block = await provider.send("eth_getBlockByNumber", [
-        blockNumber ? BigNumber.from(blockNumber).toHexString() : "latest",
+async function getBlockHeader(
+    provider: ethers.providers.JsonRpcProvider,
+    blockNumber?: number
+) {
+    const b = await provider.getBlock(
+        blockNumber ? BigNumber.from(blockNumber).toHexString() : "latest"
+    );
+
+    const block: Block = await provider.send("eth_getBlockByHash", [
+        b.hash,
         false,
     ]);
 

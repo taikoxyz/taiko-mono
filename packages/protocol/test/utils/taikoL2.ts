@@ -13,8 +13,8 @@ async function deployTaikoL2(
         .connect(signer)
         .deploy();
 
-    const taikoL2: TaikoL2 = await (
-        await hardhatEthers.getContractFactory("TaikoL2", {
+    const taikoL2 = await (
+        await hardhatEthers.getContractFactory("TestTaikoL2", {
             libraries: {
                 LibTxDecoder: l2LibTxDecoder.address,
             },
