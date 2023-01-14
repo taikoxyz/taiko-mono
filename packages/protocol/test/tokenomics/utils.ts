@@ -59,10 +59,12 @@ async function onNewL2Block(
 }
 
 const sendTinyEtherToZeroAddress = async (signer: any) => {
-    signer.sendTransaction({
-        to: ethers.constants.AddressZero,
-        value: BigNumber.from(1),
-    });
+    await signer
+        .sendTransaction({
+            to: ethers.constants.AddressZero,
+            value: BigNumber.from(1),
+        })
+        .wait(1);
 };
 
 export { sendTinyEtherToZeroAddress, onNewL2Block };
