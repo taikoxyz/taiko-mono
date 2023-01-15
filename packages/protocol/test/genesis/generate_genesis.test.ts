@@ -287,6 +287,13 @@ action("Generate Genesis", function () {
 
             await expect(
                 addressManager.setAddress(
+                    "1.token_vault",
+                    getContractAlloc("TokenVault").address
+                )
+            ).not.to.be.reverted;
+
+            await expect(
+                addressManager.setAddress(
                     "1.bridge",
                     getContractAlloc("Bridge").address
                 )
