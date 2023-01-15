@@ -4,7 +4,7 @@ import RLP from "rlp";
 import { sendMessage } from "../utils/bridge";
 import { Message } from "../utils/message";
 import { EthGetProofResponse } from "../utils/rpc";
-import { deploySignalService, getSignalSlot } from "../utils/signal";
+import { deploySignalService } from "../utils/signal";
 
 // TODO(roger): this test shall not use any file in contracts/bridge/*.sol
 // Instead, it should use the `writeStorageAt` function to manipulate stroage
@@ -44,7 +44,11 @@ describe("integration:LibTrieProof", function () {
 
         const [owner] = await ethers.getSigners();
 
-        await deploySignalService(owner, addressManager, chainId);
+        const { signalService } = await deploySignalService(
+            owner,
+            addressManager,
+            chainId
+        );
 
         const libBridgeRetry = await (
             await ethers.getContractFactory("LibBridgeRetry")
@@ -65,12 +69,23 @@ describe("integration:LibTrieProof", function () {
 
         await bridge.init(addressManager.address);
 
-        return { owner, testLibTreProof, bridge, enabledDestChainId };
+        return {
+            owner,
+            testLibTreProof,
+            signalService,
+            bridge,
+            enabledDestChainId,
+        };
     }
     describe("verify()", function () {
         it("verifies", async function () {
-            const { owner, testLibTreProof, bridge, enabledDestChainId } =
-                await deployLibTrieProofFixture();
+            const {
+                owner,
+                testLibTreProof,
+                signalService,
+                bridge,
+                enabledDestChainId,
+            } = await deployLibTrieProofFixture();
 
             const { chainId } = await ethers.provider.getNetwork();
             const srcChainId = chainId;
@@ -101,7 +116,10 @@ describe("integration:LibTrieProof", function () {
 
             expect(messageStatus).to.be.eq(0);
 
-            const slot = await getSignalSlot(bridge.address, msgHash);
+            const slot = await signalService.getSignalSlot(
+                bridge.address,
+                msgHash
+            );
 
             // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // in the response
