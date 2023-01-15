@@ -71,7 +71,7 @@ describe("integration:Bridge", function () {
         ));
 
         ({ signalService: l2SignalService } = await deploySignalService(
-            owner,
+            l2Signer,
             l2AddressManager,
             enabledDestChainId
         ));
