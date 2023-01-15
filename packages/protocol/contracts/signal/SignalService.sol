@@ -62,7 +62,7 @@ contract SignalService is ISignalService, EssentialContract {
         require(signal != 0, "B:signal");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
-        bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko",false))
+        bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko", false))
             .getSyncedHeader(sp.header.height);
 
         if (
@@ -75,7 +75,7 @@ contract SignalService is ISignalService, EssentialContract {
         return
             LibTrieProof.verify({
                 stateRoot: sp.header.stateRoot,
-                addr: resolve(srcChainId, "signal_service",false),
+                addr: resolve(srcChainId, "signal_service", false),
                 slot: getSignalSlot(app, signal),
                 value: bytes32(uint256(1)),
                 mkproof: sp.proof

@@ -65,7 +65,9 @@ library LibBridgeSend {
         msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // msgHash, with a value of 1.
-        ISignalService(resolver.resolve("signal_service", false)).sendSignal(msgHash);
+        ISignalService(resolver.resolve("signal_service", false)).sendSignal(
+            msgHash
+        );
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
@@ -81,10 +83,8 @@ library LibBridgeSend {
         bytes32 msgHash
     ) internal view returns (bool) {
         return
-            ISignalService(resolver.resolve("signal_service", false)).isSignalSent({
-                app: address(this),
-                signal: msgHash
-            });
+            ISignalService(resolver.resolve("signal_service", false))
+                .isSignalSent({app: address(this), signal: msgHash});
     }
 
     function isMessageReceived(

@@ -61,7 +61,11 @@ library LibBridgeProcess {
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
-        address srcBridge = resolver.resolve(message.srcChainId, "bridge", false);
+        address srcBridge = resolver.resolve(
+            message.srcChainId,
+            "bridge",
+            false
+        );
 
         require(
             ISignalService(resolver.resolve("signal_service", false))

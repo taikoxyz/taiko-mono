@@ -87,7 +87,10 @@ abstract contract AddressResolver {
         );
         addr = payable(_addressManager.getAddress(string(key)));
         if (!allowZeroAddress) {
-            require(addr != address(0), string(abi.encodePacked("AR:zeroAddr:", key)));
+            require(
+                addr != address(0),
+                string(abi.encodePacked("AR:zeroAddr:", key))
+            );
         }
     }
 }

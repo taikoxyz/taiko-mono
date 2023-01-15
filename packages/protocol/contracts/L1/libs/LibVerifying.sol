@@ -190,7 +190,9 @@ library LibVerifying {
                     proposedAt: target.proposedAt
                 });
 
-                TkoToken tkoToken = TkoToken(resolver.resolve("tko_token", false));
+                TkoToken tkoToken = TkoToken(
+                    resolver.resolve("tko_token", false)
+                );
 
                 _rewardProvers(fc, reward, tkoToken);
                 _refundProposerDeposit(target, tRelBp, tkoToken);

@@ -81,7 +81,8 @@ library LibProving {
             );
             require(_tx.txType == 0, "L1:anchor:type");
             require(
-                _tx.destination == resolver.resolve(config.chainId, "taiko", false),
+                _tx.destination ==
+                    resolver.resolve(config.chainId, "taiko", false),
                 "L1:anchor:dest"
             );
             require(
@@ -107,7 +108,7 @@ library LibProving {
         }
 
         IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier",false)
+            resolver.resolve("proof_verifier", false)
         );
 
         // Check anchor tx is the 1st tx in the block
@@ -200,7 +201,7 @@ library LibProving {
             LibReceiptDecoder.Log memory log = receipt.logs[0];
             require(
                 log.contractAddress ==
-                    resolver.resolve(config.chainId, "taiko",false),
+                    resolver.resolve(config.chainId, "taiko", false),
                 "L1:receipt:addr"
             );
             require(log.data.length == 0, "L1:receipt:data");
