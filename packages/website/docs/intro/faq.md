@@ -49,7 +49,7 @@ The Ethereum Virtual Machine (EVM) is a software platform that developers can us
 
 [Learn more about the EVM](https://ethereum.org/en/developers/docs/evm/)
 
-## What is the Zero-Knowledge Ethereum Virtual Machine (ZK-EVM)?
+## What is a Zero-Knowledge Ethereum Virtual Machine (ZK-EVM)?
 
 The ZK-EVM proves the correctness of the EVM computations on the rollup with validity proofs.
 
