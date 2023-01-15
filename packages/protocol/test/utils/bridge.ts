@@ -9,7 +9,7 @@ import {
 } from "../../typechain";
 import { Message } from "./message";
 import { Block, BlockHeader, getBlockHeader } from "./rpc";
-import { getSignalProof,getSignalSlot } from "./signal";
+import { getSignalProof } from "./signal";
 
 async function deployBridge(
     signer: Signer,
@@ -109,7 +109,7 @@ async function processMessage(
 }> {
     const sender = l1Bridge.address;
 
-    const slot = getSignalSlot(sender, signal);
+    const slot = await l1SignalService.getSignalSlot(sender, signal);
 
     const { block, blockHeader } = await getBlockHeader(provider);
 

@@ -107,7 +107,7 @@ const [owner] = await ethers.getSigners();
 
             // expect(messageStatus).to.be.eq(0);
 
-            // const slot = getSignalSlot(bridge.address, msgHash);
+            // const slot = await getSignalSlot(bridge.address, msgHash);
 
             // // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // // in the response

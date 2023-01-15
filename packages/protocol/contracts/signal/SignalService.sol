@@ -43,12 +43,12 @@ contract SignalService is ISignalService, EssentialContract {
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
-        bytes32 k = getSignalSlot(app, signal);
-        uint256 v;
+        bytes32 slot = getSignalSlot(app, signal);
+        uint256 value;
         assembly {
-            v := sload(k)
+            value := sload(slot)
         }
-        return v == 1;
+        return value == 1;
     }
 
     function isSignalReceived(
