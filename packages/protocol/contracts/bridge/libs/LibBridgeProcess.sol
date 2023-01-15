@@ -61,10 +61,10 @@ library LibBridgeProcess {
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
-        address srcBridge = resolver.resolve(message.srcChainId, "bridge");
+        address srcBridge = resolver.resolve(message.srcChainId, "bridge", false);
 
         require(
-            ISignalService(resolver.resolve("signal_service"))
+            ISignalService(resolver.resolve("signal_service", false))
                 .isSignalReceived({
                     srcChainId: message.srcChainId,
                     app: srcBridge,
@@ -75,7 +75,7 @@ library LibBridgeProcess {
         );
 
         // We retrieve the necessary ether from EtherVault
-        address ethVault = resolver.resolve("ether_vault");
+        address ethVault = resolver.resolve("ether_vault", false);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).receiveEther(
                 message.depositValue + message.callValue + message.processingFee

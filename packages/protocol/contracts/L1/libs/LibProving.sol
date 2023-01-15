@@ -81,7 +81,7 @@ library LibProving {
             );
             require(_tx.txType == 0, "L1:anchor:type");
             require(
-                _tx.destination == resolver.resolve(config.chainId, "taiko"),
+                _tx.destination == resolver.resolve(config.chainId, "taiko", false),
                 "L1:anchor:dest"
             );
             require(
@@ -107,7 +107,7 @@ library LibProving {
         }
 
         IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier")
+            resolver.resolve("proof_verifier",false)
         );
 
         // Check anchor tx is the 1st tx in the block
@@ -175,7 +175,7 @@ library LibProving {
         );
 
         IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier")
+            resolver.resolve("proof_verifier", false)
         );
 
         // Check the event is the first one in the throw-away block
@@ -200,7 +200,7 @@ library LibProving {
             LibReceiptDecoder.Log memory log = receipt.logs[0];
             require(
                 log.contractAddress ==
-                    resolver.resolve(config.chainId, "taiko"),
+                    resolver.resolve(config.chainId, "taiko",false),
                 "L1:receipt:addr"
             );
             require(log.data.length == 0, "L1:receipt:data");
@@ -249,7 +249,7 @@ library LibProving {
             require(
                 proofVerifier.verifyZKP({
                     verificationKey: ConfigManager(
-                        resolver.resolve("config_manager")
+                        resolver.resolve("config_manager", false)
                     ).getValue(string(abi.encodePacked("zk_vkey_", i))),
                     zkproof: evidence.proofs[i],
                     blockHash: blockHash,

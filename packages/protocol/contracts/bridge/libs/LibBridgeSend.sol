@@ -53,7 +53,7 @@ library LibBridgeSend {
 
         // For each message, expectedAmount is sent to ethVault to be handled.
         // Processing will retrieve these funds directly from ethVault.
-        address ethVault = resolver.resolve("ether_vault");
+        address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             ethVault.sendEther(expectedAmount);
         }
@@ -65,7 +65,7 @@ library LibBridgeSend {
         msgHash = message.hashMessage();
         // Store a key which is the hash of this contract address and the
         // msgHash, with a value of 1.
-        ISignalService(resolver.resolve("signal_service")).sendSignal(msgHash);
+        ISignalService(resolver.resolve("signal_service", false)).sendSignal(msgHash);
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
@@ -73,7 +73,7 @@ library LibBridgeSend {
         AddressResolver resolver,
         uint256 chainId
     ) internal view returns (bool) {
-        return resolver.resolve(chainId, "bridge") != address(0);
+        return resolver.resolve(chainId, "bridge", false) != address(0);
     }
 
     function isMessageSent(
@@ -81,7 +81,7 @@ library LibBridgeSend {
         bytes32 msgHash
     ) internal view returns (bool) {
         return
-            ISignalService(resolver.resolve("signal_service")).isSignalSent({
+            ISignalService(resolver.resolve("signal_service", false)).isSignalSent({
                 app: address(this),
                 signal: msgHash
             });
@@ -93,9 +93,9 @@ library LibBridgeSend {
         uint256 srcChainId,
         bytes calldata proof
     ) internal view returns (bool) {
-        address srcBridge = resolver.resolve(srcChainId, "bridge");
+        address srcBridge = resolver.resolve(srcChainId, "bridge", false);
         return
-            ISignalService(resolver.resolve("signal_service"))
+            ISignalService(resolver.resolve("signal_service", false))
                 .isSignalReceived({
                     srcChainId: srcChainId,
                     app: srcBridge,

@@ -33,7 +33,6 @@ describe("Bridge", function () {
         ({ bridge: l1Bridge, etherVault: l1EtherVault } = await deployBridge(
             owner,
             addressManager,
-            enabledDestChainId,
             srcChainId
         ));
 
@@ -171,6 +170,7 @@ describe("Bridge", function () {
         });
     });
 
+    // TODO(roger): move tests to SignalService's test file.
     // describe("sendSignal()", async function () {
     //     it("throws when signal is empty", async function () {
     //         await expect(

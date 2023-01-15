@@ -9,7 +9,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
-
+import "hardhat/console.sol";
 import "./IAddressManager.sol";
 
 /**
@@ -25,7 +25,7 @@ abstract contract AddressResolver {
     uint256[49] private __gap;
 
     modifier onlyFromNamed(string memory name) {
-        require(msg.sender == resolve(name), "AR:denied");
+        require(msg.sender == resolve(name, false), "AR:denied");
         _;
     }
 
@@ -34,12 +34,14 @@ abstract contract AddressResolver {
      *
      * @dev This function will throw if the resolved address is `address(0)`.
      * @param name The name to resolve.
+     * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
     function resolve(
-        string memory name
+        string memory name,
+        bool allowZeroAddress
     ) public view virtual returns (address payable) {
-        return _resolve(block.chainid, name);
+        return _resolve(block.chainid, name, allowZeroAddress);
     }
 
     /**
@@ -48,13 +50,15 @@ abstract contract AddressResolver {
      * @dev This function will throw if the resolved address is `address(0)`.
      * @param chainId The chainId.
      * @param name The name to resolve.
+     * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
     function resolve(
         uint256 chainId,
-        string memory name
+        string memory name,
+        bool allowZeroAddress
     ) public view virtual returns (address payable) {
-        return _resolve(chainId, name);
+        return _resolve(chainId, name, allowZeroAddress);
     }
 
     /**
@@ -73,13 +77,17 @@ abstract contract AddressResolver {
 
     function _resolve(
         uint256 chainId,
-        string memory name
-    ) private view returns (address payable) {
+        string memory name,
+        bool allowZeroAddress
+    ) private view returns (address payable addr) {
         bytes memory key = abi.encodePacked(
             Strings.toString(chainId),
             ".",
             name
         );
-        return payable(_addressManager.getAddress(string(key)));
+        addr = payable(_addressManager.getAddress(string(key)));
+        if (!allowZeroAddress) {
+            require(addr != address(0), string(abi.encodePacked("AR:zeroAddr:", key)));
+        }
     }
 }

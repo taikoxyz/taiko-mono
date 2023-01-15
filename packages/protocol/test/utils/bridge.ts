@@ -14,8 +14,7 @@ import { getSignalProof,getSignalSlot } from "./signal";
 async function deployBridge(
     signer: Signer,
     addressManager: AddressManager,
-    destChain: number,
-    srcChain: number
+    chainId: number,
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
     const libBridgeProcess = await (
         await hardhatEthers.getContractFactory("LibBridgeProcess")
@@ -53,7 +52,7 @@ async function deployBridge(
     await etherVault.connect(signer).authorize(await signer.getAddress(), true);
 
     await addressManager.setAddress(
-        `${srcChain}.ether_vault`,
+        `${chainId}.ether_vault`,
         etherVault.address
     );
 
@@ -63,7 +62,7 @@ async function deployBridge(
         gasLimit: 1000000,
     });
 
-    await addressManager.setAddress(`${destChain}.bridge`, bridge.address);
+    await addressManager.setAddress(`${chainId}.bridge`, bridge.address);
 
     return { bridge, etherVault };
 }
@@ -93,6 +92,7 @@ async function sendMessage(
     return { bridge, messageSentEvent, msgHash, message, tx };
 }
 
+// Process a L1-to-L1 message
 async function processMessage(
     l1SignalService:SignalService,
     l1Bridge: Bridge,
@@ -109,7 +109,7 @@ async function processMessage(
 }> {
     const sender = l1Bridge.address;
 
-    const key = getSignalSlot(sender, signal);
+    const slot = getSignalSlot(sender, signal);
 
     const { block, blockHeader } = await getBlockHeader(provider);
 
@@ -118,7 +118,7 @@ async function processMessage(
     const signalProof = await getSignalProof(
         provider,
         l1SignalService.address,
-        key,
+        slot,
         block.number,
         blockHeader
     );
