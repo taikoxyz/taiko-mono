@@ -11,7 +11,7 @@ pragma solidity ^0.8.9;
 import {IProofVerifier} from "../../L1/ProofVerifier.sol";
 import "../../L1/TaikoL1.sol";
 
-contract TestTaikoL1 is TaikoL1, IProofVerifier {
+contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     function getConfig()
         public
         pure
@@ -20,7 +20,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 4;
+        config.maxNumBlocks = 2048;
         config.blockHashHistory = 3;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
@@ -46,11 +46,11 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.feeGracePeriodPctg = 125; // 125%
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 60 minutes;
-        config.bootstrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 1 minutes;
-        config.enableTokenomics = false;
-        config.enablePublicInputsCheck = true;
+        config.proofTimeCap = 5 seconds;
+        config.bootstrapDiscountHalvingPeriod = 1 seconds;
+        config.initialUncleDelay = 1 seconds;
+        config.enableTokenomics = true;
+        config.enablePublicInputsCheck = false;
     }
 
     function verifyZKP(

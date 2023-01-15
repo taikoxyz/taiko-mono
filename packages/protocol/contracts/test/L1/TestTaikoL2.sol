@@ -8,10 +8,11 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
-import {IProofVerifier} from "../../L1/ProofVerifier.sol";
-import "../../L1/TaikoL1.sol";
+import "../../L2/TaikoL2.sol";
 
-contract TestTaikoL1 is TaikoL1, IProofVerifier {
+contract TestTaikoL2 is TaikoL2 {
+    constructor(address _addressManager) TaikoL2(_addressManager) {}
+
     function getConfig()
         public
         pure
@@ -49,26 +50,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
-        config.enableTokenomics = false;
-        config.enablePublicInputsCheck = true;
-    }
-
-    function verifyZKP(
-        bytes memory /*verificationKey*/,
-        bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
-    ) public pure override returns (bool) {
-        return true;
-    }
-
-    function verifyMKP(
-        bytes memory /*key*/,
-        bytes memory /*value*/,
-        bytes memory /*proof*/,
-        bytes32 /*root*/
-    ) public pure override returns (bool) {
-        return true;
+        config.enableTokenomics = true;
+        config.enablePublicInputsCheck = false;
     }
 }

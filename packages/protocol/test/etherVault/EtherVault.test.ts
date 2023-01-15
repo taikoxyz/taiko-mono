@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { AddressManager, EtherVault } from "../../typechain";
 import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
+import deployAddressManager from "../utils/addressManager";
 
 describe("EtherVault", function () {
     let owner: any;
@@ -16,10 +17,9 @@ describe("EtherVault", function () {
     });
 
     beforeEach(async function () {
-        const addressManager: AddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        const addressManager: AddressManager = await deployAddressManager(
+            owner
+        );
 
         etherVault = await (await ethers.getContractFactory("EtherVault"))
             .connect(owner)

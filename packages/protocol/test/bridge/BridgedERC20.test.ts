@@ -7,6 +7,7 @@ import {
     ERC20_BURN_AMOUNT_EXCEEDED,
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors";
+import deployAddressManager from "../utils/addressManager";
 
 const WETH_GOERLI = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
 const CHAIN_ID_GOERLI = 5;
@@ -28,19 +29,12 @@ describe("BridgedERC20", function () {
     });
 
     beforeEach(async function () {
-        unInitAddressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await unInitAddressManager.init();
-
+        unInitAddressManager = await deployAddressManager(owner);
         unInitERC20 = await (await ethers.getContractFactory("BridgedERC20"))
             .connect(owner)
             .deploy();
 
-        addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        addressManager = await deployAddressManager(owner);
 
         const network = await ethers.provider.getNetwork();
 
