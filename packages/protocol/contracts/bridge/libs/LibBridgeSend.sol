@@ -73,7 +73,7 @@ library LibBridgeSend {
         AddressResolver resolver,
         uint256 chainId
     ) internal view returns (bool) {
-        return resolver.resolve(chainId, "bridge", false) != address(0);
+        return resolver.resolve(chainId, "bridge", true) != address(0);
     }
 
     function isMessageSent(
