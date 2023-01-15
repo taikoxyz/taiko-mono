@@ -30,12 +30,12 @@ library LibTrieProof {
      *********************/
 
     /**
-     * Verifies that the value of a slot `key` in the storage tree of `addr`
+     * Verifies that the value of a slot in the storage tree of `addr`
      * is `value`.
      *
      * @param stateRoot The merkle root of state tree.
      * @param addr The contract address.
-     * @param key The slot in the contract.
+     * @param slot The slot in the contract.
      * @param value The value to be verified.
      * @param mkproof The proof obtained by encoding state proof and storage
      *        proof.
@@ -44,7 +44,7 @@ library LibTrieProof {
     function verify(
         bytes32 stateRoot,
         address addr,
-        bytes32 key,
+        bytes32 slot,
         bytes32 value,
         bytes calldata mkproof
     ) public pure returns (bool verified) {
@@ -69,7 +69,7 @@ library LibTrieProof {
         );
 
         verified = LibSecureMerkleTrie.verifyInclusionProof(
-            abi.encodePacked(key),
+            abi.encodePacked(slot),
             LibRLPWriter.writeBytes32(value),
             storageProof,
             storageRoot
