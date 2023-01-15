@@ -25,7 +25,7 @@ const features = [
   },
 ];
 
-export default function Features() {
+export default function FeaturesSection() {
   return (
     <div className="mx-auto max-w-md px-6 text-center sm:max-w-2xl lg:max-w-7xl lg:px-8 dark:bg-neutral-950">
       <div className="my-20">

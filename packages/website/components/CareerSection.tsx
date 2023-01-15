@@ -1,9 +1,9 @@
-export default function JoinUs() {
+export default function CareerSection() {
   return (
     <div className="bg-white dark:bg-neutral-900">
       <div className="mx-auto max-w-7xl py-12 px-4 text-center sm:px-6 lg:py-16 lg:px-8">
         <h2 className="font-oxanium text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-neutral-100">
-          <span className="block">Sound fun?</span>
+          <span className="block">Sounds fun?</span>
         </h2>
         <div className="mt-8 flex justify-center">
           <div className="inline-flex rounded-md shadow">
