@@ -36,11 +36,8 @@ export default {
     link: "https://github.com/taikoxyz",
   },
   useNextSeoProps() {
-    const { route } = useRouter();
-    if (route !== "/") {
-      return {
-        titleTemplate: "%s – Taiko",
-      };
-    }
+    return {
+      titleTemplate: "%s – Taiko",
+    };
   },
 };
