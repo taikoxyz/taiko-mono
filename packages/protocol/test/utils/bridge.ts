@@ -3,12 +3,13 @@ import { ethers as hardhatEthers } from "hardhat";
 import {
     AddressManager,
     Bridge,
+    SignalService,
     EtherVault,
     TestHeaderSync,
 } from "../../typechain";
 import { Message } from "./message";
 import { Block, BlockHeader, getBlockHeader } from "./rpc";
-import { getSignalProof, getSignalSlot } from "./signal";
+import { getSignalProof,getSignalSlot } from "./signal";
 
 async function deployBridge(
     signer: Signer,
@@ -87,12 +88,13 @@ async function sendMessage(
 
     const [messageSentEvent] = receipt.events as any as Event[];
 
-    const { signal, message } = (messageSentEvent as any).args;
+    const { msgHash, message } = (messageSentEvent as any).args;
 
-    return { bridge, messageSentEvent, signal, message, tx };
+    return { bridge, messageSentEvent, msgHash, message, tx };
 }
 
 async function processMessage(
+    l1SignalService:SignalService,
     l1Bridge: Bridge,
     l2Bridge: Bridge,
     signal: string,
@@ -115,7 +117,7 @@ async function processMessage(
 
     const signalProof = await getSignalProof(
         provider,
-        l1Bridge.address,
+        l1SignalService.address,
         key,
         block.number,
         blockHeader
@@ -129,6 +131,7 @@ async function sendAndProcessMessage(
     provider: ethers.providers.JsonRpcProvider,
     headerSync: TestHeaderSync,
     m: Message,
+    l1SignalService:SignalService,
     l1Bridge: Bridge,
     l2Bridge: Bridge
 ): Promise<{
@@ -139,6 +142,7 @@ async function sendAndProcessMessage(
 }> {
     const { signal, message } = await sendMessage(l1Bridge, m);
     const { tx, signalProof } = await processMessage(
+        l1SignalService,
         l1Bridge,
         l2Bridge,
         signal,

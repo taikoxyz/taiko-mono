@@ -40,8 +40,8 @@ async function deploySignalService(
 function getSignalSlot(sender: string, signal: any) {
     return ethers.utils.keccak256(
         ethers.utils.solidityPack(
-            ["string", "address", "bytes32"],
-            ["SIGNAL", sender, signal]
+            ["address", "bytes32"],
+            [sender, signal]
         )
     );
 }
@@ -49,13 +49,13 @@ function getSignalSlot(sender: string, signal: any) {
 async function getSignalProof(
     provider: ethers.providers.JsonRpcProvider,
     signalServiceAddress: string,
-    key: string,
+    slot: string,
     blockNumber: number,
     blockHeader: BlockHeader
 ) {
     const proof: EthGetProofResponse = await provider.send("eth_getProof", [
         signalServiceAddress,
-        [key],
+        [slot],
         blockNumber,
     ]);
 

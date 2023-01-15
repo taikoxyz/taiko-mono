@@ -76,7 +76,7 @@ contract SignalService is ISignalService, EssentialContract {
             LibTrieProof.verify({
                 stateRoot: sp.header.stateRoot,
                 addr: resolve(srcChainId, "signal_service"),
-                key: getSignalSlot(app, signal),
+                slot: getSignalSlot(app, signal),
                 value: bytes32(uint256(1)),
                 mkproof: sp.proof
             });
