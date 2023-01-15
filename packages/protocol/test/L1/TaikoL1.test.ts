@@ -1,94 +1,121 @@
-import { expect } from "chai"
-import { ethers } from "hardhat"
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { TaikoL1 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
+import { randomBytes32 } from "../utils/bytes";
+import { deployTaikoL1 } from "../utils/taikoL1";
 
 describe("TaikoL1", function () {
-    async function deployTaikoL1Fixture() {
-        // Deploying addressManager Contract
-        const addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy()
-        await addressManager.init()
+    let taikoL1: TaikoL1;
+    let genesisHash: string;
 
-        const libReceiptDecoder = await (
-            await ethers.getContractFactory("LibReceiptDecoder")
-        ).deploy()
-
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        ).deploy()
-
-        const libZKP = await (
-            await ethers.getContractFactory("LibZKP")
-        ).deploy()
-
-        const v1Proposing = await (
-            await ethers.getContractFactory("V1Proposing")
-        ).deploy()
-
-        const v1Proving = await (
-            await ethers.getContractFactory("V1Proving", {
-                libraries: {
-                    LibReceiptDecoder: libReceiptDecoder.address,
-                    LibTxDecoder: libTxDecoder.address,
-                    LibZKP: libZKP.address,
-                },
-            })
-        ).deploy()
-
-        const v1Verifying = await (
-            await ethers.getContractFactory("V1Verifying")
-        ).deploy()
-
-        const TaikoL1Factory = await ethers.getContractFactory("TaikoL1", {
-            libraries: {
-                V1Verifying: v1Verifying.address,
-                V1Proposing: v1Proposing.address,
-                V1Proving: v1Proving.address,
-            },
-        })
-
-        const genesisHash = randomBytes32()
-        const taikoL1 = await TaikoL1Factory.deploy()
-        await taikoL1.init(addressManager.address, genesisHash)
-
-        return { taikoL1, genesisHash }
-    }
+    beforeEach(async function () {
+        const l1Signer = (await ethers.getSigners())[0];
+        const addressManager = await deployAddressManager(l1Signer);
+        genesisHash = randomBytes32();
+        taikoL1 = await deployTaikoL1(addressManager, genesisHash, false);
+    });
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be genesisHash because no headers have been synced", async function () {
-            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
-            const hash = await taikoL1.getLatestSyncedHeader()
-            expect(hash).to.be.eq(genesisHash)
-        })
-    })
+            const hash = await taikoL1.getLatestSyncedHeader();
+            expect(hash).to.be.eq(genesisHash);
+        });
+    });
 
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
-            const { taikoL1 } = await deployTaikoL1Fixture()
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith("L1:id")
-        })
+            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
+                "L1:id"
+            );
+        });
 
         it("should return appropraite hash for header", async function () {
-            const { taikoL1, genesisHash } = await deployTaikoL1Fixture()
-            const hash = await taikoL1.getSyncedHeader(0)
-            expect(hash).to.be.eq(genesisHash)
-        })
-    })
+            const hash = await taikoL1.getSyncedHeader(0);
+            expect(hash).to.be.eq(genesisHash);
+        });
+    });
 
     describe("getBlockProvers()", async function () {
         it("should return empty list when there is no proof for that block", async function () {
-            const { taikoL1 } = await deployTaikoL1Fixture()
-
             const provers = await taikoL1.getBlockProvers(
                 Math.ceil(Math.random() * 1024),
                 randomBytes32()
-            )
+            );
 
-            expect(provers).to.be.empty
-        })
-    })
-})
+            expect(provers).to.be.empty;
+        });
+    });
 
-function randomBytes32() {
-    return ethers.utils.hexlify(ethers.utils.randomBytes(32))
-}
+    describe("halt()", async function () {
+        it("should revert called by nonOwner", async function () {
+            const initiallyHalted = await taikoL1.isHalted();
+            expect(initiallyHalted).to.be.eq(false);
+            const signers = await ethers.getSigners();
+            await expect(
+                taikoL1.connect(signers[1]).halt(true)
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+
+            const isHalted = await taikoL1.isHalted();
+            expect(isHalted).to.be.eq(false);
+        });
+
+        it("should not revert when called by owner", async function () {
+            const initiallyHalted = await taikoL1.isHalted();
+            expect(initiallyHalted).to.be.eq(false);
+            await taikoL1.halt(true);
+            const isHalted = await taikoL1.isHalted();
+            expect(isHalted).to.be.eq(true);
+        });
+    });
+
+    describe("proposeBlock()", async function () {
+        it("should revert when size of inputs is les than 2", async function () {
+            await expect(
+                taikoL1.proposeBlock([randomBytes32()])
+            ).to.be.revertedWith("L1:inputs:size");
+        });
+
+        it("should revert when halted", async function () {
+            await taikoL1.halt(true);
+            await expect(
+                taikoL1.proposeBlock([randomBytes32()])
+            ).to.be.revertedWith("0x1");
+        });
+    });
+
+    describe("commitBlock()", async function () {
+        it("should revert when size of inputs is les than 2", async function () {
+            await expect(
+                taikoL1.proposeBlock([randomBytes32()])
+            ).to.be.revertedWith("L1:inputs:size");
+        });
+
+        it("should revert when halted", async function () {
+            await taikoL1.halt(true);
+            await expect(
+                taikoL1.proposeBlock([randomBytes32()])
+            ).to.be.revertedWith("0x1");
+        });
+    });
+
+    describe("getDelayForBlockId()", async function () {
+        it("should return  initial uncle delay for block id <= 2 * K_MAX_NUM_BLOCKS", async function () {
+            const constants = await taikoL1.getConfig();
+            const maxNumBlocks = constants[1];
+            const delay = await taikoL1.getUncleProofDelay(maxNumBlocks.mul(2));
+            const initialUncleDelay = 60;
+            expect(delay).to.be.eq(initialUncleDelay);
+        });
+
+        it("should return avg proof time for block id > 2 * K_MAX_NUM_BLOCKS", async function () {
+            const constants = await taikoL1.getConfig();
+            const maxNumBlocks = constants[1];
+            const delay = await taikoL1.getUncleProofDelay(
+                maxNumBlocks.mul(2).add(1)
+            );
+            const avgProofTime = 0; // no proofs have been generated
+            expect(delay).to.be.eq(avgProofTime);
+        });
+    });
+});

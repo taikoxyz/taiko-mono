@@ -1,8 +1,17 @@
 import type { Chain as WagmiChain } from "@wagmi/core";
+import { BigNumber } from "ethers";
 import type { ComponentType } from "svelte";
 
 import Eth from "../components/icons/ETH.svelte";
 import Taiko from "../components/icons/TKO.svelte";
+
+export const CHAIN_ID_MAINNET = import.meta.env
+  ? BigNumber.from(import.meta.env.VITE_MAINNET_CHAIN_ID).toNumber()
+  : 31336;
+
+export const CHAIN_ID_TAIKO = import.meta.env
+  ? BigNumber.from(import.meta.env.VITE_TAIKO_CHAIN_ID).toNumber()
+  : 167001;
 
 export type Chain = {
   id: number;
@@ -10,36 +19,57 @@ export type Chain = {
   rpc: string;
   enabled?: boolean;
   icon?: ComponentType;
+  bridgeAddress: string;
+  headerSyncAddress: string;
+  explorerUrl: string;
 };
 
 export const CHAIN_MAINNET = {
-  id: 31336,
-  name: "Ethereum A1",
+  id: CHAIN_ID_MAINNET,
+  name: import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A1",
   rpc: "https://l1rpc.a1.taiko.xyz",
   enabled: true,
   icon: Eth,
+  bridgeAddress: import.meta.env
+    ? import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS
+    : "0x3612E284D763f42f5E4CB72B1602b23DAEC3cA60",
+  headerSyncAddress: import.meta.env
+    ? import.meta.env.VITE_MAINNET_HEADER_SYNC_ADDRESS
+    : "0x7B3AF414448ba906f02a1CA307C56c4ADFF27ce7",
+  explorerUrl: "https://l1explorer.a1.taiko.xyz",
 };
 
 export const CHAIN_TKO = {
-  id: 167001,
-  name: "Taiko A1",
+  id: CHAIN_ID_TAIKO,
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A1",
   rpc: "https://l2rpc.a1.taiko.xyz",
   enabled: true,
   icon: Taiko,
+  bridgeAddress: import.meta.env
+    ? import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS
+    : "0x0000777700000000000000000000000000000004",
+  headerSyncAddress: import.meta.env
+    ? import.meta.env.VITE_TAIKO_HEADER_SYNC_ADDRESS
+    : "0x0000777700000000000000000000000000000001",
+  explorerUrl: "https://l2explorer.a1.taiko.xyz",
 };
 
 export const chains: Record<string, Chain> = {
-  31336: CHAIN_MAINNET,
-  167001: CHAIN_TKO,
+  [CHAIN_ID_MAINNET]: CHAIN_MAINNET,
+  [CHAIN_ID_TAIKO]: CHAIN_TKO,
 };
 
 export const mainnet: WagmiChain = {
-  id: 31336,
+  id: CHAIN_ID_MAINNET,
   name: "Ethereum A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l1rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l1rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -47,22 +77,20 @@ export const mainnet: WagmiChain = {
       url: "https://l1explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };
 
 export const taiko: WagmiChain = {
-  id: 167001,
+  id: CHAIN_ID_TAIKO,
   name: "Taiko A1",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: "https://l2rpc.a1.taiko.xyz",
+    default: {
+      http: ["https://l2rpc.a1.taiko.xyz"],
+    },
   },
   blockExplorers: {
     default: {
@@ -70,11 +98,7 @@ export const taiko: WagmiChain = {
       url: "https://l2explorer.a1.taiko.xyz",
     },
   },
-  ens: {
-    address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  },
-  multicall: {
-    address: "0xca11bde05977b3631167028862be2a173976ca11",
-    blockCreated: 14353601,
-  },
+  // ens: {
+  //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+  // },
 };

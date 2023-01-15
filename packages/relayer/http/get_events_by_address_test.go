@@ -48,6 +48,14 @@ func Test_GetEventsByAddress(t *testing.T) {
 			[]string{`[{"id":780800018316137516,"name":"name",
 			"data":{"Owner":"0x0000000000000000000000000000000000000123"},"status":0,"chainID":167001}]`},
 		},
+		{
+			"successNoChainID",
+			"0x0000000000000000000000000000000000000123",
+			"",
+			http.StatusOK,
+			[]string{`[{"id":780800018316137516,"name":"name",
+			"data":{"Owner":"0x0000000000000000000000000000000000000123"},"status":0,"chainID":167001}]`},
+		},
 	}
 
 	for _, tt := range tests {

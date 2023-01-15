@@ -10,6 +10,8 @@ import TokenVault from "../constants/abi/TokenVault";
 import ERC20 from "../constants/abi/ERC20";
 import type { Prover } from "../domain/proof";
 import { MessageStatus } from "../domain/message";
+import BridgeABI from "../constants/abi/Bridge";
+import { chains } from "../domain/chain";
 
 class ERC20Bridge implements Bridge {
   private readonly prover: Prover;
@@ -68,14 +70,14 @@ class ERC20Bridge implements Bridge {
         opts.tokenAddress,
         opts.signer,
         opts.amountInWei,
-        opts.bridgeAddress
+        opts.tokenVaultAddress
       )
     ) {
       throw Error("token vault does not have required allowance");
     }
 
     const contract: Contract = new Contract(
-      opts.bridgeAddress,
+      opts.tokenVaultAddress,
       TokenVault,
       opts.signer
     );
@@ -105,7 +107,10 @@ class ERC20Bridge implements Bridge {
       message.gasLimit,
       message.processingFee,
       message.refundAddress,
-      message.memo
+      message.memo,
+      {
+        value: message.processingFee.add(message.callValue),
+      }
     );
 
     return tx;
@@ -114,7 +119,7 @@ class ERC20Bridge implements Bridge {
   async Claim(opts: ClaimOpts): Promise<Transaction> {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
-      TokenVault,
+      BridgeABI,
       opts.signer
     );
 
@@ -122,7 +127,10 @@ class ERC20Bridge implements Bridge {
       opts.signal
     );
 
-    if (messageStatus === MessageStatus.Done) {
+    if (
+      messageStatus === MessageStatus.Done ||
+      messageStatus === MessageStatus.Failed
+    ) {
       throw Error("message already processed");
     }
 
@@ -134,15 +142,20 @@ class ERC20Bridge implements Bridge {
 
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
-        srcChain: opts.message.srcChainId,
+        srcChain: opts.message.srcChainId.toNumber(),
         signal: opts.signal,
-        sender: opts.message.sender,
+        sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
+        destChain: opts.message.destChainId.toNumber(),
+        destHeaderSyncAddress:
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
       });
 
-      return await contract.processMessage(opts.message, proof);
+      return await contract.processMessage(opts.message, proof, {
+        gasLimit: BigNumber.from(1200000),
+      });
     } else {
-      return await contract.retryMessage(opts.message);
+      return await contract.retryMessage(opts.message, false);
     }
   }
 }

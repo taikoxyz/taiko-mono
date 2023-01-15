@@ -15,6 +15,7 @@ import "./libs/LibBridgeProcess.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeSignal.sol";
+import "./libs/LibBridgeStatus.sol";
 
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
@@ -39,7 +40,7 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageStatusChanged(
         bytes32 indexed signal,
-        LibBridgeData.MessageStatus status
+        LibBridgeStatus.MessageStatus status
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -98,17 +99,6 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function enableDestChain(
-        uint256 _chainId,
-        bool enabled
-    ) external nonReentrant {
-        LibBridgeSend.enableDestChain({
-            state: state,
-            chainId: _chainId,
-            enabled: enabled
-        });
-    }
-
     /*********************
      * Public Functions  *
      *********************/
@@ -159,8 +149,8 @@ contract Bridge is EssentialContract, IBridge {
 
     function getMessageStatus(
         bytes32 signal
-    ) public view virtual returns (LibBridgeData.MessageStatus) {
-        return state.messageStatus[signal];
+    ) public view virtual returns (LibBridgeStatus.MessageStatus) {
+        return LibBridgeStatus.getMessageStatus(signal);
     }
 
     function context() public view returns (Context memory) {
@@ -168,6 +158,13 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return state.destChains[_chainId];
+        return
+            LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+    }
+
+    function getMessageStatusSlot(
+        bytes32 signal
+    ) public pure returns (bytes32) {
+        return LibBridgeStatus.getMessageStatusSlot(signal);
     }
 }

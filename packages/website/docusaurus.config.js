@@ -24,28 +24,7 @@ const config = {
     locales: ["en"],
   },
 
-  plugins: [
-    [
-      "content-docs",
-      {
-        id: "talks",
-        path: "talks",
-        routeBasePath: "talks",
-        editUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
-      },
-    ],
-    [
-      "content-docs",
-      {
-        id: "faq",
-        path: "faq",
-        routeBasePath: "faq",
-        editUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/website/",
-      },
-    ],
-  ],
+  plugins: [],
 
   presets: [
     [
@@ -81,8 +60,16 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      announcementBar: {
+        id: "alpha-1-testnet",
+        content:
+          'Snæfellsjökull is erupting 🌋 <a href="/docs/alpha-1-testnet/start-here">start here</a>',
+        backgroundColor: "#fafbfc",
+        textColor: "#171717",
+        isCloseable: false,
+      },
       colorMode: {
-        defaultMode: "dark",
+        defaultMode: "light",
         respectPrefersColorScheme: false,
       },
       navbar: {
@@ -94,23 +81,43 @@ const config = {
         items: [
           {
             to: "docs/intro",
-            label: "Learn",
-            position: "left",
+            label: "Docs",
           },
           {
             href: "https://mirror.xyz/labs.taiko.eth",
             label: "Blog",
-            position: "left",
           },
           {
-            to: "talks",
-            label: "Talks",
-            position: "left",
+            href: "https://bridge.a1.taiko.xyz/",
+            label: "Bridge",
           },
           {
-            to: "faq",
-            label: "FAQ",
-            position: "left",
+            label: "Faucet",
+            type: "dropdown",
+            items: [
+              {
+                href: "https://l1faucet.a1.taiko.xyz/",
+                label: "L1 Faucet",
+              },
+              {
+                href: "https://l2faucet.a1.taiko.xyz/",
+                label: "L2 Faucet",
+              },
+            ],
+          },
+          {
+            label: "Block Explorer",
+            type: "dropdown",
+            items: [
+              {
+                href: "https://l1explorer.a1.taiko.xyz/",
+                label: "L1 Explorer",
+              },
+              {
+                href: "https://l2explorer.a1.taiko.xyz/",
+                label: "L2 Explorer",
+              },
+            ],
           },
           {
             href: "https://discord.gg/taikoxyz",
@@ -147,11 +154,11 @@ const config = {
             items: [
               {
                 label: "Careers",
-                href: "https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
+                to: "https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2",
               },
               {
                 label: "Media kit",
-                href: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/",
+                to: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/branding/",
               },
             ],
           },
@@ -164,7 +171,7 @@ const config = {
               },
               {
                 label: "GitHub",
-                href: "https://github.com/taikoxyz",
+                to: "https://github.com/taikoxyz",
               },
             ],
           },
@@ -173,19 +180,19 @@ const config = {
             items: [
               {
                 label: "Discord",
-                href: "https://discord.gg/taikoxyz",
+                to: "https://discord.gg/taikoxyz",
               },
               {
                 label: "Reddit",
-                href: "https://www.reddit.com/r/taiko_xyz/",
+                to: "https://www.reddit.com/r/taiko_xyz/",
               },
               {
                 label: "Twitter",
-                href: "https://twitter.com/taikoxyz",
+                to: "https://twitter.com/taikoxyz",
               },
               {
                 label: "YouTube",
-                href: "https://www.youtube.com/@taikoxyz",
+                to: "https://www.youtube.com/@taikoxyz",
               },
             ],
           },

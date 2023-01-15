@@ -1,55 +1,38 @@
-import { expect } from "chai"
-import { ethers } from "hardhat"
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { TaikoL2 } from "../../typechain";
+import deployAddressManager from "../utils/addressManager";
+import { randomBytes32 } from "../utils/bytes";
+import { deployTaikoL2 } from "../utils/taikoL2";
 
 describe("TaikoL2", function () {
-    async function deployTaikoL2Fixture() {
-        // Deploying addressManager Contract
-        const addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy()
-        await addressManager.init()
+    let taikoL2: TaikoL2;
 
-        // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
-        const libTxDecoder = await (
-            await ethers.getContractFactory("LibTxDecoder")
-        ).deploy()
-
-        const taikoL2Factory = await ethers.getContractFactory("TaikoL2", {
-            libraries: {
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
-        const taikoL2 = await taikoL2Factory.deploy(addressManager.address)
-
-        return { taikoL2 }
-    }
+    beforeEach(async function () {
+        const signer = (await ethers.getSigners())[0];
+        const addressManager = await deployAddressManager(signer);
+        taikoL2 = await deployTaikoL2(signer, addressManager);
+    });
 
     describe("anchor()", async function () {
         it("should revert since ancestor hashes not written", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
             await expect(
                 taikoL2.anchor(Math.ceil(Math.random() * 1024), randomBytes32())
-            ).to.be.revertedWith("L2:publicInputHash")
-        })
-    })
+            ).to.be.revertedWith("L2:publicInputHash");
+        });
+    });
 
     describe("getLatestSyncedHeader()", async function () {
         it("should be 0 because no headers have been synced", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
-            const hash = await taikoL2.getLatestSyncedHeader()
-            expect(hash).to.be.eq(ethers.constants.HashZero)
-        })
-    })
+            const hash = await taikoL2.getLatestSyncedHeader();
+            expect(hash).to.be.eq(ethers.constants.HashZero);
+        });
+    });
 
     describe("getSyncedHeader()", async function () {
         it("should be 0 because header number has not been synced", async function () {
-            const { taikoL2 } = await deployTaikoL2Fixture()
-            const hash = await taikoL2.getSyncedHeader(1)
-            expect(hash).to.be.eq(ethers.constants.HashZero)
-        })
-    })
-})
-
-function randomBytes32() {
-    return ethers.utils.hexlify(ethers.utils.randomBytes(32))
-}
+            const hash = await taikoL2.getSyncedHeader(1);
+            expect(hash).to.be.eq(ethers.constants.HashZero);
+        });
+    });
+});

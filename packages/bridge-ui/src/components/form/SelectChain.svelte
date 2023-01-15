@@ -1,17 +1,18 @@
 <script>
-  import ArrowRight from "../icons/ArrowRight.svelte";
+  import { ArrowRight } from "svelte-heros-v2";
   import { fromChain, toChain } from "../../store/chain";
   import { CHAIN_MAINNET, CHAIN_TKO } from "../../domain/chain";
-  import { ethereum } from "../../store/ethereum";
   import { signer } from "../../store/signer";
-  import { switchEthereumChain } from "../../utils/switchEthereumChain";
   import { ethers } from "ethers";
   import { errorToast, successToast } from "../../utils/toast";
+  import { switchNetwork } from "@wagmi/core";
 
   const toggleChains = async () => {
     try {
       const chain = $fromChain === CHAIN_MAINNET ? CHAIN_TKO : CHAIN_MAINNET;
-      await switchEthereumChain($ethereum, chain);
+      await switchNetwork({
+        chainId: chain.id,
+      });
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 
@@ -27,7 +28,9 @@
   };
 </script>
 
-<div class="flex items-center justify-between w-full p-8 py-6 text-lg">
+<div
+  class="flex items-center justify-between w-full px-4 md:px-8 py-6 text-sm md:text-lg text-white"
+>
   <div class="flex items-center w-2/5 justify-center">
     {#if $fromChain}
       <svelte:component this={$fromChain.icon} />
@@ -38,8 +41,10 @@
     {/if}
   </div>
 
-  <button on:click={toggleChains} class="btn btn-square btn-xs"
-    ><ArrowRight /></button
+  <button
+    on:click={toggleChains}
+    class="btn btn-square btn-sm"
+    disabled={!$signer}><ArrowRight size="16" /></button
   >
   <div class="flex items-center w-2/5 justify-center">
     {#if $toChain}

@@ -1,20 +1,21 @@
 // eslint-disable-next-line no-unused-vars
-import { expect } from "chai"
-import { keccak256 } from "ethers/lib/utils"
-const hre = require("hardhat")
-const ethers = hre.ethers
-const EBN = ethers.BigNumber
+import { expect } from "chai";
+import { keccak256 } from "ethers/lib/utils";
+import { LibBlockHeaderDecoder, TestLibBlockHeader } from "../../typechain";
+const hre = require("hardhat");
+const ethers = hre.ethers;
+const EBN = ethers.BigNumber;
 
 describe("LibBlockHeaderDecoder", async function () {
     // eslint-disable-next-line no-unused-vars
-    let blockHeaderDecoder: any
-    let hashBlockHeader: any
+    let blockHeaderDecoder: LibBlockHeaderDecoder;
+    let hashBlockHeader: TestLibBlockHeader;
 
     before(async function () {
         // Deploying Lib to Link
         const blkHdrDcdrLib = await (
             await ethers.getContractFactory("LibBlockHeaderDecoder")
-        ).deploy()
+        ).deploy();
 
         // Deploying Library
         blockHeaderDecoder = await (
@@ -23,16 +24,16 @@ describe("LibBlockHeaderDecoder", async function () {
                     LibBlockHeaderDecoder: blkHdrDcdrLib.address,
                 },
             })
-        ).deploy()
+        ).deploy();
 
         hashBlockHeader = await (
             await ethers.getContractFactory("TestLibBlockHeader")
-        ).deploy()
-    })
+        ).deploy();
+    });
 
     it("Decode should return stateRoot and timeStamp", async function () {
         const parentHash =
-            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb"
+            "0xa7881266ca0a344c43cb24175d9dbd243b58d45d6ae6ad71310a273a3d1d3afb";
         const blockHeader: any = {
             parentHash: parentHash,
             ommersHash:
@@ -58,31 +59,31 @@ describe("LibBlockHeaderDecoder", async function () {
                 "0xf5ba25df1e92e89a09e0b32063b81795f631100801158f5fa733f2ba26843bd0",
             nonce: EBN.from("0x738b7e38476abe98"),
             baseFeePerGas: 0,
-        }
+        };
 
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
             blockHeader
-        )
+        );
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
                 keccak256(encodedBlockHeader),
                 false
-            )
+            );
 
-        expect(_stateRoot).to.equal(blockHeader.stateRoot)
-        expect(_timeStamp).to.equal(blockHeader.timestamp)
-        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot)
-        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
-    })
+        expect(_stateRoot).to.equal(blockHeader.stateRoot);
+        expect(_timeStamp).to.equal(blockHeader.timestamp);
+        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot);
+        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot);
+    });
 
     it("Same as above, using latest blockHeader", async function () {
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
             "latest",
             false,
-        ])
-        const logsBloom = block.logsBloom.toString().substring(2)
+        ]);
+        const logsBloom = block.logsBloom.toString().substring(2);
         const blockHeader = {
             parentHash: block.parentHash,
             ommersHash: block.sha3Uncles,
@@ -102,30 +103,30 @@ describe("LibBlockHeaderDecoder", async function () {
             mixHash: block.mixHash,
             nonce: block.nonce,
             baseFeePerGas: 0,
-        }
+        };
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
             blockHeader
-        )
+        );
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
                 keccak256(encodedBlockHeader),
                 false
-            )
+            );
 
-        expect(_stateRoot).to.equal(blockHeader.stateRoot)
-        expect(_timeStamp).to.equal(blockHeader.timestamp)
-        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot)
-        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
-    })
+        expect(_stateRoot).to.equal(blockHeader.stateRoot);
+        expect(_timeStamp).to.equal(blockHeader.timestamp);
+        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot);
+        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot);
+    });
 
     it("Same as above, using earliest blockHeader", async function () {
         const block = await hre.ethers.provider.send("eth_getBlockByNumber", [
             "earliest",
             false,
-        ])
-        const logsBloom = block.logsBloom.toString().substring(2)
+        ]);
+        const logsBloom = block.logsBloom.toString().substring(2);
         const blockHeader = {
             parentHash: block.parentHash,
             ommersHash: block.sha3Uncles,
@@ -145,21 +146,21 @@ describe("LibBlockHeaderDecoder", async function () {
             mixHash: block.mixHash,
             nonce: block.nonce,
             baseFeePerGas: 0,
-        }
+        };
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
             blockHeader
-        )
+        );
 
         const [_stateRoot, _timeStamp, _transactionsRoot, _receiptsRoot] =
             await blockHeaderDecoder.decodeBlockHeader(
                 encodedBlockHeader,
                 keccak256(encodedBlockHeader),
                 false
-            )
+            );
 
-        expect(_stateRoot).to.equal(blockHeader.stateRoot)
-        expect(_timeStamp).to.equal(blockHeader.timestamp)
-        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot)
-        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot)
-    })
-})
+        expect(_stateRoot).to.equal(blockHeader.stateRoot);
+        expect(_timeStamp).to.equal(blockHeader.timestamp);
+        expect(_transactionsRoot).to.equal(blockHeader.transactionsRoot);
+        expect(_receiptsRoot).to.equal(blockHeader.receiptsRoot);
+    });
+});

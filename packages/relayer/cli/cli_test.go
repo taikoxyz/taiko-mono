@@ -203,7 +203,7 @@ func Test_makeIndexers(t *testing.T) {
 				defer reset()
 			}
 
-			indexers, cancel, err := makeIndexers(tt.layer, tt.dbFunc(t))
+			indexers, cancel, err := makeIndexers(tt.layer, tt.dbFunc(t), relayer.ProfitableOnly(true))
 			if cancel != nil {
 				defer cancel()
 			}

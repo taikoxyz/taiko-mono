@@ -1,88 +1,91 @@
-import { Config, Result } from "./interface"
-const path = require("path")
-const { ethers } = require("ethers")
+import { Config, Result } from "./interface";
+const path = require("path");
+const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
-const linker = require("solc/linker")
+const linker = require("solc/linker");
 const {
     computeStorageSlots,
     getStorageLayout,
-} = require("@defi-wonderland/smock/dist/src/utils")
-const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts")
+} = require("@defi-wonderland/smock/dist/src/utils");
+const ARTIFACTS_PATH = path.join(__dirname, "../../artifacts/contracts");
 
 // deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
 export async function deployTaikoL2(
     config: Config,
     result: Result
 ): Promise<Result> {
-    const { contractOwner, chainId, seedAccounts } = config
+    const { contractOwner, chainId, seedAccounts } = config;
 
-    const alloc: any = {}
+    const alloc: any = {};
 
-    let etherVaultBalance = ethers.BigNumber.from("2").pow(128).sub(1) // MaxUint128
+    let etherVaultBalance = ethers.BigNumber.from("2").pow(128).sub(1); // MaxUint128
 
     for (const seedAccount of seedAccounts) {
-        const accountAddress = Object.keys(seedAccount)[0]
+        const accountAddress = Object.keys(seedAccount)[0];
         const balance = ethers.utils.parseEther(
             `${Object.values(seedAccount)[0]}`
-        )
+        );
 
-        console.log(`seedAccountAddress: ${accountAddress}`)
-        console.log(`premintBalance: ${balance}`)
+        console.log(`seedAccountAddress: ${accountAddress}`);
+        console.log(`premintBalance: ${balance}`);
 
-        alloc[accountAddress] = { balance: balance.toHexString() }
+        alloc[accountAddress] = { balance: balance.toHexString() };
 
-        etherVaultBalance = etherVaultBalance.sub(balance)
+        etherVaultBalance = etherVaultBalance.sub(balance);
     }
 
-    console.log({ etherVaultBalance })
-    console.log("\n")
+    console.log({ etherVaultBalance });
+    console.log("\n");
 
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         chainId,
         config.contractAddresses
-    )
+    );
 
-    const storageLayouts: any = {}
+    const storageLayouts: any = {};
 
     for (const contractName of Object.keys(contractConfigs)) {
-        console.log(`generating genesis.alloc for ${contractName}`)
+        console.log(`generating genesis.alloc for ${contractName}`);
 
-        const contractConfig = contractConfigs[contractName]
+        const contractConfig = contractConfigs[contractName];
 
         alloc[contractConfig.address] = {
             contractName,
             storage: {},
             code: contractConfig.deployedBytecode,
-        }
+        };
 
         // pre-mint ETHs for EtherVault contract
         alloc[contractConfig.address].balance =
             contractName === "EtherVault"
                 ? etherVaultBalance.toHexString()
-                : "0x0"
+                : "0x0";
 
         // since we enable storageLayout compiler output in hardhat.config.ts,
         // rollup/artifacts/build-info will contain storage layouts, here
         // reading it using smock package.
-        storageLayouts[contractName] = await getStorageLayout(contractName)
+        storageLayouts[contractName] = await getStorageLayout(contractName);
 
         // initialize contract variables, we only care about the variables
         // that need to be initialized with non-zero value.
         const slots = computeStorageSlots(
             storageLayouts[contractName],
             contractConfigs[contractName].variables
-        )
+        );
 
         for (const slot of slots) {
-            alloc[contractConfig.address].storage[slot.key] = slot.val
+            alloc[contractConfig.address].storage[slot.key] = slot.val;
         }
     }
 
-    result.alloc = Object.assign(result.alloc, alloc)
-    result.storageLayouts = Object.assign(result.storageLayouts, storageLayouts)
+    result.alloc = Object.assign(result.alloc, alloc);
+    result.storageLayouts = Object.assign(
+        result.storageLayouts,
+        storageLayouts
+    );
 
-    return result
+    return result;
 }
 
 // generateContractConfigs returns all L2 contracts address, deployedBytecode,
@@ -131,28 +134,28 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./bridge/EtherVault.sol/EtherVault.json"
         )),
-    }
+    };
 
-    const addressMap: any = {}
+    const addressMap: any = {};
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
-        let bytecode = (artifact as any).bytecode
+        let bytecode = (artifact as any).bytecode;
 
         if (contractName === "TaikoL2") {
             if (!addressMap.LibTxDecoder) {
-                throw new Error("LibTxDecoder not initialized")
+                throw new Error("LibTxDecoder not initialized");
             }
 
-            bytecode = linkContractLibs(contractArtifacts.TaikoL2, addressMap)
+            bytecode = linkContractLibs(contractArtifacts.TaikoL2, addressMap);
         } else if (contractName === "LibBridgeProcess") {
             if (!addressMap.LibTrieProof) {
-                throw new Error("LibTrieProof not initialized")
+                throw new Error("LibTrieProof not initialized");
             }
 
             bytecode = linkContractLibs(
                 contractArtifacts.LibBridgeProcess,
                 addressMap
-            )
+            );
         } else if (contractName === "Bridge") {
             if (
                 !addressMap.LibTrieProof ||
@@ -161,17 +164,17 @@ async function generateContractConfigs(
             ) {
                 throw new Error(
                     "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
-                )
+                );
             }
 
-            bytecode = linkContractLibs(contractArtifacts.Bridge, addressMap)
+            bytecode = linkContractLibs(contractArtifacts.Bridge, addressMap);
         }
 
         if (
             hardCodedAddresses &&
             ethers.utils.isAddress(hardCodedAddresses[contractName])
         ) {
-            addressMap[contractName] = hardCodedAddresses[contractName]
+            addressMap[contractName] = hardCodedAddresses[contractName];
         } else {
             addressMap[contractName] = ethers.utils.getCreate2Address(
                 contractOwner,
@@ -179,12 +182,12 @@ async function generateContractConfigs(
                     ethers.utils.toUtf8Bytes(`${chainId}${contractName}`)
                 ),
                 ethers.utils.keccak256(ethers.utils.toUtf8Bytes(bytecode))
-            )
+            );
         }
     }
 
-    console.log("pre-computed addresses:")
-    console.log(addressMap)
+    console.log("pre-computed addresses:");
+    console.log(addressMap);
 
     return {
         // Libraries
@@ -319,7 +322,7 @@ async function generateContractConfigs(
                 authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
-    }
+    };
 }
 
 // linkContractLibs tries to link contract deployedBytecode to its libraries.
@@ -332,32 +335,32 @@ function linkContractLibs(artifact: any, addressMap: any) {
             linker.findLinkReferences(artifact.deployedBytecode),
             addressMap
         )
-    )
+    );
 
     if (ethers.utils.toUtf8Bytes(linkedBytecode).includes("$__")) {
-        throw new Error("failed to link")
+        throw new Error("failed to link");
     }
 
-    return linkedBytecode
+    return linkedBytecode;
 }
 
 // getLinkLibs tries to get all linked libraries addresses from the given address map, and then
 // assembles a `libraries` param of `linker.linkBytecode(bytecode, libraries)`.
 function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
-    const result: any = {}
+    const result: any = {};
 
     Object.values(artifact.deployedLinkReferences).forEach(
         (linkReference: any) => {
-            const contractName = Object.keys(linkReference)[0]
+            const contractName = Object.keys(linkReference)[0];
             const linkRefKey: any = Object.keys(linkRefs).find(
                 (key) =>
                     linkRefs[key][0].start ===
                     linkReference[contractName][0].start + 1
-            )
+            );
 
-            result[linkRefKey] = addressMap[contractName]
+            result[linkRefKey] = addressMap[contractName];
         }
-    )
+    );
 
-    return result
+    return result;
 }

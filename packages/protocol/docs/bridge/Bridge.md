@@ -20,7 +20,7 @@ uint256[50] __gap
 ### MessageStatusChanged
 
 ```solidity
-event MessageStatusChanged(bytes32 signal, enum LibBridgeData.MessageStatus status)
+event MessageStatusChanged(bytes32 signal, enum LibBridgeStatus.MessageStatus status)
 ```
 
 ### DestChainEnabled
@@ -75,12 +75,6 @@ function processMessage(struct IBridge.Message message, bytes proof) external
 function retryMessage(struct IBridge.Message message, bool isLastAttempt) external
 ```
 
-### enableDestChain
-
-```solidity
-function enableDestChain(uint256 _chainId, bool enabled) external
-```
-
 ### isMessageSent
 
 ```solidity
@@ -120,7 +114,7 @@ by the specified sender.
 ### getMessageStatus
 
 ```solidity
-function getMessageStatus(bytes32 signal) public view virtual returns (enum LibBridgeData.MessageStatus)
+function getMessageStatus(bytes32 signal) public view virtual returns (enum LibBridgeStatus.MessageStatus)
 ```
 
 ### context
