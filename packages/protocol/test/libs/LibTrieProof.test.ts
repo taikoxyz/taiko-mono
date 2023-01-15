@@ -131,7 +131,7 @@ describe("integration:LibTrieProof", function () {
 
             // get storageValue for the slot
             const storageValue = await ethers.provider.getStorageAt(
-                bridge.address,
+                signalService.address,
                 slot,
                 block.number
             );
@@ -142,7 +142,7 @@ describe("integration:LibTrieProof", function () {
             // rpc call to get the merkle proof what value is at slot on the bridge contract
             const proof: EthGetProofResponse = await ethers.provider.send(
                 "eth_getProof",
-                [bridge.address, [slot], block.hash]
+                [signalService.address, [slot], block.hash]
             );
 
             const stateRoot = block.stateRoot;
@@ -158,7 +158,7 @@ describe("integration:LibTrieProof", function () {
             // proof verifies the storageValue at slot is 1
             await testLibTreProof.verify(
                 stateRoot,
-                bridge.address,
+                signalService.address,
                 slot,
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
                 encodedProof
