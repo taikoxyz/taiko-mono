@@ -7,18 +7,6 @@ function ThemedImage() {
   const [src, setSrc] = useState(null);
 
   useEffect(() => {
-    // check local storage
-    setSrc(
-      localStorage.getItem("theme") === "dark" ||
-        localStorage.getItem("theme") === "system" ||
-        localStorage.getItem("theme") === null
-        ? "/images/logotype-white.png"
-        : "/images/logotype-black.png"
-    );
-  }, []);
-
-  // update src on theme change
-  useEffect(() => {
     setSrc(
       localStorage.getItem("theme") === "dark" ||
         localStorage.getItem("theme") === "system" ||

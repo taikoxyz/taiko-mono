@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useConfig } from "nextra-theme-docs";
-import Footer from "components//Footer";
-import ThemedImage from "components/ThemedImage";
+import Footer from "./components/Footer";
+import ThemedImage from "./components/ThemedImage";
 
 export default {
   chat: {

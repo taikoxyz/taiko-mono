@@ -320,8 +320,10 @@ importers:
       '@heroicons/react': ^2.0.13
       '@next/font': ^13.1.2
       '@types/node': ^18.11.10
+      '@types/react': ^18.0.26
       autoprefixer: ^10.4.13
       next: ^13.1.2
+      next-themes: ^0.2.1
       nextra: ^2.2.3
       nextra-theme-docs: ^2.2.3
       postcss: ^8.4.20
@@ -331,6 +333,7 @@ importers:
       typescript: ^4.9.3
     dependencies:
       next: 13.1.2_biqbaboplfbrettd7655fr4n2y
+      next-themes: 0.2.1_7jnwqgtpcnwg4nzft4b6xlzlfi
       nextra: 2.2.3_7jnwqgtpcnwg4nzft4b6xlzlfi
       nextra-theme-docs: 2.2.3_7jnwqgtpcnwg4nzft4b6xlzlfi
       react: 18.2.0
@@ -339,6 +342,7 @@ importers:
       '@heroicons/react': 2.0.13_react@18.2.0
       '@next/font': 13.1.2
       '@types/node': 18.11.18
+      '@types/react': 18.0.26
       autoprefixer: 10.4.13_postcss@8.4.21
       postcss: 8.4.21
       tailwindcss: 3.2.4_postcss@8.4.21
@@ -3745,7 +3749,6 @@ packages:
 
   /@types/prop-types/15.7.5:
     resolution: {integrity: sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==}
-    dev: false
 
   /@types/pug/2.0.6:
     resolution: {integrity: sha512-SnHmG9wN1UVmagJOnyo/qkk0Z7gejYxOYYmaAwr5u2yFYfsupN3sg10kyzN8Hep/2zbHxCnsumxOoRIRMBwKCg==}
@@ -3761,7 +3764,6 @@ packages:
       '@types/prop-types': 15.7.5
       '@types/scheduler': 0.16.2
       csstype: 3.1.1
-    dev: false
 
   /@types/resolve/0.0.8:
     resolution: {integrity: sha512-auApPaJf3NPfe18hSoJkp8EbZzer2ISk7o8mCC3M9he/a04+gbMF97NkpD2S8riMGvm4BMRI59/SZQSaLTKpsQ==}
@@ -3790,7 +3792,6 @@ packages:
 
   /@types/scheduler/0.16.2:
     resolution: {integrity: sha512-hppQEBDmlwhFAXKJX2KnWLYu5yMfi91yazPb2l+lbJiwW+wdo1gNeRA+3RgNSO39WYX2euey41KEwnqesU2Jew==}
-    dev: false
 
   /@types/secp256k1/4.0.3:
     resolution: {integrity: sha512-Da66lEIFeIz9ltsdMZcpQvmrmmoqrfju8pm1BH8WbYjZSwUgCwXLb9C+9XYogwBITnbsSaMdVPb2ekf7TV+03w==}
