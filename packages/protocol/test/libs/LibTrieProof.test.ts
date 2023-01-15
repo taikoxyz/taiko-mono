@@ -9,7 +9,7 @@ import { deploySignalService, getSignalSlot } from "../utils/signal";
 // TODO(roger): this test shall not use any file in contracts/bridge/*.sol
 // Instead, it should use the `writeStorageAt` function to manipulate stroage
 // values then verify the proof.
-describe("iiiintegration:LibTrieProof", function () {
+describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
             await ethers.getContractFactory("LibTrieProof")
@@ -42,14 +42,9 @@ describe("iiiintegration:LibTrieProof", function () {
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 
-const [owner] = await ethers.getSigners();
+        const [owner] = await ethers.getSigners();
 
-    await deploySignalService(
-            owner,
-            addressManager,
-            chainId
-        );
-
+        await deploySignalService(owner, addressManager, chainId);
 
         const libBridgeRetry = await (
             await ethers.getContractFactory("LibBridgeRetry")
@@ -69,7 +64,6 @@ const [owner] = await ethers.getSigners();
         const bridge = await BridgeFactory.deploy();
 
         await bridge.init(addressManager.address);
-
 
         return { owner, testLibTreProof, bridge, enabledDestChainId };
     }
@@ -99,58 +93,58 @@ const [owner] = await ethers.getSigners();
 
             const { tx, msgHash } = await sendMessage(bridge, message);
 
-            // await tx.wait();
+            await tx.wait();
 
-            // expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
+            expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
 
-            // const messageStatus = await bridge.getMessageStatus(msgHash);
+            const messageStatus = await bridge.getMessageStatus(msgHash);
 
-            // expect(messageStatus).to.be.eq(0);
+            expect(messageStatus).to.be.eq(0);
 
-            // const slot = await getSignalSlot(bridge.address, msgHash);
+            const slot = await getSignalSlot(bridge.address, msgHash);
 
-            // // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
-            // // in the response
-            // const block: { stateRoot: string; number: string; hash: string } =
-            //     await ethers.provider.send("eth_getBlockByNumber", [
-            //         "latest",
-            //         false,
-            //     ]);
+            // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
+            // in the response
+            const block: { stateRoot: string; number: string; hash: string } =
+                await ethers.provider.send("eth_getBlockByNumber", [
+                    "latest",
+                    false,
+                ]);
 
-            // // get storageValue for the slot
-            // const storageValue = await ethers.provider.getStorageAt(
-            //     bridge.address,
-            //     slot,
-            //     block.number
-            // );
-            // // make sure it equals 1 so our proof will pass
-            // expect(storageValue).to.be.eq(
-            //     "0x0000000000000000000000000000000000000000000000000000000000000001"
-            // );
-            // // rpc call to get the merkle proof what value is at slot on the bridge contract
-            // const proof: EthGetProofResponse = await ethers.provider.send(
-            //     "eth_getProof",
-            //     [bridge.address, [slot], block.hash]
-            // );
+            // get storageValue for the slot
+            const storageValue = await ethers.provider.getStorageAt(
+                bridge.address,
+                slot,
+                block.number
+            );
+            // make sure it equals 1 so our proof will pass
+            expect(storageValue).to.be.eq(
+                "0x0000000000000000000000000000000000000000000000000000000000000001"
+            );
+            // rpc call to get the merkle proof what value is at slot on the bridge contract
+            const proof: EthGetProofResponse = await ethers.provider.send(
+                "eth_getProof",
+                [bridge.address, [slot], block.hash]
+            );
 
-            // const stateRoot = block.stateRoot;
+            const stateRoot = block.stateRoot;
 
-            // // RLP encode the proof together for LibTrieProof to decode
-            // const encodedProof = ethers.utils.defaultAbiCoder.encode(
-            //     ["bytes", "bytes"],
-            //     [
-            //         RLP.encode(proof.accountProof),
-            //         RLP.encode(proof.storageProof[0].proof),
-            //     ]
-            // );
-            // // proof verifies the storageValue at slot is 1
-            // await testLibTreProof.verify(
-            //     stateRoot,
-            //     bridge.address,
-            //     slot,
-            //     "0x0000000000000000000000000000000000000000000000000000000000000001",
-            //     encodedProof
-            // );
+            // RLP encode the proof together for LibTrieProof to decode
+            const encodedProof = ethers.utils.defaultAbiCoder.encode(
+                ["bytes", "bytes"],
+                [
+                    RLP.encode(proof.accountProof),
+                    RLP.encode(proof.storageProof[0].proof),
+                ]
+            );
+            // proof verifies the storageValue at slot is 1
+            await testLibTreProof.verify(
+                stateRoot,
+                bridge.address,
+                slot,
+                "0x0000000000000000000000000000000000000000000000000000000000000001",
+                encodedProof
+            );
         });
     });
 });

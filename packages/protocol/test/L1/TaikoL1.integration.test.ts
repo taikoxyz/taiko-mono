@@ -10,7 +10,7 @@ import { getDefaultL2Signer, getL1Provider } from "../utils/provider";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 
-describe("integra--------------tion:TaikoL1", function () {
+describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let taikoL2: TaikoL2;
     let l2Provider: ethersLib.providers.JsonRpcProvider;

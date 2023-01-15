@@ -6,7 +6,6 @@ import {
     Bridge,
     SignalService,
     TestHeaderSync,
-    TestLibBridgeData,
 } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import {
@@ -15,14 +14,11 @@ import {
     sendAndProcessMessage,
     sendMessage,
 } from "../utils/bridge";
-import { randomBytes32 } from "../utils/bytes";
+// import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
 import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
-import {
-    deploySignalService,
-    getSignalProof,
-} from "../utils/signal";
+import { deploySignalService, getSignalProof } from "../utils/signal";
 
 describe("integration:Bridge", function () {
     let owner: any;
@@ -211,7 +207,7 @@ describe("integration:Bridge", function () {
 
             await expect(
                 l2Bridge.processMessage(m, signalProof)
-            ).to.be.revertedWith("LTP:invalid storage proof");
+            ).to.be.revertedWith("B:notReceived");
         });
 
         it("should throw if message has not been received", async function () {
@@ -293,10 +289,7 @@ describe("integration:Bridge", function () {
 
     describe("isMessageSent()", function () {
         it("should return false, since no message was sent", async function () {
-            const libData = await (
-                await ethers.getContractFactory("TestLibBridgeData")
-            ).deploy();
-            const msgHash = await libData.hashMessage(m);
+            const msgHash = await l1Bridge.hashMessage(m);
 
             expect(await l1Bridge.isMessageSent(msgHash)).to.be.eq(false);
         });
@@ -320,7 +313,7 @@ describe("integration:Bridge", function () {
 
             const sender = owner.address;
 
-            const slot =  await l1SignalService.getSignalSlot(sender, msgHash);
+            const slot = await l1SignalService.getSignalSlot(sender, msgHash);
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -353,8 +346,11 @@ describe("integration:Bridge", function () {
         });
 
         it("if message is valid and sent by the bridge it should return true", async function () {
-            const {msgHash} = await sendMessage(l1Bridge, m);
-            const slot = await l1SignalService.getSignalSlot(l1Bridge.address, msgHash);
+            const { msgHash } = await sendMessage(l1Bridge, m);
+            const slot = await l1SignalService.getSignalSlot(
+                l1Bridge.address,
+                msgHash
+            );
 
             const { block, blockHeader } = await getBlockHeader(
                 hre.ethers.provider
@@ -363,35 +359,35 @@ describe("integration:Bridge", function () {
             await headerSync.setSyncedHeader(block.hash);
 
             // get storageValue for the key
-            // const storageValue = await ethers.provider.getStorageAt(
-            //     l1SignalService.address,
-            //     slot,
-            //     block.number
-            // );
-            // // make sure it equals 1 so we know sendMessage worked
-            // expect(storageValue).to.be.eq(
-            //     "0x0000000000000000000000000000000000000000000000000000000000000001"
-            // );
+            const storageValue = await ethers.provider.getStorageAt(
+                l1SignalService.address,
+                slot,
+                block.number
+            );
+            // make sure it equals 1 so we know sendMessage worked
+            expect(storageValue).to.be.eq(
+                "0x0000000000000000000000000000000000000000000000000000000000000001"
+            );
 
-            // const signalProof = await getSignalProof(
-            //     hre.ethers.provider,
-            //     l1SignalService.address,
-            //     slot,
-            //     block.number,
-            //     blockHeader
-            // );
+            const signalProof = await getSignalProof(
+                hre.ethers.provider,
+                l1SignalService.address,
+                slot,
+                block.number,
+                blockHeader
+            );
 
-            // expect(
-            //     await l2Bridge.isMessageReceived(
-            //         msgHash,
-            //         srcChainId,
-            //         signalProof
-            //     )
-            // ).to.be.eq(true);
+            expect(
+                await l2Bridge.isMessageReceived(
+                    msgHash,
+                    srcChainId,
+                    signalProof
+                )
+            ).to.be.eq(true);
         });
     });
 
-/*
+    /*
     describe("isSignalReceived()", function () {
         it("should throw if sender == address(0)", async function () {
             const signal = randomBytes32();

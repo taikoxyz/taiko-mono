@@ -14,7 +14,7 @@ import { getSignalProof } from "./signal";
 async function deployBridge(
     signer: Signer,
     addressManager: AddressManager,
-    chainId: number,
+    chainId: number
 ): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
     const libBridgeProcess = await (
         await hardhatEthers.getContractFactory("LibBridgeProcess")
@@ -94,7 +94,7 @@ async function sendMessage(
 
 // Process a L1-to-L1 message
 async function processMessage(
-    l1SignalService:SignalService,
+    l1SignalService: SignalService,
     l1Bridge: Bridge,
     l2Bridge: Bridge,
     signal: string,
@@ -131,7 +131,7 @@ async function sendAndProcessMessage(
     provider: ethers.providers.JsonRpcProvider,
     headerSync: TestHeaderSync,
     m: Message,
-    l1SignalService:SignalService,
+    l1SignalService: SignalService,
     l1Bridge: Bridge,
     l2Bridge: Bridge
 ): Promise<{
@@ -140,17 +140,17 @@ async function sendAndProcessMessage(
     signal: string;
     signalProof: string;
 }> {
-    const { signal, message } = await sendMessage(l1Bridge, m);
+    const { msgHash, message } = await sendMessage(l1Bridge, m);
     const { tx, signalProof } = await processMessage(
         l1SignalService,
         l1Bridge,
         l2Bridge,
-        signal,
+        msgHash,
         provider,
         headerSync,
         message
     );
-    return { tx, signal, message, signalProof };
+    return { tx, msgHash, message, signalProof };
 }
 
 export { deployBridge, sendMessage, processMessage, sendAndProcessMessage };
