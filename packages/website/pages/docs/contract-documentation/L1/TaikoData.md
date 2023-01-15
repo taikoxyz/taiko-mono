@@ -34,6 +34,7 @@ struct Config {
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 initialUncleDelay;
   bool enableTokenomics;
+  bool enablePublicInputsCheck;
 }
 ```
 

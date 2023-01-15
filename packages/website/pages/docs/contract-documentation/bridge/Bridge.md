@@ -122,3 +122,9 @@ Returns the bridge state context.
 ```solidity
 function isDestChainEnabled(uint256 _chainId) public view returns (bool)
 ```
+
+### getMessageStatusSlot
+
+```solidity
+function getMessageStatusSlot(bytes32 signal) public pure returns (bytes32)
+```

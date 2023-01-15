@@ -1,5 +1,3 @@
-import React from "react";
-
 type Props = {
   buttonText: string;
   chain: string;
@@ -52,7 +50,7 @@ async function addEthereumChain(chain: string) {
   });
 }
 
-export default function AddEthereumChainButton(props: Props): JSX.Element {
+export default function AddEthereumChainButton(props: Props) {
   return (
     <div
       onClick={() => addEthereumChain(props.chain)}

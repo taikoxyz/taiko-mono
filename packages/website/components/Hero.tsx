@@ -50,7 +50,7 @@ export default function Hero() {
             <div className="mt-10 flex md:justify-left">
               <div className="inline-flex rounded-md shadow">
                 <a
-                  href="/docs/alpha-testnet-guide/get-started"
+                  href="/docs/alpha-1-testnet-guide/get-started"
                   className="inline-flex items-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
                 >
                   Explore Snæfellsjökull 🌋

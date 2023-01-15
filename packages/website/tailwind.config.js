@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        oxanium: ["Oxanium", "sans-serif"],
+        oxanium: ["var(--font-oxanium)"],
       },
     },
   },

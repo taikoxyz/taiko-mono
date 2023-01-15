@@ -1,5 +1,3 @@
-import React from "react";
-
 const posts = [
   {
     title: "Taiko Ambassador Program",
@@ -47,10 +45,8 @@ const posts = [
     },
   },
 ];
-/**
- * @returns Blog section displaying latest Taiko blog posts from Mirror
- */
-export default function BlogSection(): JSX.Element {
+
+export default function BlogSection() {
   return (
     <div className="relative bg-neutral-50 px-4 pt-16 pb-20 sm:px-6 lg:px-8 lg:pt-24 lg:pb-28 dark:bg-neutral-900">
       <div className="absolute inset-0">
@@ -96,14 +92,12 @@ export default function BlogSection(): JSX.Element {
                 </div>
                 <div className="mt-6 flex items-center">
                   <div className="flex-shrink-0">
-                    <a>
-                      <span className="sr-only">{post.author.name}</span>
-                      <img
-                        className="h-10 w-10 rounded-full"
-                        src={post.author.imageUrl}
-                        alt=""
-                      />
-                    </a>
+                    <span className="sr-only">{post.author.name}</span>
+                    <img
+                      className="h-10 w-10 rounded-full"
+                      src={post.author.imageUrl}
+                      alt=""
+                    />
                   </div>
                   <div className="ml-3">
                     <div className="text-sm font-medium text-[#fc0fc0]">

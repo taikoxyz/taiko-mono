@@ -9,15 +9,6 @@ export default {
   },
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/taikoxyz",
-  document: {
-    StyleSheet: {
-      styles: {
-        body: {
-          fontFamily: "Oxanium, sans-serif",
-        },
-      },
-    },
-  },
   footer: {
     component: <Footer />,
   },
@@ -36,12 +27,6 @@ export default {
           }
         />
         <link rel="icon" href="/images/favicon.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
       </>
     );
   },
@@ -51,8 +36,11 @@ export default {
     link: "https://github.com/taikoxyz",
   },
   useNextSeoProps() {
-    return {
-      titleTemplate: "%s – Taiko",
-    };
+    const { route } = useRouter();
+    if (route !== "/") {
+      return {
+        titleTemplate: "%s – Taiko",
+      };
+    }
   },
 };
