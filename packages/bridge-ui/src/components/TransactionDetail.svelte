@@ -7,7 +7,7 @@
   import { showTransactionDetails } from "../store/transactions";
   export let transaction;
 </script>
-<Modal onClose={() => $showTransactionDetails = null} isOpen={!!transaction} title="Transaction Detail">
+<Modal onClose={() => $showTransactionDetails = null} isOpen={!!transaction} title="Transaction Details">
   <table class="table table-normal w-full md:w-2/3 m-auto table-fixed border-spacing-0 text-sm md:text-base">
     <tr>
       <td>Tx Hash</td>

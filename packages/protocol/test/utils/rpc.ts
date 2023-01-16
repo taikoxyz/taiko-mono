@@ -1,3 +1,5 @@
+import { BigNumber, ethers } from "ethers";
+
 type StorageEntry = {
     key: string;
     value: string;
@@ -56,4 +58,47 @@ type BlockHeader = {
     baseFeePerGas: number;
 };
 
-export { Block, BlockHeader, StorageEntry, EthGetProofResponse };
+async function getBlockHeader(
+    provider: ethers.providers.JsonRpcProvider,
+    blockNumber?: number
+) {
+    const b = await provider.getBlock(
+        blockNumber ? BigNumber.from(blockNumber).toHexString() : "latest"
+    );
+
+    const block: Block = await provider.send("eth_getBlockByHash", [
+        b.hash,
+        false,
+    ]);
+
+    const logsBloom = block.logsBloom.toString().substring(2);
+
+    const blockHeader: BlockHeader = {
+        parentHash: block.parentHash,
+        ommersHash: block.sha3Uncles,
+        beneficiary: block.miner,
+        stateRoot: block.stateRoot,
+        transactionsRoot: block.transactionsRoot,
+        receiptsRoot: block.receiptsRoot,
+        logsBloom: logsBloom.match(/.{1,64}/g)!.map((s: string) => "0x" + s),
+        difficulty: block.difficulty,
+        height: block.number,
+        gasLimit: block.gasLimit,
+        gasUsed: block.gasUsed,
+        timestamp: block.timestamp,
+        extraData: block.extraData,
+        mixHash: block.mixHash,
+        nonce: block.nonce,
+        baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+    };
+
+    return { block, blockHeader };
+}
+
+export {
+    Block,
+    BlockHeader,
+    StorageEntry,
+    EthGetProofResponse,
+    getBlockHeader,
+};
