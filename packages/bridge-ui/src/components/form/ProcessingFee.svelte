@@ -65,7 +65,7 @@
       <button
         class="{$processingFee === fee[0]
           ? 'border-accent hover:border-accent'
-          : ''} btn btn-md text-xs font-semibold md:w-32 bg-dark-5"
+          : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
         on:click={() => selectProcessingFee(fee[0])}
         >{fee[1].displayText}</button
       >

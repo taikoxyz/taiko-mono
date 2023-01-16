@@ -1,6 +1,7 @@
 module.exports = {
     content: ["./src/**/*.{html,js,svelte,ts}"],
     plugins: [require("daisyui")],
+    darkMode: ["class", '[data-theme=dark]'],
     theme: {
         extend: {
           colors: {
@@ -10,6 +11,7 @@ module.exports = {
             "dark-4": "var(--color-dark-4)",
             "dark-5": "var(--color-dark-5)",
             "dark-6": "var(--color-dark-6)",
+            "transaction-table": "var(--color-transaction-table)",
           }
         }
     },
@@ -43,6 +45,28 @@ module.exports = {
                 "--color-dark-4": "#242424",
                 "--color-dark-5": "#373737",
                 "--color-dark-6": "#4F4F4F",
+                "--color-transaction-table": "#FFFFFF",
+                "--rounded-btn": "1rem",
+                "--btn-text-case": "capitalize",
+                "--rounded-box": "18px",
+              },
+              light: {
+                ...require("daisyui/colors/themes")["[data-theme=light]"],
+                "accent": "#FC0FC0",
+                "accent-focus": "#E30EAD",
+                "accent-content": "#F3F3F3",
+                "base-100": "#FAFAFA",
+                "info": "#373737",
+                "success": "#008000",
+                "warning": "#FFFF00",
+                "error": "#FF0000",
+                "--color-dark-1": "#000000",
+                "--color-dark-2": "#FFFFFF",
+                "--color-dark-3": "#FAFAFA",
+                "--color-dark-4": "#242424",
+                "--color-dark-5": "#CDCDCD",
+                "--color-dark-6": "#4F4F4F",
+                "--color-transaction-table": "#1F2937",
                 "--rounded-btn": "1rem",
                 "--btn-text-case": "capitalize",
                 "--rounded-box": "18px",

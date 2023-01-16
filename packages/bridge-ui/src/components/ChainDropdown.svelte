@@ -41,7 +41,7 @@
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-box w-[194px]"
+    class="dropdown-content address-dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-sm w-[194px]"
   >
     <li>
       <button

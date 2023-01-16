@@ -38,7 +38,7 @@
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box"
+    class="dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2"
   >
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5 px-4 py-4">

@@ -112,7 +112,7 @@
       {/if}
     </div>
     <div class="divider" />
-    <div class="flex hover:bg-dark-5 items-center py-2 px-4">
+    <div class="flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md">
       <img
         width="24"
         height="24"
@@ -123,14 +123,14 @@
       {addressSubsection(address)}
     </div>
     <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4"
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
       on:click={async () => await copyToClipboard(address)}
     >
       <ClipboardDocument class="mr-2" />
       Copy Address
     </div>
     <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4"
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
       on:click={async () => await disconnect()}
     >
       <Power class="mr-2" /> Disconnect
