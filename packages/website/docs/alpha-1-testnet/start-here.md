@@ -24,3 +24,4 @@ All the relevant links can be found in this site's navigation. The relevant link
 | [L2 faucet](https://l2faucet.a1.taiko.xyz/)     | For receiving ETH on Taiko A1                      |
 | [L1 explorer](https://l1explorer.a1.taiko.xyz/) | Explore blocks on Ethereum A1                      |
 | [L2 explorer](https://l2explorer.a1.taiko.xyz/) | Explore blocks on Taiko A1                         |
+| [Testnet status](https://status.a1.taiko.xyz/)  | View the current status of the testnet             |
