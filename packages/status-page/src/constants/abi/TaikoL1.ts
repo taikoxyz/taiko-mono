@@ -423,7 +423,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "boostrapDiscountHalvingPeriod",
+            name: "bootstrapDiscountHalvingPeriod",
             type: "uint64",
           },
           {

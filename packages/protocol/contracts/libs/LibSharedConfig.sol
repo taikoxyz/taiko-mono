@@ -41,9 +41,10 @@ library LibSharedConfig {
                 feeMaxPeriodPctg: 375, // 375%
                 blockTimeCap: 48 seconds,
                 proofTimeCap: 60 minutes,
-                boostrapDiscountHalvingPeriod: 180 days,
+                bootstrapDiscountHalvingPeriod: 180 days,
                 initialUncleDelay: 60 minutes,
-                enableTokenomics: false
+                enableTokenomics: false,
+                enablePublicInputsCheck: true
             });
     }
 }

@@ -47,9 +47,10 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 60 minutes;
-        config.boostrapDiscountHalvingPeriod = 180 days;
+        config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = false;
+        config.enablePublicInputsCheck = true;
     }
 
     function verifyZKP(

@@ -16,10 +16,10 @@
         </li>
         <li class="mb-2">
           <strong>Claimable</strong>: Your asset is ready to be claimed on the
-          destination chain, and requires a transaction.
+          destination chain and requires a transaction.
         </li>
         <li class="mb-2">
-          <strong>Claimed</strong>: Your asset has finished bridging, and is
+          <strong>Claimed</strong>: Your asset has finished bridging and is
           available to you on the destination chain.
         </li>
         <li class="mb-2">
@@ -27,7 +27,7 @@
           message, and you must retry the processing yourself.
         </li>
         <li class="mb-2">
-          <strong>Failed</strong>: Your bridged asset is unable to be processed,
+          <strong>Failed</strong>: Your bridged asset is unable to be processed
           and is available to you on the source chain.
         </li>
       </ul>

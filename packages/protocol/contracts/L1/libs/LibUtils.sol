@@ -138,7 +138,7 @@ library LibUtils {
         uint256 feeBase
     ) internal view returns (uint256) {
         uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.boostrapDiscountHalvingPeriod;
+            config.bootstrapDiscountHalvingPeriod;
         uint256 gamma = 1024 - (1024 >> halves);
         return (feeBase * gamma) / 1024;
     }

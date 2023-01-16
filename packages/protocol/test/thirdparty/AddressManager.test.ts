@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { AddressManager } from "../../typechain";
 import { ethers } from "hardhat";
+import deployAddressManager from "../utils/addressManager";
 
 describe("AddressManager", function () {
     let owner: any;
@@ -12,10 +13,7 @@ describe("AddressManager", function () {
     });
 
     beforeEach(async function () {
-        addressManager = await (
-            await ethers.getContractFactory("AddressManager")
-        ).deploy();
-        await addressManager.init();
+        addressManager = await deployAddressManager(owner);
     });
 
     describe("setAddress()", async () => {
