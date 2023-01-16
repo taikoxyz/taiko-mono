@@ -26,13 +26,13 @@ module.exports = {
             {
               dark: {
                 ...require("daisyui/colors/themes")["[data-theme=black]"],
-                "primary": "#242424",
+                "primary": "#242526",
                 "secondary": "#181818",
                 "accent": "#FC0FC0",
-                "accent-focus": "#B20F89",
+                "accent-focus": "#E30EAD",
                 "accent-content": "#F3F3F3",
                 "neutral": "#242424",
-                "base-100": "#0f0f0f",
+                "base-100": "#1b1b1d",
                 "info": "#373737",
                 "success": "#008000",
                 "warning": "#FFFF00",
