@@ -8,7 +8,7 @@ export default {
     link: "https://discord.gg/taikoxyz",
   },
   docsRepositoryBase:
-    "https://github.com/taikoxyz/taiko-mono/blob/main/packages/taikoxyz",
+    "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   footer: {
     component: <Footer />,
   },
