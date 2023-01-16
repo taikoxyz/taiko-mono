@@ -13,7 +13,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                Careers ↗
+                Careers
               </a>
             </li>
             <li className="mb-4">
@@ -22,7 +22,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                Media kit ↗
+                Media kit
               </a>
             </li>
           </ul>
@@ -43,7 +43,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                GitHub ↗
+                GitHub
               </a>
             </li>
           </ul>
@@ -59,7 +59,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                Discord ↗
+                Discord
               </a>
             </li>
             <li className="mb-4">
@@ -68,7 +68,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                Reddit ↗
+                Reddit
               </a>
             </li>
             <li className="mb-4">
@@ -77,7 +77,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                Twitter ↗
+                Twitter
               </a>
             </li>
             <li className="mb-4">
@@ -86,7 +86,7 @@ export default function Footer() {
                 className="hover:underline"
                 target={"_blank"}
               >
-                YouTube ↗
+                YouTube
               </a>
             </li>
           </ul>

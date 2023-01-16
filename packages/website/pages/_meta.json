@@ -12,50 +12,44 @@
     "type": "page"
   },
   "blog": {
-    "title": "Blog ↗",
+    "title": "Blog",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
-  "status": {
-    "title": "Status ↗",
-    "type": "page",
-    "href": "https://status.a1.taiko.xyz",
-    "newWindow": true
-  },
-  "bridge": {
-    "title": "Bridge ↗",
-    "type": "page",
-    "href": "https://bridge.a1.taiko.xyz",
-    "newWindow": true
-  },
-  "faucet": {
-    "title": "Faucet",
+  "Snæfellsjökull": {
+    "title": "Snæfellsjökull",
     "type": "menu",
     "items": {
+      "status": {
+        "title": "Status",
+        "type": "page",
+        "href": "https://status.a1.taiko.xyz",
+        "newWindow": true
+      },
+      "bridge": {
+        "title": "Bridge",
+        "type": "page",
+        "href": "https://bridge.a1.taiko.xyz",
+        "newWindow": true
+      },
       "l1faucet": {
-        "title": "L1 Faucet ↗",
+        "title": "L1 Faucet",
         "href": "https://l1faucet.a1.taiko.xyz/",
         "newWindow": true
       },
       "l2faucet": {
-        "title": "L2 Faucet ↗",
+        "title": "L2 Faucet",
         "href": "https://l2faucet.a1.taiko.xyz/",
         "newWindow": true
-      }
-    }
-  },
-  "blockexplorer": {
-    "title": "Block Explorer",
-    "type": "menu",
-    "items": {
-      "l1faucet": {
-        "title": "L1 Block Explorer ↗",
+      },
+      "l1explorer": {
+        "title": "L1 Block Explorer",
         "href": "https://l1explorer.a1.taiko.xyz/",
         "newWindow": true
       },
-      "l2faucet": {
-        "title": "L2 Block Explorer ↗",
+      "l2explorer": {
+        "title": "L2 Block Explorer",
         "href": "https://l2explorer.a1.taiko.xyz/",
         "newWindow": true
       }
