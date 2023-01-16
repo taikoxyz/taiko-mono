@@ -178,25 +178,22 @@ describe("tokenomics", function () {
         expect(hasFailedAssertions).to.be.eq(false);
     });
 
-    describe("bootstrapHalvingPeriod", function () {
-        it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
-            const { bootstrapDiscountHalvingPeriod } =
-                await taikoL1.getConfig();
+    it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
+        const { bootstrapDiscountHalvingPeriod } = await taikoL1.getConfig();
 
-            const iterations: number = 5;
-            const period: number = bootstrapDiscountHalvingPeriod
-                .mul(1000)
-                .toNumber();
+        const iterations: number = 5;
+        const period: number = bootstrapDiscountHalvingPeriod
+            .mul(1000)
+            .toNumber();
 
-            let lastBlockFee: BigNumber = await taikoL1.getBlockFee();
+        let lastBlockFee: BigNumber = await taikoL1.getBlockFee();
 
-            for (let i = 0; i < iterations; i++) {
-                await sleep(period);
-                const blockFee = await taikoL1.getBlockFee();
-                expect(blockFee.gt(lastBlockFee)).to.be.eq(true);
-                lastBlockFee = blockFee;
-            }
-        });
+        for (let i = 0; i < iterations; i++) {
+            await sleep(period);
+            const blockFee = await taikoL1.getBlockFee();
+            expect(blockFee.gt(lastBlockFee)).to.be.eq(true);
+            lastBlockFee = blockFee;
+        }
     });
 
     it("expects the blockFee to go be 0 when no periods have passed", async function () {
