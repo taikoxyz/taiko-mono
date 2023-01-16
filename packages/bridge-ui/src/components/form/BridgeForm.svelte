@@ -17,7 +17,7 @@
   import SelectToken from "../buttons/SelectToken.svelte";
 
   import type { Token } from "../../domain/token";
-  import type { BridgeType } from "../../domain/bridge";
+  import type { BridgeOpts, BridgeType } from "../../domain/bridge";
   import { chains } from "../../domain/chain";
 
   import type { Chain } from "../../domain/chain";
@@ -178,18 +178,30 @@
     }
   }
 
-  async function checkUserHasEnoughBalance(gasEstimate: BigNumber) {
-    const feeData = await fetchFeeData();
-    const requiredGas = gasEstimate.mul(feeData.gasPrice);
-    const userBalance = await $signer.getBalance("latest");
+  async function checkUserHasEnoughBalance(
+    bridgeOpts: BridgeOpts
+  ): Promise<boolean> {
+    try {
+      const gasEstimate = await $activeBridge.EstimateGas({
+        ...bridgeOpts,
+        amountInWei: BigNumber.from(1),
+      });
+      const feeData = await fetchFeeData();
+      const requiredGas = gasEstimate.mul(feeData.gasPrice);
+      const userBalance = await $signer.getBalance("latest");
 
-    let balanceAvailableForTx = userBalance;
+      let balanceAvailableForTx = userBalance;
 
-    if($token.symbol === ETH.symbol) {
-      balanceAvailableForTx = userBalance.sub(ethers.utils.parseEther(amount));
+      if ($token.symbol === ETH.symbol) {
+        balanceAvailableForTx = userBalance.sub(
+          ethers.utils.parseEther(amount)
+        );
+      }
+
+      return balanceAvailableForTx.gte(requiredGas);
+    } catch (e) {
+      return false;
     }
-
-    return balanceAvailableForTx.gte(requiredGas);
   }
 
   async function bridge() {
@@ -209,13 +221,11 @@
         memo: memo,
       };
 
-      const gasEstimate = await $activeBridge.EstimateGas({
-        ...bridgeOpts,
-        amountInWei: BigNumber.from(1),
-      });
-      const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(gasEstimate)
+      const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
+        bridgeOpts
+      );
 
-      if(!doesUserHaveEnoughBalance) {
+      if (!doesUserHaveEnoughBalance) {
         errorToast("Insufficient ETH balance");
         return;
       }
@@ -272,8 +282,8 @@
   }
 
   async function useFullAmount() {
-    if($token.symbol === ETH.symbol) {
-    try {
+    if ($token.symbol === ETH.symbol) {
+      try {
         const feeData = await fetchFeeData();
         const gasEstimate = await $activeBridge.EstimateGas({
           amountInWei: BigNumber.from(1),
@@ -289,20 +299,20 @@
         const userBalance = await $signer.getBalance("latest");
         const processingFee = getProcessingFee();
         let balanceAvailableForTx = userBalance.sub(requiredGas);
-        if(processingFee) {
+        if (processingFee) {
           balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
         }
 
         amount = ethers.utils.formatEther(balanceAvailableForTx);
         amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
-    } catch (error) {
-      console.log(error);
+      } catch (error) {
+        console.log(error);
 
-      // In case of error default to using the full amount of ETH available.
-      // The user would still not be able to make the restriction and will have to manually set the amount.
-      amount = tokenBalance;
-      amountInput.value = tokenBalance.toString();
-    }
+        // In case of error default to using the full amount of ETH available.
+        // The user would still not be able to make the restriction and will have to manually set the amount.
+        amount = tokenBalance;
+        amountInput.value = tokenBalance.toString();
+      }
     } else {
       amount = tokenBalance;
       amountInput.value = tokenBalance.toString();
