@@ -55,13 +55,9 @@ async function testVerifier(verifierAddr: string) {
     const testVerifier = await (
         await hre.ethers.getContractFactory("TestVerifier")
     ).deploy();
-    // console.log(testVerifier)
 
-    const tx = await testVerifier.verifyZKP(verifierAddr, calldata);
-    //     console.log("res:", res);
-    console.log("tx:", tx);
-    // const receipt = await tx.wait()
-    // console.log("receipt:", receipt)
+    const res = await testVerifier.verifyZKP(verifierAddr, calldata);
+    console.log("proof verify res:", res);
 }
 
 async function main() {

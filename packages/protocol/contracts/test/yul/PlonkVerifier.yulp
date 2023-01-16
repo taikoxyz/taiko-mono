@@ -11,13 +11,32 @@
                 datacopy(offset, dataoffset("Runtime"), size)
                 return(offset, size)
             }
-            object "Runtime" {                
+            object "Runtime" {
                 code {
                     let success:bool := true
                     let f_p := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
                     let f_q := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
                     function validate_ec_point(x, y) -> valid:bool {
-                        valid := true
+                        {
+                            let x_lt_p:bool := lt(x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            let y_lt_p:bool := lt(y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            valid := and(x_lt_p, y_lt_p)
+                        }
+                        {
+                            let x_is_zero:bool := eq(x, 0)
+                            let y_is_zero:bool := eq(y, 0)
+                            let x_or_y_is_zero:bool := or(x_is_zero, y_is_zero)
+                            let x_and_y_is_not_zero:bool := not(x_or_y_is_zero)
+                            valid := and(x_and_y_is_not_zero, valid)
+                        }
+                        {
+                            let y_square := mulmod(y, y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            let x_square := mulmod(x, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            let x_cube := mulmod(x_square, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            let x_cube_plus_3 := addmod(x_cube, 3, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                            let y_square_eq_x_cube_plus_3:bool := eq(x_cube_plus_3, y_square)
+                            valid := and(y_square_eq_x_cube_plus_3, valid)
+                        }
                     }
                     mstore(0x20, mod(calldataload(0x0), f_q))
 mstore(0x40, mod(calldataload(0x20), f_q))
@@ -33,8 +52,6 @@ mstore(0x0, 16452513676869568616115473020641242130117142260757420799578184339005
             mstore(0xe0, y)
             success := and(validate_ec_point(x, y), success)
         }
-
-
 
         {
             let x := calldataload(0xe0)
@@ -584,8 +601,6 @@ result := addmod(mulmod(mload(0x1c20), mload(0x80), f_q), result, f_q)
 result := addmod(mulmod(mload(0x1c40), mload(0xa0), f_q), result, f_q)
 mstore(7264, result)
         }
-
-        
 mstore(0x1c80, mulmod(mload(0xb20), mload(0xb40), f_q))
 mstore(0x1ca0, addmod(mload(0x1c80), mload(0xae0), f_q))
 mstore(0x1cc0, addmod(mload(0x1ca0), sub(f_q, mload(0xb00)), f_q))
@@ -1116,8 +1131,6 @@ mstore(0x5e40, addmod(mload(0x52c0), mload(0x5de0), f_q))
 mstore(0x5e60, addmod(mload(0x5320), mload(0x5e00), f_q))
 mstore(0x5e80, mulmod(1, mload(0xaa0), f_q))
 mstore(0x5ea0, mulmod(1, mload(0x5e80), f_q))
-
-
 mstore(0x5ec0, mulmod(6955697244493336113861667751840378876927906302623587437721024018233754910398, mload(0xaa0), f_q))
 mstore(0x5ee0, mulmod(mload(0x58a0), mload(0x5ec0), f_q))
 mstore(0x5f00, mulmod(14301109305233875879800880185425345339138649975525900728211315483473936015336, mload(0xaa0), f_q))
@@ -1132,9 +1145,6 @@ mstore(0x6000, 0x000000000000000000000000000000000000000000000000000000000000000
                     mstore(0x6020, 0x0000000000000000000000000000000000000000000000000000000000000002)
 mstore(0x6040, mload(0x5e20))
 success := and(eq(staticcall(gas(), 0x7, 0x6000, 0x60, 0x6000, 0x40), 1), success)
-
-
-
 mstore(0x6060, mload(0x340))
                     mstore(0x6080, mload(0x360))
 mstore(0x60a0, mload(0x5d40))
@@ -1246,8 +1256,6 @@ success := and(eq(staticcall(gas(), 0x6, 0x6a60, 0x80, 0x6a60, 0x40), 1), succes
 mstore(0x6ae0, mload(0x720))
                     mstore(0x6b00, mload(0x740))
 mstore(0x6b20, mload(0x5b20))
-
-
 success := and(eq(staticcall(gas(), 0x7, 0x6ae0, 0x60, 0x6ae0, 0x40), 1), success)
 mstore(0x6b40, mload(0x6a60))
                     mstore(0x6b60, mload(0x6a80))
@@ -1602,6 +1610,7 @@ mstore(0x8d20, 0x0e12663ae4ce5d3585bbb1bbc6878d35274d9011ca4ea33b1c5573dd4ef6323
 success := and(eq(staticcall(gas(), 0x8, 0x8c20, 0x180, 0x8c20, 0x20), 1), success)
 success := and(eq(mload(0x8c20), 1), success)
 
+            if not(success) { revert(0, 0) }
             return(0, 0)
 
                 }
