@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
+    "compile": "pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/contract-documentation/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
@@ -64,7 +64,6 @@
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.7",
-    "hardhat-preprocessor": "^0.1.5",
     "lint-staged": "^12.3.4",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.5.1",

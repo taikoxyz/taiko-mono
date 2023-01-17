@@ -20,6 +20,33 @@ class ERC20Bridge implements Bridge {
     this.prover = prover;
   }
 
+  static async prepareTransaction(opts: BridgeOpts) {
+    const contract: Contract = new Contract(
+      opts.tokenVaultAddress,
+      TokenVault,
+      opts.signer
+    );
+
+    const owner = await opts.signer.getAddress();
+    const message = {
+      sender: owner,
+      srcChainId: opts.fromChainId,
+      destChainId: opts.toChainId,
+      owner: owner,
+      to: owner,
+      refundAddress: owner,
+      depositValue: opts.amountInWei,
+      callValue: 0,
+      processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
+      gasLimit: opts.processingFeeInWei
+        ? BigNumber.from(100000)
+        : BigNumber.from(0),
+      memo: opts.memo ?? "",
+    };
+
+    return { contract, owner, message };
+  }
+
   private async spenderRequiresAllowance(
     tokenAddress: string,
     signer: Signer,
@@ -76,28 +103,7 @@ class ERC20Bridge implements Bridge {
       throw Error("token vault does not have required allowance");
     }
 
-    const contract: Contract = new Contract(
-      opts.tokenVaultAddress,
-      TokenVault,
-      opts.signer
-    );
-
-    const owner = await opts.signer.getAddress();
-    const message = {
-      sender: owner,
-      srcChainId: opts.fromChainId,
-      destChainId: opts.toChainId,
-      owner: owner,
-      to: owner,
-      refundAddress: owner,
-      depositValue: opts.amountInWei,
-      callValue: 0,
-      processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
-      gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(100000)
-        : BigNumber.from(0),
-      memo: opts.memo ?? "",
-    };
+    const { contract, owner, message } = await ERC20Bridge.prepareTransaction(opts);
 
     const tx = await contract.sendERC20(
       message.destChainId,
@@ -114,6 +120,27 @@ class ERC20Bridge implements Bridge {
     );
 
     return tx;
+  }
+
+  async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
+
+    const { contract, owner, message } = await ERC20Bridge.prepareTransaction(opts);
+
+    const gasEstimate = await contract.estimateGas.sendERC20(
+      message.destChainId,
+      owner,
+      opts.tokenAddress,
+      opts.amountInWei,
+      message.gasLimit,
+      message.processingFee,
+      message.refundAddress,
+      message.memo,
+      {
+        value: message.processingFee.add(message.callValue),
+      }
+    );
+
+    return gasEstimate;
   }
 
   async Claim(opts: ClaimOpts): Promise<Transaction> {
