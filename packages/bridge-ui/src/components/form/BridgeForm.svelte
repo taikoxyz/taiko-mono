@@ -17,7 +17,7 @@
   import SelectToken from "../buttons/SelectToken.svelte";
 
   import type { Token } from "../../domain/token";
-  import type { BridgeType } from "../../domain/bridge";
+  import type { BridgeOpts, BridgeType } from "../../domain/bridge";
   import { chains } from "../../domain/chain";
 
   import type { Chain } from "../../domain/chain";
@@ -36,6 +36,7 @@
   import { MessageStatus } from "../../domain/message";
   import { Funnel } from "svelte-heros-v2";
   import FaucetModal from "../modals/FaucetModal.svelte";
+  import { fetchFeeData } from "@wagmi/core";
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -177,13 +178,39 @@
     }
   }
 
+  async function checkUserHasEnoughBalance(
+    bridgeOpts: BridgeOpts
+  ): Promise<boolean> {
+    try {
+      const gasEstimate = await $activeBridge.EstimateGas({
+        ...bridgeOpts,
+        amountInWei: BigNumber.from(1),
+      });
+      const feeData = await fetchFeeData();
+      const requiredGas = gasEstimate.mul(feeData.gasPrice);
+      const userBalance = await $signer.getBalance("latest");
+
+      let balanceAvailableForTx = userBalance;
+
+      if ($token.symbol === ETH.symbol) {
+        balanceAvailableForTx = userBalance.sub(
+          ethers.utils.parseEther(amount)
+        );
+      }
+
+      return balanceAvailableForTx.gte(requiredGas);
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function bridge() {
     try {
       loading = true;
       if (requiresAllowance) throw Error("requires additional allowance");
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
-      const tx = await $activeBridge.Bridge({
+      const bridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
@@ -192,7 +219,18 @@
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
-      });
+      };
+
+      const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
+        bridgeOpts
+      );
+
+      if (!doesUserHaveEnoughBalance) {
+        errorToast("Insufficient ETH balance");
+        return;
+      }
+
+      const tx = await $activeBridge.Bridge(bridgeOpts);
 
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
@@ -243,9 +281,42 @@
     }
   }
 
-  function useFullAmount() {
-    amount = tokenBalance;
-    amountInput.value = tokenBalance.toString();
+  async function useFullAmount() {
+    if ($token.symbol === ETH.symbol) {
+      try {
+        const feeData = await fetchFeeData();
+        const gasEstimate = await $activeBridge.EstimateGas({
+          amountInWei: BigNumber.from(1),
+          signer: $signer,
+          tokenAddress: await addrForToken(),
+          fromChainId: $fromChain.id,
+          toChainId: $toChain.id,
+          tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+          processingFeeInWei: getProcessingFee(),
+          memo: memo,
+        });
+        const requiredGas = gasEstimate.mul(feeData.gasPrice);
+        const userBalance = await $signer.getBalance("latest");
+        const processingFee = getProcessingFee();
+        let balanceAvailableForTx = userBalance.sub(requiredGas);
+        if (processingFee) {
+          balanceAvailableForTx = balanceAvailableForTx.sub(processingFee);
+        }
+
+        amount = ethers.utils.formatEther(balanceAvailableForTx);
+        amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
+      } catch (error) {
+        console.log(error);
+
+        // In case of error default to using the full amount of ETH available.
+        // The user would still not be able to make the restriction and will have to manually set the amount.
+        amount = tokenBalance;
+        amountInput.value = tokenBalance.toString();
+      }
+    } else {
+      amount = tokenBalance;
+      amountInput.value = tokenBalance.toString();
+    }
   }
 
   function updateAmount(e: any) {
