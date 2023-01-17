@@ -11,6 +11,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "husky": "^8.0.1"
+    "husky": "^8.0.3"
   }
 }

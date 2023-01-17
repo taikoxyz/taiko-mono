@@ -5,7 +5,7 @@
   "scripts": {
     "compile": "pnpm hardhat preprocess && pnpm hardhat compile",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
-    "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/docs/smart-contracts/**/*.md",
+    "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/contract-documentation/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
     "lint:sol": "pnpm prettier '**/*.sol' --write && pnpm solhint 'contracts/**/*.sol' --fix",
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
