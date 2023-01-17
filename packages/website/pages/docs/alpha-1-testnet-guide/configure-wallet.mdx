@@ -1,0 +1,21 @@
+import AddEthereumChainButton from "../../../components/AddEthereumChainButton";
+
+# ➕ Add networks to wallet
+
+## Automatically add networks
+
+Use the buttons below to add Ethereum A1 and Taiko A1 to any wallet that supports `wallet_addEthereumChain` (for example, MetaMask).
+
+| Network     | Add to wallet                                                   |
+| ----------- | --------------------------------------------------------------- |
+| Ethereum A1 | <AddEthereumChainButton buttonText="Add to wallet" chain="l1"/> |
+| Taiko A1    | <AddEthereumChainButton buttonText="Add to wallet" chain="l2"/> |
+
+## Manually add networks
+
+Use this RPC configuration to add Ethereum A1 and Taiko A1 to other wallets.
+
+| Network     | Chain ID | RPC URL                    | Symbol | Block Explorer URL              |
+| ----------- | -------- | -------------------------- | ------ | ------------------------------- |
+| Ethereum A1 | 31338    | https://l1rpc.a1.taiko.xyz | ETH    | https://l1explorer.a1.taiko.xyz |
+| Taiko A1    | 167003   | https://l2rpc.a1.taiko.xyz | ETH    | https://l2explorer.a1.taiko.xyz |

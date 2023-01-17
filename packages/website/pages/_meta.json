@@ -1,0 +1,58 @@
+{
+  "index": {
+    "display": "hidden",
+    "title": "Taiko",
+    "type": "page",
+    "theme": {
+      "layout": "raw"
+    }
+  },
+  "docs": {
+    "title": "Docs",
+    "type": "page"
+  },
+  "blog": {
+    "title": "Blog",
+    "type": "page",
+    "href": "https://mirror.xyz/labs.taiko.eth",
+    "newWindow": true
+  },
+  "Snæfellsjökull": {
+    "title": "Snæfellsjökull Testnet",
+    "type": "menu",
+    "items": {
+      "status": {
+        "title": "Status",
+        "type": "page",
+        "href": "https://status.a1.taiko.xyz",
+        "newWindow": true
+      },
+      "bridge": {
+        "title": "Bridge",
+        "type": "page",
+        "href": "https://bridge.a1.taiko.xyz",
+        "newWindow": true
+      },
+      "l1faucet": {
+        "title": "L1 Faucet",
+        "href": "https://l1faucet.a1.taiko.xyz/",
+        "newWindow": true
+      },
+      "l2faucet": {
+        "title": "L2 Faucet",
+        "href": "https://l2faucet.a1.taiko.xyz/",
+        "newWindow": true
+      },
+      "l1explorer": {
+        "title": "L1 Block Explorer",
+        "href": "https://l1explorer.a1.taiko.xyz/",
+        "newWindow": true
+      },
+      "l2explorer": {
+        "title": "L2 Block Explorer",
+        "href": "https://l2explorer.a1.taiko.xyz/",
+        "newWindow": true
+      }
+    }
+  }
+}

@@ -4,7 +4,6 @@ import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
-import "hardhat-preprocessor";
 import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
@@ -22,7 +21,7 @@ const config: HardhatUserConfig = {
             "thirdparty/",
             "common/EssentialContract.sol",
         ],
-        outputDir: "../website/docs/smart-contracts/",
+        outputDir: "../website/pages/docs/contract-documentation/",
         pages: "files",
         templates: "./solidity-docgen/templates",
     },

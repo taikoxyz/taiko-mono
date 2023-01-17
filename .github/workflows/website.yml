@@ -46,9 +46,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install Packages
-        working-directory: ./packages/website
-        run: pnpm install
+        run: pnpm -F website install
 
       - name: Build Website
-        working-directory: ./packages/website
-        run: pnpm build
+        run: pnpm -F website build
