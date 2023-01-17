@@ -1,0 +1,26 @@
+{
+  "get-started": {
+    "title": "👋 Get started"
+  },
+  "configure-wallet": {
+    "title": "➕ Add networks to wallet"
+  },
+  "request-from-faucet": {
+    "title": "💧 Request from faucet"
+  },
+  "use-the-bridge": {
+    "title": "🌉 Use the bridge"
+  },
+  "deploy-a-contract": {
+    "title": "🚀 Deploy a contract"
+  },
+  "run-a-node": {
+    "title": "🌐 Run a node"
+  },
+  "explore-the-network": {
+    "title": "🔎 Explore the network"
+  },
+  "get-help": {
+    "title": "❓ Get help"
+  }
+}

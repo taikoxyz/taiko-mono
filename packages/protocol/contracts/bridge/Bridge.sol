@@ -19,7 +19,7 @@ import "./libs/LibBridgeStatus.sol";
 
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
- * which calls the library implementations. See {IBridge} for more details.
+ * which calls the library implementations. See _IBridge_ for more details.
  *
  * @author dantaik <dan@taiko.xyz>
  * @dev The code hash for the same address on L1 and L2 may be different.
