@@ -1,4 +1,4 @@
-# 🌐 Run a node
+# Run a Taiko node
 
 This is arguably the most important part of the testnet! Taiko is fully decentralized and relies on the community to run nodes.
 
