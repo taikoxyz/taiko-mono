@@ -42,7 +42,7 @@ export default function Footer() {
           </h2>
           <ul className="text-neutral-500 dark:text-neutral-400">
             <li className="mb-4">
-              <a href="/docs/learn/what-is-taiko" className="hover:underline">
+              <a href="/docs" className="hover:underline">
                 Get started
               </a>
             </li>
