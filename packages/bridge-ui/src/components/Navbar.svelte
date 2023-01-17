@@ -56,7 +56,7 @@
           <Moon on:click={switchToLightMode} />
         </button>
       {:else}
-        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle bg-base-100 text-neutral border-none">
+        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle bg-base-100 hover:bg-base-100 text-neutral border-none">
           <Sun on:click={switchToDarkMode} />
         </button>
       {/if}
