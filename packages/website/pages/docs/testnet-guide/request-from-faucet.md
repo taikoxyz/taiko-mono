@@ -1,6 +1,6 @@
 # Request from faucet
 
-This guide will help you receive testnet tokens from the faucet.
+These steps will help you receive testnet tokens from the faucet.
 
 ## Steps
 
