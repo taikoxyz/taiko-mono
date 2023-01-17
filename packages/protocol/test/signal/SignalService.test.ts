@@ -5,6 +5,7 @@ import { deploySignalService } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 // import {getBlockHeader } from "../utils/rpc";
 
+// TODO(roger): convert to integration tests and add a test case for isSignalReceived.
 describe("SignalService", function () {
     let owner: any;
     let addr1: any;
