@@ -88,7 +88,7 @@ describe("bridge tests", () => {
     expect(mockContract.sendEther).toHaveBeenCalledWith(
       opts.toChainId,
       wallet.getAddress(),
-      BigNumber.from(100000),
+      BigNumber.from(140000),
       opts.processingFeeInWei,
       wallet.getAddress(),
       "memo",
