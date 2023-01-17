@@ -199,7 +199,7 @@ describe("bridge tests", () => {
       "0xfake",
       opts.tokenAddress,
       opts.amountInWei,
-      BigNumber.from(100000),
+      BigNumber.from(140000),
       opts.processingFeeInWei,
       "0xfake",
       opts.memo,
