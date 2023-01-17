@@ -3,6 +3,7 @@ import { ethers } from "hardhat";
 import { AddressManager, SignalService } from "../../typechain";
 import { deploySignalService } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
+// import {getBlockHeader } from "../utils/rpc";
 
 describe("SignalService", function () {
     let owner: any;
@@ -37,6 +38,23 @@ describe("SignalService", function () {
             const slot2 = signalService.getSignalSlot(addr2.address, signal);
 
             await expect(slot1).to.be.not.equal(slot2);
+        });
+    });
+
+    describe("isSignalSent()", function () {
+        it("should return false for unsent signal and true for sent signal", async () => {
+            const signal = ethers.utils.keccak256(
+                ethers.utils.toUtf8Bytes("another random")
+            );
+            let isSent = await signalService.isSignalSent(
+                addr1.address,
+                signal
+            );
+            await expect(isSent).to.be.equal(false);
+
+            await signalService.connect(addr1).sendSignal(signal);
+            isSent = await signalService.isSignalSent(addr1.address, signal);
+            await expect(isSent).to.be.equal(true);
         });
     });
 });
