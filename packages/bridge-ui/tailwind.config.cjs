@@ -1,7 +1,7 @@
 module.exports = {
     content: ["./src/**/*.{html,js,svelte,ts}"],
     plugins: [require("daisyui")],
-    darkMode: ["class", '[data-theme=dark]'],
+    darkMode: ['[data-theme="dark"]'],
     theme: {
         extend: {
           colors: {
@@ -12,6 +12,15 @@ module.exports = {
             "dark-5": "var(--color-dark-5)",
             "dark-6": "var(--color-dark-6)",
             "transaction-table": "var(--color-transaction-table)",
+          },
+          keyframes: {
+            rise: {
+              '0%': { position: 'absolute', bottom: '-10px' },
+              // '100%': { position: 'static' },
+            }
+          },
+          animation: {
+            rise: 'rise 0.5s ease-in-out',
           }
         }
     },

@@ -6,6 +6,28 @@
   import AddressDropdown from "./AddressDropdown.svelte";
   import ChainDropdown from "./ChainDropdown.svelte";
   import TaikoLogoFluo from "./icons/TaikoLogoFluo.svelte";
+  import { Sun, Moon } from "svelte-heros-v2";
+  import { fly } from 'svelte/transition';
+
+  let isDarkMode = localStorage.getItem('theme') === 'dark';
+
+  function switchToLightMode() {
+    if (!document) {
+      return;
+    }
+    document.documentElement.setAttribute("data-theme", "light")
+    localStorage.setItem('theme', 'light');
+    isDarkMode = false;
+  }
+
+  function switchToDarkMode() {
+    if (!document) {
+      return;
+    }
+    document.documentElement.setAttribute("data-theme", "dark")
+    localStorage.setItem('theme', 'dark');
+    isDarkMode = true;
+  }
 </script>
 
 <div class="navbar bg-base-100">
@@ -27,5 +49,17 @@
     {:else}
       <Connect />
     {/if}
+
+    <div class="ml-2">
+      {#if isDarkMode}
+        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle">
+          <Moon on:click={switchToLightMode} />
+        </button>
+      {:else}
+        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle bg-base-100 text-neutral border-none">
+          <Sun on:click={switchToDarkMode} />
+        </button>
+      {/if}
+    </div>
   </div>
 </div>
