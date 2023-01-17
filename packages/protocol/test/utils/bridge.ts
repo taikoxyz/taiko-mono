@@ -72,7 +72,7 @@ async function sendMessage(
     m: Message
 ): Promise<{
     bridge: Bridge;
-    signal: any;
+    msgHash: string;
     messageSentEvent: any;
     message: Message;
     tx: ethers.ContractTransaction;
@@ -137,7 +137,7 @@ async function sendAndProcessMessage(
 ): Promise<{
     tx: ethers.ContractTransaction;
     message: Message;
-    signal: string;
+    msgHash: string;
     signalProof: string;
 }> {
     const { msgHash, message } = await sendMessage(l1Bridge, m);
