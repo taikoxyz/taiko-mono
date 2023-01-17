@@ -46,6 +46,15 @@ export default function Footer() {
                 GitHub
               </a>
             </li>
+            <li className="mb-4">
+              <a
+                href="https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf"
+                className="hover:underline"
+                target={"_blank"}
+              >
+                Whitepaper
+              </a>
+            </li>
           </ul>
         </div>
         <div>
