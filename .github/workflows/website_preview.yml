@@ -4,13 +4,12 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
 on:
   pull_request:
-    # types:
-    #   - opened
-    #   - reopened
-    #   - edited
-    # paths:
-    #   - "packages/website/**"
-    #   - "packages/protocol/contracts/**"
+    types:
+      - opened
+      - reopened
+      - edited
+    paths:
+      - "packages/website/**"
 jobs:
   vercel-preview:
     runs-on: ubuntu-latest
@@ -77,5 +76,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '👀 Preview the changes at: ${{ steps.get-url.outputs.url }}'
+              body: '☂️☂️☂️ Preview the changes at: ${{ steps.get-url.outputs.url }}'
             })
