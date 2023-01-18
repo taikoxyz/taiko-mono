@@ -8,7 +8,7 @@ on:
       - opened
       - reopened
       - edited
-    paths:
+    # paths:
       # - "packages/website/**"
 jobs:
   vercel-preview:
