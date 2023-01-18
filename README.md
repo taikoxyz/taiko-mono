@@ -49,10 +49,10 @@ taiko-mono
 ...
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge frontend UI
-│   ├── <a href="./packages/protocol">protocol</a>: L1 and L2 protocol smart contracts
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer
-│   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz
+│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko Bridge frontend UI
+│   ├── <a href="./packages/protocol">protocol</a>: Taiko ZK-Rollup L2 Protocol and Taiko Bridge smart contracts
+│   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer (backend)
+│   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz (https://taiko.xyz/)
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
 ...
 </pre>
