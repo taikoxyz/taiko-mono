@@ -4,12 +4,12 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
 on:
   pull_request:
-    # types:
-    #   - opened
-    #   - reopened
-    #   - edited
+    types:
+      - opened
+      - reopened
+      - edited
     paths:
-      - "packages/website/**"
+      # - "packages/website/**"
 jobs:
   vercel-preview:
     runs-on: ubuntu-latest
