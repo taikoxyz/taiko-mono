@@ -19,7 +19,9 @@ class ETHBridge implements BridgeInterface {
     this.prover = prover;
   }
 
-  static async prepareTransaction(opts: BridgeOpts): Promise<{contract: Contract, message: any, owner: string}> {
+  static async prepareTransaction(
+    opts: BridgeOpts
+  ): Promise<{ contract: Contract; message: any; owner: string }> {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
       TokenVault,
@@ -38,7 +40,7 @@ class ETHBridge implements BridgeInterface {
       callValue: 0,
       processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(100000)
+        ? BigNumber.from(140000)
         : BigNumber.from(0),
       memo: opts.memo ?? "",
     };
@@ -56,7 +58,9 @@ class ETHBridge implements BridgeInterface {
   }
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
-    const { contract, owner, message } = await ETHBridge.prepareTransaction(opts);
+    const { contract, owner, message } = await ETHBridge.prepareTransaction(
+      opts
+    );
 
     const tx = await contract.sendEther(
       message.destChainId,
@@ -76,7 +80,9 @@ class ETHBridge implements BridgeInterface {
   }
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, owner, message } = await ETHBridge.prepareTransaction(opts);
+    const { contract, owner, message } = await ETHBridge.prepareTransaction(
+      opts
+    );
 
     const gasEstimate = await contract.estimateGas.sendEther(
       message.destChainId,
@@ -129,9 +135,7 @@ class ETHBridge implements BridgeInterface {
 
       const proof = await this.prover.GenerateProof(proofOpts);
 
-      return await contract.processMessage(opts.message, proof, {
-        gasLimit: BigNumber.from(1000000),
-      });
+      return await contract.processMessage(opts.message, proof);
     } else {
       return await contract.retryMessage(opts.message);
     }
