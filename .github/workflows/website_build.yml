@@ -6,6 +6,9 @@ on:
     paths:
       - "packages/website/**"
       - "packages/protocol/contracts/**"
+  pull_request:
+    paths:
+      - "packages/website/**"
 
 jobs:
   build:
