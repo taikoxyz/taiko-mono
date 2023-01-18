@@ -64,7 +64,7 @@ jobs:
       - uses: actions/github-script@v5
         name: Create Preview Comment
         with:
-          github-token: ${{secrets.ACTIONS_TOKEN}}
+          github-token: ${{ github.token }}
           script: |
             github.rest.issues.createComment({
               owner: context.repo.owner,
