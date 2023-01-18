@@ -3,7 +3,7 @@ env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
 on:
-  push:
+  pull_request:
     branches-ignore:
       - main
     # paths:
@@ -62,9 +62,9 @@ jobs:
       - uses: actions/github-script@v5
         name: Create Preview Comment
         with:
+          github-token: ${{secrets.ACTIONS_TOKEN}}
           script: |
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: '👀 Preview the changes at: https://taiko.xyz'
