@@ -59,7 +59,7 @@ jobs:
       # - name: Deploy Project Artifacts to Vercel
       #   run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > ./url.txt
 
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v5
         name: Create Preview Comment
         with:
           script: |
