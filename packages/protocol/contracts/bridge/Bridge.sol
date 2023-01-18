@@ -22,7 +22,7 @@ import "./libs/LibBridgeStatus.sol";
  * which calls the library implementations. See _IBridge_ for more details.
  *
  * @author dantaik <dan@taiko.xyz>
- * @dev The code hash for the same address on L1 and L2 may be different.
+ * @dev The code hash for the same address on L1 and L2 may be different. CCC
  */
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
