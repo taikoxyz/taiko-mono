@@ -53,7 +53,7 @@ export default function Hero() {
                   href="/docs/alpha-1-testnet-guide/get-started"
                   className="inline-flex items-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
                 >
-                  Explore Snæfellsjökull Testnet 🌋
+                  Explore Snæfellsjökull Testnet
                 </a>
               </div>
             </div>
