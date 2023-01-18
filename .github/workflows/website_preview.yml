@@ -67,8 +67,8 @@ jobs:
       - name: Test output
         run: echo ${{ steps.get-url.outputs.url }}
 
-      - uses: actions/github-script@v5
-        name: Create Preview Comment
+      - name: Create Preview Comment
+        uses: actions/github-script@v5
         with:
           github-token: ${{ github.token }}
           script: |
