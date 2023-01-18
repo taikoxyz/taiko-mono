@@ -62,11 +62,10 @@ jobs:
       - uses: actions/github-script@v6
         name: Create Preview Comment
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: 'Preview the change at: https://$(cat ./url.txt)'
-            });
+            })
