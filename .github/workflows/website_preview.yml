@@ -55,17 +55,9 @@ jobs:
 
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
       - name: Deploy Project Artifacts to Vercel
-
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: vercel-preview-url
-        uses: zentered/vercel-preview-url@v1.1.3
-        id: vercel_preview_url
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        with:
-          vercel_project_id: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > url.txt
 
       - uses: actions/github-script@v3
         with:
@@ -75,5 +67,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'The preview URL is: https://${{ steps.vercel_preview_url.outputs.preview_url }}'
+              body: 'The preview URL is: https://$(cat url.txt)'
             });
