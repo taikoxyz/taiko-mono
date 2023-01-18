@@ -59,12 +59,14 @@ jobs:
 
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
 
-      - uses: aaimio/vercel-preview-url-action@v1
+      - name: vercel-preview-url
+        uses: zentered/vercel-preview-url@v1.1.3
         id: vercel_preview_url
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Below is merely an example of what you could do with the preview URL.
-      # The preview URL is accessed through ${{ steps.<step_id>.outputs.vercel_preview_url }}
+          vercel_project_id: ${{ secrets.VERCEL_WEBSITE_PROJECT_ID }}
+
       - uses: actions/github-script@v3
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
@@ -73,5 +75,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'The preview URL is: ${{ steps.vercel_preview_url.outputs.vercel_preview_url }}.'
+              body: 'The preview URL is: https://${{ steps.vercel_preview_url.outputs.preview_url }}'
             });
