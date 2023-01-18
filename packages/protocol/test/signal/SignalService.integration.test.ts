@@ -1,31 +1,23 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TestHeaderSync } from "../../typechain";
-import { deploySignalService, getSignalProof } from "../utils/signal";
+import { deploySignalService } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 import { getBlockHeader } from "../utils/rpc";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 
 describe("integration:SignalService", function () {
     async function deployIntegrationSignalServiceFixture() {
         const [owner, nonOwner] = await ethers.getSigners();
 
-        const { chainId } = await ethers.provider.getNetwork();
-
-        const srcChainId = chainId;
+        const { chainId: srcChainId } = await ethers.provider.getNetwork();
 
         // seondary node to deploy L2 on
-        const l2Provider = new ethers.providers.JsonRpcProvider(
-            "http://localhost:28545"
-        );
+        const l2Provider = await getL2Provider();
 
         const l1Signer = await ethers.provider.getSigner();
 
-        const l2Signer = await l2Provider.getSigner(
-            (
-                await l2Provider.listAccounts()
-            )[0]
-        );
+        const l2Signer = await getDefaultL2Signer();
 
         const l2NonOwner = await l2Provider.getSigner();
 
@@ -90,10 +82,8 @@ describe("integration:SignalService", function () {
     }
 
     it("test", async function () {
-        const { l2Provider } = await loadFixture(
-            deployIntegrationSignalServiceFixture
-        );
+        const { l2Provider } = await deployIntegrationSignalServiceFixture();
         const blockHeader = await getBlockHeader(l2Provider);
-        expect(true);
+        expect(blockHeader);
     });
 });
