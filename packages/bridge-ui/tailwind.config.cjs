@@ -1,3 +1,4 @@
+const colors = require("tailwindcss/colors");
 module.exports = {
     content: ["./src/**/*.{html,js,svelte,ts}"],
     plugins: [require("daisyui")],
@@ -12,6 +13,7 @@ module.exports = {
             "dark-5": "var(--color-dark-5)",
             "dark-6": "var(--color-dark-6)",
             "transaction-table": "var(--color-transaction-table)",
+            "bridge-form": "var(--color-bridge-form)",
           },
           keyframes: {
             rise: {
@@ -58,12 +60,16 @@ module.exports = {
                 "--rounded-btn": "1rem",
                 "--btn-text-case": "capitalize",
                 "--rounded-box": "18px",
+                "--color-bridge-form": colors.zinc[800],
               },
               light: {
                 ...require("daisyui/colors/themes")["[data-theme=light]"],
                 "accent": "#FC0FC0",
                 "accent-focus": "#E30EAD",
                 "accent-content": "#F3F3F3",
+                "neutral": "#d4d4d4",
+                "neutral-focus": "#a3a3a3",
+                "neutral-content": "#181818",
                 "base-100": "#FAFAFA",
                 "info": "#373737",
                 "success": "#008000",
@@ -79,6 +85,7 @@ module.exports = {
                 "--rounded-btn": "1rem",
                 "--btn-text-case": "capitalize",
                 "--rounded-box": "18px",
+                "--color-bridge-form": colors.zinc[200],
               },
             },
           ],

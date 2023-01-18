@@ -57,7 +57,7 @@
         </button>
       {:else}
         <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle bg-base-100 hover:bg-base-100 text-neutral border-none">
-          <Sun on:click={switchToDarkMode} />
+          <Sun on:click={switchToDarkMode} class="text-gray-800" />
         </button>
       {/if}
     </div>
