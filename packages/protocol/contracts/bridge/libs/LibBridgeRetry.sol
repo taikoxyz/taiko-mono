@@ -49,14 +49,14 @@ library LibBridgeRetry {
             require(msg.sender == message.owner, "B:denied");
         }
 
-        bytes32 signal = message.hashMessage();
+        bytes32 msgHash = message.hashMessage();
         require(
-            LibBridgeStatus.getMessageStatus(signal) ==
+            LibBridgeStatus.getMessageStatus(msgHash) ==
                 LibBridgeStatus.MessageStatus.RETRIABLE,
             "B:notFound"
         );
 
-        address ethVault = resolver.resolve("ether_vault");
+        address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).receiveEther(message.callValue);
         }
@@ -66,17 +66,17 @@ library LibBridgeRetry {
             LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
-                signal: signal,
+                msgHash: msgHash,
                 gasLimit: gasleft()
             })
         ) {
             LibBridgeStatus.updateMessageStatus(
-                signal,
+                msgHash,
                 LibBridgeStatus.MessageStatus.DONE
             );
         } else if (isLastAttempt) {
             LibBridgeStatus.updateMessageStatus(
-                signal,
+                msgHash,
                 LibBridgeStatus.MessageStatus.FAILED
             );
 
