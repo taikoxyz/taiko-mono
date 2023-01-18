@@ -4,6 +4,7 @@ import { TestHeaderSync } from "../../typechain";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 import { getBlockHeader } from "../utils/rpc";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("integration:SignalService", function () {
     async function deployIntegrationSignalServiceFixture() {
@@ -89,9 +90,10 @@ describe("integration:SignalService", function () {
     }
 
     it("test", async function () {
-        const { l2Provider } = await deployIntegrationSignalServiceFixture();
+        const { l2Provider } = await loadFixture(
+            deployIntegrationSignalServiceFixture
+        );
         const blockHeader = await getBlockHeader(l2Provider);
-        console.log(blockHeader);
         expect(true);
     });
 });
