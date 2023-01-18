@@ -61,15 +61,21 @@ jobs:
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > url.txt
 
+      - name: Get Preview URL
+        id: get-url
+        run: echo ::set-output name=url::$(cat url.txt)
+
+      - name: Test output
+        run: echo ${{ steps.get-url.outputs.url }}
+
       - uses: actions/github-script@v5
         name: Create Preview Comment
         with:
           github-token: ${{ github.token }}
           script: |
-            PREVIEW_URL=$(cat url.txt)
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '👀 Preview the changes at: https://${{ env.PREVIEW_URL }}'
+              body: '👀 Preview the changes at: https://${{ steps.get-url.outputs.url }}'
             })
