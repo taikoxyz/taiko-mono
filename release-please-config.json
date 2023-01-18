@@ -1,0 +1,13 @@
+{
+  "packages": {
+    ".": {},
+    "packages/branding": {},
+    "packages/bridge-ui": {},
+    "packages/protocol": {},
+    "packages/relayer": {},
+    "packages/status-page": {},
+    "packages/tokenomics": {},
+    "packages/website": {},
+    "packages/whitepaper": {}
+  }
+}
