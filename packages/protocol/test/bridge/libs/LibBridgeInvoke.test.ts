@@ -7,6 +7,8 @@ import {
     TestReceiver,
 } from "../../../typechain";
 
+// TODO(roger): we should deprecate these test and test Bridge.sol
+// as a whole.
 describe("LibBridgeInvoke", function () {
     let owner: any;
     let nonOwner: any;
