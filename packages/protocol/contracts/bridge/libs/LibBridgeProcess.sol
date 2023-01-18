@@ -8,10 +8,10 @@
 // ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
 pragma solidity ^0.8.9;
 
+import "../../signal/ISignalService.sol";
 import "../EtherVault.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeInvoke.sol";
-import "./LibBridgeSignal.sol";
 import "./LibBridgeStatus.sol";
 
 /**
@@ -37,7 +37,7 @@ library LibBridgeProcess {
      * @param state The bridge state.
      * @param resolver The address resolver.
      * @param message The message to process.
-     * @param proof The proof of the signal being sent on the source chain.
+     * @param proof The msgHash proof from the source chain.
      */
     function processMessage(
         LibBridgeData.State storage state,
@@ -54,28 +54,32 @@ library LibBridgeProcess {
 
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
-        bytes32 signal = message.hashMessage();
+        bytes32 msgHash = message.hashMessage();
         require(
-            LibBridgeStatus.getMessageStatus(signal) ==
+            LibBridgeStatus.getMessageStatus(msgHash) ==
                 LibBridgeStatus.MessageStatus.NEW,
             "B:status"
         );
         // Message must have been "received" on the destChain (current chain)
-        address srcBridge = resolver.resolve(message.srcChainId, "bridge");
+        address srcBridge = resolver.resolve(
+            message.srcChainId,
+            "bridge",
+            false
+        );
 
         require(
-            LibBridgeSignal.isSignalReceived({
-                resolver: resolver,
-                srcBridge: srcBridge,
-                sender: srcBridge,
-                signal: signal,
-                proof: proof
-            }),
+            ISignalService(resolver.resolve("signal_service", false))
+                .isSignalReceived({
+                    srcChainId: message.srcChainId,
+                    app: srcBridge,
+                    signal: msgHash,
+                    proof: proof
+                }),
             "B:notReceived"
         );
 
         // We retrieve the necessary ether from EtherVault
-        address ethVault = resolver.resolve("ether_vault");
+        address ethVault = resolver.resolve("ether_vault", false);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).receiveEther(
                 message.depositValue + message.callValue + message.processingFee
@@ -101,7 +105,7 @@ library LibBridgeProcess {
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
-                signal: signal,
+                msgHash: msgHash,
                 gasLimit: gasLimit
             });
 
@@ -115,7 +119,7 @@ library LibBridgeProcess {
             }
         }
 
-        LibBridgeStatus.updateMessageStatus(signal, status);
+        LibBridgeStatus.updateMessageStatus(msgHash, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner

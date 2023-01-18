@@ -102,7 +102,7 @@ library LibProposing {
             {
                 uint256 fee;
                 (newFeeBase, fee, deposit) = getBlockFee(state, config);
-                TkoToken(resolver.resolve("tko_token")).burn(
+                TkoToken(resolver.resolve("tko_token", false)).burn(
                     msg.sender,
                     fee + deposit
                 );

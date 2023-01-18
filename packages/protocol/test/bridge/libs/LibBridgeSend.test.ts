@@ -6,7 +6,10 @@ import {
     EtherVault,
 } from "../../../typechain";
 import { Message } from "../../utils/message";
+import { deploySignalService } from "../../utils/signal";
 
+// TODO(roger): we should deprecate these test and test Bridge.sol
+// as a whole.
 describe("LibBridgeSend", function () {
     let owner: any;
     let nonOwner: any;
@@ -26,6 +29,8 @@ describe("LibBridgeSend", function () {
             await ethers.getContractFactory("AddressManager")
         ).deploy();
         await addressManager.init();
+
+        await deploySignalService(owner, addressManager, blockChainId);
 
         await addressManager.setAddress(
             `${enabledDestChainId}.bridge`,
