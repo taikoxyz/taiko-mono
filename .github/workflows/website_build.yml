@@ -1,4 +1,4 @@
-name: Website
+name: Website Build
 
 on:
   push:
@@ -50,3 +50,4 @@ jobs:
 
       - name: Build Website
         run: pnpm -F website build
+
