@@ -59,10 +59,6 @@ jobs:
 
         run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
 
-  Capture-Vrcel-Ppreview-URL:
-    name: Capture Vercel preview URL
-    runs-on: "ubuntu-latest"
-    steps:
       - uses: aaimio/vercel-preview-url-action@v1
         id: vercel_preview_url
         with:
