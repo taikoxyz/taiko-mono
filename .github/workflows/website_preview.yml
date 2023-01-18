@@ -77,5 +77,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '👀 Preview the changes at: https://${{ steps.get-url.outputs.url }}'
+              body: '👀 Preview the changes at: ${{ steps.get-url.outputs.url }}'
             })
