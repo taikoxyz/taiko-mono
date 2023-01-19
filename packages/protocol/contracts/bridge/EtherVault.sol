@@ -35,6 +35,8 @@ contract EtherVault is EssentialContract {
 
     event Authorized(address indexed addr, bool authorized);
 
+    event EtherTransferred(address indexed to, uint256 amount);
+
     /*********************
      * Modifiers         *
      *********************/
@@ -70,6 +72,7 @@ contract EtherVault is EssentialContract {
      */
     function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
+        emit EtherTransferred(msg.sender, amount);
     }
 
     /**
