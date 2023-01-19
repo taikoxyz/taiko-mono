@@ -358,14 +358,14 @@
   </label>
 
   <label
-    class="input-group relative rounded-lg bg-dark-4 justify-between items-center pr-4"
+    class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4"
   >
     <input
       type="number"
       placeholder="0.01"
       min="0"
       on:input={updateAmount}
-      class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0"
+      class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
       name="amount"
       bind:this={amountInput}
     />
