@@ -120,7 +120,8 @@ contract TokenVault is EssentialContract {
         string memory memo
     ) external payable nonReentrant {
         require(
-            to != address(0) && to != resolve(destChainId, "token_vault"),
+            to != address(0) &&
+                to != resolve(destChainId, "token_vault", false),
             "V:to"
         );
         require(msg.value > processingFee, "V:msgValue");
@@ -138,7 +139,7 @@ contract TokenVault is EssentialContract {
 
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
         // the TokenVault
-        bytes32 signal = IBridge(resolve("bridge")).sendMessage{
+        bytes32 signal = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
@@ -175,7 +176,8 @@ contract TokenVault is EssentialContract {
         string memory memo
     ) external payable nonReentrant {
         require(
-            to != address(0) && to != resolve(destChainId, "token_vault"),
+            to != address(0) &&
+                to != resolve(destChainId, "token_vault", false),
             "V:to"
         );
         require(token != address(0), "V:token");
@@ -209,7 +211,7 @@ contract TokenVault is EssentialContract {
         message.destChainId = destChainId;
         message.owner = msg.sender;
 
-        message.to = resolve(destChainId, "token_vault");
+        message.to = resolve(destChainId, "token_vault", false);
         message.data = abi.encodeWithSelector(
             TokenVault.receiveERC20.selector,
             canonicalToken,
@@ -224,7 +226,7 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        bytes32 signal = IBridge(resolve("bridge")).sendMessage{
+        bytes32 signal = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
@@ -249,7 +251,7 @@ contract TokenVault is EssentialContract {
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
         require(
-            ctx.sender == resolve(ctx.srcChainId, "token_vault"),
+            ctx.sender == resolve(ctx.srcChainId, "token_vault", false),
             "V:sender"
         );
 

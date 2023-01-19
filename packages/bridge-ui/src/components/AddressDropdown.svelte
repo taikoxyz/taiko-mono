@@ -95,7 +95,7 @@
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-3 rounded-sm w-48 mt-2 pb-2 text-sm"
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm"
   >
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
@@ -112,7 +112,7 @@
       {/if}
     </div>
     <div class="divider" />
-    <div class="flex hover:bg-dark-5 items-center py-2 px-4">
+    <div class="flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md">
       <img
         width="24"
         height="24"
@@ -123,14 +123,14 @@
       {addressSubsection(address)}
     </div>
     <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4"
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
       on:click={async () => await copyToClipboard(address)}
     >
       <ClipboardDocument class="mr-2" />
       Copy Address
     </div>
     <div
-      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4"
+      class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
       on:click={async () => await disconnect()}
     >
       <Power class="mr-2" /> Disconnect

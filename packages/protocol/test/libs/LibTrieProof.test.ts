@@ -4,8 +4,11 @@ import RLP from "rlp";
 import { sendMessage } from "../utils/bridge";
 import { Message } from "../utils/message";
 import { EthGetProofResponse } from "../utils/rpc";
-import { getSignalSlot } from "../utils/signal";
+import { deploySignalService } from "../utils/signal";
 
+// TODO(roger): this test shall not use any file in contracts/bridge/*.sol
+// Instead, it should use the `writeStorageAt` function to manipulate stroage
+// values then verify the proof.
 describe("integration:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
@@ -39,23 +42,26 @@ describe("integration:LibTrieProof", function () {
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 
+        const [owner] = await ethers.getSigners();
+
+        const { signalService } = await deploySignalService(
+            owner,
+            addressManager,
+            chainId
+        );
+
         const libBridgeRetry = await (
             await ethers.getContractFactory("LibBridgeRetry")
         ).deploy();
 
         const libBridgeProcess = await (
-            await ethers.getContractFactory("LibBridgeProcess", {
-                libraries: {
-                    LibTrieProof: libTrieProof.address,
-                },
-            })
+            await ethers.getContractFactory("LibBridgeProcess")
         ).deploy();
 
         const BridgeFactory = await ethers.getContractFactory("Bridge", {
             libraries: {
                 LibBridgeProcess: libBridgeProcess.address,
                 LibBridgeRetry: libBridgeRetry.address,
-                LibTrieProof: libTrieProof.address,
             },
         });
 
@@ -63,14 +69,23 @@ describe("integration:LibTrieProof", function () {
 
         await bridge.init(addressManager.address);
 
-        const [owner] = await ethers.getSigners();
-
-        return { owner, testLibTreProof, bridge, enabledDestChainId };
+        return {
+            owner,
+            testLibTreProof,
+            signalService,
+            bridge,
+            enabledDestChainId,
+        };
     }
     describe("verify()", function () {
         it("verifies", async function () {
-            const { owner, testLibTreProof, bridge, enabledDestChainId } =
-                await deployLibTrieProofFixture();
+            const {
+                owner,
+                testLibTreProof,
+                signalService,
+                bridge,
+                enabledDestChainId,
+            } = await deployLibTrieProofFixture();
 
             const { chainId } = await ethers.provider.getNetwork();
             const srcChainId = chainId;
@@ -91,17 +106,20 @@ describe("integration:LibTrieProof", function () {
                 memo: "",
             };
 
-            const { tx, signal } = await sendMessage(bridge, message);
+            const { tx, msgHash } = await sendMessage(bridge, message);
 
             await tx.wait();
 
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
+            expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
 
-            const messageStatus = await bridge.getMessageStatus(signal);
+            const messageStatus = await bridge.getMessageStatus(msgHash);
 
             expect(messageStatus).to.be.eq(0);
 
-            const key = getSignalSlot(bridge.address, signal);
+            const slot = await signalService.getSignalSlot(
+                bridge.address,
+                msgHash
+            );
 
             // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // in the response
@@ -111,20 +129,20 @@ describe("integration:LibTrieProof", function () {
                     false,
                 ]);
 
-            // get storageValue for the key
+            // get storageValue for the slot
             const storageValue = await ethers.provider.getStorageAt(
-                bridge.address,
-                key,
+                signalService.address,
+                slot,
                 block.number
             );
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
-            // rpc call to get the merkle proof what value is at key on the bridge contract
+            // rpc call to get the merkle proof what value is at slot on the bridge contract
             const proof: EthGetProofResponse = await ethers.provider.send(
                 "eth_getProof",
-                [bridge.address, [key], block.hash]
+                [signalService.address, [slot], block.hash]
             );
 
             const stateRoot = block.stateRoot;
@@ -137,11 +155,11 @@ describe("integration:LibTrieProof", function () {
                     RLP.encode(proof.storageProof[0].proof),
                 ]
             );
-            // proof verifies the storageValue at key is 1
+            // proof verifies the storageValue at slot is 1
             await testLibTreProof.verify(
                 stateRoot,
-                bridge.address,
-                key,
+                signalService.address,
+                slot,
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
                 encodedProof
             );

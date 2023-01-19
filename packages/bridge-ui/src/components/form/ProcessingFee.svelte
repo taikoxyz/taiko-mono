@@ -49,10 +49,10 @@
         placeholder="0.01"
         min="0"
         on:input={updateAmount}
-        class="input input-primary bg-dark-4 input-md md:input-lg w-full focus:ring-0 !rounded-r-none"
+        class="input input-primary bg-dark-2 border-dark-2 input-md md:input-lg w-full focus:ring-0 !rounded-r-none"
         name="amount"
       />
-      <span class="!rounded-r-lg bg-dark-4">ETH</span>
+      <span class="!rounded-r-lg bg-dark-2">ETH</span>
     </label>
   {:else if $processingFee === ProcessingFeeMethod.RECOMMENDED}
     <div class="flex flex-row">
@@ -65,7 +65,7 @@
       <button
         class="{$processingFee === fee[0]
           ? 'border-accent hover:border-accent'
-          : ''} btn btn-md text-xs font-semibold md:w-32"
+          : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
         on:click={() => selectProcessingFee(fee[0])}
         >{fee[1].displayText}</button
       >

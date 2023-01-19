@@ -4,6 +4,8 @@ import { TestLibBridgeData } from "../../../typechain";
 import { K_BRIDGE_MESSAGE } from "../../constants/messages";
 import { Message, MessageStatus } from "../../utils/message";
 
+// TODO(roger): we should deprecate these test and test Bridge.sol
+// as a whole.
 describe("LibBridgeData", function () {
     let owner: any;
     let nonOwner: any;

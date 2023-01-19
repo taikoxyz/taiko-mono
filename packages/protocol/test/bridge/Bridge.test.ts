@@ -3,6 +3,7 @@ import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 import { AddressManager, Bridge, EtherVault } from "../../typechain";
 import { deployBridge, sendMessage } from "../utils/bridge";
+import { deploySignalService } from "../utils/signal";
 import { Message } from "../utils/message";
 
 describe("Bridge", function () {
@@ -27,10 +28,11 @@ describe("Bridge", function () {
         ).deploy();
         await addressManager.init();
 
+        await deploySignalService(owner, addressManager, srcChainId);
+
         ({ bridge: l1Bridge, etherVault: l1EtherVault } = await deployBridge(
             owner,
             addressManager,
-            enabledDestChainId,
             srcChainId
         ));
 
@@ -168,27 +170,28 @@ describe("Bridge", function () {
         });
     });
 
-    describe("sendSignal()", async function () {
-        it("throws when signal is empty", async function () {
-            await expect(
-                l1Bridge.connect(owner).sendSignal(ethers.constants.HashZero)
-            ).to.be.revertedWith("B:signal");
-        });
+    // TODO(roger): move tests to SignalService's test file.
+    // describe("sendSignal()", async function () {
+    //     it("throws when signal is empty", async function () {
+    //         await expect(
+    //             l1Bridge.connect(owner).sendSignal(ethers.constants.HashZero)
+    //         ).to.be.revertedWith("B:signal");
+    //     });
 
-        it("sends signal, confirms it was sent", async function () {
-            const hash =
-                "0xf2e08f6b93d8cf4f37a3b38f91a8c37198095dde8697463ca3789e25218a8e9d";
-            await expect(l1Bridge.connect(owner).sendSignal(hash))
-                .to.emit(l1Bridge, "SignalSent")
-                .withArgs(owner.address, hash);
+    //     it("sends signal, confirms it was sent", async function () {
+    //         const hash =
+    //             "0xf2e08f6b93d8cf4f37a3b38f91a8c37198095dde8697463ca3789e25218a8e9d";
+    //         await expect(l1Bridge.connect(owner).sendSignal(hash))
+    //             .to.emit(l1Bridge, "SignalSent")
+    //             .withArgs(owner.address, hash);
 
-            const isSignalSent = await l1Bridge.isSignalSent(
-                owner.address,
-                hash
-            );
-            expect(isSignalSent).to.be.eq(true);
-        });
-    });
+    //         const isSignalSent = await l1Bridge.isSignalSent(
+    //             owner.address,
+    //             hash
+    //         );
+    //         expect(isSignalSent).to.be.eq(true);
+    //     });
+    // });
 
     describe("isDestChainEnabled()", function () {
         it("is disabled for unabled chainIds", async () => {
@@ -222,31 +225,34 @@ describe("Bridge", function () {
             expect(messageStatus).to.be.eq(0);
         });
 
-        it("returns for initiaized signal", async () => {
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: enabledDestChainId,
-                owner: owner.address,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
+        // TODO(jeff/roger): the following test is incorrect - getMessageStatus()
+        // shall be tested on the destination chain, not the source chain.
+        //
+        // it("returns for initiaized signal", async () => {
+        //     const message: Message = {
+        //         id: 1,
+        //         sender: owner.address,
+        //         srcChainId: 1,
+        //         destChainId: enabledDestChainId,
+        //         owner: owner.address,
+        //         to: nonOwner.address,
+        //         refundAddress: owner.address,
+        //         depositValue: 1,
+        //         callValue: 1,
+        //         processingFee: 1,
+        //         gasLimit: 100,
+        //         data: ethers.constants.HashZero,
+        //         memo: "",
+        //     };
 
-            const { signal } = await sendMessage(l1Bridge, message);
+        //     const { signal } = await sendMessage(l1Bridge, message);
 
-            expect(signal).not.to.be.eq(ethers.constants.HashZero);
+        //     expect(signal).not.to.be.eq(ethers.constants.HashZero);
 
-            const messageStatus = await l1Bridge.getMessageStatus(signal);
+        //     const messageStatus = await l1Bridge.getMessageStatus(signal);
 
-            expect(messageStatus).to.be.eq(0);
-        });
+        //     expect(messageStatus).to.be.eq(0);
+        // });
     });
 
     describe("processMessage()", async function () {

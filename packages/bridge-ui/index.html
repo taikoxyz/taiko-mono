@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="dark" lang="en">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,4 +17,15 @@
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
+
+  <script>
+    // On page load or when changing themes, best to add inline in `head` to avoid FOUC
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute("data-theme", "dark")
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.setAttribute("data-theme", "light")
+      localStorage.setItem('theme', 'light');
+    }
+  </script>
 </html>
