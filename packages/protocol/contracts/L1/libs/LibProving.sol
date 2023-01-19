@@ -246,11 +246,15 @@ library LibProving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
+        // For alpha-2 testnet, the network allows any address to submit ZKP,
+        // but a special prover can skip ZKP verification if the ZKP is empty.
+
+        // TODO(daniel): remove this special address.
         address specialProver = resolve.resolve("special_prover");
 
         for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
             if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
-                // The special prover can skip a ZKP verification if the proof is empty.
+                // Skip ZKP verification
             } else {
                 require(
                     proofVerifier.verifyZKP({

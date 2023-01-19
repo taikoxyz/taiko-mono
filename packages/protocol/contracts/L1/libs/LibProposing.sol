@@ -57,7 +57,7 @@ library LibProposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
-        // For alpha-2 testnet, he network only allows an special address
+        // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
 
