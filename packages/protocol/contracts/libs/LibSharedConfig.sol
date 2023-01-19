@@ -14,37 +14,38 @@ library LibSharedConfig {
         return
             TaikoData.Config({
                 chainId: 167,
-                // Assuming proof time 1 hour, block time 10 seconds
-                // Level of parallelization is 60*60/10 = 360
-                // We give it extra 50% more slots, then we have 360*1.5+1=
-                maxNumBlocks: 541,
+                // Assuming proof time 1 hour, block time 15 seconds
+                // Level of parallelization is 60*60/15 = 240
+                // We give it extra 50% more slots, then we have 240*1.5+1=
+                maxNumBlocks: 361, // owner:daniel
                 // Changed it to a smaller value
-                // Assuming block time 10 seconds, we support cross-chain tx
+                // Assuming block time 15 seconds, we support cross-chain tx
                 // to have 1 confirmation within 600 seconds (10 minutes).
-                // Then we have: 600/10 = 60.
-                blockHashHistory: 60,
-                zkProofsPerBlock: 1,
-                maxVerificationsPerTx: 20,
-                commitConfirmations: 0,
-                maxProofsPerForkChoice: 3,
-                blockMaxGasLimit: 5000000, // TODO
-                maxTransactionsPerBlock: 200, // TODO
-                maxBytesPerTxList: 1500000, // TODO(david): verify this
-                minTxGasLimit: 21000, // TODO(david): verify this
-                anchorTxGasLimit: 250000,
-                feePremiumLamda: 590, // TODO(daniel): how is this calculated
-                rewardBurnBips: 100, // 100 basis points or 1%
-                proposerDepositPctg: 25, // 25%
+                // Then we have: 600/15 = 40.
+                blockHashHistory: 40, // owner:daniel
+                zkProofsPerBlock: 1, // owner:daniel
+                maxVerificationsPerTx: 20, //owner:david - TODO: what's the actual tx gas cost?
+                commitConfirmations: 0, // owner:daniel
+                maxProofsPerForkChoice: 3, // owner:daniel
+                blockMaxGasLimit: 5000000, // owner:david - TODO: do we need to change this?
+                maxTransactionsPerBlock: 200, //  owner:david - TODO: do we need to change this?
+                maxBytesPerTxList: 1500000, // owner:david - TODO: do we need to change this?
+                minTxGasLimit: 21000, // owner:david
+                anchorTxGasLimit: 250000, // owner:david
+                // TODO(daniel): How is feePremiumLamda calculated.
+                feePremiumLamda: 590, // owner:daniel
+                rewardBurnBips: 100, // owner:daniel. 100 basis points or 1%
+                proposerDepositPctg: 25, // owner:daniel - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
                 blockTimeMAF: 1024,
                 proofTimeMAF: 1024,
-                rewardMultiplierPctg: 400, // 400%
-                feeGracePeriodPctg: 125, // 125%
-                feeMaxPeriodPctg: 375, // 375%
-                blockTimeCap: 48 seconds,
+                rewardMultiplierPctg: 400, //  owner:daniel - 400%
+                feeGracePeriodPctg: 200, // owner:daniel - 200%
+                feeMaxPeriodPctg: 400, // owner:daniel - 400%
+                blockTimeCap: 60 seconds, // owner:daniel - target block time 15 seconds
                 proofTimeCap: 90 minutes,
-                bootstrapDiscountHalvingPeriod: 180 days,
+                bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 initialUncleDelay: 60 minutes,
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
