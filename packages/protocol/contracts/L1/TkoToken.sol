@@ -43,8 +43,8 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
-            name_: "Taiko Test Token",
-            symbol_: "tTKO",
+            name_: "Taiko USD Stablecoin Token",
+            symbol_: "tkUSD",
             decimals_: 18
         });
     }
