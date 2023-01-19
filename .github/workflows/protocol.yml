@@ -1,4 +1,4 @@
-name: Solidity
+name: Protocol
 
 on:
   push:
@@ -21,8 +21,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up protocol
-        uses: ./.github/actions/set-up-protocol
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
 
       - name: protocol - Unit Tests
         working-directory: ./packages/protocol

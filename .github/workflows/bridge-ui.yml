@@ -1,14 +1,13 @@
-name: Website
+name: Bridge UI
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/website/**"
-      - "packages/protocol/contracts/**"
+      - "packages/bridge-ui/**"
   pull_request:
     paths:
-      - "packages/website/**"
+      - "packages/bridge-ui/**"
 
 jobs:
   build:
@@ -25,5 +24,12 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Build Website
-        run: pnpm -F website build
+      - name: Bridge UI - Unit Tests
+        working-directory: ./packages/bridge-ui
+        run: pnpm test
+
+      - name: Bridge UI - Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./packages/bridge-ui/coverage
+          flags: bridge-ui
