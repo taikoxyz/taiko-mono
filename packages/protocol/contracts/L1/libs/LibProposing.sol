@@ -62,7 +62,7 @@ library LibProposing {
         // the tokenomics.
 
         // TODO(daniel): remove this special address.
-        address specialProposer = resolver.resolve("special_proposer");
+        address specialProposer = resolver.resolve("special_proposer", true);
         require(
             specialProposer == address(0) || specialProposer == msg.sender,
             "L1:specialProposer"
