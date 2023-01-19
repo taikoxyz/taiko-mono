@@ -80,17 +80,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
      *          transactions in the L2 block.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
-        // For alpha-2 testnet, he network only allows an special address
-        // to propose but anyone to prove. This is the first step of testing
-        // the tokenomics.
-
-        // TODO(daniel): remove this special address.
-        address authorized = resolve("proposer");
-        require(
-            authorized == address(0) || authorized == msg.sender,
-            "L1:unauthorized"
-        );
-
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,

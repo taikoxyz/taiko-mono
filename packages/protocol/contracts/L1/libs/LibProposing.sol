@@ -57,6 +57,17 @@ library LibProposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
+        // For alpha-2 testnet, he network only allows an special address
+        // to propose but anyone to prove. This is the first step of testing
+        // the tokenomics.
+
+        // TODO(daniel): remove this special address.
+        address specialProposer = resolver.resolve("special_proposer");
+        require(
+            specialProposer == address(0) || specialProposer == msg.sender,
+            "L1:specialProposer"
+        );
+
         assert(!LibUtils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");

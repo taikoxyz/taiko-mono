@@ -246,19 +246,25 @@ library LibProving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
+        address specialProver = resolve.resolve("special_prover");
+
         for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            require(
-                proofVerifier.verifyZKP({
-                    verificationKey: ConfigManager(
-                        resolver.resolve("config_manager", false)
-                    ).getValue(string(abi.encodePacked("zk_vkey_", i))),
-                    zkproof: evidence.proofs[i],
-                    blockHash: blockHash,
-                    prover: evidence.prover,
-                    txListHash: evidence.meta.txListHash
-                }),
-                "L1:zkp"
-            );
+            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
+                // The special prover can skip a ZKP verification if the proof is empty.
+            } else {
+                require(
+                    proofVerifier.verifyZKP({
+                        verificationKey: ConfigManager(
+                            resolver.resolve("config_manager", false)
+                        ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                        zkproof: evidence.proofs[i],
+                        blockHash: blockHash,
+                        prover: evidence.prover,
+                        txListHash: evidence.meta.txListHash
+                    }),
+                    "L1:zkp"
+                );
+            }
         }
 
         _markBlockProven({
