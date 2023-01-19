@@ -1,5 +1,4 @@
 import { ethers } from "ethers";
-import RLP from "rlp";
 import { TaikoL1, TaikoL2 } from "../../typechain";
 import { BlockMetadata } from "./block_metadata";
 import { encodeEvidence } from "./encoding";
@@ -19,8 +18,9 @@ const buildProveBlockInputs = (
         meta: meta,
         header: header,
         prover: prover,
-        proofs: [], // TODO
+        proofs: [],
     };
+
     // we have mkp + zkp returnign true in testing, so can just push 0xff
     // instead of actually making proofs for anchor tx, anchor receipt, and
     // zkp
@@ -47,44 +47,27 @@ const proveBlock = async (
 ) => {
     const config = await taikoL1.getConfig();
     const header = await getBlockHeader(l2Provider, blockNumber);
-
-    const anchorTxPopulated = await taikoL2.populateTransaction.anchor(
-        meta.l1Height,
-        meta.l1Hash,
-        {
-            gasPrice: ethers.utils.parseUnits("5", "gwei"),
-            gasLimit: config.anchorTxGasLimit,
-        }
-    );
-
-    delete anchorTxPopulated.from;
-
-    const anchorTxSigned = await l2Signer.signTransaction(anchorTxPopulated);
-
-    const anchorTx = await l2Provider.sendTransaction(anchorTxSigned);
-
-    await anchorTx.wait();
-
-    const anchorReceipt = await anchorTx.wait(1);
-
-    const anchorTxRLPEncoded = RLP.encode(
-        ethers.utils.serializeTransaction(anchorTxPopulated)
-    );
-
-    const anchorReceiptRLPEncoded = RLP.encode(
-        ethers.utils.serializeTransaction(anchorReceipt)
-    );
+    header.blockHeader.difficulty = 0;
+    header.blockHeader.gasLimit = config.anchorTxGasLimit
+        .add(header.blockHeader.gasLimit)
+        .toNumber();
+    header.blockHeader.timestamp = meta.timestamp;
+    // cant prove non-0 blocks
+    if (header.blockHeader.gasUsed <= 0) {
+        header.blockHeader.gasUsed = 1;
+    }
+    header.blockHeader.mixHash = meta.mixHash;
+    header.blockHeader.extraData = meta.extraData;
 
     const inputs = buildProveBlockInputs(
         meta,
         header.blockHeader,
         proverAddress,
-        anchorTxRLPEncoded,
-        anchorReceiptRLPEncoded,
+        "0x",
+        "0x",
         config.zkProofsPerBlock.toNumber()
     );
     const tx = await taikoL1.proveBlock(blockId, inputs);
-    console.log("Proved block tx", tx.hash);
     const receipt = await tx.wait(1);
     return receipt;
 };

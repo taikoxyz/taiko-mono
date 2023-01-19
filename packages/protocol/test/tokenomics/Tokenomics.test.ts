@@ -1,10 +1,12 @@
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
-import { TaikoL1, TaikoL2 } from "../../typechain";
+import { ConfigManager, TaikoL1, TaikoL2 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import deployAddressManager from "../utils/addressManager";
+import { BlockMetadata } from "../utils/block_metadata";
 import Proposer from "../utils/proposer";
+import Prover from "../utils/prover";
 // import Prover from "../utils/prover";
 import {
     getDefaultL2Signer,
@@ -84,6 +86,17 @@ describe("tokenomics", function () {
         await l1AddressManager.setAddress(
             `${chainId}.proof_verifier`,
             taikoL1.address
+        );
+
+        const configManager: ConfigManager = await (
+            await hardhatEthers.getContractFactory("ConfigManager")
+        )
+            .connect(l1Signer)
+            .deploy();
+
+        await l1AddressManager.setAddress(
+            `${chainId}.config_manager`,
+            configManager.address
         );
 
         await tkoTokenL1
@@ -201,69 +214,113 @@ describe("tokenomics", function () {
         expect(blockFee.eq(0)).to.be.eq(true);
     });
 
-    // it("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
-    //     const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
-    //     const blockIdsToNumber: any = {};
+    it.only("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
+        const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
+        const blockIdsToNumber: any = {};
 
-    //     const proposer = new Proposer(
-    //         taikoL1.connect(proposerSigner),
-    //         l2Provider,
-    //         commitConfirmations.toNumber(),
-    //         maxNumBlocks.toNumber(),
-    //         0
-    //     );
+        const proposer = new Proposer(
+            taikoL1.connect(proposerSigner),
+            l2Provider,
+            commitConfirmations.toNumber(),
+            maxNumBlocks.toNumber(),
+            0
+        );
 
-    //     const prover = new Prover(
-    //         taikoL1,
-    //         taikoL2,
-    //         l1Provider,
-    //         l2Provider,
-    //         proverSigner
-    //     );
+        const prover = new Prover(
+            taikoL1,
+            taikoL2,
+            l1Provider,
+            l2Provider,
+            proverSigner
+        );
 
-    //     let hasFailedAssertions: boolean = false;
-    //     l2Provider.on("block", async (blockNumber) => {
-    //         if (blockNumber <= genesisHeight) return;
-    //         try {
-    //             await expect(
-    //                 onNewL2Block(
-    //                     l2Provider,
-    //                     blockNumber,
-    //                     proposer,
-    //                     blockIdsToNumber,
-    //                     taikoL1,
-    //                     proposerSigner,
-    //                     tkoTokenL1
-    //                 )
-    //             ).not.to.throw;
-    //         } catch (e) {
-    //             hasFailedAssertions = true;
-    //             console.error(e);
-    //             throw e;
-    //         }
-    //     });
+        let hasFailedAssertions: boolean = false;
+        let blocksProposed: number = 0;
 
-    //     taikoL1.on(
-    //         "BlockProposed",
-    //         async (id: BigNumber, meta: BlockMetadata) => {
-    //             console.log("proving block: id", id.toString());
-    //             try {
-    //                 await prover.prove(
-    //                     await proverSigner.getAddress(),
-    //                     id.toNumber(),
-    //                     blockIdsToNumber[id.toString()],
-    //                     meta
-    //                 );
-    //             } catch (e) {
-    //                 hasFailedAssertions = true;
-    //                 console.error(e);
-    //                 throw e;
-    //             }
-    //         }
-    //     );
+        l2Provider.on("block", async (blockNumber) => {
+            if (blockNumber <= genesisHeight) return;
+            // fill up all slots.
+            if (blocksProposed === maxNumBlocks.toNumber()) {
+                console.log("max blocks proposed!");
+                l2Provider.off("block");
+                return;
+            }
 
-    //     await sleep(20 * 1000);
+            try {
+                await expect(
+                    onNewL2Block(
+                        l2Provider,
+                        blockNumber,
+                        proposer,
+                        blockIdsToNumber,
+                        taikoL1,
+                        proposerSigner,
+                        tkoTokenL1
+                    )
+                ).not.to.throw;
+                blocksProposed++;
+            } catch (e) {
+                hasFailedAssertions = true;
+                console.error(e);
+                throw e;
+            }
+        });
 
-    //     expect(hasFailedAssertions).to.be.eq(false);
-    // });
+        let lastProofReward: BigNumber = BigNumber.from(0);
+        let blocksProved: number = 0;
+
+        taikoL1.on(
+            "BlockProposed",
+            async (id: BigNumber, meta: BlockMetadata) => {
+                console.log("proving block: id", id.toString());
+                while (blocksProposed < maxNumBlocks.toNumber()) {
+                    await sleep(3 * 1000);
+                }
+                try {
+                    await prover.prove(
+                        await proverSigner.getAddress(),
+                        id.toNumber(),
+                        blockIdsToNumber[id.toString()],
+                        meta
+                    );
+
+                    console.log("block proven: id", id.toString());
+                    const newProofReward = await taikoL1.getProofReward(
+                        new Date().getMilliseconds(),
+                        meta.timestamp
+                    );
+                    // proof rewards hould shrink as no new blocks are proposed but proofs keep
+                    // coming in, increasin availabel slots
+                    console.log(
+                        "last proof reward",
+                        lastProofReward.toString(),
+                        "new proof reward",
+                        newProofReward.toString()
+                    );
+                    blocksProved++;
+                    if (lastProofReward.gt(0)) {
+                        expect(newProofReward).to.be.lt(lastProofReward);
+                    }
+                    lastProofReward = newProofReward;
+                } catch (e) {
+                    hasFailedAssertions = true;
+                    console.error("proving error", e);
+                    throw e;
+                }
+            }
+        );
+
+        /* eslint-disable-next-line */
+        while (blocksProved < maxNumBlocks.toNumber() - 1) {
+            console.log(
+                "blocksProved: ",
+                blocksProved,
+                "maxNumblocks: ",
+                maxNumBlocks
+            );
+            await sleep(1 * 1000);
+        }
+
+        expect(hasFailedAssertions).to.be.eq(false);
+    });
 });

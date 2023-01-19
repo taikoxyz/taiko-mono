@@ -37,16 +37,23 @@ class Prover {
         }
         this.provingMutex = true;
 
-        await proveBlock(
-            this.taikoL1,
-            this.taikoL2,
-            this.l2Signer,
-            this.l2Provider,
-            proverAddress,
-            blockId,
-            blockNumber,
-            meta
-        );
+        try {
+            await proveBlock(
+                this.taikoL1,
+                this.taikoL2,
+                this.l2Signer,
+                this.l2Provider,
+                proverAddress,
+                blockId,
+                blockNumber,
+                meta
+            );
+        } catch (e) {
+            console.error("prove error", e);
+            throw e;
+        } finally {
+            this.provingMutex = false;
+        }
     }
 }
 

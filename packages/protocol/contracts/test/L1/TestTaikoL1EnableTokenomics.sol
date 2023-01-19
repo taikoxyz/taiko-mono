@@ -20,7 +20,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 2048;
+        config.maxNumBlocks = 6;
         config.blockHashHistory = 3;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
@@ -51,6 +51,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.initialUncleDelay = 1 seconds;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
+        config.enableProofValidation = false;
     }
 
     function verifyZKP(
