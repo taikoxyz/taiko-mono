@@ -48,6 +48,7 @@
   let memo: string = "";
   let loading: boolean = false;
   let isFaucetModalOpen: boolean = false;
+  let memoError: string;
 
   $: getUserBalance($signer, $token, $fromChain);
 
@@ -97,7 +98,7 @@
     }
   }
 
-  $: isBtnDisabled($signer, amount, $token, tokenBalance, requiresAllowance)
+  $: isBtnDisabled($signer, amount, $token, tokenBalance, requiresAllowance, memoError)
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -129,7 +130,8 @@
     amount: string,
     token: Token,
     tokenBalance: string,
-    requiresAllowance: boolean
+    requiresAllowance: boolean,
+    memoError: string,
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
@@ -144,6 +146,9 @@
       )
     )
       return true;
+    if(memoError) {
+      return true;
+    }
 
     return false;
   }
@@ -387,7 +392,7 @@
 
 <ProcessingFee bind:customFee bind:recommendedFee />
 
-<Memo bind:memo />
+<Memo bind:memo bind:memoError />
 
 {#if loading}
   <button class="btn btn-accent w-full" disabled={true}>
@@ -405,7 +410,7 @@
   </button>
 {:else if !requiresAllowance}
   <button
-    class="btn btn-accent w-full"
+    class="btn btn-accent w-full mt-4"
     on:click={bridge}
     disabled={btnDisabled}
   >
@@ -413,7 +418,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full mt-6"
+    class="btn btn-accent w-full mt-4"
     on:click={approve}
     disabled={btnDisabled}
   >

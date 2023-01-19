@@ -6,6 +6,18 @@
   export let memo: string = "";
   let showMemo: boolean = false;
   let tooltipOpen: boolean = false;
+  export let memoError: string;
+
+  function checkSizeLimit(input) {
+    const bytes = (new TextEncoder().encode(input)).length;
+    if(bytes > 128) {
+      memoError = 'Max limit reached'
+    } else {
+      memoError = null;
+    }
+  }
+
+  $: checkSizeLimit(memo);
 </script>
 
 <div class="flex flex-row justify-between mb-2">
@@ -23,6 +35,7 @@
 </div>
 
 {#if showMemo}
+<div class="form-control">
   <input
     type="text"
     placeholder="Enter memo here..."
@@ -30,6 +43,10 @@
     name="memo"
     bind:value={memo}
   />
+  <label class="label min-h-[20px] mb-0 p-0" for="name">
+    <span class="label-text-alt text-error text-sm">{memoError ?? ''}</span>
+  </label>
+</div>
 {/if}
 
 <TooltipModal title="Memo" bind:isOpen={tooltipOpen}>
