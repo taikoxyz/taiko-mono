@@ -1,18 +1,25 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TestHeaderSync } from "../../typechain";
-import { deploySignalService } from "../utils/signal";
+import { deploySignalService, getSignalProof } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 import { getBlockHeader } from "../utils/rpc";
-import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
+import {
+    getDefaultL2Signer,
+    getL1Provider,
+    getL2Provider,
+} from "../utils/provider";
 
 describe("integration:SignalService", function () {
-    async function deployIntegrationSignalServiceFixture() {
+    async function deployIntegrationSignalService() {
         const [owner, nonOwner] = await ethers.getSigners();
 
         const { chainId: srcChainId } = await ethers.provider.getNetwork();
 
-        // seondary node to deploy L2 on
+        // ethereum node
+        const l1Provider = await getL1Provider();
+
+        // hardhat node
         const l2Provider = await getL2Provider();
 
         const l1Signer = await ethers.provider.getSigner();
@@ -25,7 +32,6 @@ describe("integration:SignalService", function () {
         const enabledDestChainId = l2Network.chainId;
 
         const addressManager = await deployAddressManager(l1Signer);
-
         const l2AddressManager = await deployAddressManager(l2Signer);
 
         const { signalService: l1SignalService } = await deploySignalService(
@@ -40,19 +46,15 @@ describe("integration:SignalService", function () {
             enabledDestChainId
         );
 
-        await l2AddressManager
-            .connect(l2Signer)
-            .setAddress(
-                `${srcChainId}.signal_service`,
-                l1SignalService.address
-            );
+        await addressManager.setAddress(
+            `${enabledDestChainId}.signal_service`,
+            l2SignalService.address
+        );
 
-        await addressManager
-            .connect(l2Signer)
-            .setAddress(
-                `${enabledDestChainId}.signal_service`,
-                l2SignalService.address
-            );
+        await l2AddressManager.setAddress(
+            `${srcChainId}.signal_service`,
+            l1SignalService.address
+        );
 
         const headerSync: TestHeaderSync = await (
             await ethers.getContractFactory("TestHeaderSync")
@@ -60,11 +62,13 @@ describe("integration:SignalService", function () {
             .connect(l2Signer)
             .deploy();
 
-        await l2AddressManager
-            .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, headerSync.address);
+        await l2AddressManager.setAddress(
+            `${enabledDestChainId}.taiko`,
+            headerSync.address
+        );
 
         return {
+            l1Provider,
             l2Provider,
             owner,
             l1Signer,
@@ -74,16 +78,165 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             addressManager,
-            l2AddressManager,
             enabledDestChainId,
             srcChainId,
             headerSync,
         };
     }
 
-    it("test", async function () {
-        const { l2Provider } = await deployIntegrationSignalServiceFixture();
-        const blockHeader = await getBlockHeader(l2Provider);
-        expect(blockHeader);
+    it("should revert since srcChainId == block.chainId", async function () {
+        const {
+            l1Provider,
+            owner,
+            l1SignalService,
+            l2SignalService,
+            enabledDestChainId,
+            headerSync,
+        } = await deployIntegrationSignalService();
+
+        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
+
+        const tx = await l1SignalService.connect(owner).sendSignal(signal);
+        await tx.wait();
+
+        const app = owner.address;
+        const key = await l1SignalService.getSignalSlot(app, signal);
+
+        const { block, blockHeader } = await getBlockHeader(l1Provider);
+        await headerSync.setSyncedHeader(block.hash);
+
+        const signalProof = await getSignalProof(
+            l1Provider,
+            l1SignalService.address,
+            key,
+            block.number,
+            blockHeader
+        );
+
+        await expect(
+            l2SignalService.isSignalReceived(
+                enabledDestChainId,
+                app,
+                signal,
+                signalProof
+            )
+        ).to.be.revertedWith("B:srcChainId");
+    });
+
+    it("should revert since app == AddressZero", async function () {
+        const {
+            l1Provider,
+            owner,
+            l1SignalService,
+            l2SignalService,
+            srcChainId,
+            headerSync,
+        } = await deployIntegrationSignalService();
+
+        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
+
+        const tx = await l1SignalService.connect(owner).sendSignal(signal);
+        await tx.wait();
+
+        const app = ethers.constants.AddressZero;
+        const key = await l1SignalService.getSignalSlot(app, signal);
+
+        const { block, blockHeader } = await getBlockHeader(l1Provider);
+        await headerSync.setSyncedHeader(block.hash);
+
+        const signalProof = await getSignalProof(
+            l1Provider,
+            l1SignalService.address,
+            key,
+            block.number,
+            blockHeader
+        );
+
+        await expect(
+            l2SignalService.isSignalReceived(
+                srcChainId,
+                app,
+                signal,
+                signalProof
+            )
+        ).to.be.revertedWith("B:app");
+    });
+
+    it("should revert since signal == HashZero", async function () {
+        const {
+            l1Provider,
+            owner,
+            l1SignalService,
+            l2SignalService,
+            srcChainId,
+            headerSync,
+        } = await deployIntegrationSignalService();
+
+        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
+
+        const tx = await l1SignalService.connect(owner).sendSignal(signal);
+        await tx.wait();
+
+        const app = owner.address;
+        const key = await l1SignalService.getSignalSlot(app, signal);
+
+        const { block, blockHeader } = await getBlockHeader(l1Provider);
+        await headerSync.setSyncedHeader(block.hash);
+
+        const signalProof = await getSignalProof(
+            l1Provider,
+            l1SignalService.address,
+            key,
+            block.number,
+            blockHeader
+        );
+
+        await expect(
+            l2SignalService.isSignalReceived(
+                srcChainId,
+                app,
+                ethers.constants.HashZero,
+                signalProof
+            )
+        ).to.be.revertedWith("B:signal");
+    });
+
+    it("should pass and return true", async function () {
+        const {
+            l1Provider,
+            owner,
+            l1SignalService,
+            l2SignalService,
+            srcChainId,
+            headerSync,
+        } = await deployIntegrationSignalService();
+
+        const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
+
+        const tx = await l1SignalService.connect(owner).sendSignal(signal);
+        await tx.wait();
+
+        const app = owner.address;
+        const key = await l1SignalService.getSignalSlot(app, signal);
+
+        const { block, blockHeader } = await getBlockHeader(l1Provider);
+        await headerSync.setSyncedHeader(block.hash);
+
+        const signalProof = await getSignalProof(
+            l1Provider,
+            l1SignalService.address,
+            key,
+            block.number,
+            blockHeader
+        );
+
+        expect(
+            await l2SignalService.isSignalReceived(
+                srcChainId,
+                app,
+                signal,
+                signalProof
+            )
+        ).to.be.eq(true);
     });
 });
