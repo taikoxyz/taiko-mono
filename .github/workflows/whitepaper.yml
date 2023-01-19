@@ -8,7 +8,7 @@ on:
     paths:
       - "packages/whitepaper/**"
 jobs:
-  build-latex:
+  build_latex:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
