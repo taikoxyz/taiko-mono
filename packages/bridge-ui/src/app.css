@@ -65,3 +65,33 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
+
+.taiko-logo {
+  display: none;
+}
+
+[data-theme="dark"] .taiko-logo {
+  display: inline;
+}
+
+[data-theme="dark"] .taiko-light-logo {
+  display: none;
+}
+
+[data-theme="dark"] .switch-to-dark-mode {
+  display: none;
+}
+
+[data-theme="light"] .switch-to-light-mode {
+  display: none;
+}
+
+@media screen and (max-width: 768px) {
+  [data-theme="dark"] .taiko-logo {
+    display: none;
+  }
+  
+  [data-theme="light"] .taiko-light-logo {
+    display: none;
+  }
+}
