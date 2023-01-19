@@ -9,6 +9,15 @@ export default function Footer() {
           <ul className="text-neutral-500 dark:text-neutral-400">
             <li className="mb-4">
               <a
+                href="https://mirror.xyz/labs.taiko.eth"
+                className="hover:underline"
+                target={"_blank"}
+              >
+                Blog
+              </a>
+            </li>
+            <li className="mb-4">
+              <a
                 href="https://www.notion.so/taikoxyz/Taiko-Jobs-828fd7232d2c4150a11e10c8baa910a2"
                 className="hover:underline"
                 target={"_blank"}
@@ -33,7 +42,7 @@ export default function Footer() {
           </h2>
           <ul className="text-neutral-500 dark:text-neutral-400">
             <li className="mb-4">
-              <a href="/docs/learn/what-is-taiko" className="hover:underline">
+              <a href="/docs" className="hover:underline">
                 Get started
               </a>
             </li>
