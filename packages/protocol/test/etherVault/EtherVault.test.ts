@@ -112,6 +112,14 @@ describe("EtherVault", function () {
                 originalBalance.add(amount).sub(gasUsed)
             );
         });
+
+        it("emits EtherTransferred event upon success", async () => {
+            const amount = 69;
+
+            await expect(etherVault.connect(authorized).receiveEther(amount))
+                .to.emit(etherVault, "EtherTransferred")
+                .withArgs(authorized.address, amount);
+        });
     });
 
     describe("authorize()", async function () {

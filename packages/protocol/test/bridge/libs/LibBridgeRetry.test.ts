@@ -17,6 +17,8 @@ import {
 } from "../../../typechain";
 import deployAddressManager from "../../utils/addressManager";
 
+// TODO(roger): we should deprecate these test and test Bridge.sol
+// as a whole.
 describe("LibBridgeRetry", function () {
     let owner: any;
     let nonOwner: any;

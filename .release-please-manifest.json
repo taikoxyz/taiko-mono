@@ -1,0 +1,11 @@
+{
+  ".": "0.3.0",
+  "packages/branding": "0.0.1",
+  "packages/bridge-ui": "0.0.1",
+  "packages/protocol": "0.0.1",
+  "packages/relayer": "0.0.1",
+  "packages/status-page": "0.0.1",
+  "packages/tokenomics": "0.0.1",
+  "packages/website": "0.0.1",
+  "packages/whitepaper": "1.2.2"
+}
