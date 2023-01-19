@@ -21,7 +21,7 @@
 />
 
 <div class="modal bg-black/60" class:modal-open={isOpen}>
-  <div class="modal-box bg-dark-3">
+  <div class="modal-box bg-dark-2">
     <h3 class="font-bold text-lg text-center mt-4">{title}</h3>
     {#if showXButton}
       <div class="modal-action mt-0">

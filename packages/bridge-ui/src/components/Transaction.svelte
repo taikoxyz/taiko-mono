@@ -115,7 +115,7 @@
   }, 20 * 1000);
 </script>
 
-<tr class="text-white">
+<tr class="text-transaction-table">
   <td>
     <svelte:component this={fromChain.icon} height={18} width={18} />
     <span class="ml-2 hidden md:inline-block">{fromChain.name}</span>
