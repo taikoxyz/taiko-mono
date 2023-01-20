@@ -37,7 +37,6 @@ importers:
       buffer: ^6.0.3
       daisyui: 1.16.6
       ethers: ^5.7.1
-      extend-expect: link:@testing-library/jest-dom/extend-expect
       identicon.js: ^2.3.3
       jest: ^27.5.1
       node-sass: ^7.0.1
@@ -74,7 +73,6 @@ importers:
       axios: 1.2.0
       buffer: 6.0.3
       ethers: 5.7.2
-      extend-expect: link:@testing-library/jest-dom/extend-expect
       identicon.js: 2.3.3
       svelte-i18n: 3.5.2_svelte@3.53.1
       svelte-spa-router: 3.3.0
