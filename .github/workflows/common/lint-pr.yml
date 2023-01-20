@@ -1,7 +1,7 @@
-name: Lint PR title
+name: Lint PR
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, synchronize, reopened]
 
 jobs:
