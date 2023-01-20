@@ -8,8 +8,8 @@ pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
-import "../../libs/LibMath.sol";
 import "../../libs/LibBlockHeader.sol";
+import "../../libs/LibMath.sol";
 import "../IBridge.sol";
 
 /**
