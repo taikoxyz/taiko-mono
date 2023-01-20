@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-//
-// ╭━━━━╮╱╱╭╮╱╱╱╱╱╭╮╱╱╱╱╱╭╮
-// ┃╭╮╭╮┃╱╱┃┃╱╱╱╱╱┃┃╱╱╱╱╱┃┃
-// ╰╯┃┃┣┻━┳┫┃╭┳━━╮┃┃╱╱╭━━┫╰━┳━━╮
-// ╱╱┃┃┃╭╮┣┫╰╯┫╭╮┃┃┃╱╭┫╭╮┃╭╮┃━━┫
-// ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
-// ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
+
 pragma solidity ^0.8.9;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
@@ -246,19 +244,29 @@ library LibProving {
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
+        // For alpha-2 testnet, the network allows any address to submit ZKP,
+        // but a special prover can skip ZKP verification if the ZKP is empty.
+
+        // TODO(daniel): remove this special address.
+        address specialProver = resolver.resolve("special_prover", true);
+
         for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            require(
-                proofVerifier.verifyZKP({
-                    verificationKey: ConfigManager(
-                        resolver.resolve("config_manager", false)
-                    ).getValue(string(abi.encodePacked("zk_vkey_", i))),
-                    zkproof: evidence.proofs[i],
-                    blockHash: blockHash,
-                    prover: evidence.prover,
-                    txListHash: evidence.meta.txListHash
-                }),
-                "L1:zkp"
-            );
+            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
+                // Skip ZKP verification
+            } else {
+                require(
+                    proofVerifier.verifyZKP({
+                        verificationKey: ConfigManager(
+                            resolver.resolve("config_manager", false)
+                        ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                        zkproof: evidence.proofs[i],
+                        blockHash: blockHash,
+                        prover: evidence.prover,
+                        txListHash: evidence.meta.txListHash
+                    }),
+                    "L1:zkp"
+                );
+            }
         }
 
         _markBlockProven({
