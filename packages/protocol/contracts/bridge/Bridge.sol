@@ -10,6 +10,7 @@ import "../common/EssentialContract.sol";
 import "./IBridge.sol";
 import "./libs/LibBridgeData.sol";
 import "./libs/LibBridgeProcess.sol";
+import "./libs/LibBridgeRelease.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeStatus.sol";
@@ -109,6 +110,20 @@ contract Bridge is EssentialContract, IBridge {
                 resolver: AddressResolver(this),
                 msgHash: msgHash,
                 srcChainId: srcChainId,
+                proof: proof
+            });
+    }
+
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        return
+            LibBridgeRelease.isMessageFailed({
+                resolver: AddressResolver(this),
+                msgHash: msgHash,
+                destChainId: destChainId,
                 proof: proof
             });
     }
