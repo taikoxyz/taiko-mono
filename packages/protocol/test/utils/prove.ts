@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { TaikoL1, TaikoL2 } from "../../typechain";
+import { BlockProvenEvent } from "../../typechain/LibProving";
 import { BlockMetadata } from "./block_metadata";
 import { encodeEvidence } from "./encoding";
 import Evidence from "./evidence";
@@ -44,7 +45,7 @@ const proveBlock = async (
     blockId: number,
     blockNumber: number,
     meta: BlockMetadata
-) => {
+): Promise<BlockProvenEvent> => {
     const config = await taikoL1.getConfig();
     const header = await getBlockHeader(l2Provider, blockNumber);
     header.blockHeader.difficulty = 0;
@@ -58,6 +59,10 @@ const proveBlock = async (
     }
     header.blockHeader.mixHash = meta.mixHash;
     header.blockHeader.extraData = meta.extraData;
+    console.log(
+        "proving block header parent hash",
+        header.blockHeader.parentHash
+    );
 
     const inputs = buildProveBlockInputs(
         meta,
@@ -69,7 +74,10 @@ const proveBlock = async (
     );
     const tx = await taikoL1.proveBlock(blockId, inputs);
     const receipt = await tx.wait(1);
-    return receipt;
+    const event: BlockProvenEvent = (receipt.events as any[]).find(
+        (e) => e.event === "BlockProven"
+    );
+    return event;
 };
 
 export { buildProveBlockInputs, proveBlock };

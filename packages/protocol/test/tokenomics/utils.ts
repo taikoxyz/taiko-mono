@@ -32,29 +32,12 @@ async function onNewL2Block(
         meta.timestamp
     );
 
-    console.log(
-        "NEW PROOF REWARD",
-        ethers.utils.formatEther(newProofReward.toString()),
-        " TKO"
-    );
-
     const newProposerTkoBalance = await tkoTokenL1.balanceOf(
         await proposerSigner.getAddress()
     );
 
-    console.log(
-        "NEW PROPOSER TKO BALANCE",
-        ethers.utils.formatEther(newProposerTkoBalance.toString()),
-        " TKO"
-    );
-
     const newBlockFee = await taikoL1.getBlockFee();
 
-    console.log(
-        "NEW BLOCK FEE",
-        ethers.utils.formatEther(newBlockFee.toString()),
-        " TKO"
-    );
     return { newProposerTkoBalance, newBlockFee, newProofReward };
 }
 

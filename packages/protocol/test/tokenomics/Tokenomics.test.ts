@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
 import { ConfigManager, TaikoL1, TaikoL2 } from "../../typechain";
+import { BlockProvenEvent } from "../../typechain/LibProving";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import deployAddressManager from "../utils/addressManager";
 import { BlockMetadata } from "../utils/block_metadata";
@@ -18,6 +19,7 @@ import sleep from "../utils/sleep";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
+import verifyBlocks from "../utils/verify";
 import { onNewL2Block, sendTinyEtherToZeroAddress } from "./utils";
 
 describe("tokenomics", function () {
@@ -126,6 +128,11 @@ describe("tokenomics", function () {
         await tx.wait(1);
     });
 
+    it("expects the blockFee to go be 0 when no periods have passed", async function () {
+        const blockFee = await taikoL1.getBlockFee();
+        expect(blockFee.eq(0)).to.be.eq(true);
+    });
+
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         // wait for one period of halving to occur, so fee is not 0.
@@ -209,12 +216,7 @@ describe("tokenomics", function () {
         }
     });
 
-    it("expects the blockFee to go be 0 when no periods have passed", async function () {
-        const blockFee = await taikoL1.getBlockFee();
-        expect(blockFee.eq(0)).to.be.eq(true);
-    });
-
-    it.only("propose blocks and prove blocks on interval, proverReward should decline and blockFee should increase", async function () {
+    it.only("propose blocks, wait til maxNumBlocks is filled, proverReward should decline and blockFee should increase as blocks are proved then verified", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         const blockIdsToNumber: any = {};
 
@@ -266,42 +268,53 @@ describe("tokenomics", function () {
             }
         });
 
-        let lastProofReward: BigNumber = BigNumber.from(0);
         let blocksProved: number = 0;
+
+        type BlockInfo = { proposedAt: number; provenAt: number; id: number };
+
+        const blockInfo: BlockInfo[] = [];
 
         taikoL1.on(
             "BlockProposed",
             async (id: BigNumber, meta: BlockMetadata) => {
                 console.log("proving block: id", id.toString());
+
+                // wait until we fill up all slots, so we can
+                // then prove blocks in order, and each time a block is proven then verified,
+                // we can expect the proofReward to go down as slots become available.
                 while (blocksProposed < maxNumBlocks.toNumber()) {
                     await sleep(3 * 1000);
                 }
+                console.log("ready to prove");
                 try {
-                    await prover.prove(
+                    const event: BlockProvenEvent = await prover.prove(
                         await proverSigner.getAddress(),
                         id.toNumber(),
                         blockIdsToNumber[id.toString()],
                         meta
                     );
 
-                    console.log("block proven: id", id.toString());
-                    const newProofReward = await taikoL1.getProofReward(
-                        new Date().getMilliseconds(),
-                        meta.timestamp
+                    const delay = await taikoL1.getUncleProofDelay(
+                        event.args.id
                     );
-                    // proof rewards hould shrink as no new blocks are proposed but proofs keep
-                    // coming in, increasin availabel slots
+
                     console.log(
-                        "last proof reward",
-                        lastProofReward.toString(),
-                        "new proof reward",
-                        newProofReward.toString()
+                        "block proven",
+                        event.args.id,
+                        "parent hash",
+                        event.args.parentHash,
+                        "delay:",
+                        delay.toNumber()
                     );
+
+                    const proposedBlock = await taikoL1.getProposedBlock(id);
+
+                    blockInfo.push({
+                        proposedAt: proposedBlock.proposedAt.toNumber(),
+                        provenAt: event.args.provenAt.toNumber(),
+                        id: event.args.id.toNumber(),
+                    });
                     blocksProved++;
-                    if (lastProofReward.gt(0)) {
-                        expect(newProofReward).to.be.lt(lastProofReward);
-                    }
-                    lastProofReward = newProofReward;
                 } catch (e) {
                     hasFailedAssertions = true;
                     console.error("proving error", e);
@@ -310,17 +323,50 @@ describe("tokenomics", function () {
             }
         );
 
+        expect(hasFailedAssertions).to.be.eq(false);
+
+        // wait for all blocks to be proven
         /* eslint-disable-next-line */
         while (blocksProved < maxNumBlocks.toNumber() - 1) {
             console.log(
-                "blocksProved: ",
+                "waiting",
+                blocksProposed,
                 blocksProved,
-                "maxNumblocks: ",
-                maxNumBlocks
+                maxNumBlocks.toNumber()
             );
             await sleep(1 * 1000);
         }
 
-        expect(hasFailedAssertions).to.be.eq(false);
+        console.log("done");
+
+        let lastProofReward: BigNumber = BigNumber.from(0);
+
+        // now try to verify the blocks and make sure the proof reward shrinks as slots
+        // free up
+        for (let i = 1; i < blockInfo.length + 1; i++) {
+            const block = blockInfo.find((b) => b.id === i) as any as BlockInfo;
+            expect(block).not.to.be.undefined;
+            // verify blocks 1 by 1
+            const latestL2hash = await taikoL1.getLatestSyncedHeader();
+            console.log("latest synced header", latestL2hash);
+
+            const stateVariables = await taikoL1.getStateVariables();
+            console.log("latest verified block id", stateVariables[9]);
+
+            const verifiedEvent = await verifyBlocks(taikoL1, 1);
+            expect(verifiedEvent).to.be.not.undefined;
+
+            console.log("block verified", verifiedEvent.args.id);
+
+            const newProofReward = await taikoL1.getProofReward(
+                block.proposedAt,
+                block.provenAt
+            );
+
+            if (lastProofReward.gt(0)) {
+                expect(newProofReward).to.be.lt(lastProofReward);
+            }
+            lastProofReward = newProofReward;
+        }
     });
 });

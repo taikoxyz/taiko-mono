@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { TaikoL1, TaikoL2 } from "../../typechain";
+import { BlockProvenEvent } from "../../typechain/LibProving";
 import { BlockMetadata } from "./block_metadata";
 import { proveBlock } from "./prove";
 import sleep from "./sleep";
@@ -31,14 +32,15 @@ class Prover {
         blockId: number,
         blockNumber: number,
         meta: BlockMetadata
-    ) {
+    ): Promise<BlockProvenEvent> {
         while (this.provingMutex) {
             await sleep(100);
         }
         this.provingMutex = true;
 
+        let blockProvenEvent: BlockProvenEvent;
         try {
-            await proveBlock(
+            blockProvenEvent = await proveBlock(
                 this.taikoL1,
                 this.taikoL2,
                 this.l2Signer,
@@ -54,6 +56,8 @@ class Prover {
         } finally {
             this.provingMutex = false;
         }
+
+        return blockProvenEvent;
     }
 }
 

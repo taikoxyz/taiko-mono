@@ -267,7 +267,7 @@ library LibProving {
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? bytes32(0) : blockHashOverride
+            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
         });
     }
 
