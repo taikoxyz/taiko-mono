@@ -12,7 +12,7 @@ import {
 
 describe("integration:SignalService", function () {
     async function deployIntegrationSignalService() {
-        const [owner, nonOwner] = await ethers.getSigners();
+        const [owner] = await ethers.getSigners();
 
         const { chainId: srcChainId } = await ethers.provider.getNetwork();
 
@@ -25,8 +25,6 @@ describe("integration:SignalService", function () {
         const l1Signer = await ethers.provider.getSigner();
 
         const l2Signer = await getDefaultL2Signer();
-
-        const l2NonOwner = await l2Provider.getSigner();
 
         const l2Network = await l2Provider.getNetwork();
         const enabledDestChainId = l2Network.chainId;
@@ -69,22 +67,16 @@ describe("integration:SignalService", function () {
 
         return {
             l1Provider,
-            l2Provider,
             owner,
-            l1Signer,
-            l2Signer,
-            nonOwner,
-            l2NonOwner,
             l1SignalService,
             l2SignalService,
-            addressManager,
-            enabledDestChainId,
             srcChainId,
+            enabledDestChainId,
             headerSync,
         };
     }
 
-    it("should revert since srcChainId == block.chainId", async function () {
+    it("should revert if srcChainId == block.chainId", async function () {
         const {
             l1Provider,
             owner,
@@ -100,7 +92,7 @@ describe("integration:SignalService", function () {
         await tx.wait();
 
         const app = owner.address;
-        const key = await l1SignalService.getSignalSlot(app, signal);
+        const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
         await headerSync.setSyncedHeader(block.hash);
@@ -108,7 +100,7 @@ describe("integration:SignalService", function () {
         const signalProof = await getSignalProof(
             l1Provider,
             l1SignalService.address,
-            key,
+            slot,
             block.number,
             blockHeader
         );
@@ -123,7 +115,7 @@ describe("integration:SignalService", function () {
         ).to.be.revertedWith("B:srcChainId");
     });
 
-    it("should revert since app == AddressZero", async function () {
+    it("should revert if app == AddressZero", async function () {
         const {
             l1Provider,
             owner,
@@ -139,7 +131,7 @@ describe("integration:SignalService", function () {
         await tx.wait();
 
         const app = ethers.constants.AddressZero;
-        const key = await l1SignalService.getSignalSlot(app, signal);
+        const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
         await headerSync.setSyncedHeader(block.hash);
@@ -147,7 +139,7 @@ describe("integration:SignalService", function () {
         const signalProof = await getSignalProof(
             l1Provider,
             l1SignalService.address,
-            key,
+            slot,
             block.number,
             blockHeader
         );
@@ -162,7 +154,7 @@ describe("integration:SignalService", function () {
         ).to.be.revertedWith("B:app");
     });
 
-    it("should revert since signal == HashZero", async function () {
+    it("should revert if signal == HashZero", async function () {
         const {
             l1Provider,
             owner,
@@ -178,7 +170,7 @@ describe("integration:SignalService", function () {
         await tx.wait();
 
         const app = owner.address;
-        const key = await l1SignalService.getSignalSlot(app, signal);
+        const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
         await headerSync.setSyncedHeader(block.hash);
@@ -186,7 +178,7 @@ describe("integration:SignalService", function () {
         const signalProof = await getSignalProof(
             l1Provider,
             l1SignalService.address,
-            key,
+            slot,
             block.number,
             blockHeader
         );
@@ -217,15 +209,33 @@ describe("integration:SignalService", function () {
         await tx.wait();
 
         const app = owner.address;
-        const key = await l1SignalService.getSignalSlot(app, signal);
+        const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
+
+        const failProof = await getSignalProof(
+            l1Provider,
+            l1SignalService.address,
+            slot,
+            block.number,
+            blockHeader
+        );
+        // should return false since header has not been synced yet.
+        expect(
+            await l2SignalService.isSignalReceived(
+                srcChainId,
+                app,
+                signal,
+                failProof
+            )
+        ).to.be.equal(false);
+
         await headerSync.setSyncedHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
             l1SignalService.address,
-            key,
+            slot,
             block.number,
             blockHeader
         );
