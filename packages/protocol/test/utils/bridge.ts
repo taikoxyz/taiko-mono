@@ -37,9 +37,9 @@ async function deployBridge(
 
     const BridgeFactory = await hardhatEthers.getContractFactory("Bridge", {
         libraries: {
+            LibTrieProof: libTrieProof.address,
             LibBridgeProcess: libBridgeProcess.address,
             LibBridgeRetry: libBridgeRetry.address,
-            LibTrieProof: libTrieProof.address,
         },
     });
 
