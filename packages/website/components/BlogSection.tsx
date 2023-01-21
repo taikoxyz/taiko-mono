@@ -47,6 +47,7 @@ const posts = [
 ];
 
 import React, { useEffect, useState } from "react";
+import { getImgURLs } from "./getImgURLs";
 import { getOriginalDigests } from "./getOriginalDigests";
 import { getPosts } from "./getPosts";
 
@@ -59,7 +60,7 @@ const authors = [
 ];
 
 // Add the correct Original-Content-Digest, this is neccesarry for making the link to the mirror page
-function addDigests(objects, digests) {
+function addOriginalDigests(objects, digests) {
   for (let i = 0; i < objects.length; i++) {
     for (let j = 0; j < digests.length; j++) {
       if (objects[i].digest === digests[j].node.tags[3].value) {
@@ -83,13 +84,19 @@ function addAuthorDetails(objects, authors) {
   return objects;
 }
 
+function addImgURLs(objects, imgURLs) {
+  for (let i = 0; i < objects.length; i++) {
+    objects[i]["ImgURL"] = imgURLs[i];
+  }
+
+  return objects
+}
+
 function getReadingTime(text) {
   const wordsPerMinute = 200;
   const wordCount = text.split(" ").length;
   const readingTime = Math.round(wordCount / wordsPerMinute);
   return readingTime;
-
-
 }
 
 function getDate(timestamp: string): string {
@@ -116,30 +123,36 @@ export default function BlogSection(): JSX.Element {
     getOriginalDigests.then((result) => {
       const originalDigestsResult = result;
 
-      // Getting the information of the post via the arweave GraphQL and SDK
-      getPosts.then((result) => {
-        console.log(result)
-        // Check if the posts have the required keys
-        result = result.filter(function (obj) {
-          return obj.hasOwnProperty("wnft");
+      getImgURLs.then((result) => {
+        const ImgURLs = result;
+
+        getPosts.then((result) => {
+          console.log(result);
+          // Check if the posts have the required keys
+          result = result.filter(function (obj) {
+            return obj.hasOwnProperty("wnft");
+          });
+
+          // Only use first three posts
+          result = result.slice(0, 3);
+
+          // add the OriginalDigest to the post object
+          result = addOriginalDigests(result, originalDigestsResult);
+
+          // add author details to the post object
+          result = addAuthorDetails(result, authors);
+
+          // add the ImgURL to the post object
+          result = addImgURLs(result, ImgURLs);
+          console.log(result);
+
+          setPosts(result);
         });
-
-        // Only use first three posts
-        result = result.slice(0, 3);
-
-        // add the OriginalDigest to the post object
-        result = addDigests(result, originalDigestsResult);
-
-        // add author details to the post object
-        result = addAuthorDetails(result, authors);
-        console.log(result);
-
-        setPosts(result);
       });
+
+      // Getting the information of the post via the arweave GraphQL and SDK
     });
   }, []);
-
-  
 
   return (
     <div className="relative bg-neutral-50 px-4 pt-16 pb-20 sm:px-6 lg:px-8 lg:pt-24 lg:pb-28 dark:bg-neutral-800">
@@ -164,10 +177,9 @@ export default function BlogSection(): JSX.Element {
               key={post.content.title}
               className="flex flex-col overflow-hidden rounded-lg shadow-lg"
             >
-              <h3>{post.content.title}</h3>
               <div className="flex-shrink-0">
-                <a href={post.href} target="_blank">
-                  <img className="h-54 w-full object-cover" src={``} alt="" />
+                <a href={"https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest} target="_blank">
+                  <img className="h-54 w-full object-cover" src={post.ImgURL} alt="" />
                 </a>
               </div>
               <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
