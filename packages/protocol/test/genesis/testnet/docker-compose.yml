@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   geth:
-    image: ethereum/client-go:latest
+    image: ethereum/client-go:v1.10.26
     restart: unless-stopped
     volumes:
       - ../../../deployments:/data
