@@ -33,12 +33,6 @@
 
 Most documentation can be found on the website, at [taiko.xyz](https://taiko.xyz). There should also be a README in each package, as well as comments in the source code.
 
-## Questions and discussions
-
-Ask questions and start discussions for new ideas under [GitHub Discussions](https://github.com/taikoxyz/taiko-mono/discussions).
-
-If you have a specific request/report, you can [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
-
 ## Project structure
 
 <pre>
@@ -52,14 +46,28 @@ taiko-mono
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko Bridge frontend UI
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko ZK-Rollup L2 Protocol and Taiko Bridge smart contracts
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer (backend)
+│   ├── <a href="./packages/status-page">status-page</a>: Taiko Protocol status page
+│   ├── <a href="./packages/tokenomics">tokenomics</a>: Taiko tokenomics simulations
 │   ├── <a href="./packages/website">website</a>: Main documentation website at taiko.xyz (https://taiko.xyz/)
 │   └── <a href="./packages/whitepaper">whitepaper</a>: Whitepaper source files with automated publishing
 ...
 </pre>
 
+## Issues
+
+If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
+
+## Contributing
+
+Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
+
+## Get help
+
+Reach out to the community on [Discord](https://discord.gg/taikoxyz) to get help.
+
 ## Contributors ✨
 
-Thanks goes to these wonderful people! If you would like to contribute, please read the [Contributing guide](./CONTRIBUTING.md). You can also reach out to the community on [Discord](https://discord.gg/taikoxyz).
+Thanks goes to these wonderful people!
 
 <a href="https://github.com/taikoxyz/taiko-mono/graphs/contributors">
   <p align="center">
