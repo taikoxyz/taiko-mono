@@ -77,7 +77,7 @@ library LibVerifying {
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (
-                !_isVerifiable({
+                !isVerifiable({
                     state: state,
                     config: config,
                     fc: fc,
@@ -231,12 +231,12 @@ library LibVerifying {
         delete fc.provers;
     }
 
-    function _isVerifiable(
+    function isVerifiable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 blockId
-    ) private view returns (bool) {
+    ) public view returns (bool) {
         return
             fc.blockHash != 0 &&
             block.timestamp >

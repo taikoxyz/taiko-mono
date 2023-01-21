@@ -285,11 +285,31 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return state.forkChoices[id][parentHash].provers;
     }
 
+    function getForkChoice(
+        uint256 id,
+        bytes32 parentHash
+    ) public view returns (TaikoData.ForkChoice memory) {
+        return state.forkChoices[id][parentHash];
+    }
+
     function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
+    }
+
+    function isBlockVerifiable(
+        uint256 blockId,
+        bytes32 parentHash
+    ) public view returns (bool) {
+        return
+            LibVerifying.isVerifiable({
+                state: state,
+                config: getConfig(),
+                fc: state.forkChoices[blockId][parentHash],
+                blockId: blockId
+            });
     }
 }

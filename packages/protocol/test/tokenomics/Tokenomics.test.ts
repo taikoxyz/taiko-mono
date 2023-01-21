@@ -216,7 +216,10 @@ describe("tokenomics", function () {
         }
     });
 
-    it.only("propose blocks, wait til maxNumBlocks is filled, proverReward should decline and blockFee should increase as blocks are proved then verified", async function () {
+    it.only(`propose blocks, wait til maxNumBlocks is filled.
+    proverReward should decline should increase as blocks are proved then verified.
+    the provers TKO balance should increase as the blocks are verified and
+    they receive the proofReward.`, async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         const blockIdsToNumber: any = {};
 
@@ -270,7 +273,12 @@ describe("tokenomics", function () {
 
         let blocksProved: number = 0;
 
-        type BlockInfo = { proposedAt: number; provenAt: number; id: number };
+        type BlockInfo = {
+            proposedAt: number;
+            provenAt: number;
+            id: number;
+            parentHash: string;
+        };
 
         const blockInfo: BlockInfo[] = [];
 
@@ -313,6 +321,7 @@ describe("tokenomics", function () {
                         proposedAt: proposedBlock.proposedAt.toNumber(),
                         provenAt: event.args.provenAt.toNumber(),
                         id: event.args.id.toNumber(),
+                        parentHash: event.args.parentHash,
                     });
                     blocksProved++;
                 } catch (e) {
@@ -328,35 +337,65 @@ describe("tokenomics", function () {
         // wait for all blocks to be proven
         /* eslint-disable-next-line */
         while (blocksProved < maxNumBlocks.toNumber() - 1) {
-            console.log(
-                "waiting",
-                blocksProposed,
-                blocksProved,
-                maxNumBlocks.toNumber()
-            );
             await sleep(1 * 1000);
         }
-
-        console.log("done");
 
         let lastProofReward: BigNumber = BigNumber.from(0);
 
         // now try to verify the blocks and make sure the proof reward shrinks as slots
         // free up
         for (let i = 1; i < blockInfo.length + 1; i++) {
+            await sleep(30 * 1000);
+            console.log("verifying block", i);
             const block = blockInfo.find((b) => b.id === i) as any as BlockInfo;
             expect(block).not.to.be.undefined;
+
+            const isVerifiable = await taikoL1.isBlockVerifiable(
+                block.id,
+                block.parentHash
+            );
+            console.log("block id ", block.id, "isVerifiable:", isVerifiable);
+            expect(isVerifiable).to.be.eq(true);
+
             // verify blocks 1 by 1
             const latestL2hash = await taikoL1.getLatestSyncedHeader();
             console.log("latest synced header", latestL2hash);
 
-            const stateVariables = await taikoL1.getStateVariables();
-            console.log("latest verified block id", stateVariables[9]);
+            const forkChoice = await taikoL1.getForkChoice(
+                block.id,
+                block.parentHash
+            );
 
-            const verifiedEvent = await verifyBlocks(taikoL1, 1);
+            const prover = forkChoice.provers[0];
+
+            const proverTkoBalanceBeforeVerification =
+                await tkoTokenL1.balanceOf(prover);
+
+            let stateVariables = await taikoL1.getStateVariables();
+            console.log(
+                "latest verified block id",
+                stateVariables[8].toNumber()
+            );
+
+            const verifiedEvent = await verifyBlocks(taikoL1, 5);
             expect(verifiedEvent).to.be.not.undefined;
 
             console.log("block verified", verifiedEvent.args.id);
+
+            stateVariables = await taikoL1.getStateVariables();
+            console.log(
+                "latest verified block id after verification",
+                stateVariables[8].toNumber()
+            );
+
+            const proverTkoBalanceAfterVerification =
+                await tkoTokenL1.balanceOf(prover);
+
+            expect(
+                proverTkoBalanceAfterVerification.gt(
+                    proverTkoBalanceBeforeVerification
+                )
+            ).to.be.eq(true);
 
             const newProofReward = await taikoL1.getProofReward(
                 block.proposedAt,
