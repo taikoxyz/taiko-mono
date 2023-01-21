@@ -27,7 +27,7 @@ docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
 docker run -d \
   --name $TEST_NODE_CONTAINER_NAME_L1 \
   -p 18545:8545 \
-  ethereum/client-go:latest \
+  ethereum/client-go:v1.10.26 \
   --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
   --http.api debug,eth,net,web3,txpool,miner
 
