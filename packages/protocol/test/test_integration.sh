@@ -40,7 +40,7 @@ docker run -d \
 function waitTestNode {
   echo "Waiting for test node: $1"
   # Wait till the test node fully started
-  RETRIES=60
+  RETRIES=120
   i=0
   until curl \
       --silent \
