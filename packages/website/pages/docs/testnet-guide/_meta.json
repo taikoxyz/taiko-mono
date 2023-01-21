@@ -1,9 +1,9 @@
 {
-  "get-started": {
-    "title": "👋 Get started"
+  "index": {
+    "title": "👋 Start here"
   },
   "configure-wallet": {
-    "title": "➕ Add networks to wallet"
+    "title": "⚙️ Configure your wallet"
   },
   "request-from-faucet": {
     "title": "💧 Request from faucet"
@@ -15,10 +15,7 @@
     "title": "🚀 Deploy a contract"
   },
   "run-a-node": {
-    "title": "🌐 Run a node"
-  },
-  "explore-the-network": {
-    "title": "🔎 Explore the network"
+    "title": "🌐 Run a Taiko node"
   },
   "get-help": {
     "title": "❓ Get help"

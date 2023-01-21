@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-//
-// ╭━━━━╮╱╱╭╮╱╱╱╱╱╭╮╱╱╱╱╱╭╮
-// ┃╭╮╭╮┃╱╱┃┃╱╱╱╱╱┃┃╱╱╱╱╱┃┃
-// ╰╯┃┃┣┻━┳┫┃╭┳━━╮┃┃╱╱╭━━┫╰━┳━━╮
-// ╱╱┃┃┃╭╮┣┫╰╯┫╭╮┃┃┃╱╭┫╭╮┃╭╮┃━━┫
-// ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
-// ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
+
 pragma solidity ^0.8.9;
 
 import "../../common/ConfigManager.sol";
@@ -57,6 +55,17 @@ library LibProposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
+        // For alpha-2 testnet, the network only allows an special address
+        // to propose but anyone to prove. This is the first step of testing
+        // the tokenomics.
+
+        // TODO(daniel): remove this special address.
+        address specialProposer = resolver.resolve("special_proposer", true);
+        require(
+            specialProposer == address(0) || specialProposer == msg.sender,
+            "L1:specialProposer"
+        );
+
         assert(!LibUtils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");

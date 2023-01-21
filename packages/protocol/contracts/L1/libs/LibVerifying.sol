@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-//
-// ╭━━━━╮╱╱╭╮╱╱╱╱╱╭╮╱╱╱╱╱╭╮
-// ┃╭╮╭╮┃╱╱┃┃╱╱╱╱╱┃┃╱╱╱╱╱┃┃
-// ╰╯┃┃┣┻━┳┫┃╭┳━━╮┃┃╱╱╭━━┫╰━┳━━╮
-// ╱╱┃┃┃╭╮┣┫╰╯┫╭╮┃┃┃╱╭┫╭╮┃╭╮┃━━┫
-// ╱╱┃┃┃╭╮┃┃╭╮┫╰╯┃┃╰━╯┃╭╮┃╰╯┣━━┃
-// ╱╱╰╯╰╯╰┻┻╯╰┻━━╯╰━━━┻╯╰┻━━┻━━╯
+//  _____     _ _         _         _
+// |_   _|_ _(_) |_____  | |   __ _| |__ ___
+//   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
+//   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
+
 pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
@@ -146,7 +144,8 @@ library LibVerifying {
         TkoToken tkoToken
     ) private {
         uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
-        if (refund > 0) {
+        if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
+            // Do not refund proposer with 0 TKO balance.
             tkoToken.mint(target.proposer, refund);
         }
     }
@@ -162,8 +161,10 @@ library LibVerifying {
             uint proverReward = (reward * weight) / sum;
 
             if (tkoToken.balanceOf(fc.provers[i]) == 0) {
-                // reduce reward if the prover has 0 TKO balance.
-                proverReward /= 2;
+                // Reduce reward to 1 wei as a penalty if the prover
+                // has 0 TKO balance. This allows the next prover reward
+                // to be fully paid.
+                proverReward = uint256(1);
             }
             tkoToken.mint(fc.provers[i], proverReward);
         }

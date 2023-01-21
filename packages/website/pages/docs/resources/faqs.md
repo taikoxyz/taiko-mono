@@ -65,14 +65,10 @@ There are 2 types of zero-knowledge proofs: ZK-SNARKs and ZK-STARKs. Taiko uses 
 
 A Zero-Knowledge Succinct Non-Interactive Argument of Knowledge (ZK-SNARK) is a type of zero-knowledge proof in which one party can demonstrate the possesion of certain information without revealing the information itself and having any direct communication between the party providing the proof and the party verifying it. ZK-SNARKs are known to be lighter than ZK-STARKs and take less time to verify. They also require less gas, offering cheaper transactions.
 
-[Learn more about ZK-SNARKs]( https://ethereum.org/en/zero-knowledge-proofs/#zk-snarks)
+[Learn more about ZK-SNARKs](https://ethereum.org/en/zero-knowledge-proofs/#zk-snarks)
 
 ## What does "Taiko" mean?
 
 The word "Taiko" comes from an old Chinese saying 鼓作气 (Yīgǔzuòqì). The literal meaning of the saying is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort.
 
 Taiko (太鼓) also means a "drum" in Japanese. For us, Taiko is the drum that arouses courage and leads to accomplishing goals.
-
-## Where may I ask more questions?
-
-You can ask more questions at Taiko's Github [Discussions](https://github.com/taikoxyz/taiko-mono/discussions) page.
