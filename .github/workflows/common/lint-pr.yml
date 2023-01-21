@@ -1,8 +1,11 @@
-name: "Lint PR"
+name: Lint PR
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
 
 jobs:
   main:
@@ -14,6 +17,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           scopes: |
+            repo
             branding
             bridge-ui
             protocol

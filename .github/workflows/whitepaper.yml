@@ -1,4 +1,5 @@
 name: Whitepaper
+
 on:
   push:
     branches: [main]
@@ -16,10 +17,8 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "16.15"
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Compile main.tex
         uses: xu-cheng/latex-action@v2
@@ -30,7 +29,7 @@ jobs:
 
       - name: Rename
         working-directory: ./packages/whitepaper
-        run:  rm -rf build/ && mkdir build && mv main.pdf build/taiko-whitepaper.pdf
+        run: rm -rf build/ && mkdir build && mv main.pdf build/taiko-whitepaper.pdf
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
