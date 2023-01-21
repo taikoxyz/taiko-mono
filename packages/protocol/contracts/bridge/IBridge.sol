@@ -56,6 +56,13 @@ interface IBridge {
         bytes calldata proof
     ) external view returns (bool);
 
+    /// Checks if a msgHash has been failed on the destination chain.
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) external view returns (bool);
+
     /// Returns the bridge state context.
     function context() external view returns (Context memory context);
 }
