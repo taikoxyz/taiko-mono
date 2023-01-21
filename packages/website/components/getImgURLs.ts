@@ -1,4 +1,4 @@
-const jsdom = require("jsdom");
+import jsdom from "jsdom";
 const { JSDOM } = jsdom;
 global.DOMParser = new JSDOM().window.DOMParser;
 const parser = new DOMParser();
