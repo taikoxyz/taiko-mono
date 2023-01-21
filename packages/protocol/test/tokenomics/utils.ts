@@ -2,6 +2,13 @@ import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TkoToken } from "../../typechain";
 import Proposer from "../utils/proposer";
 
+type BlockInfo = {
+    proposedAt: number;
+    provenAt: number;
+    id: number;
+    parentHash: string;
+};
+
 async function onNewL2Block(
     l2Provider: ethers.providers.JsonRpcProvider,
     blockNumber: number,
@@ -51,3 +58,4 @@ const sendTinyEtherToZeroAddress = async (signer: any) => {
 };
 
 export { sendTinyEtherToZeroAddress, onNewL2Block };
+export type { BlockInfo };
