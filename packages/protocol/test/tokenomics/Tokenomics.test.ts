@@ -231,10 +231,11 @@ describe("tokenomics", function () {
             0
         );
 
+        // prover needs TKO or their reward will be cut down to 1 wei.
         await tkoTokenL1
             .connect(l1Signer)
             .mintAnyone(
-                await proposerSigner.getAddress(),
+                await proverSigner.getAddress(),
                 ethers.utils.parseEther("100")
             );
 
