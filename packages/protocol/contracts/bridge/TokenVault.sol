@@ -37,7 +37,7 @@ contract TokenVault is EssentialContract {
         string name;
     }
 
-    struct DepositRecord {
+    struct MessageDeposit {
         address token;
         uint256 amount;
     }
@@ -55,7 +55,7 @@ contract TokenVault is EssentialContract {
     // chainId => canonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    mapping(bytes32 => DepositRecord) public deposits;
+    mapping(bytes32 => MessageDeposit) public deposits;
 
     uint256[47] private __gap;
 
@@ -232,7 +232,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        deposits[msgHash] = DepositRecord(token, _amount);
+        deposits[msgHash] = MessageDeposit(token, _amount);
         emit ERC20Sent(msgHash, message, token, _amount);
     }
 
@@ -262,7 +262,7 @@ contract TokenVault is EssentialContract {
             "V:notFailed"
         );
 
-        deposits[msgHash] = DepositRecord(address(0), 0);
+        deposits[msgHash] = MessageDeposit(address(0), 0);
 
         uint256 amount = deposits[msgHash].amount;
         if (amount > 0) {
