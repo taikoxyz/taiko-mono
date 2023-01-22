@@ -74,30 +74,34 @@ contract TokenVault is EssentialContract {
 
     event EtherSent(
         bytes32 indexed msgHash,
-        IBridge.Message message,
+        address indexed from,
+        address indexed to,
+        uint256 destChainId,
         uint256 amount
     );
 
     event ERC20Sent(
         bytes32 indexed msgHash,
-        IBridge.Message message,
+        address indexed from,
+        address indexed to,
+        uint256 destChainId,
         address token,
         uint256 amount
     );
 
     event ERC20Released(
         bytes32 indexed msgHash,
-        address indexed to,
+        address indexed from,
         address token,
         uint256 amount
     );
-
     event ERC20Received(
-        address indexed to,
+        bytes32 indexed msgHash,
         address indexed from,
+        address indexed to,
         uint256 srcChainId,
         address token,
-        uint256 msgHash
+        uint256 amount
     );
 
     /*********************
@@ -144,13 +148,21 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
+        require(message.callValue == 0, "V:callValue");
+
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
         // the TokenVault
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
-        emit EtherSent(msgHash, message, message.depositValue);
+        emit EtherSent({
+            msgHash: msgHash,
+            from: message.owner,
+            to: message.to,
+            destChainId: destChainId,
+            amount: message.depositValue
+        });
     }
 
     /**
@@ -233,7 +245,15 @@ contract TokenVault is EssentialContract {
         }(message);
 
         messageDeposits[msgHash] = MessageDeposit(token, _amount);
-        emit ERC20Sent(msgHash, message, token, _amount);
+
+        emit ERC20Sent({
+            msgHash: msgHash,
+            from: message.owner,
+            to: to,
+            destChainId: destChainId,
+            token: token,
+            amount: _amount
+        });
     }
 
     /**
@@ -273,7 +293,12 @@ contract TokenVault is EssentialContract {
             }
         }
 
-        emit ERC20Released(msgHash, message.owner, token, amount);
+        emit ERC20Released({
+            msgHash: msgHash,
+            from: message.owner,
+            token: token,
+            amount: amount
+        });
     }
 
     /**
@@ -307,7 +332,14 @@ contract TokenVault is EssentialContract {
             BridgedERC20(token).bridgeMintTo(to, amount);
         }
 
-        emit ERC20Received(to, from, ctx.srcChainId, token, amount);
+        emit ERC20Received({
+            msgHash: ctx.msgHash,
+            from: from,
+            to: to,
+            srcChainId: ctx.srcChainId,
+            token: token,
+            amount: amount
+        });
     }
 
     /*********************
