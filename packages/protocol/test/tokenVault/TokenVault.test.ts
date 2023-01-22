@@ -187,57 +187,60 @@ describe("TokenVault", function () {
         it("succeeds with processingFee", async () => {
             const depositValue = 1000;
 
-            const testSignal =
+            const msgHash =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
-            await expect(
-                L1TokenVault.sendEther(
-                    destChainId,
-                    owner.address,
-                    10000,
-                    defaultProcessingFee,
-                    owner.address,
-                    "",
-                    {
-                        value: depositValue,
-                    }
-                )
-            )
-                .to.emit(L1TokenVault, "EtherSent")
-                .withArgs(
-                    owner.address,
-                    destChainId,
-                    depositValue - defaultProcessingFee,
-                    testSignal
-                );
+            const result = await L1TokenVault.sendEther(
+                destChainId,
+                owner.address,
+                10000,
+                defaultProcessingFee,
+                owner.address,
+                "",
+                {
+                    value: depositValue,
+                }
+            );
+
+            const { events } = await result.wait();
+
+            const event = events.find((x) => x.event === "EtherSent");
+
+            expect(event.args.amount).to.be.equal(
+                depositValue - defaultProcessingFee
+            );
+            expect(event.args.msgHash).to.be.equal(msgHash);
+            expect(event.args.message.destChainId).to.be.equal(destChainId);
+            expect(event.args.message.owner).to.be.equal(owner.address);
         });
 
         it("succeeds with 0 processingFee", async () => {
             const depositValue = 1000;
 
-            const testSignal =
+            const msgHash =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
-            await expect(
-                L1TokenVault.sendEther(
-                    destChainId,
-                    owner.address,
-                    10000,
-                    defaultProcessingFee,
-                    owner.address,
-                    "",
-                    {
-                        value: depositValue,
-                    }
-                )
-            )
-                .to.emit(L1TokenVault, "EtherSent")
-                .withArgs(
-                    owner.address,
-                    destChainId,
-                    depositValue - defaultProcessingFee,
-                    testSignal
-                );
+            const result = await L1TokenVault.sendEther(
+                destChainId,
+                owner.address,
+                10000,
+                defaultProcessingFee,
+                owner.address,
+                "",
+                {
+                    value: depositValue,
+                }
+            );
+            const { events } = await result.wait();
+
+            const event = events.find((x) => x.event === "EtherSent");
+
+            expect(event.args.amount).to.be.equal(
+                depositValue - defaultProcessingFee
+            );
+            expect(event.args.msgHash).to.be.equal(msgHash);
+            expect(event.args.message.destChainId).to.be.equal(destChainId);
+            expect(event.args.message.owner).to.be.equal(owner.address);
         });
     });
 
