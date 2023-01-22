@@ -73,20 +73,16 @@ contract TokenVault is EssentialContract {
     );
 
     event EtherSent(
-        address indexed to,
-        uint256 destChainId,
-        uint256 amount,
-        bytes32 msgHash
+        bytes32 indexed msgHash,
+        IBridge.Message message,
+        uint256 amount
     );
 
-    event EtherReceived(address from, uint256 amount);
-
     event ERC20Sent(
-        address indexed to,
-        uint256 destChainId,
+        bytes32 indexed msgHash,
+        IBridge.Message message,
         address token,
-        uint256 amount,
-        bytes32 msgHash
+        uint256 amount
     );
 
     event ERC20Released(
@@ -154,12 +150,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        emit EtherSent({
-            to: to,
-            destChainId: destChainId,
-            amount: message.depositValue,
-            msgHash: msgHash
-        });
+        emit EtherSent(msgHash, message, message.depositValue);
     }
 
     /**
@@ -242,9 +233,18 @@ contract TokenVault is EssentialContract {
         }(message);
 
         deposits[msgHash] = DepositRecord(token, _amount);
-        emit ERC20Sent(to, destChainId, token, _amount, msgHash);
+        emit ERC20Sent(msgHash, message, token, _amount);
     }
 
+    /**
+     * Release deposited ERC20 back to the owner on the source TokenVault with
+     * a proof that the message processing on the destination Bridge has failed.
+     *
+     * @param message The message that corresponds the ERC20 deposit on the
+     *                source chain.
+     * @param proof The proof from the destination chain to show the message
+     *              has failed.
+     */
     function releaseERC20(
         IBridge.Message calldata message,
         bytes calldata proof
