@@ -3,7 +3,6 @@ const { JSDOM } = jsdom;
 global.DOMParser = new JSDOM().window.DOMParser;
 const parser = new DOMParser();
 
-
 export const getImgURLs = new Promise<Array<String>>((resolve, reject) => {
     async function getImgURLs() {
         fetch("https://cors-anywhere.herokuapp.com/https://mirror.xyz/labs.taiko.eth/")
@@ -32,6 +31,5 @@ export const getImgURLs = new Promise<Array<String>>((resolve, reject) => {
                 console.warn("Something went wrong.", err);
             });
     }
-
     getImgURLs()
 })

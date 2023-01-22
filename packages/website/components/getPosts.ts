@@ -41,8 +41,6 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
     }).then((res) => res.json())
       .then((response) => {
         const transactionCount = response.data.transactions.edges.length;
-        console.log("Amount of transactions: " + transactionCount);
-
 
         getPosts(response, transactionCount)
       })
@@ -57,12 +55,12 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
       var transactionId = response.data.transactions.edges[i].node.id;
       await arweave.transactions
         .getData(`${transactionId}`, { decode: true, string: true })
-        .then((data: string) => {
-          posts.push(JSON.parse(data))
+        .then((response: string) => JSON.parse(response))
+        .then((data) => {
+          posts.push(data)
         }).catch((error) => {
           console.log("An error occurred: ", error);
         });
-
     }
     resolve(posts)
   }

@@ -50,7 +50,6 @@ function addImgURLs(objects, imgURLs) {
   for (let i = 0; i < objects.length; i++) {
     objects[i]["ImgURL"] = imgURLs[i];
   }
-
   return objects;
 }
 
