@@ -87,14 +87,14 @@ contract TokenVault is EssentialContract {
 
     event ERC20Released(
         bytes32 indexed msgHash,
-        address to,
+        address indexed to,
         address token,
         uint256 amount
     );
 
     event ERC20Received(
         address indexed to,
-        address from,
+        address indexed from,
         uint256 srcChainId,
         address token,
         uint256 msgHash
