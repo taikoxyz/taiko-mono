@@ -257,15 +257,14 @@ contract TokenVault is EssentialContract {
 
         address token = deposits[msgHash].token;
         require(token != address(0), "B:released");
-
-        uint256 amount = deposits[msgHash].amount;
-        deposits[msgHash] = DepositRecord(address(0), 0);
-
         require(
             bridge.isMessageFailed(msgHash, message.destChainId, proof),
             "V:notFailed"
         );
 
+        deposits[msgHash] = DepositRecord(address(0), 0);
+
+        uint256 amount = deposits[msgHash].amount;
         if (amount > 0) {
             if (isBridgedToken[token]) {
                 BridgedERC20(token).bridgeMintTo(message.owner, amount);
