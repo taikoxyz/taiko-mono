@@ -1,51 +1,3 @@
-const posts = [
-  {
-    title: "Taiko Ambassador Program",
-    href: "https://mirror.xyz/labs.taiko.eth/BvcEyYeVIiHnjc-i5qf3zR4s67Jc6nz_R6OSGj5rzOE",
-    description:
-      "Ethereum has come a long way in its seven-year life — changing the world, in our opinion — but it is only just getting started.",
-    date: "Jan 04, 2023",
-    datetime: "2023-01-04",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/5Ed-TXJIB3LTC2HJdPuEN.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "2 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-  {
-    title: "Taiko Alpha-1 Testnet is Live",
-    href: "https://mirror.xyz/labs.taiko.eth/-lahy4KbGkeAcqhs0ETG3Up3oTVzZ0wLoE1eK_ao5h4",
-    description:
-      "Today, the Taiko Alpha-1 testnet (a1) is live - our first public testnet! We’ve codenamed this testnet, Snæfellsjökull.",
-    date: "Dec 27, 2022",
-    datetime: "2022-12-27",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/4qVW-dWhNmMQr61g91hGt.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "4 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-  {
-    title: "Rollup Decentralization",
-    href: "https://mirror.xyz/labs.taiko.eth/sxR3iKyD-GvTuyI9moCg4_ggDI4E4CqnvhdwRq5yL0A",
-    description:
-      "This post explores definitions and high-level ideas of rollup decentralization. It does not cover deep technical detail about decentralizing rollup implementations.",
-    date: "Dec 20, 2022",
-    datetime: "2022-12-20",
-    imageUrl:
-      "https://mirror-media.imgix.net/publication-images/NTeYUqYqHo4NqrRGJHvfO.png?height=512&width=1024&h=512&w=1024&auto=compress",
-    readingTime: "9 min",
-    author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
-    },
-  },
-];
-
 import React, { useEffect, useState } from "react";
 import { getImgURLs } from "./getImgURLs";
 import { getOriginalDigests } from "./getOriginalDigests";
@@ -54,9 +6,19 @@ import { getPosts } from "./getPosts";
 const authors = [
   {
     address: "0x381636D0E4eD0fa6aCF07D8fd821909Fb63c0d10",
-    profileImg: "https://avatars.githubusercontent.com/u/36642873?v=4",
+    profileImg: "https://mirror-media.imgix.net/publication-images/aWkXh0tO8n-j2jSU996_5.jpeg?h=400&w=400",
     name: "finestone",
   },
+  {
+    address: "0x2b1F13149C7F89622BBfB46Ae1e3ECc573Bb9331",
+    profileImg: "https://mirror-media.imgix.net/publication-images/XadIvjIRb2wI3Aglq3r01.png?h=720&w=762",
+    name: "d1onys1us",
+  },
+  {
+    address: "0x5b796c4b197b6dfd413f177059c27963eb80af0f",
+    profileImg: "https://mirror-media.imgix.net/publication-images/R0_XDunSEvn58KGo31NtD.png?h=1001&w=1001",
+    name: "Taiko Labs",
+  }
 ];
 
 // Add the correct Original-Content-Digest, this is neccesarry for making the link to the mirror page
@@ -89,7 +51,7 @@ function addImgURLs(objects, imgURLs) {
     objects[i]["ImgURL"] = imgURLs[i];
   }
 
-  return objects
+  return objects;
 }
 
 function getReadingTime(text) {
@@ -178,8 +140,17 @@ export default function BlogSection(): JSX.Element {
               className="flex flex-col overflow-hidden rounded-lg shadow-lg"
             >
               <div className="flex-shrink-0">
-                <a href={"https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest} target="_blank">
-                  <img className="h-54 w-full object-cover" src={post.ImgURL} alt="" />
+                <a
+                  href={
+                    "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
+                  }
+                  target="_blank"
+                >
+                  <img
+                    className="h-54 w-full object-cover"
+                    src={post.ImgURL}
+                    alt=""
+                  />
                 </a>
               </div>
               <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
