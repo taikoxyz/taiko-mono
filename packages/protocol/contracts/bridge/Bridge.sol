@@ -156,7 +156,9 @@ contract Bridge is EssentialContract, IBridge {
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    function hashMessage(Message memory message) public pure returns (bytes32) {
+    function hashMessage(
+        Message calldata message
+    ) public pure override returns (bytes32) {
         return LibBridgeData.hashMessage(message);
     }
 

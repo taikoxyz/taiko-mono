@@ -16,11 +16,7 @@ library LibBridgeRelease {
     // using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
-    event EtherReleased(
-        bytes32 indexed msgHashaddress,
-        address to,
-        uint256 amount
-    );
+    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
     function releaseEther(
         LibBridgeData.State storage state,
