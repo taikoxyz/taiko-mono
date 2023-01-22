@@ -21,7 +21,7 @@ library LibBridgeData {
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        mapping(bytes32 => bool) released;
+        mapping(bytes32 => bool) etherReleased;
         uint256[45] __gap;
     }
 

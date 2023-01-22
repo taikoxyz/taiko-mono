@@ -28,7 +28,7 @@ library LibBridgeRelease {
         require(message.srcChainId == block.chainid, "B:srcChainId");
 
         bytes32 msgHash = message.hashMessage();
-        require(state.released[msgHash] == false, "B:released");
+        require(state.etherReleased[msgHash] == false, "B:etherReleased");
         require(
             LibBridgeStatus.isMessageFailed(
                 resolver,
@@ -39,7 +39,7 @@ library LibBridgeRelease {
             "B:notFailed"
         );
 
-        state.released[msgHash] = true;
+        state.etherReleased[msgHash] = true;
 
         uint256 releaseAmount = message.depositValue + message.callValue;
 
