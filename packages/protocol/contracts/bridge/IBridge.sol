@@ -35,8 +35,12 @@ interface IBridge {
     }
 
     event SignalSent(address sender, bytes32 msgHash);
-
     event MessageSent(bytes32 indexed msgHash, Message message);
+    event EtherReleased(
+        bytes32 indexed msgHashaddress,
+        address to,
+        uint256 amount
+    );
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.

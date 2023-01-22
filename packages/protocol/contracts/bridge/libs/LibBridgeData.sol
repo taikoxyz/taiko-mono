@@ -21,7 +21,8 @@ library LibBridgeData {
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[46] __gap;
+        mapping(bytes32 => bool) released;
+        uint256[45] __gap;
     }
 
     struct StatusProof {
@@ -36,7 +37,6 @@ library LibBridgeData {
 
     // Note: These events must match the ones defined in Bridge.sol.
     event MessageSent(bytes32 indexed msgHash, IBridge.Message message);
-
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**

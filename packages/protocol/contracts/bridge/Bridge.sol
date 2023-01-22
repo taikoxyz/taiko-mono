@@ -10,6 +10,7 @@ import "../common/EssentialContract.sol";
 import "./IBridge.sol";
 import "./libs/LibBridgeData.sol";
 import "./libs/LibBridgeProcess.sol";
+import "./libs/LibBridgeRelease.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeStatus.sol";
@@ -62,6 +63,19 @@ contract Bridge is EssentialContract, IBridge {
                 state: state,
                 resolver: AddressResolver(this),
                 message: message
+            });
+    }
+
+    function releaseEther(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
+        return
+            LibBridgeRelease.releaseEther({
+                state: state,
+                resolver: AddressResolver(this),
+                message: message,
+                proof: proof
             });
     }
 

@@ -16,7 +16,7 @@ contract TestLibBridgeInvoke {
     event MessageInvoked(bytes32 signal, bool success);
 
     function invokeMessageCall(
-        IBridge.Message memory message,
+        IBridge.Message calldata message,
         bytes32 signal,
         uint256 gasLimit
     ) public payable {
