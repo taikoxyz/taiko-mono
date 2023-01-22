@@ -55,7 +55,7 @@ contract TokenVault is EssentialContract {
     // chainId => canonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
-    mapping(bytes32 => MessageDeposit) public deposits;
+    mapping(bytes32 => MessageDeposit) public messageDeposits;
 
     uint256[47] private __gap;
 
@@ -232,7 +232,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
-        deposits[msgHash] = MessageDeposit(token, _amount);
+        messageDeposits[msgHash] = MessageDeposit(token, _amount);
         emit ERC20Sent(msgHash, message, token, _amount);
     }
 
@@ -255,16 +255,16 @@ contract TokenVault is EssentialContract {
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
-        address token = deposits[msgHash].token;
+        address token = messageDeposits[msgHash].token;
+        uint256 amount = messageDeposits[msgHash].amount;
         require(token != address(0), "B:released");
         require(
             bridge.isMessageFailed(msgHash, message.destChainId, proof),
             "V:notFailed"
         );
 
-        deposits[msgHash] = MessageDeposit(address(0), 0);
+        messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
-        uint256 amount = deposits[msgHash].amount;
         if (amount > 0) {
             if (isBridgedToken[token]) {
                 BridgedERC20(token).bridgeMintTo(message.owner, amount);
