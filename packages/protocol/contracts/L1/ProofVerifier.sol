@@ -42,7 +42,7 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
     ) external view returns (bool) {
         return
             LibZKP.verify({
-                plonkVerifier: resolve("plonk_verifier"),
+                plonkVerifier: resolve("plonk_verifier", false),
                 verificationKey: verificationKey,
                 zkproof: zkproof,
                 blockHash: blockHash,

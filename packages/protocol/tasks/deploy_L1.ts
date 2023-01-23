@@ -1,8 +1,6 @@
-import * as childProcess from "child_process";
 import * as ethers from "ethers";
 import { task } from "hardhat/config";
 import * as types from "hardhat/internal/core/params/argumentTypes";
-import * as path from "path";
 import * as config from "./config";
 import * as log from "./log";
 import * as utils from "./utils";
@@ -300,52 +298,9 @@ async function deploySignalSerive(
 }
 
 async function deployPlonkVerifier(hre: any): Promise<any> {
-    const SOLC_COMMAND = path.join(__dirname, "../bin/solc");
-    const sourceFile = path.join(
-        __dirname,
+    const byteCode = utils.compileYulContract(
         "../contracts/libs/yul/PlonkVerifier.yulp"
     );
-    const compile = childProcess.spawnSync(SOLC_COMMAND, [
-        "--yul",
-        "--bin",
-        sourceFile,
-    ]);
 
-    let isNextLineByteCode = false;
-    let byteCode = null;
-    for (const line of compile.stdout.toString().split("\n")) {
-        if (isNextLineByteCode) {
-            byteCode = line;
-            break;
-        }
-
-        if (line === "Binary representation:") {
-            isNextLineByteCode = true;
-        }
-    }
-
-    if (!byteCode) {
-        throw new Error(
-            `failed to compile PlonkVerifier, sloc: ${SOLC_COMMAND}, contract: ${sourceFile}`
-        );
-    }
-
-    const [signer] = await hre.ethers.getSigners();
-
-    const tx = await signer.sendTransaction({ data: "0x" + byteCode });
-    const receipt = await tx.wait();
-
-    log.debug(
-        `PlonkVerifier deploying, tx ${tx.hash}, waiting for confirmations`
-    );
-
-    if (receipt.status !== 1) {
-        throw new Error(
-            `failed to create PlonkVerifier contract, transaction ${tx.hash} reverted`
-        );
-    }
-
-    log.debug(`PlonkVerifier deployed at ${receipt.contractAddress}`);
-
-    return { address: receipt.contractAddress };
+    return { address: await utils.deployBytecode(hre, byteCode) };
 }
