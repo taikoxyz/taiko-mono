@@ -6,9 +6,9 @@
 
 pragma solidity ^0.8.9;
 
-import "../thirdparty/LibMerkleTrie.sol";
-import "../libs/LibZKP.sol";
 import "../common/EssentialContract.sol";
+import "../libs/LibZKP.sol";
+import "../thirdparty/LibMerkleTrie.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
