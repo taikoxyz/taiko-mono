@@ -38,10 +38,10 @@ receive() external payable
 function init(address addressManager) external
 ```
 
-### sendEther
+### receiveEther
 
 ```solidity
-function sendEther(uint256 amount) public
+function receiveEther(uint256 amount) public
 ```
 
 Send Ether from EtherVault to the sender, checking they are authorized.
