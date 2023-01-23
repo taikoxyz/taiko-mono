@@ -13,7 +13,6 @@ import "./LibBridgeStatus.sol";
  * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeRelease {
-    // using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
