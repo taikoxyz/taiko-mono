@@ -227,7 +227,7 @@ contract TokenVault is EssentialContract {
 
         message.to = resolve(destChainId, "token_vault", false);
         message.data = abi.encodeWithSelector(
-            TokenVault.receiveERC20.selector,
+            TokenVault.returnERC20.selector,
             canonicalToken,
             message.owner,
             to,
@@ -311,7 +311,7 @@ contract TokenVault is EssentialContract {
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
      */
-    function receiveERC20(
+    function returnERC20(
         CanonicalERC20 calldata canonicalToken,
         address from,
         address to,

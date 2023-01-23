@@ -107,12 +107,12 @@ describe("TokenVault", function () {
         await bridgedToken.setVariable("_balances", { [owner.address]: 10 });
     });
 
-    describe("receiveERC20()", async () => {
+    describe("returnERC20()", async () => {
         it("throws when named 'bridge' is not the caller", async () => {
             const amount = BigNumber.from(1);
 
             await expect(
-                L1TokenVault.receiveERC20(
+                L1TokenVault.returnERC20(
                     weth,
                     owner.address,
                     nonOwner.address,

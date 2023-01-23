@@ -79,7 +79,7 @@ library LibBridgeProcess {
         // We retrieve the necessary ether from EtherVault
         address ethVault = resolver.resolve("ether_vault", false);
         if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).receiveEther(
+            EtherVault(payable(ethVault)).returnEther(
                 message.depositValue + message.callValue + message.processingFee
             );
         }
