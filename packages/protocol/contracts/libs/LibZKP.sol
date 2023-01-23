@@ -19,6 +19,10 @@ library LibZKP {
         address prover,
         bytes32 txListHash
     ) internal view returns (bool verified) {
+        // TODO(david):
+        // 1) verificationKey is hard-coded in the generated PlonkVerifier, make it as a configurable parameter.
+        // 2) public input is assembled in client software for testing purposes right now, move this part of logic
+        //    to here.
         (verified, ) = plonkVerifier.staticcall(zkproof);
     }
 }
