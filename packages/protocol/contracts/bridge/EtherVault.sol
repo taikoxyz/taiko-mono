@@ -78,7 +78,7 @@ contract EtherVault is EssentialContract {
      * @param recipient Address to receive Ether
      * @param amount Amount of ether to send.
      */
-    function receiveEther(
+    function receiveEtherTo(
         address recipient,
         uint256 amount
     ) public onlyAuthorized nonReentrant {

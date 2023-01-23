@@ -46,7 +46,7 @@ library LibBridgeRelease {
         if (releaseAmount > 0) {
             address ethVault = resolver.resolve("ether_vault", true);
             if (ethVault != address(0)) {
-                EtherVault(payable(ethVault)).receiveEther(
+                EtherVault(payable(ethVault)).receiveEtherTo(
                     message.owner,
                     releaseAmount
                 );
