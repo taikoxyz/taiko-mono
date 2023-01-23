@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "compile": "pnpm hardhat compile",
+    "compile:yul": "LOG_LEVEL=debug pnpm hardhat compile_yul",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/contract-documentation/**/*.md",
     "clean": "rm -rf abis cache && pnpm hardhat clean",
@@ -60,6 +61,7 @@
     "eslint-plugin-promise": "^5.2.0",
     "ethereum-waffle": "^3.0.0",
     "ethers": "^5.0.0",
+    "glob": "^8.1.0",
     "hardhat": "^2.8.3",
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-docgen": "^1.3.0",

@@ -38,7 +38,9 @@ function compileYulContract(contractPath: string): string {
         );
     }
 
-    contractPath = path.join(__dirname, contractPath);
+    if (!path.isAbsolute(contractPath)) {
+        contractPath = path.join(__dirname, contractPath);
+    }
 
     const compile = childProcess.spawnSync(SOLC_COMMAND, [
         "--yul",
@@ -54,7 +56,7 @@ function compileYulContract(contractPath: string): string {
             break;
         }
 
-        if (line === "Binary representation:") {
+        if (line.includes("Binary representation:")) {
             isNextLineByteCode = true;
         }
     }
@@ -69,15 +71,15 @@ function compileYulContract(contractPath: string): string {
         `${contractPath} compiled successfully, byte code length: ${byteCode.length}`
     );
 
+    if (!byteCode.startsWith("0x")) {
+        byteCode = `0x${byteCode}`;
+    }
+
     return byteCode;
 }
 
 async function deployBytecode(hre: any, byteCode: string): Promise<any> {
     const [signer] = await hre.ethers.getSigners();
-
-    if (!byteCode.startsWith("0x")) {
-        byteCode = `0x${byteCode}`;
-    }
 
     const tx = await signer.sendTransaction({ data: byteCode });
     const receipt = await tx.wait();
