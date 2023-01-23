@@ -12,13 +12,13 @@ library LibZKP {
      *********************/
 
     function verify(
+        address plonkVerifier,
         bytes memory verificationKey,
         bytes calldata zkproof,
         bytes32 blockHash,
         address prover,
         bytes32 txListHash
-    ) internal pure returns (bool verified) {
-        // TODO
-        return true;
+    ) internal view returns (bool verified) {
+        (verified, ) = plonkVerifier.staticcall(zkproof);
     }
 }
