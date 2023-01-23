@@ -72,7 +72,7 @@ describe("EtherVault", function () {
         });
     });
 
-    describe("receiveEther()", async function () {
+    describe("sendEther()", async function () {
         it("throws if not enough ether to send", async () => {
             const balance = await ethers.provider.getBalance(
                 etherVault.address
@@ -81,13 +81,13 @@ describe("EtherVault", function () {
             await expect(
                 etherVault
                     .connect(authorized)
-                    .receiveEther(balance.add(additionalAmount))
+                    .sendEther(balance.add(additionalAmount))
             ).to.be.revertedWith("ETH transfer failed");
         });
 
         it("throws if not authorized", async () => {
             await expect(
-                etherVault.connect(notAuthorized).receiveEther(1)
+                etherVault.connect(notAuthorized).sendEther(1)
             ).to.be.revertedWith("EV:denied");
         });
 
@@ -97,9 +97,7 @@ describe("EtherVault", function () {
                 authorized.address
             );
 
-            const tx = await etherVault
-                .connect(authorized)
-                .receiveEther(amount);
+            const tx = await etherVault.connect(authorized).sendEther(amount);
             const receipt = await tx.wait();
             const gasUsed = receipt.cumulativeGasUsed.mul(
                 receipt.effectiveGasPrice
@@ -116,7 +114,7 @@ describe("EtherVault", function () {
         it("emits EtherTransferred event upon success", async () => {
             const amount = 69;
 
-            await expect(etherVault.connect(authorized).receiveEther(amount))
+            await expect(etherVault.connect(authorized).sendEther(amount))
                 .to.emit(etherVault, "EtherTransferred")
                 .withArgs(authorized.address, amount);
         });
