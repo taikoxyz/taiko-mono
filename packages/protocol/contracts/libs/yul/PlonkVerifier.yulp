@@ -1,44 +1,44 @@
-
-        object "plonk_verifier" {
-            code {
-                function allocate(size) -> ptr {
-                    ptr := mload(0x40)
-                    if eq(ptr, 0) { ptr := 0x60 }
-                    mstore(0x40, add(ptr, size))
+// Code generated - DO NOT EDIT.
+object "plonk_verifier" {
+    code {
+        function allocate(size) -> ptr {
+            ptr := mload(0x40)
+            if eq(ptr, 0) { ptr := 0x60 }
+            mstore(0x40, add(ptr, size))
+        }
+        let size := datasize("Runtime")
+        let offset := allocate(size)
+        datacopy(offset, dataoffset("Runtime"), size)
+        return(offset, size)
+    }
+    object "Runtime" {
+        code {
+            let success:bool := true
+            let f_p := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+            let f_q := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+            function validate_ec_point(x, y) -> valid:bool {
+                {
+                    let x_lt_p:bool := lt(x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let y_lt_p:bool := lt(y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    valid := and(x_lt_p, y_lt_p)
                 }
-                let size := datasize("Runtime")
-                let offset := allocate(size)
-                datacopy(offset, dataoffset("Runtime"), size)
-                return(offset, size)
+                {
+                    let x_is_zero:bool := eq(x, 0)
+                    let y_is_zero:bool := eq(y, 0)
+                    let x_or_y_is_zero:bool := or(x_is_zero, y_is_zero)
+                    let x_and_y_is_not_zero:bool := not(x_or_y_is_zero)
+                    valid := and(x_and_y_is_not_zero, valid)
+                }
+                {
+                    let y_square := mulmod(y, y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_square := mulmod(x, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_cube := mulmod(x_square, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let x_cube_plus_3 := addmod(x_cube, 3, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+                    let y_square_eq_x_cube_plus_3:bool := eq(x_cube_plus_3, y_square)
+                    valid := and(y_square_eq_x_cube_plus_3, valid)
+                }
             }
-            object "Runtime" {
-                code {
-                    let success:bool := true
-                    let f_p := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
-                    let f_q := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-                    function validate_ec_point(x, y) -> valid:bool {
-                        {
-                            let x_lt_p:bool := lt(x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            let y_lt_p:bool := lt(y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            valid := and(x_lt_p, y_lt_p)
-                        }
-                        {
-                            let x_is_zero:bool := eq(x, 0)
-                            let y_is_zero:bool := eq(y, 0)
-                            let x_or_y_is_zero:bool := or(x_is_zero, y_is_zero)
-                            let x_and_y_is_not_zero:bool := not(x_or_y_is_zero)
-                            valid := and(x_and_y_is_not_zero, valid)
-                        }
-                        {
-                            let y_square := mulmod(y, y, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            let x_square := mulmod(x, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            let x_cube := mulmod(x_square, x, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            let x_cube_plus_3 := addmod(x_cube, 3, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
-                            let y_square_eq_x_cube_plus_3:bool := eq(x_cube_plus_3, y_square)
-                            valid := and(y_square_eq_x_cube_plus_3, valid)
-                        }
-                    }
-                    mstore(0x20, mod(calldataload(0x0), f_q))
+            mstore(0x20, mod(calldataload(0x0), f_q))
 mstore(0x40, mod(calldataload(0x20), f_q))
 mstore(0x60, mod(calldataload(0x40), f_q))
 mstore(0x80, mod(calldataload(0x60), f_q))
