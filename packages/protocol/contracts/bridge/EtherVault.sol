@@ -65,7 +65,8 @@ contract EtherVault is EssentialContract {
      *********************/
 
     /**
-     * Transfer Ether from EtherVault to the sender, checking they are authorized.
+     * Transfer Ether from EtherVault to the sender, checking that the sender
+     * is authorized.
      * @param amount Amount of ether to send.
      */
     function returnEther(uint256 amount) public onlyAuthorized nonReentrant {
@@ -74,7 +75,8 @@ contract EtherVault is EssentialContract {
     }
 
     /**
-     * Transfer Ether from EtherVault to the sender, checking they are authorized.
+     * Transfer Ether from EtherVault to an desinated address, checking that the
+     * sender is authorized.
      * @param recipient Address to receive Ether
      * @param amount Amount of ether to send.
      */
