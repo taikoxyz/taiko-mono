@@ -68,9 +68,23 @@ contract EtherVault is EssentialContract {
      * Send Ether from EtherVault to the sender, checking they are authorized.
      * @param amount Amount of ether to send.
      */
-    function receiveEther(uint256 amount) public onlyAuthorized nonReentrant {
+    function sendEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
         emit EtherTransferred(msg.sender, amount);
+    }
+
+    /**
+     * Send Ether from EtherVault to the sender, checking they are authorized.
+     * @param recipient Address to receive Ether
+     * @param amount Amount of ether to send.
+     */
+    function sendEther(
+        address recipient,
+        uint256 amount
+    ) public onlyAuthorized nonReentrant {
+        require(recipient != address(0), "EV:recipient");
+        recipient.sendEther(amount);
+        emit EtherTransferred(recipient, amount);
     }
 
     /**

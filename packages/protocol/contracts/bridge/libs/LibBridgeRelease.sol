@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.9;
 
+import "../EtherVault.sol";
 import "./LibBridgeData.sol";
 import "./LibBridgeStatus.sol";
 
@@ -43,8 +44,16 @@ library LibBridgeRelease {
         uint256 releaseAmount = message.depositValue + message.callValue;
 
         if (releaseAmount > 0) {
-            (bool success, ) = message.owner.call{value: releaseAmount}("");
-            require(success, "B:transfer");
+            address ethVault = resolver.resolve("ether_vault", true);
+            if (ethVault != address(0)) {
+                EtherVault(payable(ethVault)).sendEther(
+                    message.owner,
+                    releaseAmount
+                );
+            } else {
+                (bool success, ) = message.owner.call{value: releaseAmount}("");
+                require(success, "B:transfer");
+            }
         }
         emit EtherReleased(msgHash, message.owner, releaseAmount);
     }
