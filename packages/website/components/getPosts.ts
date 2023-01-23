@@ -62,7 +62,6 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
         .then((data) => {
           // Check if the posts have the required keys
           if (data.hasOwnProperty('wnft')) {
-            console.log(posts.length)
             posts.push(data)
           }
           

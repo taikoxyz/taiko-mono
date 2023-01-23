@@ -88,8 +88,6 @@ export default function BlogSection(): JSX.Element {
         const ImgURLs = result;
 
         getPosts.then((result) => {
-          console.log(result);
-
           // add the OriginalDigest to the post object
           result = addOriginalDigests(result, originalDigestsResult);
 
@@ -98,7 +96,6 @@ export default function BlogSection(): JSX.Element {
 
           // add the ImgURL to the post object
           result = addImgURLs(result, ImgURLs);
-          console.log(result);
 
           setPosts(result);
         });
