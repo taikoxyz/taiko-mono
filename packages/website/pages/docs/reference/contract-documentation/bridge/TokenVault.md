@@ -120,10 +120,10 @@ by invoking the message call.
 | refundAddress | address | The fee refund address. If this address is address(0), extra fees will be refunded back to the `to` address. |
 | memo          | string  |                                                                                                              |
 
-### returnERC20
+### receiveERC20
 
 ```solidity
-function returnERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
+function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address from, address to, uint256 amount) external
 ```
 
 _This function can only be called by the bridge contract while
