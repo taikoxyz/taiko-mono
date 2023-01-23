@@ -277,7 +277,7 @@ contract TokenVault is EssentialContract {
 
         address token = messageDeposits[msgHash].token;
         uint256 amount = messageDeposits[msgHash].amount;
-        require(token != address(0), "B:etherReleased");
+        require(token != address(0), "B:ERC20Released");
         require(
             bridge.isMessageFailed(msgHash, message.destChainId, proof),
             "V:notFailed"
