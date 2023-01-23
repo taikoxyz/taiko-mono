@@ -265,7 +265,7 @@ contract TokenVault is EssentialContract {
      * @param proof The proof from the destination chain to show the message
      *              has failed.
      */
-    function releaseERC20(
+    function returnERC20(
         IBridge.Message calldata message,
         bytes calldata proof
     ) external nonReentrant {

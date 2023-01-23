@@ -66,12 +66,12 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function releaseEther(
+    function returnEther(
         IBridge.Message calldata message,
         bytes calldata proof
     ) external nonReentrant {
         return
-            LibBridgeRelease.releaseEther({
+            LibBridgeRelease.returnEther({
                 state: state,
                 resolver: AddressResolver(this),
                 message: message,
