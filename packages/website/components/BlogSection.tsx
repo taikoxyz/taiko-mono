@@ -89,13 +89,6 @@ export default function BlogSection(): JSX.Element {
 
         getPosts.then((result) => {
           console.log(result);
-          // Check if the posts have the required keys
-          result = result.filter(function (obj) {
-            return obj.hasOwnProperty("wnft");
-          });
-
-          // Only use first three posts
-          result = result.slice(0, 3);
 
           // add the OriginalDigest to the post object
           result = addOriginalDigests(result, originalDigestsResult);

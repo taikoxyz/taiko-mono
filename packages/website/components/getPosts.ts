@@ -52,12 +52,20 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
   async function getPosts(response, transactionCount) {
     var posts = []
     for (let i = 0; i < transactionCount; i++) {
+      // cancel getting post if there are three with requierd info
+      if (posts.length === 3) { break }
+
       var transactionId = response.data.transactions.edges[i].node.id;
       await arweave.transactions
         .getData(`${transactionId}`, { decode: true, string: true })
         .then((response: string) => JSON.parse(response))
         .then((data) => {
-          posts.push(data)
+          // Check if the posts have the required keys
+          if (data.hasOwnProperty('wnft')) {
+            console.log(posts.length)
+            posts.push(data)
+          }
+          
         }).catch((error) => {
           console.log("An error occurred: ", error);
         });
