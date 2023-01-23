@@ -122,10 +122,10 @@ describe("TokenVault", function () {
         });
     });
 
-    describe("receiveEther()", async () => {
+    describe("sendEther()", async () => {
         it("throws when msg.value is 0", async () => {
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -138,7 +138,7 @@ describe("TokenVault", function () {
 
         it("throws when msg.value - processing fee is 0", async () => {
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -154,7 +154,7 @@ describe("TokenVault", function () {
 
         it("throws when msg.value is < processingFee", async () => {
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -170,7 +170,7 @@ describe("TokenVault", function () {
 
         it("throws when to is 0", async () => {
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     ethers.constants.AddressZero,
                     10000,
@@ -191,7 +191,7 @@ describe("TokenVault", function () {
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -220,7 +220,7 @@ describe("TokenVault", function () {
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
-                L1TokenVault.receiveEther(
+                L1TokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
