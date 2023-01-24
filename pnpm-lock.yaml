@@ -321,7 +321,7 @@ importers:
   packages/website:
     specifiers:
       '@heroicons/react': ^2.0.13
-      '@next/font': ^13.1.5
+      '@next/font': ^13.1.4
       '@types/node': ^18.11.18
       '@types/react': ^18.0.27
       arweave: ^1.12.2
@@ -329,10 +329,10 @@ importers:
       fs: 0.0.1-security
       jsdom: ^21.1.0
       net: ^1.0.2
-      next: ^13.1.5
+      next: ^13.1.4
       next-themes: ^0.2.1
-      nextra: ^2.2.13
-      nextra-theme-docs: ^2.2.13
+      nextra: ^2.2.12
+      nextra-theme-docs: ^2.2.12
       postcss: ^8.4.21
       react: ^18.2.0
       react-dom: ^18.2.0
@@ -347,15 +347,15 @@ importers:
       net: 1.0.2
       next: 13.1.5_biqbaboplfbrettd7655fr4n2y
       next-themes: 0.2.1_s6zlkfvllybxhmcq5pkr2zsuza
-      nextra: 2.2.13_s6zlkfvllybxhmcq5pkr2zsuza
-      nextra-theme-docs: 2.2.13_u4tphabj4vpmhng6dlk6pn4key
+      nextra: 2.2.12_s6zlkfvllybxhmcq5pkr2zsuza
+      nextra-theme-docs: 2.2.12_u2bmci4bpublau2rkvf2co5mwq
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       sharp: 0.31.3
       tls: 0.0.1
     devDependencies:
       '@heroicons/react': 2.0.13_react@18.2.0
-      '@next/font': 13.1.5
+      '@next/font': 13.1.4
       '@types/node': 18.11.18
       '@types/react': 18.0.27
       autoprefixer: 10.4.13_postcss@8.4.21
@@ -2615,8 +2615,8 @@ packages:
     resolution: {integrity: sha512-0Ry4NhJy6qLbXhvxPRUQ1H6RzgtryGdUto7hfgAK0Iw/bScgeVjwLZdfhm2iT7qsOS32apo9cWzLCxjc6iGPsA==}
     dev: false
 
-  /@next/font/13.1.5:
-    resolution: {integrity: sha512-6M5R6yC3JkdJiqo/YJxDp6+0vDn0smXOAzl8uHt4qmDS2u53ji/19K0HM51d+5kg8xntDi+N2hw7YjaU9inkNA==}
+  /@next/font/13.1.4:
+    resolution: {integrity: sha512-NfqQPAIFJhssdaZEsP0MADZKN+tc040jOkNKVlDZHtVjJWBJSgbe8UHg3w0S6YuQr7PHc0ACbFeVCBQeG4MEvg==}
     dev: true
 
   /@next/swc-android-arm-eabi/13.1.5:
@@ -14543,11 +14543,11 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /nextra-theme-docs/2.2.13_u4tphabj4vpmhng6dlk6pn4key:
-    resolution: {integrity: sha512-cMjxK/ooLaobm/3xxioKnyUrdTXcejMh1hB0bJirKZ7Vm5GdI3hHsvlE4hCj3mV3/JvusEaUx8VvApb2LsJ/FQ==}
+  /nextra-theme-docs/2.2.12_u2bmci4bpublau2rkvf2co5mwq:
+    resolution: {integrity: sha512-CiBrDQmwWObJult9SxOL6JFLdGolkdcpUpdcdK+NfzK9lUdyZVuNHqW+SLiLdztf17lE5U9AKa15E0UzoqBXbA==}
     peerDependencies:
       next: '>=9.5.3'
-      nextra: 2.2.13
+      nextra: 2.2.12
       react: '>=16.13.1'
       react-dom: '>=16.13.1'
     dependencies:
@@ -14562,15 +14562,15 @@ packages:
       next: 13.1.5_biqbaboplfbrettd7655fr4n2y
       next-seo: 5.15.0_s6zlkfvllybxhmcq5pkr2zsuza
       next-themes: 0.2.1_s6zlkfvllybxhmcq5pkr2zsuza
-      nextra: 2.2.13_s6zlkfvllybxhmcq5pkr2zsuza
+      nextra: 2.2.12_s6zlkfvllybxhmcq5pkr2zsuza
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       scroll-into-view-if-needed: 3.0.4
       zod: 3.20.2
     dev: false
 
-  /nextra/2.2.13_s6zlkfvllybxhmcq5pkr2zsuza:
-    resolution: {integrity: sha512-COTh3Dw00qkiOMKynJlJlWNbhjHwawoL3oc206+C9x8V0zRmWg0bbwpRYpVeJXw7E627G/zL2jw8iZG01pk8ZQ==}
+  /nextra/2.2.12_s6zlkfvllybxhmcq5pkr2zsuza:
+    resolution: {integrity: sha512-p2yjiRr6NKFiwEkSYdxIga0JMv51J4lVyObhwfqIQgi665rgNgqeiNvBzEgAOhV9LyzbjCTSZaTCBsg3OgcDtA==}
     peerDependencies:
       next: '>=9.5.3'
       react: '>=16.13.1'
