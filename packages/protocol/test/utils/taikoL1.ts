@@ -48,11 +48,13 @@ async function deployTaikoL1(
         )
     ).deploy();
 
-    await taikoL1.init(
-        addressManager.address,
-        genesisHash,
-        feeBase ?? defaultFeeBase
-    );
+    await (
+        await taikoL1.init(
+            addressManager.address,
+            genesisHash,
+            feeBase ?? defaultFeeBase
+        )
+    ).wait(1);
 
     return taikoL1 as TaikoL1;
 }

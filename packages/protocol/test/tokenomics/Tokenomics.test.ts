@@ -1,7 +1,12 @@
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
-import { ConfigManager, TaikoL1, TaikoL2 } from "../../typechain";
+import {
+    AddressManager,
+    ConfigManager,
+    TaikoL1,
+    TaikoL2,
+} from "../../typechain";
 import { BlockProvenEvent } from "../../typechain/LibProving";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import deployAddressManager from "../utils/addressManager";
@@ -34,6 +39,8 @@ describe("tokenomics", function () {
     let genesisHeight: number;
     let genesisHash: string;
     let tkoTokenL1: TestTkoToken;
+    let l1AddressManager: AddressManager;
+    let interval: any;
 
     beforeEach(async () => {
         l1Provider = getL1Provider();
@@ -53,7 +60,7 @@ describe("tokenomics", function () {
         genesisHash = taikoL2.deployTransaction.blockHash as string;
         genesisHeight = taikoL2.deployTransaction.blockNumber as number;
 
-        const l1AddressManager = await deployAddressManager(l1Signer);
+        l1AddressManager = await deployAddressManager(l1Signer);
         taikoL1 = await deployTaikoL1(
             l1AddressManager,
             genesisHash,
@@ -73,40 +80,49 @@ describe("tokenomics", function () {
             taikoL1.address
         );
 
-        await l1AddressManager.setAddress(
-            `${chainId}.tko_token`,
-            tkoTokenL1.address
-        );
+        await (
+            await l1AddressManager.setAddress(
+                `${chainId}.tko_token`,
+                tkoTokenL1.address
+            )
+        ).wait(1);
 
         const { chainId: l2ChainId } = await l2Provider.getNetwork();
 
-        await l1AddressManager.setAddress(
-            `${l2ChainId}.taiko`,
-            taikoL2.address
-        );
+        await (
+            await l1AddressManager.setAddress(
+                `${l2ChainId}.taiko`,
+                taikoL2.address
+            )
+        ).wait(1);
 
-        await l1AddressManager.setAddress(
-            `${chainId}.proof_verifier`,
-            taikoL1.address
-        );
+        await (
+            await l1AddressManager.setAddress(
+                `${chainId}.proof_verifier`,
+                taikoL1.address
+            )
+        ).wait(1);
 
         const configManager: ConfigManager = await (
             await hardhatEthers.getContractFactory("ConfigManager")
         )
             .connect(l1Signer)
             .deploy();
+        await configManager.deployed();
 
         await l1AddressManager.setAddress(
             `${chainId}.config_manager`,
             configManager.address
         );
 
-        await tkoTokenL1
+        const mintTx = await tkoTokenL1
             .connect(l1Signer)
             .mintAnyone(
                 await proposerSigner.getAddress(),
                 ethers.utils.parseEther("100")
             );
+
+        await mintTx.wait(1);
 
         expect(
             await tkoTokenL1.balanceOf(await proposerSigner.getAddress())
@@ -116,7 +132,7 @@ describe("tokenomics", function () {
         await l2Provider.send("evm_setAutomine", [true]);
 
         // send transactions to L1 so we always get new blocks
-        setInterval(
+        interval = setInterval(
             async () => await sendTinyEtherToZeroAddress(l1Signer),
             1 * 1000
         );
@@ -128,8 +144,12 @@ describe("tokenomics", function () {
         await tx.wait(1);
     });
 
+    afterEach(() => clearInterval(interval));
+
     it("expects the blockFee to go be 0 when no periods have passed", async function () {
-        const blockFee = await taikoL1.getBlockFee();
+        // deploy a new instance of TaikoL1 so no blocks have passed.
+        const tL1 = await deployTaikoL1(l1AddressManager, genesisHash, true);
+        const blockFee = await tL1.getBlockFee();
         expect(blockFee.eq(0)).to.be.eq(true);
     });
 
@@ -217,7 +237,7 @@ describe("tokenomics", function () {
         expect(hasFailedAssertions).to.be.eq(false);
     });
 
-    it.only(`propose blocks, wait til maxNumBlocks is filled.
+    it(`propose blocks, wait til maxNumBlocks is filled.
     proverReward should decline should increase as blocks are proved then verified.
     the provers TKO balance should increase as the blocks are verified and
     they receive the proofReward.`, async function () {
@@ -255,7 +275,6 @@ describe("tokenomics", function () {
             if (blockNumber <= genesisHeight) return;
             // fill up all slots.
             if (blocksProposed === maxNumBlocks.toNumber()) {
-                console.log("max blocks proposed:", maxNumBlocks.toNumber());
                 l2Provider.off("block");
                 return;
             }
@@ -288,8 +307,6 @@ describe("tokenomics", function () {
         taikoL1.on(
             "BlockProposed",
             async (id: BigNumber, meta: BlockMetadata) => {
-                console.log("proving block: id", id.toString());
-
                 // wait until we fill up all slots, so we can
                 // then prove blocks in order, and each time a block is proven then verified,
                 // we can expect the proofReward to go down as slots become available.
@@ -298,6 +315,7 @@ describe("tokenomics", function () {
                 }
 
                 try {
+                    const proverAddress = await proverSigner.getAddress();
                     const blockProvenEvent: BlockProvenEvent =
                         await prover.prove(
                             await proverSigner.getAddress(),
@@ -306,16 +324,33 @@ describe("tokenomics", function () {
                             meta
                         );
 
-                    console.log("blockProvenEvent", blockProvenEvent.args);
-
                     const proposedBlock = await taikoL1.getProposedBlock(id);
 
+                    const forkChoice = await taikoL1.getForkChoice(
+                        blockProvenEvent.args.id.toNumber(),
+                        blockProvenEvent.args.parentHash
+                    );
+
+                    expect(forkChoice.blockHash).to.be.eq(
+                        blockProvenEvent.args.blockHash
+                    );
+
+                    expect(forkChoice.provers[0]).to.be.eq(proverAddress);
+
+                    await sleep(5 * 1000);
+                    const isVerifiable = await taikoL1.isBlockVerifiable(
+                        blockProvenEvent.args.id.toNumber(),
+                        blockProvenEvent.args.parentHash
+                    );
+
+                    expect(isVerifiable).to.be.eq(true);
                     blockInfo.push({
                         proposedAt: proposedBlock.proposedAt.toNumber(),
                         provenAt: blockProvenEvent.args.provenAt.toNumber(),
                         id: blockProvenEvent.args.id.toNumber(),
                         parentHash: blockProvenEvent.args.parentHash,
                         blockHash: blockProvenEvent.args.blockHash,
+                        forkChoice: forkChoice,
                     });
                     blocksProved++;
                 } catch (e) {
@@ -344,39 +379,13 @@ describe("tokenomics", function () {
             expect(block).not.to.be.undefined;
             console.log("verifying block", block);
 
-            const forkChoice = await taikoL1.getForkChoice(
-                block.id,
-                block.parentHash
-            );
-
-            console.log("fork choice for block id", block.id, ":", forkChoice);
-
-            expect(forkChoice.provers).not.to.be.empty;
-            expect(forkChoice.blockHash).to.be.eq(block.blockHash);
-
-            let isVerifiable = await taikoL1.isBlockVerifiable(
-                block.id,
-                block.parentHash
-            );
-            // make sure block is verifiable and uncle proof delay has passed.
-            // TODO: sleep for difference between time.Now and fc.provenAt + uncleProofDelay
-            while (!isVerifiable) {
-                console.log("block not verifiable", block.id, block.parentHash);
-                await sleep(3 * 1000);
-                isVerifiable = await taikoL1.isBlockVerifiable(
-                    block.id,
-                    block.parentHash
-                );
-            }
-            expect(isVerifiable).to.be.eq(true);
-
             // dont verify first blocks parent hash, because we arent "real L2" in these
             // tests, the parent hash will be wrong.
             if (i > 1) {
                 const latestHash = await taikoL1.getLatestSyncedHeader();
                 expect(latestHash).to.be.eq(block.parentHash);
             }
-            const prover = forkChoice.provers[0];
+            const prover = block.forkChoice.provers[0];
 
             const proverTkoBalanceBeforeVerification =
                 await tkoTokenL1.balanceOf(prover);
@@ -405,6 +414,9 @@ describe("tokenomics", function () {
                 expect(newProofReward).to.be.lt(lastProofReward);
             }
             lastProofReward = newProofReward;
+
+            const latestHash = await taikoL1.getLatestSyncedHeader();
+            expect(latestHash).to.be.eq(block.blockHash);
             console.log("block ", block.id, "verified!");
         }
     });
@@ -435,7 +447,6 @@ describe("tokenomics", function () {
         l2Provider.on("block", async (blockNumber) => {
             if (blockNumber <= genesisHeight) return;
             if (blocksProposed === 1) {
-                console.log("max blocks proposed: 1");
                 l2Provider.off("block");
                 return;
             }
@@ -481,14 +492,19 @@ describe("tokenomics", function () {
 
                     const proposedBlock = await taikoL1.getProposedBlock(id);
 
+                    const forkChoice = await taikoL1.getForkChoice(
+                        blockInfo.id,
+                        blockInfo.parentHash
+                    );
+
                     blockInfo = {
                         proposedAt: proposedBlock.proposedAt.toNumber(),
                         provenAt: event.args.provenAt.toNumber(),
                         id: event.args.id.toNumber(),
                         parentHash: event.args.parentHash,
                         blockHash: event.args.blockHash,
+                        forkChoice: forkChoice,
                     };
-                    console.log("set block info", blockInfo);
                 } catch (e) {
                     hasFailedAssertions = true;
                     console.error("proving error", e);
@@ -499,7 +515,7 @@ describe("tokenomics", function () {
 
         expect(hasFailedAssertions).to.be.eq(false);
 
-        // wait for all blocks to be proven
+        // wait for block to be proven asynchronously.
 
         /* eslint-disable-next-line */
         while (!blockInfo) {
@@ -516,18 +532,14 @@ describe("tokenomics", function () {
             await sleep(2 * 1000);
         }
 
-        const forkChoice = await taikoL1.getForkChoice(
-            blockInfo.id,
-            blockInfo.parentHash
-        );
         const proverTkoBalanceBeforeVerification = await tkoTokenL1.balanceOf(
-            forkChoice.provers[0]
+            blockInfo.forkChoice.provers[0]
         );
         expect(proverTkoBalanceBeforeVerification.eq(0)).to.be.eq(true);
         await verifyBlocks(taikoL1, 1);
 
         const proverTkoBalanceAfterVerification = await tkoTokenL1.balanceOf(
-            forkChoice.provers[0]
+            blockInfo.forkChoice.provers[0]
         );
 
         // prover should have given given 1 TKO token, since they

@@ -42,8 +42,6 @@ class Prover {
         try {
             blockProvenEvent = await proveBlock(
                 this.taikoL1,
-                this.taikoL2,
-                this.l2Signer,
                 this.l2Provider,
                 proverAddress,
                 blockId,

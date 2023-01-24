@@ -62,7 +62,7 @@ library LibVerifying {
 
         for (
             uint256 i = state.latestVerifiedId + 1;
-            i < state.nextBlockId && processed <= maxBlocks;
+            i < state.nextBlockId && processed < maxBlocks;
             i++
         ) {
             TaikoData.ForkChoice storage fc = state.forkChoices[i][

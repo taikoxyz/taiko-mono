@@ -2,12 +2,19 @@ import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TkoToken } from "../../typechain";
 import Proposer from "../utils/proposer";
 
+type ForkChoice = {
+    provenAt: BigNumber;
+    provers: string[];
+    blockHash: string;
+};
+
 type BlockInfo = {
     proposedAt: number;
     provenAt: number;
     id: number;
     parentHash: string;
     blockHash: string;
+    forkChoice: ForkChoice;
 };
 
 async function onNewL2Block(
@@ -30,8 +37,6 @@ async function onNewL2Block(
     );
 
     const { id, meta } = (proposedEvent as any).args;
-
-    console.log("-----------PROPOSED---------------", block.number, id);
 
     blockIdsToNumber[id.toString()] = block.number;
 

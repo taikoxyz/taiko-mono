@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { TaikoL1, TaikoL2 } from "../../typechain";
+import { TaikoL1 } from "../../typechain";
 import { BlockProvenEvent } from "../../typechain/LibProving";
 import { BlockMetadata } from "./block_metadata";
 import { encodeEvidence } from "./encoding";
@@ -35,11 +35,8 @@ const buildProveBlockInputs = (
     return inputs;
 };
 
-// TODO
 const proveBlock = async (
     taikoL1: TaikoL1,
-    taikoL2: TaikoL2,
-    l2Signer: ethers.Signer,
     l2Provider: ethers.providers.JsonRpcProvider,
     proverAddress: string,
     blockId: number,
@@ -48,18 +45,6 @@ const proveBlock = async (
 ): Promise<BlockProvenEvent> => {
     const config = await taikoL1.getConfig();
     const header = await getBlockHeader(l2Provider, blockNumber);
-    // header.blockHeader.difficulty = 0;
-    // header.blockHeader.gasLimit = config.anchorTxGasLimit
-    //     .add(header.blockHeader.gasLimit)
-    //     .toNumber();
-    // header.blockHeader.timestamp = meta.timestamp;
-    // // cant prove non-0 blocks
-    // if (header.blockHeader.gasUsed <= 0) {
-    //     header.blockHeader.gasUsed = 1;
-    // }
-    // header.blockHeader.mixHash = meta.mixHash;
-    // header.blockHeader.extraData = meta.extraData;
-
     const inputs = buildProveBlockInputs(
         meta,
         header.blockHeader,

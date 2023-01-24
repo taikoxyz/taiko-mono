@@ -8,7 +8,7 @@ const deployAddressManager = async (signer: ethers.Signer) => {
     )
         .connect(signer)
         .deploy();
-    await addressManager.init();
+    await (await addressManager.init()).wait(1);
     return addressManager;
 };
 
