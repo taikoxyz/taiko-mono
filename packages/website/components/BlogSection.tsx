@@ -179,7 +179,7 @@ export default function BlogSection(): JSX.Element {
                         {getDate(post.content.timestamp)}
                       </time>
                       <span aria-hidden="true">&middot;</span>
-                      <span>{getReadingTime(post.content.body) + " min"}</span>
+                      <span>{getReadingTime(post.content.body) + " min read"}</span>
                     </div>
                   </div>
                 </div>
