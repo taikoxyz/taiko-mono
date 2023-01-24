@@ -350,8 +350,9 @@ describe("tokenomics", function () {
                         blockId.toNumber(),
                         provenAt.toNumber()
                     );
+
                     const isVerifiable = await taikoL1.isBlockVerifiable(
-                        id.toNumber(),
+                        blockId.toNumber(),
                         parentHash
                     );
 

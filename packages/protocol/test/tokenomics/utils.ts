@@ -25,7 +25,7 @@ async function sleepUntilBlockIsVerifiable(
 ) {
     const delay = await taikoL1.getUncleProofDelay(id);
     const delayInMs = delay.mul(1000);
-    await sleep(delayInMs.toNumber());
+    await sleep(5 * delayInMs.toNumber());
 }
 async function onNewL2Block(
     l2Provider: ethers.providers.JsonRpcProvider,
