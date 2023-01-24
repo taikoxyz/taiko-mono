@@ -40,23 +40,17 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
               `})
     }).then((res) => res.json())
       .then((response) => {
-        const transactionCount = response.data.transactions.edges.length;
-
-        getPosts(response, transactionCount)
+        getPosts(response)
       })
       .catch();
   }
 
-  async function getPosts(response, transactionCount) {
+  async function getPosts(response) {
     var posts = []
-    for (let i = 0; i < transactionCount; i++) {
-      // cancel getting post if there are three with requierd info
-      if (posts.length === 3) { break }
-
-      var transactionId = response.data.transactions.edges[i].node.id;
-      await arweave.transactions
-        .getData(`${transactionId}`, { decode: true, string: true })
-        .then((response: string) => JSON.parse(response))
+    Promise.all(response.data.transactions.edges.map((edge) => {
+      var transactionId = edge.node.id;
+      arweave.transactions
+        .getData(`${transactionId}`, { decode: true, string: true }).then((response: string) => JSON.parse(response))
         .then((data) => {
           // Check if the posts have the required keys
           if (data.hasOwnProperty('wnft')) {
@@ -64,7 +58,7 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
           }
 
         }).catch();
-    }
+    }))
     resolve(posts)
   }
   getTransanctionIds()
