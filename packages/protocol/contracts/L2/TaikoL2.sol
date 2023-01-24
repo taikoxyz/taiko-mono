@@ -27,7 +27,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     mapping(uint256 => bytes32) private l2Hashes;
     mapping(uint256 => bytes32) private l1Hashes;
     bytes32 public publicInputHash;
-    bytes32 public latestSyncedL1Height;
+    uint256 public latestSyncedL1Height;
 
     uint256[46] private __gap;
 
