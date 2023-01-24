@@ -53,7 +53,7 @@ describe("LibBridgeProcess", async function () {
             `${blockChainId}.ether_vault`,
             etherVault.address
         );
-        // Sends initial value of 10 ether to EtherVault for returnEther calls
+        // Sends initial value of 10 ether to EtherVault for releaseEther calls
         await owner.sendTransaction({
             to: etherVault.address,
             value: ethers.utils.parseEther("10.0"),

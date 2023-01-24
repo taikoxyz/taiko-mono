@@ -13,12 +13,12 @@ import "./LibBridgeStatus.sol";
 /**
  * @author dantaik <dan@taiko.xyz>
  */
-library LibBridgeReturn {
+library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
-    function returnEther(
+    function releaseEther(
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
@@ -46,7 +46,7 @@ library LibBridgeReturn {
         if (releaseAmount > 0) {
             address ethVault = resolver.resolve("ether_vault", true);
             if (ethVault != address(0)) {
-                EtherVault(payable(ethVault)).returnEtherTo(
+                EtherVault(payable(ethVault)).releaseEtherTo(
                     message.owner,
                     releaseAmount
                 );

@@ -72,7 +72,7 @@ describe("EtherVault", function () {
         });
     });
 
-    describe("returnEther()", async function () {
+    describe("releaseEther()", async function () {
         it("throws if not enough ether to send", async () => {
             const balance = await ethers.provider.getBalance(
                 etherVault.address
@@ -81,13 +81,13 @@ describe("EtherVault", function () {
             await expect(
                 etherVault
                     .connect(authorized)
-                    .returnEther(balance.add(additionalAmount))
+                    .releaseEther(balance.add(additionalAmount))
             ).to.be.revertedWith("ETH transfer failed");
         });
 
         it("throws if not authorized", async () => {
             await expect(
-                etherVault.connect(notAuthorized).returnEther(1)
+                etherVault.connect(notAuthorized).releaseEther(1)
             ).to.be.revertedWith("EV:denied");
         });
 
@@ -97,7 +97,9 @@ describe("EtherVault", function () {
                 authorized.address
             );
 
-            const tx = await etherVault.connect(authorized).returnEther(amount);
+            const tx = await etherVault
+                .connect(authorized)
+                .releaseEther(amount);
             const receipt = await tx.wait();
             const gasUsed = receipt.cumulativeGasUsed.mul(
                 receipt.effectiveGasPrice
@@ -111,11 +113,11 @@ describe("EtherVault", function () {
             );
         });
 
-        it("emits EtherTransferred event upon success", async () => {
+        it("emits EtherReleased event upon success", async () => {
             const amount = 69;
 
-            await expect(etherVault.connect(authorized).returnEther(amount))
-                .to.emit(etherVault, "EtherTransferred")
+            await expect(etherVault.connect(authorized).releaseEther(amount))
+                .to.emit(etherVault, "EtherReleased")
                 .withArgs(authorized.address, amount);
         });
     });
