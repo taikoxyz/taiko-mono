@@ -1,6 +1,7 @@
 import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TkoToken } from "../../typechain";
 import Proposer from "../utils/proposer";
+import sleep from "../utils/sleep";
 
 type ForkChoice = {
     provenAt: BigNumber;
@@ -17,6 +18,15 @@ type BlockInfo = {
     forkChoice: ForkChoice;
 };
 
+async function sleepUntilBlockIsVerifiable(
+    taikoL1: TaikoL1,
+    id: number,
+    provenAt: number
+) {
+    const delay = await taikoL1.getUncleProofDelay(id);
+    const delayInMs = delay.mul(1000);
+    await sleep(delayInMs.toNumber());
+}
 async function onNewL2Block(
     l2Provider: ethers.providers.JsonRpcProvider,
     blockNumber: number,
@@ -63,5 +73,9 @@ const sendTinyEtherToZeroAddress = async (signer: any) => {
         .wait(1);
 };
 
-export { sendTinyEtherToZeroAddress, onNewL2Block };
-export type { BlockInfo };
+export {
+    sendTinyEtherToZeroAddress,
+    onNewL2Block,
+    sleepUntilBlockIsVerifiable,
+};
+export type { BlockInfo, ForkChoice };

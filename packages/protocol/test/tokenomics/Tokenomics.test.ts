@@ -25,7 +25,12 @@ import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
 import verifyBlocks from "../utils/verify";
-import { BlockInfo, onNewL2Block, sendTinyEtherToZeroAddress } from "./utils";
+import {
+    BlockInfo,
+    onNewL2Block,
+    sendTinyEtherToZeroAddress,
+    sleepUntilBlockIsVerifiable,
+} from "./utils";
 
 describe("tokenomics", function () {
     let taikoL1: TaikoL1;
@@ -316,40 +321,47 @@ describe("tokenomics", function () {
 
                 try {
                     const proverAddress = await proverSigner.getAddress();
-                    const blockProvenEvent: BlockProvenEvent =
-                        await prover.prove(
-                            await proverSigner.getAddress(),
-                            id.toNumber(),
-                            blockIdsToNumber[id.toString()],
-                            meta
-                        );
+                    const { args } = await prover.prove(
+                        await proverSigner.getAddress(),
+                        id.toNumber(),
+                        blockIdsToNumber[id.toString()],
+                        meta
+                    );
+                    const {
+                        blockHash,
+                        id: blockId,
+                        parentHash,
+                        provenAt,
+                    } = args;
 
                     const proposedBlock = await taikoL1.getProposedBlock(id);
 
                     const forkChoice = await taikoL1.getForkChoice(
-                        blockProvenEvent.args.id.toNumber(),
-                        blockProvenEvent.args.parentHash
+                        blockId.toNumber(),
+                        parentHash
                     );
 
-                    expect(forkChoice.blockHash).to.be.eq(
-                        blockProvenEvent.args.blockHash
-                    );
+                    expect(forkChoice.blockHash).to.be.eq(blockHash);
 
                     expect(forkChoice.provers[0]).to.be.eq(proverAddress);
 
-                    await sleep(5 * 1000);
+                    await sleepUntilBlockIsVerifiable(
+                        taikoL1,
+                        blockId.toNumber(),
+                        provenAt.toNumber()
+                    );
                     const isVerifiable = await taikoL1.isBlockVerifiable(
-                        blockProvenEvent.args.id.toNumber(),
-                        blockProvenEvent.args.parentHash
+                        id.toNumber(),
+                        parentHash
                     );
 
                     expect(isVerifiable).to.be.eq(true);
                     blockInfo.push({
                         proposedAt: proposedBlock.proposedAt.toNumber(),
-                        provenAt: blockProvenEvent.args.provenAt.toNumber(),
-                        id: blockProvenEvent.args.id.toNumber(),
-                        parentHash: blockProvenEvent.args.parentHash,
-                        blockHash: blockProvenEvent.args.blockHash,
+                        provenAt: provenAt.toNumber(),
+                        id: id.toNumber(),
+                        parentHash: parentHash,
+                        blockHash: blockHash,
                         forkChoice: forkChoice,
                     });
                     blocksProved++;
@@ -368,7 +380,6 @@ describe("tokenomics", function () {
         while (blocksProved < maxNumBlocks.toNumber() - 1) {
             await sleep(3 * 1000);
         }
-        console.log("ready to verify");
 
         let lastProofReward: BigNumber = BigNumber.from(0);
 
@@ -477,7 +488,6 @@ describe("tokenomics", function () {
         taikoL1.on(
             "BlockProposed",
             async (id: BigNumber, meta: BlockMetadata) => {
-                if (hasFailedAssertions) return;
                 /* eslint-disable-next-line */
                 while (blocksProposed < 1) {
                     await sleep(3 * 1000);
@@ -493,8 +503,8 @@ describe("tokenomics", function () {
                     const proposedBlock = await taikoL1.getProposedBlock(id);
 
                     const forkChoice = await taikoL1.getForkChoice(
-                        blockInfo.id,
-                        blockInfo.parentHash
+                        id.toNumber(),
+                        event.args.parentHash
                     );
 
                     blockInfo = {
@@ -523,15 +533,17 @@ describe("tokenomics", function () {
         }
 
         // make sure block is verifiable before we processe
-        while (
-            !(await taikoL1.isBlockVerifiable(
-                blockInfo.id,
-                blockInfo.parentHash
-            ))
-        ) {
-            await sleep(2 * 1000);
-        }
+        await sleepUntilBlockIsVerifiable(
+            taikoL1,
+            blockInfo.id,
+            blockInfo.provenAt
+        );
 
+        const isVerifiable = await taikoL1.isBlockVerifiable(
+            blockInfo.id,
+            blockInfo.parentHash
+        );
+        expect(isVerifiable).to.be.eq(true);
         const proverTkoBalanceBeforeVerification = await tkoTokenL1.balanceOf(
             blockInfo.forkChoice.provers[0]
         );
