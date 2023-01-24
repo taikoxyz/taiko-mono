@@ -14579,7 +14579,7 @@ packages:
       '@mdx-js/mdx': 2.2.1
       '@mdx-js/react': 2.2.1_react@18.2.0
       '@napi-rs/simple-git': 0.1.8
-      github-slugger: 2.0.0
+      github-slugger: 2.0.01
       graceful-fs: 4.2.10
       gray-matter: 4.0.3
       katex: 0.16.4
@@ -14597,7 +14597,7 @@ packages:
       shiki: 0.12.1
       slash: 3.0.0
       title: 3.5.3
-      unist-util-remove: 3.1.1
+      unist-util-remove: 3.1.0
       unist-util-visit: 4.1.1
     transitivePeerDependencies:
       - supports-color
