@@ -44,9 +44,7 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
 
         getPosts(response, transactionCount)
       })
-      .catch((error) => {
-        console.log("An error occurred: ", error);
-      });
+      .catch();
   }
 
   async function getPosts(response, transactionCount) {
@@ -64,10 +62,8 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
           if (data.hasOwnProperty('wnft')) {
             posts.push(data)
           }
-          
-        }).catch((error) => {
-          console.log("An error occurred: ", error);
-        });
+
+        }).catch();
     }
     resolve(posts)
   }

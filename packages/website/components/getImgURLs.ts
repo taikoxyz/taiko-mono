@@ -26,10 +26,7 @@ export const getImgURLs = new Promise<Array<String>>((resolve, reject) => {
                 });
                 resolve(cardImgsURL)
             })
-            .catch(function (err) {
-                // There was an error
-                console.warn("Something went wrong.", err);
-            });
-    }
+            .catch();
+}
     getImgURLs()
 })

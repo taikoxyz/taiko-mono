@@ -40,9 +40,7 @@ export const getOriginalDigests = new Promise<Array<Object>>((resolve, reject) =
         const originalDigests = response.data.transactions.edges
         resolve(originalDigests)
       })
-      .catch((error) => {
-        console.log("An error occurred: ", error);
-      });
+      .catch();
   }
   getOriginalDigests()
 })
