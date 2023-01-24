@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             state: state,
             config: getConfig(),
             resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx + 1,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -125,7 +125,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx + 1,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
@@ -161,7 +161,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx + 1,
+            maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
         });
     }
