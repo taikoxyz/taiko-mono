@@ -41,9 +41,9 @@ library LibUtils {
         uint256 blockHashHistory
     ) internal view returns (bytes32) {
         require(
-            number > state.latestVerifiedHeight - blockHashHistory &&
+            number + blockHashHistory > state.latestVerifiedHeight &&
                 number <= state.latestVerifiedHeight,
-            "L1:outOfRange"
+            "L1:number"
         );
         return state.l2Hashes[number % blockHashHistory];
     }
