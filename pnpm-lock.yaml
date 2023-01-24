@@ -13787,8 +13787,8 @@ packages:
   /micromark-extension-mdxjs/1.0.0:
     resolution: {integrity: sha512-TZZRZgeHvtgm+IhtgC2+uDMR7h8eTKF0QUX9YsgoL9+bADBpBY6SiLvWqnBlLbCEevITmTqmEuY3FoxMKVs1rQ==}
     dependencies:
-      acorn: 8.8.1
-      acorn-jsx: 5.3.2_acorn@8.8.1
+      acorn: 8.8.2
+      acorn-jsx: 5.3.2_acorn@8.8.2
       micromark-extension-mdx-expression: 1.0.4
       micromark-extension-mdx-jsx: 1.0.3
       micromark-extension-mdx-md: 1.0.0
@@ -14579,7 +14579,7 @@ packages:
       '@mdx-js/mdx': 2.2.1
       '@mdx-js/react': 2.2.1_react@18.2.0
       '@napi-rs/simple-git': 0.1.8
-      github-slugger: 2.0.0
+      github-slugger: 2.0.01
       graceful-fs: 4.2.10
       gray-matter: 4.0.3
       katex: 0.16.4
@@ -18942,11 +18942,11 @@ packages:
       unist-util-visit: 4.1.1
     dev: false
 
-  /unist-util-remove/3.1.0:
+  /unist-util-remove/3.1.1:
     resolution: {integrity: sha512-kfCqZK5YVY5yEa89tvpl7KnBBHu2c6CzMkqHUrlOqaRgGOMp0sMvwWOVrbAtj03KhovQB7i96Gda72v/EFE0vw==}
     dependencies:
       '@types/unist': 2.0.6
-      unist-util-is: 5.1.1
+      unist-util-is: 5.2.0
       unist-util-visit-parents: 5.1.1
     dev: false
 
