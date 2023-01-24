@@ -175,7 +175,8 @@ describe("tokenomics: proofReward", function () {
         expect(proverTkoBalanceAfterVerification.eq(1)).to.be.eq(true);
     });
 
-    it(`propose blocks, wait til maxNumBlocks is filled.
+    it(`single prover, single proposer.
+    propose blocks, wait til maxNumBlocks is filled.
     proverReward should decline should increase as blocks are proved then verified.
     the provers TKO balance should increase as the blocks are verified and
     they receive the proofReward.`, async function () {
@@ -195,6 +196,14 @@ describe("tokenomics: proofReward", function () {
             .connect(l1Signer)
             .mintAnyone(
                 await proverSigner.getAddress(),
+                ethers.utils.parseEther("100")
+            );
+
+        // proposer needs TKO or their deposit refund will be cut down to 0 wei.
+        await tkoTokenL1
+            .connect(l1Signer)
+            .mintAnyone(
+                await proposerSigner.getAddress(),
                 ethers.utils.parseEther("100")
             );
 
@@ -339,6 +348,12 @@ describe("tokenomics: proofReward", function () {
             const proverTkoBalanceBeforeVerification =
                 await tkoTokenL1.balanceOf(prover);
 
+            const proposerAddress = await proposerSigner.getAddress();
+
+            const proposerTkoBalanceBeforeVerification =
+                await tkoTokenL1.balanceOf(proposerAddress);
+
+            expect(proposerTkoBalanceBeforeVerification.gt(0)).to.be.eq(true);
             const verifiedEvent = await verifyBlocks(taikoL1, 1);
             expect(verifiedEvent).to.be.not.undefined;
 
@@ -348,6 +363,7 @@ describe("tokenomics: proofReward", function () {
             const proverTkoBalanceAfterVerification =
                 await tkoTokenL1.balanceOf(prover);
 
+            // prover should have increased in balance as he received the proof reward.
             expect(
                 proverTkoBalanceAfterVerification.gt(
                     proverTkoBalanceBeforeVerification
@@ -359,13 +375,36 @@ describe("tokenomics: proofReward", function () {
                 block.provenAt
             );
 
+            // last proof reward should be larger than the new proof reward,
+            // since we have stopped proposing, and slots are growing as we verify.
             if (lastProofReward.gt(0)) {
                 expect(newProofReward).to.be.lt(lastProofReward);
             }
             lastProofReward = newProofReward;
 
+            // latest synced header should be our just-verified block hash.
             const latestHash = await taikoL1.getLatestSyncedHeader();
             expect(latestHash).to.be.eq(block.blockHash);
+
+            // fork choice should be nullified via _cleanUp in LibVerifying
+            const forkChoice = await taikoL1.getForkChoice(
+                block.id,
+                block.parentHash
+            );
+            expect(forkChoice.provenAt).to.be.eq(BigNumber.from(0));
+            expect(forkChoice.provers).to.be.empty;
+            expect(forkChoice.blockHash).to.be.eq(ethers.constants.HashZero);
+
+            // proposer should be minted their refund of their deposit back after
+            // verification, as long as their balance is > 0
+            const proposerTkoBalanceAfterVerification =
+                await tkoTokenL1.balanceOf(proposerAddress);
+
+            expect(
+                proposerTkoBalanceAfterVerification.gt(
+                    proposerTkoBalanceBeforeVerification
+                )
+            ).to.be.eq(true);
         }
     });
 });

@@ -84,7 +84,7 @@ const sendTinyEtherToZeroAddress = async (signer: any) => {
         .wait(1);
 };
 
-async function initTokenomicsFixture() {
+async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     const l1Provider = getL1Provider();
 
     l1Provider.pollingInterval = 100;
@@ -154,14 +154,16 @@ async function initTokenomicsFixture() {
         configManager.address
     );
 
-    const mintTx = await tkoTokenL1
-        .connect(l1Signer)
-        .mintAnyone(
-            await proposerSigner.getAddress(),
-            ethers.utils.parseEther("100")
-        );
+    if (mintTkoToProposer) {
+        const mintTx = await tkoTokenL1
+            .connect(l1Signer)
+            .mintAnyone(
+                await proposerSigner.getAddress(),
+                ethers.utils.parseEther("100")
+            );
 
-    await mintTx.wait(1);
+        await mintTx.wait(1);
+    }
 
     // set up interval mining so we always get new blocks
     await l2Provider.send("evm_setAutomine", [true]);
