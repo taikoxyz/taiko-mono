@@ -62,6 +62,7 @@ describe("integration:LibTrieProof", function () {
             libraries: {
                 LibBridgeProcess: libBridgeProcess.address,
                 LibBridgeRetry: libBridgeRetry.address,
+                LibTrieProof: testLibTreProof.address,
             },
         });
 

@@ -168,11 +168,12 @@ async function generateContractConfigs(
                 break;
             case "Bridge":
                 if (
+                    !addressMap.LibTrieProof ||
                     !addressMap.LibBridgeRetry ||
                     !addressMap.LibBridgeProcess
                 ) {
                     throw new Error(
-                        "LibBridgeRetry/LibBridgeProcess not initialized"
+                        "LibTrieProof/LibBridgeRetry/LibBridgeProcess not initialized"
                     );
                 }
 

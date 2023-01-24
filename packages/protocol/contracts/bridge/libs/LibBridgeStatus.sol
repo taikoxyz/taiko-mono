@@ -6,10 +6,17 @@
 
 pragma solidity ^0.8.9;
 
+import "../../common/IHeaderSync.sol";
+import "../../libs/LibBlockHeader.sol";
+import "../../libs/LibTrieProof.sol";
+import "./LibBridgeData.sol";
+
 /**
  * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeStatus {
+    using LibBlockHeader for BlockHeader;
+
     enum MessageStatus {
         NEW,
         RETRIABLE,
@@ -50,6 +57,39 @@ library LibBridgeStatus {
         bytes32 msgHash
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
+    }
+
+    function isMessageFailed(
+        AddressResolver resolver,
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) internal view returns (bool) {
+        require(destChainId != block.chainid, "B:destChainId");
+        require(msgHash != 0, "B:msgHash");
+
+        LibBridgeData.StatusProof memory sp = abi.decode(
+            proof,
+            (LibBridgeData.StatusProof)
+        );
+        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko", false))
+            .getSyncedHeader(sp.header.height);
+
+        if (
+            syncedHeaderHash == 0 ||
+            syncedHeaderHash != sp.header.hashBlockHeader()
+        ) {
+            return false;
+        }
+
+        return
+            LibTrieProof.verify({
+                stateRoot: sp.header.stateRoot,
+                addr: resolver.resolve(destChainId, "bridge", false),
+                slot: getMessageStatusSlot(msgHash),
+                value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
+                mkproof: sp.proof
+            });
     }
 
     function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {

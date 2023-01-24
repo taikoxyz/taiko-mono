@@ -3,18 +3,16 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 function ThemedImage() {
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [src, setSrc] = useState(null);
 
   useEffect(() => {
     setSrc(
-      localStorage.getItem("theme") === "dark" ||
-        localStorage.getItem("theme") === "system" ||
-        localStorage.getItem("theme") === null
+      resolvedTheme === "dark"
         ? "/images/logotype-white.png"
         : "/images/logotype-black.png"
     );
-  }, [theme]);
+  }, [resolvedTheme]);
 
   return src ? (
     <Image

@@ -113,6 +113,20 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        return
+            LibBridgeStatus.isMessageFailed({
+                resolver: AddressResolver(this),
+                msgHash: msgHash,
+                destChainId: destChainId,
+                proof: proof
+            });
+    }
+
     function getMessageStatus(
         bytes32 msgHash
     ) public view virtual returns (LibBridgeStatus.MessageStatus) {
