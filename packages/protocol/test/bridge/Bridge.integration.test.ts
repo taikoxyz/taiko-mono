@@ -340,8 +340,12 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
-            await expect(
-                l2Bridge.isMessageReceived(msgHash, srcChainId, signalProof)
+            expect(
+                await l2Bridge.isMessageReceived(
+                    msgHash,
+                    srcChainId,
+                    signalProof
+                )
             ).to.be.eq(false);
         });
 
