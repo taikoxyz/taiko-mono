@@ -57,7 +57,9 @@ library LibVerifying {
         }
 
         uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[latestL2Height];
+        bytes32 latestL2Hash = state.l2Hashes[
+            latestL2Height % config.blockHashHistory
+        ];
         uint64 processed = 0;
 
         for (

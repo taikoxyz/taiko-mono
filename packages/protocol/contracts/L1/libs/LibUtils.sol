@@ -37,10 +37,15 @@ library LibUtils {
 
     function getL2BlockHash(
         TaikoData.State storage state,
-        uint256 number
+        uint256 number,
+        uint256 blockHashHistory
     ) internal view returns (bytes32) {
-        require(number <= state.latestVerifiedHeight, "L1:id");
-        return state.l2Hashes[number];
+        require(
+            number > state.latestVerifiedHeight - blockHashHistory &&
+                number <= state.latestVerifiedHeight,
+            "L1:outOfRange"
+        );
+        return state.l2Hashes[number % blockHashHistory];
     }
 
     function getStateVariables(

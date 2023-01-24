@@ -242,14 +242,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     function getSyncedHeader(
         uint256 number
     ) public view override returns (bytes32 header) {
-        header = state.getL2BlockHash(number);
-        require(header != 0, "L1:number");
+        header = state.getL2BlockHash(number, getConfig().blockHashHistory);
     }
 
     function getLatestSyncedHeader() public view override returns (bytes32) {
         return
             state.getL2BlockHash(
-                state.latestVerifiedHeight % getConfig().blockHashHistory
+                state.latestVerifiedHeight,
+                getConfig().blockHashHistory
             );
     }
 
