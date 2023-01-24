@@ -304,7 +304,7 @@ describe("integration:Bridge", function () {
     });
 
     describe("isMessageReceived()", function () {
-        it("should throw if signal is not a bridge message; proof is invalid since sender != bridge.", async function () {
+        it("should return false if signal is not a bridge message; proof is invalid since sender != bridge.", async function () {
             const msgHash = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
             const tx = await l1SignalService.connect(owner).sendSignal(msgHash);
@@ -342,7 +342,7 @@ describe("integration:Bridge", function () {
 
             await expect(
                 l2Bridge.isMessageReceived(msgHash, srcChainId, signalProof)
-            ).to.be.reverted;
+            ).to.be.eq(false);
         });
 
         it("if message is valid and sent by the bridge it should return true", async function () {
