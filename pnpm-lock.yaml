@@ -329,7 +329,7 @@ importers:
       fs: 0.0.1-security
       jsdom: ^21.1.0
       net: ^1.0.2
-      next: ^13.1.4
+      next: ^13.1.5
       next-themes: ^0.2.1
       nextra: ^2.2.12
       nextra-theme-docs: ^2.2.12
