@@ -3,24 +3,6 @@ import { getImgURLs } from "./getImgURLs";
 import { getOriginalDigests } from "./getOriginalDigests";
 import { getPosts } from "./getPosts";
 
-const authors = [
-  {
-    address: "0x381636D0E4eD0fa6aCF07D8fd821909Fb63c0d10",
-    profileImg: "https://mirror-media.imgix.net/publication-images/aWkXh0tO8n-j2jSU996_5.jpeg?h=400&w=400",
-    name: "finestone",
-  },
-  {
-    address: "0x2b1F13149C7F89622BBfB46Ae1e3ECc573Bb9331",
-    profileImg: "https://mirror-media.imgix.net/publication-images/XadIvjIRb2wI3Aglq3r01.png?h=720&w=762",
-    name: "d1onys1us",
-  },
-  {
-    address: "0x5b796c4b197b6dfd413f177059c27963eb80af0f",
-    profileImg: "https://mirror-media.imgix.net/publication-images/R0_XDunSEvn58KGo31NtD.png?h=1001&w=1001",
-    name: "Taiko Labs",
-  }
-];
-
 // Add the correct Original-Content-Digest, this is neccesarry for making the link to the mirror page
 function addOriginalDigests(objects, digests) {
   for (let i = 0; i < objects.length; i++) {
@@ -33,18 +15,6 @@ function addOriginalDigests(objects, digests) {
   return objects;
 }
 
-// Add the authors picture and name based on the contriboter address
-function addAuthorDetails(objects, authors) {
-  for (let i = 0; i < objects.length; i++) {
-    for (let j = 0; j < authors.length; j++) {
-      if (objects[i].authorship.contributor === authors[j].address) {
-        objects[i].authorship["name"] = authors[j].name;
-        objects[i].authorship["profileImg"] = authors[j].profileImg;
-      }
-    }
-  }
-  return objects;
-}
 
 function addImgURLs(objects, imgURLs) {
   for (let i = 0; i < objects.length; i++) {
@@ -90,9 +60,6 @@ export default function BlogSection(): JSX.Element {
         getPosts.then((result) => {
           // add the OriginalDigest to the post object
           result = addOriginalDigests(result, originalDigestsResult);
-
-          // add author details to the post object
-          result = addAuthorDetails(result, authors);
 
           // add the ImgURL to the post object
           result = addImgURLs(result, ImgURLs);
@@ -160,20 +127,7 @@ export default function BlogSection(): JSX.Element {
                   </a>
                 </div>
                 <div className="mt-6 flex items-center">
-                  <div className="flex-shrink-0">
-                    <a>
-                      <span className="sr-only">{post.authorship.name}</span>
-                      <img
-                        className="h-10 w-10 rounded-full"
-                        src={post.authorship.profileImg}
-                        alt=""
-                      />
-                    </a>
-                  </div>
                   <div className="ml-3">
-                    <div className="text-sm font-medium text-neutral-900">
-                      <a>{post.authorship.name}</a>
-                    </div>
                     <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
                       <time dateTime={getDateTime(post.content.timestamp)}>
                         {getDate(post.content.timestamp)}

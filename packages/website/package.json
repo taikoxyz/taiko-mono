@@ -10,12 +10,12 @@
   "dependencies": {
     "arweave": "^1.12.2",
     "fs": "0.0.1-security",
-    "jsdom": "^21.0.0",
+    "jsdom": "^21.1.0",
     "net": "^1.0.2",
-    "next": "^13.1.2",
+    "next": "^13.1.5",
     "next-themes": "^0.2.1",
-    "nextra": "^2.2.3",
-    "nextra-theme-docs": "^2.2.3",
+    "nextra": "^2.2.13",
+    "nextra-theme-docs": "^2.2.13",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sharp": "^0.31.3",
@@ -23,13 +23,13 @@
   },
   "devDependencies": {
     "@heroicons/react": "^2.0.13",
-    "@next/font": "^13.1.2",
-    "@types/node": "^18.11.10",
-    "@types/react": "^18.0.26",
+    "@next/font": "^13.1.5",
+    "@types/node": "^18.11.18",
+    "@types/react": "^18.0.27",
     "autoprefixer": "^10.4.13",
-    "postcss": "^8.4.20",
+    "postcss": "^8.4.21",
     "tailwindcss": "^3.2.4",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.4"
   },
   "browser": {
     "fs": false,
