@@ -7,6 +7,7 @@ type BlockInfo = {
     provenAt: number;
     id: number;
     parentHash: string;
+    blockHash: string;
 };
 
 async function onNewL2Block(

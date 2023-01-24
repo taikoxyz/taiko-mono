@@ -48,21 +48,17 @@ const proveBlock = async (
 ): Promise<BlockProvenEvent> => {
     const config = await taikoL1.getConfig();
     const header = await getBlockHeader(l2Provider, blockNumber);
-    header.blockHeader.difficulty = 0;
-    header.blockHeader.gasLimit = config.anchorTxGasLimit
-        .add(header.blockHeader.gasLimit)
-        .toNumber();
-    header.blockHeader.timestamp = meta.timestamp;
-    // cant prove non-0 blocks
-    if (header.blockHeader.gasUsed <= 0) {
-        header.blockHeader.gasUsed = 1;
-    }
-    header.blockHeader.mixHash = meta.mixHash;
-    header.blockHeader.extraData = meta.extraData;
-    console.log(
-        "proving block header parent hash",
-        header.blockHeader.parentHash
-    );
+    // header.blockHeader.difficulty = 0;
+    // header.blockHeader.gasLimit = config.anchorTxGasLimit
+    //     .add(header.blockHeader.gasLimit)
+    //     .toNumber();
+    // header.blockHeader.timestamp = meta.timestamp;
+    // // cant prove non-0 blocks
+    // if (header.blockHeader.gasUsed <= 0) {
+    //     header.blockHeader.gasUsed = 1;
+    // }
+    // header.blockHeader.mixHash = meta.mixHash;
+    // header.blockHeader.extraData = meta.extraData;
 
     const inputs = buildProveBlockInputs(
         meta,

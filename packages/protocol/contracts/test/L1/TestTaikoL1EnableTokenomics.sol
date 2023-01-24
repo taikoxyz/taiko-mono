@@ -23,7 +23,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
-        config.maxVerificationsPerTx = 2;
+        config.maxVerificationsPerTx = 1;
         config.commitConfirmations = 1;
         config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 30000000; // TODO

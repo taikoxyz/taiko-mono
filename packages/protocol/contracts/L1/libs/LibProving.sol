@@ -235,12 +235,14 @@ library LibProving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadata({state: state, config: config, meta: target});
-        _validateHeaderForMetadata({
-            config: config,
-            header: evidence.header,
-            meta: evidence.meta
-        });
+        if (config.enableProofValidation) {
+            _checkMetadata({state: state, config: config, meta: target});
+            _validateHeaderForMetadata({
+                config: config,
+                header: evidence.header,
+                meta: evidence.meta
+            });
+        }
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
 

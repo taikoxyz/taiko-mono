@@ -276,6 +276,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
+    // TODO: we can replace this with getForkChoice I think?
     function getBlockProvers(
         uint256 id,
         bytes32 parentHash
