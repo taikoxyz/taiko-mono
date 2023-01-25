@@ -72,6 +72,8 @@ async function onNewL2Block(
 
     const newBlockFee = await taikoL1.getBlockFee();
 
+    console.log("-------------------proposed----------", id);
+
     return { newProposerTkoBalance, newBlockFee, newProofReward };
 }
 

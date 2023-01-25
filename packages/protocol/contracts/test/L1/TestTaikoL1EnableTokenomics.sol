@@ -18,12 +18,12 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 6;
+        config.maxNumBlocks = 4;
         config.blockHashHistory = 10;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
-        config.maxVerificationsPerTx = 1;
+        config.maxVerificationsPerTx = 0; // dont verify blocks automatically
         config.commitConfirmations = 1;
         config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 30000000; // TODO
