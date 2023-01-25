@@ -18962,6 +18962,14 @@ packages:
       unist-util-visit-parents: 5.1.1
     dev: false
 
+  /unist-util-remove/3.1.1:
+    resolution: {integrity: sha512-kfCqZK5YVY5yEa89tvpl7KnBBHu2c6CzMkqHUrlOqaRgGOMp0sMvwWOVrbAtj03KhovQB7i96Gda72v/EFE0vw==}
+    dependencies:
+      '@types/unist': 2.0.6
+      unist-util-is: 5.2.0
+      unist-util-visit-parents: 5.1.1
+    dev: false
+
   /unist-util-stringify-position/3.0.3:
     resolution: {integrity: sha512-k5GzIBZ/QatR8N5X2y+drfpWG8IDBzdnVj6OInRNWm1oXrzydiaAT2OQiA8DPRRZyAKb9b6I2a6PxYklZD0gKg==}
     dependencies:
