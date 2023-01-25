@@ -117,17 +117,6 @@ export async function deployContracts(hre: any) {
         )
     );
 
-    // Config manager
-    const ConfigManager = await utils.deployContract(hre, "ConfigManager");
-    await utils.waitTx(hre, await ConfigManager.init());
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            `${chainId}.config_manager`,
-            ConfigManager.address
-        )
-    );
-
     // TaikoL1
     const TaikoL1 = await utils.deployContract(
         hre,
