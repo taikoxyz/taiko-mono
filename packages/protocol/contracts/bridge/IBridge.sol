@@ -35,14 +35,21 @@ interface IBridge {
     }
 
     event SignalSent(address sender, bytes32 msgHash);
-
     event MessageSent(bytes32 indexed msgHash, Message message);
+    event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
     /// Sends a message to the destination chain and takes custody
     /// of Ether required in this contract. All extra Ether will be refunded.
     function sendMessage(
         Message memory message
     ) external payable returns (bytes32 msgHash);
+
+    // Release Ether with a proof that the message processing on the destination
+    // chain has been failed.
+    function releaseEther(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external;
 
     /// Checks if a msgHash has been stored on the bridge contract by the
     /// current address.
@@ -65,4 +72,8 @@ interface IBridge {
 
     /// Returns the bridge state context.
     function context() external view returns (Context memory context);
+
+    function hashMessage(
+        IBridge.Message calldata message
+    ) external pure returns (bytes32);
 }
