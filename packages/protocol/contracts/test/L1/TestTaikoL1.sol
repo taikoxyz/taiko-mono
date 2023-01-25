@@ -52,7 +52,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     }
 
     function verifyZKP(
-        string memory /*verifierId*/,
+        string memory /*circuitId*/,
         bytes calldata /*zkproof*/,
         bytes32 /*blockHash*/,
         address /*prover*/,
