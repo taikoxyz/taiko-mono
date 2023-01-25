@@ -13,7 +13,7 @@ import "../thirdparty/LibMerkleTrie.sol";
 /// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
     function verifyZKP(
-        string memory circuitId,
+        string memory verifierId,
         bytes calldata zkproof,
         bytes32 blockHash,
         address prover,
@@ -34,7 +34,7 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
     }
 
     function verifyZKP(
-        string memory circuitId,
+        string memory verifierId,
         bytes calldata zkproof,
         bytes32 blockHash,
         address prover,
@@ -42,7 +42,7 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
     ) external view returns (bool) {
         return
             LibZKP.verify({
-                plonkVerifier: resolve(circuitId, false),
+                plonkVerifier: resolve(verifierId, false),
                 zkproof: zkproof,
                 blockHash: blockHash,
                 prover: prover,

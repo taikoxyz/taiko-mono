@@ -255,7 +255,7 @@ library LibProving {
             } else {
                 require(
                     proofVerifier.verifyZKP({
-                        circuitId: string(
+                        verifierId: string(
                             abi.encodePacked("plonk_verifier_", i)
                         ),
                         zkproof: evidence.proofs[i],
