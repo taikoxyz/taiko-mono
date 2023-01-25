@@ -53,12 +53,6 @@ library LibBridgeStatus {
         return MessageStatus(value);
     }
 
-    function getMessageStatusSlot(
-        bytes32 msgHash
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
-    }
-
     function isMessageFailed(
         AddressResolver resolver,
         bytes32 msgHash,
@@ -90,6 +84,12 @@ library LibBridgeStatus {
                 value: bytes32(uint256(LibBridgeStatus.MessageStatus.FAILED)),
                 mkproof: sp.proof
             });
+    }
+
+    function getMessageStatusSlot(
+        bytes32 msgHash
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
     }
 
     function _setMessageStatus(bytes32 msgHash, MessageStatus status) private {
