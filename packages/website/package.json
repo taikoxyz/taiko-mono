@@ -8,18 +8,21 @@
     "start": "pnpm next start"
   },
   "dependencies": {
+    "acorn": "8.8.1",
+    "acorn-jsx": "5.3.2",
     "arweave": "^1.12.2",
     "fs": "0.0.1-security",
     "jsdom": "^21.1.0",
     "net": "^1.0.2",
-    "next": "^13.1.5",
+    "next": "^13.1.4",
     "next-themes": "^0.2.1",
     "nextra": "^2.2.12",
     "nextra-theme-docs": "^2.2.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sharp": "^0.31.3",
-    "tls": "^0.0.1"
+    "tls": "^0.0.1",
+    "unist-util-remove": "3.1.0"
   },
   "devDependencies": {
     "@heroicons/react": "^2.0.13",
