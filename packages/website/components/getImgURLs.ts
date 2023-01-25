@@ -5,7 +5,7 @@ const parser = new DOMParser();
 
 export const getImgURLs = new Promise<Array<String>>((resolve, reject) => {
     async function getImgURLs() {
-        fetch("https://cors-anywhere.herokuapp.com/https://mirror.xyz/labs.taiko.eth/")
+        fetch("https://mirror.xyz/labs.taiko.eth/")
             .then(function (response) {
                 return response.text();
             })

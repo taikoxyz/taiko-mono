@@ -58,6 +58,10 @@ export default function BlogSection(): JSX.Element {
         const ImgURLs = result;
 
         getPosts.then((result) => {
+
+          // only use last three
+          result = result.slice(0,3)
+
           // add the OriginalDigest to the post object
           result = addOriginalDigests(result, originalDigestsResult);
 
