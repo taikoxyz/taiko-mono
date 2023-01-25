@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TaikoL2 } from "../../typechain";
+import { BlockProposedEvent } from "../../typechain/LibProposing";
 import { BlockProvenEvent } from "../../typechain/LibProving";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import { BlockMetadata } from "../utils/block_metadata";
@@ -130,6 +131,7 @@ describe("tokenomics: proofReward", function () {
                         parentHash: event.args.parentHash,
                         blockHash: event.args.blockHash,
                         forkChoice: forkChoice,
+                        deposit: proposedBlock.deposit,
                     };
                 } catch (e) {
                     hasFailedAssertions = true;
@@ -191,7 +193,13 @@ describe("tokenomics: proofReward", function () {
             0
         );
 
-        await sleep(5 * 1000);
+        const prover = new Prover(
+            taikoL1,
+            taikoL2,
+            l1Provider,
+            l2Provider,
+            proverSigner
+        );
 
         // prover needs TKO or their reward will be cut down to 1 wei.
         await (
@@ -203,100 +211,31 @@ describe("tokenomics: proofReward", function () {
                 )
         ).wait(1);
 
-        const prover = new Prover(
-            taikoL1,
-            taikoL2,
-            l1Provider,
-            l2Provider,
-            proverSigner
-        );
-
-        let blocksProved: number = 0;
-
-        const blockInfo: BlockInfo[] = [];
-
-        taikoL1.on(
-            "BlockProposed",
-            async (id: BigNumber, meta: BlockMetadata) => {
-                // wait until we fill up all slots, so we can
-                // then prove blocks in order, and each time a block is proven then verified,
-                // we can expect the proofReward to go down as slots become available.
-
-                console.log("p", id.toNumber());
-                while (blocksProposed < maxNumBlocks.toNumber()) {
-                    await sleep(3 * 1000);
-                }
-
-                try {
-                    const proverAddress = await proverSigner.getAddress();
-                    const { args } = await prover.prove(
-                        await proverSigner.getAddress(),
-                        id.toNumber(),
-                        blockIdsToNumber[id.toString()],
-                        meta
-                    );
-                    const {
-                        blockHash,
-                        id: blockId,
-                        parentHash,
-                        provenAt,
-                    } = args;
-
-                    const proposedBlock = await taikoL1.getProposedBlock(id);
-
-                    const forkChoice = await taikoL1.getForkChoice(
-                        blockId.toNumber(),
-                        parentHash
-                    );
-
-                    expect(forkChoice.blockHash).to.be.eq(blockHash);
-
-                    expect(forkChoice.provers[0]).to.be.eq(proverAddress);
-
-                    blockInfo.push({
-                        proposedAt: proposedBlock.proposedAt.toNumber(),
-                        provenAt: provenAt.toNumber(),
-                        id: id.toNumber(),
-                        parentHash: parentHash,
-                        blockHash: blockHash,
-                        forkChoice: forkChoice,
-                    });
-                    blocksProved++;
-                } catch (e) {
-                    hasFailedAssertions = true;
-                    console.error("proving error", e);
-                    throw e;
-                }
-            }
-        );
-
         let hasFailedAssertions: boolean = false;
-        let blocksProposed: number = 0;
+        const blocksProposed: BlockProposedEvent[] = [];
 
         const listener = async (blockNumber: number) => {
             if (blockNumber <= genesisHeight) return;
             // fill up all slots.
-            if (blocksProposed === maxNumBlocks.toNumber()) {
+            if (blocksProposed.length === maxNumBlocks.toNumber() - 1) {
                 l2Provider.off("block", listener);
                 return;
             }
 
             try {
-                console.log("proposing");
-                await expect(
-                    onNewL2Block(
-                        l2Provider,
-                        blockNumber,
-                        proposer,
-                        blockIdsToNumber,
-                        taikoL1,
-                        proposerSigner,
-                        tkoTokenL1
-                    )
-                ).not.to.throw;
-                blocksProposed++;
+                const { proposedEvent } = await onNewL2Block(
+                    l2Provider,
+                    blockNumber,
+                    proposer,
+                    blockIdsToNumber,
+                    taikoL1,
+                    proposerSigner,
+                    tkoTokenL1
+                );
+                expect(proposedEvent).not.to.be.undefined;
+                blocksProposed.push(proposedEvent);
 
-                console.log("proposed", blocksProposed);
+                console.log("proposed", proposedEvent.args.id);
             } catch (e) {
                 hasFailedAssertions = true;
                 l2Provider.off("block", listener);
@@ -307,21 +246,65 @@ describe("tokenomics: proofReward", function () {
 
         l2Provider.on("block", listener);
 
-        // wait for all blocks to be proven
-        /* eslint-disable-next-line */
-        while (blocksProved < maxNumBlocks.toNumber() - 1) {
+        while (blocksProposed.length < maxNumBlocks.toNumber() - 1) {
             await sleep(3 * 1000);
         }
 
         expect(hasFailedAssertions).to.be.eq(false);
 
+        const provedBlocks: BlockInfo[] = [];
+
+        await Promise.all(
+            blocksProposed.map(async (block) => {
+                console.log("proving block", block);
+                const proverAddress = await proverSigner.getAddress();
+                const { args } = await prover.prove(
+                    await proverSigner.getAddress(),
+                    block.args.id.toNumber(),
+                    blockIdsToNumber[block.args.id.toString()],
+                    block.args.meta as any as BlockMetadata
+                );
+                const { blockHash, id: blockId, parentHash, provenAt } = args;
+
+                const proposedBlock = await taikoL1.getProposedBlock(
+                    block.args.id.toNumber()
+                );
+
+                const forkChoice = await taikoL1.getForkChoice(
+                    blockId.toNumber(),
+                    parentHash
+                );
+
+                expect(forkChoice.blockHash).to.be.eq(blockHash);
+
+                expect(forkChoice.provers[0]).to.be.eq(proverAddress);
+
+                provedBlocks.push({
+                    proposedAt: proposedBlock.proposedAt.toNumber(),
+                    provenAt: provenAt.toNumber(),
+                    id: block.args.id.toNumber(),
+                    parentHash: parentHash,
+                    blockHash: blockHash,
+                    forkChoice: forkChoice,
+                    deposit: proposedBlock.deposit,
+                });
+            })
+        );
+
+        // wait for all blocks to be proven
+        /* eslint-disable-next-line */
+        while (provedBlocks.length < maxNumBlocks.toNumber() - 1) {
+            await sleep(3 * 1000);
+        }
+
         let lastProofReward: BigNumber = BigNumber.from(0);
 
         // now try to verify the blocks and make sure the proof reward shrinks as slots
         // free up
-        for (let i = 1; i < blockInfo.length + 1; i++) {
-            const block = blockInfo.find((b) => b.id === i) as any as BlockInfo;
+        for (let i = 0; i < provedBlocks.length; i++) {
+            const block = provedBlocks[i];
             expect(block).not.to.be.undefined;
+            console.log("verifying blocks", block);
 
             await sleepUntilBlockIsVerifiable(
                 taikoL1,
@@ -394,16 +377,18 @@ describe("tokenomics: proofReward", function () {
             expect(forkChoice.provers).to.be.empty;
             expect(forkChoice.blockHash).to.be.eq(ethers.constants.HashZero);
 
-            // // proposer should be minted their refund of their deposit back after
-            // // verification, as long as their balance is > 0
-            // const proposerTkoBalanceAfterVerification =
-            //     await tkoTokenL1.balanceOf(proposerAddress);
+            // proposer should be minted their refund of their deposit back after
+            // verification, as long as their balance is > 0;
 
-            // expect(
-            //     proposerTkoBalanceAfterVerification.gt(
-            //         proposerTkoBalanceBeforeVerification
-            //     )
-            // ).to.be.eq(true);
+            // if (block.deposit.gt(0)) {
+            //     const proposerTkoBalanceAfterVerification =
+            //         await tkoTokenL1.balanceOf(proposerAddress);
+            //     expect(
+            //         proposerTkoBalanceAfterVerification.gt(
+            //             proposerTkoBalanceBeforeVerification
+            //         )
+            //     ).to.be.eq(true);
+            // }
         }
     });
 });

@@ -13,6 +13,7 @@ import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
+import { BlockProposedEvent } from "../../typechain/LibProposing";
 
 type ForkChoice = {
     provenAt: BigNumber;
@@ -27,6 +28,7 @@ type BlockInfo = {
     parentHash: string;
     blockHash: string;
     forkChoice: ForkChoice;
+    deposit: BigNumber;
 };
 
 async function sleepUntilBlockIsVerifiable(
@@ -36,8 +38,9 @@ async function sleepUntilBlockIsVerifiable(
 ) {
     const delay = await taikoL1.getUncleProofDelay(id);
     const delayInMs = delay.mul(1000);
-    await sleep(5 * delayInMs.toNumber());
+    await sleep(5 * delayInMs.toNumber()); // TODO: use provenAt, calc difference, etc
 }
+
 async function onNewL2Block(
     l2Provider: ethers.providers.JsonRpcProvider,
     blockNumber: number,
@@ -47,17 +50,18 @@ async function onNewL2Block(
     proposerSigner: any,
     tkoTokenL1: TkoToken
 ): Promise<{
+    proposedEvent: BlockProposedEvent;
     newProposerTkoBalance: BigNumber;
     newBlockFee: BigNumber;
     newProofReward: BigNumber;
 }> {
     const block = await l2Provider.getBlock(blockNumber);
     const receipt = await proposer.commitThenProposeBlock(block);
-    const proposedEvent = (receipt.events as any[]).find(
+    const proposedEvent: BlockProposedEvent = (receipt.events as any[]).find(
         (e) => e.event === "BlockProposed"
     );
 
-    const { id, meta } = (proposedEvent as any).args;
+    const { id, meta } = proposedEvent.args;
 
     blockIdsToNumber[id.toString()] = block.number;
 
@@ -74,7 +78,12 @@ async function onNewL2Block(
 
     console.log("-------------------proposed----------", id);
 
-    return { newProposerTkoBalance, newBlockFee, newProofReward };
+    return {
+        proposedEvent,
+        newProposerTkoBalance,
+        newBlockFee,
+        newProofReward,
+    };
 }
 
 const sendTinyEtherToZeroAddress = async (signer: any) => {

@@ -89,6 +89,7 @@ library LibProposing {
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
             );
+            // require(4 < 0 + 4)
             require(
                 state.nextBlockId <
                     state.latestVerifiedId + config.maxNumBlocks,
