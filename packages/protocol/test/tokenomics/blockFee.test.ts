@@ -60,8 +60,6 @@ describe("tokenomics: blockFee", function () {
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
-        // wait for one period of halving to occur, so fee is not 0.
-        const blockIdsToNumber: any = {};
 
         // set up a proposer to continually propose new blocks
         const proposer = new Proposer(
@@ -101,7 +99,6 @@ describe("tokenomics: blockFee", function () {
                         l2Provider,
                         blockNumber,
                         proposer,
-                        blockIdsToNumber,
                         taikoL1,
                         proposerSigner,
                         tkoTokenL1
@@ -119,7 +116,6 @@ describe("tokenomics: blockFee", function () {
                 blocksProposed++;
             } catch (e) {
                 hasFailedAssertions = true;
-                console.error(e);
                 throw e;
             }
         });

@@ -48,7 +48,6 @@ async function onNewL2Block(
     l2Provider: ethers.providers.JsonRpcProvider,
     blockNumber: number,
     proposer: Proposer,
-    blockIdsToNumber: any,
     taikoL1: TaikoL1,
     proposerSigner: any,
     tkoTokenL1: TkoToken
@@ -65,8 +64,6 @@ async function onNewL2Block(
     );
 
     const { id, meta } = proposedEvent.args;
-
-    blockIdsToNumber[id.toString()] = block.number;
 
     const newProofReward = await taikoL1.getProofReward(
         new Date().getMilliseconds(),
@@ -277,6 +274,10 @@ function randEle<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+const BLOCK_PROPOSED_EVENT = "blockProposed";
+const BLOCK_PROVEN_EVENT = "blockProved";
+const BLOCK_VERIFIED_EVENT = "blockVerified";
+
 export {
     sendTinyEtherToZeroAddress,
     onNewL2Block,
@@ -284,6 +285,9 @@ export {
     initTokenomicsFixture,
     verifyBlockAndAssert,
     randEle,
+    BLOCK_PROPOSED_EVENT,
+    BLOCK_PROVEN_EVENT,
+    BLOCK_VERIFIED_EVENT,
 };
 
 export type { BlockInfo, ForkChoice };
