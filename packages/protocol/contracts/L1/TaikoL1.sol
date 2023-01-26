@@ -31,13 +31,14 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         bytes32 _genesisBlockHash,
         uint256 _feeBase
     ) external initializer {
+        LibSharedConfig.validateConfig(getConfig());
+
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });
-        LibSharedConfig.validateConfig(getConfig());
     }
 
     /**
