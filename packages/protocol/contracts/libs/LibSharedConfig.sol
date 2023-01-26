@@ -47,33 +47,36 @@ library LibSharedConfig {
     }
 
     function validateConfig(TaikoData.Config memory config) internal pure {
-        require(chainId > 1, "C:chainId");
-        require(maxNumBlocks > 0, "C:maxNumBlocks");
-        require(blockHashHistory > 0, "C:blockHashHistory");
-        require(zkProofsPerBlock > 0, "C:zkProofsPerBlock");
+        require(config.chainId > 1, "C:chainId");
+        require(config.maxNumBlocks > 0, "C:maxNumBlocks");
+        require(config.blockHashHistory > 0, "C:blockHashHistory");
+        require(config.zkProofsPerBlock > 0, "C:zkProofsPerBlock");
         //maxVerificationsPerTx
         //commitConfirmations
-        require(maxProofsPerForkChoice > 0, "C:maxProofsPerForkChoice");
-        require(blockMaxGasLimit > 0, "C:blockMaxGasLimit");
-        require(maxTransactionsPerBlock > 0, "C:maxTransactionsPerBlock");
-        require(maxBytesPerTxList > 0, "C:maxBytesPerTxList");
-        require(minTxGasLimit > 0, "C:minTxGasLimit");
-        require(anchorTxGasLimit > 0, "C:anchorTxGasLimit");
-        require(feePremiumLamda > 0, "C:feePremiumLamda");
-        require(rewardBurnBips <= 10000, "C:rewardBurnBips");
-        require(feeBaseMAF > 1, "C:feeBaseMAF");
-        require(blockTimeMAF > 1, "C:blockTimeMAF");
-        require(proofTimeMAF > 1, "C:proofTimeMAF");
-        require(rewardMultiplierPctg >= 100, "C:rewardMultiplierPctg");
-        require(feeGracePeriodPctg >= 100, "C:feeGracePeriodPctg");
+        require(config.maxProofsPerForkChoice > 0, "C:maxProofsPerForkChoice");
+        require(config.blockMaxGasLimit > 0, "C:blockMaxGasLimit");
         require(
-            feeMaxPeriodPctg >= feeGracePeriodPctg,
+            config.maxTransactionsPerBlock > 0,
+            "C:maxTransactionsPerBlock"
+        );
+        require(config.maxBytesPerTxList > 0, "C:maxBytesPerTxList");
+        require(config.minTxGasLimit > 0, "C:minTxGasLimit");
+        require(config.anchorTxGasLimit > 0, "C:anchorTxGasLimit");
+        require(config.feePremiumLamda > 0, "C:feePremiumLamda");
+        require(config.rewardBurnBips <= 10000, "C:rewardBurnBips");
+        require(config.feeBaseMAF > 1, "C:feeBaseMAF");
+        require(config.blockTimeMAF > 1, "C:blockTimeMAF");
+        require(config.proofTimeMAF > 1, "C:proofTimeMAF");
+        require(config.rewardMultiplierPctg >= 100, "C:rewardMultiplierPctg");
+        require(config.feeGracePeriodPctg >= 100, "C:feeGracePeriodPctg");
+        require(
+            config.feeMaxPeriodPctg >= config.feeGracePeriodPctg,
             "C:feeMaxPeriodPctg<feeGracePeriodPctg"
         );
-        require(blockTimeCap > 0, "C:blockTimeCap");
-        require(proofTimeCap > 0, "C:proofTimeCap");
+        require(config.blockTimeCap > 0, "C:blockTimeCap");
+        require(config.proofTimeCap > 0, "C:proofTimeCap");
         require(
-            bootstrapDiscountHalvingPeriod > 0,
+            config.bootstrapDiscountHalvingPeriod > 0,
             "C:bootstrapDiscountHalvingPeriod"
         );
         // initialUncleDelay
