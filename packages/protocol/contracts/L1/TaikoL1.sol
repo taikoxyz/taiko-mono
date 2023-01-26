@@ -37,6 +37,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });
+        LibSharedConfig.validateConfig(getConfig());
     }
 
     /**

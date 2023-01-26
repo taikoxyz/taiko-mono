@@ -45,4 +45,37 @@ library LibSharedConfig {
                 enablePublicInputsCheck: true
             });
     }
+
+    function validateConfig(TaikoData.Config memory config) internal pure {
+        require(chainId > 1, "C:chainId");
+        require(maxNumBlocks > 0, "C:maxNumBlocks");
+        require(blockHashHistory > 0, "C:blockHashHistory");
+        require(zkProofsPerBlock > 0, "C:zkProofsPerBlock");
+        //maxVerificationsPerTx
+        //commitConfirmations
+        require(maxProofsPerForkChoice > 0, "C:maxProofsPerForkChoice");
+        require(blockMaxGasLimit > 0, "C:blockMaxGasLimit");
+        require(maxTransactionsPerBlock > 0, "C:maxTransactionsPerBlock");
+        require(maxBytesPerTxList > 0, "C:maxBytesPerTxList");
+        require(minTxGasLimit > 0, "C:minTxGasLimit");
+        require(anchorTxGasLimit > 0, "C:anchorTxGasLimit");
+        require(feePremiumLamda > 0, "C:feePremiumLamda");
+        require(rewardBurnBips <= 10000, "C:rewardBurnBips");
+        require(feeBaseMAF > 1, "C:feeBaseMAF");
+        require(blockTimeMAF > 1, "C:blockTimeMAF");
+        require(proofTimeMAF > 1, "C:proofTimeMAF");
+        require(rewardMultiplierPctg >= 100, "C:rewardMultiplierPctg");
+        require(feeGracePeriodPctg >= 100, "C:feeGracePeriodPctg");
+        require(
+            feeMaxPeriodPctg >= feeGracePeriodPctg,
+            "C:feeMaxPeriodPctg<feeGracePeriodPctg"
+        );
+        require(blockTimeCap > 0, "C:blockTimeCap");
+        require(proofTimeCap > 0, "C:proofTimeCap");
+        require(
+            bootstrapDiscountHalvingPeriod > 0,
+            "C:bootstrapDiscountHalvingPeriod"
+        );
+        // initialUncleDelay
+    }
 }
