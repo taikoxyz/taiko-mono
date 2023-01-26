@@ -44,10 +44,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     constructor(address _addressManager) {
         TaikoData.Config memory config = getConfig();
         LibSharedConfig.validateConfig(config);
-        require(
-            block.chainid != 0 && block.chainid == config.chainId,
-            "L2:chainId"
-        );
+        require(block.chainid == config.chainId, "L2:chainId");
 
         AddressResolver._init(_addressManager);
 

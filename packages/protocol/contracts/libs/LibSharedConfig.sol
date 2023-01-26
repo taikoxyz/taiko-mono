@@ -13,7 +13,7 @@ library LibSharedConfig {
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return
             TaikoData.Config({
-                chainId: 167,
+                chainId: 167, // Taiko chain ID
                 maxNumBlocks: 2049, // up to 2048 pending blocks
                 blockHashHistory: 100000,
                 // This number is calculated from maxNumBlocks to make
