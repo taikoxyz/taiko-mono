@@ -2,10 +2,7 @@ import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import EventEmitter from "events";
 import { TaikoL1 } from "../../typechain";
-import { BlockProposedEvent } from "../../typechain/LibProposing";
-import { BlockProvenEvent } from "../../typechain/LibProving";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
-import { BlockMetadata } from "../utils/block_metadata";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import createAndSeedWallets from "../utils/seed";
@@ -16,7 +13,8 @@ import {
     BLOCK_PROPOSED_EVENT,
     BLOCK_PROVEN_EVENT,
     initTokenomicsFixture,
-    onNewL2Block,
+    newProposerListener,
+    newProverListener,
     randEle,
     sleepUntilBlockIsVerifiable,
     verifyBlockAndAssert,
@@ -62,57 +60,21 @@ describe("tokenomics: proofReward", function () {
         const prover = new Prover(taikoL1, l2Provider, proverSigner);
 
         const eventEmitter = new EventEmitter();
-        l2Provider.on("block", async (blockNumber: number) => {
-            if (blockNumber <= genesisHeight) return;
-
-            const { proposedEvent } = await onNewL2Block(
+        l2Provider.on(
+            "block",
+            newProposerListener(
+                genesisHeight,
+                eventEmitter,
                 l2Provider,
-                blockNumber,
                 proposer,
                 taikoL1,
-                proposerSigner,
                 tkoTokenL1
-            );
-            expect(proposedEvent).not.to.be.undefined;
-
-            eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
-        });
+            )
+        );
 
         eventEmitter.on(
             BLOCK_PROPOSED_EVENT,
-            async (
-                proposedBlockEvent: BlockProposedEvent,
-                blockNumber: number
-            ) => {
-                const event: BlockProvenEvent = await prover.prove(
-                    await proverSigner.getAddress(),
-                    proposedBlockEvent.args.id.toNumber(),
-                    blockNumber,
-                    proposedBlockEvent.args.meta as any
-                );
-
-                const proposedBlock = await taikoL1.getProposedBlock(
-                    proposedBlockEvent.args.id.toNumber()
-                );
-
-                const forkChoice = await taikoL1.getForkChoice(
-                    proposedBlockEvent.args.id.toNumber(),
-                    event.args.parentHash
-                );
-
-                const blockInfo = {
-                    proposedAt: proposedBlock.proposedAt.toNumber(),
-                    provenAt: event.args.provenAt.toNumber(),
-                    id: event.args.id.toNumber(),
-                    parentHash: event.args.parentHash,
-                    blockHash: event.args.blockHash,
-                    forkChoice: forkChoice,
-                    deposit: proposedBlock.deposit,
-                    proposer: proposedBlock.proposer,
-                };
-
-                eventEmitter.emit(BLOCK_PROVEN_EVENT, blockInfo);
-            }
+            newProverListener(prover, taikoL1, eventEmitter)
         );
 
         eventEmitter.on(
@@ -176,66 +138,21 @@ describe("tokenomics: proofReward", function () {
         ).wait(1);
 
         const eventEmitter = new EventEmitter();
-        l2Provider.on("block", async (blockNumber: number) => {
-            if (blockNumber <= genesisHeight) return;
-
-            const { proposedEvent } = await onNewL2Block(
+        l2Provider.on(
+            "block",
+            newProposerListener(
+                genesisHeight,
+                eventEmitter,
                 l2Provider,
-                blockNumber,
                 proposer,
                 taikoL1,
-                proposerSigner,
                 tkoTokenL1
-            );
-            expect(proposedEvent).not.to.be.undefined;
-
-            console.log("proposed", proposedEvent.args.id);
-            eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
-        });
+            )
+        );
 
         eventEmitter.on(
             BLOCK_PROPOSED_EVENT,
-            async function (
-                proposedEvent: BlockProposedEvent,
-                blockNumber: number
-            ) {
-                const proverAddress = await proverSigner.getAddress();
-                const { args } = await prover.prove(
-                    await proverSigner.getAddress(),
-                    proposedEvent.args.id.toNumber(),
-                    blockNumber,
-                    proposedEvent.args.meta as any as BlockMetadata
-                );
-                const { blockHash, id: blockId, parentHash, provenAt } = args;
-
-                const proposedBlock = await taikoL1.getProposedBlock(
-                    proposedEvent.args.id.toNumber()
-                );
-
-                console.log("proposed block", proposedBlock);
-
-                const forkChoice = await taikoL1.getForkChoice(
-                    blockId.toNumber(),
-                    parentHash
-                );
-
-                expect(forkChoice.blockHash).to.be.eq(blockHash);
-
-                expect(forkChoice.provers[0]).to.be.eq(proverAddress);
-
-                const provedBlock = {
-                    proposedAt: proposedBlock.proposedAt.toNumber(),
-                    provenAt: provenAt.toNumber(),
-                    id: proposedEvent.args.id.toNumber(),
-                    parentHash: parentHash,
-                    blockHash: blockHash,
-                    forkChoice: forkChoice,
-                    deposit: proposedBlock.deposit,
-                    proposer: proposedBlock.proposer,
-                };
-
-                eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
-            }
+            newProverListener(prover, taikoL1, eventEmitter)
         );
 
         let lastProofReward: BigNumber = BigNumber.from(0);
@@ -307,64 +224,21 @@ describe("tokenomics: proofReward", function () {
 
         const eventEmitter = new EventEmitter();
 
-        l2Provider.on("block", async (blockNumber: number) => {
-            if (blockNumber <= genesisHeight) return;
-
-            const { proposedEvent } = await onNewL2Block(
+        l2Provider.on(
+            "block",
+            newProposerListener(
+                genesisHeight,
+                eventEmitter,
                 l2Provider,
-                blockNumber,
                 randEle<Proposer>(proposers),
                 taikoL1,
-                proposerSigner,
                 tkoTokenL1
-            );
-            expect(proposedEvent).not.to.be.undefined;
-
-            console.log("proposed", proposedEvent.args.id);
-            eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
-        });
+            )
+        );
 
         eventEmitter.on(
             BLOCK_PROPOSED_EVENT,
-            async function (
-                proposedEvent: BlockProposedEvent,
-                blockNumber: number
-            ) {
-                const proverAddress = await proverSigner.getAddress();
-                const { args } = await randEle<Prover>(provers).prove(
-                    await proverSigner.getAddress(),
-                    proposedEvent.args.id.toNumber(),
-                    blockNumber,
-                    proposedEvent.args.meta as any as BlockMetadata
-                );
-                const { blockHash, id: blockId, parentHash, provenAt } = args;
-
-                const proposedBlock = await taikoL1.getProposedBlock(
-                    proposedEvent.args.id.toNumber()
-                );
-
-                const forkChoice = await taikoL1.getForkChoice(
-                    blockId.toNumber(),
-                    parentHash
-                );
-
-                expect(forkChoice.blockHash).to.be.eq(blockHash);
-
-                expect(forkChoice.provers[0]).to.be.eq(proverAddress);
-
-                const provedBlock = {
-                    proposedAt: proposedBlock.proposedAt.toNumber(),
-                    provenAt: provenAt.toNumber(),
-                    id: proposedEvent.args.id.toNumber(),
-                    parentHash: parentHash,
-                    blockHash: blockHash,
-                    forkChoice: forkChoice,
-                    deposit: proposedBlock.deposit,
-                    proposer: proposedBlock.proposer,
-                };
-
-                eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
-            }
+            newProverListener(randEle<Prover>(provers), taikoL1, eventEmitter)
         );
 
         let lastProofReward: BigNumber = BigNumber.from(0);

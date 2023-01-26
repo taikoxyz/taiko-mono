@@ -16,6 +16,9 @@ import { ethers as hardhatEthers } from "hardhat";
 import { BlockProposedEvent } from "../../typechain/LibProposing";
 import { expect } from "chai";
 import verifyBlocks from "../utils/verify";
+import EventEmitter from "events";
+import Prover from "../utils/prover";
+import { BlockMetadata } from "../utils/block_metadata";
 
 type ForkChoice = {
     provenAt: BigNumber;
@@ -274,6 +277,75 @@ function randEle<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function newProposerListener(
+    genesisHeight: number,
+    eventEmitter: EventEmitter,
+    l2Provider: ethers.providers.JsonRpcProvider,
+    proposer: Proposer,
+    taikoL1: TaikoL1,
+    tkoTokenL1: TkoToken
+) {
+    return async (blockNumber: number) => {
+        if (blockNumber <= genesisHeight) return;
+
+        const { proposedEvent } = await onNewL2Block(
+            l2Provider,
+            blockNumber,
+            proposer,
+            taikoL1,
+            proposer.getSigner(),
+            tkoTokenL1
+        );
+        expect(proposedEvent).not.to.be.undefined;
+
+        eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
+    };
+}
+
+function newProverListener(
+    prover: Prover,
+    taikoL1: TaikoL1,
+    eventEmitter: EventEmitter
+) {
+    return async (proposedEvent: BlockProposedEvent, blockNumber: number) => {
+        const { args } = await prover.prove(
+            await prover.getSigner().getAddress(),
+            proposedEvent.args.id.toNumber(),
+            blockNumber,
+            proposedEvent.args.meta as any as BlockMetadata
+        );
+        const { blockHash, id: blockId, parentHash, provenAt } = args;
+
+        const proposedBlock = await taikoL1.getProposedBlock(
+            proposedEvent.args.id.toNumber()
+        );
+
+        const forkChoice = await taikoL1.getForkChoice(
+            blockId.toNumber(),
+            parentHash
+        );
+
+        expect(forkChoice.blockHash).to.be.eq(blockHash);
+
+        expect(forkChoice.provers[0]).to.be.eq(
+            await prover.getSigner().getAddress()
+        );
+
+        const provedBlock = {
+            proposedAt: proposedBlock.proposedAt.toNumber(),
+            provenAt: provenAt.toNumber(),
+            id: proposedEvent.args.id.toNumber(),
+            parentHash: parentHash,
+            blockHash: blockHash,
+            forkChoice: forkChoice,
+            deposit: proposedBlock.deposit,
+            proposer: proposedBlock.proposer,
+        };
+
+        eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
+    };
+}
+
 const BLOCK_PROPOSED_EVENT = "blockProposed";
 const BLOCK_PROVEN_EVENT = "blockProved";
 const BLOCK_VERIFIED_EVENT = "blockVerified";
@@ -285,6 +357,8 @@ export {
     initTokenomicsFixture,
     verifyBlockAndAssert,
     randEle,
+    newProposerListener,
+    newProverListener,
     BLOCK_PROPOSED_EVENT,
     BLOCK_PROVEN_EVENT,
     BLOCK_VERIFIED_EVENT,
