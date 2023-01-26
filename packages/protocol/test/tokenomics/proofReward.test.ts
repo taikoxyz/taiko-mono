@@ -59,7 +59,10 @@ describe("tokenomics: proofReward", function () {
 
         const prover = new Prover(taikoL1, l2Provider, proverSigner);
 
+        let failedAssertion: Error | null = null;
+
         const eventEmitter = new EventEmitter();
+
         l2Provider.on(
             "block",
             newProposerListener(
@@ -76,6 +79,10 @@ describe("tokenomics: proofReward", function () {
             BLOCK_PROPOSED_EVENT,
             newProverListener(prover, taikoL1, eventEmitter)
         );
+
+        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
+
+        let blocksVerified: number = 0;
 
         eventEmitter.on(
             BLOCK_PROVEN_EVENT,
@@ -104,8 +111,17 @@ describe("tokenomics: proofReward", function () {
                 // prover should have given given 1 TKO token, since they
                 // held no TKO balance.
                 expect(proverTkoBalanceAfterVerification.eq(1)).to.be.eq(true);
+                blocksVerified++;
             }
         );
+
+        /* eslint-disable-next-line */
+        while (blocksVerified < 1) {
+            expect(failedAssertion).to.be.null;
+            await sleep(3 * 1000);
+        }
+
+        expect(failedAssertion).to.be.null;
     });
 
     it(`single prover, single proposer.
@@ -125,6 +141,11 @@ describe("tokenomics: proofReward", function () {
             proposerSigner
         );
 
+        let failedAssertion: Error | null = null;
+
+        const eventEmitter = new EventEmitter();
+        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
+
         const prover = new Prover(taikoL1, l2Provider, proverSigner);
 
         // prover needs TKO or their reward will be cut down to 1 wei.
@@ -137,7 +158,6 @@ describe("tokenomics: proofReward", function () {
                 )
         ).wait(1);
 
-        const eventEmitter = new EventEmitter();
         l2Provider.on(
             "block",
             newProposerListener(
@@ -173,8 +193,10 @@ describe("tokenomics: proofReward", function () {
         });
 
         while (blocksVerified < maxNumBlocks.toNumber() - 1) {
+            expect(failedAssertion).to.be.null;
             await sleep(3 * 1000);
         }
+        expect(failedAssertion).to.be.null;
     });
 
     it(`multiple provers, multiple proposers.
@@ -201,6 +223,10 @@ describe("tokenomics: proofReward", function () {
             (p: ethers.Wallet) => new Prover(taikoL1, l2Provider, p)
         );
 
+        const eventEmitter = new EventEmitter();
+
+        let failedAssertion: Error | null = null;
+        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
         for (const prover of provers) {
             await (
                 await tkoTokenL1
@@ -221,8 +247,6 @@ describe("tokenomics: proofReward", function () {
                     )
             ).wait(1);
         }
-
-        const eventEmitter = new EventEmitter();
 
         l2Provider.on(
             "block",
@@ -262,8 +286,9 @@ describe("tokenomics: proofReward", function () {
         );
 
         while (blocksVerified < maxNumBlocks.toNumber() - 1) {
-            console.log("blocks verified", blocksVerified);
+            expect(failedAssertion).to.be.null;
             await sleep(2 * 1000);
         }
+        expect(failedAssertion).to.be.null;
     });
 });

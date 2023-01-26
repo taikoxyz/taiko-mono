@@ -286,19 +286,23 @@ function newProposerListener(
     tkoTokenL1: TkoToken
 ) {
     return async (blockNumber: number) => {
-        if (blockNumber <= genesisHeight) return;
+        try {
+            if (blockNumber <= genesisHeight) return;
 
-        const { proposedEvent } = await onNewL2Block(
-            l2Provider,
-            blockNumber,
-            proposer,
-            taikoL1,
-            proposer.getSigner(),
-            tkoTokenL1
-        );
-        expect(proposedEvent).not.to.be.undefined;
+            const { proposedEvent } = await onNewL2Block(
+                l2Provider,
+                blockNumber,
+                proposer,
+                taikoL1,
+                proposer.getSigner(),
+                tkoTokenL1
+            );
+            expect(proposedEvent).not.to.be.undefined;
 
-        eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
+            eventEmitter.emit(BLOCK_PROPOSED_EVENT, proposedEvent, blockNumber);
+        } catch (e) {
+            eventEmitter.emit("error", e);
+        }
     };
 }
 
@@ -308,41 +312,45 @@ function newProverListener(
     eventEmitter: EventEmitter
 ) {
     return async (proposedEvent: BlockProposedEvent, blockNumber: number) => {
-        const { args } = await prover.prove(
-            await prover.getSigner().getAddress(),
-            proposedEvent.args.id.toNumber(),
-            blockNumber,
-            proposedEvent.args.meta as any as BlockMetadata
-        );
-        const { blockHash, id: blockId, parentHash, provenAt } = args;
+        try {
+            const { args } = await prover.prove(
+                await prover.getSigner().getAddress(),
+                proposedEvent.args.id.toNumber(),
+                blockNumber,
+                proposedEvent.args.meta as any as BlockMetadata
+            );
+            const { blockHash, id: blockId, parentHash, provenAt } = args;
 
-        const proposedBlock = await taikoL1.getProposedBlock(
-            proposedEvent.args.id.toNumber()
-        );
+            const proposedBlock = await taikoL1.getProposedBlock(
+                proposedEvent.args.id.toNumber()
+            );
 
-        const forkChoice = await taikoL1.getForkChoice(
-            blockId.toNumber(),
-            parentHash
-        );
+            const forkChoice = await taikoL1.getForkChoice(
+                blockId.toNumber(),
+                parentHash
+            );
 
-        expect(forkChoice.blockHash).to.be.eq(blockHash);
+            expect(forkChoice.blockHash).to.be.eq(blockHash);
 
-        expect(forkChoice.provers[0]).to.be.eq(
-            await prover.getSigner().getAddress()
-        );
+            expect(forkChoice.provers[0]).to.be.eq(
+                await prover.getSigner().getAddress()
+            );
 
-        const provedBlock = {
-            proposedAt: proposedBlock.proposedAt.toNumber(),
-            provenAt: provenAt.toNumber(),
-            id: proposedEvent.args.id.toNumber(),
-            parentHash: parentHash,
-            blockHash: blockHash,
-            forkChoice: forkChoice,
-            deposit: proposedBlock.deposit,
-            proposer: proposedBlock.proposer,
-        };
+            const provedBlock = {
+                proposedAt: proposedBlock.proposedAt.toNumber(),
+                provenAt: provenAt.toNumber(),
+                id: proposedEvent.args.id.toNumber(),
+                parentHash: parentHash,
+                blockHash: blockHash,
+                forkChoice: forkChoice,
+                deposit: proposedBlock.deposit,
+                proposer: proposedBlock.proposer,
+            };
 
-        eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
+            eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
+        } catch (e) {
+            eventEmitter.emit("error", e);
+        }
     };
 }
 
