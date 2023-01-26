@@ -187,7 +187,7 @@ describe("TokenVault", function () {
         it("succeeds with processingFee", async () => {
             const depositValue = 1000;
 
-            const testSignal =
+            const msgHash =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
@@ -205,17 +205,18 @@ describe("TokenVault", function () {
             )
                 .to.emit(L1TokenVault, "EtherSent")
                 .withArgs(
+                    msgHash,
+                    owner.address,
                     owner.address,
                     destChainId,
-                    depositValue - defaultProcessingFee,
-                    testSignal
+                    depositValue - defaultProcessingFee
                 );
         });
 
         it("succeeds with 0 processingFee", async () => {
             const depositValue = 1000;
 
-            const testSignal =
+            const msgHash =
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
@@ -233,10 +234,11 @@ describe("TokenVault", function () {
             )
                 .to.emit(L1TokenVault, "EtherSent")
                 .withArgs(
+                    msgHash,
+                    owner.address,
                     owner.address,
                     destChainId,
-                    depositValue - defaultProcessingFee,
-                    testSignal
+                    depositValue - defaultProcessingFee
                 );
         });
     });

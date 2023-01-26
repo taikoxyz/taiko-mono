@@ -1,5 +1,5 @@
 import { BigNumber, ethers } from "ethers";
-import { ConfigManager, TaikoL1, TkoToken } from "../../typechain";
+import { TaikoL1, TkoToken } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import Proposer from "../utils/proposer";
 import {
@@ -155,18 +155,6 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
             taikoL1.address
         )
     ).wait(1);
-
-    const configManager: ConfigManager = await (
-        await hardhatEthers.getContractFactory("ConfigManager")
-    )
-        .connect(l1Signer)
-        .deploy();
-    await configManager.deployed();
-
-    await l1AddressManager.setAddress(
-        `${chainId}.config_manager`,
-        configManager.address
-    );
 
     if (mintTkoToProposer) {
         const mintTx = await tkoTokenL1

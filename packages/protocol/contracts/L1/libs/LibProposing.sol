@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.9;
 
-import "../../common/ConfigManager.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
@@ -89,7 +88,7 @@ library LibProposing {
                     meta.txListHash == txList.hashTxList(),
                 "L1:txList"
             );
-            // require(4 < 0 + 4)
+
             require(
                 state.nextBlockId <
                     state.latestVerifiedId + config.maxNumBlocks,

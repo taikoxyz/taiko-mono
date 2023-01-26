@@ -26,7 +26,7 @@ describe("TaikoL1", function () {
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
             await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
-                "L1:id"
+                "L1:number"
             );
         });
 

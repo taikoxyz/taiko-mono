@@ -37,6 +37,10 @@ contract TokenVault is EssentialContract {
         string name;
     }
 
+    struct MessageDeposit {
+        address token;
+        uint256 amount;
+    }
     /*********************
      * State Variables   *
      *********************/
@@ -50,6 +54,8 @@ contract TokenVault is EssentialContract {
     // Mappings from canonical tokens to their bridged tokens.
     // chainId => canonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+
+    mapping(bytes32 => MessageDeposit) public messageDeposits;
 
     uint256[47] private __gap;
 
@@ -67,25 +73,32 @@ contract TokenVault is EssentialContract {
     );
 
     event EtherSent(
+        bytes32 indexed msgHash,
+        address indexed from,
         address indexed to,
         uint256 destChainId,
-        uint256 amount,
-        bytes32 signal
+        uint256 amount
     );
 
-    event EtherReceived(address from, uint256 amount);
-
     event ERC20Sent(
+        bytes32 indexed msgHash,
+        address indexed from,
         address indexed to,
         uint256 destChainId,
         address token,
-        uint256 amount,
-        bytes32 signal
+        uint256 amount
     );
 
+    event ERC20Released(
+        bytes32 indexed msgHash,
+        address indexed from,
+        address token,
+        uint256 amount
+    );
     event ERC20Received(
+        bytes32 indexed msgHash,
+        address indexed from,
         address indexed to,
-        address from,
         uint256 srcChainId,
         address token,
         uint256 amount
@@ -135,17 +148,20 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
+        require(message.callValue == 0, "V:callValue");
+
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
         // the TokenVault
-        bytes32 signal = IBridge(resolve("bridge", false)).sendMessage{
+        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
         emit EtherSent({
-            to: to,
+            msgHash: msgHash,
+            from: message.owner,
+            to: message.to,
             destChainId: destChainId,
-            amount: message.depositValue,
-            signal: signal
+            amount: message.depositValue
         });
     }
 
@@ -224,11 +240,65 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        bytes32 signal = IBridge(resolve("bridge", false)).sendMessage{
+        bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
 
-        emit ERC20Sent(to, destChainId, token, _amount, signal);
+        messageDeposits[msgHash] = MessageDeposit(token, _amount);
+
+        emit ERC20Sent({
+            msgHash: msgHash,
+            from: message.owner,
+            to: to,
+            destChainId: destChainId,
+            token: token,
+            amount: _amount
+        });
+    }
+
+    /**
+     * Release deposited ERC20 back to the owner on the source TokenVault with
+     * a proof that the message processing on the destination Bridge has failed.
+     *
+     * @param message The message that corresponds the ERC20 deposit on the
+     *                source chain.
+     * @param proof The proof from the destination chain to show the message
+     *              has failed.
+     */
+    function releaseERC20(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
+        require(message.owner != address(0), "B:owner");
+        require(message.srcChainId == block.chainid, "B:srcChainId");
+
+        IBridge bridge = IBridge(resolve("bridge", false));
+        bytes32 msgHash = bridge.hashMessage(message);
+
+        address token = messageDeposits[msgHash].token;
+        uint256 amount = messageDeposits[msgHash].amount;
+        require(token != address(0), "B:ERC20Released");
+        require(
+            bridge.isMessageFailed(msgHash, message.destChainId, proof),
+            "V:notFailed"
+        );
+
+        messageDeposits[msgHash] = MessageDeposit(address(0), 0);
+
+        if (amount > 0) {
+            if (isBridgedToken[token]) {
+                BridgedERC20(token).bridgeMintTo(message.owner, amount);
+            } else {
+                ERC20Upgradeable(token).safeTransfer(message.owner, amount);
+            }
+        }
+
+        emit ERC20Released({
+            msgHash: msgHash,
+            from: message.owner,
+            token: token,
+            amount: amount
+        });
     }
 
     /**
@@ -262,7 +332,14 @@ contract TokenVault is EssentialContract {
             BridgedERC20(token).bridgeMintTo(to, amount);
         }
 
-        emit ERC20Received(to, from, ctx.srcChainId, token, amount);
+        emit ERC20Received({
+            msgHash: ctx.msgHash,
+            from: from,
+            to: to,
+            srcChainId: ctx.srcChainId,
+            token: token,
+            amount: amount
+        });
     }
 
     /*********************

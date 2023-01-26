@@ -8,7 +8,6 @@ pragma solidity ^0.8.9;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
 import "../../common/AddressResolver.sol";
-import "../../common/ConfigManager.sol";
 import "../../libs/LibAnchorSignature.sol";
 import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibReceiptDecoder.sol";
@@ -258,9 +257,9 @@ library LibProving {
             } else {
                 require(
                     proofVerifier.verifyZKP({
-                        verificationKey: ConfigManager(
-                            resolver.resolve("config_manager", false)
-                        ).getValue(string(abi.encodePacked("zk_vkey_", i))),
+                        verifierId: string(
+                            abi.encodePacked("plonk_verifier_", i)
+                        ),
                         zkproof: evidence.proofs[i],
                         blockHash: blockHash,
                         prover: evidence.prover,
