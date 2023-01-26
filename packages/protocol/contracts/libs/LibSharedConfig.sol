@@ -51,8 +51,8 @@ library LibSharedConfig {
         require(config.maxNumBlocks > 0, "C:maxNumBlocks");
         require(config.blockHashHistory > 0, "C:blockHashHistory");
         require(config.zkProofsPerBlock > 0, "C:zkProofsPerBlock");
-        //maxVerificationsPerTx
-        //commitConfirmations
+        // maxVerificationsPerTx
+        // commitConfirmations
         require(config.maxProofsPerForkChoice > 0, "C:maxProofsPerForkChoice");
         require(config.blockMaxGasLimit > 0, "C:blockMaxGasLimit");
         require(
