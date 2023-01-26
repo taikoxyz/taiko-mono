@@ -8,6 +8,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
 import "./tasks/deploy_L1";
+import "./tasks/compile_yul";
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik";

@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.9;
 
-import "../../common/ConfigManager.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
