@@ -69,7 +69,8 @@ describe("tokenomics: blockFee", function () {
             l2Provider,
             commitConfirmations.toNumber(),
             maxNumBlocks.toNumber(),
-            0
+            0,
+            proposerSigner
         );
 
         // get the initiaal tkoBalance, which should decrease every block proposal
@@ -79,6 +80,8 @@ describe("tokenomics: blockFee", function () {
 
         // do the same for the blockFee, which should increase every block proposal
         // with proofs not being submitted.
+        // we want to wait for enough blocks until the blockFee is no longer 0, then run our
+        // tests.
         let lastBlockFee = await taikoL1.getBlockFee();
         while (lastBlockFee.eq(0)) {
             await sleep(500);
@@ -88,6 +91,7 @@ describe("tokenomics: blockFee", function () {
         let lastProofReward = BigNumber.from(0);
 
         let hasFailedAssertions: boolean = false;
+        let blocksProposed: number = 0;
         // every time a l2 block is created, we should try to propose it on L1.
         l2Provider.on("block", async (blockNumber: number) => {
             if (blockNumber <= genesisHeight) return;
@@ -112,6 +116,7 @@ describe("tokenomics: blockFee", function () {
                 lastBlockFee = newBlockFee;
                 lastProofReward = newProofReward;
                 lastProposerTkoBalance = newProposerTkoBalance;
+                blocksProposed++;
             } catch (e) {
                 hasFailedAssertions = true;
                 console.error(e);
@@ -119,7 +124,11 @@ describe("tokenomics: blockFee", function () {
             }
         });
 
-        await sleep(20 * 1000);
+        // wait until one roudn of blocks are proposed, then expect none of them to have
+        // failed their assertions.
+        while (blocksProposed < maxNumBlocks.toNumber() - 1) {
+            await sleep(1 * 1000);
+        }
         l2Provider.off("block");
         expect(hasFailedAssertions).to.be.eq(false);
     });

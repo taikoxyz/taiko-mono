@@ -10,6 +10,7 @@ class Proposer {
     private readonly commitConfirms: number;
     private readonly maxNumBlocks: number;
     private nextCommitSlot: number;
+    private signer: ethers.Wallet;
 
     private proposingMutex: boolean = false;
 
@@ -18,13 +19,19 @@ class Proposer {
         l2Provider: ethers.providers.JsonRpcProvider,
         commitConfirms: number,
         maxNumBlocks: number,
-        initialCommitSlot: number
+        initialCommitSlot: number,
+        signer: ethers.Wallet
     ) {
         this.taikoL1 = taikoL1;
         this.l2Provider = l2Provider;
         this.commitConfirms = commitConfirms;
         this.maxNumBlocks = maxNumBlocks;
         this.nextCommitSlot = initialCommitSlot;
+        this.signer = signer;
+    }
+
+    getSigner() {
+        return this.signer;
     }
 
     async commitThenProposeBlock(block?: ethers.providers.Block) {
