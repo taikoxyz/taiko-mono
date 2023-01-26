@@ -10,12 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 var (
-	SuccessSignal = [32]byte{0x1}
-	FailSignal    = [32]byte{0x2}
+	SuccessMsgHash = [32]byte{0x1}
+	FailSignal     = [32]byte{0x2}
 )
 
 var dummyAddress = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
@@ -47,17 +47,17 @@ func (s *Subscription) Unsubscribe() {}
 
 func (b *Bridge) WatchMessageSent(
 	opts *bind.WatchOpts,
-	sink chan<- *contracts.BridgeMessageSent,
-	signal [][32]byte,
+	sink chan<- *bridge.BridgeMessageSent,
+	msgHash [][32]byte,
 ) (event.Subscription, error) {
 	s := &Subscription{
 		errChan: make(chan error),
 	}
 
-	go func(sink chan<- *contracts.BridgeMessageSent) {
+	go func(sink chan<- *bridge.BridgeMessageSent) {
 		<-time.After(2 * time.Second)
 
-		sink <- &contracts.BridgeMessageSent{}
+		sink <- &bridge.BridgeMessageSent{}
 		b.MessagesSent++
 	}(sink)
 
@@ -76,12 +76,12 @@ func (b *Bridge) WatchMessageSent(
 func (b *Bridge) FilterMessageSent(
 	opts *bind.FilterOpts,
 	signal [][32]byte,
-) (*contracts.BridgeMessageSentIterator, error) {
-	return &contracts.BridgeMessageSentIterator{}, nil
+) (*bridge.BridgeMessageSentIterator, error) {
+	return &bridge.BridgeMessageSentIterator{}, nil
 }
 
-func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, signal [32]byte) (uint8, error) {
-	if signal == SuccessSignal {
+func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {
+	if msgHash == SuccessMsgHash {
 		return uint8(relayer.EventStatusNew), nil
 	}
 
@@ -90,14 +90,14 @@ func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, signal [32]byte) (uint8, 
 
 func (b *Bridge) ProcessMessage(
 	opts *bind.TransactOpts,
-	message contracts.IBridgeMessage,
+	message bridge.IBridgeMessage,
 	proof []byte,
 ) (*types.Transaction, error) {
 	return ProcessMessageTx, nil
 }
 
 func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, signal [32]byte, srcChainId *big.Int, proof []byte) (bool, error) { // nolint
-	if signal == SuccessSignal {
+	if signal == SuccessMsgHash {
 		return true, nil
 	}
 

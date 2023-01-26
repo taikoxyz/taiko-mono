@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/iheadersync"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/message"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/proof"
 )
@@ -46,7 +48,7 @@ type Service struct {
 	numGoroutines       int
 	subscriptionBackoff time.Duration
 
-	taikol1 *contracts.TaikoL1
+	taikol1 *taikol1.TaikoL1
 }
 
 type NewServiceOpts struct {
@@ -116,12 +118,12 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 
 	relayerAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	bridge, err := contracts.NewBridge(opts.BridgeAddress, opts.EthClient)
+	srcBridge, err := bridge.NewBridge(opts.BridgeAddress, opts.EthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
 
-	destBridge, err := contracts.NewBridge(opts.DestBridgeAddress, opts.DestEthClient)
+	destBridge, err := bridge.NewBridge(opts.DestBridgeAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewBridge")
 	}
@@ -131,14 +133,14 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		return nil, errors.Wrap(err, "proof.New")
 	}
 
-	destHeaderSyncer, err := contracts.NewIHeaderSync(opts.DestTaikoAddress, opts.DestEthClient)
+	destHeaderSyncer, err := iheadersync.NewIHeaderSync(opts.DestTaikoAddress, opts.DestEthClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "contracts.NewTaikoL2")
 	}
 
-	var taikoL1 *contracts.TaikoL1
+	var taikoL1 *taikol1.TaikoL1
 	if opts.SrcTaikoAddress != ZeroAddress {
-		taikoL1, err = contracts.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
+		taikoL1, err = taikol1.NewTaikoL1(opts.SrcTaikoAddress, opts.EthClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "contracts.NewTaikoL1")
 		}
@@ -168,7 +170,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		ethClient: opts.EthClient,
 		destRPC:   opts.DestRPCClient,
 
-		bridge:     bridge,
+		bridge:     srcBridge,
 		destBridge: destBridge,
 		taikol1:    taikoL1,
 
