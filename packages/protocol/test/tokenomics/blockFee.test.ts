@@ -33,11 +33,11 @@ describe("tokenomics: blockFee", function () {
 
     afterEach(() => clearInterval(interval));
 
-    it("expects the blockFee to go be 0 when no periods have passed", async function () {
+    it("expects getBlockFee to return the initial feeBase at time of contract deployment", async function () {
         // deploy a new instance of TaikoL1 so no blocks have passed.
         const tL1 = await deployTaikoL1(l1AddressManager, genesisHash, true);
         const blockFee = await tL1.getBlockFee();
-        expect(blockFee.eq(0)).to.be.eq(true);
+        expect(blockFee).to.be.eq(0);
     });
 
     it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
@@ -58,7 +58,7 @@ describe("tokenomics: blockFee", function () {
         }
     });
 
-    it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since slots are growing and no proofs have been submitted", async function () {
+    it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
         // wait for one period of halving to occur, so fee is not 0.
         const blockIdsToNumber: any = {};
