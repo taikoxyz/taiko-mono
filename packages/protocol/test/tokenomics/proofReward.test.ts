@@ -8,8 +8,6 @@ import { BlockMetadata } from "../utils/block_metadata";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import createAndSeedWallets from "../utils/seed";
-// import Prover from "../utils/prover";
-
 import sleep from "../utils/sleep";
 import verifyBlocks from "../utils/verify";
 import {
