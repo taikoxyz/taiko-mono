@@ -46,8 +46,77 @@ function getDateTime(timestamp: string): string {
     .padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
 }
 
+function checkIfPostAreSet(posts) {
+  if (posts.length > 0) {
+    return posts.map((post) => (
+      <div
+        key={post.content.title}
+        className="flex flex-col overflow-hidden rounded-lg shadow-lg"
+      >
+        <div className="flex-shrink-0">
+          <a
+            href={
+              "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
+            }
+            target="_blank"
+          >
+            <img
+              className="h-54 w-full object-cover"
+              src={post.ImgURL}
+              alt=""
+            />
+          </a>
+        </div>
+        <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
+          <div className="flex-1">
+            <a
+              href={
+                "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
+              }
+              target="_blank"
+              className="mt-2 block"
+            >
+              <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
+                {post.content.title}
+              </div>
+              <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300">
+                {post.wnft.description}
+              </div>
+            </a>
+          </div>
+          <div className="mt-6 flex items-center">
+            <div className="ml-3">
+              <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
+                <time dateTime={getDateTime(post.content.timestamp)}>
+                  {getDate(post.content.timestamp)}
+                </time>
+                <span aria-hidden="true">&middot;</span>
+                <span>
+                  {getReadingTime(post.content.body) + " min read"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ));
+  } else {
+    const amountOfPostsToDisplay = 3;
+    return [...Array(amountOfPostsToDisplay)].map((v, i) => (
+      <div
+        key={i}
+        className="flex flex-col overflow-hidden rounded-lg shadow-lg"
+      >
+        <div className="load-wraper">
+          <div className="activity"></div>
+        </div>
+      </div>
+    ));
+  }
+}
+
 export default function BlogSection(): JSX.Element {
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<Object[]>([]);
 
   useEffect(() => {
     // This is getting the 'Orginal-Content-Digest' aswell asa the 'Content-Digest', this is nesscary for making the link to the mirror page
@@ -58,9 +127,8 @@ export default function BlogSection(): JSX.Element {
         const ImgURLs = result;
 
         getPosts.then((result) => {
-
           // only use last three
-          result = result.slice(0,3)
+          result = result.slice(0, 3);
 
           // add the OriginalDigest to the post object
           result = addOriginalDigests(result, originalDigestsResult);
@@ -93,57 +161,9 @@ export default function BlogSection(): JSX.Element {
             </a>
           </div>
         </div>
+
         <div className="mx-auto mt-12 grid max-w-lg gap-5 lg:max-w-none lg:grid-cols-3">
-          {posts.map((post) => (
-            <div
-              key={post.content.title}
-              className="flex flex-col overflow-hidden rounded-lg shadow-lg"
-            >
-              <div className="flex-shrink-0">
-                <a
-                  href={
-                    "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
-                  }
-                  target="_blank"
-                >
-                  <img
-                    className="h-54 w-full object-cover"
-                    src={post.ImgURL}
-                    alt=""
-                  />
-                </a>
-              </div>
-              <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
-                <div className="flex-1">
-                  <a
-                    href={
-                      "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
-                    }
-                    target="_blank"
-                    className="mt-2 block"
-                  >
-                    <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-200">
-                      {post.content.title}
-                    </div>
-                    <div className="mt-3 text-base text-neutral-500 dark:text-neutral-300">
-                      {post.wnft.description}
-                    </div>
-                  </a>
-                </div>
-                <div className="mt-6 flex items-center">
-                  <div className="ml-3">
-                    <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
-                      <time dateTime={getDateTime(post.content.timestamp)}>
-                        {getDate(post.content.timestamp)}
-                      </time>
-                      <span aria-hidden="true">&middot;</span>
-                      <span>{getReadingTime(post.content.body) + " min read"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+          {checkIfPostAreSet(posts)}
         </div>
       </div>
     </div>
