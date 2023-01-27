@@ -1,24 +1,18 @@
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "ethers";
 import deployAddressManager from "../utils/addressManager";
 import {
     getDefaultL2Signer,
     getL1Provider,
     getL2Provider,
 } from "../utils/provider";
-import createAndSeedWallets from "../utils/seed";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 import deployTkoToken from "../utils/tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
-
-const sendTinyEtherToZeroAddress = async (signer: any) => {
-    await signer
-        .sendTransaction({
-            to: ethers.constants.AddressZero,
-            value: BigNumber.from(1),
-        })
-        .wait(1);
-};
+import {
+    createAndSeedWallets,
+    sendTinyEtherToZeroAddress,
+} from "../utils/seed";
 
 async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     const l1Provider = getL1Provider();

@@ -4,9 +4,18 @@ import { ethers } from "hardhat";
 import { TaikoL1, TaikoL2 } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import { BlockMetadata } from "../utils/block_metadata";
-import { commitBlock, generateCommitHash } from "../utils/commit";
-import { buildProposeBlockInputs, proposeBlock } from "../utils/propose";
-import { getDefaultL2Signer, getL1Provider } from "../utils/provider";
+import {
+    commitAndProposeLatestBlock,
+    commitBlock,
+    generateCommitHash,
+} from "../utils/commit";
+import { buildProposeBlockInputs } from "../utils/propose";
+import {
+    getDefaultL2Signer,
+    getL1Provider,
+    getL2Provider,
+} from "../utils/provider";
+import { sendTinyEtherToZeroAddress } from "../utils/seed";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
 
@@ -14,12 +23,11 @@ describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let taikoL2: TaikoL2;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
-    let l2Signer: ethersLib.Signer;
+    let l2Signer: any;
+    let l1Signer: any;
 
     beforeEach(async function () {
-        l2Provider = new ethers.providers.JsonRpcProvider(
-            "http://localhost:28545"
-        );
+        l2Provider = getL2Provider();
 
         l2Signer = await getDefaultL2Signer();
 
@@ -33,8 +41,9 @@ describe("integration:TaikoL1", function () {
         l1Provider.pollingInterval = 100;
 
         const signers = await ethers.getSigners();
+        l1Signer = signers[0];
 
-        const l1AddressManager = await deployAddressManager(signers[0]);
+        const l1AddressManager = await deployAddressManager(l1Signer);
 
         taikoL1 = await deployTaikoL1(
             l1AddressManager,
@@ -64,12 +73,56 @@ describe("integration:TaikoL1", function () {
 
             expect(isCommitValid).to.be.eq(false);
         });
+
+        it("should be valid if it has been committed", async function () {
+            const { commitConfirmations } = await taikoL1.getConfig();
+            const block = await l2Provider.getBlock("latest");
+            const commitSlot = 0;
+            const { commit, blockCommittedEvent } = await commitBlock(
+                taikoL1,
+                block,
+                commitSlot
+            );
+            expect(blockCommittedEvent).not.to.be.undefined;
+
+            for (let i = 0; i < commitConfirmations.toNumber(); i++) {
+                await sendTinyEtherToZeroAddress(l1Signer);
+            }
+
+            const isCommitValid = await taikoL1.isCommitValid(
+                commitSlot,
+                blockCommittedEvent!.blockNumber,
+                commit.hash
+            );
+
+            expect(isCommitValid).to.be.eq(true);
+        });
     });
 
     describe("getProposedBlock()", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
             await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
                 "L1:id"
+            );
+        });
+
+        it("should return valid block if it's been commmited and proposed", async function () {
+            const commitSlot = 0;
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                commitSlot
+            );
+            expect(proposedEvent).not.to.be.undefined;
+            expect(proposedEvent.args.meta.commitSlot).to.be.eq(commitSlot);
+
+            const proposedBlock = await taikoL1.getProposedBlock(
+                proposedEvent.args.meta.id
+            );
+            expect(proposedBlock).not.to.be.undefined;
+            expect(proposedBlock.proposer).to.be.eq(
+                await l1Signer.getAddress()
             );
         });
     });
@@ -161,26 +214,7 @@ describe("integration:TaikoL1", function () {
         });
 
         it("should commit and be able to propose", async function () {
-            const block = await l2Provider.getBlock("latest");
-            const commitSlot = 0;
-            const { tx, commit } = await commitBlock(
-                taikoL1,
-                block,
-                commitSlot
-            );
-
-            const { commitConfirmations } = await taikoL1.getConfig();
-
-            await tx.wait(commitConfirmations.toNumber());
-            const receipt = await proposeBlock(
-                taikoL1,
-                block,
-                commit.txListHash,
-                tx.blockNumber as number,
-                block.gasLimit,
-                commitSlot
-            );
-            expect(receipt.status).to.be.eq(1);
+            await commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider, 0);
 
             const stateVariables = await taikoL1.getStateVariables();
             const nextBlockId = stateVariables[4];
@@ -202,19 +236,12 @@ describe("integration:TaikoL1", function () {
             // propose blocks and fill up maxNumBlocks number of slots,
             // expect each one to be successful.
             for (let i = 0; i < maxNumBlocks.toNumber() - 1; i++) {
-                const block = await l2Provider.getBlock("latest");
-                const { tx, commit } = await commitBlock(taikoL1, block, i);
-
-                const receipt = await proposeBlock(
+                await commitAndProposeLatestBlock(
                     taikoL1,
-                    block,
-                    commit.txListHash,
-                    tx.blockNumber as number,
-                    block.gasLimit,
-                    i
+                    l1Signer,
+                    l2Provider,
+                    0
                 );
-
-                expect(receipt.status).to.be.eq(1);
 
                 const stateVariables = await taikoL1.getStateVariables();
                 const nextBlockId = stateVariables[4];
@@ -235,17 +262,8 @@ describe("integration:TaikoL1", function () {
 
             // now expect another proposed block to be invalid since all slots are full and none have
             // been proven.
-            const block = await l2Provider.getBlock("latest");
-            const { tx, commit } = await commitBlock(taikoL1, block);
-
             await expect(
-                proposeBlock(
-                    taikoL1,
-                    block,
-                    commit.txListHash,
-                    tx.blockNumber as number,
-                    block.gasLimit
-                )
+                commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider)
             ).to.be.revertedWith("L1:tooMany");
         });
     });

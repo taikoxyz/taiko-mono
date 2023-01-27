@@ -22,4 +22,12 @@ const createAndSeedWallets = async (
     return wallets;
 };
 
-export default createAndSeedWallets;
+const sendTinyEtherToZeroAddress = async (signer: any) => {
+    const tx = await signer.sendTransaction({
+        to: ethers.constants.AddressZero,
+        value: BigNumber.from(1),
+    });
+    await tx.wait(1);
+};
+
+export { createAndSeedWallets, sendTinyEtherToZeroAddress };

@@ -10,7 +10,7 @@ import { newProposerListener } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { newProverListener } from "../utils/prove";
 import Prover from "../utils/prover";
-import createAndSeedWallets from "../utils/seed";
+import { createAndSeedWallets } from "../utils/seed";
 import sleep from "../utils/sleep";
 import {
     sleepUntilBlockIsVerifiable,
