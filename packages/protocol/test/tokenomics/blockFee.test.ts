@@ -2,11 +2,12 @@ import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import { AddressManager, TaikoL1 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+import { onNewL2Block } from "../utils/onNewL2Block";
 import Proposer from "../utils/proposer";
 
 import sleep from "../utils/sleep";
 import { deployTaikoL1 } from "../utils/taikoL1";
-import { initTokenomicsFixture, onNewL2Block } from "./utils";
+import { initTokenomicsFixture } from "./utils";
 
 describe("tokenomics: blockFee", function () {
     let taikoL1: TaikoL1;
@@ -126,6 +127,7 @@ describe("tokenomics: blockFee", function () {
             await sleep(1 * 1000);
         }
         l2Provider.off("block");
+
         expect(hasFailedAssertions).to.be.eq(false);
     });
 });

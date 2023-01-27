@@ -1,0 +1,5 @@
+const BLOCK_PROPOSED_EVENT = "blockProposed";
+const BLOCK_PROVEN_EVENT = "blockProved";
+const BLOCK_VERIFIED_EVENT = "blockVerified";
+
+export { BLOCK_PROPOSED_EVENT, BLOCK_PROVEN_EVENT, BLOCK_VERIFIED_EVENT };

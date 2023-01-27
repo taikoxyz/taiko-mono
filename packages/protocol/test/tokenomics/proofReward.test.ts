@@ -3,22 +3,21 @@ import { BigNumber, ethers } from "ethers";
 import EventEmitter from "events";
 import { TaikoL1 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+import { randEle } from "../utils/array";
+import { BlockInfo } from "../utils/block_metadata";
+import { BLOCK_PROPOSED_EVENT, BLOCK_PROVEN_EVENT } from "../utils/event";
+import { newProposerListener } from "../utils/propose";
 import Proposer from "../utils/proposer";
+import { newProverListener } from "../utils/prove";
 import Prover from "../utils/prover";
 import createAndSeedWallets from "../utils/seed";
 import sleep from "../utils/sleep";
-import verifyBlocks from "../utils/verify";
 import {
-    BlockInfo,
-    BLOCK_PROPOSED_EVENT,
-    BLOCK_PROVEN_EVENT,
-    initTokenomicsFixture,
-    newProposerListener,
-    newProverListener,
-    randEle,
     sleepUntilBlockIsVerifiable,
     verifyBlockAndAssert,
-} from "./utils";
+    verifyBlocks,
+} from "../utils/verify";
+import { initTokenomicsFixture } from "./utils";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
