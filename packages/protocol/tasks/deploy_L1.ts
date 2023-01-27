@@ -83,6 +83,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(hre, await AddressManager.init());
 
     const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
+    await utils.waitTx(hre, await ProofVerifier.init(AddressManager.address));
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
@@ -113,17 +114,6 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(
             `${chainId}.tko_token`,
             TkoToken.address
-        )
-    );
-
-    // Config manager
-    const ConfigManager = await utils.deployContract(hre, "ConfigManager");
-    await utils.waitTx(hre, await ConfigManager.init());
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            `${chainId}.config_manager`,
-            ConfigManager.address
         )
     );
 
@@ -193,6 +183,21 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(
             `${chainId}.signal_service`,
             SignalService.address
+        )
+    );
+
+    // PlonkVerifier
+    const PlonkVerifier = await deployPlonkVerifier(hre);
+
+    // Used by ProofVerifier
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            ethers.utils.solidityPack(
+                ["string", "uint256"],
+                ["plonk_verifier_", 0]
+            ),
+            PlonkVerifier.address
         )
     );
 
@@ -282,4 +287,12 @@ async function deploySignalSerive(
     await utils.waitTx(hre, await SignalService.init(addressManager));
 
     return SignalService;
+}
+
+async function deployPlonkVerifier(hre: any): Promise<any> {
+    const byteCode = utils.compileYulContract(
+        "../contracts/libs/yul/PlonkVerifier.yulp"
+    );
+
+    return { address: await utils.deployBytecode(hre, byteCode) };
 }

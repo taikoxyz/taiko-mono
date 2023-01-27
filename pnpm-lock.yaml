@@ -130,6 +130,7 @@ importers:
       '@typechain/ethers-v5': ^7.2.0
       '@typechain/hardhat': ^2.3.1
       '@types/chai': ^4.3.0
+      '@types/glob': ^8.0.1
       '@types/mocha': ^9.1.0
       '@types/node': ^12.20.45
       '@typescript-eslint/eslint-plugin': ^4.33.0
@@ -146,6 +147,7 @@ importers:
       eslint-plugin-promise: ^5.2.0
       ethereum-waffle: ^3.0.0
       ethers: ^5.0.0
+      glob: ^8.1.0
       hardhat: ^2.8.3
       hardhat-abi-exporter: ^2.10.0
       hardhat-docgen: ^1.3.0
@@ -166,15 +168,16 @@ importers:
       '@openzeppelin/contracts': 4.8.0
       '@openzeppelin/contracts-upgradeable': 4.8.0
     devDependencies:
-      '@defi-wonderland/smock': 2.3.4_d44p6lx7t3c2oeudc2zxbd5d54
+      '@defi-wonderland/smock': 2.3.4_z67mwh6jmxdufyguqgtbmr6rba
       '@nomicfoundation/hardhat-network-helpers': 1.0.6_hardhat@2.12.2
       '@nomiclabs/hardhat-ethers': 2.2.1_3uaf6nt3qt6cyh5fx3fc5i4mn4
       '@nomiclabs/hardhat-etherscan': 3.1.2_hardhat@2.12.2
       '@nomiclabs/hardhat-waffle': 2.0.3_wzgqb2xh4egjkdzuv52bfmbi24
       '@openzeppelin/hardhat-upgrades': 1.21.0_43thxqwvphwusq7frx7sx2tjf4
-      '@typechain/ethers-v5': 7.2.0_rqgsou2umo6ifhsmtcb3krjbfm
-      '@typechain/hardhat': 2.3.1_i3sbpo4srhduw7xvdsryjfwk5e
+      '@typechain/ethers-v5': 7.2.0_67wzblpxnm7h4zc6jlzarjupbm
+      '@typechain/hardhat': 2.3.1_kqlws2vjqn6dp4diaajzvmozky
       '@types/chai': 4.3.4
+      '@types/glob': 8.0.1
       '@types/mocha': 9.1.1
       '@types/node': 12.20.55
       '@typescript-eslint/eslint-plugin': 4.33.0_b437dje45jwsli5vlhomcei76i
@@ -191,9 +194,10 @@ importers:
       eslint-plugin-promise: 5.2.0_eslint@7.32.0
       ethereum-waffle: 3.4.4_typescript@4.9.3
       ethers: 5.7.2
+      glob: 8.1.0
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
       hardhat-abi-exporter: 2.10.1_hardhat@2.12.2
-      hardhat-docgen: 1.3.0_lfwxduevmqdtswpjkbv2koayie
+      hardhat-docgen: 1.3.0_hardhat@2.12.2
       hardhat-gas-reporter: 1.0.9_hardhat@2.12.2
       lint-staged: 12.5.0
       merkle-patricia-tree: 4.2.4
@@ -1592,7 +1596,7 @@ packages:
       '@jridgewell/trace-mapping': 0.3.9
     dev: true
 
-  /@defi-wonderland/smock/2.3.4_d44p6lx7t3c2oeudc2zxbd5d54:
+  /@defi-wonderland/smock/2.3.4_z67mwh6jmxdufyguqgtbmr6rba:
     resolution: {integrity: sha512-VYJbsoCOdFRyGkAwvaQhQRrU6V8AjK3five8xdbo41DEE9n3qXzUNBUxyD9HhXB/dWWPFWT21IGw5Ztl6Qw3Ew==}
     peerDependencies:
       '@ethersproject/abi': ^5
@@ -1602,9 +1606,6 @@ packages:
       ethers: ^5
       hardhat: ^2
     dependencies:
-      '@ethersproject/abi': 5.7.0
-      '@ethersproject/abstract-provider': 5.7.0
-      '@ethersproject/abstract-signer': 5.7.0
       '@nomicfoundation/ethereumjs-evm': 1.0.0
       '@nomicfoundation/ethereumjs-util': 8.0.0
       '@nomicfoundation/ethereumjs-vm': 6.0.0
@@ -3459,7 +3460,7 @@ packages:
       typechain: 3.0.0_typescript@4.9.3
     dev: true
 
-  /@typechain/ethers-v5/7.2.0_rqgsou2umo6ifhsmtcb3krjbfm:
+  /@typechain/ethers-v5/7.2.0_67wzblpxnm7h4zc6jlzarjupbm:
     resolution: {integrity: sha512-jfcmlTvaaJjng63QsT49MT6R1HFhtO/TBMWbyzPFSzMmVIqb2tL6prnKBs4ZJrSvmgIXWy+ttSjpaxCTq8D/Tw==}
     peerDependencies:
       '@ethersproject/abi': ^5.0.0
@@ -3469,9 +3470,6 @@ packages:
       typechain: ^5.0.0
       typescript: '>=4.0.0'
     dependencies:
-      '@ethersproject/abi': 5.7.0
-      '@ethersproject/bytes': 5.7.0
-      '@ethersproject/providers': 5.7.2
       ethers: 5.7.2
       lodash: 4.17.21
       ts-essentials: 7.0.3_typescript@4.9.3
@@ -3479,7 +3477,7 @@ packages:
       typescript: 4.9.3
     dev: true
 
-  /@typechain/hardhat/2.3.1_i3sbpo4srhduw7xvdsryjfwk5e:
+  /@typechain/hardhat/2.3.1_kqlws2vjqn6dp4diaajzvmozky:
     resolution: {integrity: sha512-BQV8OKQi0KAzLXCdsPO0pZBNQQ6ra8A2ucC26uFX/kquRBtJu1yEyWnVSmtr07b5hyRoJRpzUeINLnyqz4/MAw==}
     peerDependencies:
       hardhat: ^2.0.10
@@ -3488,7 +3486,6 @@ packages:
     dependencies:
       fs-extra: 9.1.0
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
-      lodash: 4.17.21
       typechain: 5.2.0_typescript@4.9.3
     dev: true
 
@@ -3626,6 +3623,13 @@ packages:
       '@types/node': 18.11.18
     dev: true
 
+  /@types/glob/8.0.1:
+    resolution: {integrity: sha512-8bVUjXZvJacUFkJXHdyZ9iH1Eaj5V7I8c4NdH5sQJsdXkqT4CA5Dhb4yb4VE/3asyx4L9ayZr1NIhTsWHczmMw==}
+    dependencies:
+      '@types/minimatch': 5.1.2
+      '@types/node': 18.11.18
+    dev: true
+
   /@types/graceful-fs/4.1.5:
     resolution: {integrity: sha512-anKkLmZZ+xm4p8JWBf4hElkM4XR+EZeA2M9BAkkTldmcyDY4mbdIJnRghDJH3Ov5ooY7/UAoENtmdMSkaAd7Cw==}
     dependencies:
@@ -3702,7 +3706,7 @@ packages:
     dependencies:
       '@types/abstract-leveldown': 7.2.0
       '@types/level-errors': 3.0.0
-      '@types/node': 18.11.10
+      '@types/node': 18.11.18
     dev: true
 
   /@types/lru-cache/5.1.1:
@@ -3758,10 +3762,6 @@ packages:
 
   /@types/node/12.20.55:
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
-
-  /@types/node/18.11.10:
-    resolution: {integrity: sha512-juG3RWMBOqcOuXC643OAdSA525V44cVgGV6dUDuiFtss+8Fk5x1hI93Rsld43VeJVIeqlP9I7Fn9/qaVqoEAuQ==}
-    dev: true
 
   /@types/node/18.11.18:
     resolution: {integrity: sha512-DHQpWGjyQKSHj3ebjFI/wRKcqQcdR+MoFBygntYOZytCqNfkd2ZC4ARDJ2DQqhjH5p85Nnd3jhUJIXrszFX/JA==}
@@ -4137,10 +4137,10 @@ packages:
       source-map: 0.6.1
     dev: true
 
-  /@vue/component-compiler-utils/3.3.0_lodash@4.17.21:
+  /@vue/component-compiler-utils/3.3.0:
     resolution: {integrity: sha512-97sfH2mYNU+2PzGrmK2haqffDpVASuib9/w2/noxiFi31Z54hW+q3izKQXXQZSNhtiUpAI36uSuYepeBe4wpHQ==}
     dependencies:
-      consolidate: 0.15.1_lodash@4.17.21
+      consolidate: 0.15.1
       hash-sum: 1.0.2
       lru-cache: 4.1.5
       merge-source-map: 1.1.0
@@ -7005,7 +7005,7 @@ packages:
     resolution: {integrity: sha512-ty/fTekppD2fIwRvnZAVdeOiGd1c7YXEixbgJTNzqcxJWKQnjJ/V1bNEEE6hygpM3WjwHFUVK6HTjWSzV4a8sQ==}
     dev: true
 
-  /consolidate/0.15.1_lodash@4.17.21:
+  /consolidate/0.15.1:
     resolution: {integrity: sha512-DW46nrsMJgy9kqAbPt5rKaCr7uFtpo4mSUvLHIUbJEjm0vo+aY5QLwBUq3FK4tRnJr/X0Psc0C4jf/h+HtXSMw==}
     engines: {node: '>= 0.10.0'}
     peerDependencies:
@@ -7171,7 +7171,6 @@ packages:
         optional: true
     dependencies:
       bluebird: 3.7.2
-      lodash: 4.17.21
     dev: true
 
   /content-disposition/0.5.4:
@@ -10327,6 +10326,17 @@ packages:
       path-is-absolute: 1.0.1
     dev: true
 
+  /glob/8.1.0:
+    resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
+    engines: {node: '>=12'}
+    dependencies:
+      fs.realpath: 1.0.0
+      inflight: 1.0.6
+      inherits: 2.0.4
+      minimatch: 5.0.1
+      once: 1.4.0
+    dev: true
+
   /global-modules/2.0.0:
     resolution: {integrity: sha512-NGbfmJBp9x8IxyJSd1P+otYK8vonoJactOogrVfFRIAEY1ukil8RSKDz2Yo7wh1oihl51l/r6W4epkeKJHqL8A==}
     engines: {node: '>=6'}
@@ -10514,7 +10524,7 @@ packages:
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
     dev: true
 
-  /hardhat-docgen/1.3.0_lfwxduevmqdtswpjkbv2koayie:
+  /hardhat-docgen/1.3.0_hardhat@2.12.2:
     resolution: {integrity: sha512-paaiOHjJFLCLz2/qM1TQ7ZEG+Vy+LBvJL+SW4A64ZhBnVnyoZ/zv9DvEuawaWhqP5P7AOM6r22reVz4ecWgW7A==}
     engines: {node: '>=14.14.0'}
     peerDependencies:
@@ -10524,7 +10534,7 @@ packages:
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
       html-webpack-plugin: 5.5.0_webpack@5.75.0
       vue: 2.7.14
-      vue-loader: 15.10.1_36bk4haztx5nmdoe37hieqy74q
+      vue-loader: 15.10.1_z2a3irye3y56jaq776fqxbsiea
       vue-router: 3.6.5_vue@2.7.14
       vue-template-compiler: 2.7.14
       webpack: 5.75.0
@@ -19304,7 +19314,7 @@ packages:
     resolution: {integrity: sha512-BXq3jwIagosjgNVae6tkHzzIk6a8MHFtzAdwhnV5VlvPTFxDCvIttgSiHWjdGoTJvXtmRu5HacExfdarRcFhog==}
     dev: true
 
-  /vue-loader/15.10.1_36bk4haztx5nmdoe37hieqy74q:
+  /vue-loader/15.10.1_z2a3irye3y56jaq776fqxbsiea:
     resolution: {integrity: sha512-SaPHK1A01VrNthlix6h1hq4uJu7S/z0kdLUb6klubo738NeQoLbS6V9/d8Pv19tU0XdQKju3D1HSKuI8wJ5wMA==}
     peerDependencies:
       '@vue/compiler-sfc': ^3.0.8
@@ -19320,7 +19330,7 @@ packages:
       vue-template-compiler:
         optional: true
     dependencies:
-      '@vue/component-compiler-utils': 3.3.0_lodash@4.17.21
+      '@vue/component-compiler-utils': 3.3.0
       css-loader: 6.7.2_webpack@5.75.0
       hash-sum: 1.0.2
       loader-utils: 1.4.2
