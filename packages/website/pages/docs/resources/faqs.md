@@ -69,6 +69,6 @@ A Zero-Knowledge Succinct Non-Interactive Argument of Knowledge (ZK-SNARK) is a 
 
 ## What does "Taiko" mean?
 
-The word "Taiko" comes from an old Chinese saying 鼓作气 (Yīgǔzuòqì). The literal meaning of the saying is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort.
+The word "Taiko" comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì). The literal meaning of the saying is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort.
 
 Taiko (太鼓) also means a "drum" in Japanese. For us, Taiko is the drum that arouses courage and leads to accomplishing goals.
