@@ -253,7 +253,12 @@ library LibProposing {
         require(meta.extraData.length <= 32, "L1:extraData");
 
         if (config.checkAssertedBlockHash) {
-            require(meta.assertedBlockHash != 0, "L1:assertedBlockHash");
+            require(
+                meta.assertedBlockHash != 0,
+                "L1:assertedBlockHash:nonZero"
+            );
+        } else {
+            require(meta.assertedBlockHash == 0, "L1:assertedBlockHash:zero");
         }
     }
 
