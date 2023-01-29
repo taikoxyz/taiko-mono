@@ -251,6 +251,10 @@ library LibProposing {
 
         require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
         require(meta.extraData.length <= 32, "L1:extraData");
+
+        if (config.checkAssertedBlockHash) {
+            require(meta.assertedBlockHash != 0, "L1:assertedBlockHash");
+        }
     }
 
     function _calculateCommitHash(
