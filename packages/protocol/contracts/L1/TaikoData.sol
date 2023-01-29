@@ -40,6 +40,7 @@ library TaikoData {
         uint64 initialUncleDelay;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
+        bool checkAssertedBlockHash;
     }
 
     struct BlockMetadata {

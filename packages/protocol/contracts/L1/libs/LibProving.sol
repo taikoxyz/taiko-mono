@@ -373,7 +373,9 @@ library LibProving {
         );
         require(pb.metaHash == meta.hashMetadata(), "L1:metaHash");
         // TODO(daniel): remove the next line
-        require(pb.assertedBlockHash == blockHash, "L1:assertedBlockHash");
+        if (config.checkAssertedBlockHash) {
+            require(pb.assertedBlockHash == blockHash, "L1:assertedBlockHash");
+        }
     }
 
     function _validateHeaderForMetadata(
