@@ -22,7 +22,7 @@ class Account {
   constructor(address, reason) {
     this.address = address;
     this.reasons = [reason];
-    this.txsCount = 1;
+    this.successfulTxsCount = 1;
   }
 }
 
@@ -41,7 +41,7 @@ class AccountsList {
       return;
     }
 
-    this.accountList[idx].txsCount += 1;
+    this.accountList[idx].successfulTxsCount += 1;
     if (!this.accountList[idx].reasons.includes(reason)) {
       this.accountList[idx].reasons.push(reason);
     }
@@ -51,8 +51,8 @@ class AccountsList {
     return this.accountList
       .filter((account) => account.reasons.length >= 2)
       .sort((a, b) => {
-        if (a.txsCount > b.txsCount) return -1;
-        if (a.txsCount < b.txsCount) return 1;
+        if (a.successfulTxsCount > b.successfulTxsCount) return -1;
+        if (a.successfulTxsCount < b.successfulTxsCount) return 1;
         return 0;
       });
   }
@@ -123,7 +123,7 @@ async function main() {
   const wallets = accountsList.getEligibleAccounts().map((account) => {
     return {
       address: account.address,
-      txsCount: account.txsCount,
+      successfulTxsCount: account.successfulTxsCount,
     };
   });
 
