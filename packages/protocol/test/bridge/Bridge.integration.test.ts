@@ -6,6 +6,7 @@ import {
     Bridge,
     SignalService,
     TestHeaderSync,
+    TestBadReceiver,
 } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import {
@@ -384,6 +385,57 @@ describe("integration:Bridge", function () {
                     signalProof
                 )
             ).to.be.eq(true);
+        });
+    });
+
+    describe("isMessageFailed()", function () {
+        it.only("test", async function () {
+            const testBadReceiver: TestBadReceiver = await (
+                await ethers.getContractFactory("TestBadReceiver")
+            ).deploy();
+
+            await testBadReceiver.deployed();
+
+            const m: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: srcChainId,
+                destChainId: enabledDestChainId,
+                owner: owner.address,
+                to: testBadReceiver.address,
+                refundAddress: owner.address,
+                depositValue: 1,
+                callValue: 10,
+                processingFee: 1,
+                gasLimit: 300000,
+                data: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                memo: "",
+            };
+
+            const { msgHash, message } = await sendMessage(l1Bridge, m);
+
+            const messageStatus = await l2Bridge.getMessageStatus(msgHash);
+            expect(messageStatus).to.be.eq(0);
+
+            let block: Block;
+            expect(
+                ({ block } = await processMessage(
+                    l1SignalService,
+                    l1Bridge,
+                    l2Bridge,
+                    msgHash,
+                    hre.ethers.provider,
+                    headerSync,
+                    message
+                ))
+            )
+                .to.emit(l2Bridge, "MessageStatusChanged")
+                .withArgs(msgHash, 3);
+
+            const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
+            console.log("messageStatus: " + messageStatus2);
+
+            await l2Bridge.connect(owner).retryMessage(message, true);
         });
     });
 
