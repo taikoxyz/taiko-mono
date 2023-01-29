@@ -54,6 +54,7 @@ library TaikoData {
         uint64 timestamp;
         uint64 commitHeight;
         uint64 commitSlot;
+        bytes32 assertedBlockHash;
     }
 
     // 3 slots
@@ -62,6 +63,7 @@ library TaikoData {
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
+        bytes32 assertedBlockHash;
     }
 
     // 3 + n slots

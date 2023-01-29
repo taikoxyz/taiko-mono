@@ -131,7 +131,8 @@ library LibProposing {
                 metaHash: meta.hashMetadata(),
                 deposit: deposit,
                 proposer: msg.sender,
-                proposedAt: meta.timestamp
+                proposedAt: meta.timestamp,
+                assertedBlockHash: meta.assertedBlockHash
             })
         );
 

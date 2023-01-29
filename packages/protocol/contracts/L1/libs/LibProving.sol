@@ -234,14 +234,19 @@ library LibProving {
         require(evidence.meta.id == target.id, "L1:height");
         require(evidence.prover != address(0), "L1:prover");
 
-        _checkMetadata({state: state, config: config, meta: target});
+        bytes32 blockHash = evidence.header.hashBlockHeader();
+
+        _checkMetadata({
+            state: state,
+            config: config,
+            meta: target,
+            blockHash: blockHash
+        });
         _validateHeaderForMetadata({
             config: config,
             header: evidence.header,
             meta: evidence.meta
         });
-
-        bytes32 blockHash = evidence.header.hashBlockHeader();
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
@@ -355,17 +360,19 @@ library LibProving {
     function _checkMetadata(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta
+        TaikoData.BlockMetadata memory meta,
+        bytes32 blockHash
     ) private view {
         require(
             meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
             "L1:meta:id"
         );
-        require(
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash ==
-                meta.hashMetadata(),
-            "L1:metaHash"
+        TaikoData.ProposedBlock storage pb = state.getProposedBlock(
+            config.maxNumBlocks,
+            meta.id
         );
+        require(pb.assertedBlockHash == blockHash, "L1:assertedBlockHash");
+        require(pb.metaHash == meta.hashMetadata(), "L1:metaHash");
     }
 
     function _validateHeaderForMetadata(
