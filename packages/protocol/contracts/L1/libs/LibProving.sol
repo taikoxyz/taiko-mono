@@ -28,7 +28,8 @@ library LibProving {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs, followed by MKPs.
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
+        // followed by MKPs.
         uint8[] circuits; // THe circuits IDs (size === zkProofsPerBlock)
     }
 
