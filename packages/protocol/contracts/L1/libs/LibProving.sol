@@ -247,12 +247,23 @@ library LibProving {
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
         // TODO(daniel): remove this special address.
+        // If specialProver == address(0), the corresponding special handing
+        // is disabled.
         address specialProver = resolver.resolve("special_prover", true);
 
-        for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
-                // Skip ZKP verification
-            } else {
+        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
+            evidence.header.parentHash
+        ];
+
+        if (msg.sender == specialProver) {
+            // Skip ZKP verification
+            require(fc.blockHash == 0, "L1:mustBeFirstProver");
+        } else {
+            require(
+                specialProver == address(0) || fc.blockHash != 0,
+                "L1:mustNotBeFirstProver"
+            );
+            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
                         verifierId: string(
@@ -297,8 +308,9 @@ library LibProving {
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
-                LibUtils.halt(state, true);
-                return;
+                revert("L1:specialReject");
+                // LibUtils.halt(state, true);
+                // return;
             }
 
             require(
