@@ -2,7 +2,8 @@
 const ethers = require("ethers");
 const fs = require("fs");
 
-const L2_RPC_ENDPOINT = "http://l2rpc.a1.taiko.xyz";
+const L2_RPC_ENDPOINT = "https://l2rpc.a1.taiko.xyz";
+
 const L2_BLOCK_START_HEIGHT = 0;
 // 512862 timestamp: Thu, 05 Jan 2023 23:59:52 GMT
 // 512863 timestamp: Fri, 06 Jan 2023 00:00:16 GMT
@@ -14,12 +15,14 @@ const L2_BRIDGE_ADDRESS = "0x0000777700000000000000000000000000000004";
 // Any user with a bridging transaction + one other type of transaction (transfer, dapp tx)
 const REASON_USED_BRIDGE = "REASON_USED_BRIDGE";
 const REASON_USED_OTHER_TYPES_OF_TXS = "REASON_USED_OTHER_TYPES_OF_TXS";
+
 const BATCH_SIZE = 5000;
 
 class Account {
   constructor(address, reason) {
     this.address = address;
     this.reasons = [reason];
+    this.txsCount = 1;
   }
 }
 
@@ -38,13 +41,20 @@ class AccountsList {
       return;
     }
 
+    this.accountList[idx].txsCount += 1;
     if (!this.accountList[idx].reasons.includes(reason)) {
       this.accountList[idx].reasons.push(reason);
     }
   }
 
   getEligibleAccounts() {
-    return this.accountList.filter((account) => account.reasons.length >= 2);
+    return this.accountList
+      .filter((account) => account.reasons.length >= 2)
+      .sort((a, b) => {
+        if (a.txsCount > b.txsCount) return -1;
+        if (a.txsCount < b.txsCount) return 1;
+        return 0;
+      });
   }
 }
 
@@ -81,7 +91,8 @@ async function main() {
           if (receipt.status !== 1) continue;
 
           // Bridging transaction
-          // we use `message.to` to identify the actual user account, since `tx.from` is always the relayer account.
+          // we use `message.owner` to identify the actual user L2 account,
+          // since `tx.from` is always the relayer account.
           if (
             tx.data &&
             tx.to === L2_BRIDGE_ADDRESS &&
@@ -92,7 +103,10 @@ async function main() {
               tx.data
             );
 
-            accountsList.addAccountWithReason(message.to, REASON_USED_BRIDGE);
+            accountsList.addAccountWithReason(
+              message.owner,
+              REASON_USED_BRIDGE
+            );
             continue;
           }
 
@@ -106,14 +120,17 @@ async function main() {
     );
   }
 
-  console.log(accountsList.accountList.length);
-  console.log(
-    `Eligible accounts: ${accountsList.getEligibleAccounts().length}`
-  );
+  const wallets = accountsList.getEligibleAccounts().map((account) => {
+    return {
+      address: account.address,
+      txsCount: account.txsCount,
+    };
+  });
 
-  const wallets = accountsList
-    .getEligibleAccounts()
-    .map((account) => account.address);
+  console.log(
+    `Accounts at least finished one task: ${accountsList.accountList.length}`
+  );
+  console.log(`Eligible accounts: ${wallets.length}`);
 
   fs.writeFileSync("./wallets.json", JSON.stringify({ wallets }));
 
