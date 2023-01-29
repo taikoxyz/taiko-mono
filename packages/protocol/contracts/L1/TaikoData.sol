@@ -54,7 +54,7 @@ library TaikoData {
         uint64 timestamp;
         uint64 commitHeight;
         uint64 commitSlot;
-        bytes32 assertedBlockHash;
+        bytes32 assertedBlockHash; // TODO(daniel): remove this field.
     }
 
     // 3 slots
@@ -63,7 +63,7 @@ library TaikoData {
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
-        bytes32 assertedBlockHash;
+        bytes32 assertedBlockHash; // TODO(daniel): remove this field.
     }
 
     // 3 + n slots
