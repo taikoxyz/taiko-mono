@@ -79,6 +79,7 @@ library LibProving {
         );
 
         {
+            // an inner block to get around `Stack too deep` error
             // Check anchor tx is valid
             LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
                 config.chainId,
@@ -115,33 +116,35 @@ library LibProving {
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
+        {
+            // an inner block to get around `Stack too deep` error
+            // Check anchor tx is the 1st tx in the block
+            require(
+                proofVerifier.verifyMKP({
+                    key: LibRLPWriter.writeUint(0),
+                    value: anchorTx,
+                    proof: evidence.proofs[zkProofsPerBlock],
+                    root: evidence.header.transactionsRoot
+                }),
+                "L1:tx:proof"
+            );
 
-        // Check anchor tx is the 1st tx in the block
-        require(
-            proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorTx,
-                proof: evidence.proofs[zkProofsPerBlock],
-                root: evidence.header.transactionsRoot
-            }),
-            "L1:tx:proof"
-        );
+            // Check anchor tx does not throw
 
-        // Check anchor tx does not throw
+            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+                .decodeReceipt(anchorReceipt);
 
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(anchorReceipt);
-
-        require(receipt.status == 1, "L1:receipt:status");
-        require(
-            proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorReceipt,
-                proof: evidence.proofs[zkProofsPerBlock + 1],
-                root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
+            require(receipt.status == 1, "L1:receipt:status");
+            require(
+                proofVerifier.verifyMKP({
+                    key: LibRLPWriter.writeUint(0),
+                    value: anchorReceipt,
+                    proof: evidence.proofs[zkProofsPerBlock + 1],
+                    root: evidence.header.receiptsRoot
+                }),
+                "L1:receipt:proof"
+            );
+        }
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
@@ -172,7 +175,6 @@ library LibProving {
             inputs[1],
             (TaikoData.BlockMetadata)
         );
-        bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
         require(evidence.meta.id == blockId, "L1:id");
@@ -184,26 +186,27 @@ library LibProving {
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
-
-        // Check the event is the first one in the throw-away block
-        require(
-            proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: invalidateBlockReceipt,
-                proof: evidence.proofs[config.zkProofsPerBlock],
-                root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
-
-        // Check the 1st receipt is for an InvalidateBlock tx with
-        // a BlockInvalidated event
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(invalidateBlockReceipt);
-        require(receipt.status == 1, "L1:receipt:status");
-        require(receipt.logs.length == 1, "L1:receipt:logsize");
-
         {
+            // an inner block to get around `Stack too deep` error
+            // bytes calldata invalidateBlockReceipt = inputs[2];
+            // Check the event is the first one in the throw-away block
+            require(
+                proofVerifier.verifyMKP({
+                    key: LibRLPWriter.writeUint(0),
+                    value: inputs[2], //invalidateBlockReceipt
+                    proof: evidence.proofs[config.zkProofsPerBlock],
+                    root: evidence.header.receiptsRoot
+                }),
+                "L1:receipt:proof"
+            );
+
+            // Check the 1st receipt is for an InvalidateBlock tx with
+            // a BlockInvalidated event
+            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+                .decodeReceipt(inputs[2]);
+            require(receipt.status == 1, "L1:receipt:status");
+            require(receipt.logs.length == 1, "L1:receipt:logsize");
+
             LibReceiptDecoder.Log memory log = receipt.logs[0];
             require(
                 log.contractAddress ==
