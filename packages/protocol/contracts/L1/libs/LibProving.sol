@@ -28,8 +28,8 @@ library LibProving {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs
-        uint8[] circuitIds; //= size == zkProofsPerBlock
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs, followed by MKPs.
+        uint8[] circuits; // THe circuits IDs (size === zkProofsPerBlock)
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -72,8 +72,8 @@ library LibProving {
             "L1:proof:size"
         );
         require(
-            evidence.circuitIds.length == zkProofsPerBlock,
-            "L1:circuitIds:size"
+            evidence.circuits.length == zkProofsPerBlock,
+            "L1:circuits:size"
         );
 
         {
@@ -266,7 +266,7 @@ library LibProving {
                                 "plonk_verifier_",
                                 i,
                                 "_",
-                                evidence.circuitIds[i]
+                                evidence.circuits[i]
                             )
                         ),
                         zkproof: evidence.proofs[i],
