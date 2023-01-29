@@ -41,8 +41,9 @@ library LibSharedConfig {
                 proofTimeCap: 60 minutes,
                 bootstrapDiscountHalvingPeriod: 180 days,
                 initialUncleDelay: 60 minutes,
-                enableTokenomics: false,
-                enablePublicInputsCheck: true
+                enableTokenomics: true,
+                enablePublicInputsCheck: true,
+                enableSpecialFirstProver: true
             });
     }
 }

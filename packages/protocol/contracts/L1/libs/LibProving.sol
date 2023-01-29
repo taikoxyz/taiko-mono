@@ -247,18 +247,24 @@ library LibProving {
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
         // TODO(daniel): remove this special address.
-        address specialProver = resolver.resolve("special_prover", false);
 
-        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
-            evidence.header.parentHash
-        ];
+        bool skipZKPVerification;
 
-        if (msg.sender == specialProver) {
-            // Skip ZKP verification
-            require(fc.blockHash == 0, "L1:mustBeFirstProver");
-        } else {
-            require(fc.blockHash != 0, "L1:mustNotBeFirstProver");
+        if (config.enableSpecialFirstProver) {
+            address specialProver = resolver.resolve("special_prover", false);
 
+            TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
+                evidence.header.parentHash
+            ];
+
+            if (msg.sender == specialProver) {
+                skipZKPVerification = true;
+                require(fc.blockHash == 0, "L1:mustBeFirstProver");
+            } else {
+                require(fc.blockHash != 0, "L1:mustNotBeFirstProver");
+            }
+        }
+        if (!skipZKPVerification) {
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
