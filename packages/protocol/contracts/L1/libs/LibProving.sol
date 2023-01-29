@@ -46,21 +46,17 @@ library LibProving {
         address prover
     );
 
-    modifier onlyWhitelistedProver(TaikoData.TentativeState storage tentative) {
-        if (tentative.whitelistProvers) {
-            require(tentative.provers[msg.sender], "L1:whitelist");
-        }
-        _;
-    }
-
     function proveBlock(
         TaikoData.State storage state,
-        TaikoData.TentativeState storage tentative,
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(tentative) {
+    ) public {
+        if (config.whitelistProvers) {
+            require(state.provers[msg.sender], "L1:whitelist");
+        }
+
         assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
@@ -160,12 +156,15 @@ library LibProving {
 
     function proveBlockInvalid(
         TaikoData.State storage state,
-        TaikoData.TentativeState storage tentative,
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProver(tentative) {
+    ) public {
+        if (config.whitelistProvers) {
+            require(state.provers[msg.sender], "L1:whitelist");
+        }
+
         assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs

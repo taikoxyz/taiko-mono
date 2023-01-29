@@ -49,6 +49,8 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = true;
+        config.whitelistProposers = false;
+        config.whitelistProvers = false;
     }
 
     function verifyZKP(

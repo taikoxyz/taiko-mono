@@ -50,5 +50,7 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
+        config.whitelistProposers = false;
+        config.whitelistProvers = false;
     }
 }

@@ -24,7 +24,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
-    TaikoData.TentativeState public tentative;
     uint256[50] private __gap;
 
     function init(
@@ -38,9 +37,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             genesisBlockHash: _genesisBlockHash,
             feeBase: _feeBase
         });
-
-        tentative.whitelistProposers = false;
-        tentative.whitelistProvers = true;
     }
 
     /**
@@ -86,7 +82,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         LibProposing.proposeBlock({
             state: state,
             config: config,
-            tentative: tentative,
             resolver: AddressResolver(this),
             inputs: inputs
         });
@@ -121,7 +116,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
-            tentative: tentative,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
@@ -158,7 +152,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
 
         LibProving.proveBlockInvalid({
             state: state,
-            tentative: tentative,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
@@ -189,22 +182,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     /**
-     * Enable or disable proposer and prover whitelisting
-     * @param whitelistProposers True to enable proposer whitelisting.
-     * @param whitelistProvers True to enable prover whitelisting.
-     */
-    function enableWhitelisting(
-        bool whitelistProposers,
-        bool whitelistProvers
-    ) public onlyOwner {
-        LibUtils.enableWhitelisting({
-            tentative: tentative,
-            whitelistProposers: whitelistProposers,
-            whitelistProvers: whitelistProvers
-        });
-    }
-
-    /**
      *  Add or remove a proposer from the whitelist.
      *
      * @param proposer The proposer to be added or removed.
@@ -215,7 +192,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         bool whitelisted
     ) public onlyOwner {
         LibUtils.whitelistProposer({
-            tentative: tentative,
+            config: getConfig(),
+            state: state,
             proposer: proposer,
             whitelisted: whitelisted
         });
@@ -232,7 +210,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         bool whitelisted
     ) public onlyOwner {
         LibUtils.whitelistProver({
-            tentative: tentative,
+            config: getConfig(),
+            state: state,
             prover: prover,
             whitelisted: whitelisted
         });
@@ -255,7 +234,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     function isProposerWhitelisted(
         address proposer
     ) public view returns (bool) {
-        return LibUtils.isProposerWhitelisted(tentative, proposer);
+        return LibUtils.isProposerWhitelisted(state, getConfig(), proposer);
     }
 
     /**
@@ -265,7 +244,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
      * @return True if the prover is whitelisted, false otherwise.
      */
     function isProverWhitelisted(address prover) public view returns (bool) {
-        return LibUtils.isProverWhitelisted(tentative, prover);
+        return LibUtils.isProverWhitelisted(state, getConfig(), prover);
     }
 
     function getBlockFee() public view returns (uint256) {

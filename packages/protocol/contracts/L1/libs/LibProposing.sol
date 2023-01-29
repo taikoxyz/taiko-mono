@@ -24,15 +24,6 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    modifier onlyWhitelistedProposer(
-        TaikoData.TentativeState storage tentative
-    ) {
-        if (tentative.whitelistProposers) {
-            require(tentative.proposers[msg.sender], "L1:whitelist");
-        }
-        _;
-    }
-
     function commitBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -60,10 +51,13 @@ library LibProposing {
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.TentativeState storage tentative,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public onlyWhitelistedProposer(tentative) {
+    ) public {
+        if (config.whitelistProposers) {
+            require(state.proposers[msg.sender], "L1:whitelist");
+        }
+
         assert(!LibUtils.isHalted(state));
 
         require(inputs.length == 2, "L1:inputs:size");
