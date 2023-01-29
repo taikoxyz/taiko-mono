@@ -253,15 +253,14 @@ library LibProving {
         if (config.enableSpecialFirstProver) {
             address specialProver = resolver.resolve("special_prover", false);
 
-            TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
-                evidence.header.parentHash
-            ];
+            bytes32 blockHash = state
+            .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
             if (msg.sender == specialProver) {
+                require(blockHash == 0, "L1:mustBeFirstProver");
                 skipZKPVerification = true;
-                require(fc.blockHash == 0, "L1:mustBeFirstProver");
             } else {
-                require(fc.blockHash != 0, "L1:mustNotBeFirstProver");
+                require(blockHash != 0, "L1:mustNotBeFirstProver");
             }
         }
         if (!skipZKPVerification) {
