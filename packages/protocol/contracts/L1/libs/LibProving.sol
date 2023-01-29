@@ -29,6 +29,7 @@ library LibProving {
         BlockHeader header;
         address prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs
+        uint8[] circuitIds; //= size == zkProofsPerBlock
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -58,6 +59,7 @@ library LibProving {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
@@ -68,6 +70,10 @@ library LibProving {
         require(
             evidence.proofs.length == 2 + zkProofsPerBlock,
             "L1:proof:size"
+        );
+        require(
+            evidence.circuitIds.length == zkProofsPerBlock,
+            "L1:circuitIds:size"
         );
 
         {
@@ -256,7 +262,12 @@ library LibProving {
                 require(
                     proofVerifier.verifyZKP({
                         verifierId: string(
-                            abi.encodePacked("plonk_verifier_", i)
+                            abi.encodePacked(
+                                "plonk_verifier_",
+                                i,
+                                "_",
+                                evidence.circuitIds[i]
+                            )
                         ),
                         zkproof: evidence.proofs[i],
                         blockHash: blockHash,
