@@ -30,7 +30,7 @@ library LibProving {
         address prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
         // followed by MKPs.
-        uint16[] circuits; // THe circuits IDs (size === zkProofsPerBlock)
+        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
