@@ -247,9 +247,7 @@ library LibProving {
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
         // TODO(daniel): remove this special address.
-        // If specialProver == address(0), the corresponding special handing
-        // is disabled.
-        address specialProver = resolver.resolve("special_prover", true);
+        address specialProver = resolver.resolve("special_prover", false);
 
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             evidence.header.parentHash
@@ -259,10 +257,8 @@ library LibProving {
             // Skip ZKP verification
             require(fc.blockHash == 0, "L1:mustBeFirstProver");
         } else {
-            require(
-                specialProver == address(0) || fc.blockHash != 0,
-                "L1:mustNotBeFirstProver"
-            );
+            require(fc.blockHash != 0, "L1:mustNotBeFirstProver");
+
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
