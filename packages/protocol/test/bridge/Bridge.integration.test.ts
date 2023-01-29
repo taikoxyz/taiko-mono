@@ -431,11 +431,19 @@ describe("integration:Bridge", function () {
             )
                 .to.emit(l2Bridge, "MessageStatusChanged")
                 .withArgs(msgHash, 3);
+            // inconsistency? emits event saying message has failed and status changed
+            // to 3 (FAILED) but upon calling getMessageStatus and printing
+            // it is equal to 2 (DONE)? If this is the case I shouldn't be able
+            // to call retryMessage but it seems to pass with no issue.
 
             const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
             console.log("messageStatus: " + messageStatus2);
 
-            await l2Bridge.connect(owner).retryMessage(message, true);
+            const tx = await l2Bridge
+                .connect(owner)
+                .retryMessage(message, true);
+            await tx;
+            console.log(await l2Bridge.getMessageStatus(msgHash));
         });
     });
 
