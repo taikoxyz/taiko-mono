@@ -193,10 +193,15 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            ethers.utils.solidityPack(
-                ["string", "uint256"],
-                ["plonk_verifier_", 0]
-            ),
+            // string(abi.encodePacked("plonk_verifier_", i))
+            `${chainId}.${Buffer.from(
+                ethers.utils.arrayify(
+                    ethers.utils.solidityPack(
+                        ["string", "uint256", "string", "uint16"],
+                        ["plonk_verifier_", 0, "_", 0]
+                    )
+                )
+            ).toString()}`,
             PlonkVerifier.address
         )
     );

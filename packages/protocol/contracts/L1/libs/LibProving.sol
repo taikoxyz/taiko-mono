@@ -28,7 +28,9 @@ library LibProving {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
+        // followed by MKPs.
+        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -58,6 +60,7 @@ library LibProving {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
@@ -68,6 +71,10 @@ library LibProving {
         require(
             evidence.proofs.length == 2 + zkProofsPerBlock,
             "L1:proof:size"
+        );
+        require(
+            evidence.circuits.length == zkProofsPerBlock,
+            "L1:circuits:size"
         );
 
         IProofVerifier proofVerifier = IProofVerifier(
@@ -249,16 +256,19 @@ library LibProving {
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
         // TODO(daniel): remove this special address.
-        address specialProver = resolver.resolve("special_prover", true);
-
-        for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
-                // Skip ZKP verification
-            } else {
+        if (msg.sender == resolver.resolve("special_prover", true)) {
+            // Skip ZKP verification
+        } else {
+            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
                         verifierId: string(
-                            abi.encodePacked("plonk_verifier_", i)
+                            abi.encodePacked(
+                                "plonk_verifier_",
+                                i,
+                                "_",
+                                evidence.circuits[i]
+                            )
                         ),
                         zkproof: evidence.proofs[i],
                         blockHash: blockHash,

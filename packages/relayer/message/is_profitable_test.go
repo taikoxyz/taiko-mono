@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
@@ -15,14 +15,14 @@ func Test_isProfitable(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		message        contracts.IBridgeMessage
+		message        bridge.IBridgeMessage
 		proof          []byte
 		wantProfitable bool
 		wantErr        error
 	}{
 		{
 			"zeroProcessingFee",
-			contracts.IBridgeMessage{
+			bridge.IBridgeMessage{
 				ProcessingFee: big.NewInt(0),
 			},
 			nil,
@@ -31,14 +31,14 @@ func Test_isProfitable(t *testing.T) {
 		},
 		{
 			"nilProcessingFee",
-			contracts.IBridgeMessage{},
+			bridge.IBridgeMessage{},
 			nil,
 			false,
 			nil,
 		},
 		{
 			"lowProcessingFee",
-			contracts.IBridgeMessage{
+			bridge.IBridgeMessage{
 				ProcessingFee: new(big.Int).Sub(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 				DestChainId:   big.NewInt(167001),
 			},
@@ -48,7 +48,7 @@ func Test_isProfitable(t *testing.T) {
 		},
 		{
 			"profitableProcessingFee",
-			contracts.IBridgeMessage{
+			bridge.IBridgeMessage{
 				ProcessingFee: new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 				DestChainId:   big.NewInt(167001),
 			},
