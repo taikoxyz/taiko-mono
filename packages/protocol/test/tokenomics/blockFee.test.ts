@@ -72,7 +72,7 @@ describe("tokenomics: blockFee", function () {
             proposerSigner
         );
 
-        // get the initiaal tkoBalance, which should decrease every block proposal
+        // get the initial tkoBalance, which should decrease every block proposal
         let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
             await proposerSigner.getAddress()
         );
