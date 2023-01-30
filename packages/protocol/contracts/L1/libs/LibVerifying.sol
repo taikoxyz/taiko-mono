@@ -170,6 +170,9 @@ library LibVerifying {
         uint weight = 1 << (count - 1);
         for (uint i = 0; i < count; ++i) {
             uint proverReward = (reward * weight) / sum;
+            if (proverReward == 0) {
+                break;
+            }
 
             if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
                 // Reduce reward to 1 wei as a penalty if the prover
