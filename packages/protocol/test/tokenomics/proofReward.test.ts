@@ -107,7 +107,7 @@ describe("tokenomics: proofReward", function () {
                 const proverTkoBalanceAfterVerification =
                     await tkoTokenL1.balanceOf(blockInfo.forkChoice.provers[0]);
 
-                // prover should have given given 1 TKO token, since they
+                // prover should have given 1 TKO token, since they
                 // held no TKO balance.
                 expect(proverTkoBalanceAfterVerification.eq(1)).to.be.eq(true);
                 blocksVerified++;
