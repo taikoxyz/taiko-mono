@@ -3,7 +3,7 @@
   import { displayStatusValue } from "../utils/displayStatusValue";
   import { onDestroy, onMount } from "svelte";
   import Loader from "../components/Loader.svelte";
-  import type Status from "../domain/status";
+  import type { Status } from "../domain/status";
   import { fade } from "svelte/transition";
   import Tooltip from "./Tooltip.svelte";
   import TooltipModal from "./TooltipModal.svelte";
@@ -15,6 +15,8 @@
     provider: ethers.providers.JsonRpcProvider,
     contractAddress: string
   ) => Promise<Status>;
+
+  export let status: Status;
 
   export let watchStatusFunc: (
     provider: ethers.providers.JsonRpcProvider,
@@ -40,7 +42,11 @@
 
   onMount(async () => {
     try {
-      statusValue = await statusFunc(provider, contractAddress);
+      if (status) {
+        statusValue = status;
+      } else {
+        statusValue = await statusFunc(provider, contractAddress);
+      }
     } catch (e) {
       console.error(e);
     }
