@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 // Process prepares and calls `processMessage` on the bridge.
@@ -21,7 +21,7 @@ import (
 // expects
 func (p *Processor) ProcessMessage(
 	ctx context.Context,
-	event *contracts.BridgeMessageSent,
+	event *bridge.BridgeMessageSent,
 	e *relayer.Event,
 ) error {
 	if event.Message.GasLimit == nil || event.Message.GasLimit.Cmp(common.Big0) == 0 {
@@ -45,7 +45,7 @@ func (p *Processor) ProcessMessage(
 
 	hashed := crypto.Keccak256(
 		event.Raw.Address.Bytes(),
-		event.Signal[:],
+		event.MsgHash[:],
 	)
 
 	key := hex.EncodeToString(hashed)
@@ -56,7 +56,7 @@ func (p *Processor) ProcessMessage(
 			event.Message.SrcChainId,
 			event.Message.DestChainId,
 			event.Raw.TxHash.Hex(),
-			common.Hash(event.Signal).Hex(),
+			common.Hash(event.MsgHash).Hex(),
 			event.Message.Owner.Hex(),
 		)
 
@@ -68,14 +68,14 @@ func (p *Processor) ProcessMessage(
 	// an issue with the signal generation.
 	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{
 		Context: ctx,
-	}, event.Signal, event.Message.SrcChainId, encodedSignalProof)
+	}, event.MsgHash, event.Message.SrcChainId, encodedSignalProof)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.IsMessageReceived")
 	}
 
 	// message will fail when we try to process it
 	if !received {
-		log.Warnf("signal %v not received on dest chain", common.Hash(event.Signal).Hex())
+		log.Warnf("msgHash %v not received on dest chain", common.Hash(event.MsgHash).Hex())
 		return errors.New("message not received")
 	}
 
@@ -93,7 +93,7 @@ func (p *Processor) ProcessMessage(
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
 
-	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.Signal)
+	messageStatus, err := p.destBridge.GetMessageStatus(&bind.CallOpts{}, event.MsgHash)
 	if err != nil {
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
@@ -110,7 +110,7 @@ func (p *Processor) ProcessMessage(
 
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
-	event *contracts.BridgeMessageSent,
+	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Transaction, error) {
 	auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, event.Message.DestChainId)

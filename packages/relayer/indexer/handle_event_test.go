@@ -74,7 +74,7 @@ func Test_canProcessMessage(t *testing.T) {
 	}
 }
 
-func Test_eventStatusFromSignal(t *testing.T) {
+func Test_eventStatusFromMsgHash(t *testing.T) {
 	tests := []struct {
 		name       string
 		ctx        context.Context
@@ -95,7 +95,7 @@ func Test_eventStatusFromSignal(t *testing.T) {
 			"eventStatusNewOnlyOwner, 0GasLimit",
 			context.Background(),
 			common.Big0,
-			mock.SuccessSignal,
+			mock.SuccessMsgHash,
 			nil,
 			relayer.EventStatusNewOnlyOwner,
 		},
@@ -103,7 +103,7 @@ func Test_eventStatusFromSignal(t *testing.T) {
 			"eventStatusNewOnlyOwner, nilGasLimit",
 			context.Background(),
 			nil,
-			mock.SuccessSignal,
+			mock.SuccessMsgHash,
 			nil,
 			relayer.EventStatusNewOnlyOwner,
 		},
@@ -111,7 +111,7 @@ func Test_eventStatusFromSignal(t *testing.T) {
 			"eventStatusNewOnlyOwner, non0GasLimit",
 			context.Background(),
 			big.NewInt(100),
-			mock.SuccessSignal,
+			mock.SuccessMsgHash,
 			nil,
 			relayer.EventStatusNew,
 		},
@@ -121,7 +121,7 @@ func Test_eventStatusFromSignal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _ := newTestService()
 
-			status, err := svc.eventStatusFromSignal(tt.ctx, tt.gasLimit, tt.signal)
+			status, err := svc.eventStatusFromMsgHash(tt.ctx, tt.gasLimit, tt.signal)
 			if tt.wantErr != nil {
 				assert.EqualError(t, tt.wantErr, err.Error())
 			} else {

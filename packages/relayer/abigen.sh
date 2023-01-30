@@ -12,11 +12,11 @@ names=("Bridge" "IHeaderSync" "TaikoL2" "TaikoL1")
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do
     jq .abi ../protocol/artifacts/contracts/${paths[i]}/${names[i]}.json > ${names[i]}.json
-    echo $abi
+    lower=$(echo "${names[i]}" | tr '[:upper:]' '[:lower:]')
     abigen --abi ${names[i]}.json \
-    --pkg contracts \
+    --pkg $lower \
     --type ${names[i]} \
-    --out contracts/${names[i]}.go
+    --out contracts/$lower/${names[i]}.go
 done
 
 exit 0
