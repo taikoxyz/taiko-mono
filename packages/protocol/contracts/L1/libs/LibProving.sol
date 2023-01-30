@@ -251,7 +251,7 @@ library LibProving {
             bytes32 _blockHash = state
             .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
-            if (msg.sender == resolver.resolve("special_prover", false)) {
+            if (msg.sender == resolver.resolve("oracle_prover", false)) {
                 require(_blockHash == 0, "L1:mustBeFirstProver");
                 skipZKPVerification = true;
             } else {

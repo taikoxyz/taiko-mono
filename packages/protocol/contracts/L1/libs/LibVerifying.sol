@@ -250,8 +250,9 @@ library LibVerifying {
         uint256 blockId
     ) private view returns (bool) {
         return
+            // TODO(daniel): remove the next line.
+            (!config.enableSpecialFirstProver || fc.provers.length > 1) &&
             fc.blockHash != 0 &&
-            (!config.enableSpecialFirstProver || fc.provers.length > 1) && // TODO(daniel): remove this line.
             block.timestamp >
             LibUtils.getUncleProofDeadline({
                 state: state,
