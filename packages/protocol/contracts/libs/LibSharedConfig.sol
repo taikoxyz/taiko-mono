@@ -43,7 +43,7 @@ library LibSharedConfig {
                 initialUncleDelay: 60 minutes,
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
-                enableSpecialFirstProver: true
+                enableOracleProver: true
             });
     }
 }

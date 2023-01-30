@@ -161,7 +161,7 @@ library LibVerifying {
         uint start;
         uint count = fc.provers.length;
 
-        if (config.enableSpecialFirstProver) {
+        if (config.enableOracleProver) {
             start = 1;
             count -= 1;
         }
@@ -255,7 +255,7 @@ library LibVerifying {
     ) private view returns (bool) {
         return
             // TODO(daniel): remove the next line.
-            (!config.enableSpecialFirstProver || fc.provers.length > 1) &&
+            (!config.enableOracleProver || fc.provers.length > 1) &&
             fc.blockHash != 0 &&
             block.timestamp >
             LibUtils.getUncleProofDeadline({

@@ -40,7 +40,7 @@ library TaikoData {
         uint64 initialUncleDelay;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
-        bool enableSpecialFirstProver;
+        bool enableOracleProver;
     }
 
     struct BlockMetadata {
