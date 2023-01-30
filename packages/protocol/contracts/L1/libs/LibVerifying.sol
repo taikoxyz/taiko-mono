@@ -166,7 +166,7 @@ library LibVerifying {
             count -= 1;
         }
 
-        uint sum = 1 << (count - 1);
+        uint sum = (1 << count) - 1;
         uint weight = 1 << (count - 1);
         for (uint i = 0; i < count; ++i) {
             uint proverReward = (reward * weight) / sum;
