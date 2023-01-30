@@ -25,7 +25,7 @@
         l2TaikoAddress: import.meta.env.VITE_TAIKO_L2_ADDRESS,
         l1ExplorerUrl: import.meta.env.VITE_L1_EXPLORER_URL,
         l2ExplorerUrl: import.meta.env.VITE_L2_EXPLORER_URL,
-        feeTokenSymbol: import.meta.env.FEE_TOKEN_SYMBOL,
+        feeTokenSymbol: import.meta.env.FEE_TOKEN_SYMBOL || "TKO",
       },
       userData: {},
     }),
