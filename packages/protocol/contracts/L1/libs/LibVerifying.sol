@@ -153,22 +153,31 @@ library LibVerifying {
     }
 
     function _rewardProvers(
+        TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint sum = 2 ** fc.provers.length - 1;
-        for (uint i = 0; i < fc.provers.length; ++i) {
-            uint weight = (1 << (fc.provers.length - i - 1));
+        uint start;
+        uint count = fc.provers.length;
+
+        if (config.enableSpecialFirstProver) {
+            start = 1;
+            count -= 1;
+        }
+
+        uint sum = 2 ** count - 1;
+        for (uint i = 0; i < count; ++i) {
+            uint weight = (1 << (count - i - 1));
             uint proverReward = (reward * weight) / sum;
 
-            if (tkoToken.balanceOf(fc.provers[i]) == 0) {
+            if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
                 // Reduce reward to 1 wei as a penalty if the prover
                 // has 0 TKO balance. This allows the next prover reward
                 // to be fully paid.
                 proverReward = uint256(1);
             }
-            tkoToken.mint(fc.provers[i], proverReward);
+            tkoToken.mint(fc.provers[start + i], proverReward);
         }
     }
 
@@ -197,7 +206,7 @@ library LibVerifying {
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProvers(fc, reward, tkoToken);
+                _rewardProvers(config, fc, reward, tkoToken);
                 _refundProposerDeposit(target, tRelBp, tkoToken);
             }
             // Update feeBase and avgProofTime

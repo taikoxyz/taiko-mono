@@ -241,28 +241,26 @@ library LibProving {
             meta: evidence.meta
         });
 
-        bytes32 blockHash = evidence.header.hashBlockHeader();
-
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
-        // TODO(daniel): remove this special address.
-
         bool skipZKPVerification;
 
+        // TODO(daniel): remove this special address.
         if (config.enableSpecialFirstProver) {
-            address specialProver = resolver.resolve("special_prover", false);
-
-            bytes32 blockHash = state
+            bytes32 _blockHash = state
             .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
-            if (msg.sender == specialProver) {
-                require(blockHash == 0, "L1:mustBeFirstProver");
+            if (msg.sender == resolver.resolve("special_prover", false)) {
+                require(_blockHash == 0, "L1:mustBeFirstProver");
                 skipZKPVerification = true;
             } else {
-                require(blockHash != 0, "L1:mustNotBeFirstProver");
+                require(_blockHash != 0, "L1:mustNotBeFirstProver");
             }
         }
+
+        bytes32 blockHash = evidence.header.hashBlockHeader();
+
         if (!skipZKPVerification) {
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
