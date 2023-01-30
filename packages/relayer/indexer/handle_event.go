@@ -9,34 +9,34 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 // handleEvent handles an individual MessageSent event
 func (svc *Service) handleEvent(
 	ctx context.Context,
 	chainID *big.Int,
-	event *contracts.BridgeMessageSent,
+	event *bridge.BridgeMessageSent,
 ) error {
 	raw := event.Raw
 
-	log.Infof("event found for signal: %v", common.Hash(event.Signal).Hex())
+	log.Infof("event found for msgHash: %v", common.Hash(event.MsgHash).Hex())
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.
 	if raw.Removed {
-		log.Warnf("event signal was removed: %v", common.Hash(event.Signal).Hex())
+		log.Warnf("event msgHash was removed: %v", common.Hash(event.MsgHash).Hex())
 		return nil
 	}
 
-	if event.Signal == relayer.ZeroHash {
-		log.Warn("Zero signal found. This is unexpected. Returning early")
+	if event.MsgHash == relayer.ZeroHash {
+		log.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil
 	}
 
-	eventStatus, err := svc.eventStatusFromSignal(ctx, event.Message.GasLimit, event.Signal)
+	eventStatus, err := svc.eventStatusFromMsgHash(ctx, event.Message.GasLimit, event.MsgHash)
 	if err != nil {
-		return errors.Wrap(err, "svc.eventStatusFromSignal")
+		return errors.Wrap(err, "svc.eventStatusFromMsgHash")
 	}
 
 	marshaled, err := json.Marshal(event)
@@ -55,7 +55,7 @@ func (svc *Service) handleEvent(
 	}
 
 	if !canProcessMessage(ctx, eventStatus, event.Message.Owner, svc.relayerAddr) {
-		log.Warnf("cant process signal: %v, eventStatus: %v", common.Hash(event.Signal).Hex(), eventStatus)
+		log.Warnf("cant process msgHash: %v, eventStatus: %v", common.Hash(event.MsgHash).Hex(), eventStatus)
 		return nil
 	}
 
@@ -90,7 +90,7 @@ func canProcessMessage(
 	return false
 }
 
-func (svc *Service) eventStatusFromSignal(
+func (svc *Service) eventStatusFromMsgHash(
 	ctx context.Context,
 	gasLimit *big.Int,
 	signal [32]byte,

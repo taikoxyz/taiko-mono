@@ -8,14 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 // subscribe subscribes to latest events
 func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	log.Info("subscribing to new events")
 
-	sink := make(chan *contracts.BridgeMessageSent)
+	sink := make(chan *bridge.BridgeMessageSent)
 
 	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
