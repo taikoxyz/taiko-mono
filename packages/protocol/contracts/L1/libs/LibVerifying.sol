@@ -166,9 +166,9 @@ library LibVerifying {
             count -= 1;
         }
 
-        uint sum = 2 ** count - 1;
+        uint sum = 1 << (count - 1);
+        uint weight = 1 << (count - 1);
         for (uint i = 0; i < count; ++i) {
-            uint weight = (1 << (count - i - 1));
             uint proverReward = (reward * weight) / sum;
 
             if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
@@ -178,6 +178,7 @@ library LibVerifying {
                 proverReward = uint256(1);
             }
             tkoToken.mint(fc.provers[start + i], proverReward);
+            weight = weight >> 1;
         }
     }
 
