@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 func (p *Processor) isProfitable(
-	ctx context.Context, message contracts.IBridgeMessage, proof []byte) (bool, uint64, error) {
+	ctx context.Context, message bridge.IBridgeMessage, proof []byte) (bool, uint64, error) {
 	processingFee := message.ProcessingFee
 
 	if processingFee == nil || processingFee.Cmp(big.NewInt(0)) != 1 {

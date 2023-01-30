@@ -24,4 +24,4 @@ These steps will help you receive testnet tokens from the faucet.
 
 The Twitter API is hitting a rate limit. Because of this, the faucet can’t recognize the Ethereum address in your tweet.
 
-To solve this, you will need to wait and try again. If you continue having problems, you can ask the community to send you testnet funds by sending your address address to the Discord channel: `🪙︱manual-faucet`.
+To solve this, you will need to wait and try again. If you continue having problems, you can ask the community to send you testnet funds by sending your address to the Discord channel: `🪙︱manual-faucet`.
