@@ -25,6 +25,7 @@ const buildProveBlockInputs = (
         header: header,
         prover: prover,
         proofs: [],
+        circuits: [],
     };
 
     // we have mkp + zkp returnign true in testing, so can just push 0xff
@@ -32,6 +33,10 @@ const buildProveBlockInputs = (
     // zkp
     for (let i = 0; i < zkProofsPerBlock + 2; i++) {
         evidence.proofs.push("0xff");
+    }
+
+    for (let i = 0; i < zkProofsPerBlock; i++) {
+        evidence.circuits.push(1);
     }
 
     inputs[0] = encodeEvidence(evidence);

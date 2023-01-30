@@ -1,3 +1,4 @@
+import { AssertionError } from "assert";
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import EventEmitter from "events";
@@ -143,7 +144,10 @@ describe("tokenomics: proofReward", function () {
         let failedAssertion: Error | null = null;
 
         const eventEmitter = new EventEmitter();
-        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
+        eventEmitter.on("error", (e: AssertionError) => {
+            console.error(e.actual);
+            failedAssertion = e;
+        });
 
         const prover = new Prover(taikoL1, l2Provider, proverSigner);
 
