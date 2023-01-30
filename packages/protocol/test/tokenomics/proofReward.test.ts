@@ -1,4 +1,3 @@
-import { AssertionError } from "assert";
 import { expect } from "chai";
 import { BigNumber, ethers } from "ethers";
 import EventEmitter from "events";
@@ -43,7 +42,10 @@ describe("tokenomics: proofReward", function () {
         } = await initTokenomicsFixture());
     });
 
-    afterEach(() => clearInterval(interval));
+    afterEach(() => {
+        clearInterval(interval);
+        l2Provider.off("block");
+    });
 
     it(`proofReward is 1 wei if the prover does not hold any tkoTokens on L1`, async function () {
         const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
@@ -144,8 +146,7 @@ describe("tokenomics: proofReward", function () {
         let failedAssertion: Error | null = null;
 
         const eventEmitter = new EventEmitter();
-        eventEmitter.on("error", (e: AssertionError) => {
-            console.error(e.actual);
+        eventEmitter.on("error", (e: Error) => {
             failedAssertion = e;
         });
 
