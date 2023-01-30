@@ -177,6 +177,7 @@
   onMount(async () => {
     try {
       const config = await getConfig(l1Provider, l1TaikoAddress);
+      if (!Object.hasOwn(config, "enableTokenomics")) return;
       if (config.enableTokenomics) {
         statusIndicators.push({
           statusFunc: getBlockFee,
@@ -208,6 +209,12 @@
 
     try {
       const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
+
+      // TODO: remove. this check prevents this code from running before we deploy next testnet
+      // since the state vars have had large changes.
+      if (stateVars.length < 10) {
+        return;
+      }
 
       statusIndicators.push({
         status: stateVars[4],
@@ -259,18 +266,6 @@
     } catch (e) {
       console.error(e);
     }
-
-    statusIndicators.push({
-      status: 5,
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
-      header: "Fee Base",
-      intervalInMs: 0,
-      colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
-      },
-      tooltip: "The current fee base for proposing and rewarding",
-    });
 
     statusIndicators = statusIndicators;
   });
