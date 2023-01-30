@@ -392,7 +392,9 @@ describe("integration:Bridge", function () {
         it.only("test", async function () {
             const testBadReceiver: TestBadReceiver = await (
                 await ethers.getContractFactory("TestBadReceiver")
-            ).deploy();
+            )
+                .connect(l2Signer)
+                .deploy();
 
             await testBadReceiver.deployed();
 
@@ -417,33 +419,30 @@ describe("integration:Bridge", function () {
             const messageStatus = await l2Bridge.getMessageStatus(msgHash);
             expect(messageStatus).to.be.eq(0);
 
-            let block: Block;
-            expect(
-                ({ block } = await processMessage(
-                    l1SignalService,
-                    l1Bridge,
-                    l2Bridge,
-                    msgHash,
-                    hre.ethers.provider,
-                    headerSync,
-                    message
-                ))
-            )
+            const { tx } = await processMessage(
+                l1SignalService,
+                l1Bridge,
+                l2Bridge,
+                msgHash,
+                hre.ethers.provider,
+                headerSync,
+                message
+            );
+            // messageStatus should be retriable (1)
+            await expect(tx)
                 .to.emit(l2Bridge, "MessageStatusChanged")
-                .withArgs(msgHash, 3);
-            // inconsistency? emits event saying message has failed and status changed
-            // to 3 (FAILED) but upon calling getMessageStatus and printing
-            // it is equal to 2 (DONE)? If this is the case I shouldn't be able
-            // to call retryMessage but it seems to pass with no issue.
+                .withArgs(msgHash, 1);
+
+            // retry with lastAttempt=true, should fail invocation and reach FAILED (3)
+            await l2Bridge.connect(owner).retryMessage(message, true);
 
             const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
-            console.log("messageStatus: " + messageStatus2);
-
-            const tx = await l2Bridge
-                .connect(owner)
-                .retryMessage(message, true);
-            await tx;
-            console.log(await l2Bridge.getMessageStatus(msgHash));
+            expect(messageStatus2).to.be.eq(3);
+            // await expect(
+            //     await l2Bridge.connect(owner).retryMessage(message, true)
+            // )
+            //     .to.emit(l2Bridge, "MessageStatusChanged")
+            //     .withArgs(msgHash, 3);
         });
     });
 
