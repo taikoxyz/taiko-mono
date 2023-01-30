@@ -24,8 +24,9 @@
   export let l2TaikoAddress: string;
   export let l1ExplorerUrl: string;
   export let l2ExplorerUrl: string;
+  export let feeTokenSymbol: string;
 
-  const statusIndicators: StatusIndicatorProp[] = [
+  let statusIndicators: StatusIndicatorProp[] = [
     {
       statusFunc: getLatestSyncedHeader,
       watchStatusFunc: watchHeaderSynced,
@@ -58,17 +59,6 @@
       tooltip:
         "The most recent Layer 1 Header that has been synchronized with the TaikoL2 smart contract. The headers are synchronized with every L2 block.",
     },
-    // {
-    //   statusFunc: getProposers,
-    //   watchStatusFunc: null,
-    //   provider: l1Provider,
-    //   contractAddress: l1TaikoAddress,
-    //   header: "Unique Proposers",
-    //   intervalInMs: 0,
-    //   colorFunc: (value: Status) => {
-    //     return "green";
-    //   },
-    // },
     {
       statusFunc: getPendingTransactions,
       watchStatusFunc: null,
@@ -185,73 +175,93 @@
   ];
 
   onMount(async () => {
-    const config = await getConfig(l1Provider, l1TaikoAddress);
-    if (config.enableTokenomics) {
-      statusIndicators.push({
-        statusFunc: getBlockFee,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Block Fee",
-        intervalInMs: 15000,
-        colorFunc: null,
-        tooltip:
-          "The current fee to propose a block to the TaikoL1 smart contract.",
-      });
+    try {
+      const config = await getConfig(l1Provider, l1TaikoAddress);
+      if (config.enableTokenomics) {
+        statusIndicators.push({
+          statusFunc: getBlockFee,
+          watchStatusFunc: null,
+          provider: l1Provider,
+          contractAddress: l1TaikoAddress,
+          header: "Block Fee",
+          intervalInMs: 15000,
+          colorFunc: null,
+          tooltip:
+            "The current fee to propose a block to the TaikoL1 smart contract.",
+        });
 
-      statusIndicators.push({
-        statusFunc: getProofReward,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Proof Reward",
-        intervalInMs: 15000,
-        colorFunc: null,
-        tooltip:
-          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
-      });
+        statusIndicators.push({
+          statusFunc: getProofReward,
+          watchStatusFunc: null,
+          provider: l1Provider,
+          contractAddress: l1TaikoAddress,
+          header: "Proof Reward",
+          intervalInMs: 15000,
+          colorFunc: null,
+          tooltip:
+            "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
     }
 
-    const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
+    try {
+      const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
+
+      statusIndicators.push({
+        status: stateVars[4],
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Latest Proposal",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip: "The most recent block proposal on TaikoL1 contract.",
+      });
+
+      statusIndicators.push({
+        status: stateVars[9],
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Average Proof Time",
+        intervalInMs: 0,
+        colorFunc: null,
+        tooltip:
+          "The current average proof time, updated when a block is successfully proven.",
+      });
+
+      statusIndicators.push({
+        status: stateVars[9],
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Average Block Time",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current average block time, updated when a block is successfully proposed.",
+      });
+
+      statusIndicators.push({
+        status: `${ethers.utils.parseEther(stateVars[3])} ${feeTokenSymbol}`,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Fee Base",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip: "The current fee base for proposing and rewarding",
+      });
+    } catch (e) {
+      console.error(e);
+    }
 
     statusIndicators.push({
-      status: stateVars[4],
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
-      header: "Latest Proposal",
-      intervalInMs: 0,
-      colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
-      },
-      tooltip: "The most recent block proposal on TaikoL1 contract.",
-    });
-
-    statusIndicators.push({
-      status: stateVars[9],
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
-      header: "Average Proof Time",
-      intervalInMs: 0,
-      colorFunc: null,
-      tooltip:
-        "The current average proof time, updated when a block is successfully proven.",
-    });
-
-    statusIndicators.push({
-      status: stateVars[9],
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
-      header: "Average Block Time",
-      intervalInMs: 0,
-      colorFunc: function (status: Status) {
-        return "green"; // todo: whats green, yellow, red?
-      },
-      tooltip:
-        "The current average block time, updated when a block is successfully proposed.",
-    });
-
-    statusIndicators.push({
-      status: stateVars[3],
+      status: 5,
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Fee Base",
@@ -261,6 +271,8 @@
       },
       tooltip: "The current fee base for proposing and rewarding",
     });
+
+    statusIndicators = statusIndicators;
   });
 </script>
 

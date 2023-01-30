@@ -44,8 +44,10 @@
     try {
       if (status) {
         statusValue = status;
-      } else {
+      } else if (statusFunc) {
         statusValue = await statusFunc(provider, contractAddress);
+      } else {
+        statusValue = 0;
       }
     } catch (e) {
       console.error(e);
