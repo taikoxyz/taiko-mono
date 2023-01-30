@@ -247,12 +247,10 @@ library LibProving {
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
         // TODO(daniel): remove this special address.
-        address specialProver = resolver.resolve("special_prover", true);
-
-        for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
-                // Skip ZKP verification
-            } else {
+        if (msg.sender == resolver.resolve("special_prover", true)) {
+            // Skip ZKP verification
+        } else {
+            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
                         verifierId: string(
