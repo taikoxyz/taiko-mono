@@ -307,7 +307,7 @@ library LibProving {
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
-                revert("L1:specialReject");
+                revert("L1:oracleDiff");
                 // LibUtils.halt(state, true);
                 // return;
             }
