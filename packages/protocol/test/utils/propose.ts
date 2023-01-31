@@ -55,11 +55,16 @@ function newProposerListener(
     l2Provider: ethers.providers.JsonRpcProvider,
     proposer: Proposer,
     taikoL1: TaikoL1,
-    tkoTokenL1: TkoToken
+    tkoTokenL1: TkoToken,
+    maxNumBlocks: number
 ) {
     return async (blockNumber: number) => {
         try {
-            if (blockNumber <= genesisHeight) return;
+            if (
+                blockNumber <= genesisHeight ||
+                blockNumber > genesisHeight + maxNumBlocks
+            )
+                return;
 
             const { proposedEvent } = await onNewL2Block(
                 l2Provider,

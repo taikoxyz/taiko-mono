@@ -73,7 +73,8 @@ describe("tokenomics: proofReward", function () {
                 l2Provider,
                 proposer,
                 taikoL1,
-                tkoTokenL1
+                tkoTokenL1,
+                maxNumBlocks.toNumber()
             )
         );
 
@@ -173,7 +174,8 @@ describe("tokenomics: proofReward", function () {
                 l2Provider,
                 proposer,
                 taikoL1,
-                tkoTokenL1
+                tkoTokenL1,
+                maxNumBlocks.toNumber()
             )
         );
 
@@ -267,7 +269,8 @@ describe("tokenomics: proofReward", function () {
                 l2Provider,
                 randEle<Proposer>(proposers),
                 taikoL1,
-                tkoTokenL1
+                tkoTokenL1,
+                maxNumBlocks.toNumber()
             )
         );
 
