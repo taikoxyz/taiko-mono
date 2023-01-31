@@ -14,9 +14,6 @@
   const l2Provider = new ethers.providers.JsonRpcProvider(
     import.meta.env.VITE_L2_RPC_URL
   );
-  const l2BootnodeProvider = new ethers.providers.JsonRpcProvider(
-    import.meta.env.VITE_L2_BOOTNODE_URL
-  );
 
   const routes = {
     "/": wrap({
@@ -26,9 +23,9 @@
         l1TaikoAddress: import.meta.env.VITE_TAIKO_L1_ADDRESS,
         l2Provider: l2Provider,
         l2TaikoAddress: import.meta.env.VITE_TAIKO_L2_ADDRESS,
-        isTokenomicsEnabled: import.meta.env.VITE_TOKENOMICS_ENABLED,
         l1ExplorerUrl: import.meta.env.VITE_L1_EXPLORER_URL,
         l2ExplorerUrl: import.meta.env.VITE_L2_EXPLORER_URL,
+        feeTokenSymbol: import.meta.env.FEE_TOKEN_SYMBOL || "TKO",
       },
       userData: {},
     }),
