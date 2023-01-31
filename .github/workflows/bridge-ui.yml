@@ -1,0 +1,35 @@
+name: Bridge UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/bridge-ui/**"
+  pull_request:
+    paths:
+      - "packages/bridge-ui/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Bridge UI - Unit Tests
+        working-directory: ./packages/bridge-ui
+        run: pnpm test
+
+      - name: Bridge UI - Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./packages/bridge-ui/coverage
+          flags: bridge-ui

@@ -8,6 +8,7 @@ pragma solidity ^0.8.9;
 
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
+import "../../libs/LibBlockHeader.sol";
 import "../../libs/LibMath.sol";
 import "../IBridge.sol";
 
@@ -20,7 +21,13 @@ library LibBridgeData {
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        uint256[46] __gap;
+        mapping(bytes32 => bool) etherReleased;
+        uint256[45] __gap;
+    }
+
+    struct StatusProof {
+        BlockHeader header;
+        bytes proof;
     }
 
     bytes32 internal constant MESSAGE_HASH_PLACEHOLDER = bytes32(uint256(1));
@@ -30,7 +37,6 @@ library LibBridgeData {
 
     // Note: These events must match the ones defined in Bridge.sol.
     event MessageSent(bytes32 indexed msgHash, IBridge.Message message);
-
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**

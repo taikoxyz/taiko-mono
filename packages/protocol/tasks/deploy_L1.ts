@@ -83,6 +83,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(hre, await AddressManager.init());
 
     const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
+    await utils.waitTx(hre, await ProofVerifier.init(AddressManager.address));
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
@@ -113,17 +114,6 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(
             `${chainId}.tko_token`,
             TkoToken.address
-        )
-    );
-
-    // Config manager
-    const ConfigManager = await utils.deployContract(hre, "ConfigManager");
-    await utils.waitTx(hre, await ConfigManager.init());
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            `${chainId}.config_manager`,
-            ConfigManager.address
         )
     );
 
@@ -196,6 +186,26 @@ export async function deployContracts(hre: any) {
         )
     );
 
+    // PlonkVerifier
+    const PlonkVerifier = await deployPlonkVerifier(hre);
+
+    // Used by ProofVerifier
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            // string(abi.encodePacked("plonk_verifier_", i))
+            `${chainId}.${Buffer.from(
+                ethers.utils.arrayify(
+                    ethers.utils.solidityPack(
+                        ["string", "uint256", "string", "uint16"],
+                        ["plonk_verifier_", 0, "_", 0]
+                    )
+                )
+            ).toString()}`,
+            PlonkVerifier.address
+        )
+    );
+
     // save deployments
     const deployments = {
         network,
@@ -240,6 +250,7 @@ async function deployBaseLibs(hre: any) {
 }
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
+    const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
     const libBridgeRetry = await utils.deployContract(hre, "LibBridgeRetry");
     const libBridgeProcess = await utils.deployContract(
         hre,
@@ -247,6 +258,7 @@ async function deployBridge(hre: any, addressManager: string): Promise<any> {
     );
 
     const Bridge = await utils.deployContract(hre, "Bridge", {
+        LibTrieProof: libTrieProof.address,
         LibBridgeRetry: libBridgeRetry.address,
         LibBridgeProcess: libBridgeProcess.address,
     });
@@ -280,4 +292,12 @@ async function deploySignalSerive(
     await utils.waitTx(hre, await SignalService.init(addressManager));
 
     return SignalService;
+}
+
+async function deployPlonkVerifier(hre: any): Promise<any> {
+    const byteCode = utils.compileYulContract(
+        "../contracts/libs/yul/PlonkVerifier.yulp"
+    );
+
+    return { address: await utils.deployBytecode(hre, byteCode) };
 }

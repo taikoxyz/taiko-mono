@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.9;
 
-import "../../common/ConfigManager.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
@@ -60,10 +59,10 @@ library LibProposing {
         // the tokenomics.
 
         // TODO(daniel): remove this special address.
-        address specialProposer = resolver.resolve("special_proposer", true);
+        address soloProposer = resolver.resolve("solo_proposer", true);
         require(
-            specialProposer == address(0) || specialProposer == msg.sender,
-            "L1:specialProposer"
+            soloProposer == address(0) || soloProposer == msg.sender,
+            "L1:soloProposer"
         );
 
         assert(!LibUtils.isHalted(state));

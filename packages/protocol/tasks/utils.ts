@@ -1,4 +1,6 @@
+import * as childProcess from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as log from "./log";
 
 async function deployContract(
@@ -25,6 +27,74 @@ async function deployContract(
 
     log.debug(`${contractName} deployed at ${deployed.address}`);
     return deployed;
+}
+
+function compileYulContract(contractPath: string): string {
+    const SOLC_COMMAND = path.join(__dirname, "../bin/solc");
+
+    if (!fs.existsSync(SOLC_COMMAND)) {
+        throw new Error(
+            `sloc command not found in ${SOLC_COMMAND}, please run "./scripts/download_solc.sh".`
+        );
+    }
+
+    if (!path.isAbsolute(contractPath)) {
+        contractPath = path.join(__dirname, contractPath);
+    }
+
+    const compile = childProcess.spawnSync(SOLC_COMMAND, [
+        "--yul",
+        "--bin",
+        contractPath,
+    ]);
+
+    let isNextLineByteCode = false;
+    let byteCode = null;
+    for (const line of compile.stdout.toString().split("\n")) {
+        if (isNextLineByteCode) {
+            byteCode = line;
+            break;
+        }
+
+        if (line.includes("Binary representation:")) {
+            isNextLineByteCode = true;
+        }
+    }
+
+    if (!byteCode) {
+        throw new Error(
+            `failed to compile PlonkVerifier, sloc: ${SOLC_COMMAND}, contract: ${contractPath}`
+        );
+    }
+
+    log.debug(
+        `${contractPath} compiled successfully, byte code length: ${byteCode.length}`
+    );
+
+    if (!byteCode.startsWith("0x")) {
+        byteCode = `0x${byteCode}`;
+    }
+
+    return byteCode;
+}
+
+async function deployBytecode(hre: any, byteCode: string): Promise<any> {
+    const [signer] = await hre.ethers.getSigners();
+
+    const tx = await signer.sendTransaction({ data: byteCode });
+    const receipt = await tx.wait();
+
+    log.debug(
+        `PlonkVerifier deploying, tx ${tx.hash}, waiting for confirmations`
+    );
+
+    if (receipt.status !== 1) {
+        throw new Error(
+            `failed to create PlonkVerifier contract, transaction ${tx.hash} reverted`
+        );
+    }
+
+    return receipt.contractAddress;
 }
 
 async function getDeployer(hre: any) {
@@ -72,6 +142,8 @@ async function decode(hre: any, type: any, data: any) {
 
 export {
     deployContract,
+    compileYulContract,
+    deployBytecode,
     getDeployer,
     waitTx,
     getContract,

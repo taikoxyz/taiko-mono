@@ -10,6 +10,7 @@ import "../common/EssentialContract.sol";
 import "./IBridge.sol";
 import "./libs/LibBridgeData.sol";
 import "./libs/LibBridgeProcess.sol";
+import "./libs/LibBridgeRelease.sol";
 import "./libs/LibBridgeRetry.sol";
 import "./libs/LibBridgeSend.sol";
 import "./libs/LibBridgeStatus.sol";
@@ -65,6 +66,19 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
+    function releaseEther(
+        IBridge.Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
+        return
+            LibBridgeRelease.releaseEther({
+                state: state,
+                resolver: AddressResolver(this),
+                message: message,
+                proof: proof
+            });
+    }
+
     function processMessage(
         Message calldata message,
         bytes calldata proof
@@ -113,6 +127,20 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
+    function isMessageFailed(
+        bytes32 msgHash,
+        uint256 destChainId,
+        bytes calldata proof
+    ) public view virtual override returns (bool) {
+        return
+            LibBridgeStatus.isMessageFailed({
+                resolver: AddressResolver(this),
+                msgHash: msgHash,
+                destChainId: destChainId,
+                proof: proof
+            });
+    }
+
     function getMessageStatus(
         bytes32 msgHash
     ) public view virtual returns (LibBridgeStatus.MessageStatus) {
@@ -128,7 +156,9 @@ contract Bridge is EssentialContract, IBridge {
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    function hashMessage(Message memory message) public pure returns (bytes32) {
+    function hashMessage(
+        Message calldata message
+    ) public pure override returns (bytes32) {
         return LibBridgeData.hashMessage(message);
     }
 

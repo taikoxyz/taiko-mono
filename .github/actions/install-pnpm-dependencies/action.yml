@@ -1,5 +1,5 @@
-name: 'Set Up Protocol'
-description: 'Set up protocol dependencies'
+name: "Install pnpm dependencies"
+description: "Install pnpm dependencies"
 
 runs:
   using: "composite"
