@@ -50,5 +50,6 @@ contract TestTaikoL2 is TaikoL2 {
         config.initialUncleDelay = 1 minutes;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
+        config.enableOracleProver = false;
     }
 }
