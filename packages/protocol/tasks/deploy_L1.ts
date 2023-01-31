@@ -137,6 +137,15 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${chainId}.taiko`, TaikoL1.address)
     );
 
+    // Used by TkoToken
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            `${chainId}.proto_broker`,
+            TaikoL1.address
+        )
+    );
+
     // Bridge
     const Bridge = await deployBridge(hre, AddressManager.address);
 
