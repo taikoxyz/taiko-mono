@@ -18,8 +18,9 @@ library LibZKP {
         address prover,
         bytes32 txListHash
     ) internal view returns (bool verified) {
-        // TODO(david):public input is assembled in client software for testing purposes right now, move this part of logic
-        //    to here.
+        // TODO(david):public input is assembled in client software
+        // for testing purposes right now, move this part of logic
+        // here in this contract.
         (verified, ) = plonkVerifier.staticcall(zkproof);
     }
 }
