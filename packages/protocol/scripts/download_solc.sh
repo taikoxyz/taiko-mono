@@ -5,12 +5,12 @@ set -e
 mkdir -p bin && cd bin
 
 if [ -f "solc" ]; then
-    exit 0
+  exit 0
 fi
 
 VERSION=v0.8.9
 
-if [[ "$(uname)" = 'Darwin' ]; then
+if [ "$(uname)" = 'Darwin' ]; then
   SOLC_FILE_NAME=solc-macos
 elif [ "$(uname)" = 'Linux' ]; then
   SOLC_FILE_NAME=solc-static-linux

@@ -50,6 +50,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableProofValidation = false;
+        config.enableOracleProver = false;
     }
 
     function verifyZKP(

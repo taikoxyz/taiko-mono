@@ -41,6 +41,7 @@ library TaikoData {
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableProofValidation;
+        bool enableOracleProver;
     }
 
     struct BlockMetadata {

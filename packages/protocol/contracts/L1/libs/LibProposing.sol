@@ -59,10 +59,10 @@ library LibProposing {
         // the tokenomics.
 
         // TODO(daniel): remove this special address.
-        address specialProposer = resolver.resolve("special_proposer", true);
+        address soloProposer = resolver.resolve("solo_proposer", true);
         require(
-            specialProposer == address(0) || specialProposer == msg.sender,
-            "L1:specialProposer"
+            soloProposer == address(0) || soloProposer == msg.sender,
+            "L1:soloProposer"
         );
 
         assert(!LibUtils.isHalted(state));
