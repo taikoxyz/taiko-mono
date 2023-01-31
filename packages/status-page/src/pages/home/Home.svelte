@@ -14,17 +14,19 @@
   import { getQueuedTransactions } from "../../utils/getQueuedTransactions";
   import { onMount } from "svelte";
   import { getProofReward } from "../../utils/getProofReward";
-  import type Status from "../../domain/status";
+  import type { Status, StatusIndicatorProp } from "../../domain/status";
+  import { getConfig } from "../../utils/getConfig";
+  import { getStateVariables } from "../../utils/getStateVariables";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
   export let l2Provider: ethers.providers.JsonRpcProvider;
   export let l2TaikoAddress: string;
-  export let isTokenomicsEnabled: boolean = false;
   export let l1ExplorerUrl: string;
   export let l2ExplorerUrl: string;
+  export let feeTokenSymbol: string;
 
-  const statusIndicators = [
+  let statusIndicators: StatusIndicatorProp[] = [
     {
       statusFunc: getLatestSyncedHeader,
       watchStatusFunc: watchHeaderSynced,
@@ -57,17 +59,6 @@
       tooltip:
         "The most recent Layer 1 Header that has been synchronized with the TaikoL2 smart contract. The headers are synchronized with every L2 block.",
     },
-    // {
-    //   statusFunc: getProposers,
-    //   watchStatusFunc: null,
-    //   provider: l1Provider,
-    //   contractAddress: l1TaikoAddress,
-    //   header: "Unique Proposers",
-    //   intervalInMs: 0,
-    //   colorFunc: (value: Status) => {
-    //     return "green";
-    //   },
-    // },
     {
       statusFunc: getPendingTransactions,
       watchStatusFunc: null,
@@ -178,36 +169,105 @@
       colorFunc: (value: Status) => {
         return "green";
       },
-      tooltip: "The current recommended gas price for a transaction on Layer 2.",
+      tooltip:
+        "The current recommended gas price for a transaction on Layer 2.",
     },
   ];
 
-  onMount(() => {
-    if (isTokenomicsEnabled) {
+  onMount(async () => {
+    try {
+      const config = await getConfig(l1Provider, l1TaikoAddress);
+      if (!Object.hasOwn(config, "enableTokenomics")) return;
+      if (config.enableTokenomics) {
+        statusIndicators.push({
+          statusFunc: getBlockFee,
+          watchStatusFunc: null,
+          provider: l1Provider,
+          contractAddress: l1TaikoAddress,
+          header: "Block Fee",
+          intervalInMs: 15000,
+          colorFunc: null,
+          tooltip:
+            "The current fee to propose a block to the TaikoL1 smart contract.",
+        });
+
+        statusIndicators.push({
+          statusFunc: getProofReward,
+          watchStatusFunc: null,
+          provider: l1Provider,
+          contractAddress: l1TaikoAddress,
+          header: "Proof Reward",
+          intervalInMs: 15000,
+          colorFunc: null,
+          tooltip:
+            "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
+
+      // TODO: remove. this check prevents this code from running before we deploy next testnet
+      // since the state vars have had large changes.
+      if (stateVars.length < 10) {
+        return;
+      }
+
       statusIndicators.push({
-        statusFunc: getBlockFee,
-        watchStatusFunc: null,
+        status: stateVars[4],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
-        header: "Block Fee",
-        intervalInMs: 15000,
-        colorFunc: null,
-        tooltip:
-          "The current fee to propose a block to the TaikoL1 smart contract.",
+        header: "Latest Proposal",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip: "The most recent block proposal on TaikoL1 contract.",
       });
 
       statusIndicators.push({
-        statusFunc: getProofReward,
-        watchStatusFunc: null,
+        status: stateVars[9],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
-        header: "Proof Reward",
-        intervalInMs: 15000,
+        header: "Average Proof Time",
+        intervalInMs: 0,
         colorFunc: null,
         tooltip:
-          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+          "The current average proof time, updated when a block is successfully proven.",
       });
+
+      statusIndicators.push({
+        status: stateVars[9],
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Average Block Time",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current average block time, updated when a block is successfully proposed.",
+      });
+
+      statusIndicators.push({
+        status: `${ethers.utils.parseEther(stateVars[3])} ${feeTokenSymbol}`,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Fee Base",
+        intervalInMs: 0,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip: "The current fee base for proposing and rewarding",
+      });
+    } catch (e) {
+      console.error(e);
     }
+
+    statusIndicators = statusIndicators;
   });
 </script>
 
@@ -228,6 +288,7 @@
       onClick={statusIndicator.onClick}
       intervalInMs={statusIndicator.intervalInMs}
       tooltip={statusIndicator.tooltip}
+      status={statusIndicator.status}
     />
   {/each}
 </div>
