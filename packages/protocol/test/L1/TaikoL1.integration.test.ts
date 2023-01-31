@@ -19,6 +19,8 @@ import {
 import { sendTinyEtherToZeroAddress } from "../utils/seed";
 import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
 import { deployTaikoL2 } from "../utils/taikoL2";
+import { SimpleChannel } from "channel-ts";
+import { sleepUntilBlockIsVerifiable, verifyBlocks } from "../utils/verify";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -68,6 +70,65 @@ describe("integration:TaikoL1", function () {
                 taikoL1.address
             )
         ).wait(1);
+    });
+
+    describe("getLatestSyncedHeader", function () {
+        it.only("iterates through a round of blockHashHistory and is still able to get latestSyncedHeader", async function () {
+            const { blockHashHistory, maxNumBlocks } =
+                await taikoL1.getConfig();
+            const chan = new SimpleChannel<number>();
+
+            let numBlocksVerified: number = 0;
+            let blocks: number = 0;
+            /* eslint-disable-next-line */
+            l2Provider.on("block", function (blockNumber: number) {
+                if (blocks >= maxNumBlocks.toNumber()) {
+                    chan.close();
+                    l2Provider.off("block");
+                    return;
+                }
+                blocks++;
+                chan.send(blockNumber);
+            });
+
+            /* eslint-disable-next-line */
+            for await (const blockNumber of chan) {
+                if (numBlocksVerified > blockHashHistory.toNumber() + 1) {
+                    return;
+                }
+                const { proposedEvent } = await commitAndProposeLatestBlock(
+                    taikoL1,
+                    l1Signer,
+                    l2Provider,
+                    0
+                );
+
+                const provenEvent = await proveBlock(
+                    taikoL1,
+                    l2Provider,
+                    await l1Signer.getAddress(),
+                    proposedEvent.args.id.toNumber(),
+                    blockNumber,
+                    proposedEvent.args.meta as any as BlockMetadata
+                );
+
+                await sleepUntilBlockIsVerifiable(
+                    taikoL1,
+                    proposedEvent.args.id.toNumber(),
+                    provenEvent.args.provenAt.toNumber()
+                );
+
+                const verifiedEvent = await verifyBlocks(taikoL1, 1);
+                expect(verifiedEvent).not.to.be.undefined;
+
+                const latestSyncedHeader =
+                    await taikoL1.getLatestSyncedHeader();
+                expect(latestSyncedHeader).not.to.be.eq(
+                    ethers.constants.HashZero
+                );
+                numBlocksVerified++;
+            }
+        });
     });
 
     describe("isCommitValid()", async function () {
