@@ -93,7 +93,7 @@ describe("TaikoL1", function () {
             const constants = await taikoL1.getConfig();
             const maxNumBlocks = constants[1];
             const delay = await taikoL1.getUncleProofDelay(maxNumBlocks.mul(2));
-            const initialUncleDelay = 60;
+            const initialUncleDelay = 1;
             expect(delay).to.be.eq(initialUncleDelay);
         });
 
