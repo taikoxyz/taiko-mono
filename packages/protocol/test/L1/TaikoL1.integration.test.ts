@@ -10,6 +10,7 @@ import {
     generateCommitHash,
 } from "../utils/commit";
 import { buildProposeBlockInputs } from "../utils/propose";
+import { proveBlock } from "../utils/prove";
 import {
     getDefaultL2Signer,
     getL1Provider,
@@ -58,6 +59,15 @@ describe("integration:TaikoL1", function () {
             `${l2ChainId}.taiko`,
             taikoL2.address
         );
+
+        const { chainId } = await l1Provider.getNetwork();
+
+        await (
+            await l1AddressManager.setAddress(
+                `${chainId}.proof_verifier`,
+                taikoL1.address
+            )
+        ).wait(1);
     });
 
     describe("isCommitValid()", async function () {
@@ -124,6 +134,44 @@ describe("integration:TaikoL1", function () {
             expect(proposedBlock.proposer).to.be.eq(
                 await l1Signer.getAddress()
             );
+        });
+    });
+
+    describe("getForkChoice", function () {
+        it("returns no empty fork choice for un-proposed, un-proven and un-verified block", async function () {
+            const forkChoice = await taikoL1.getForkChoice(
+                1,
+                ethers.constants.HashZero
+            );
+            expect(forkChoice.blockHash).to.be.eq(ethers.constants.HashZero);
+            expect(forkChoice.provenAt).to.be.eq(0);
+        });
+
+        it("returns populated data for submitted fork choice", async function () {
+            const { proposedEvent, block } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+
+            expect(proposedEvent).not.to.be.undefined;
+            const proveEvent = await proveBlock(
+                taikoL1,
+                l2Provider,
+                await l1Signer.getAddress(),
+                proposedEvent.args.id.toNumber(),
+                block.number,
+                proposedEvent.args.meta as any as BlockMetadata
+            );
+            expect(proveEvent).not.to.be.undefined;
+
+            const forkChoice = await taikoL1.getForkChoice(
+                proposedEvent.args.id.toNumber(),
+                block.parentHash
+            );
+            expect(forkChoice.blockHash).to.be.eq(block.hash);
+            expect(forkChoice.provers[0]).to.be.eq(await l1Signer.getAddress());
         });
     });
     describe("commitBlock() -> proposeBlock() integration", async function () {

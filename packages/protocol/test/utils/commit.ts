@@ -69,7 +69,7 @@ const commitAndProposeLatestBlock = async (
     const proposedEvent: BlockProposedEvent = (
         proposeReceipt.events as any[]
     ).find((e) => e.event === "BlockProposed");
-    return { proposedEvent, proposeReceipt, commitReceipt, commit };
+    return { proposedEvent, proposeReceipt, commitReceipt, commit, block };
 };
 
 export { generateCommitHash, commitBlock, commitAndProposeLatestBlock };
