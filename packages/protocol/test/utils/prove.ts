@@ -1,14 +1,9 @@
-import { expect } from "chai";
 import { ethers } from "ethers";
-import { EventEmitter } from "stream";
 import { TaikoL1 } from "../../typechain";
-import { BlockProposedEvent } from "../../typechain/LibProposing";
 import { BlockProvenEvent } from "../../typechain/LibProving";
 import { BlockMetadata } from "./block_metadata";
 import { encodeEvidence } from "./encoding";
-import { BLOCK_PROVEN_EVENT } from "./event";
 import Evidence from "./evidence";
-import Prover from "./prover";
 import { BlockHeader, getBlockHeader } from "./rpc";
 
 const buildProveBlockInputs = (
@@ -71,52 +66,4 @@ const proveBlock = async (
     return event;
 };
 
-function newProverListener(
-    prover: Prover,
-    taikoL1: TaikoL1,
-    eventEmitter: EventEmitter
-) {
-    return async (proposedEvent: BlockProposedEvent, blockNumber: number) => {
-        try {
-            const { args } = await prover.prove(
-                await prover.getSigner().getAddress(),
-                proposedEvent.args.id.toNumber(),
-                blockNumber,
-                proposedEvent.args.meta as any as BlockMetadata
-            );
-            const { blockHash, id: blockId, parentHash, provenAt } = args;
-
-            const proposedBlock = await taikoL1.getProposedBlock(
-                proposedEvent.args.id.toNumber()
-            );
-
-            const forkChoice = await taikoL1.getForkChoice(
-                blockId.toNumber(),
-                parentHash
-            );
-
-            expect(forkChoice.blockHash).to.be.eq(blockHash);
-
-            expect(forkChoice.provers[0]).to.be.eq(
-                await prover.getSigner().getAddress()
-            );
-
-            const provedBlock = {
-                proposedAt: proposedBlock.proposedAt.toNumber(),
-                provenAt: provenAt.toNumber(),
-                id: proposedEvent.args.id.toNumber(),
-                parentHash: parentHash,
-                blockHash: blockHash,
-                forkChoice: forkChoice,
-                deposit: proposedBlock.deposit,
-                proposer: proposedBlock.proposer,
-            };
-
-            eventEmitter.emit(BLOCK_PROVEN_EVENT, provedBlock);
-        } catch (e) {
-            eventEmitter.emit("error", e);
-        }
-    };
-}
-
-export { buildProveBlockInputs, proveBlock, newProverListener };
+export { buildProveBlockInputs, proveBlock };

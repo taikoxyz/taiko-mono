@@ -1,9 +1,12 @@
 import { expect } from "chai";
-import { BigNumber } from "ethers";
+import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
 import { TaikoL1, TkoToken } from "../../typechain";
 import { BlockVerifiedEvent } from "../../typechain/LibVerifying";
-import { BlockInfo } from "./block_metadata";
+import { BlockInfo, BlockMetadata } from "./block_metadata";
+import { onNewL2Block } from "./onNewL2Block";
+import Proposer from "./proposer";
+import Prover from "./prover";
 import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
@@ -99,4 +102,86 @@ async function verifyBlockAndAssert(
     return { newProofReward };
 }
 
-export { verifyBlocks, verifyBlockAndAssert, sleepUntilBlockIsVerifiable };
+async function commitProposeProveAndVerify(
+    taikoL1: TaikoL1,
+    l2Provider: ethersLib.providers.JsonRpcProvider,
+    blockNumber: number,
+    proposer: Proposer,
+    tkoTokenL1: TkoToken,
+    prover: Prover
+) {
+    console.log("proposing", blockNumber);
+    const { proposedEvent } = await onNewL2Block(
+        l2Provider,
+        blockNumber,
+        proposer,
+        taikoL1,
+        proposer.getSigner(),
+        tkoTokenL1
+    );
+    expect(proposedEvent).not.to.be.undefined;
+
+    console.log("proving", blockNumber);
+    const provedEvent = await prover.prove(
+        await prover.getSigner().getAddress(),
+        proposedEvent.args.id.toNumber(),
+        blockNumber,
+        proposedEvent.args.meta as any as BlockMetadata
+    );
+
+    const { args } = provedEvent;
+    const { blockHash, id: blockId, parentHash, provenAt } = args;
+
+    const proposedBlock = await taikoL1.getProposedBlock(
+        proposedEvent.args.id.toNumber()
+    );
+
+    const forkChoice = await taikoL1.getForkChoice(
+        blockId.toNumber(),
+        parentHash
+    );
+
+    expect(forkChoice.blockHash).to.be.eq(blockHash);
+
+    expect(forkChoice.provers[0]).to.be.eq(
+        await prover.getSigner().getAddress()
+    );
+
+    const blockInfo = {
+        proposedAt: proposedBlock.proposedAt.toNumber(),
+        provenAt: provenAt.toNumber(),
+        id: proposedEvent.args.id.toNumber(),
+        parentHash: parentHash,
+        blockHash: blockHash,
+        forkChoice: forkChoice,
+        deposit: proposedBlock.deposit,
+        proposer: proposedBlock.proposer,
+    };
+
+    // make sure block is verifiable before we processe
+    await sleepUntilBlockIsVerifiable(
+        taikoL1,
+        blockInfo.id,
+        blockInfo.provenAt
+    );
+
+    const isVerifiable = await taikoL1.isBlockVerifiable(
+        blockInfo.id,
+        blockInfo.parentHash
+    );
+    expect(isVerifiable).to.be.eq(true);
+
+    console.log("verifying", blockNumber);
+    const verifyEvent = await verifyBlocks(taikoL1, 1);
+    expect(verifyEvent).not.to.be.eq(undefined);
+    console.log("verified", blockNumber);
+
+    return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
+}
+
+export {
+    verifyBlocks,
+    verifyBlockAndAssert,
+    sleepUntilBlockIsVerifiable,
+    commitProposeProveAndVerify,
+};
