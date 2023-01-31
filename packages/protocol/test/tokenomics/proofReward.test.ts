@@ -81,8 +81,10 @@ describe("tokenomics: proofReward", function () {
             BLOCK_PROPOSED_EVENT,
             newProverListener(prover, taikoL1, eventEmitter)
         );
-
-        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
+        eventEmitter.on("error", (e: Error) => {
+            console.error(e);
+            failedAssertion = e;
+        });
 
         let blocksVerified: number = 0;
 
@@ -147,6 +149,7 @@ describe("tokenomics: proofReward", function () {
 
         const eventEmitter = new EventEmitter();
         eventEmitter.on("error", (e: Error) => {
+            console.error(e);
             failedAssertion = e;
         });
 
@@ -183,7 +186,7 @@ describe("tokenomics: proofReward", function () {
         let blocksVerified: number = 0;
 
         eventEmitter.on(BLOCK_PROVEN_EVENT, async function (block: BlockInfo) {
-            console.log("verifying blocks", block);
+            console.log("verifying blocks", block.id);
 
             const { newProofReward } = await verifyBlockAndAssert(
                 taikoL1,
@@ -194,6 +197,7 @@ describe("tokenomics: proofReward", function () {
             );
             lastProofReward = newProofReward;
             blocksVerified++;
+            console.log("verified block", block.id);
         });
 
         while (blocksVerified < maxNumBlocks.toNumber() - 1) {
@@ -230,7 +234,10 @@ describe("tokenomics: proofReward", function () {
         const eventEmitter = new EventEmitter();
 
         let failedAssertion: Error | null = null;
-        eventEmitter.on("error", (e: Error) => (failedAssertion = e));
+        eventEmitter.on("error", (e: Error) => {
+            console.error(e);
+            failedAssertion = e;
+        });
         for (const prover of provers) {
             await (
                 await tkoTokenL1
@@ -275,7 +282,7 @@ describe("tokenomics: proofReward", function () {
         eventEmitter.on(
             BLOCK_PROVEN_EVENT,
             async function (provedBlock: BlockInfo) {
-                console.log("proving block", provedBlock);
+                console.log("verifying", provedBlock.id);
 
                 const { newProofReward } = await verifyBlockAndAssert(
                     taikoL1,
@@ -286,6 +293,8 @@ describe("tokenomics: proofReward", function () {
                 );
                 lastProofReward = newProofReward;
                 blocksVerified++;
+
+                console.log("verified", provedBlock.id);
             }
         );
 
