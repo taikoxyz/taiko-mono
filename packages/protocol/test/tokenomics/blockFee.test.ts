@@ -1,7 +1,9 @@
 import { expect } from "chai";
+import { SimpleChannel } from "channel-ts";
 import { BigNumber, ethers } from "ethers";
 import { AddressManager, TaikoL1 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
+import blockListener from "../utils/blockListener";
 import { onNewL2Block } from "../utils/onNewL2Block";
 import Proposer from "../utils/proposer";
 
@@ -18,6 +20,7 @@ describe("tokenomics: blockFee", function () {
     let tkoTokenL1: TestTkoToken;
     let l1AddressManager: AddressManager;
     let interval: any;
+    let chan: SimpleChannel<number>;
 
     beforeEach(async () => {
         ({
@@ -30,6 +33,7 @@ describe("tokenomics: blockFee", function () {
             l1AddressManager,
             interval,
         } = await initTokenomicsFixture());
+        chan = new SimpleChannel<number>();
     });
 
     afterEach(() => clearInterval(interval));
@@ -89,45 +93,36 @@ describe("tokenomics: blockFee", function () {
 
         let lastProofReward = BigNumber.from(0);
 
-        let hasFailedAssertions: boolean = false;
-        let blocksProposed: number = 0;
-        // every time a l2 block is created, we should try to propose it on L1.
-        l2Provider.on("block", async (blockNumber: number) => {
-            if (blockNumber <= genesisHeight) return;
-            try {
-                const { newProposerTkoBalance, newBlockFee, newProofReward } =
-                    await onNewL2Block(
-                        l2Provider,
-                        blockNumber,
-                        proposer,
-                        taikoL1,
-                        proposerSigner,
-                        tkoTokenL1
-                    );
+        l2Provider.on(
+            "block",
+            blockListener(
+                chan,
+                genesisHeight,
+                l2Provider,
+                maxNumBlocks.toNumber()
+            )
+        );
+        /* eslint-disable-next-line */
+        for await (const blockNumber of chan) {
+            const { newProposerTkoBalance, newBlockFee, newProofReward } =
+                await onNewL2Block(
+                    l2Provider,
+                    blockNumber,
+                    proposer,
+                    taikoL1,
+                    proposerSigner,
+                    tkoTokenL1
+                );
 
-                expect(
-                    newProposerTkoBalance.lt(lastProposerTkoBalance)
-                ).to.be.eq(true);
-                expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
-                expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
+            expect(newProposerTkoBalance.lt(lastProposerTkoBalance)).to.be.eq(
+                true
+            );
+            expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
+            expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
 
-                lastBlockFee = newBlockFee;
-                lastProofReward = newProofReward;
-                lastProposerTkoBalance = newProposerTkoBalance;
-                blocksProposed++;
-            } catch (e) {
-                hasFailedAssertions = true;
-                throw e;
-            }
-        });
-
-        // wait until one roudn of blocks are proposed, then expect none of them to have
-        // failed their assertions.
-        while (blocksProposed < maxNumBlocks.toNumber() - 1) {
-            await sleep(1 * 1000);
+            lastBlockFee = newBlockFee;
+            lastProofReward = newProofReward;
+            lastProposerTkoBalance = newProposerTkoBalance;
         }
-        l2Provider.off("block");
-
-        expect(hasFailedAssertions).to.be.eq(false);
     });
 });

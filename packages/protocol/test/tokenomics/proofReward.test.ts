@@ -225,8 +225,13 @@ describe("tokenomics: proofReward", function () {
         for await (const blockNumber of chan) {
             const prover = randEle<Prover>(provers);
             const proposer = randEle<Proposer>(proposers);
-            const proverTkoBalanceBeforeVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+            const proverTkoBalanceBefore = await tkoTokenL1.balanceOf(
+                await prover.getSigner().getAddress()
+            );
+
+            const proposerTkoBalanceBefore = await tkoTokenL1.balanceOf(
+                await proposer.getSigner().getAddress()
+            );
 
             await commitProposeProveAndVerify(
                 taikoL1,
@@ -237,14 +242,19 @@ describe("tokenomics: proofReward", function () {
                 prover
             );
 
-            const proverTkoBalanceAfterVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+            const proverTkoBalanceAfter = await tkoTokenL1.balanceOf(
+                await prover.getSigner().getAddress()
+            );
 
-            expect(
-                proverTkoBalanceAfterVerification.gt(
-                    proverTkoBalanceBeforeVerification
-                )
-            ).to.be.eq(true);
+            const proposerTkoBalanceAfter = await tkoTokenL1.balanceOf(
+                await proposer.getSigner().getAddress()
+            );
+
+            expect(proposerTkoBalanceAfter.lt(proposerTkoBalanceBefore));
+
+            expect(proverTkoBalanceAfter.gt(proverTkoBalanceBefore)).to.be.eq(
+                true
+            );
         }
     });
 });

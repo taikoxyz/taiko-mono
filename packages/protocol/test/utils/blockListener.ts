@@ -1,4 +1,4 @@
-import { SimpleChannel } from "channel-ts";
+import type { SimpleChannel } from "channel-ts";
 import { ethers } from "ethers";
 
 const blockListener = function (
