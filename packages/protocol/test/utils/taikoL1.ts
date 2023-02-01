@@ -22,8 +22,8 @@ async function deployTaikoL1(
         await ethers.getContractFactory("LibProposing")
     ).deploy();
 
-    const libProving = await (
-        await ethers.getContractFactory("LibProving", {
+    const testLibProving = await (
+        await ethers.getContractFactory("TestLibProving", {
             libraries: {
                 LibReceiptDecoder: libReceiptDecoder.address,
                 LibTxDecoder: libTxDecoder.address,
@@ -42,7 +42,7 @@ async function deployTaikoL1(
                 libraries: {
                     LibVerifying: libVerifying.address,
                     LibProposing: libProposing.address,
-                    LibProving: libProving.address,
+                    LibProving: testLibProving.address,
                 },
             }
         )

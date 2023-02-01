@@ -8,10 +8,8 @@ const blockListener = function (
     maxNumBlocks: number
 ) {
     return function (blockNumber: number) {
-        if (
-            blockNumber < genesisHeight ||
-            blockNumber > genesisHeight + maxNumBlocks
-        ) {
+        if (blockNumber < genesisHeight) return;
+        if (blockNumber > genesisHeight + (maxNumBlocks - 1)) {
             chan.close();
             l2Provider.off("block");
             return;
