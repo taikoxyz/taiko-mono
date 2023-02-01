@@ -436,8 +436,13 @@ describe("integration:Bridge", function () {
             // retry with lastAttempt=true, should fail invocation and reach FAILED (3)
             // connect to owner so that it doesn't read B:denied
             // called on l2Bridge where message is received so it doesn't reach B:notFound
-            await expect(l2Bridge.connect(owner).retryMessage(message, true)).to
-                .not.be.reverted;
+            expect(
+                await (
+                    await l2Bridge.connect(owner).retryMessage(message, true)
+                ).wait()
+            )
+                .to.emit(l2Bridge, "MessageStatusChanged")
+                .withArgs(msgHash, 3);
             // according to this block its not reverted?
 
             const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
