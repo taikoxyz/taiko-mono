@@ -44,10 +44,9 @@ describe("integration:TaikoL1", function () {
             proposerSigner,
             proverSigner,
             interval,
+            chan,
+            config,
         } = await initIntegrationFixture(false, false));
-
-        config = await taikoL1.getConfig();
-
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
@@ -58,8 +57,6 @@ describe("integration:TaikoL1", function () {
         );
 
         prover = new Prover(taikoL1, l2Provider, proverSigner);
-
-        chan = new SimpleChannel<number>();
     });
 
     afterEach(() => {

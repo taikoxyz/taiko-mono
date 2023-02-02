@@ -21,6 +21,8 @@ describe("tokenomics: blockFee", function () {
     let l1AddressManager: AddressManager;
     let interval: any;
     let chan: SimpleChannel<number>;
+    /* eslint-disable-next-line */
+    let config: Awaited<ReturnType<TaikoL1["getConfig"]>>;
 
     beforeEach(async () => {
         ({
@@ -32,8 +34,9 @@ describe("tokenomics: blockFee", function () {
             tkoTokenL1,
             l1AddressManager,
             interval,
+            chan,
+            config,
         } = await initIntegrationFixture(true, true));
-        chan = new SimpleChannel<number>();
     });
 
     afterEach(() => clearInterval(interval));
@@ -46,10 +49,8 @@ describe("tokenomics: blockFee", function () {
     });
 
     it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
-        const { bootstrapDiscountHalvingPeriod } = await taikoL1.getConfig();
-
         const iterations: number = 5;
-        const period: number = bootstrapDiscountHalvingPeriod
+        const period: number = config.bootstrapDiscountHalvingPeriod
             .mul(1000)
             .toNumber();
 
@@ -64,14 +65,12 @@ describe("tokenomics: blockFee", function () {
     });
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
-        const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
-
         // set up a proposer to continually propose new blocks
         const proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
-            commitConfirmations.toNumber(),
-            maxNumBlocks.toNumber(),
+            config.commitConfirmations.toNumber(),
+            config.maxNumBlocks.toNumber(),
             0,
             proposerSigner
         );
@@ -99,7 +98,7 @@ describe("tokenomics: blockFee", function () {
                 chan,
                 genesisHeight,
                 l2Provider,
-                maxNumBlocks.toNumber()
+                config.maxNumBlocks.toNumber()
             )
         );
         /* eslint-disable-next-line */

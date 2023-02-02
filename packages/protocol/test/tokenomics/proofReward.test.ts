@@ -35,9 +35,9 @@ describe("tokenomics: proofReward", function () {
             genesisHeight,
             tkoTokenL1,
             interval,
+            chan,
+            config,
         } = await initIntegrationFixture(true, true));
-        chan = new SimpleChannel<number>();
-        config = await taikoL1.getConfig();
     });
 
     afterEach(() => {

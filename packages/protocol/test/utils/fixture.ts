@@ -6,6 +6,7 @@ import { deployTaikoL2 } from "./taikoL2";
 import deployTkoToken from "./tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
+import { SimpleChannel } from "channel-ts";
 
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
@@ -94,6 +95,8 @@ async function initIntegrationFixture(
     });
     await tx.wait(1);
 
+    const chan = new SimpleChannel<number>();
+    const config = await taikoL1.getConfig();
     return {
         taikoL1,
         taikoL2,
@@ -108,6 +111,8 @@ async function initIntegrationFixture(
         tkoTokenL1,
         l1AddressManager,
         interval,
+        chan,
+        config,
     };
 }
 
