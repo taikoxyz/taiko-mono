@@ -1,3 +1,4 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
@@ -22,7 +23,7 @@ import { Block, getBlockHeader } from "../utils/rpc";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 
 describe("integration:Bridge", function () {
-    let owner: any;
+    let owner: SignerWithAddress;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
     let l2Signer: ethersLib.Signer;
     let srcChainId: number;
@@ -400,12 +401,12 @@ describe("integration:Bridge", function () {
 
             const m: Message = {
                 id: 1,
-                sender: owner.address,
+                sender: await l2Signer.getAddress(),
                 srcChainId: srcChainId,
                 destChainId: enabledDestChainId,
-                owner: owner.address,
+                owner: await l2Signer.getAddress(),
                 to: testBadReceiver.address,
-                refundAddress: owner.address,
+                refundAddress: await l2Signer.getAddress(),
                 depositValue: 1,
                 callValue: 10,
                 processingFee: 1,
@@ -419,7 +420,8 @@ describe("integration:Bridge", function () {
             const messageStatus = await l2Bridge.getMessageStatus(msgHash);
             expect(messageStatus).to.be.eq(0);
 
-            const { tx } = await processMessage(
+            // messageStatus should be retriable (1)
+            const { messageStatusChangedEvent } = await processMessage(
                 l1SignalService,
                 l1Bridge,
                 l2Bridge,
@@ -428,30 +430,20 @@ describe("integration:Bridge", function () {
                 headerSync,
                 message
             );
-            // messageStatus should be retriable (1)
-            await expect(tx)
-                .to.emit(l2Bridge, "MessageStatusChanged")
-                .withArgs(msgHash, 1);
+            expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
+            expect(messageStatusChangedEvent.args.status).to.be.eq(1);
 
             // retry with lastAttempt=true, should fail invocation and reach FAILED (3)
-            // connect to owner so that it doesn't read B:denied
             // called on l2Bridge where message is received so it doesn't reach B:notFound
-            expect(
-                await (
-                    await l2Bridge.connect(owner).retryMessage(message, true)
-                ).wait()
-            )
-                .to.emit(l2Bridge, "MessageStatusChanged")
-                .withArgs(msgHash, 3);
+            const tx = await l2Bridge
+                .connect(l2Signer)
+                .retryMessage(message, true);
+            const receipt = await tx.wait();
+            expect(receipt.status).to.be.eq(1);
             // according to this block its not reverted?
 
             const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
             expect(messageStatus2).to.be.eq(3);
-            // await expect(
-            //     await l2Bridge.connect(owner).retryMessage(message, true)
-            // )
-            //     .to.emit(l2Bridge, "MessageStatusChanged")
-            //     .withArgs(msgHash, 3);
         });
     });
 
