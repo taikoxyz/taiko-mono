@@ -50,6 +50,10 @@ library LibMerkleTrie {
         LibRLPReader.RLPItem[] decoded;
     }
 
+    /*******************
+     * Errors          *
+     *******************/
+
     error ErrInvalidProof();
     error ErrInvalidRootHash();
     error ErrInvalidLargeInternalHash();

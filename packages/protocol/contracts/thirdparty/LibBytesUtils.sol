@@ -31,11 +31,15 @@ pragma solidity ^0.8.9;
  */
 library LibBytesUtils {
     /**********************
-     * Internal Functions *
+     * Errors             *
      **********************/
 
     error ErrSliceOverflow(uint code);
     error ErrSliceOutOfBounds();
+
+    /**********************
+     * Internal Functions *
+     **********************/
 
     function slice(
         bytes memory _bytes,
