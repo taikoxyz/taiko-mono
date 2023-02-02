@@ -16,7 +16,7 @@ export default {
     content: null,
   },
   footer: {
-    component: <Footer />,
+    component: Footer,
   },
   head: () => {
     const { asPath } = useRouter();
@@ -46,4 +46,5 @@ export default {
       titleTemplate: "%s – Taiko",
     };
   },
+  darkMode: true,
 };
