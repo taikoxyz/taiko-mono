@@ -26,6 +26,9 @@ library LibReceiptDecoder {
         bytes data;
     }
 
+    error ErrInvalidItemsLength();
+    error ErrInvalidLogsBloom();
+
     function decodeReceipt(
         bytes calldata encoded
     ) public pure returns (Receipt memory receipt) {
@@ -36,7 +39,7 @@ library LibReceiptDecoder {
                 : encoded
         );
 
-        require(rlpItems.length == 4, "invalid items length");
+        if (rlpItems.length != 4) revert ErrInvalidItemsLength();
 
         receipt.status = uint64(LibRLPReader.readUint256(rlpItems[0]));
         receipt.cumulativeGasUsed = uint64(
@@ -50,7 +53,7 @@ library LibReceiptDecoder {
         LibRLPReader.RLPItem memory logsBloomRlp
     ) internal pure returns (bytes32[8] memory logsBloom) {
         bytes memory bloomBytes = LibRLPReader.readBytes(logsBloomRlp);
-        require(bloomBytes.length == 256, "invalid logs bloom");
+        if (bloomBytes.length != 256) revert ErrInvalidLogsBloom();
 
         return abi.decode(bloomBytes, (bytes32[8]));
     }
