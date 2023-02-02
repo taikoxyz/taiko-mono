@@ -35,31 +35,35 @@ class Proposer {
     }
 
     async commitThenProposeBlock(block?: ethers.providers.Block) {
-        while (this.proposingMutex) {
-            await sleep(500);
+        try {
+            while (this.proposingMutex) {
+                await sleep(500);
+            }
+            this.proposingMutex = true;
+            if (!block) block = await this.l2Provider.getBlock("latest");
+            const commitSlot = this.nextCommitSlot++;
+            const { tx, commit } = await commitBlock(
+                this.taikoL1,
+                block,
+                commitSlot
+            );
+            const commitReceipt = await tx.wait(this.commitConfirms ?? 1);
+
+            const receipt = await proposeBlock(
+                this.taikoL1,
+                block,
+                commit.txListHash,
+                commitReceipt.blockNumber as number,
+                block.gasLimit,
+                commitSlot
+            );
+
+            this.proposingMutex = false;
+
+            return receipt;
+        } finally {
+            this.proposingMutex = false;
         }
-        this.proposingMutex = true;
-        if (!block) block = await this.l2Provider.getBlock("latest");
-        const commitSlot = this.nextCommitSlot++;
-        const { tx, commit } = await commitBlock(
-            this.taikoL1,
-            block,
-            commitSlot
-        );
-        const commitReceipt = await tx.wait(this.commitConfirms ?? 1);
-
-        const receipt = await proposeBlock(
-            this.taikoL1,
-            block,
-            commit.txListHash,
-            commitReceipt.blockNumber as number,
-            block.gasLimit,
-            commitSlot
-        );
-
-        this.proposingMutex = false;
-
-        return receipt;
     }
 }
 
