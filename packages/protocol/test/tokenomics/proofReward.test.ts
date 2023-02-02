@@ -15,12 +15,13 @@ describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
     let l2Provider: ethers.providers.JsonRpcProvider;
     let l1Signer: any;
-    let proposerSigner: any;
     let proverSigner: any;
     let genesisHeight: number;
     let tkoTokenL1: TestTkoToken;
     let interval: any;
     let chan: SimpleChannel<number>;
+    let proposer: Proposer;
+    let prover: Prover;
 
     /* eslint-disable-next-line */
     let config: Awaited<ReturnType<TaikoL1["getConfig"]>>;
@@ -30,13 +31,14 @@ describe("tokenomics: proofReward", function () {
             taikoL1,
             l2Provider,
             l1Signer,
-            proposerSigner,
             proverSigner,
             genesisHeight,
             tkoTokenL1,
             interval,
             chan,
             config,
+            proposer,
+            prover,
         } = await initIntegrationFixture(true, true));
     });
 
@@ -47,16 +49,6 @@ describe("tokenomics: proofReward", function () {
     });
 
     it(`proofReward is 1 wei if the prover does not hold any tkoTokens on L1`, async function () {
-        const proposer = new Proposer(
-            taikoL1.connect(proposerSigner),
-            l2Provider,
-            config.commitConfirmations.toNumber(),
-            config.maxNumBlocks.toNumber(),
-            0,
-            proposerSigner
-        );
-
-        const prover = new Prover(taikoL1, l2Provider, proverSigner);
         let proposed: boolean = false;
         l2Provider.on("block", function (blockNumber: number) {
             if (proposed) {
@@ -100,17 +92,6 @@ describe("tokenomics: proofReward", function () {
     the provers TKO balance should increase as the blocks are verified and
     they receive the proofReward.
     the proposer should receive a refund on his deposit because he holds a tkoBalance > 0 at time of verification.`, async function () {
-        const proposer = new Proposer(
-            taikoL1.connect(proposerSigner),
-            l2Provider,
-            config.commitConfirmations.toNumber(),
-            config.maxNumBlocks.toNumber(),
-            0,
-            proposerSigner
-        );
-
-        const prover = new Prover(taikoL1, l2Provider, proverSigner);
-
         // prover needs TKO or their reward will be cut down to 1 wei.
         await (
             await tkoTokenL1

@@ -23,6 +23,7 @@ describe("tokenomics: blockFee", function () {
     let chan: SimpleChannel<number>;
     /* eslint-disable-next-line */
     let config: Awaited<ReturnType<TaikoL1["getConfig"]>>;
+    let proposer: Proposer;
 
     beforeEach(async () => {
         ({
@@ -36,6 +37,7 @@ describe("tokenomics: blockFee", function () {
             interval,
             chan,
             config,
+            proposer,
         } = await initIntegrationFixture(true, true));
     });
 
@@ -65,16 +67,6 @@ describe("tokenomics: blockFee", function () {
     });
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
-        // set up a proposer to continually propose new blocks
-        const proposer = new Proposer(
-            taikoL1.connect(proposerSigner),
-            l2Provider,
-            config.commitConfirmations.toNumber(),
-            config.maxNumBlocks.toNumber(),
-            0,
-            proposerSigner
-        );
-
         // get the initial tkoBalance, which should decrease every block proposal
         let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
             await proposerSigner.getAddress()

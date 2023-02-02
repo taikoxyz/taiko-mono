@@ -7,6 +7,8 @@ import deployTkoToken from "./tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { SimpleChannel } from "channel-ts";
+import Proposer from "./proposer";
+import Prover from "./prover";
 
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
@@ -97,6 +99,17 @@ async function initIntegrationFixture(
 
     const chan = new SimpleChannel<number>();
     const config = await taikoL1.getConfig();
+
+    const proposer = new Proposer(
+        taikoL1.connect(proposerSigner),
+        l2Provider,
+        config.commitConfirmations.toNumber(),
+        config.maxNumBlocks.toNumber(),
+        0,
+        proposerSigner
+    );
+
+    const prover = new Prover(taikoL1, l2Provider, proverSigner);
     return {
         taikoL1,
         taikoL2,
@@ -113,6 +126,8 @@ async function initIntegrationFixture(
         interval,
         chan,
         config,
+        proposer,
+        prover,
     };
 }
 
