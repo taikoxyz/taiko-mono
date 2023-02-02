@@ -74,7 +74,7 @@ library LibTxDecoder {
 
     error ErrTxDecoderInvalidTxType();
     error ErrTxDecoderInvalidPrefix();
-    error ErrTxDecoderInvalidItemsLength();
+    error ErrTxDecoderInvalidItemsLength(uint expectedLength);
 
     function decodeTxList(
         uint256 chainId,
@@ -158,7 +158,7 @@ library LibTxDecoder {
         uint256 chainId,
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (TransactionLegacy memory txLegacy) {
-        if (body.length != 9) revert ErrTxDecoderInvalidItemsLength();
+        if (body.length != 9) revert ErrTxDecoderInvalidItemsLength(9);
 
         txLegacy.nonce = LibRLPReader.readUint256(body[0]);
         txLegacy.gasPrice = LibRLPReader.readUint256(body[1]);
@@ -177,7 +177,7 @@ library LibTxDecoder {
     function decodeTx2930(
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (Transaction2930 memory tx2930) {
-        if (body.length != 11) revert ErrTxDecoderInvalidItemsLength();
+        if (body.length != 11) revert ErrTxDecoderInvalidItemsLength(11);
 
         tx2930.chainId = LibRLPReader.readUint256(body[0]);
         tx2930.nonce = LibRLPReader.readUint256(body[1]);
@@ -195,7 +195,7 @@ library LibTxDecoder {
     function decodeTx1559(
         LibRLPReader.RLPItem[] memory body
     ) internal pure returns (Transaction1559 memory tx1559) {
-        if (body.length != 12) revert ErrTxDecoderInvalidItemsLength();
+        if (body.length != 12) revert ErrTxDecoderInvalidItemsLength(12);
 
         tx1559.chainId = LibRLPReader.readUint256(body[0]);
         tx1559.nonce = LibRLPReader.readUint256(body[1]);

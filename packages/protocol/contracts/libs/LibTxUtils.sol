@@ -15,6 +15,9 @@ import "../thirdparty/LibRLPWriter.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxUtils {
+    error ErrTxUtilsInvalidRLPItemsLength(uint expectedLength);
+    error ErrTxUtilsInvalidTxtype();
+
     function hashUnsignedTx(
         uint256 chainId,
         LibTxDecoder.Tx memory transaction
@@ -38,15 +41,18 @@ library LibTxUtils {
 
         if (transaction.txType == 0) {
             // Legacy transactions
-            require(txRLPItems.length == 9, "invalid rlp items");
+            if (txRLPItems.length != 9)
+                revert ErrTxUtilsInvalidRLPItemsLength(9);
         } else if (transaction.txType == 1) {
             // EIP-2930 transactions
-            require(txRLPItems.length == 11, "invalid rlp items");
+            if (txRLPItems.length != 11)
+                revert ErrTxUtilsInvalidRLPItemsLength(11);
         } else if (transaction.txType == 2) {
             // EIP-1559 transactions
-            require(txRLPItems.length == 12, "invalid rlp items");
+            if (txRLPItems.length != 12)
+                revert ErrTxUtilsInvalidRLPItemsLength(12);
         } else {
-            revert("invalid txType");
+            revert ErrTxUtilsInvalidTxtype();
         }
 
         // Signature values are always last three RLP items for all kinds of
