@@ -37,12 +37,19 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
+    error ErrL2ZeroChainId();
+    error ErrL2InvalidSender();
+    error ErrL2NonZeroGasPrice();
+    error ErrL2InvalidReason();
+    error ErrL2PublicInputHashMismatch();
+
     /**********************
      * Constructor         *
      **********************/
 
     constructor(address _addressManager) {
-        require(block.chainid != 0, "L2:chainId");
+        if (block.chainid == 0) revert ErrL2ZeroChainId();
+
         AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
@@ -97,11 +104,13 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Reason hint,
         uint256 txIdx
     ) external {
-        require(
-            msg.sender == LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
-            "L2:sender"
-        );
-        require(tx.gasprice == 0, "L2:gasPrice");
+        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS) {
+            revert ErrL2InvalidSender();
+        }
+
+        if (tx.gasprice != 0) {
+            revert ErrL2NonZeroGasPrice();
+        }
 
         TaikoData.Config memory config = getConfig();
         LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
@@ -110,7 +119,9 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             hint: hint,
             txIdx: txIdx
         });
-        require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
+        if (reason == LibInvalidTxList.Reason.OK) {
+            revert ErrL2InvalidReason();
+        }
 
         if (config.enablePublicInputsCheck) {
             _checkPublicInputs();
@@ -171,16 +182,17 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 parentHeight = number - 1;
         bytes32 parentHash = blockhash(parentHeight);
 
-        require(
-            publicInputHash ==
-                _hashPublicInputs({
-                    chainId: chainId,
-                    number: parentHeight,
-                    baseFee: 0,
-                    ancestors: ancestors
-                }),
-            "L2:publicInputHash"
-        );
+        if (
+            publicInputHash !=
+            _hashPublicInputs({
+                chainId: chainId,
+                number: parentHeight,
+                baseFee: 0,
+                ancestors: ancestors
+            })
+        ) {
+            revert ErrL2PublicInputHashMismatch();
+        }
 
         ancestors[parentHeight % 255] = parentHash;
         publicInputHash = _hashPublicInputs({
