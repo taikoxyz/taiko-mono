@@ -9,7 +9,7 @@ import Proposer from "../utils/proposer";
 
 import sleep from "../utils/sleep";
 import { deployTaikoL1 } from "../utils/taikoL1";
-import { initIntegrationFixture } from "./utils";
+import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: blockFee", function () {
     let taikoL1: TaikoL1;
@@ -32,7 +32,7 @@ describe("tokenomics: blockFee", function () {
             tkoTokenL1,
             l1AddressManager,
             interval,
-        } = await initIntegrationFixture());
+        } = await initIntegrationFixture(true, true));
         chan = new SimpleChannel<number>();
     });
 
