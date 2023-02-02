@@ -34,14 +34,17 @@ library LibBytesUtils {
      * Internal Functions *
      **********************/
 
+    error ErrSliceOverflow(uint code);
+    error ErrSliceOutOfBounds();
+
     function slice(
         bytes memory _bytes,
         uint256 _start,
         uint256 _length
     ) internal pure returns (bytes memory) {
-        require(_length + 31 >= _length, "slice_overflow");
-        require(_start + _length >= _start, "slice_overflow");
-        require(_bytes.length >= _start + _length, "slice_outOfBounds");
+        if (_length + 31 < _length) revert ErrSliceOverflow(0);
+        if (_start + _length < _start) revert ErrSliceOverflow(1);
+        if (_bytes.length < _start + _length) revert ErrSliceOutOfBounds();
 
         bytes memory tempBytes;
 
