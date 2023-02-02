@@ -9,7 +9,7 @@ import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { createAndSeedWallets } from "../utils/seed";
 import { commitProposeProveAndVerify } from "../utils/verify";
-import { initTokenomicsFixture } from "./utils";
+import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
@@ -32,7 +32,7 @@ describe("tokenomics: proofReward", function () {
             genesisHeight,
             tkoTokenL1,
             interval,
-        } = await initTokenomicsFixture());
+        } = await initIntegrationFixture(true, true));
         chan = new SimpleChannel<number>();
     });
 

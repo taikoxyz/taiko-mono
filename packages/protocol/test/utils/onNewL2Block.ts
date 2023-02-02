@@ -29,14 +29,16 @@ async function onNewL2Block(
 
     const { id, meta } = proposedEvent.args;
 
+    const { enableTokenomics } = await taikoL1.getConfig();
+
     const newProofReward = await taikoL1.getProofReward(
         new Date().getMilliseconds(),
         meta.timestamp
     );
 
-    const newProposerTkoBalance = await tkoTokenL1.balanceOf(
-        await proposerSigner.getAddress()
-    );
+    const newProposerTkoBalance = enableTokenomics
+        ? await tkoTokenL1.balanceOf(await proposerSigner.getAddress())
+        : BigNumber.from(0);
 
     const newBlockFee = await taikoL1.getBlockFee();
 

@@ -1,20 +1,16 @@
 import { ethers } from "ethers";
-import deployAddressManager from "../utils/addressManager";
-import {
-    getDefaultL2Signer,
-    getL1Provider,
-    getL2Provider,
-} from "../utils/provider";
-import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
-import { deployTaikoL2 } from "../utils/taikoL2";
-import deployTkoToken from "../utils/tkoToken";
+import deployAddressManager from "./addressManager";
+import { getDefaultL2Signer, getL1Provider, getL2Provider } from "./provider";
+import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
+import { deployTaikoL2 } from "./taikoL2";
+import deployTkoToken from "./tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
-import {
-    createAndSeedWallets,
-    sendTinyEtherToZeroAddress,
-} from "../utils/seed";
+import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 
-async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
+async function initIntegrationFixture(
+    mintTkoToProposer: boolean,
+    enableTokenomics: boolean = true
+) {
     const l1Provider = getL1Provider();
 
     l1Provider.pollingInterval = 100;
@@ -36,7 +32,7 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     const taikoL1 = await deployTaikoL1(
         l1AddressManager,
         genesisHash,
-        true,
+        enableTokenomics,
         defaultFeeBase
     );
     const { chainId } = await l1Provider.getNetwork();
@@ -115,4 +111,4 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     };
 }
 
-export { initTokenomicsFixture };
+export { initIntegrationFixture };
