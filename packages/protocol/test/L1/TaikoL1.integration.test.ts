@@ -11,12 +11,14 @@ import {
     generateCommitHash,
 } from "../utils/commit";
 import { initIntegrationFixture } from "../utils/fixture";
+import halt from "../utils/halt";
+import { onNewL2Block } from "../utils/onNewL2Block";
 import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { sendTinyEtherToZeroAddress } from "../utils/seed";
-import { commitProposeProveAndVerify } from "../utils/verify";
+import { commitProposeProveAndVerify, verifyBlocks } from "../utils/verify";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -28,6 +30,10 @@ describe("integration:TaikoL1", function () {
     let chan: SimpleChannel<number>;
     let interval: any;
     let proverSigner: any;
+    let proposer: Proposer;
+    let prover: Prover;
+    /* eslint-disable-next-line */
+    let config: Awaited<ReturnType<TaikoL1["getConfig"]>>;
 
     beforeEach(async function () {
         ({
@@ -39,6 +45,19 @@ describe("integration:TaikoL1", function () {
             proverSigner,
             interval,
         } = await initIntegrationFixture(false, false));
+
+        config = await taikoL1.getConfig();
+
+        proposer = new Proposer(
+            taikoL1.connect(proposerSigner),
+            l2Provider,
+            config.commitConfirmations.toNumber(),
+            config.maxNumBlocks.toNumber(),
+            0,
+            proposerSigner
+        );
+
+        prover = new Prover(taikoL1, l2Provider, proverSigner);
 
         chan = new SimpleChannel<number>();
     });
@@ -64,7 +83,6 @@ describe("integration:TaikoL1", function () {
         });
 
         it("should be valid if it has been committed", async function () {
-            const { commitConfirmations } = await taikoL1.getConfig();
             const block = await l2Provider.getBlock("latest");
             const commitSlot = 0;
             const { commit, blockCommittedEvent } = await commitBlock(
@@ -74,7 +92,7 @@ describe("integration:TaikoL1", function () {
             );
             expect(blockCommittedEvent).not.to.be.undefined;
 
-            for (let i = 0; i < commitConfirmations.toNumber(); i++) {
+            for (let i = 0; i < config.commitConfirmations.toNumber(); i++) {
                 await sendTinyEtherToZeroAddress(l1Signer);
             }
 
@@ -259,10 +277,9 @@ describe("integration:TaikoL1", function () {
         });
 
         it("should commit and be able to propose for all available slots, then revert when all slots are taken", async function () {
-            const { maxNumBlocks } = await taikoL1.getConfig();
             // propose blocks and fill up maxNumBlocks number of slots,
             // expect each one to be successful.
-            for (let i = 0; i < maxNumBlocks.toNumber() - 1; i++) {
+            for (let i = 0; i < config.maxNumBlocks.toNumber() - 1; i++) {
                 await commitAndProposeLatestBlock(
                     taikoL1,
                     l1Signer,
@@ -297,27 +314,13 @@ describe("integration:TaikoL1", function () {
 
     describe("getLatestSyncedHeader", function () {
         it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
-            const { blockHashHistory, maxNumBlocks, commitConfirmations } =
-                await taikoL1.getConfig();
-
-            const proposer = new Proposer(
-                taikoL1.connect(proposerSigner),
-                l2Provider,
-                commitConfirmations.toNumber(),
-                maxNumBlocks.toNumber(),
-                0,
-                proposerSigner
-            );
-
-            const prover = new Prover(taikoL1, l2Provider, proverSigner);
-
             l2Provider.on(
                 "block",
                 blockListener(
                     chan,
                     genesisHeight,
                     l2Provider,
-                    maxNumBlocks.toNumber()
+                    config.maxNumBlocks.toNumber()
                 )
             );
 
@@ -327,7 +330,7 @@ describe("integration:TaikoL1", function () {
             // this test ensures that logic is sound.
             /* eslint-disable-next-line */
             for await (const blockNumber of chan) {
-                if (blocks > blockHashHistory.toNumber() * 2 + 1) {
+                if (blocks > config.blockHashHistory.toNumber() * 2 + 1) {
                     chan.close();
                     return;
                 }
@@ -347,6 +350,33 @@ describe("integration:TaikoL1", function () {
                 expect(header).to.be.eq(verifyEvent.args.blockHash);
                 blocks++;
             }
+        });
+    });
+
+    describe("proposeBlock", function () {
+        it("can not propose if chain is halted", async function () {
+            await halt(taikoL1.connect(l1Signer), true);
+
+            await expect(
+                onNewL2Block(
+                    l2Provider,
+                    await l2Provider.getBlockNumber(),
+                    proposer,
+                    taikoL1,
+                    proposerSigner,
+                    tkoTokenL1
+                )
+            ).to.be.reverted;
+        });
+    });
+
+    describe("verifyBlocks", function () {
+        it("can not be called manually to verify block if chain is halted", async function () {
+            await halt(taikoL1.connect(l1Signer), true);
+
+            await expect(verifyBlocks(taikoL1, 1)).to.be.revertedWith(
+                "L1:halted"
+            );
         });
     });
 });
