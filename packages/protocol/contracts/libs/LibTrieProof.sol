@@ -24,6 +24,12 @@ library LibTrieProof {
     uint256 private constant ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
 
     /*********************
+     * Error             *
+     *********************/
+
+    error ErrTrieProofInvalidAccountProof();
+
+    /*********************
      * Public Functions  *
      *********************/
 
@@ -57,7 +63,7 @@ library LibTrieProof {
             stateRoot
         );
 
-        require(exists, "LTP:invalid account proof");
+        if (!exists) revert ErrTrieProofInvalidAccountProof();
 
         LibRLPReader.RLPItem[] memory accountState = LibRLPReader.readList(
             rlpAccount
