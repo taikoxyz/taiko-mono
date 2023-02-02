@@ -72,7 +72,9 @@ library LibInvalidTxList {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
 
-            if (txIdx >= txList.items.length) revert ErrInvalidTxIndex();
+            if (txIdx >= txList.items.length) {
+                revert ErrInvalidTxIndex();
+            }
             LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
             if (hint == Reason.TX_INVALID_SIG) {
