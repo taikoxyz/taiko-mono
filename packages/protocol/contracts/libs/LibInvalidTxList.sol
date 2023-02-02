@@ -47,6 +47,10 @@ library LibInvalidTxList {
         TX_GAS_LIMIT_TOO_SMALL
     }
 
+    error ErrInvalidTxIndex();
+    error ErrFailedToProveTxListInvalid();
+    error ErrBadHint(Reason reason);
+
     function isTxListInvalid(
         TaikoData.Config memory config,
         bytes calldata encoded,
@@ -68,23 +72,26 @@ library LibInvalidTxList {
                 return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
             }
 
-            require(txIdx < txList.items.length, "invalid txIdx");
+            if (txIdx >= txList.items.length) revert ErrInvalidTxIndex();
             LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
             if (hint == Reason.TX_INVALID_SIG) {
-                require(
-                    LibTxUtils.recoverSender(config.chainId, _tx) == address(0),
-                    "bad hint TX_INVALID_SIG"
-                );
+                if (
+                    LibTxUtils.recoverSender(config.chainId, _tx) != address(0)
+                ) {
+                    revert ErrBadHint(Reason.TX_INVALID_SIG);
+                }
                 return Reason.TX_INVALID_SIG;
             }
 
             if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
-                require(_tx.gasLimit >= config.minTxGasLimit, "bad hint");
+                if (_tx.gasLimit < config.minTxGasLimit) {
+                    revert ErrBadHint(Reason.TX_GAS_LIMIT_TOO_SMALL);
+                }
                 return Reason.TX_GAS_LIMIT_TOO_SMALL;
             }
 
-            revert("failed to prove txlist invalid");
+            revert ErrFailedToProveTxListInvalid();
         } catch (bytes memory) {
             return Reason.BINARY_NOT_DECODABLE;
         }

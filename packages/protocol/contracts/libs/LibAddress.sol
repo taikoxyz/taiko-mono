@@ -11,6 +11,8 @@ pragma solidity ^0.8.9;
  * @author dantaik <dan@taiko.xyz>
  */
 library LibAddress {
+    error EtherTransferFailed();
+
     /**
      * Sends Ether to an address. Zero-value will also be sent.
      * See more information at:
@@ -21,7 +23,7 @@ library LibAddress {
     function sendEther(address to, uint256 amount) internal {
         if (amount > 0) {
             (bool success, ) = payable(to).call{value: amount}("");
-            require(success, "ETH transfer failed");
+            if (!success) revert EtherTransferFailed();
         }
     }
 
