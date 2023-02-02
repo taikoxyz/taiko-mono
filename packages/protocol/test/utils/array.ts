@@ -1,5 +1,5 @@
-function randEle<T>(arr: T[]): T {
+function pickRandomElement<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export { randEle };
+export { pickRandomElement };

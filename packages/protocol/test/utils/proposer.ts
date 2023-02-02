@@ -36,7 +36,7 @@ class Proposer {
 
     async commitThenProposeBlock(block?: ethers.providers.Block) {
         while (this.proposingMutex) {
-            await sleep(3 * 1000);
+            await sleep(500);
         }
         this.proposingMutex = true;
         if (!block) block = await this.l2Provider.getBlock("latest");

@@ -3,7 +3,7 @@ import { SimpleChannel } from "channel-ts";
 import { ethers } from "ethers";
 import { TaikoL1 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
-import { randEle } from "../utils/array";
+import { pickRandomElement } from "../utils/array";
 import blockListener from "../utils/blockListener";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
@@ -223,8 +223,8 @@ describe("tokenomics: proofReward", function () {
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
-            const prover = randEle<Prover>(provers);
-            const proposer = randEle<Proposer>(proposers);
+            const prover = pickRandomElement<Prover>(provers);
+            const proposer = pickRandomElement<Proposer>(proposers);
             const proverTkoBalanceBefore = await tkoTokenL1.balanceOf(
                 await prover.getSigner().getAddress()
             );
