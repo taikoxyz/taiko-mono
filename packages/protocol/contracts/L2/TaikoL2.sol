@@ -37,6 +37,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
+    /**********************
+     * Errors             *
+     **********************/
+
     error ErrL2ZeroChainId();
     error ErrL2InvalidSender();
     error ErrL2NonZeroGasPrice();
