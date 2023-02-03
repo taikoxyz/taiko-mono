@@ -34,7 +34,8 @@ describe("integration:Bridge", function () {
     let l1Bridge: Bridge;
     let l2Bridge: Bridge;
     let m: Message;
-    let headerSync: TestHeaderSync;
+    let l1HeaderSync: TestHeaderSync;
+    let l2HeaderSync: TestHeaderSync;
 
     beforeEach(async () => {
         [owner] = await ethers.getSigners();
@@ -105,13 +106,21 @@ describe("integration:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
 
-        headerSync = await (await ethers.getContractFactory("TestHeaderSync"))
+        l1HeaderSync = await (await ethers.getContractFactory("TestHeaderSync"))
+            .connect(owner)
+            .deploy();
+
+        await addressManager
+            .connect(owner)
+            .setAddress(`${srcChainId}.taiko`, l1HeaderSync.address);
+
+        l2HeaderSync = await (await ethers.getContractFactory("TestHeaderSync"))
             .connect(l2Signer)
             .deploy();
 
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, headerSync.address);
+            .setAddress(`${enabledDestChainId}.taiko`, l2HeaderSync.address);
 
         m = {
             id: 1,
@@ -178,7 +187,7 @@ describe("integration:Bridge", function () {
         it("should throw if messageStatus of message is != NEW", async function () {
             const { message, signalProof } = await sendAndProcessMessage(
                 hre.ethers.provider,
-                headerSync,
+                l2HeaderSync,
                 m,
                 l1SignalService,
                 l1Bridge,
@@ -197,7 +206,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
@@ -227,7 +236,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
 
             const slot = await l1SignalService.getSignalSlot(sender, msgHash);
 
@@ -271,7 +280,7 @@ describe("integration:Bridge", function () {
                     l2Bridge,
                     msgHash,
                     hre.ethers.provider,
-                    headerSync,
+                    l2HeaderSync,
                     message
                 ))
             ).to.emit(l2Bridge, "MessageStatusChanged");
@@ -321,7 +330,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(block.hash);
+            await l2HeaderSync.setSyncedHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -358,7 +367,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(block.hash);
+            await l2HeaderSync.setSyncedHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -427,23 +436,44 @@ describe("integration:Bridge", function () {
                 l2Bridge,
                 msgHash,
                 hre.ethers.provider,
-                headerSync,
+                l2HeaderSync,
                 message
             );
             expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
             expect(messageStatusChangedEvent.args.status).to.be.eq(1);
 
-            // retry with lastAttempt=true, should fail invocation and reach FAILED (3)
-            // called on l2Bridge where message is received so it doesn't reach B:notFound
             const tx = await l2Bridge
                 .connect(l2Signer)
                 .retryMessage(message, true);
             const receipt = await tx.wait();
             expect(receipt.status).to.be.eq(1);
-            // according to this block its not reverted?
 
             const messageStatus2 = await l2Bridge.getMessageStatus(msgHash);
             expect(messageStatus2).to.be.eq(3);
+
+            const { block, blockHeader } = await getBlockHeader(
+                hre.ethers.provider
+            );
+
+            await l2HeaderSync.setSyncedHeader(block.hash);
+
+            const slot = await l1Bridge.getMessageStatusSlot(msgHash);
+
+            const signalProof = await getSignalProof(
+                hre.ethers.provider,
+                l1Bridge.address,
+                slot,
+                block.number,
+                blockHeader
+            );
+
+            expect(
+                await l1Bridge.isMessageFailed(
+                    msgHash,
+                    enabledDestChainId,
+                    signalProof
+                )
+            ).to.eq(true);
         });
     });
 
