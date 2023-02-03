@@ -32,6 +32,13 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     event Burn(address account, uint256 amount);
 
     /*********************
+     * Errors            *
+     *********************/
+
+    error ErrTkoAddressCannotBeZero();
+    error ErrTkoToAddressCannotBeThisAddress();
+
+    /*********************
      * External Functions*
      *********************/
 
@@ -55,7 +62,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TKO: invalid to");
+        if (to == address(this)) {
+            revert ErrTkoToAddressCannotBeThisAddress();
+        }
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -64,7 +73,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TKO: invalid to");
+        if (to == address(this)) {
+            revert ErrTkoToAddressCannotBeThisAddress();
+        }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
@@ -78,7 +89,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address account,
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
-        require(account != address(0), "TKO: invalid address");
+        if (account == address(0)) {
+            revert ErrTkoAddressCannotBeZero();
+        }
         _mint(account, amount);
         emit Mint(account, amount);
     }
@@ -93,7 +106,9 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address account,
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
-        require(account != address(0), "TKO: invalid address");
+        if (account == address(0)) {
+            revert ErrTkoAddressCannotBeZero();
+        }
         _burn(account, amount);
         emit Burn(account, amount);
     }
