@@ -32,17 +32,15 @@ contract EtherVault is EssentialContract {
      *********************/
 
     event Authorized(address indexed addr, bool authorized);
-
     event EtherReleased(address indexed to, uint256 amount);
 
     /*********************
-     * Modifiers         *
+     * Errors            *
      *********************/
-
-    modifier onlyAuthorized() {
-        require(isAuthorized(msg.sender), "EV:denied");
-        _;
-    }
+    error ErrUnauthorized();
+    error ErrReceiveFunctionFailure();
+    error ErrInvalidRecipient();
+    error ErrAuthorizeFailure();
 
     /*********************
      * External Functions*
@@ -50,10 +48,9 @@ contract EtherVault is EssentialContract {
 
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
-        require(
-            address(this).balance == 0 || isAuthorized(msg.sender),
-            "EV:denied"
-        );
+        if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
+            revert ErrReceiveFunctionFailure();
+        }
     }
 
     function init(address addressManager) external initializer {
@@ -69,7 +66,8 @@ contract EtherVault is EssentialContract {
      * is authorized.
      * @param amount Amount of ether to send.
      */
-    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
+    function releaseEther(uint256 amount) public nonReentrant {
+        if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
         msg.sender.sendEther(amount);
         emit EtherReleased(msg.sender, amount);
     }
@@ -83,8 +81,10 @@ contract EtherVault is EssentialContract {
     function releaseEtherTo(
         address recipient,
         uint256 amount
-    ) public onlyAuthorized nonReentrant {
-        require(recipient != address(0), "EV:recipient");
+    ) public nonReentrant {
+        if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
+        if (recipient == address(0)) revert ErrInvalidRecipient();
+
         recipient.sendEther(amount);
         emit EtherReleased(recipient, amount);
     }
@@ -95,10 +95,9 @@ contract EtherVault is EssentialContract {
      * @param authorized Authorized status to set.
      */
     function authorize(address addr, bool authorized) public onlyOwner {
-        require(
-            addr != address(0) && authorizedAddrs[addr] != authorized,
-            "EV:param"
-        );
+        if (addr == address(0) || authorizedAddrs[addr] == authorized) {
+            revert ErrAuthorizeFailure();
+        }
         authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }
