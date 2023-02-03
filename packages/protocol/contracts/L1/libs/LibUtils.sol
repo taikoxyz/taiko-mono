@@ -92,9 +92,7 @@ library LibUtils {
     }
 
     function assertNotHalted(TaikoData.State storage state) internal view {
-        if (isBitOne(state, MASK_HALT)) {
-            revert ErrL1Halted();
-        }
+        if (isHalted(state)) revert ErrL1Halted();
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
