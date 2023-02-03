@@ -23,7 +23,7 @@ abstract contract AddressResolver {
 
     error ErrAccessDenied();
     error ErrNoAddressManager();
-    error ErrResolvedAddressIsZero(bytes slot);
+    error ErrResolvedAddressIsZero(bytes key);
 
     modifier onlyFromNamed(string memory name) {
         if (msg.sender != resolve(name, false)) {
