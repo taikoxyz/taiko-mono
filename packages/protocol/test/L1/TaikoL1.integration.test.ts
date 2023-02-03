@@ -106,7 +106,7 @@ describe("integration:TaikoL1", function () {
     describe("getProposedBlock()", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
             await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
-                "L1:id"
+                "ErrL1BlockIdOutOfRange()"
             );
         });
 
@@ -197,7 +197,7 @@ describe("integration:TaikoL1", function () {
             const inputs = buildProposeBlockInputs(block, meta);
 
             await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:placeholder"
+                "ErrL1InvaldMetadataFields()"
             );
         });
 
@@ -226,7 +226,7 @@ describe("integration:TaikoL1", function () {
             const inputs = buildProposeBlockInputs(block, meta);
 
             await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:gasLimit"
+                "ErrL1BlockGasLimitTooLarge()"
             );
         });
 
@@ -251,7 +251,7 @@ describe("integration:TaikoL1", function () {
             const inputs = buildProposeBlockInputs(block, meta);
 
             await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:extraData"
+                "ErrL1InvalidExtraDataTooLarge()"
             );
         });
 
@@ -305,7 +305,7 @@ describe("integration:TaikoL1", function () {
             // been proven.
             await expect(
                 commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider)
-            ).to.be.revertedWith("L1:tooMany");
+            ).to.be.revertedWith("ErrL1TooManyUnverifiedBlocks()");
         });
     });
 
@@ -364,7 +364,7 @@ describe("integration:TaikoL1", function () {
             await halt(taikoL1.connect(l1Signer), true);
 
             await expect(verifyBlocks(taikoL1, 1)).to.be.revertedWith(
-                "L1:halted"
+                "ErrL1Halted()"
             );
         });
     });
