@@ -21,8 +21,11 @@ library LibUtils {
 
     event Halted(bool halted);
 
+    error ErrL1SameHaltStatus();
+    error ErrL1BlockNumberOutOfRange();
+
     function halt(TaikoData.State storage state, bool toHalt) internal {
-        require(isHalted(state) != toHalt, "L1:precondition");
+        if (isHalted(state) == toHalt) revert ErrL1SameHaltStatus();
         setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
@@ -40,11 +43,12 @@ library LibUtils {
         uint256 number,
         uint256 blockHashHistory
     ) internal view returns (bytes32) {
-        require(
-            number + blockHashHistory > state.latestVerifiedHeight &&
-                number <= state.latestVerifiedHeight,
-            "L1:number"
-        );
+        if (
+            number + blockHashHistory <= state.latestVerifiedHeight ||
+            number > state.latestVerifiedHeight
+        ) {
+            revert ErrL1BlockNumberOutOfRange();
+        }
         return state.l2Hashes[number % blockHashHistory];
     }
 
