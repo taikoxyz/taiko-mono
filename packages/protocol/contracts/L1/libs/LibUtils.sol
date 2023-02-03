@@ -21,6 +21,7 @@ library LibUtils {
 
     event Halted(bool halted);
 
+    error ErrL1Halted();
     error ErrL1SameHaltStatus();
     error ErrL1BlockNumberOutOfRange();
 
@@ -88,6 +89,14 @@ library LibUtils {
         TaikoData.State storage state
     ) internal view returns (bool) {
         return isBitOne(state, MASK_HALT);
+    }
+
+    function assertNotHalted(
+        TaikoData.State storage state
+    ) internal view returns (bool) {
+        if (isBitOne(state, MASK_HALT)) {
+            revert ErrL1Halted();
+        }
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.

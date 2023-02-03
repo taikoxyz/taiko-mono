@@ -23,12 +23,14 @@ library LibVerifying {
         bytes32 srcHash
     );
 
+    error ErrL1ZeroFeeBase();
+
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
-        require(feeBase > 0, "L1:feeBase");
+        if (feeBase == 0) revert ErrL1ZeroFeeBase();
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
@@ -48,10 +50,9 @@ library LibVerifying {
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        bool halted = LibUtils.isHalted(state);
         if (checkHalt) {
-            require(!halted, "L1:halted");
-        } else if (halted) {
+            LibUtils.assertNotHalted(state);
+        } else if (LibUtils.isHalted(state)) {
             // skip finalizing blocks
             return;
         }

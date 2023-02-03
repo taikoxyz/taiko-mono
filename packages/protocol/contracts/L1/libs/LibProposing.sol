@@ -45,7 +45,7 @@ library LibProposing {
         // It's OK to allow committing block when the system is halt.
         // By not checking the halt status, this method will be cheaper.
         //
-        // assert(!LibUtils.isHalted(state));
+        // LibUtils.assertNotHalted(state);
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
@@ -67,6 +67,7 @@ library LibProposing {
         AddressResolver resolver,
         bytes[] calldata inputs
     ) public {
+        LibUtils.assertNotHalted(state);
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -76,8 +77,6 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender) {
             revert ErrL1ProposerNotTheSoloProposer();
         }
-
-        assert(!LibUtils.isHalted(state));
 
         if (inputs.length != 2) revert ErrL1InvalidInputsLength(2);
         TaikoData.BlockMetadata memory meta = abi.decode(

@@ -53,7 +53,7 @@ library TestLibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
+        LibUtils.assertNotHalted(state);
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
@@ -159,7 +159,7 @@ library TestLibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
+        LibUtils.assertNotHalted(state);
 
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
