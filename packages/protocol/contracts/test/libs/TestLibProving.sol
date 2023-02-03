@@ -54,6 +54,34 @@ library TestLibProving {
         address prover
     );
 
+    error ErrL1InvalidInputsLength(uint expectedLength);
+    error ErrL1BlockIdOutOfRange();
+    error ErrL1BlockIdMismatch();
+    error ErrL1BlockMetahashMismatch();
+    error ErrL1InvalidProofsLength();
+    error ErrL1InvalidCircitsLength();
+    error ErrorL1ZeroProverAddress();
+    error ErrL1OracleProverMustBeTheFistProver();
+    error ErrL1CanontProveBeforeOracleProver();
+    error ErrL1InvalidZKProof();
+    error ErrL1ConflictingProofs();
+    error ErrL1DuplicateProofs();
+    error ErrL1TooLateToProveBlock();
+    error ErrL1BlockHasTooManyProofs();
+    error ErrL1AnchorTxType();
+    error ErrL1AnchorTxDestinationNotTaikoL1();
+    error ErrL1AnchorTxInvalidGasLimit();
+    error ErrL1AnchorTxInvalidCalldata();
+    error ErrL1AnchorTxInvalidTransactionMerkleProof();
+    error ErrL1AnchorTxInvalidReceiptMerkleProof();
+    error ErrL1AnchorTxInvalidReceiptStatus();
+    error ErrL1AnchorTxInvalidReceiptLogSize();
+    error ErrL1AnchorTxInvalidReceiptDestination();
+    error ErrL1AnchorTxInvalidReceiptLogData();
+    error ErrL1AnchorTxInvalidReceiptLogTopics();
+    error ErrL1AnchorTxSignatureInvalidR();
+    error ErrL1AnchorTxSignatureInvalidS();
+
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -64,24 +92,26 @@ library TestLibProving {
         LibUtils.assertNotHalted(state);
 
         // Check and decode inputs
-        require(inputs.length == 3, "L1:inputs:size");
+        if (inputs.length != 3) {
+            revert ErrL1InvalidInputsLength(3);
+        }
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockId, "L1:id");
+        if (evidence.meta.id != blockId) {
+            revert ErrL1BlockIdMismatch();
+        }
 
         uint256 zkProofsPerBlock = config.zkProofsPerBlock;
-        require(
-            evidence.proofs.length == 2 + zkProofsPerBlock,
-            "L1:proof:size"
-        );
-        require(
-            evidence.circuits.length == zkProofsPerBlock,
-            "L1:circuits:size"
-        );
+        if (evidence.proofs.length != 2 + zkProofsPerBlock) {
+            revert ErrL1InvalidProofsLength();
+        }
+        if (evidence.circuits.length != zkProofsPerBlock) {
+            revert ErrL1InvalidCircitsLength();
+        }
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
@@ -93,59 +123,64 @@ library TestLibProving {
                 config.chainId,
                 anchorTx
             );
-            require(_tx.txType == 0, "L1:anchor:type");
-            require(
-                _tx.destination ==
-                    resolver.resolve(config.chainId, "taiko", false),
-                "L1:anchor:dest"
-            );
-            require(
-                _tx.gasLimit == config.anchorTxGasLimit,
-                "L1:anchor:gasLimit"
-            );
+            if (_tx.txType != 0) revert ErrL1AnchorTxType();
+            if (
+                _tx.destination !=
+                resolver.resolve(config.chainId, "taiko", false)
+            ) {
+                revert ErrL1AnchorTxDestinationNotTaikoL1();
+            }
+            if (_tx.gasLimit != config.anchorTxGasLimit) {
+                revert ErrL1AnchorTxInvalidGasLimit();
+            }
 
             // Check anchor tx's signature is valid and deterministic
             _validateAnchorTxSignature(config.chainId, _tx);
 
             // Check anchor tx's calldata is valid
-            require(
-                LibBytesUtils.equal(
+            if (
+                !LibBytesUtils.equal(
                     _tx.data,
                     bytes.concat(
                         ANCHOR_TX_SELECTOR,
                         bytes32(evidence.meta.l1Height),
                         evidence.meta.l1Hash
                     )
-                ),
-                "L1:anchor:calldata"
-            );
+                )
+            ) {
+                revert ErrL1AnchorTxInvalidCalldata();
+            }
 
             // Check anchor tx is the 1st tx in the block
-            require(
-                proofVerifier.verifyMKP({
+            if (
+                !proofVerifier.verifyMKP({
                     key: LibRLPWriter.writeUint(0),
                     value: anchorTx,
                     proof: evidence.proofs[zkProofsPerBlock],
                     root: evidence.header.transactionsRoot
-                }),
-                "L1:tx:proof"
-            );
+                })
+            ) {
+                revert ErrL1AnchorTxInvalidTransactionMerkleProof();
+            }
 
             // Check anchor tx does not throw
 
             LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
                 .decodeReceipt(anchorReceipt);
 
-            require(receipt.status == 1, "L1:receipt:status");
-            require(
-                proofVerifier.verifyMKP({
+            if (receipt.status != 1) {
+                revert ErrL1AnchorTxInvalidReceiptStatus();
+            }
+            if (
+                !proofVerifier.verifyMKP({
                     key: LibRLPWriter.writeUint(0),
                     value: anchorReceipt,
                     proof: evidence.proofs[zkProofsPerBlock + 1],
                     root: evidence.header.receiptsRoot
-                }),
-                "L1:receipt:proof"
-            );
+                })
+            ) {
+                revert ErrL1AnchorTxInvalidReceiptMerkleProof();
+            }
         }
 
         // ZK-prove block and mark block proven to be valid.
@@ -170,7 +205,8 @@ library TestLibProving {
         LibUtils.assertNotHalted(state);
 
         // Check and decode inputs
-        require(inputs.length == 3, "L1:inputs:size");
+        if (inputs.length != 3) revert ErrL1InvalidInputsLength(3);
+
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         TaikoData.BlockMetadata memory target = abi.decode(
             inputs[1],
@@ -179,48 +215,58 @@ library TestLibProving {
         bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockId, "L1:id");
-        require(
-            evidence.proofs.length == 1 + config.zkProofsPerBlock,
-            "L1:proof:size"
-        );
+        if (evidence.meta.id != blockId) {
+            revert ErrL1BlockIdMismatch();
+        }
+        if (evidence.proofs.length != 1 + config.zkProofsPerBlock) {
+            revert ErrL1InvalidProofsLength();
+        }
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
 
         // Check the event is the first one in the throw-away block
-        require(
-            proofVerifier.verifyMKP({
+        if (
+            !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: invalidateBlockReceipt,
                 proof: evidence.proofs[config.zkProofsPerBlock],
                 root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
+            })
+        ) {
+            revert ErrL1AnchorTxInvalidReceiptMerkleProof();
+        }
 
         // Check the 1st receipt is for an InvalidateBlock tx with
         // a BlockInvalidated event
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
-        require(receipt.status == 1, "L1:receipt:status");
-        require(receipt.logs.length == 1, "L1:receipt:logsize");
+        if (receipt.status != 1) {
+            revert ErrL1AnchorTxInvalidReceiptStatus();
+        }
+        if (receipt.logs.length != 1) {
+            revert ErrL1AnchorTxInvalidReceiptLogSize();
+        }
 
         {
             LibReceiptDecoder.Log memory log = receipt.logs[0];
-            require(
-                log.contractAddress ==
-                    resolver.resolve(config.chainId, "taiko", false),
-                "L1:receipt:addr"
-            );
-            require(log.data.length == 0, "L1:receipt:data");
-            require(
-                log.topics.length == 2 &&
-                    log.topics[0] == INVALIDATE_BLOCK_LOG_TOPIC &&
-                    log.topics[1] == target.txListHash,
-                "L1:receipt:topics"
-            );
+            if (
+                log.contractAddress !=
+                resolver.resolve(config.chainId, "taiko", false)
+            ) {
+                revert ErrL1AnchorTxInvalidReceiptDestination();
+            }
+            if (log.data.length != 0) {
+                revert ErrL1AnchorTxInvalidReceiptLogData();
+            }
+            if (
+                log.topics.length != 2 ||
+                log.topics[0] != INVALIDATE_BLOCK_LOG_TOPIC ||
+                log.topics[1] != target.txListHash
+            ) {
+                revert ErrL1AnchorTxInvalidReceiptLogTopics();
+            }
         }
 
         // ZK-prove block and mark block proven as invalid.
@@ -244,8 +290,8 @@ library TestLibProving {
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
-        require(evidence.meta.id == target.id, "L1:height");
-        require(evidence.prover != address(0), "L1:prover");
+        if (evidence.meta.id != target.id) revert ErrL1BlockIdMismatch();
+        if (evidence.prover == address(0)) revert ErrorL1ZeroProverAddress();
 
         _checkMetadata({state: state, config: config, meta: target});
         _validateHeaderForMetadata({
@@ -265,10 +311,15 @@ library TestLibProving {
             .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
             if (msg.sender == resolver.resolve("oracle_prover", false)) {
-                require(_blockHash == 0, "L1:mustBeFirstProver");
+                if (_blockHash != 0) {
+                    revert ErrL1OracleProverMustBeTheFistProver();
+                }
+
                 skipZKPVerification = true;
             } else {
-                require(_blockHash != 0, "L1:mustNotBeFirstProver");
+                if (_blockHash == 0) {
+                    revert ErrL1CanontProveBeforeOracleProver();
+                }
             }
         }
 
@@ -276,8 +327,8 @@ library TestLibProving {
 
         if (!skipZKPVerification) {
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-                require(
-                    proofVerifier.verifyZKP({
+                if (
+                    !proofVerifier.verifyZKP({
                         verifierId: string(
                             abi.encodePacked(
                                 "plonk_verifier_",
@@ -290,9 +341,10 @@ library TestLibProving {
                         blockHash: blockHash,
                         prover: evidence.prover,
                         txListHash: evidence.meta.txListHash
-                    }),
-                    "L1:zkp"
-                );
+                    })
+                ) {
+                    revert ErrL1InvalidZKProof();
+                }
             }
         }
 
@@ -330,32 +382,34 @@ library TestLibProving {
                 // We keep fc.provenAt as 0.
             }
         } else {
-            require(
-                fc.provers.length < config.maxProofsPerForkChoice,
-                "L1:proof:tooMany"
-            );
+            if (fc.provers.length >= config.maxProofsPerForkChoice) {
+                revert ErrL1BlockHasTooManyProofs();
+            }
 
-            require(
-                fc.provenAt == 0 ||
-                    block.timestamp <
-                    LibUtils.getUncleProofDeadline({
-                        state: state,
-                        config: config,
-                        fc: fc,
-                        blockId: target.id
-                    }),
-                "L1:tooLate"
-            );
+            if (
+                fc.provenAt != 0 &&
+                block.timestamp >=
+                LibUtils.getUncleProofDeadline({
+                    state: state,
+                    config: config,
+                    fc: fc,
+                    blockId: target.id
+                })
+            ) {
+                revert ErrL1TooLateToProveBlock();
+            }
 
             for (uint256 i = 0; i < fc.provers.length; ++i) {
-                require(fc.provers[i] != prover, "L1:prover:dup");
+                if (fc.provers[i] == prover) {
+                    revert ErrL1DuplicateProofs();
+                }
             }
 
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
-                    revert("L1:proof:conflict");
+                    revert ErrL1ConflictingProofs();
                 } else {
                     LibUtils.halt(state, true);
                     return;

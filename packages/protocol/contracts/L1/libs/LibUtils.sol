@@ -91,9 +91,7 @@ library LibUtils {
         return isBitOne(state, MASK_HALT);
     }
 
-    function assertNotHalted(
-        TaikoData.State storage state
-    ) internal view returns (bool) {
+    function assertNotHalted(TaikoData.State storage state) internal view {
         if (isBitOne(state, MASK_HALT)) {
             revert ErrL1Halted();
         }
