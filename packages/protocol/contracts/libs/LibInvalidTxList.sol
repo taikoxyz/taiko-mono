@@ -47,7 +47,7 @@ library LibInvalidTxList {
         TX_GAS_LIMIT_TOO_SMALL
     }
 
-    function isTxListInvalid(
+    function assertTxListInvalid(
         TaikoData.Config memory config,
         bytes calldata encoded,
         Reason hint,
