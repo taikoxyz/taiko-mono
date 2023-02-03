@@ -1,8 +1,7 @@
 import type { SimpleChannel } from "channel-ts";
-import { ethers } from "ethers";
 
 // blockListener should be called as follows:
-// `l2Provider.on("block", blockListener(chan, genesisHeight, l2Provider, maxNumBlocks))`
+// `l2Provider.on("block", blockListener(chan, genesisHeight)`
 // it will send incoming blockNumbers, generated from the l2 provider on a new block,
 // through a Golang-style channel, which can then be waited on like such:
 // for await (const blockNumber of chan)
@@ -12,9 +11,7 @@ import { ethers } from "ethers";
 
 const blockListener = function (
     chan: SimpleChannel<number>,
-    genesisHeight: number,
-    l2Provider: ethers.providers.JsonRpcProvider,
-    maxNumBlocks?: number
+    genesisHeight: number
 ) {
     return function (blockNumber: number) {
         if (blockNumber < genesisHeight) return;

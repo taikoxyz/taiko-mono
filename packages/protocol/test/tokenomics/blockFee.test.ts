@@ -84,15 +84,7 @@ describe("tokenomics: blockFee", function () {
 
         let lastProofReward = BigNumber.from(0);
 
-        l2Provider.on(
-            "block",
-            blockListener(
-                chan,
-                genesisHeight,
-                l2Provider,
-                config.maxNumBlocks.toNumber()
-            )
-        );
+        l2Provider.on("block", blockListener(chan, genesisHeight));
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
             const { newProposerTkoBalance, newBlockFee, newProofReward } =

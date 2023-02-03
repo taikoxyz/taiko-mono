@@ -102,18 +102,13 @@ describe("tokenomics: proofReward", function () {
                 )
         ).wait(1);
 
-        l2Provider.on(
-            "block",
-            blockListener(
-                chan,
-                genesisHeight,
-                l2Provider,
-                config.maxNumBlocks.toNumber()
-            )
-        );
+        l2Provider.on("block", blockListener(chan, genesisHeight));
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
+            if (blockNumber > genesisHeight + config.maxNumBlocks.toNumber()) {
+                break;
+            }
             const proverTkoBalanceBeforeVerification =
                 await tkoTokenL1.balanceOf(await prover.getSigner().address);
 
@@ -190,18 +185,13 @@ describe("tokenomics: proofReward", function () {
                 )
         ).wait(1);
 
-        l2Provider.on(
-            "block",
-            blockListener(
-                chan,
-                genesisHeight,
-                l2Provider,
-                config.maxNumBlocks.toNumber()
-            )
-        );
+        l2Provider.on("block", blockListener(chan, genesisHeight));
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
+            if (blockNumber > genesisHeight + config.maxNumBlocks.toNumber()) {
+                break;
+            }
             const prover = pickRandomElement<Prover>(provers);
             const proposer = pickRandomElement<Proposer>(proposers);
             const proverTkoBalanceBefore = await tkoTokenL1.balanceOf(

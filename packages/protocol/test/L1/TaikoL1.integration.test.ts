@@ -311,15 +311,7 @@ describe("integration:TaikoL1", function () {
 
     describe("getLatestSyncedHeader", function () {
         it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
-            l2Provider.on(
-                "block",
-                blockListener(
-                    chan,
-                    genesisHeight,
-                    l2Provider,
-                    config.maxNumBlocks.toNumber()
-                )
-            );
+            l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;
             // iterate through blockHashHistory twice and try to get latest synced header each time.
