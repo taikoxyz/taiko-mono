@@ -47,10 +47,15 @@ contract TokenVault is EssentialContract {
      *********************/
 
     error ErrInvalidToAddress();
-    error ErrorInvalidToken();
+    error ErrInvalidToken();
     error ErrInvalidAmount();
     error ErrInvalidMsgValue();
-    error ErrInvalidCallValue();
+    error ErrInvalidMsgCallValue();
+    error ErrInvalidMsgOwner();
+    error ErrInvalidMsgStatus();
+    error ErrInvalidMsgSrcChain();
+    error ErrERC20TokenReleasedAlready();
+    error ErrMsgSenderNotTokenVault();
 
     /*********************
      * State Variables   *
@@ -162,7 +167,7 @@ contract TokenVault is EssentialContract {
         message.memo = memo;
 
         if (message.callValue != 0) {
-            revert ErrInvalidCallValue();
+            revert ErrInvalidMsgCallValue();
         }
 
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
@@ -209,7 +214,7 @@ contract TokenVault is EssentialContract {
         ) {
             revert ErrInvalidToAddress();
         }
-        if (token == address(0)) revert ErrorInvalidToken();
+        if (token == address(0)) revert ErrInvalidToken();
         if (amount == 0) revert ErrInvalidAmount();
 
         CanonicalERC20 memory canonicalToken;
@@ -280,23 +285,23 @@ contract TokenVault is EssentialContract {
      * @param proof The proof from the destination chain to show the message
      *              has failed.
      */
+
     function releaseERC20(
         IBridge.Message calldata message,
         bytes calldata proof
     ) external nonReentrant {
-        require(message.owner != address(0), "B:owner");
-        require(message.srcChainId == block.chainid, "B:srcChainId");
+        if (message.owner == address(0)) revert ErrInvalidMsgOwner();
+        if (message.srcChainId != block.chainid) revert ErrInvalidMsgSrcChain();
 
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
         address token = messageDeposits[msgHash].token;
         uint256 amount = messageDeposits[msgHash].amount;
-        require(token != address(0), "B:ERC20Released");
-        require(
-            bridge.isMessageFailed(msgHash, message.destChainId, proof),
-            "V:notFailed"
-        );
+        if (token == address(0)) revert ErrERC20TokenReleasedAlready();
+        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof)) {
+            revert ErrInvalidMsgStatus();
+        }
 
         messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
@@ -333,10 +338,9 @@ contract TokenVault is EssentialContract {
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        require(
-            ctx.sender == resolve(ctx.srcChainId, "token_vault", false),
-            "V:sender"
-        );
+        if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false)) {
+            revert ErrMsgSenderNotTokenVault();
+        }
 
         address token;
         if (canonicalToken.chainId == block.chainid) {
