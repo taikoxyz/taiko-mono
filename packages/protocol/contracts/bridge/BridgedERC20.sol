@@ -30,6 +30,9 @@ contract BridgedERC20 is
     event BridgeMint(address indexed account, uint256 amount);
     event BridgeBurn(address indexed account, uint256 amount);
 
+    error ErrInvalidToAddress();
+    error ErrInvalidParams();
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     // Intention is for a different BridgedERC20 Contract to be deployed
     // per unique _srcToken i.e. one for USDC, one for USDT etc.
@@ -41,14 +44,16 @@ contract BridgedERC20 is
         string memory _symbol,
         string memory _name
     ) external initializer {
-        require(
-            _srcToken != address(0) &&
-                _srcChainId != 0 &&
-                _srcChainId != block.chainid &&
-                bytes(_symbol).length > 0 &&
-                bytes(_name).length > 0,
-            "BE:params"
-        );
+        if (
+            _srcToken == address(0) ||
+            _srcChainId == 0 ||
+            _srcChainId == block.chainid ||
+            bytes(_symbol).length == 0 ||
+            bytes(_name).length == 0
+        ) {
+            revert ErrInvalidParams();
+        }
+
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
@@ -83,7 +88,7 @@ contract BridgedERC20 is
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "BE:to");
+        if (to == address(this)) revert ErrInvalidToAddress();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -95,7 +100,7 @@ contract BridgedERC20 is
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "BE:to");
+        if (to == address(this)) revert ErrInvalidToAddress();
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
