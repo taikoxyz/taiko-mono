@@ -35,8 +35,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
      * Errors            *
      *********************/
 
-    error ErrTkoAddressCannotBeZero();
-    error ErrTkoToAddressCannotBeThisAddress();
+    error ErrInvalidAddress();
 
     /*********************
      * External Functions*
@@ -63,7 +62,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
         if (to == address(this)) {
-            revert ErrTkoToAddressCannotBeThisAddress();
+            revert ErrInvalidAddress();
         }
         return ERC20Upgradeable.transfer(to, amount);
     }
@@ -74,7 +73,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
         if (to == address(this)) {
-            revert ErrTkoToAddressCannotBeThisAddress();
+            revert ErrInvalidAddress();
         }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
@@ -90,7 +89,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
         if (account == address(0)) {
-            revert ErrTkoAddressCannotBeZero();
+            revert ErrInvalidAddress();
         }
         _mint(account, amount);
         emit Mint(account, amount);
@@ -107,7 +106,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
         if (account == address(0)) {
-            revert ErrTkoAddressCannotBeZero();
+            revert ErrInvalidAddress();
         }
         _burn(account, amount);
         emit Burn(account, amount);

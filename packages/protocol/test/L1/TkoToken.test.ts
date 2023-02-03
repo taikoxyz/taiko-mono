@@ -39,7 +39,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).mint(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrTkoAddressCannotBeZeros()");
+            ).to.be.revertedWith("ErrInvalidAddresss()");
         });
 
         it("throws when minter is not the protoBroker", async () => {
@@ -66,7 +66,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).burn(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrTkoAddressCannotBeZeros()");
+            ).to.be.revertedWith("ErrInvalidAddresss()");
         });
 
         it("throws when burner is not the protoBroker", async () => {
@@ -99,7 +99,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the contract address", async () => {
             await expect(
                 token.connect(owner).transfer(token.address, 1)
-            ).to.be.revertedWith("ErrTkoToAddressCannotBeThisAddress()");
+            ).to.be.revertedWith("ErrInvalidAddress()");
         });
 
         it("throws when transfer is > user's amount", async () => {
