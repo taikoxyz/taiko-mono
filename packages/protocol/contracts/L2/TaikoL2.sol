@@ -110,7 +110,6 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             hint: hint,
             txIdx: txIdx
         });
-        require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         if (config.enablePublicInputsCheck) {
             _checkPublicInputs();
