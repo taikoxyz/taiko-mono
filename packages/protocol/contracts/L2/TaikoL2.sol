@@ -104,7 +104,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         require(tx.gasprice == 0, "L2:gasPrice");
 
         TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+        LibInvalidTxList.isTxListInvalid({
             config: config,
             encoded: txList,
             hint: hint,
