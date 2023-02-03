@@ -79,7 +79,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).not.to.be.revertedWith("BE:params");
+            ).not.to.be.revertedWith("ErrInvalidParams()");
         });
 
         it("throws when _srcToken is address 0 ", async () => {
@@ -94,7 +94,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).to.be.revertedWith("BE:params");
+            ).to.be.revertedWith("ErrInvalidParams()");
         });
 
         it("throws when _srcChainId is 0", async () => {
@@ -109,7 +109,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).to.be.revertedWith("BE:params");
+            ).to.be.revertedWith("ErrInvalidParams()");
         });
 
         it("throws when _symbol is 0 length", async () => {
@@ -124,7 +124,7 @@ describe("BridgedERC20", function () {
                         "",
                         "Name"
                     )
-            ).to.be.revertedWith("BE:params");
+            ).to.be.revertedWith("ErrInvalidParams()");
         });
 
         it("throws when _name is 0 length", async () => {
@@ -139,7 +139,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         ""
                     )
-            ).to.be.revertedWith("BE:params");
+            ).to.be.revertedWith("ErrInvalidParams()");
         });
 
         it("throws when _srcChainId is equal to block.chainid", async () => {
@@ -155,7 +155,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "name"
                     )
-            ).to.be.revertedWith("BE:params");
+            ).to.be.revertedWith("ErrInvalidParams()");
         });
     });
 
@@ -235,7 +235,7 @@ describe("BridgedERC20", function () {
                 erc20
                     .connect(accountWithTokens)
                     .transferFrom(accountWithTokens.address, erc20.address, 1)
-            ).to.be.revertedWith("BE:to");
+            ).to.be.revertedWith("ErrInvalidToAddress()");
         });
     });
 
@@ -243,7 +243,7 @@ describe("BridgedERC20", function () {
         it("throws when trying to transfer to itself", async () => {
             await expect(
                 erc20.connect(accountWithTokens).transfer(erc20.address, 1)
-            ).to.be.revertedWith("BE:to");
+            ).to.be.revertedWith("ErrInvalidToAddress()");
         });
 
         it("throws when trying to transfer amount greater than holder owns", async () => {

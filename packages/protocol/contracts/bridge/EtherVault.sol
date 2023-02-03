@@ -42,6 +42,11 @@ contract EtherVault is EssentialContract {
     error ErrInvalidRecipient();
     error ErrAuthorizeFailure();
 
+    modifier onlyAuthorized() {
+        if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
+        _;
+    }
+
     /*********************
      * External Functions*
      *********************/
@@ -66,8 +71,7 @@ contract EtherVault is EssentialContract {
      * is authorized.
      * @param amount Amount of ether to send.
      */
-    function releaseEther(uint256 amount) public nonReentrant {
-        if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
+    function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
         emit EtherReleased(msg.sender, amount);
     }
@@ -81,8 +85,7 @@ contract EtherVault is EssentialContract {
     function releaseEtherTo(
         address recipient,
         uint256 amount
-    ) public nonReentrant {
-        if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
+    ) public onlyAuthorized nonReentrant {
         if (recipient == address(0)) revert ErrInvalidRecipient();
 
         recipient.sendEther(amount);

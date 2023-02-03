@@ -52,7 +52,7 @@ describe("EtherVault", function () {
                     to: etherVault.address,
                     value: ethers.utils.parseEther("1.0"),
                 })
-            ).to.be.revertedWith("EV:denied");
+            ).to.be.revertedWith("ErrAuthorizeFailure()");
         });
 
         it("receives if authorized and balance > 0", async () => {
@@ -82,13 +82,13 @@ describe("EtherVault", function () {
                 etherVault
                     .connect(authorized)
                     .releaseEther(balance.add(additionalAmount))
-            ).to.be.revertedWith("ETH transfer failed");
+            ).to.be.revertedWith("EtherTransferFailed()");
         });
 
         it("throws if not authorized", async () => {
             await expect(
                 etherVault.connect(notAuthorized).releaseEther(1)
-            ).to.be.revertedWith("EV:denied");
+            ).to.be.revertedWith("ErrAuthorizeFailure()");
         });
 
         it("sends ether to caller", async () => {
