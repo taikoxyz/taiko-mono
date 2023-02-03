@@ -23,6 +23,12 @@
     animation: loading 1s infinite;
     z-index: 2;
 }
+
+.crop-image{
+  height: 250px;
+  object-fit: cover;
+  object-position: top;
+}
   
 @keyframes loading {
     0%{

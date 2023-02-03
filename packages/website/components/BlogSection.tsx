@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { getImgURLs } from "./getImgURLs";
 import { getOriginalDigests } from "./getOriginalDigests";
 import { getPosts } from "./getPosts";
 
@@ -11,14 +10,6 @@ function addOriginalDigests(objects, digests) {
         objects[i]["OriginalDigest"] = digests[j].node.tags[4].value;
       }
     }
-  }
-  return objects;
-}
-
-
-function addImgURLs(objects, imgURLs) {
-  for (let i = 0; i < objects.length; i++) {
-    objects[i]["ImgURL"] = imgURLs[i];
   }
   return objects;
 }
@@ -55,14 +46,12 @@ function checkIfPostAreSet(posts) {
       >
         <div className="flex-shrink-0">
           <a
-            href={
-              "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
-            }
+            href={"https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest}
             target="_blank"
           >
             <img
-              className="h-54 w-full object-cover"
-              src={post.ImgURL}
+              className="h-54 w-full object-cover crop-image"
+              src={`https://ipfs.io/ipfs/${post.wnft.imageURI}`}
               alt=""
             />
           </a>
@@ -70,9 +59,7 @@ function checkIfPostAreSet(posts) {
         <div className="flex flex-1 flex-col justify-between bg-white p-6 dark:bg-neutral-800">
           <div className="flex-1">
             <a
-              href={
-                "https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest
-              }
+              href={"https://mirror.xyz/labs.taiko.eth/" + post.OriginalDigest}
               target="_blank"
               className="mt-2 block"
             >
@@ -91,9 +78,7 @@ function checkIfPostAreSet(posts) {
                   {getDate(post.content.timestamp)}
                 </time>
                 <span aria-hidden="true">&middot;</span>
-                <span>
-                  {getReadingTime(post.content.body) + " min read"}
-                </span>
+                <span>{getReadingTime(post.content.body) + " min read"}</span>
               </div>
             </div>
           </div>
@@ -123,26 +108,19 @@ export default function BlogSection(): JSX.Element {
     getOriginalDigests.then((result) => {
       const originalDigestsResult = result;
 
-      getImgURLs.then((result) => {
-        const ImgURLs = result;
+      getPosts.then((result) => {
+        // only use last three
+        result = result.slice(0, 3);
 
-        getPosts.then((result) => {
-          // only use last three
-          result = result.slice(0, 3);
+        // add the OriginalDigest to the post object
+        result = addOriginalDigests(result, originalDigestsResult);
 
-          // add the OriginalDigest to the post object
-          result = addOriginalDigests(result, originalDigestsResult);
-
-          // add the ImgURL to the post object
-          result = addImgURLs(result, ImgURLs);
-
-          setPosts(result);
-        });
+        setPosts(result);
       });
 
       // Getting the information of the post via the arweave GraphQL and SDK
     });
-  }, []);
+  });
 
   return (
     <div className="relative bg-neutral-50 px-4 pt-16 pb-20 sm:px-6 lg:px-8 lg:pt-24 lg:pb-28 dark:bg-neutral-800">
