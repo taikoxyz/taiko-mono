@@ -48,6 +48,8 @@ library LibProving {
         address prover
     );
 
+    error ErrL1InvalidInputsLength(uint expectedLength);
+
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -164,7 +166,8 @@ library LibProving {
         assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
-        require(inputs.length == 3, "L1:inputs:size");
+        if (inputs.length != 3) revert ErrL1InvalidInputsLength(3);
+
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         TaikoData.BlockMetadata memory target = abi.decode(
             inputs[1],
