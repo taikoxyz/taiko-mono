@@ -41,6 +41,17 @@ contract TokenVault is EssentialContract {
         address token;
         uint256 amount;
     }
+
+    /*********************
+     * Errors            *
+     *********************/
+
+    error ErrInvalidToAddress();
+    error ErrorInvalidToken();
+    error ErrInvalidAmount();
+    error ErrInvalidMsgValue();
+    error ErrInvalidCallValue();
+
     /*********************
      * State Variables   *
      *********************/
@@ -130,12 +141,14 @@ contract TokenVault is EssentialContract {
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
-        require(
-            to != address(0) &&
-                to != resolve(destChainId, "token_vault", false),
-            "V:to"
-        );
-        require(msg.value > processingFee, "V:msgValue");
+        if (
+            to == address(0) || to == resolve(destChainId, "token_vault", false)
+        ) {
+            revert ErrInvalidToAddress();
+        }
+        if (msg.value <= processingFee) {
+            revert ErrInvalidMsgValue();
+        }
 
         IBridge.Message memory message;
         message.destChainId = destChainId;
@@ -148,7 +161,9 @@ contract TokenVault is EssentialContract {
         message.refundAddress = refundAddress;
         message.memo = memo;
 
-        require(message.callValue == 0, "V:callValue");
+        if (message.callValue != 0) {
+            revert ErrInvalidCallValue();
+        }
 
         // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
         // the TokenVault
@@ -189,13 +204,13 @@ contract TokenVault is EssentialContract {
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
-        require(
-            to != address(0) &&
-                to != resolve(destChainId, "token_vault", false),
-            "V:to"
-        );
-        require(token != address(0), "V:token");
-        require(amount > 0, "V:amount");
+        if (
+            to == address(0) || to == resolve(destChainId, "token_vault", false)
+        ) {
+            revert ErrInvalidToAddress();
+        }
+        if (token == address(0)) revert ErrorInvalidToken();
+        if (amount == 0) revert ErrInvalidAmount();
 
         CanonicalERC20 memory canonicalToken;
         uint256 _amount;
@@ -203,7 +218,7 @@ contract TokenVault is EssentialContract {
         if (isBridgedToken[token]) {
             BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
-            require(canonicalToken.addr != address(0), "V:canonicalToken");
+            assert(canonicalToken.addr != address(0));
             _amount = amount;
         } else {
             // The canonical token lives on this chain
