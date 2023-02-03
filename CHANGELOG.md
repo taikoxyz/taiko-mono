@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.4.0...taiko-mono-v0.5.0) (2023-01-31)
+
+
+### Features
+
+* **protocol:** add `proto_broker` / `oracle_prover` addresses into `AddressManager` in deploy_L1 script ([#13079](https://github.com/taikoxyz/taiko-mono/issues/13079)) ([f3bea40](https://github.com/taikoxyz/taiko-mono/commit/f3bea40fbcdf4139cc84903ab69d1e0daf641c7c))
+* **protocol:** add special logics for alpha-2 testnet ([#12987](https://github.com/taikoxyz/taiko-mono/issues/12987)) ([3b71285](https://github.com/taikoxyz/taiko-mono/commit/3b712857b5d5ede2a3683d949d1974c8cceeb69a))
+* **protocol:** deploy the generated Yul plonk verifier ([#13016](https://github.com/taikoxyz/taiko-mono/issues/13016)) ([eb5d564](https://github.com/taikoxyz/taiko-mono/commit/eb5d564ec469b1ec79619b4d563c3f9989d264c2))
+* **protocol:** enable two dimensional circuit/verifier lookup. ([#13066](https://github.com/taikoxyz/taiko-mono/issues/13066)) ([51d1f67](https://github.com/taikoxyz/taiko-mono/commit/51d1f67aa45fec8e2de73c1ed5a992306c6339c1))
+* **protocol:** implement `Bridge.isMessageFailed` ([#13004](https://github.com/taikoxyz/taiko-mono/issues/13004)) ([45153d9](https://github.com/taikoxyz/taiko-mono/commit/45153d92cbcd0e80438c925d5ce5c52df3abd696))
+* **protocol:** implement releaseEther & releaseERC20 ([#13008](https://github.com/taikoxyz/taiko-mono/issues/13008)) ([088933e](https://github.com/taikoxyz/taiko-mono/commit/088933e74f7163459e328d61d8331235ab87e388))
+* **protocol:** improve sync header storage on L2 ([#13041](https://github.com/taikoxyz/taiko-mono/issues/13041)) ([86c9fe4](https://github.com/taikoxyz/taiko-mono/commit/86c9fe44a3200490032610c017bfc88c3a57a8dd))
+* **protocol:** temporarily force an `oracle prover` to be the first prover ([#13070](https://github.com/taikoxyz/taiko-mono/issues/13070)) ([d7401a2](https://github.com/taikoxyz/taiko-mono/commit/d7401a20c66a3c52330c4f92c95c71c902d74452))
+* **status-page:** Tokenomics metrics ([#13076](https://github.com/taikoxyz/taiko-mono/issues/13076)) ([cbd3e0b](https://github.com/taikoxyz/taiko-mono/commit/cbd3e0b850a4611b308daf949a2ee65c24ff01ec))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix local dependency not found error for jest-dom ([#12990](https://github.com/taikoxyz/taiko-mono/issues/12990)) ([39bfb09](https://github.com/taikoxyz/taiko-mono/commit/39bfb09ff331a5522362ef683c21e75a2f9cfec3))
+* **protocol:** fix `test:integration` waiting node timeout ([#13006](https://github.com/taikoxyz/taiko-mono/issues/13006)) ([07debb7](https://github.com/taikoxyz/taiko-mono/commit/07debb779c1a142cf6050c31a5a8c9b72f26d376))
+* **protocol:** fix a downloading `solc` binary script bug ([#13074](https://github.com/taikoxyz/taiko-mono/issues/13074)) ([8167e9d](https://github.com/taikoxyz/taiko-mono/commit/8167e9dda0b0f70405e969f590f714b45af5b192))
+* **protocol:** fix two protocol bugs ([#13034](https://github.com/taikoxyz/taiko-mono/issues/13034)) ([1bfa69b](https://github.com/taikoxyz/taiko-mono/commit/1bfa69b4458f7edc4b72efe9c2d8cf9c7050853e))
+* **protocol:** update `ProofVerifier` address name in `AddressManager` ([#13063](https://github.com/taikoxyz/taiko-mono/issues/13063)) ([4144f4b](https://github.com/taikoxyz/taiko-mono/commit/4144f4bda154116f5e34759ced173a16f409202f))
+* **relayer:** apply jwt-go security patch ([#13021](https://github.com/taikoxyz/taiko-mono/issues/13021)) ([264968f](https://github.com/taikoxyz/taiko-mono/commit/264968f24024d69a064b27e276e27870fd4c75f6))
+* **repo:** update readme badges to new filenames ([#13020](https://github.com/taikoxyz/taiko-mono/issues/13020)) ([4fa13c9](https://github.com/taikoxyz/taiko-mono/commit/4fa13c9432901137f688c61a00ade234a844250b))
+* **status-page:** fix local dependency not found error for jest-dom ([#12991](https://github.com/taikoxyz/taiko-mono/issues/12991)) ([b7974bf](https://github.com/taikoxyz/taiko-mono/commit/b7974bf0c8a80aa200313ec27ab44857e22142ee))
+* **website:** fix issue with white logo text and light mode ([#13019](https://github.com/taikoxyz/taiko-mono/issues/13019)) ([8c166fa](https://github.com/taikoxyz/taiko-mono/commit/8c166fa1a1c6258cb91fd978cf4f4aa33ef2b147))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-mono-v0.3.0...taiko-mono-v0.4.0) (2023-01-19)
 
 

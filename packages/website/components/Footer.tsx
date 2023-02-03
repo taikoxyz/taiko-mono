@@ -1,6 +1,19 @@
-export default function Footer() {
+import { ThemeSwitch, useConfig } from "nextra-theme-docs";
+
+export default function Footer({ menu }) {
+  const config = useConfig();
+
   return (
     <footer className="bg-neutral-100 dark:bg-neutral-900">
+      <div
+        className={`nx-mx-auto nx-flex nx-py-2 px-8 nx-border dark:nx-border-neutral-800 contrast-more:nx-border-neutral-400
+          ${menu && (config.darkMode)
+            ? 'nx-flex'
+            : 'nx-hidden'
+          }`}
+      >
+        {config.darkMode && <ThemeSwitch />}
+      </div>
       <div className="grid grid-cols-2 gap-8 px-6 py-8 md:grid-cols-3 md:px-44">
         <div>
           <h2 className="mb-6 text-sm font-semibold text-neutral-500 uppercase dark:text-neutral-300">
