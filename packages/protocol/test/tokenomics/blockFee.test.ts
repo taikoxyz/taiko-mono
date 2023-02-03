@@ -87,6 +87,12 @@ describe("tokenomics: blockFee", function () {
         l2Provider.on("block", blockListener(chan, genesisHeight));
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
+            if (
+                blockNumber >
+                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+            ) {
+                break;
+            }
             const { newProposerTkoBalance, newBlockFee, newProofReward } =
                 await onNewL2Block(
                     l2Provider,

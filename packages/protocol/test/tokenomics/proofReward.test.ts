@@ -106,7 +106,10 @@ describe("tokenomics: proofReward", function () {
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
-            if (blockNumber > genesisHeight + config.maxNumBlocks.toNumber()) {
+            if (
+                blockNumber >
+                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+            ) {
                 break;
             }
             const proverTkoBalanceBeforeVerification =
