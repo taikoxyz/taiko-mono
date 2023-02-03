@@ -39,7 +39,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).mint(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrInvalidAddresss()");
+            ).to.be.revertedWith("ErrInvalidAddress()");
         });
 
         it("throws when minter is not the protoBroker", async () => {
@@ -66,7 +66,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).burn(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrInvalidAddresss()");
+            ).to.be.revertedWith("ErrInvalidAddress()");
         });
 
         it("throws when burner is not the protoBroker", async () => {
