@@ -38,8 +38,13 @@ contract EtherVault is EssentialContract {
      * Errors            *
      *********************/
     error ErrUnauthorized();
+    error ErrInvalidAddressToAuthorize();
     error ErrReceiveFunctionFailure();
     error ErrInvalidRecipient();
+
+    /*********************
+     * Modifier          *
+     *********************/
 
     modifier onlyAuthorized() {
         if (!isAuthorized(msg.sender)) revert ErrUnauthorized();
@@ -98,7 +103,7 @@ contract EtherVault is EssentialContract {
      */
     function authorize(address addr, bool authorized) public onlyOwner {
         if (addr == address(0) || authorizedAddrs[addr] == authorized) {
-            revert ErrUnauthorized();
+            revert ErrInvalidAddressToAuthorize();
         }
         authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
