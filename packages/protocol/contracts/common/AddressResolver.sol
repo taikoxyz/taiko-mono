@@ -21,8 +21,14 @@ abstract contract AddressResolver {
 
     uint256[49] private __gap;
 
+    error ErrAccessDenied();
+    error ErrNoAddressManager();
+    error ErrResolvedAddressIsZero(bytes slot);
+
     modifier onlyFromNamed(string memory name) {
-        require(msg.sender == resolve(name, false), "AR:denied");
+        if (msg.sender != resolve(name, false)) {
+            revert ErrAccessDenied();
+        }
         _;
     }
 
@@ -68,7 +74,9 @@ abstract contract AddressResolver {
     }
 
     function _init(address addressManager_) internal virtual {
-        require(addressManager_ != address(0), "AR:zeroAddress");
+        if (addressManager_ == address(0)) {
+            revert ErrNoAddressManager();
+        }
         _addressManager = IAddressManager(addressManager_);
     }
 
@@ -83,11 +91,8 @@ abstract contract AddressResolver {
             name
         );
         addr = payable(_addressManager.getAddress(string(key)));
-        if (!allowZeroAddress) {
-            require(
-                addr != address(0),
-                string(abi.encodePacked("AR:zeroAddr:", key))
-            );
+        if (!allowZeroAddress && addr == address(0)) {
+            revert ErrResolvedAddressIsZero(key);
         }
     }
 }
