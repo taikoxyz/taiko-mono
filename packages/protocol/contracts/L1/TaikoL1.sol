@@ -26,6 +26,8 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     TaikoData.State public state;
     uint256[100] private __gap;
 
+    error ErrL1MaxBlockCannotBeZero();
+
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
@@ -171,7 +173,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
      * @param maxBlocks Max number of blocks to verify.
      */
     function verifyBlocks(uint256 maxBlocks) external nonReentrant {
-        require(maxBlocks > 0, "L1:maxBlocks");
+        if (maxBlocks == 0) revert ErrL1MaxBlockCannotBeZero();
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
