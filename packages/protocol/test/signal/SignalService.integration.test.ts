@@ -112,7 +112,7 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.revertedWith("ErrInvalidMsgSrcChain()");
+        ).to.be.revertedWith("ErrIdenticalSourceChain()");
     });
 
     it("should revert if app == AddressZero", async function () {
