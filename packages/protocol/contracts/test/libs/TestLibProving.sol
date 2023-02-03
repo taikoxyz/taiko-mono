@@ -4,6 +4,14 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
+// This file is an exact copy of LibProving.sol except the implementation of the following methods are empty:
+
+// _validateAnchorTxSignature
+// _checkMetadata
+// _validateHeaderForMetadata
+
+// @dev we need to update this when we update LibProving.sol
+
 pragma solidity ^0.8.9;
 
 import "../../L1/libs/LibProving.sol";

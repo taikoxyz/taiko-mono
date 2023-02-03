@@ -32,8 +32,7 @@ async function verifyBlockAndAssert(
     taikoL1: TaikoL1,
     tkoTokenL1: TkoToken,
     block: BlockInfo,
-    lastProofReward: BigNumber,
-    compareHeaders: boolean = false
+    lastProofReward: BigNumber
 ): Promise<{ newProofReward: BigNumber }> {
     await sleepUntilBlockIsVerifiable(taikoL1, block.id, block.provenAt);
 
@@ -44,12 +43,6 @@ async function verifyBlockAndAssert(
 
     expect(isVerifiable).to.be.eq(true);
 
-    // dont verify first blocks parent hash, because we arent "real L2" in these
-    // tests, the parent hash will be wrong.
-    // if (compareHeaders) {
-    //     const latestHash = await taikoL1.getLatestSyncedHeader();
-    //     expect(latestHash).to.be.eq(block.parentHash);
-    // }
     const prover = block.forkChoice.provers[0];
 
     const proverTkoBalanceBeforeVerification = await tkoTokenL1.balanceOf(

@@ -9,7 +9,7 @@ import Proposer from "../utils/proposer";
 
 import sleep from "../utils/sleep";
 import { deployTaikoL1 } from "../utils/taikoL1";
-import { initTokenomicsFixture } from "./utils";
+import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: blockFee", function () {
     let taikoL1: TaikoL1;
@@ -21,6 +21,9 @@ describe("tokenomics: blockFee", function () {
     let l1AddressManager: AddressManager;
     let interval: any;
     let chan: SimpleChannel<number>;
+    /* eslint-disable-next-line */
+    let config: Awaited<ReturnType<TaikoL1["getConfig"]>>;
+    let proposer: Proposer;
 
     beforeEach(async () => {
         ({
@@ -32,8 +35,10 @@ describe("tokenomics: blockFee", function () {
             tkoTokenL1,
             l1AddressManager,
             interval,
-        } = await initTokenomicsFixture());
-        chan = new SimpleChannel<number>();
+            chan,
+            config,
+            proposer,
+        } = await initIntegrationFixture(true, true));
     });
 
     afterEach(() => clearInterval(interval));
@@ -46,10 +51,8 @@ describe("tokenomics: blockFee", function () {
     });
 
     it("block fee should increase as the halving period passes, while no blocks are proposed", async function () {
-        const { bootstrapDiscountHalvingPeriod } = await taikoL1.getConfig();
-
         const iterations: number = 5;
-        const period: number = bootstrapDiscountHalvingPeriod
+        const period: number = config.bootstrapDiscountHalvingPeriod
             .mul(1000)
             .toNumber();
 
@@ -64,18 +67,6 @@ describe("tokenomics: blockFee", function () {
     });
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
-        const { maxNumBlocks, commitConfirmations } = await taikoL1.getConfig();
-
-        // set up a proposer to continually propose new blocks
-        const proposer = new Proposer(
-            taikoL1.connect(proposerSigner),
-            l2Provider,
-            commitConfirmations.toNumber(),
-            maxNumBlocks.toNumber(),
-            0,
-            proposerSigner
-        );
-
         // get the initial tkoBalance, which should decrease every block proposal
         let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
             await proposerSigner.getAddress()
@@ -93,17 +84,15 @@ describe("tokenomics: blockFee", function () {
 
         let lastProofReward = BigNumber.from(0);
 
-        l2Provider.on(
-            "block",
-            blockListener(
-                chan,
-                genesisHeight,
-                l2Provider,
-                maxNumBlocks.toNumber()
-            )
-        );
+        l2Provider.on("block", blockListener(chan, genesisHeight));
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
+            if (
+                blockNumber >
+                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+            ) {
+                break;
+            }
             const { newProposerTkoBalance, newBlockFee, newProofReward } =
                 await onNewL2Block(
                     l2Provider,

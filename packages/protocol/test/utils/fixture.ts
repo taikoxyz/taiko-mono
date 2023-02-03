@@ -1,20 +1,19 @@
 import { ethers } from "ethers";
-import deployAddressManager from "../utils/addressManager";
-import {
-    getDefaultL2Signer,
-    getL1Provider,
-    getL2Provider,
-} from "../utils/provider";
-import { defaultFeeBase, deployTaikoL1 } from "../utils/taikoL1";
-import { deployTaikoL2 } from "../utils/taikoL2";
-import deployTkoToken from "../utils/tkoToken";
+import deployAddressManager from "./addressManager";
+import { getDefaultL2Signer, getL1Provider, getL2Provider } from "./provider";
+import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
+import { deployTaikoL2 } from "./taikoL2";
+import deployTkoToken from "./tkoToken";
 import { ethers as hardhatEthers } from "hardhat";
-import {
-    createAndSeedWallets,
-    sendTinyEtherToZeroAddress,
-} from "../utils/seed";
+import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
+import { SimpleChannel } from "channel-ts";
+import Proposer from "./proposer";
+import Prover from "./prover";
 
-async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
+async function initIntegrationFixture(
+    mintTkoToProposer: boolean,
+    enableTokenomics: boolean = true
+) {
     const l1Provider = getL1Provider();
 
     l1Provider.pollingInterval = 100;
@@ -36,7 +35,7 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     const taikoL1 = await deployTaikoL1(
         l1AddressManager,
         genesisHash,
-        true,
+        enableTokenomics,
         defaultFeeBase
     );
     const { chainId } = await l1Provider.getNetwork();
@@ -98,6 +97,19 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
     });
     await tx.wait(1);
 
+    const chan = new SimpleChannel<number>();
+    const config = await taikoL1.getConfig();
+
+    const proposer = new Proposer(
+        taikoL1.connect(proposerSigner),
+        l2Provider,
+        config.commitConfirmations.toNumber(),
+        config.maxNumBlocks.toNumber(),
+        0,
+        proposerSigner
+    );
+
+    const prover = new Prover(taikoL1, l2Provider, proverSigner);
     return {
         taikoL1,
         taikoL2,
@@ -112,7 +124,11 @@ async function initTokenomicsFixture(mintTkoToProposer: boolean = true) {
         tkoTokenL1,
         l1AddressManager,
         interval,
+        chan,
+        config,
+        proposer,
+        prover,
     };
 }
 
-export { initTokenomicsFixture };
+export { initIntegrationFixture };
