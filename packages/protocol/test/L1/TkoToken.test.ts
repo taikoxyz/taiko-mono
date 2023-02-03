@@ -99,7 +99,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the contract address", async () => {
             await expect(
                 token.connect(owner).transfer(token.address, 1)
-            ).to.be.revertedWith("TKO: invalid to");
+            ).to.be.revertedWith("ErrTkoToAddressCannotBeThisAddress()");
         });
 
         it("throws when transfer is > user's amount", async () => {
