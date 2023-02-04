@@ -28,7 +28,9 @@ library LibProving {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
+        // followed by MKPs.
+        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -58,6 +60,7 @@ library LibProving {
         // Check and decode inputs
         require(inputs.length == 3, "L1:inputs:size");
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+
         bytes calldata anchorTx = inputs[1];
         bytes calldata anchorReceipt = inputs[2];
 
@@ -68,6 +71,10 @@ library LibProving {
         require(
             evidence.proofs.length == 2 + zkProofsPerBlock,
             "L1:proof:size"
+        );
+        require(
+            evidence.circuits.length == zkProofsPerBlock,
+            "L1:circuits:size"
         );
 
         {
@@ -241,22 +248,37 @@ library LibProving {
             meta: evidence.meta
         });
 
-        bytes32 blockHash = evidence.header.hashBlockHeader();
-
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
-        // TODO(daniel): remove this special address.
-        address specialProver = resolver.resolve("special_prover", true);
+        bool skipZKPVerification;
 
-        for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-            if (msg.sender == specialProver && evidence.proofs[i].length == 0) {
-                // Skip ZKP verification
+        // TODO(daniel): remove this special address.
+        if (config.enableOracleProver) {
+            bytes32 _blockHash = state
+            .forkChoices[target.id][evidence.header.parentHash].blockHash;
+
+            if (msg.sender == resolver.resolve("oracle_prover", false)) {
+                require(_blockHash == 0, "L1:mustBeFirstProver");
+                skipZKPVerification = true;
             } else {
+                require(_blockHash != 0, "L1:mustNotBeFirstProver");
+            }
+        }
+
+        bytes32 blockHash = evidence.header.hashBlockHeader();
+
+        if (!skipZKPVerification) {
+            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 require(
                     proofVerifier.verifyZKP({
                         verifierId: string(
-                            abi.encodePacked("plonk_verifier_", i)
+                            abi.encodePacked(
+                                "plonk_verifier_",
+                                i,
+                                "_",
+                                evidence.circuits[i]
+                            )
                         ),
                         zkproof: evidence.proofs[i],
                         blockHash: blockHash,
@@ -291,23 +313,25 @@ library LibProving {
         ];
 
         if (fc.blockHash == 0) {
+            // This is the first proof for this block.
             fc.blockHash = blockHash;
-            fc.provenAt = uint64(block.timestamp);
-        } else {
-            if (fc.blockHash != blockHash) {
-                // We have a problem here: two proofs are both valid but claims
-                // the new block has different hashes.
-                LibUtils.halt(state, true);
-                return;
-            }
 
+            if (!config.enableOracleProver) {
+                // If the oracle prover is not enabled
+                // we use the first prover's timestamp
+                fc.provenAt = uint64(block.timestamp);
+            } else {
+                // We keep fc.provenAt as 0.
+            }
+        } else {
             require(
                 fc.provers.length < config.maxProofsPerForkChoice,
                 "L1:proof:tooMany"
             );
 
             require(
-                block.timestamp <
+                fc.provenAt == 0 ||
+                    block.timestamp <
                     LibUtils.getUncleProofDeadline({
                         state: state,
                         config: config,
@@ -319,6 +343,23 @@ library LibProving {
 
             for (uint256 i = 0; i < fc.provers.length; ++i) {
                 require(fc.provers[i] != prover, "L1:prover:dup");
+            }
+
+            if (fc.blockHash != blockHash) {
+                // We have a problem here: two proofs are both valid but claims
+                // the new block has different hashes.
+                if (config.enableOracleProver) {
+                    revert("L1:proof:conflict");
+                } else {
+                    LibUtils.halt(state, true);
+                    return;
+                }
+            }
+
+            if (config.enableOracleProver && fc.provenAt == 0) {
+                // If the oracle prover is enabled, we
+                // use the second prover's timestamp.
+                fc.provenAt = uint64(block.timestamp);
             }
         }
 

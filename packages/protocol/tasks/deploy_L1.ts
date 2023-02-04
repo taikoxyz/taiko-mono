@@ -32,6 +32,12 @@ task("deploy_L1")
         types.string
     )
     .addOptionalParam(
+        "oracleProver",
+        "Address of the oracle prover",
+        "",
+        types.string
+    )
+    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.K_DEPLOY_CONFIRMATIONS,
@@ -65,6 +71,7 @@ export async function deployContracts(hre: any) {
     const l2ChainId = hre.args.l2ChainId;
     const bridgeFunderPrivateKey = hre.args.bridgeFunderPrivateKey;
     const bridgeFund = hre.args.bridgeFund;
+    const oracleProver = hre.args.oracleProver;
 
     log.debug(`network: ${network}`);
     log.debug(`chainId: ${chainId}`);
@@ -75,6 +82,7 @@ export async function deployContracts(hre: any) {
     log.debug(`l2ChainId: ${l2ChainId}`);
     log.debug(`bridgeFunderPrivateKey: ${bridgeFunderPrivateKey}`);
     log.debug(`bridgeFund: ${bridgeFund}`);
+    log.debug(`oracleProver: ${oracleProver}`);
     log.debug(`confirmations: ${hre.args.confirmations}`);
     log.debug();
 
@@ -137,6 +145,15 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${chainId}.taiko`, TaikoL1.address)
     );
 
+    // Used by TkoToken
+    await utils.waitTx(
+        hre,
+        await AddressManager.setAddress(
+            `${chainId}.proto_broker`,
+            TaikoL1.address
+        )
+    );
+
     // Bridge
     const Bridge = await deployBridge(hre, AddressManager.address);
 
@@ -193,13 +210,28 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            ethers.utils.solidityPack(
-                ["string", "uint256"],
-                ["plonk_verifier_", 0]
-            ),
+            // string(abi.encodePacked("plonk_verifier_", i))
+            `${chainId}.${Buffer.from(
+                ethers.utils.arrayify(
+                    ethers.utils.solidityPack(
+                        ["string", "uint256", "string", "uint16"],
+                        ["plonk_verifier_", 0, "_", 0]
+                    )
+                )
+            ).toString()}`,
             PlonkVerifier.address
         )
     );
+
+    if (ethers.utils.isAddress(oracleProver)) {
+        await utils.waitTx(
+            hre,
+            await AddressManager.setAddress(
+                `${chainId}.oracle_prover`,
+                oracleProver
+            )
+        );
+    }
 
     // save deployments
     const deployments = {

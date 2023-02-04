@@ -6,17 +6,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
 type Bridge interface {
 	WatchMessageSent(
 		opts *bind.WatchOpts,
-		sink chan<- *contracts.BridgeMessageSent,
-		signal [][32]byte,
+		sink chan<- *bridge.BridgeMessageSent,
+		msgHash [][32]byte,
 	) (event.Subscription, error)
-	FilterMessageSent(opts *bind.FilterOpts, signal [][32]byte) (*contracts.BridgeMessageSentIterator, error)
-	GetMessageStatus(opts *bind.CallOpts, signal [32]byte) (uint8, error)
-	ProcessMessage(opts *bind.TransactOpts, message contracts.IBridgeMessage, proof []byte) (*types.Transaction, error)
-	IsMessageReceived(opts *bind.CallOpts, signal [32]byte, srcChainId *big.Int, proof []byte) (bool, error) // nolint
+	FilterMessageSent(opts *bind.FilterOpts, msgHash [][32]byte) (*bridge.BridgeMessageSentIterator, error)
+	GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
+	ProcessMessage(opts *bind.TransactOpts, message bridge.IBridgeMessage, proof []byte) (*types.Transaction, error)
+	IsMessageReceived(opts *bind.CallOpts, msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) // nolint
 }
