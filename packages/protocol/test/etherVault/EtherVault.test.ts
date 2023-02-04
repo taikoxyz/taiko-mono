@@ -52,7 +52,7 @@ describe("EtherVault", function () {
                     to: etherVault.address,
                     value: ethers.utils.parseEther("1.0"),
                 })
-            ).to.be.revertedWith("ErrReceiveFunctionFailure()");
+            ).to.be.revertedWithCustomError(etherVault, "ErrReceiveProhibited");
         });
 
         it("receives if authorized and balance > 0", async () => {
@@ -82,13 +82,13 @@ describe("EtherVault", function () {
                 etherVault
                     .connect(authorized)
                     .releaseEther(balance.add(additionalAmount))
-            ).to.be.revertedWith("EtherTransferFailed()");
+            ).to.be.revertedWithCustomError(etherVault, "EtherTransferFailed");
         });
 
         it("throws if not authorized", async () => {
             await expect(
                 etherVault.connect(notAuthorized).releaseEther(1)
-            ).to.be.revertedWith("ErrUnauthorized()");
+            ).to.be.revertedWithCustomError(etherVault, "ErrUnauthorized");
         });
 
         it("sends ether to caller", async () => {
@@ -136,13 +136,19 @@ describe("EtherVault", function () {
                 etherVault
                     .connect(owner)
                     .authorize(ethers.constants.AddressZero, true)
-            ).to.be.revertedWith("ErrInvalidAddressToAuthorize()");
+            ).to.be.revertedWithCustomError(
+                etherVault,
+                "ErrInvalidAddressToAuthorize"
+            );
         });
 
         it("throws when authorized state is the same as input", async () => {
             await expect(
                 etherVault.connect(owner).authorize(authorized.address, true)
-            ).to.be.revertedWith("ErrInvalidAddressToAuthorize()");
+            ).to.be.revertedWithCustomError(
+                etherVault,
+                "ErrInvalidAddressToAuthorize"
+            );
         });
 
         it("emits Authorized event upon success", async () => {

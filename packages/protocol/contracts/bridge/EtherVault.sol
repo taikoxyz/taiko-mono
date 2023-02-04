@@ -39,7 +39,7 @@ contract EtherVault is EssentialContract {
      *********************/
     error ErrUnauthorized();
     error ErrInvalidAddressToAuthorize();
-    error ErrReceiveFunctionFailure();
+    error ErrReceiveProhibited();
     error ErrInvalidRecipient();
 
     /*********************
@@ -58,7 +58,7 @@ contract EtherVault is EssentialContract {
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
-            revert ErrReceiveFunctionFailure();
+            revert ErrReceiveProhibited();
         }
     }
 
