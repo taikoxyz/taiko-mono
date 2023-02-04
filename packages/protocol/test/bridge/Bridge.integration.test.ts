@@ -20,7 +20,7 @@ import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 
-describe("integratio-n:Bridge", function () {
+describe("integration:Bridge", function () {
     let owner: any;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
     let l2Signer: ethersLib.Signer;

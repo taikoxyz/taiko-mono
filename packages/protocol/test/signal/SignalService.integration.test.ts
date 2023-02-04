@@ -112,7 +112,10 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.revertedWith("ErrIdenticalSourceChain()");
+        ).to.be.revertedWithCustomError(
+            l2SignalService,
+            "ErrIdenticalSourceChain"
+        );
     });
 
     it("should revert if app == AddressZero", async function () {
@@ -151,7 +154,7 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.revertedWith("ErrNullApp()");
+        ).to.be.revertedWithCustomError(l2SignalService, "ErrNullApp");
     });
 
     it("should revert if signal == HashZero", async function () {
@@ -190,7 +193,7 @@ describe("integration:SignalService", function () {
                 ethers.constants.HashZero,
                 signalProof
             )
-        ).to.be.revertedWith("ErrZeroSignal()");
+        ).to.be.revertedWithCustomError(l2SignalService, "ErrZeroSignal");
     });
 
     it("should pass and return true", async function () {
