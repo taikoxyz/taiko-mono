@@ -10,7 +10,7 @@ import {
     getL2Provider,
 } from "../utils/provider";
 
-describe("integratio-n:SignalService", function () {
+describe("integration:SignalService", function () {
     async function deployIntegrationSignalService() {
         const [owner] = await ethers.getSigners();
 
