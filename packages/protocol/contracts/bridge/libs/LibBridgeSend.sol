@@ -19,6 +19,10 @@ library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
+    error ErrSendInvalidMessageOwner();
+    error ErrSendInvalidDestinationChain();
+    error ErrSendInvalidMsgValue();
+
     /**
      * Initiate a bridge request.
      *
@@ -37,17 +41,23 @@ library LibBridgeSend {
         AddressResolver resolver,
         IBridge.Message memory message
     ) internal returns (bytes32 msgHash) {
-        require(message.owner != address(0), "B:owner");
-        require(
-            message.destChainId != block.chainid &&
-                isDestChainEnabled(resolver, message.destChainId),
-            "B:destChainId"
-        );
+        if (message.owner == address(0)) {
+            revert ErrSendInvalidMessageOwner();
+        }
+        if (
+            message.destChainId == block.chainid ||
+            !isDestChainEnabled(resolver, message.destChainId)
+        ) {
+            revert ErrSendInvalidDestinationChain();
+        }
 
         uint256 expectedAmount = message.depositValue +
             message.callValue +
             message.processingFee;
-        require(expectedAmount == msg.value, "B:value");
+
+        if (expectedAmount != msg.value) {
+            revert ErrSendInvalidMsgValue();
+        }
 
         // For each message, expectedAmount is sent to ethVault to be handled.
         // Processing will retrieve these funds directly from ethVault.

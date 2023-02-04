@@ -24,6 +24,11 @@ library LibBridgeProcess {
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
 
+    error ErrProcessInvalidSender();
+    error ErrProcessInvalidDestinationChain();
+    error ErrProcessInvalidMessageStatus();
+    error ErrProcessMessageNotReceived();
+
     /**
      * Process the bridge message on the destination chain. It can be called by
      * any address, including `message.owner`. It starts by hashing the message,
@@ -44,20 +49,25 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         if (message.gasLimit == 0) {
-            require(msg.sender == message.owner, "B:forbidden");
+            if (msg.sender != message.owner) {
+                revert ErrProcessInvalidSender();
+            }
         }
 
         // The message's destination chain must be the current chain.
-        require(message.destChainId == block.chainid, "B:destChainId");
+        if (message.destChainId != block.chainid) {
+            revert ErrProcessInvalidDestinationChain();
+        }
 
         // The status of the message must be "NEW"; RETRIABLE is handled in
         // LibBridgeRetry.sol
         bytes32 msgHash = message.hashMessage();
-        require(
-            LibBridgeStatus.getMessageStatus(msgHash) ==
-                LibBridgeStatus.MessageStatus.NEW,
-            "B:status"
-        );
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash) !=
+            LibBridgeStatus.MessageStatus.NEW
+        ) {
+            revert ErrProcessInvalidMessageStatus();
+        }
         // Message must have been "received" on the destChain (current chain)
         address srcBridge = resolver.resolve(
             message.srcChainId,
@@ -65,16 +75,17 @@ library LibBridgeProcess {
             false
         );
 
-        require(
-            ISignalService(resolver.resolve("signal_service", false))
+        if (
+            !ISignalService(resolver.resolve("signal_service", false))
                 .isSignalReceived({
                     srcChainId: message.srcChainId,
                     app: srcBridge,
                     signal: msgHash,
                     proof: proof
-                }),
-            "B:notReceived"
-        );
+                })
+        ) {
+            revert ErrProcessMessageNotReceived();
+        }
 
         // We retrieve the necessary ether from EtherVault
         address ethVault = resolver.resolve("ether_vault", true);

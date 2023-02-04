@@ -44,6 +44,17 @@ contract Bridge is EssentialContract, IBridge {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /*********************
+     * Errors            *
+     *********************/
+    // The following custom errors allow for integration tests
+    // to pass. When more integration tests are added, more custom
+    // errors may need to be copied from LibXXX.sol libraries.
+    error ErrProcessInvalidSender();
+    error ErrProcessInvalidDestinationChain();
+    error ErrProcessInvalidMessageStatus();
+    error ErrProcessMessageNotReceived();
+
+    /*********************
      * External Functions*
      *********************/
 

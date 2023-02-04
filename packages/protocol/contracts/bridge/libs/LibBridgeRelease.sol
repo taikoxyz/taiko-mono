@@ -18,26 +18,39 @@ library LibBridgeRelease {
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
+    error ErrReleaseInvalidMessageOwner();
+    error ErrReleaseInvalidSourceChain();
+    error ErrReleaseEtherReleasedAlready();
+    error ErrReleaseMessageNotFailedOnDestinationChain();
+    error ErrReleaseEtherTransferFailed();
+
     function releaseEther(
         LibBridgeData.State storage state,
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
     ) internal {
-        require(message.owner != address(0), "B:owner");
-        require(message.srcChainId == block.chainid, "B:srcChainId");
+        if (message.owner == address(0)) {
+            revert ErrReleaseInvalidMessageOwner();
+        }
+        if (message.srcChainId != block.chainid) {
+            revert ErrReleaseInvalidSourceChain();
+        }
 
         bytes32 msgHash = message.hashMessage();
-        require(state.etherReleased[msgHash] == false, "B:etherReleased");
-        require(
-            LibBridgeStatus.isMessageFailed(
+        if (state.etherReleased[msgHash]) {
+            revert ErrReleaseEtherReleasedAlready();
+        }
+        if (
+            !LibBridgeStatus.isMessageFailed(
                 resolver,
                 msgHash,
                 message.destChainId,
                 proof
-            ),
-            "B:notFailed"
-        );
+            )
+        ) {
+            revert ErrReleaseMessageNotFailedOnDestinationChain();
+        }
 
         state.etherReleased[msgHash] = true;
 
@@ -52,7 +65,7 @@ library LibBridgeRelease {
                 );
             } else {
                 (bool success, ) = message.owner.call{value: releaseAmount}("");
-                require(success, "B:transfer");
+                if (!success) revert ErrReleaseEtherTransferFailed();
             }
         }
         emit EtherReleased(msgHash, message.owner, releaseAmount);

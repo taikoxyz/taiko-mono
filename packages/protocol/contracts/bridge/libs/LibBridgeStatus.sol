@@ -26,6 +26,9 @@ library LibBridgeStatus {
 
     event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status);
 
+    error ErrStatusInvalidDestinationChain();
+    error ErrStatusInvalidMessageHash();
+
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
      *      does nothing.
@@ -59,8 +62,12 @@ library LibBridgeStatus {
         uint256 destChainId,
         bytes calldata proof
     ) internal view returns (bool) {
-        require(destChainId != block.chainid, "B:destChainId");
-        require(msgHash != 0, "B:msgHash");
+        if (destChainId == block.chainid) {
+            revert ErrStatusInvalidDestinationChain();
+        }
+        if (msgHash == 0) {
+            revert ErrStatusInvalidMessageHash();
+        }
 
         LibBridgeData.StatusProof memory sp = abi.decode(
             proof,

@@ -20,7 +20,7 @@ import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 
-describe("integration:Bridge", function () {
+describe("integratio-n:Bridge", function () {
     let owner: any;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
     let l2Signer: ethersLib.Signer;
@@ -146,9 +146,15 @@ describe("integration:Bridge", function () {
                 memo: "",
             };
 
+            // customize gas limt to work with revertedWithCustomError
             await expect(
-                l2Bridge.processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+                l2Bridge.processMessage(m, ethers.constants.HashZero, {
+                    gasLimit: 1000000,
+                })
+            ).to.be.revertedWithCustomError(
+                l2Bridge,
+                "ErrProcessInvalidSender"
+            );
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {
@@ -168,9 +174,15 @@ describe("integration:Bridge", function () {
                 memo: "",
             };
 
+            // customize gas limt to work with revertedWithCustomError
             await expect(
-                l2Bridge.processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+                l2Bridge.processMessage(m, ethers.constants.HashZero, {
+                    gasLimit: 1000000,
+                })
+            ).to.be.revertedWithCustomError(
+                l2Bridge,
+                "ErrProcessInvalidDestinationChain"
+            );
         });
 
         it("should throw if messageStatus of message is != NEW", async function () {
@@ -184,9 +196,15 @@ describe("integration:Bridge", function () {
             );
 
             // recalling this process should be prevented as it's status is no longer NEW
+            // customize gas limt to work with revertedWithCustomError
             await expect(
-                l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:status");
+                l2Bridge.processMessage(message, signalProof, {
+                    gasLimit: 1000000,
+                })
+            ).to.be.revertedWithCustomError(
+                l2Bridge,
+                "ErrProcessInvalidMessageStatus"
+            );
         });
 
         it("should throw if message signalproof is not valid", async function () {
@@ -205,9 +223,15 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
+            // customize gas limt to work with revertedWithCustomError
             await expect(
-                l2Bridge.processMessage(m, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+                l2Bridge.processMessage(m, signalProof, {
+                    gasLimit: 1000000,
+                })
+            ).to.be.revertedWithCustomError(
+                l2Bridge,
+                "ErrProcessMessageNotReceived"
+            );
         });
 
         it("should throw if message has not been received", async function () {
@@ -248,9 +272,15 @@ describe("integration:Bridge", function () {
                 blockHeader
             );
 
+            // customize gas limt to work with revertedWithCustomError
             await expect(
-                l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+                l2Bridge.processMessage(message, signalProof, {
+                    gasLimit: 1000000,
+                })
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrProcessMessageNotReceived"
+            );
         });
 
         it("processes a message when the signal has been verified from the sending chain", async () => {

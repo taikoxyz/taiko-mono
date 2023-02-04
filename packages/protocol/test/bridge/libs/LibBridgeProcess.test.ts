@@ -106,7 +106,7 @@ describe("LibBridgeProcess", async function () {
             };
             await expect(
                 libProcess.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+            ).to.be.revertedWith("ErrProcessInvalidSender()");
         });
 
         it("should throw if message.destChain != block.chainId", async function () {
@@ -128,7 +128,7 @@ describe("LibBridgeProcess", async function () {
             };
             await expect(
                 libProcess.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("ErrProcessInvalidDestinationChain()");
         });
 
         it("should throw if message's status is not NEW", async function () {
@@ -158,7 +158,7 @@ describe("LibBridgeProcess", async function () {
 
             await expect(
                 libProcess.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:status");
+            ).to.be.revertedWith("ErrProcessInvalidMessageStatus()");
         });
         // Remaining test cases require integration, will be covered in Bridge.test.ts
     });

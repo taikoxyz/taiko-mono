@@ -22,6 +22,9 @@ library LibBridgeRetry {
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
 
+    error ErrRetryInvalidSender();
+    error ErrRetryInvalidMessageStatus();
+
     /**
      * Retry a bridge message on the destination chain. This function can be
      * called by any address, including `message.owner`. It can only be called
@@ -44,15 +47,18 @@ library LibBridgeRetry {
         // If the gasLimit is not set to 0 or isLastAttempt is true, the
         // address calling this function must be message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
-            require(msg.sender == message.owner, "B:denied");
+            if (msg.sender != message.owner) {
+                revert ErrRetryInvalidSender();
+            }
         }
 
         bytes32 msgHash = message.hashMessage();
-        require(
-            LibBridgeStatus.getMessageStatus(msgHash) ==
-                LibBridgeStatus.MessageStatus.RETRIABLE,
-            "B:notFound"
-        );
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash) !=
+            LibBridgeStatus.MessageStatus.RETRIABLE
+        ) {
+            revert ErrRetryInvalidMessageStatus();
+        }
 
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {

@@ -82,7 +82,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:owner"
+                "ErrSendInvalidMessageOwner()"
             );
         });
 
@@ -104,7 +104,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "ErrSendInvalidDestinationChain()"
             );
         });
 
@@ -128,7 +128,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "ErrSendInvalidDestinationChain()"
             );
         });
 
@@ -150,7 +150,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:value"
+                "ErrSendInvalidMsgValue()"
             );
         });
 

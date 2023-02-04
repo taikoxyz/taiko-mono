@@ -15,9 +15,7 @@ library LibBridgeInvoke {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
-    /*********************
-     * Internal Functions*
-     *********************/
+    error ErrInvokeInvalidGasLimit();
 
     function invokeMessageCall(
         LibBridgeData.State storage state,
@@ -25,7 +23,7 @@ library LibBridgeInvoke {
         bytes32 msgHash,
         uint256 gasLimit
     ) internal returns (bool success) {
-        require(gasLimit > 0, "B:gasLimit");
+        if (gasLimit == 0) revert ErrInvokeInvalidGasLimit();
 
         state.ctx = IBridge.Context({
             msgHash: msgHash,
