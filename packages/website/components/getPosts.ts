@@ -56,7 +56,7 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
           if (data.hasOwnProperty('wnft')) {
             posts.push(data)
           }
-
+          
         }).catch();
     }))
     resolve(posts)
