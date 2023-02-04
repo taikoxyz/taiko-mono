@@ -76,17 +76,6 @@ contract ERC20Upgradeable is
     string private _symbol;
     uint8 private _decimals;
 
-    error ErrDecreasedAllowanceBelowZero();
-    error ErrTransferFromZeroAddress();
-    error ErrTransferToZeroAddress();
-    error ErrBurnFromZeroAddress();
-    error ErrMintToZeroAddress();
-    error ErrTransferAmountExceedsBalance();
-    error ErrBurnAmountExceedsBalance();
-    error ErrApproveFromZeroAddress();
-    error ErrApproveToZeroAddress();
-    error ErrInsufficientAllowance();
-
     /**
      * @dev Sets the values for {name} and {symbol}.
      *
@@ -276,9 +265,10 @@ contract ERC20Upgradeable is
     ) public virtual returns (bool) {
         address owner = _msgSender();
         uint256 currentAllowance = _allowances[owner][spender];
-        if (currentAllowance < subtractedValue) {
-            revert ErrDecreasedAllowanceBelowZero();
-        }
+        require(
+            currentAllowance >= subtractedValue,
+            "ERC20: decreased allowance below zero"
+        );
         unchecked {
             _approve(owner, spender, currentAllowance - subtractedValue);
         }
@@ -305,15 +295,16 @@ contract ERC20Upgradeable is
         address to,
         uint256 amount
     ) internal virtual {
-        if (from == address(0)) revert ErrTransferFromZeroAddress();
-        if (to == address(0)) revert ErrTransferToZeroAddress();
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
 
         _beforeTokenTransfer(from, to, amount);
 
         uint256 fromBalance = _balances[from];
-        if (fromBalance < amount) {
-            revert ErrTransferAmountExceedsBalance();
-        }
+        require(
+            fromBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
         unchecked {
             _balances[from] = fromBalance - amount;
         }
@@ -334,7 +325,7 @@ contract ERC20Upgradeable is
      * - `account` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
-        if (account == address(0)) revert ErrMintToZeroAddress();
+        require(account != address(0), "ERC20: mint to the zero address");
 
         _beforeTokenTransfer(address(0), account, amount);
 
@@ -355,12 +346,12 @@ contract ERC20Upgradeable is
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal virtual {
-        if (account == address(0)) revert ErrBurnFromZeroAddress();
+        require(account != address(0), "ERC20: burn from the zero address");
 
         _beforeTokenTransfer(account, address(0), amount);
 
         uint256 accountBalance = _balances[account];
-        if (accountBalance < amount) revert ErrBurnAmountExceedsBalance();
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
         unchecked {
             _balances[account] = accountBalance - amount;
         }
@@ -387,8 +378,8 @@ contract ERC20Upgradeable is
         address spender,
         uint256 amount
     ) internal virtual {
-        if (owner == address(0)) revert ErrApproveFromZeroAddress();
-        if (spender == address(0)) revert ErrApproveToZeroAddress();
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
@@ -409,7 +400,10 @@ contract ERC20Upgradeable is
     ) internal virtual {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
-            if (currentAllowance < amount) revert ErrInsufficientAllowance();
+            require(
+                currentAllowance >= amount,
+                "ERC20: insufficient allowance"
+            );
             unchecked {
                 _approve(owner, spender, currentAllowance - amount);
             }

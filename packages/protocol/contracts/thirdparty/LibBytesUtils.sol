@@ -31,13 +31,6 @@ pragma solidity ^0.8.9;
  */
 library LibBytesUtils {
     /**********************
-     * Errors             *
-     **********************/
-
-    error ErrSliceOverflow(uint code);
-    error ErrSliceOutOfBounds();
-
-    /**********************
      * Internal Functions *
      **********************/
 
@@ -46,9 +39,9 @@ library LibBytesUtils {
         uint256 _start,
         uint256 _length
     ) internal pure returns (bytes memory) {
-        if (_length + 31 < _length) revert ErrSliceOverflow(0);
-        if (_start + _length < _start) revert ErrSliceOverflow(1);
-        if (_bytes.length < _start + _length) revert ErrSliceOutOfBounds();
+        require(_length + 31 >= _length, "slice_overflow");
+        require(_start + _length >= _start, "slice_overflow");
+        require(_bytes.length >= _start + _length, "slice_outOfBounds");
 
         bytes memory tempBytes;
 

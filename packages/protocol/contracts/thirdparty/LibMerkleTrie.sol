@@ -50,17 +50,6 @@ library LibMerkleTrie {
         LibRLPReader.RLPItem[] decoded;
     }
 
-    /*******************
-     * Errors          *
-     *******************/
-
-    error ErrInvalidProof();
-    error ErrInvalidRootHash();
-    error ErrInvalidLargeInternalHash();
-    error ErrInvalidInternalNodeHash();
-    error ErrNodeWithUnknownPrefix();
-    error ErrorUnparesableNode();
-
     /**********************
      * Contract Constants *
      **********************/
@@ -134,7 +123,7 @@ library LibMerkleTrie {
 
         bool exists = keyRemainder.length == 0;
 
-        if (!exists && !isFinalNode) revert ErrInvalidProof();
+        require(exists || isFinalNode, "Provided proof is invalid.");
 
         bytes memory value = exists
             ? _getNodeValue(proof[pathLength - 1])
@@ -188,18 +177,23 @@ library LibMerkleTrie {
 
             if (currentKeyIndex == 0) {
                 // First proof element is always the root node.
-                if (keccak256(currentNode.encoded) != currentNodeID)
-                    revert ErrInvalidRootHash();
+                require(
+                    keccak256(currentNode.encoded) == currentNodeID,
+                    "Invalid root hash"
+                );
             } else if (currentNode.encoded.length >= 32) {
                 // Nodes 32 bytes or larger are hashed inside branch nodes.
-                if (keccak256(currentNode.encoded) != currentNodeID)
-                    revert ErrInvalidLargeInternalHash();
+                require(
+                    keccak256(currentNode.encoded) == currentNodeID,
+                    "Invalid large internal hash"
+                );
             } else {
                 // Nodes smaller than 31 bytes aren't hashed.
-                if (
-                    LibBytesUtils.toBytes32(currentNode.encoded) !=
-                    currentNodeID
-                ) revert ErrInvalidInternalNodeHash();
+                require(
+                    LibBytesUtils.toBytes32(currentNode.encoded) ==
+                        currentNodeID,
+                    "Invalid internal node hash"
+                );
             }
 
             if (currentNode.decoded.length == BRANCH_NODE_LENGTH) {
@@ -265,10 +259,10 @@ library LibMerkleTrie {
                         continue;
                     }
                 } else {
-                    revert ErrNodeWithUnknownPrefix();
+                    revert("Received a node with an unknown prefix");
                 }
             } else {
-                revert ErrorUnparesableNode();
+                revert("Received an unparseable node.");
             }
         }
 

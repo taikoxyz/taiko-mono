@@ -42,7 +42,7 @@ async function onNewL2Block(
 
     const newBlockFee = await taikoL1.getBlockFee();
 
-    console.log("-------------------proposed----------", id);
+    console.log("\t\t-------------------proposed----------", id);
 
     return {
         proposedEvent,

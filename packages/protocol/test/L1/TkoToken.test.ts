@@ -1,10 +1,5 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import {
-    ADDRESS_RESOLVER_DENIED,
-    ERC20_BURN_AMOUNT_EXCEEDED,
-    ERC20_TRANSFER_AMOUNT_EXCEEDED,
-} from "../constants/errors";
 import { BigNumber } from "ethers";
 import deployTkoToken from "../utils/tkoToken";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
@@ -39,13 +34,13 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).mint(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrInvalidAddress()");
+            ).to.be.revertedWithCustomError(token, "ErrInvalidAddress");
         });
 
         it("throws when minter is not the protoBroker", async () => {
             await expect(
                 token.connect(owner).mint(nonOwner.address, amountMinted.add(1))
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWithCustomError(token, "ErrAccessDenied");
         });
 
         it("succeeds", async () => {
@@ -66,13 +61,13 @@ describe("TkoToken", function () {
         it("throws when to is equal to the zero address", async () => {
             await expect(
                 token.connect(protoBroker).burn(ethers.constants.AddressZero, 1)
-            ).to.be.revertedWith("ErrInvalidAddress()");
+            ).to.be.revertedWithCustomError(token, "ErrInvalidAddress");
         });
 
         it("throws when burner is not the protoBroker", async () => {
             await expect(
                 token.connect(owner).burn(nonOwner.address, amountMinted.add(1))
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWithCustomError(token, "ErrAccessDenied");
         });
 
         it("throws when account balance is < amount requested to burn", async () => {
@@ -80,7 +75,10 @@ describe("TkoToken", function () {
                 token
                     .connect(protoBroker)
                     .burn(owner.address, amountMinted.add(1))
-            ).to.be.revertedWith(ERC20_BURN_AMOUNT_EXCEEDED);
+            ).to.be.revertedWithCustomError(
+                token,
+                "ErrBurnAmountExceedsBalance"
+            );
         });
 
         it("succeeds", async () => {
@@ -99,7 +97,7 @@ describe("TkoToken", function () {
         it("throws when to is equal to the contract address", async () => {
             await expect(
                 token.connect(owner).transfer(token.address, 1)
-            ).to.be.revertedWith("ErrInvalidAddress()");
+            ).to.be.revertedWithCustomError(token, "ErrInvalidAddress");
         });
 
         it("throws when transfer is > user's amount", async () => {
@@ -107,7 +105,10 @@ describe("TkoToken", function () {
                 token
                     .connect(owner)
                     .transfer(nonOwner.address, amountMinted.add(1))
-            ).to.be.revertedWith(ERC20_TRANSFER_AMOUNT_EXCEEDED);
+            ).to.be.revertedWithCustomError(
+                token,
+                "ErrTransferAmountExceedsBalance"
+            );
         });
 
         it("succeeds", async () => {
