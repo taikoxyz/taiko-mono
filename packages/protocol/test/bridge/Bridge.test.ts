@@ -60,8 +60,11 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidMessageOwner()"
+            await expect(
+                l1Bridge.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrSendInvalidMessageOwner"
             );
         });
 
@@ -83,8 +86,11 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidDestinationChain()"
+            await expect(
+                l1Bridge.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrSendInvalidDestinationChain"
             );
         });
 
@@ -105,8 +111,11 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidDestinationChain()"
+            await expect(
+                l1Bridge.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrSendInvalidDestinationChain"
             );
         });
 
@@ -127,9 +136,9 @@ describe("Bridge", function () {
                 memo: "",
             };
 
-            await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidMsgValue()"
-            );
+            await expect(
+                l1Bridge.sendMessage(message)
+            ).to.be.revertedWithCustomError(l1Bridge, "ErrSendInvalidMsgValue");
         });
 
         it("emits event and is successful when message is valid, ether_vault receives the expectedAmount", async () => {
@@ -175,7 +184,7 @@ describe("Bridge", function () {
     //     it("throws when signal is empty", async function () {
     //         await expect(
     //             l1Bridge.connect(owner).sendSignal(ethers.constants.HashZero)
-    //         ).to.be.revertedWith("B:signal");
+    //         ).to.be.revertedWithCustomError(l1Bridge,"B:signal");
     //     });
 
     //     it("sends signal, confirms it was sent", async function () {
@@ -275,7 +284,10 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("ErrProcessInvalidSender()");
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrProcessInvalidSender"
+            );
         });
 
         it("throws message.destChainId is not block.chainId", async () => {
@@ -297,7 +309,10 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("ErrProcessInvalidDestinationChain()");
+            ).to.be.revertedWithCustomError(
+                l1Bridge,
+                "ErrProcessInvalidDestinationChain"
+            );
         });
     });
 });

@@ -18,7 +18,10 @@ describe("TaikoL2", function () {
         it("should revert since ancestor hashes not written", async function () {
             await expect(
                 taikoL2.anchor(Math.ceil(Math.random() * 1024), randomBytes32())
-            ).to.be.revertedWith("ErrL2PublicInputHashMismatch()");
+            ).to.be.revertedWithCustomError(
+                taikoL2,
+                "ErrL2PublicInputHashMismatch"
+            );
         });
     });
 
