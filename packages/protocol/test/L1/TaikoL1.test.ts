@@ -25,8 +25,11 @@ describe("TaikoL1", function () {
 
     describe("getSyncedHeader()", async function () {
         it("should revert because header number has not been synced", async function () {
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
-                "ErrL1BlockNumberOutOfRange"
+            await expect(
+                taikoL1.getSyncedHeader(1)
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrUtilsBlockNumberOutOfRange"
             );
         });
 
@@ -62,14 +65,17 @@ describe("TaikoL1", function () {
         it("should revert when size of inputs is les than 2", async function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("ErrL1InvalidInputsLength(2)");
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingInvalidInputsLength"
+            );
         });
 
         it("should revert when halted", async function () {
             await taikoL1.halt(true);
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("ErrL1Halted");
+            ).to.be.revertedWithCustomError(taikoL1, "ErrUtilsHalted");
         });
     });
 
@@ -77,14 +83,17 @@ describe("TaikoL1", function () {
         it("should revert when size of inputs is les than 2", async function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("ErrL1InvalidInputsLength(2)");
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingInvalidInputsLength"
+            );
         });
 
         it("should revert when halted", async function () {
             await taikoL1.halt(true);
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("ErrL1Halted");
+            ).to.be.revertedWithCustomError(taikoL1, "ErrUtilsHalted");
         });
     });
 
