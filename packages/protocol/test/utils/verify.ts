@@ -103,7 +103,7 @@ async function commitProposeProveAndVerify(
     tkoTokenL1: TkoToken,
     prover: Prover
 ) {
-    console.log("proposing block", blockNumber);
+    console.log("\t\tproposing block", blockNumber);
     const { proposedEvent } = await onNewL2Block(
         l2Provider,
         blockNumber,
@@ -114,7 +114,7 @@ async function commitProposeProveAndVerify(
     );
     expect(proposedEvent).not.to.be.undefined;
 
-    console.log("proving block", blockNumber);
+    console.log("\t\tproving block", blockNumber);
     const provedEvent = await prover.prove(
         await prover.getSigner().getAddress(),
         proposedEvent.args.id.toNumber(),
@@ -164,10 +164,10 @@ async function commitProposeProveAndVerify(
     );
     expect(isVerifiable).to.be.eq(true);
 
-    console.log("verifying block", blockNumber);
+    console.log("\t\tverifying block", blockNumber);
     const verifyEvent = await verifyBlocks(taikoL1, 1);
     expect(verifyEvent).not.to.be.eq(undefined);
-    console.log("verified block", blockNumber);
+    console.log("\t\tverified block", blockNumber);
 
     return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
 }

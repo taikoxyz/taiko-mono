@@ -11,7 +11,6 @@ import {
 } from "../../typechain";
 import { ethers } from "hardhat";
 import { BigNumber, BigNumberish } from "ethers";
-import { ADDRESS_RESOLVER_DENIED } from "../constants/errors";
 import { MockContract, smock } from "@defi-wonderland/smock";
 
 type CanonicalERC20 = {
@@ -33,7 +32,7 @@ const weth: CanonicalERC20 = {
 describe("TokenVault", function () {
     let owner: any;
     let nonOwner: any;
-    let L1TokenVault: MockContract<TokenVault>;
+    let l1tokenVault: MockContract<TokenVault>;
     let tokenVaultAddressManager: AddressManager;
     let destChainTokenVault: TokenVault;
     const defaultProcessingFee = 10;
@@ -58,8 +57,8 @@ describe("TokenVault", function () {
             "TokenVault"
         );
 
-        L1TokenVault = await mockTokenVaultFactory.connect(owner).deploy();
-        await L1TokenVault.init(tokenVaultAddressManager.address);
+        l1tokenVault = await mockTokenVaultFactory.connect(owner).deploy();
+        await l1tokenVault.init(tokenVaultAddressManager.address);
 
         destChainTokenVault = await tokenVaultFactory.connect(owner).deploy();
         await destChainTokenVault.init(tokenVaultAddressManager.address);
@@ -80,7 +79,7 @@ describe("TokenVault", function () {
         );
         await tokenVaultAddressManager.setAddress(
             `${network.chainId}.token_vault`,
-            L1TokenVault.address
+            l1tokenVault.address
         );
         await tokenVaultAddressManager.setAddress(
             `${destChainId}.token_vault`,
@@ -112,20 +111,20 @@ describe("TokenVault", function () {
             const amount = BigNumber.from(1);
 
             await expect(
-                L1TokenVault.receiveERC20(
+                l1tokenVault.receiveERC20(
                     weth,
                     owner.address,
                     nonOwner.address,
                     amount
                 )
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrAccessDenied");
         });
     });
 
     describe("sendEther()", async () => {
         it("throws when msg.value is 0", async () => {
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -133,12 +132,12 @@ describe("TokenVault", function () {
                     owner.address,
                     ""
                 )
-            ).to.be.revertedWith("ErrInvalidMsgValue");
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrInvalidMsgValue");
         });
 
         it("throws when msg.value - processing fee is 0", async () => {
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -149,12 +148,12 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidMsgValue");
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrInvalidMsgValue");
         });
 
         it("throws when msg.value is < processingFee", async () => {
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -165,12 +164,12 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidMsgValue");
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrInvalidMsgValue");
         });
 
         it("throws when to is 0", async () => {
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     ethers.constants.AddressZero,
                     10000,
@@ -181,7 +180,10 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidToAddress");
+            ).to.be.revertedWithCustomError(
+                l1tokenVault,
+                "ErrInvalidToAddress"
+            );
         });
 
         it("succeeds with processingFee", async () => {
@@ -191,7 +193,7 @@ describe("TokenVault", function () {
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -203,7 +205,7 @@ describe("TokenVault", function () {
                     }
                 )
             )
-                .to.emit(L1TokenVault, "EtherSent")
+                .to.emit(l1tokenVault, "EtherSent")
                 .withArgs(
                     msgHash,
                     owner.address,
@@ -220,7 +222,7 @@ describe("TokenVault", function () {
                 "0x3fd54831f488a22b28398de0c567a3b064b937f54f81739ae9bd545967f3abab";
 
             await expect(
-                L1TokenVault.sendEther(
+                l1tokenVault.sendEther(
                     destChainId,
                     owner.address,
                     10000,
@@ -232,7 +234,7 @@ describe("TokenVault", function () {
                     }
                 )
             )
-                .to.emit(L1TokenVault, "EtherSent")
+                .to.emit(l1tokenVault, "EtherSent")
                 .withArgs(
                     msgHash,
                     owner.address,
@@ -246,7 +248,7 @@ describe("TokenVault", function () {
     describe("sendERC20()", async () => {
         it("should throw if to == address(0)", async function () {
             await expect(
-                L1TokenVault.sendERC20(
+                l1tokenVault.sendERC20(
                     destChainId,
                     ethers.constants.AddressZero,
                     weth.addr,
@@ -259,12 +261,15 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidToAddress");
+            ).to.be.revertedWithCustomError(
+                l1tokenVault,
+                "ErrInvalidToAddress"
+            );
         });
 
         it("should throw if to == destChainId.token_vault", async function () {
             await expect(
-                L1TokenVault.sendERC20(
+                l1tokenVault.sendERC20(
                     destChainId,
                     destChainTokenVault.address,
                     weth.addr,
@@ -277,12 +282,15 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidToAddress");
+            ).to.be.revertedWithCustomError(
+                l1tokenVault,
+                "ErrInvalidToAddress"
+            );
         });
 
         it("should throw if token == address(0)", async function () {
             await expect(
-                L1TokenVault.sendERC20(
+                l1tokenVault.sendERC20(
                     destChainId,
                     nonOwner.address,
                     ethers.constants.AddressZero,
@@ -295,12 +303,12 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidToken");
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrInvalidToken");
         });
 
         it("should throw if amount <= 0", async function () {
             await expect(
-                L1TokenVault.sendERC20(
+                l1tokenVault.sendERC20(
                     destChainId,
                     nonOwner.address,
                     weth.addr,
@@ -313,56 +321,60 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("ErrInvalidAmount");
+            ).to.be.revertedWithCustomError(l1tokenVault, "ErrInvalidAmount");
         });
 
         it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () {
-            await L1TokenVault.setVariable("isBridgedToken", {
+            await l1tokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
             });
             // don't need to manually set bridgedToCanonical since default value is addressZero
 
             await expect(
-                L1TokenVault.connect(owner).sendERC20(
-                    destChainId,
-                    nonOwner.address,
-                    bridgedToken.address,
-                    1,
-                    20000000,
-                    1000,
-                    owner.address,
-                    "",
-                    {
-                        value: 1,
-                    }
-                )
-            ).to.be.revertedWith("0x1");
+                l1tokenVault
+                    .connect(owner)
+                    .sendERC20(
+                        destChainId,
+                        nonOwner.address,
+                        bridgedToken.address,
+                        1,
+                        20000000,
+                        1000,
+                        owner.address,
+                        "",
+                        {
+                            value: 1,
+                        }
+                    )
+            ).to.be.revertedWithPanic();
         });
 
         it("should pass and emit ERC20Sent Event", async function () {
-            await L1TokenVault.setVariable("isBridgedToken", {
+            await l1tokenVault.setVariable("isBridgedToken", {
                 [bridgedToken.address]: true,
             });
 
-            await L1TokenVault.setVariable("bridgedToCanonical", {
+            await l1tokenVault.setVariable("bridgedToCanonical", {
                 [bridgedToken.address]: weth,
             });
 
             await expect(
-                L1TokenVault.connect(owner).sendERC20(
-                    destChainId,
-                    nonOwner.address,
-                    bridgedToken.address,
-                    1,
-                    20000000,
-                    1000,
-                    owner.address,
-                    "",
-                    {
-                        value: 1000,
-                    }
-                )
-            ).to.emit(L1TokenVault, "ERC20Sent");
+                l1tokenVault
+                    .connect(owner)
+                    .sendERC20(
+                        destChainId,
+                        nonOwner.address,
+                        bridgedToken.address,
+                        1,
+                        20000000,
+                        1000,
+                        owner.address,
+                        "",
+                        {
+                            value: 1000,
+                        }
+                    )
+            ).to.emit(l1tokenVault, "ERC20Sent");
         });
     });
 });
