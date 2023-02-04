@@ -33,7 +33,12 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
                       edges {
                         node {
                           id
+                          tags {
+                            name
+                            value
+                          }
                         }
+                        
                       }
                     }
                   }
@@ -54,9 +59,12 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
         .then((data) => {
           // Check if the posts have the required keys
           if (data.hasOwnProperty('wnft')) {
+
+            // add the original digest
+            data["OriginalDigest"] = edge.node.tags['Original-Content-Digest'];
             posts.push(data)
           }
-          
+
         }).catch();
     }))
     resolve(posts)
