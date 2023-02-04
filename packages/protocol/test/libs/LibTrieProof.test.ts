@@ -9,7 +9,7 @@ import { deploySignalService } from "../utils/signal";
 // TODO(roger): this test shall not use any file in contracts/bridge/*.sol
 // Instead, it should use the `writeStorageAt` function to manipulate stroage
 // values then verify the proof.
-describe("integration:LibTrieProof", function () {
+describe("integratio-n:LibTrieProof", function () {
     async function deployLibTrieProofFixture() {
         const libTrieProof = await (
             await ethers.getContractFactory("LibTrieProof")
