@@ -223,10 +223,7 @@ describe("BridgedERC20", function () {
                         accountWithTokens.address,
                         initialBalance.add(1)
                     )
-            ).to.be.revertedWithCustomError(
-                erc20,
-                "ErrBurnAmountExceedsBalance"
-            );
+            ).to.be.revertedWith("ERC20: burn amount exceeds balance");
         });
     });
 
@@ -256,10 +253,7 @@ describe("BridgedERC20", function () {
                 erc20
                     .connect(accountWithTokens)
                     .transfer(owner.address, initialBalance.add(1))
-            ).to.be.revertedWithCustomError(
-                erc20,
-                "ErrTransferAmountExceedsBalance"
-            );
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
         it("transfers, emits Transfer event, balances are correct after transfer", async () => {

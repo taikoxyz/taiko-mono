@@ -75,10 +75,7 @@ describe("TkoToken", function () {
                 token
                     .connect(protoBroker)
                     .burn(owner.address, amountMinted.add(1))
-            ).to.be.revertedWithCustomError(
-                token,
-                "ErrBurnAmountExceedsBalance"
-            );
+            ).to.be.revertedWith("ERC20: burn amount exceeds balance");
         });
 
         it("succeeds", async () => {
@@ -105,10 +102,7 @@ describe("TkoToken", function () {
                 token
                     .connect(owner)
                     .transfer(nonOwner.address, amountMinted.add(1))
-            ).to.be.revertedWithCustomError(
-                token,
-                "ErrTransferAmountExceedsBalance"
-            );
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
         it("succeeds", async () => {
