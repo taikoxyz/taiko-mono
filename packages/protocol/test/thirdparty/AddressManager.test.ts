@@ -23,7 +23,7 @@ describe("AddressManager", function () {
                 addressManager
                     .connect(nonOwner)
                     .setAddress(name, nonOwner.address)
-            ).to.be.revertedWith("");
+            ).to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("emits setAddress event", async () => {
