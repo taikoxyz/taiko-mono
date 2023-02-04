@@ -55,7 +55,10 @@ class Proposer {
                 commit.txListHash,
                 commitReceipt.blockNumber as number,
                 block.gasLimit,
-                commitSlot
+                commitSlot,
+                {
+                    gasLimit: 2000000, // otherwise UNPREDICTABLE_GAS_LIMIT
+                }
             );
 
             this.proposingMutex = false;

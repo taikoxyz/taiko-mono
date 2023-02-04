@@ -61,7 +61,7 @@ describe("integration:TaikoL1", function () {
 
     afterEach(() => {
         clearInterval(interval);
-        l2Provider.off("block");
+        // l2Provider.off("block");
         chan.close();
     });
 
@@ -105,8 +105,11 @@ describe("integration:TaikoL1", function () {
 
     describe("getProposedBlock()", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
-            await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
-                "ErrL1BlockIdOutOfRange()"
+            await expect(
+                taikoL1.getProposedBlock(123)
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingBlockIdOutOfRange"
             );
         });
 
@@ -196,8 +199,11 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
 
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "ErrL1InvaldMetadataFields()"
+            await expect(
+                taikoL1.proposeBlock(inputs)
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingInvaldMetadataFields"
             );
         });
 
@@ -225,8 +231,11 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
 
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "ErrL1BlockGasLimitTooLarge()"
+            await expect(
+                taikoL1.proposeBlock(inputs)
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingBlockGasLimitTooLarge"
             );
         });
 
@@ -250,8 +259,11 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
 
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "ErrL1InvalidExtraDataTooLarge()"
+            await expect(
+                taikoL1.proposeBlock(inputs)
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingInvalidExtraDataTooLarge"
             );
         });
 
@@ -305,7 +317,10 @@ describe("integration:TaikoL1", function () {
             // been proven.
             await expect(
                 commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider)
-            ).to.be.revertedWith("ErrL1TooManyUnverifiedBlocks()");
+            ).to.be.revertedWithCustomError(
+                taikoL1,
+                "ErrProposingTooManyUnverifiedBlocks"
+            );
         });
     });
 
@@ -352,8 +367,7 @@ describe("integration:TaikoL1", function () {
                     await l2Provider.getBlockNumber(),
                     proposer,
                     taikoL1,
-                    proposerSigner,
-                    tkoTokenL1
+                    proposerSigner
                 )
             ).to.be.reverted;
         });
@@ -363,9 +377,9 @@ describe("integration:TaikoL1", function () {
         it("can not be called manually to verify block if chain is halted", async function () {
             await halt(taikoL1.connect(l1Signer), true);
 
-            await expect(verifyBlocks(taikoL1, 1)).to.be.revertedWith(
-                "ErrL1Halted()"
-            );
+            await expect(
+                verifyBlocks(taikoL1, 1)
+            ).to.be.revertedWithCustomError(taikoL1, "ErrUtilsHalted");
         });
     });
 });

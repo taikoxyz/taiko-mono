@@ -48,33 +48,33 @@ library LibProving {
         address prover
     );
 
-    error ErrL1InvalidInputsLength(uint expectedLength);
-    error ErrL1BlockIdOutOfRange();
-    error ErrL1BlockIdMismatch();
-    error ErrL1BlockMetahashMismatch();
-    error ErrL1InvalidProofsLength();
-    error ErrL1InvalidCircitsLength();
-    error ErrorL1ZeroProverAddress();
-    error ErrL1OracleProverMustBeTheFistProver();
-    error ErrL1CanontProveBeforeOracleProver();
-    error ErrL1InvalidZKProof();
-    error ErrL1ConflictingProofs();
-    error ErrL1DuplicateProofs();
-    error ErrL1TooLateToProveBlock();
-    error ErrL1BlockHasTooManyProofs();
-    error ErrL1AnchorTxType();
-    error ErrL1AnchorTxDestinationNotTaikoL1();
-    error ErrL1AnchorTxInvalidGasLimit();
-    error ErrL1AnchorTxInvalidCalldata();
-    error ErrL1AnchorTxInvalidTransactionMerkleProof();
-    error ErrL1AnchorTxInvalidReceiptMerkleProof();
-    error ErrL1AnchorTxInvalidReceiptStatus();
-    error ErrL1AnchorTxInvalidReceiptLogSize();
-    error ErrL1AnchorTxInvalidReceiptDestination();
-    error ErrL1AnchorTxInvalidReceiptLogData();
-    error ErrL1AnchorTxInvalidReceiptLogTopics();
-    error ErrL1AnchorTxSignatureInvalidR();
-    error ErrL1AnchorTxSignatureInvalidS();
+    error ErrProvingInvalidInputsLength(uint expectedLength);
+    error ErrProvingBlockIdOutOfRange();
+    error ErrProvingBlockIdMismatch();
+    error ErrProvingBlockMetahashMismatch();
+    error ErrProvingInvalidProofsLength();
+    error ErrProvingInvalidCircitsLength();
+    error ErrProposingZeroProverAddress();
+    error ErrProvingOracleProverMustBeTheFistProver();
+    error ErrProvingCanontProveBeforeOracleProver();
+    error ErrProvingInvalidZKProof();
+    error ErrProvingConflictingProofs();
+    error ErrProvingDuplicateProofs();
+    error ErrProvingTooLateToProveBlock();
+    error ErrProvingBlockHasTooManyProofs();
+    error ErrProvingAnchorTxType();
+    error ErrProvingAnchorTxDestinationNotTaikoL1();
+    error ErrProvingAnchorTxInvalidGasLimit();
+    error ErrProvingAnchorTxInvalidCalldata();
+    error ErrProvingAnchorTxInvalidTransactionMerkleProof();
+    error ErrProvingAnchorTxInvalidReceiptMerkleProof();
+    error ErrProvingAnchorTxInvalidReceiptStatus();
+    error ErrProvingAnchorTxInvalidReceiptLogSize();
+    error ErrProvingAnchorTxInvalidReceiptDestination();
+    error ErrProvingAnchorTxInvalidReceiptLogData();
+    error ErrProvingAnchorTxInvalidReceiptLogTopics();
+    error ErrProvingAnchorTxSignatureInvalidR();
+    error ErrProvingAnchorTxSignatureInvalidS();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -87,7 +87,7 @@ library LibProving {
 
         // Check and decode inputs
         if (inputs.length != 3) {
-            revert ErrL1InvalidInputsLength(3);
+            revert ErrProvingInvalidInputsLength(3);
         }
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
@@ -96,15 +96,15 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) {
-            revert ErrL1BlockIdMismatch();
+            revert ErrProvingBlockIdMismatch();
         }
 
         uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         if (evidence.proofs.length != 2 + zkProofsPerBlock) {
-            revert ErrL1InvalidProofsLength();
+            revert ErrProvingInvalidProofsLength();
         }
         if (evidence.circuits.length != zkProofsPerBlock) {
-            revert ErrL1InvalidCircitsLength();
+            revert ErrProvingInvalidCircitsLength();
         }
 
         IProofVerifier proofVerifier = IProofVerifier(
@@ -117,15 +117,15 @@ library LibProving {
                 config.chainId,
                 anchorTx
             );
-            if (_tx.txType != 0) revert ErrL1AnchorTxType();
+            if (_tx.txType != 0) revert ErrProvingAnchorTxType();
             if (
                 _tx.destination !=
                 resolver.resolve(config.chainId, "taiko", false)
             ) {
-                revert ErrL1AnchorTxDestinationNotTaikoL1();
+                revert ErrProvingAnchorTxDestinationNotTaikoL1();
             }
             if (_tx.gasLimit != config.anchorTxGasLimit) {
-                revert ErrL1AnchorTxInvalidGasLimit();
+                revert ErrProvingAnchorTxInvalidGasLimit();
             }
 
             // Check anchor tx's signature is valid and deterministic
@@ -142,7 +142,7 @@ library LibProving {
                     )
                 )
             ) {
-                revert ErrL1AnchorTxInvalidCalldata();
+                revert ErrProvingAnchorTxInvalidCalldata();
             }
 
             // Check anchor tx is the 1st tx in the block
@@ -154,7 +154,7 @@ library LibProving {
                     root: evidence.header.transactionsRoot
                 })
             ) {
-                revert ErrL1AnchorTxInvalidTransactionMerkleProof();
+                revert ErrProvingAnchorTxInvalidTransactionMerkleProof();
             }
 
             // Check anchor tx does not throw
@@ -163,7 +163,7 @@ library LibProving {
                 .decodeReceipt(anchorReceipt);
 
             if (receipt.status != 1) {
-                revert ErrL1AnchorTxInvalidReceiptStatus();
+                revert ErrProvingAnchorTxInvalidReceiptStatus();
             }
             if (
                 !proofVerifier.verifyMKP({
@@ -173,7 +173,7 @@ library LibProving {
                     root: evidence.header.receiptsRoot
                 })
             ) {
-                revert ErrL1AnchorTxInvalidReceiptMerkleProof();
+                revert ErrProvingAnchorTxInvalidReceiptMerkleProof();
             }
         }
 
@@ -199,7 +199,7 @@ library LibProving {
         LibUtils.assertNotHalted(state);
 
         // Check and decode inputs
-        if (inputs.length != 3) revert ErrL1InvalidInputsLength(3);
+        if (inputs.length != 3) revert ErrProvingInvalidInputsLength(3);
 
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         TaikoData.BlockMetadata memory target = abi.decode(
@@ -210,10 +210,10 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) {
-            revert ErrL1BlockIdMismatch();
+            revert ErrProvingBlockIdMismatch();
         }
         if (evidence.proofs.length != 1 + config.zkProofsPerBlock) {
-            revert ErrL1InvalidProofsLength();
+            revert ErrProvingInvalidProofsLength();
         }
 
         IProofVerifier proofVerifier = IProofVerifier(
@@ -229,7 +229,7 @@ library LibProving {
                 root: evidence.header.receiptsRoot
             })
         ) {
-            revert ErrL1AnchorTxInvalidReceiptMerkleProof();
+            revert ErrProvingAnchorTxInvalidReceiptMerkleProof();
         }
 
         // Check the 1st receipt is for an InvalidateBlock tx with
@@ -237,10 +237,10 @@ library LibProving {
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
         if (receipt.status != 1) {
-            revert ErrL1AnchorTxInvalidReceiptStatus();
+            revert ErrProvingAnchorTxInvalidReceiptStatus();
         }
         if (receipt.logs.length != 1) {
-            revert ErrL1AnchorTxInvalidReceiptLogSize();
+            revert ErrProvingAnchorTxInvalidReceiptLogSize();
         }
 
         {
@@ -249,17 +249,17 @@ library LibProving {
                 log.contractAddress !=
                 resolver.resolve(config.chainId, "taiko", false)
             ) {
-                revert ErrL1AnchorTxInvalidReceiptDestination();
+                revert ErrProvingAnchorTxInvalidReceiptDestination();
             }
             if (log.data.length != 0) {
-                revert ErrL1AnchorTxInvalidReceiptLogData();
+                revert ErrProvingAnchorTxInvalidReceiptLogData();
             }
             if (
                 log.topics.length != 2 ||
                 log.topics[0] != INVALIDATE_BLOCK_LOG_TOPIC ||
                 log.topics[1] != target.txListHash
             ) {
-                revert ErrL1AnchorTxInvalidReceiptLogTopics();
+                revert ErrProvingAnchorTxInvalidReceiptLogTopics();
             }
         }
 
@@ -284,8 +284,9 @@ library LibProving {
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
-        if (evidence.meta.id != target.id) revert ErrL1BlockIdMismatch();
-        if (evidence.prover == address(0)) revert ErrorL1ZeroProverAddress();
+        if (evidence.meta.id != target.id) revert ErrProvingBlockIdMismatch();
+        if (evidence.prover == address(0))
+            revert ErrProposingZeroProverAddress();
 
         _checkMetadata({state: state, config: config, meta: target});
         _validateHeaderForMetadata({
@@ -306,13 +307,13 @@ library LibProving {
 
             if (msg.sender == resolver.resolve("oracle_prover", false)) {
                 if (_blockHash != 0) {
-                    revert ErrL1OracleProverMustBeTheFistProver();
+                    revert ErrProvingOracleProverMustBeTheFistProver();
                 }
 
                 skipZKPVerification = true;
             } else {
                 if (_blockHash == 0) {
-                    revert ErrL1CanontProveBeforeOracleProver();
+                    revert ErrProvingCanontProveBeforeOracleProver();
                 }
             }
         }
@@ -337,7 +338,7 @@ library LibProving {
                         txListHash: evidence.meta.txListHash
                     })
                 ) {
-                    revert ErrL1InvalidZKProof();
+                    revert ErrProvingInvalidZKProof();
                 }
             }
         }
@@ -377,7 +378,7 @@ library LibProving {
             }
         } else {
             if (fc.provers.length >= config.maxProofsPerForkChoice) {
-                revert ErrL1BlockHasTooManyProofs();
+                revert ErrProvingBlockHasTooManyProofs();
             }
 
             if (
@@ -390,12 +391,12 @@ library LibProving {
                     blockId: target.id
                 })
             ) {
-                revert ErrL1TooLateToProveBlock();
+                revert ErrProvingTooLateToProveBlock();
             }
 
             for (uint256 i = 0; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) {
-                    revert ErrL1DuplicateProofs();
+                    revert ErrProvingDuplicateProofs();
                 }
             }
 
@@ -403,7 +404,7 @@ library LibProving {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
-                    revert ErrL1ConflictingProofs();
+                    revert ErrProvingConflictingProofs();
                 } else {
                     LibUtils.halt(state, true);
                     return;
@@ -434,7 +435,7 @@ library LibProving {
         LibTxDecoder.Tx memory _tx
     ) private view {
         if (_tx.r != LibAnchorSignature.GX && _tx.r != LibAnchorSignature.GX2) {
-            revert ErrL1AnchorTxSignatureInvalidR();
+            revert ErrProvingAnchorTxSignatureInvalidR();
         }
 
         if (_tx.r == LibAnchorSignature.GX2) {
@@ -443,7 +444,7 @@ library LibProving {
                 1
             );
             if (s != 0) {
-                revert ErrL1AnchorTxSignatureInvalidS();
+                revert ErrProvingAnchorTxSignatureInvalidS();
             }
         }
     }
@@ -454,13 +455,13 @@ library LibProving {
         TaikoData.BlockMetadata memory meta
     ) private view {
         if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId) {
-            revert ErrL1BlockIdOutOfRange();
+            revert ErrProvingBlockIdOutOfRange();
         }
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             meta.hashMetadata()
         ) {
-            revert ErrL1BlockMetahashMismatch();
+            revert ErrProvingBlockMetahashMismatch();
         }
     }
 
@@ -480,7 +481,7 @@ library LibProving {
             keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
         ) {
-            revert ErrL1BlockMetahashMismatch();
+            revert ErrProvingBlockMetahashMismatch();
         }
     }
 }

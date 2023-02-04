@@ -26,12 +26,6 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    error ErrUtilsHalted();
-
-    // The following errors are borrowed from libraries to make
-    // tests pass.
-    error ErrUtilsBlockNumberOutOfRange();
-    error ErrProposingInvalidInputsLength();
     error ErrL1MaxBlockCannotBeZero();
 
     function init(

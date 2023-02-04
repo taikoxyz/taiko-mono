@@ -10,6 +10,17 @@ import {IProofVerifier} from "../../L1/ProofVerifier.sol";
 import "../../L1/TaikoL1.sol";
 
 contract TestTaikoL1 is TaikoL1, IProofVerifier {
+    // The following errors are borrowed from libraries to make
+    // tests pass.
+    error ErrUtilsHalted();
+    error ErrUtilsBlockNumberOutOfRange();
+    error ErrProposingInvalidInputsLength();
+    error ErrProposingInvaldMetadataFields();
+    error ErrProposingBlockGasLimitTooLarge();
+    error ErrProposingInvalidExtraDataTooLarge();
+    error ErrProposingTooManyUnverifiedBlocks();
+    error ErrProposingBlockIdOutOfRange();
+
     function getConfig()
         public
         pure

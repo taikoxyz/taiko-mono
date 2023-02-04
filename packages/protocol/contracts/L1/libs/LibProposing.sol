@@ -24,16 +24,16 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error ErrL1BlockAlreadyCommitted();
-    error ErrL1BlockNotYetCommitted();
-    error ErrL1InvalidInputsLength(uint expectedLength);
-    error ErrL1ProposerNotTheSoloProposer();
-    error ErrL1InvalidTxListLength();
-    error ErrL1TooManyUnverifiedBlocks();
-    error ErrL1BlockIdOutOfRange();
-    error ErrL1BlockGasLimitTooLarge();
-    error ErrL1InvalidExtraDataTooLarge();
-    error ErrL1InvaldMetadataFields();
+    error ErrProposingBlockAlreadyCommitted();
+    error ErrProposingBlockNotYetCommitted();
+    error ErrProposingInvalidInputsLength();
+    error ErrProposingProposerNotTheSoloProposer();
+    error ErrProposingInvalidTxListLength();
+    error ErrProposingTooManyUnverifiedBlocks();
+    error ErrProposingBlockIdOutOfRange();
+    error ErrProposingBlockGasLimitTooLarge();
+    error ErrProposingInvalidExtraDataTooLarge();
+    error ErrProposingInvaldMetadataFields();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -50,7 +50,7 @@ library LibProposing {
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
         if (state.commits[msg.sender][commitSlot] == hash) {
-            revert ErrL1BlockAlreadyCommitted();
+            revert ErrProposingBlockAlreadyCommitted();
         }
         state.commits[msg.sender][commitSlot] = hash;
 
@@ -75,10 +75,10 @@ library LibProposing {
         // TODO(daniel): remove this special address.
         address soloProposer = resolver.resolve("solo_proposer", true);
         if (soloProposer != address(0) && soloProposer != msg.sender) {
-            revert ErrL1ProposerNotTheSoloProposer();
+            revert ErrProposingProposerNotTheSoloProposer();
         }
 
-        if (inputs.length != 2) revert ErrL1InvalidInputsLength(2);
+        if (inputs.length != 2) revert ErrProposingInvalidInputsLength();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -97,14 +97,14 @@ library LibProposing {
                 txList.length > config.maxBytesPerTxList ||
                 meta.txListHash != txList.hashTxList()
             ) {
-                revert ErrL1InvalidTxListLength();
+                revert ErrProposingInvalidTxListLength();
             }
 
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
             ) {
-                revert ErrL1TooManyUnverifiedBlocks();
+                revert ErrProposingTooManyUnverifiedBlocks();
             }
 
             meta.id = state.nextBlockId;
@@ -201,9 +201,9 @@ library LibProposing {
         TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
+    ) public view returns (TaikoData.ProposedBlock storage) {
         if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
-            revert ErrL1BlockIdOutOfRange();
+            revert ErrProposingBlockIdOutOfRange();
         }
         return state.getProposedBlock(maxNumBlocks, id);
     }
@@ -239,7 +239,7 @@ library LibProposing {
                 commitHash: commitHash
             })
         ) {
-            revert ErrL1BlockNotYetCommitted();
+            revert ErrProposingBlockNotYetCommitted();
         }
 
         if (meta.commitSlot == 0) {
@@ -262,14 +262,14 @@ library LibProposing {
             meta.beneficiary == address(0) ||
             meta.txListHash == 0
         ) {
-            revert ErrL1InvaldMetadataFields();
+            revert ErrProposingInvaldMetadataFields();
         }
 
         if (meta.gasLimit > config.blockMaxGasLimit) {
-            revert ErrL1BlockGasLimitTooLarge();
+            revert ErrProposingBlockGasLimitTooLarge();
         }
         if (meta.extraData.length > 32) {
-            revert ErrL1InvalidExtraDataTooLarge();
+            revert ErrProposingInvalidExtraDataTooLarge();
         }
     }
 

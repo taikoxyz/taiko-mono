@@ -23,14 +23,14 @@ library LibVerifying {
         bytes32 srcHash
     );
 
-    error ErrL1ZeroFeeBase();
+    error ErrVerifyingZeroFeeBase();
 
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
-        if (feeBase == 0) revert ErrL1ZeroFeeBase();
+        if (feeBase == 0) revert ErrVerifyingZeroFeeBase();
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
@@ -248,6 +248,7 @@ library LibVerifying {
         delete fc.provers;
     }
 
+    // TODO(daniel): reorder
     function isVerifiable(
         TaikoData.State storage state,
         TaikoData.Config memory config,

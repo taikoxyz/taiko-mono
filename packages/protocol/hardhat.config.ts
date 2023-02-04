@@ -55,6 +55,7 @@ const config: HardhatUserConfig = {
             url: process.env.MAINNET_URL || "",
         },
         l1_test: {
+            allowUnlimitedContractSize: true,
             accounts:
                 process.env.PRIVATE_KEY !== undefined
                     ? [process.env.PRIVATE_KEY]
@@ -62,6 +63,7 @@ const config: HardhatUserConfig = {
             url: "http://127.0.0.1:18545" || "",
         },
         l2_test: {
+            allowUnlimitedContractSize: true,
             accounts:
                 process.env.PRIVATE_KEY !== undefined
                     ? [process.env.PRIVATE_KEY]

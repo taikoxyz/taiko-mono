@@ -15,19 +15,19 @@ import "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    uint64 public constant MASK_HALT = 1 << 0;
+    uint64 internal constant MASK_HALT = 1 << 0;
 
-    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+    bytes32 internal constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
     event Halted(bool halted);
 
-    error ErrL1Halted();
-    error ErrL1SameHaltStatus();
-    error ErrL1BlockNumberOutOfRange();
+    error ErrUtilsHalted();
+    error ErrUtilsSameHaltStatus();
+    error ErrUtilsBlockNumberOutOfRange();
 
     function halt(TaikoData.State storage state, bool toHalt) internal {
-        if (isHalted(state) == toHalt) revert ErrL1SameHaltStatus();
-        setBit(state, MASK_HALT, toHalt);
+        if (isHalted(state) == toHalt) revert ErrUtilsSameHaltStatus();
+        _setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
 
@@ -48,7 +48,7 @@ library LibUtils {
             number + blockHashHistory <= state.latestVerifiedHeight ||
             number > state.latestVerifiedHeight
         ) {
-            revert ErrL1BlockNumberOutOfRange();
+            revert ErrUtilsBlockNumberOutOfRange();
         }
         return state.l2Hashes[number % blockHashHistory];
     }
@@ -88,11 +88,11 @@ library LibUtils {
     function isHalted(
         TaikoData.State storage state
     ) internal view returns (bool) {
-        return isBitOne(state, MASK_HALT);
+        return _isBitOne(state, MASK_HALT);
     }
 
     function assertNotHalted(TaikoData.State storage state) internal view {
-        if (isHalted(state)) revert ErrL1Halted();
+        if (isHalted(state)) revert ErrUtilsHalted();
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
@@ -195,7 +195,7 @@ library LibUtils {
         return _ma > 0 ? _ma : maValue;
     }
 
-    function setBit(
+    function _setBit(
         TaikoData.State storage state,
         uint64 mask,
         bool one
@@ -205,7 +205,7 @@ library LibUtils {
             : state.statusBits & ~mask;
     }
 
-    function isBitOne(
+    function _isBitOne(
         TaikoData.State storage state,
         uint64 mask
     ) private view returns (bool) {
