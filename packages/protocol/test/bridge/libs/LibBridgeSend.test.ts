@@ -81,8 +81,11 @@ describe("LibBridgeSend", function () {
                 memo: "",
             };
 
-            await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidMessageOwner()"
+            await expect(
+                libSend.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                libSend,
+                "ErrSendInvalidMessageOwner"
             );
         });
 
@@ -103,8 +106,11 @@ describe("LibBridgeSend", function () {
                 memo: "",
             };
 
-            await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidDestinationChain()"
+            await expect(
+                libSend.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                libSend,
+                "ErrSendInvalidDestinationChain"
             );
         });
 
@@ -127,8 +133,11 @@ describe("LibBridgeSend", function () {
                 memo: "",
             };
 
-            await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidDestinationChain()"
+            await expect(
+                libSend.sendMessage(message)
+            ).to.be.revertedWithCustomError(
+                libSend,
+                "ErrSendInvalidDestinationChain"
             );
         });
 
@@ -149,9 +158,9 @@ describe("LibBridgeSend", function () {
                 memo: "",
             };
 
-            await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "ErrSendInvalidMsgValue()"
-            );
+            await expect(
+                libSend.sendMessage(message)
+            ).to.be.revertedWithCustomError(libSend, "ErrSendInvalidMsgValue");
         });
 
         it("should emit MessageSent() event and signal should be hashed correctly", async function () {
