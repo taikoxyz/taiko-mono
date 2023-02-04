@@ -120,7 +120,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("ErrRetryInvalidSender()");
+            ).to.be.revertedWithCustomError(libRetry, "ErrRetryInvalidSender");
         });
 
         it("should throw if lastAttempt == true && msg.sender != message.owner", async function () {
@@ -142,7 +142,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, true)
-            ).to.be.revertedWith("ErrRetryInvalidSender()");
+            ).to.be.revertedWithCustomError(libRetry, "ErrRetryInvalidSender");
         });
 
         it("should throw if message status is not RETRIABLE", async function () {
@@ -164,7 +164,10 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("ErrRetryInvalidMessageStatus()");
+            ).to.be.revertedWithCustomError(
+                libRetry,
+                "ErrRetryInvalidMessageStatus"
+            );
         });
 
         it("if etherVault resolves to address(0), retry should fail and messageStatus should not change if not lastAttempt since no ether received", async function () {

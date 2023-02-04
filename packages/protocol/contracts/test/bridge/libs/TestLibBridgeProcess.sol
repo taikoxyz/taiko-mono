@@ -14,6 +14,11 @@ import "../../../bridge/libs/LibBridgeProcess.sol";
 contract TestLibBridgeProcess is EssentialContract {
     LibBridgeData.State public state;
 
+    error ErrProcessInvalidSender();
+    error ErrProcessInvalidDestinationChain();
+    error ErrProcessInvalidMessageStatus();
+    error ErrProcessMessageNotReceived();
+
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }

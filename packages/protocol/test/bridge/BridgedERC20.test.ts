@@ -2,11 +2,6 @@ import { expect } from "chai";
 import { AddressManager, BridgedERC20 } from "../../typechain";
 import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
-import {
-    ADDRESS_RESOLVER_DENIED,
-    ERC20_BURN_AMOUNT_EXCEEDED,
-    ERC20_TRANSFER_AMOUNT_EXCEEDED,
-} from "../constants/errors";
 import deployAddressManager from "../utils/addressManager";
 
 const WETH_GOERLI = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
@@ -79,7 +74,10 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).not.to.be.revertedWith("ErrInvalidParams()");
+            ).not.to.be.revertedWithCustomError(
+                unInitERC20,
+                "ErrInvalidParams"
+            );
         });
 
         it("throws when _srcToken is address 0 ", async () => {
@@ -94,7 +92,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).to.be.revertedWith("ErrInvalidParams()");
+            ).to.be.revertedWithCustomError(unInitERC20, "ErrInvalidParams");
         });
 
         it("throws when _srcChainId is 0", async () => {
@@ -109,7 +107,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "Name"
                     )
-            ).to.be.revertedWith("ErrInvalidParams()");
+            ).to.be.revertedWithCustomError(unInitERC20, "ErrInvalidParams");
         });
 
         it("throws when _symbol is 0 length", async () => {
@@ -124,7 +122,7 @@ describe("BridgedERC20", function () {
                         "",
                         "Name"
                     )
-            ).to.be.revertedWith("ErrInvalidParams()");
+            ).to.be.revertedWithCustomError(unInitERC20, "ErrInvalidParams");
         });
 
         it("throws when _name is 0 length", async () => {
@@ -139,7 +137,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         ""
                     )
-            ).to.be.revertedWith("ErrInvalidParams()");
+            ).to.be.revertedWithCustomError(unInitERC20, "ErrInvalidParams");
         });
 
         it("throws when _srcChainId is equal to block.chainid", async () => {
@@ -155,7 +153,7 @@ describe("BridgedERC20", function () {
                         "SYMB",
                         "name"
                     )
-            ).to.be.revertedWith("ErrInvalidParams()");
+            ).to.be.revertedWithCustomError(unInitERC20, "ErrInvalidParams");
         });
     });
 
@@ -173,7 +171,7 @@ describe("BridgedERC20", function () {
             const amount = BigNumber.from(1);
             await expect(
                 erc20.bridgeMintTo(owner.address, amount)
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWithCustomError(erc20, "ErrAccessDenied");
         });
 
         it("successfully mintes and emits BridgeMint when called by token_vault, balance inceases for account specified, burns and emits BridgeBurn", async () => {
@@ -210,7 +208,7 @@ describe("BridgedERC20", function () {
             const amount = BigNumber.from(1);
             await expect(
                 erc20.bridgeBurnFrom(owner.address, amount)
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWithCustomError(erc20, "ErrAccessDenied");
         });
 
         it("can not burn an amount greater than was minted", async () => {
@@ -225,7 +223,10 @@ describe("BridgedERC20", function () {
                         accountWithTokens.address,
                         initialBalance.add(1)
                     )
-            ).to.be.revertedWith(ERC20_BURN_AMOUNT_EXCEEDED);
+            ).to.be.revertedWithCustomError(
+                erc20,
+                "ErrBurnAmountExceedsBalance"
+            );
         });
     });
 
@@ -235,7 +236,7 @@ describe("BridgedERC20", function () {
                 erc20
                     .connect(accountWithTokens)
                     .transferFrom(accountWithTokens.address, erc20.address, 1)
-            ).to.be.revertedWith("ErrInvalidToAddress()");
+            ).to.be.revertedWithCustomError(erc20, "ErrInvalidToAddress");
         });
     });
 
@@ -243,7 +244,7 @@ describe("BridgedERC20", function () {
         it("throws when trying to transfer to itself", async () => {
             await expect(
                 erc20.connect(accountWithTokens).transfer(erc20.address, 1)
-            ).to.be.revertedWith("ErrInvalidToAddress()");
+            ).to.be.revertedWithCustomError(erc20, "ErrInvalidToAddress");
         });
 
         it("throws when trying to transfer amount greater than holder owns", async () => {
@@ -255,7 +256,10 @@ describe("BridgedERC20", function () {
                 erc20
                     .connect(accountWithTokens)
                     .transfer(owner.address, initialBalance.add(1))
-            ).to.be.revertedWith(ERC20_TRANSFER_AMOUNT_EXCEEDED);
+            ).to.be.revertedWithCustomError(
+                erc20,
+                "ErrTransferAmountExceedsBalance"
+            );
         });
 
         it("transfers, emits Transfer event, balances are correct after transfer", async () => {

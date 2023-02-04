@@ -14,6 +14,10 @@ import "../../../bridge/libs/LibBridgeSend.sol";
 contract TestLibBridgeSend is EssentialContract {
     LibBridgeData.State public state;
 
+    error ErrSendInvalidMessageOwner();
+    error ErrSendInvalidDestinationChain();
+    error ErrSendInvalidMsgValue();
+
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }

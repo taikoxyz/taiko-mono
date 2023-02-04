@@ -15,6 +15,8 @@ contract TestLibBridgeInvoke {
 
     event MessageInvoked(bytes32 signal, bool success);
 
+    error ErrInvokeInvalidGasLimit();
+
     function invokeMessageCall(
         IBridge.Message calldata message,
         bytes32 signal,

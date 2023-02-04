@@ -15,6 +15,9 @@ import "../../../bridge/libs/LibBridgeRetry.sol";
 contract TestLibBridgeRetry is EssentialContract {
     LibBridgeData.State public state;
 
+    error ErrRetryInvalidSender();
+    error ErrRetryInvalidMessageStatus();
+
     receive() external payable {}
 
     function init(address _addressManager) external initializer {

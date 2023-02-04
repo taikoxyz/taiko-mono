@@ -51,7 +51,10 @@ describe("LibBridgeInvoke", function () {
 
             await expect(
                 libInvoke.invokeMessageCall(message, signal, message.gasLimit)
-            ).to.be.revertedWith("ErrInvokeInvalidGasLimit()");
+            ).to.be.revertedWithCustomError(
+                libInvoke,
+                "ErrInvokeInvalidGasLimit"
+            );
         });
 
         it("should emit event with success false if message does not actually invoke", async function () {
