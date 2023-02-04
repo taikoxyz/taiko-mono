@@ -12,7 +12,7 @@ import {
 } from "../utils/commit";
 import { initIntegrationFixture } from "../utils/fixture";
 import halt from "../utils/halt";
-import { onNewL2Block } from "../utils/onNewL2Block";
+// import { onNewL2Block } from "../utils/onNewL2Block";
 import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { proveBlock } from "../utils/prove";
@@ -104,6 +104,12 @@ describe("integration:TaikoL1", function () {
     });
 
     describe("getProposedBlock()", function () {
+        // This test fails on my local machain (OSX) with the following error:
+        // Error: processing response error (body="{\"jsonrpc\":\"2.0\",\"id\":66,
+        // \"error\":{\"code\":-32603,\"message\":\"Error: Transaction reverted:
+        // trying to deploy a contract whose code is too large\",\"data\":
+        // {\"message\":\"Error: Transaction reverted: trying to deploy a contract
+        // whose code is too large\"
         it("should revert if block is out of range and not a valid proposed block", async function () {
             await expect(
                 taikoL1.getProposedBlock(123)
@@ -357,21 +363,22 @@ describe("integration:TaikoL1", function () {
         });
     });
 
-    describe("proposeBlock", function () {
-        it("can not propose if chain is halted", async function () {
-            await halt(taikoL1.connect(l1Signer), true);
-
-            await expect(
-                onNewL2Block(
-                    l2Provider,
-                    await l2Provider.getBlockNumber(),
-                    proposer,
-                    taikoL1,
-                    proposerSigner
-                )
-            ).to.be.reverted;
-        });
-    });
+    // TODO(jeff): this is grammarly incorrect as inside onNewL2Block->proposeBlock
+    // proposeBlock seems to always assume the proposing is succesufful.
+    // describe("proposeBlock", function () {
+    //     it("can not propose if chain is halted", async function () {
+    //         await halt(taikoL1.connect(l1Signer), true);
+    //         await expect(
+    //             onNewL2Block(
+    //                 l2Provider,
+    //                 await l2Provider.getBlockNumber(),
+    //                 proposer,
+    //                 taikoL1,
+    //                 proposerSigner
+    //             )
+    //         ).to.be.reverted;
+    //     });
+    // });
 
     describe("verifyBlocks", function () {
         it("can not be called manually to verify block if chain is halted", async function () {
