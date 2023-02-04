@@ -1,18 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getOriginalDigests } from "./getOriginalDigests";
 import { getPosts } from "./getPosts";
-
-// Add the correct Original-Content-Digest, this is neccesarry for making the link to the mirror page
-function addOriginalDigests(objects, digests) {
-  for (let i = 0; i < objects.length; i++) {
-    for (let j = 0; j < digests.length; j++) {
-      if (objects[i].digest === digests[j].node.tags[3].value) {
-        objects[i]["OriginalDigest"] = digests[j].node.tags[4].value;
-      }
-    }
-  }
-  return objects;
-}
 
 function getReadingTime(text) {
   const wordsPerMinute = 200;
@@ -104,22 +91,13 @@ export default function BlogSection(): JSX.Element {
   const [posts, setPosts] = useState<Object[]>([]);
 
   useEffect(() => {
-    // This is getting the 'Orginal-Content-Digest' aswell asa the 'Content-Digest', this is nesscary for making the link to the mirror page
-    getOriginalDigests.then((result) => {
-      const originalDigestsResult = result;
+    getPosts.then((result) => {
+      // only use the last three
+      result = result.slice(0, 3);
 
-      getPosts.then((result) => {
-        // only use last three
-        result = result.slice(0, 3);
-
-        // add the OriginalDigest to the post object
-        result = addOriginalDigests(result, originalDigestsResult);
-
-        setPosts(result);
-      });
-
-      // Getting the information of the post via the arweave GraphQL and SDK
+      setPosts(result);
     });
+    // getting the information of the post via the arweave GraphQL and SDK
   });
 
   return (
