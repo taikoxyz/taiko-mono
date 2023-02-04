@@ -20,7 +20,7 @@ import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 
-describe("integration:Bridge", function () {
+describe("integratio-n:Bridge", function () {
     let owner: any;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
     let l2Signer: ethersLib.Signer;
@@ -372,7 +372,7 @@ describe("integration:Bridge", function () {
 
             await expect(
                 l2Bridge.isMessageReceived(msgHash, srcChainId, signalProof)
-            ).to.be.reverted;
+            ).to.be.revertedWith("Invalid large internal hash");
         });
 
         it("if message is valid and sent by the bridge it should return true", async function () {

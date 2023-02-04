@@ -1,8 +1,0 @@
-const ADDRESS_RESOLVER_DENIED = "ErrAccessDenied()";
-const ERC20_BURN_AMOUNT_EXCEEDED = "ErrBurnAmountExceedsBalance()";
-const ERC20_TRANSFER_AMOUNT_EXCEEDED = "ErrTransferAmountExceedsBalance()";
-export {
-    ADDRESS_RESOLVER_DENIED,
-    ERC20_BURN_AMOUNT_EXCEEDED,
-    ERC20_TRANSFER_AMOUNT_EXCEEDED,
-};
