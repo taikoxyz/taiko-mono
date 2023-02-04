@@ -1,6 +1,58 @@
 import React, { useEffect, useState } from "react";
 import { getPosts } from "./getPosts";
 
+interface Content {
+  body: string;
+  timestamp: number;
+  title: string;
+}
+
+interface Authorship {
+  contributor: string;
+  signingKey: {
+    crv: string;
+    ext: boolean;
+    key_ops: string[];
+    kty: string;
+    x: string;
+    y: string;
+  };
+  signature: string;
+  signingKeySignature: string;
+  signingKeyMessage: string;
+  algorithm: {
+    name: string;
+    hash: string;
+  };
+}
+
+interface Wnft {
+  chainId: number;
+  description: string;
+  fee: number;
+  fundingRecipient: string;
+  imageURI: string;
+  mediaAssetId: number;
+  name: string;
+  nonce: number;
+  owner: string;
+  price: number;
+  proxyAddress: string;
+  renderer: string;
+  supply: number;
+  symbol: string;
+}
+
+interface Post {
+  OriginalDigest : string;
+  content: Content;
+  authorship: Authorship;
+  digest: string;
+  version: string;
+  wnft: Wnft;
+}
+
+
 function getReadingTime(text) {
   const wordsPerMinute = 200;
   const wordCount = text.split(" ").length;
@@ -26,7 +78,7 @@ function getDateTime(timestamp: string): string {
 
 function checkIfPostAreSet(posts) {
   if (posts.length > 0) {
-    return posts.map((post) => (
+    return posts.map((post : Post) => (
       <div
         key={post.content.title}
         className="flex flex-col overflow-hidden rounded-lg shadow-lg"
@@ -61,8 +113,8 @@ function checkIfPostAreSet(posts) {
           <div className="mt-6 flex items-center">
             <div className="ml-3">
               <div className="flex space-x-1 text-sm text-neutral-500 dark:text-neutral-400">
-                <time dateTime={getDateTime(post.content.timestamp)}>
-                  {getDate(post.content.timestamp)}
+                <time dateTime={getDateTime(`${post.content.timestamp}`)}>
+                  {getDate(`${post.content.timestamp}`)}
                 </time>
                 <span aria-hidden="true">&middot;</span>
                 <span>{getReadingTime(post.content.body) + " min read"}</span>
@@ -91,8 +143,9 @@ export default function BlogSection(): JSX.Element {
   const [posts, setPosts] = useState<Object[]>([]);
 
   useEffect(() => {
-    getPosts.then((result) => {
+    getPosts.then((result : Post[]) => {
       // only use the last three
+      result = result.sort((a, b) => b.content.timestamp - a.content.timestamp);
       result = result.slice(0, 3);
 
       setPosts(result);

@@ -61,7 +61,7 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
           if (data.hasOwnProperty('wnft')) {
 
             // add the original digest
-            data["OriginalDigest"] = edge.node.tags['Original-Content-Digest'];
+            data["OriginalDigest"] = edge.node.tags[4].value;
             posts.push(data)
           }
 
