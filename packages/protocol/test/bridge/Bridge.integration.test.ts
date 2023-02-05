@@ -399,7 +399,7 @@ describe("integration:Bridge", function () {
     });
 
     describe("isMessageFailed()", function () {
-        it.only("test", async function () {
+        it("test", async function () {
             const testBadReceiver: TestBadReceiver = await (
                 await ethers.getContractFactory("TestBadReceiver")
             )
@@ -474,6 +474,53 @@ describe("integration:Bridge", function () {
                     signalProof
                 )
             ).to.eq(true);
+        });
+
+        it.only("fliptest", async function () {
+            // L2 -> L1 message
+            const testBadReceiver: TestBadReceiver = await (
+                await ethers.getContractFactory("TestBadReceiver")
+            )
+                .connect(owner)
+                .deploy();
+            await testBadReceiver.deployed();
+
+            const m: Message = {
+                id: 1,
+                sender: owner.address,
+                srcChainId: enabledDestChainId,
+                destChainId: srcChainId,
+                owner: owner.address,
+                to: testBadReceiver.address,
+                refundAddress: owner.address,
+                depositValue: 1,
+                callValue: 10,
+                processingFee: 1,
+                gasLimit: 300000,
+                data: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                memo: "",
+            };
+
+            const { msgHash, message } = await sendMessage(l2Bridge, m);
+
+            const messageStatus = await l1Bridge.getMessageStatus(msgHash);
+            expect(messageStatus).to.be.eq(0);
+
+            const { messageStatusChangedEvent } = await processMessage(
+                l2SignalService,
+                l2Bridge,
+                l1Bridge,
+                msgHash,
+                l2Provider,
+                l1HeaderSync,
+                message
+            );
+            expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
+            expect(messageStatusChangedEvent.args.status).to.be.eq(1);
+
+            // blocked here, we can't do the test l1 to l2 because isMessageFailed()
+            // needs eth_getProof on L2 to be called, but we can't do the test l2 to l1 either
+            // since processMessage() needs eth_getProof on L2 to be called as well.
         });
     });
 
