@@ -199,7 +199,7 @@ action("Generate Genesis", function () {
             await expect(
                 TaikoL2.invalidateBlock(
                     bytes,
-                    5, // hint: TX_INVALID_SIG
+                    1, // hint: TX_INVALID_SIG
                     0
                 )
             ).to.be.revertedWith("L2:sender");
@@ -215,7 +215,7 @@ action("Generate Genesis", function () {
 
             const tx = await taikoL2WithGoldenTouchSigner.invalidateBlock(
                 bytes,
-                5, // hint: TX_INVALID_SIG
+                1, // hint: TX_INVALID_SIG
                 0,
                 { gasPrice: 0 }
             );
@@ -228,7 +228,7 @@ action("Generate Genesis", function () {
                 message: "TaikoL2.invalidateBlock gas cost after 256 L2 blocks",
                 TxListBytes: ethers.utils.arrayify(bytes).length,
                 txNums,
-                reason: "TX_INVALID_SIG",
+                hint: "TX_INVALID_SIG",
                 gasUsed: receipt.gasUsed,
             });
         });
