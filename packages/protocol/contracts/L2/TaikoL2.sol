@@ -94,7 +94,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      */
     function invalidateBlock(
         bytes calldata txList,
-        LibInvalidTxList.Reason hint,
+        LibInvalidTxList.Hint hint,
         uint256 txIdx
     ) external {
         require(
@@ -104,13 +104,12 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         require(tx.gasprice == 0, "L2:gasPrice");
 
         TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.Reason reason = LibInvalidTxList.isTxListInvalid({
+        LibInvalidTxList.verifyTxListInvalid({
             config: config,
             encoded: txList,
             hint: hint,
             txIdx: txIdx
         });
-        require(reason != LibInvalidTxList.Reason.OK, "L2:reason");
 
         if (config.enablePublicInputsCheck) {
             _checkPublicInputs();
