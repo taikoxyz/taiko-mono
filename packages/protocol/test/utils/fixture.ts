@@ -9,7 +9,118 @@ import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { SimpleChannel } from "channel-ts";
 import Proposer from "./proposer";
 import Prover from "./prover";
+import { AddressManager } from "../../typechain";
+import { deploySignalService } from "./signal";
+import { deployBridge } from "./bridge";
 
+async function initBridgeFixture() {
+    const [owner] = await hardhatEthers.getSigners();
+
+    const { chainId } = await hardhatEthers.provider.getNetwork();
+
+    const srcChainId = chainId;
+
+    const l2Provider = getL2Provider();
+
+    const l2Signer = await getDefaultL2Signer();
+
+    const l2NonOwner = await l2Provider.getSigner();
+
+    const l2Network = await l2Provider.getNetwork();
+
+    const enabledDestChainId = l2Network.chainId;
+
+    const addressManager: AddressManager = await deployAddressManager(owner);
+
+    const l2AddressManager: AddressManager = await deployAddressManager(
+        l2Signer
+    );
+
+    const { signalService: l1SignalService } = await deploySignalService(
+        owner,
+        addressManager,
+        srcChainId
+    );
+
+    const { signalService: l2SignalService } = await deploySignalService(
+        l2Signer,
+        l2AddressManager,
+        enabledDestChainId
+    );
+
+    await addressManager.setAddress(
+        `${enabledDestChainId}.signal_service`,
+        l2SignalService.address
+    );
+
+    await l2AddressManager.setAddress(
+        `${srcChainId}.signal_service`,
+        l1SignalService.address
+    );
+
+    const { bridge: l1Bridge, libBridgeProcess } = await deployBridge(
+        owner,
+        addressManager,
+        srcChainId
+    );
+
+    const { bridge: l2Bridge } = await deployBridge(
+        l2Signer,
+        l2AddressManager,
+        enabledDestChainId
+    );
+
+    await addressManager.setAddress(
+        `${enabledDestChainId}.bridge`,
+        l2Bridge.address
+    );
+
+    await l2AddressManager
+        .connect(l2Signer)
+        .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
+
+    const l2HeaderSync = await (
+        await hardhatEthers.getContractFactory("TestHeaderSync")
+    )
+        .connect(l2Signer)
+        .deploy();
+
+    await l2AddressManager
+        .connect(l2Signer)
+        .setAddress(`${enabledDestChainId}.taiko`, l2HeaderSync.address);
+
+    const m = {
+        id: 1,
+        sender: owner.address,
+        srcChainId: srcChainId,
+        destChainId: enabledDestChainId,
+        owner: owner.address,
+        to: owner.address,
+        refundAddress: owner.address,
+        depositValue: 1000,
+        callValue: 1000,
+        processingFee: 1000,
+        gasLimit: 10000,
+        data: ethers.constants.HashZero,
+        memo: "",
+    };
+
+    return {
+        l2Provider,
+        l2NonOwner,
+        owner,
+        srcChainId,
+        enabledDestChainId,
+        m,
+        l2AddressManager,
+        l1Bridge,
+        l2SignalService,
+        l1SignalService,
+        l2Bridge,
+        l2HeaderSync,
+        libBridgeProcess,
+    };
+}
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
     enableTokenomics: boolean = true
@@ -131,4 +242,4 @@ async function initIntegrationFixture(
     };
 }
 
-export { initIntegrationFixture };
+export { initBridgeFixture, initIntegrationFixture };

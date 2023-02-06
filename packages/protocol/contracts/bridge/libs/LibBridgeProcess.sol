@@ -24,6 +24,10 @@ library LibBridgeProcess {
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
 
+    // ERRORS
+
+    error InvalidProcessMessageGasLimit(uint256 provided, uint256 minimum);
+
     /**
      * Process the bridge message on the destination chain. It can be called by
      * any address, including `message.owner`. It starts by hashing the message,
@@ -44,7 +48,11 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         if (message.gasLimit == 0) {
-            require(msg.sender == message.owner, "B:forbidden");
+            if (msg.sender != message.owner)
+                revert InvalidProcessMessageGasLimit({
+                    provided: message.gasLimit,
+                    minimum: 1
+                });
         }
 
         // The message's destination chain must be the current chain.

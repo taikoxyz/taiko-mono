@@ -2,140 +2,57 @@ import { expect } from "chai";
 import { ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
 import {
-    AddressManager,
-    Bridge,
+    LibBridgeProcess,
     SignalService,
+    TestBridge,
     TestHeaderSync,
 } from "../../typechain";
-import deployAddressManager from "../utils/addressManager";
 import {
-    deployBridge,
     processMessage,
     sendAndProcessMessage,
     sendMessage,
 } from "../utils/bridge";
+import { initBridgeFixture } from "../utils/fixture";
 // import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
-import { getDefaultL2Signer, getL2Provider } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
-import { deploySignalService, getSignalProof } from "../utils/signal";
+import { getSignalProof } from "../utils/signal";
 
 describe("integration:Bridge", function () {
     let owner: any;
-    let l2Provider: ethersLib.providers.JsonRpcProvider;
-    let l2Signer: ethersLib.Signer;
     let srcChainId: number;
     let enabledDestChainId: number;
     let l2NonOwner: ethersLib.Signer;
     let l1SignalService: SignalService;
-    let l2SignalService: SignalService;
-    let l1Bridge: Bridge;
-    let l2Bridge: Bridge;
+    let l1Bridge: TestBridge;
+    let l2Bridge: TestBridge;
+    let libBridgeProcess: LibBridgeProcess;
     let m: Message;
-    let headerSync: TestHeaderSync;
+    let l2HeaderSync: TestHeaderSync;
 
     beforeEach(async () => {
-        [owner] = await ethers.getSigners();
-
-        const { chainId } = await ethers.provider.getNetwork();
-
-        srcChainId = chainId;
-
-        // seondary node to deploy L2 on
-        l2Provider = getL2Provider();
-
-        l2Signer = await getDefaultL2Signer();
-
-        l2NonOwner = await l2Provider.getSigner();
-
-        const l2Network = await l2Provider.getNetwork();
-
-        enabledDestChainId = l2Network.chainId;
-
-        const addressManager: AddressManager = await deployAddressManager(
-            owner
-        );
-
-        const l2AddressManager: AddressManager = await deployAddressManager(
-            l2Signer
-        );
-
-        ({ signalService: l1SignalService } = await deploySignalService(
+        ({
             owner,
-            addressManager,
-            srcChainId
-        ));
-
-        ({ signalService: l2SignalService } = await deploySignalService(
-            l2Signer,
-            l2AddressManager,
-            enabledDestChainId
-        ));
-
-        await addressManager.setAddress(
-            `${enabledDestChainId}.signal_service`,
-            l2SignalService.address
-        );
-
-        await l2AddressManager.setAddress(
-            `${srcChainId}.signal_service`,
-            l1SignalService.address
-        );
-
-        ({ bridge: l1Bridge } = await deployBridge(
-            owner,
-            addressManager,
-            srcChainId
-        ));
-
-        ({ bridge: l2Bridge } = await deployBridge(
-            l2Signer,
-            l2AddressManager,
-            enabledDestChainId
-        ));
-
-        await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
-            l2Bridge.address
-        );
-
-        await l2AddressManager
-            .connect(l2Signer)
-            .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
-
-        headerSync = await (await ethers.getContractFactory("TestHeaderSync"))
-            .connect(l2Signer)
-            .deploy();
-
-        await l2AddressManager
-            .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, headerSync.address);
-
-        m = {
-            id: 1,
-            sender: owner.address,
-            srcChainId: srcChainId,
-            destChainId: enabledDestChainId,
-            owner: owner.address,
-            to: owner.address,
-            refundAddress: owner.address,
-            depositValue: 1000,
-            callValue: 1000,
-            processingFee: 1000,
-            gasLimit: 10000,
-            data: ethers.constants.HashZero,
-            memo: "",
-        };
+            srcChainId,
+            enabledDestChainId,
+            l2NonOwner,
+            l1SignalService,
+            l1Bridge,
+            l2Bridge,
+            m,
+            l2HeaderSync,
+            libBridgeProcess,
+        } = await initBridgeFixture());
     });
 
     describe("processMessage()", function () {
         it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const m: Message = {
                 id: 1,
-                sender: await l2NonOwner.getAddress(),
-                srcChainId: srcChainId,
-                destChainId: enabledDestChainId,
-                owner: owner.address,
+                sender: await owner.getAddress(),
+                srcChainId: enabledDestChainId,
+                destChainId: srcChainId,
+                owner: await l2NonOwner.getAddress(),
                 to: owner.address,
                 refundAddress: owner.address,
                 depositValue: 1000,
@@ -147,8 +64,15 @@ describe("integration:Bridge", function () {
             };
 
             await expect(
-                l2Bridge.processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+                l1Bridge
+                    .connect(owner)
+                    .processMessage(m, ethers.constants.HashZero)
+            )
+                .to.be.revertedWithCustomError(
+                    libBridgeProcess,
+                    "InvalidProcessMessageGasLimit"
+                )
+                .withArgs(0, 1);
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {
@@ -176,7 +100,7 @@ describe("integration:Bridge", function () {
         it("should throw if messageStatus of message is != NEW", async function () {
             const { message, signalProof } = await sendAndProcessMessage(
                 hre.ethers.provider,
-                headerSync,
+                l2HeaderSync,
                 m,
                 l1SignalService,
                 l1Bridge,
@@ -195,7 +119,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
@@ -225,7 +149,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
 
             const slot = await l1SignalService.getSignalSlot(sender, msgHash);
 
@@ -269,7 +193,7 @@ describe("integration:Bridge", function () {
                     l2Bridge,
                     msgHash,
                     hre.ethers.provider,
-                    headerSync,
+                    l2HeaderSync,
                     message
                 ))
             ).to.emit(l2Bridge, "MessageStatusChanged");
@@ -319,7 +243,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(block.hash);
+            await l2HeaderSync.setSyncedHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -356,7 +280,7 @@ describe("integration:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await headerSync.setSyncedHeader(block.hash);
+            await l2HeaderSync.setSyncedHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(

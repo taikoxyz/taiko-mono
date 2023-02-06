@@ -16,7 +16,7 @@ async function deployBridge(
     signer: Signer,
     addressManager: AddressManager,
     chainId: number
-): Promise<{ bridge: Bridge; etherVault: EtherVault }> {
+) {
     const libTrieProof: LibTrieProof = await (
         await hardhatEthers.getContractFactory("LibTrieProof")
     )
@@ -35,7 +35,7 @@ async function deployBridge(
         .connect(signer)
         .deploy();
 
-    const BridgeFactory = await hardhatEthers.getContractFactory("Bridge", {
+    const BridgeFactory = await hardhatEthers.getContractFactory("TestBridge", {
         libraries: {
             LibTrieProof: libTrieProof.address,
             LibBridgeProcess: libBridgeProcess.address,
@@ -43,7 +43,7 @@ async function deployBridge(
         },
     });
 
-    const bridge: Bridge = await BridgeFactory.connect(signer).deploy();
+    const bridge = await BridgeFactory.connect(signer).deploy();
 
     await bridge.connect(signer).init(addressManager.address);
 
@@ -72,7 +72,7 @@ async function deployBridge(
 
     await addressManager.setAddress(`${chainId}.bridge`, bridge.address);
 
-    return { bridge, etherVault };
+    return { bridge, etherVault, libBridgeProcess, libBridgeRetry };
 }
 
 async function sendMessage(

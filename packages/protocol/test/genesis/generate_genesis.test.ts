@@ -241,6 +241,12 @@ action("Generate Genesis", function () {
                 signer
             );
 
+            const LibBridgeProcessAlloc = getContractAlloc("LibBridgeProcess");
+            const LibBridgeProcess = new hre.ethers.Contract(
+                LibBridgeProcessAlloc.address,
+                require("../../artifacts/contracts/bridge/libs/LibBridgeProcess.sol/LibBridgeProcess.json").abi,
+                signer
+            );
             const owner = await Bridge.owner();
 
             expect(owner).to.be.equal(testConfig.contractOwner);
@@ -264,7 +270,12 @@ action("Generate Genesis", function () {
                     },
                     ethers.utils.randomBytes(1024)
                 )
-            ).to.be.revertedWith("B:forbidden");
+            )
+                .to.be.revertedWithCustomError(
+                    LibBridgeProcess,
+                    "InvalidProcessMessageGasLimit"
+                )
+                .withArgs(0, 1);
         });
 
         it("TokenVault", async function () {
