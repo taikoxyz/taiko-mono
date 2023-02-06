@@ -12,6 +12,7 @@ function ThemedImage() {
         ? "/images/logotype-white.png"
         : "/images/logotype-black.png"
     );
+    console.log(resolvedTheme);
   }, [resolvedTheme]);
 
   return src ? (
