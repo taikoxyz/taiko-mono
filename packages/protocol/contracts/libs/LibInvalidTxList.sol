@@ -78,18 +78,20 @@ library LibInvalidTxList {
 
             LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
-            if (
-                hint == Hint.TX_INVALID_SIG &&
-                LibTxUtils.recoverSender(config.chainId, _tx) != address(0)
-            ) {
-                revert ERR_INVALID_HINT();
+            if (hint == Hint.TX_INVALID_SIG) {
+                if (
+                    LibTxUtils.recoverSender(config.chainId, _tx) != address(0)
+                ) {
+                    revert ERR_INVALID_HINT();
+                }
+                return;
             }
 
-            if (
-                hint == Hint.TX_GAS_LIMIT_TOO_SMALL &&
-                _tx.gasLimit < config.minTxGasLimit
-            ) {
-                revert ERR_INVALID_HINT();
+            if (hint == Hint.TX_GAS_LIMIT_TOO_SMALL) {
+                if (_tx.gasLimit >= config.minTxGasLimit) {
+                    revert ERR_INVALID_HINT();
+                }
+                return;
             }
 
             revert ERR_VERIFICAITON_FAILURE();
