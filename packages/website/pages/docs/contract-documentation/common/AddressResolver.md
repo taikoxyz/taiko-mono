@@ -1,3 +1,7 @@
+---
+title: AddressResolver
+---
+
 ## AddressResolver
 
 This abstract contract provides a name-to-address lookup. Under the hood,
@@ -9,28 +13,16 @@ it uses an AddressManager to manage the name-to-address mapping.
 contract IAddressManager _addressManager
 ```
 
-### \_\_gap
-
-```solidity
-uint256[49] __gap
-```
-
 ### onlyFromNamed
 
 ```solidity
 modifier onlyFromNamed(string name)
 ```
 
-### onlyFromNamedEither
-
-```solidity
-modifier onlyFromNamedEither(string name1, string name2)
-```
-
 ### resolve
 
 ```solidity
-function resolve(string name) public view virtual returns (address payable)
+function resolve(string name, bool allowZeroAddress) public view virtual returns (address payable)
 ```
 
 Resolves a name to an address on the current chain.
@@ -39,9 +31,10 @@ _This function will throw if the resolved address is `address(0)`._
 
 #### Parameters
 
-| Name | Type   | Description          |
-| ---- | ------ | -------------------- |
-| name | string | The name to resolve. |
+| Name             | Type   | Description                                |
+| ---------------- | ------ | ------------------------------------------ |
+| name             | string | The name to resolve.                       |
+| allowZeroAddress | bool   | True to allow zero address to be returned. |
 
 #### Return Values
 
@@ -52,7 +45,7 @@ _This function will throw if the resolved address is `address(0)`._
 ### resolve
 
 ```solidity
-function resolve(uint256 chainId, string name) public view virtual returns (address payable)
+function resolve(uint256 chainId, string name, bool allowZeroAddress) public view virtual returns (address payable)
 ```
 
 Resolves a name to an address on the specified chain.
@@ -61,10 +54,11 @@ _This function will throw if the resolved address is `address(0)`._
 
 #### Parameters
 
-| Name    | Type    | Description          |
-| ------- | ------- | -------------------- |
-| chainId | uint256 | The chainId.         |
-| name    | string  | The name to resolve. |
+| Name             | Type    | Description                                |
+| ---------------- | ------- | ------------------------------------------ |
+| chainId          | uint256 | The chainId.                               |
+| name             | string  | The name to resolve.                       |
+| allowZeroAddress | bool    | True to allow zero address to be returned. |
 
 #### Return Values
 
@@ -90,10 +84,4 @@ Returns the AddressManager's address.
 
 ```solidity
 function _init(address addressManager_) internal virtual
-```
-
-### \_resolve
-
-```solidity
-function _resolve(uint256 chainId, string name) private view returns (address payable)
 ```

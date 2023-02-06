@@ -1,3 +1,7 @@
+---
+title: IHeaderSync
+---
+
 ## IHeaderSync
 
 Interface to set and get an address for a name.

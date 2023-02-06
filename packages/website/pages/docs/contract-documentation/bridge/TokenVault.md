@@ -1,3 +1,7 @@
+---
+title: TokenVault
+---
+
 ## TokenVault
 
 This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -14,7 +18,15 @@ struct CanonicalERC20 {
   string symbol;
   string name;
 }
+```
 
+### MessageDeposit
+
+```solidity
+struct MessageDeposit {
+  address token;
+  uint256 amount;
+}
 ```
 
 ### isBridgedToken
@@ -35,10 +47,10 @@ mapping(address => struct TokenVault.CanonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
-### \_\_gap
+### messageDeposits
 
 ```solidity
-uint256[47] __gap
+mapping(bytes32 => struct TokenVault.MessageDeposit) messageDeposits
 ```
 
 ### BridgedERC20Deployed
@@ -50,25 +62,25 @@ event BridgedERC20Deployed(uint256 srcChainId, address canonicalToken, address b
 ### EtherSent
 
 ```solidity
-event EtherSent(address to, uint256 destChainId, uint256 amount, bytes32 signal)
-```
-
-### EtherReceived
-
-```solidity
-event EtherReceived(address from, uint256 amount)
+event EtherSent(bytes32 msgHash, address from, address to, uint256 destChainId, uint256 amount)
 ```
 
 ### ERC20Sent
 
 ```solidity
-event ERC20Sent(address to, uint256 destChainId, address token, uint256 amount, bytes32 signal)
+event ERC20Sent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256 amount)
+```
+
+### ERC20Released
+
+```solidity
+event ERC20Released(bytes32 msgHash, address from, address token, uint256 amount)
 ```
 
 ### ERC20Received
 
 ```solidity
-event ERC20Received(address to, address from, uint256 srcChainId, address token, uint256 amount)
+event ERC20Received(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
 ```
 
 ### init
@@ -123,6 +135,22 @@ by invoking the message call.
 | refundAddress | address | The fee refund address. If this address is address(0), extra fees will be refunded back to the `to` address. |
 | memo          | string  |                                                                                                              |
 
+### releaseERC20
+
+```solidity
+function releaseERC20(struct IBridge.Message message, bytes proof) external
+```
+
+Release deposited ERC20 back to the owner on the source TokenVault with
+a proof that the message processing on the destination Bridge has failed.
+
+#### Parameters
+
+| Name    | Type                   | Description                                                          |
+| ------- | ---------------------- | -------------------------------------------------------------------- |
+| message | struct IBridge.Message | The message that corresponds the ERC20 deposit on the source chain.  |
+| proof   | bytes                  | The proof from the destination chain to show the message has failed. |
+
 ### receiveERC20
 
 ```solidity
@@ -140,15 +168,3 @@ invoking a message call._
 | from           | address                          | The source address.                                                                                                  |
 | to             | address                          | The destination address.                                                                                             |
 | amount         | uint256                          | The amount of tokens to be sent. 0 is a valid value.                                                                 |
-
-### \_getOrDeployBridgedToken
-
-```solidity
-function _getOrDeployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address)
-```
-
-### \_deployBridgedToken
-
-```solidity
-function _deployBridgedToken(struct TokenVault.CanonicalERC20 canonicalToken) private returns (address bridgedToken)
-```

@@ -1,3 +1,7 @@
+---
+title: BridgedERC20
+---
+
 ## BridgedERC20
 
 ### srcToken
@@ -10,12 +14,6 @@ address srcToken
 
 ```solidity
 uint256 srcChainId
-```
-
-### \_\_gap
-
-```solidity
-uint256[48] __gap
 ```
 
 ### BridgeMint

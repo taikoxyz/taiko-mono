@@ -1,23 +1,21 @@
+---
+title: EtherVault
+---
+
 ## EtherVault
 
 Vault that holds Ether.
-
-### authorizedAddrs
-
-```solidity
-mapping(address => bool) authorizedAddrs
-```
-
-### \_\_gap
-
-```solidity
-uint256[49] __gap
-```
 
 ### Authorized
 
 ```solidity
 event Authorized(address addr, bool authorized)
+```
+
+### EtherReleased
+
+```solidity
+event EtherReleased(address to, uint256 amount)
 ```
 
 ### onlyAuthorized
@@ -44,13 +42,30 @@ function init(address addressManager) external
 function releaseEther(uint256 amount) public
 ```
 
-Send Ether from EtherVault to the sender, checking they are authorized.
+Transfer Ether from EtherVault to the sender, checking that the sender
+is authorized.
 
 #### Parameters
 
 | Name   | Type    | Description              |
 | ------ | ------- | ------------------------ |
 | amount | uint256 | Amount of ether to send. |
+
+### releaseEtherTo
+
+```solidity
+function releaseEtherTo(address recipient, uint256 amount) public
+```
+
+Transfer Ether from EtherVault to an desinated address, checking that the
+sender is authorized.
+
+#### Parameters
+
+| Name      | Type    | Description              |
+| --------- | ------- | ------------------------ |
+| recipient | address | Address to receive Ether |
+| amount    | uint256 | Amount of ether to send. |
 
 ### authorize
 
