@@ -20,7 +20,6 @@ Here are the official links to our social media and public documentation:
 - Reddit: https://www.reddit.com/r/taiko_xyz/
 - Blog: https://mirror.xyz/labs.taiko.eth
 - GitHub: https://github.com/taikoxyz/
-- Discussions: https://github.com/taikoxyz/taiko-mono/discussions
 - Whitepaper: https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf
 
 ## What is Layer 2 (L2)?
