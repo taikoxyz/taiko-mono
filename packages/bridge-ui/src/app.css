@@ -86,6 +86,12 @@ input[type=number] {
   display: none;
 }
 
+[data-theme="light"] .toggle-chain.btn[disabled] {
+  color: #1f2937;
+  background-color: #d4d4d4;
+  opacity: 0.4;
+}
+
 @media screen and (max-width: 768px) {
   [data-theme="dark"] .taiko-logo {
     display: none;

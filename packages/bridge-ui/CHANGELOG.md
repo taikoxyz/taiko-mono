@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.0...bridge-ui-v0.1.1) (2023-01-31)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix local dependency not found error for jest-dom ([#12990](https://github.com/taikoxyz/taiko-mono/issues/12990)) ([39bfb09](https://github.com/taikoxyz/taiko-mono/commit/39bfb09ff331a5522362ef683c21e75a2f9cfec3))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.0.1...bridge-ui-v0.1.0) (2023-01-19)
 
 

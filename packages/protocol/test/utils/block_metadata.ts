@@ -1,4 +1,4 @@
-import { BigNumberish } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 
 type BlockMetadata = {
     id: number;
@@ -14,4 +14,21 @@ type BlockMetadata = {
     commitHeight: number;
 };
 
-export { BlockMetadata };
+type ForkChoice = {
+    provenAt: BigNumber;
+    provers: string[];
+    blockHash: string;
+};
+
+type BlockInfo = {
+    proposedAt: number;
+    provenAt: number;
+    id: number;
+    parentHash: string;
+    blockHash: string;
+    forkChoice: ForkChoice;
+    deposit: BigNumber;
+    proposer: string;
+};
+
+export { BlockMetadata, ForkChoice, BlockInfo };

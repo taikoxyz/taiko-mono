@@ -43,7 +43,7 @@
 
   <button
     on:click={toggleChains}
-    class="btn btn-square btn-sm"
+    class="btn btn-square btn-sm toggle-chain"
     disabled={!$signer}><ArrowRight size="16" /></button
   >
   <div class="flex items-center w-2/5 justify-center">

@@ -23,7 +23,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.zkProofsPerBlock = 1;
-        config.maxVerificationsPerTx = 2;
+        config.maxVerificationsPerTx = 0;
         config.commitConfirmations = 1;
         config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 30000000; // TODO
@@ -44,11 +44,11 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.feeGracePeriodPctg = 125; // 125%
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 60 minutes;
+        config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 1 minutes;
+        config.initialUncleDelay = 1 seconds;
         config.enableTokenomics = false;
-        config.enablePublicInputsCheck = true;
+        config.enablePublicInputsCheck = false;
         config.enableOracleProver = false;
     }
 

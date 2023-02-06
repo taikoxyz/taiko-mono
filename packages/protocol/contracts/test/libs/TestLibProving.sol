@@ -4,9 +4,17 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
+// This file is an exact copy of LibProving.sol except the implementation of the following methods are empty:
+
+// _validateAnchorTxSignature
+// _checkMetadata
+// _validateHeaderForMetadata
+
+// @dev we need to update this when we update LibProving.sol
+
 pragma solidity ^0.8.9;
 
-import {IProofVerifier} from "../ProofVerifier.sol";
+import "../../L1/libs/LibProving.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAnchorSignature.sol";
 import "../../libs/LibBlockHeader.sol";
@@ -15,11 +23,9 @@ import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibRLPWriter.sol";
-import "./LibUtils.sol";
+import "../../L1/libs/LibUtils.sol";
 
-/// @author dantaik <dan@taiko.xyz>
-/// @author david <david@taiko.xyz>
-library LibProving {
+library TestLibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
@@ -378,53 +384,17 @@ library LibProving {
     function _validateAnchorTxSignature(
         uint256 chainId,
         LibTxDecoder.Tx memory _tx
-    ) private view {
-        require(
-            _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
-            "L1:sig:r"
-        );
-
-        if (_tx.r == LibAnchorSignature.GX2) {
-            (, , uint256 s) = LibAnchorSignature.signTransaction(
-                LibTxUtils.hashUnsignedTx(chainId, _tx),
-                1
-            );
-            require(s == 0, "L1:sig:s");
-        }
-    }
+    ) private view {}
 
     function _checkMetadata(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.BlockMetadata memory meta
-    ) private view {
-        require(
-            meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
-            "L1:meta:id"
-        );
-        require(
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash ==
-                meta.hashMetadata(),
-            "L1:metaHash"
-        );
-    }
+    ) private view {}
 
     function _validateHeaderForMetadata(
         TaikoData.Config memory config,
         BlockHeader memory header,
         TaikoData.BlockMetadata memory meta
-    ) private pure {
-        require(
-            header.parentHash != 0 &&
-                header.beneficiary == meta.beneficiary &&
-                header.difficulty == 0 &&
-                header.gasLimit == meta.gasLimit + config.anchorTxGasLimit &&
-                header.gasUsed > 0 &&
-                header.timestamp == meta.timestamp &&
-                header.extraData.length == meta.extraData.length &&
-                keccak256(header.extraData) == keccak256(meta.extraData) &&
-                header.mixHash == meta.mixHash,
-            "L1:meta:headerMismatch"
-        );
-    }
+    ) private pure {}
 }

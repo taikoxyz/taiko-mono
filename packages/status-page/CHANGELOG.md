@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.1.0...status-page-v0.2.0) (2023-01-31)
+
+
+### Features
+
+* **status-page:** Tokenomics metrics ([#13076](https://github.com/taikoxyz/taiko-mono/issues/13076)) ([cbd3e0b](https://github.com/taikoxyz/taiko-mono/commit/cbd3e0b850a4611b308daf949a2ee65c24ff01ec))
+
+
+### Bug Fixes
+
+* **status-page:** fix local dependency not found error for jest-dom ([#12991](https://github.com/taikoxyz/taiko-mono/issues/12991)) ([b7974bf](https://github.com/taikoxyz/taiko-mono/commit/b7974bf0c8a80aa200313ec27ab44857e22142ee))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.0.1...status-page-v0.1.0) (2023-01-19)
 
 

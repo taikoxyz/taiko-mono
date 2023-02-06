@@ -6,6 +6,7 @@ type Evidence = {
     header: BlockHeader;
     prover: string;
     proofs: string[];
+    circuits: number[];
 };
 
 export default Evidence;
