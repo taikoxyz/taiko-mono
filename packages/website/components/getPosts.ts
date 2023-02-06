@@ -45,15 +45,15 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
               `})
     }).then((res) => res.json())
       .then((response) => {
-        getPosts(response)
+        getPosts(response);
       })
       .catch();
   }
 
   async function getPosts(response) {
-    var posts = []
+    const posts = []
     Promise.all(response.data.transactions.edges.map((edge) => {
-      var transactionId = edge.node.id;
+      const transactionId = edge.node.id;
       arweave.transactions
         .getData(`${transactionId}`, { decode: true, string: true }).then((response: string) => JSON.parse(response))
         .then((data) => {
@@ -62,12 +62,12 @@ export const getPosts = new Promise<Array<Object>>((resolve, reject) => {
 
             // add the original digest
             data["OriginalDigest"] = edge.node.tags[4].value;
-            posts.push(data)
+            posts.push(data);
           }
 
         }).catch();
     }))
-    resolve(posts)
+    resolve(posts);
   }
-  getTransanctionIds()
+  getTransanctionIds();
 })
