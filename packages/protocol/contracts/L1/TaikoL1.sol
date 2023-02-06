@@ -109,10 +109,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
      *        - inputs[2] is the receipt of the anchor transaction.
      */
 
-    function proveBlock(
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) external nonReentrant {
+    function proveBlock(uint256 blockId, bytes[] calldata inputs)
+        external
+        nonReentrant
+    {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -144,10 +144,10 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
      *          on L2. Note that the `invalidBlock` transaction is supposed to
      *          be the only transaction in the L2 block.
      */
-    function proveBlockInvalid(
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) external nonReentrant {
+    function proveBlockInvalid(uint256 blockId, bytes[] calldata inputs)
+        external
+        nonReentrant
+    {
         TaikoData.Config memory config = getConfig();
 
         LibProving.proveBlockInvalid({
@@ -190,17 +190,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = LibProposing.getBlockFee(
+        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
         return fee + deposit;
     }
 
-    function getProofReward(
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 reward) {
+    function getProofReward(uint64 provenAt, uint64 proposedAt)
+        public
+        view
+        returns (uint256 reward)
+    {
         (, reward, ) = LibVerifying.getProofReward({
             state: state,
             config: getConfig(),
@@ -232,16 +233,21 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
             );
     }
 
-    function getProposedBlock(
-        uint256 id
-    ) public view returns (TaikoData.ProposedBlock memory) {
+    function getProposedBlock(uint256 id)
+        public
+        view
+        returns (TaikoData.ProposedBlock memory)
+    {
         return
             LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
     }
 
-    function getSyncedHeader(
-        uint256 number
-    ) public view override returns (bytes32) {
+    function getSyncedHeader(uint256 number)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         return state.getL2BlockHash(number, getConfig().blockHashHistory);
     }
 
@@ -257,32 +263,38 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         public
         view
         returns (
-            uint64 /*genesisHeight*/,
-            uint64 /*genesisTimestamp*/,
-            uint64 /*statusBits*/,
-            uint256 /*feeBase*/,
-            uint64 /*nextBlockId*/,
-            uint64 /*lastProposedAt*/,
-            uint64 /*avgBlockTime*/,
-            uint64 /*latestVerifiedHeight*/,
-            uint64 /*latestVerifiedId*/,
+            uint64, /*genesisHeight*/
+            uint64, /*genesisTimestamp*/
+            uint64, /*statusBits*/
+            uint256, /*feeBase*/
+            uint64, /*nextBlockId*/
+            uint64, /*lastProposedAt*/
+            uint64, /*avgBlockTime*/
+            uint64, /*latestVerifiedHeight*/
+            uint64, /*latestVerifiedId*/
             uint64 /*avgProofTime*/
         )
     {
         return state.getStateVariables();
     }
 
-    function signWithGoldenTouch(
-        bytes32 hash,
-        uint8 k
-    ) public view returns (uint8 v, uint256 r, uint256 s) {
+    function signWithGoldenTouch(bytes32 hash, uint8 k)
+        public
+        view
+        returns (
+            uint8 v,
+            uint256 r,
+            uint256 s
+        )
+    {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
-    function getForkChoice(
-        uint256 id,
-        bytes32 parentHash
-    ) public view returns (TaikoData.ForkChoice memory) {
+    function getForkChoice(uint256 id, bytes32 parentHash)
+        public
+        view
+        returns (TaikoData.ForkChoice memory)
+    {
         return state.forkChoices[id][parentHash];
     }
 
@@ -294,10 +306,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return LibSharedConfig.getConfig();
     }
 
-    function isBlockVerifiable(
-        uint256 blockId,
-        bytes32 parentHash
-    ) public view returns (bool) {
+    function isBlockVerifiable(uint256 blockId, bytes32 parentHash)
+        public
+        view
+        returns (bool)
+    {
         return
             LibVerifying.isVerifiable({
                 state: state,

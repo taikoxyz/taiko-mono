@@ -132,9 +132,12 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         config.chainId = block.chainid;
     }
 
-    function getSyncedHeader(
-        uint256 number
-    ) public view override returns (bytes32) {
+    function getSyncedHeader(uint256 number)
+        public
+        view
+        override
+        returns (bytes32)
+    {
         return l1Hashes[number];
     }
 

@@ -122,7 +122,15 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
+    )
+        public
+        view
+        returns (
+            uint256 newFeeBase,
+            uint256 reward,
+            uint256 tRelBp
+        )
+    {
         (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
@@ -145,7 +153,7 @@ library LibVerifying {
         uint256 tRelBp,
         TkoToken tkoToken
     ) private {
-        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
+        uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
         if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
             tkoToken.mint(target.proposer, refund);
@@ -158,18 +166,18 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint start;
-        uint count = fc.provers.length;
+        uint256 start;
+        uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
             start = 1;
             count -= 1;
         }
 
-        uint sum = (1 << count) - 1;
-        uint weight = 1 << (count - 1);
-        for (uint i = 0; i < count; ++i) {
-            uint proverReward = (reward * weight) / sum;
+        uint256 sum = (1 << count) - 1;
+        uint256 weight = 1 << (count - 1);
+        for (uint256 i = 0; i < count; ++i) {
+            uint256 proverReward = (reward * weight) / sum;
             if (proverReward == 0) {
                 break;
             }
@@ -241,7 +249,7 @@ library LibVerifying {
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint i = 0; i < fc.provers.length; ++i) {
+        for (uint256 i = 0; i < fc.provers.length; ++i) {
             fc.provers[i] = address(0);
         }
         delete fc.provers;

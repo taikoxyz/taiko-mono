@@ -346,9 +346,10 @@ contract TokenVault is EssentialContract {
      * Private Functions *
      *********************/
 
-    function _getOrDeployBridgedToken(
-        CanonicalERC20 calldata canonicalToken
-    ) private returns (address) {
+    function _getOrDeployBridgedToken(CanonicalERC20 calldata canonicalToken)
+        private
+        returns (address)
+    {
         address token = canonicalToBridged[canonicalToken.chainId][
             canonicalToken.addr
         ];
@@ -357,9 +358,10 @@ contract TokenVault is EssentialContract {
             token != address(0) ? token : _deployBridgedToken(canonicalToken);
     }
 
-    function _deployBridgedToken(
-        CanonicalERC20 calldata canonicalToken
-    ) private returns (address bridgedToken) {
+    function _deployBridgedToken(CanonicalERC20 calldata canonicalToken)
+        private
+        returns (address bridgedToken)
+    {
         bytes32 salt = keccak256(
             abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
         );

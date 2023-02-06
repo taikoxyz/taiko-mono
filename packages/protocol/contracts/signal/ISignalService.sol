@@ -21,10 +21,10 @@ interface ISignalService {
      * @param app The address that sent this message.
      * @param signal The signal to check.
      */
-    function isSignalSent(
-        address app,
-        bytes32 signal
-    ) external view returns (bool);
+    function isSignalSent(address app, bytes32 signal)
+        external
+        view
+        returns (bool);
 
     /**
      * Check if signal has been received on the destination chain (current).

@@ -48,9 +48,7 @@ library LibUtils {
         return state.l2Hashes[number % blockHashHistory];
     }
 
-    function getStateVariables(
-        TaikoData.State storage state
-    )
+    function getStateVariables(TaikoData.State storage state)
         internal
         view
         returns (
@@ -80,9 +78,11 @@ library LibUtils {
         avgProofTime = state.avgProofTime;
     }
 
-    function isHalted(
-        TaikoData.State storage state
-    ) internal view returns (bool) {
+    function isHalted(TaikoData.State storage state)
+        internal
+        view
+        returns (bool)
+    {
         return isBitOne(state, MASK_HALT);
     }
 
@@ -168,9 +168,11 @@ library LibUtils {
         return fc.provenAt + getUncleProofDelay(state, config, blockId);
     }
 
-    function hashMetadata(
-        TaikoData.BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(meta));
     }
 
@@ -196,10 +198,11 @@ library LibUtils {
             : state.statusBits & ~mask;
     }
 
-    function isBitOne(
-        TaikoData.State storage state,
-        uint64 mask
-    ) private view returns (bool) {
+    function isBitOne(TaikoData.State storage state, uint64 mask)
+        private
+        view
+        returns (bool)
+    {
         return state.statusBits & mask != 0;
     }
 }

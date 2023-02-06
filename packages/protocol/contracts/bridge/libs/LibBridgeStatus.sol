@@ -32,19 +32,20 @@ library LibBridgeStatus {
      * @param msgHash The messageHash of the message.
      * @param status The status of the message.
      */
-    function updateMessageStatus(
-        bytes32 msgHash,
-        MessageStatus status
-    ) internal {
+    function updateMessageStatus(bytes32 msgHash, MessageStatus status)
+        internal
+    {
         if (getMessageStatus(msgHash) != status) {
             _setMessageStatus(msgHash, status);
             emit LibBridgeStatus.MessageStatusChanged(msgHash, status);
         }
     }
 
-    function getMessageStatus(
-        bytes32 msgHash
-    ) internal view returns (MessageStatus) {
+    function getMessageStatus(bytes32 msgHash)
+        internal
+        view
+        returns (MessageStatus)
+    {
         bytes32 slot = getMessageStatusSlot(msgHash);
         uint256 value;
         assembly {
@@ -86,9 +87,11 @@ library LibBridgeStatus {
             });
     }
 
-    function getMessageStatusSlot(
-        bytes32 msgHash
-    ) internal pure returns (bytes32) {
+    function getMessageStatusSlot(bytes32 msgHash)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked("MESSAGE_STATUS", msgHash));
     }
 

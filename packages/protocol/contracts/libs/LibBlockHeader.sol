@@ -32,9 +32,11 @@ library LibBlockHeader {
     bytes32 private constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(
-        BlockHeader memory header
-    ) internal pure returns (bytes32) {
+    function hashBlockHeader(BlockHeader memory header)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes[] memory list;
         if (header.baseFeePerGas == 0) {
             // non-EIP11559 transaction

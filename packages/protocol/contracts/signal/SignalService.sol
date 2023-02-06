@@ -34,10 +34,11 @@ contract SignalService is ISignalService, EssentialContract {
         }
     }
 
-    function isSignalSent(
-        address app,
-        bytes32 signal
-    ) public view returns (bool) {
+    function isSignalSent(address app, bytes32 signal)
+        public
+        view
+        returns (bool)
+    {
         require(app != address(0), "B:app");
         require(signal != 0, "B:signal");
 
@@ -80,10 +81,11 @@ contract SignalService is ISignalService, EssentialContract {
             });
     }
 
-    function getSignalSlot(
-        address app,
-        bytes32 signal
-    ) public pure returns (bytes32) {
+    function getSignalSlot(address app, bytes32 signal)
+        public
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(app, signal));
     }
 }

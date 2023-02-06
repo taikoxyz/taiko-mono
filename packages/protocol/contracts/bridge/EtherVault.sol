@@ -80,10 +80,11 @@ contract EtherVault is EssentialContract {
      * @param recipient Address to receive Ether
      * @param amount Amount of ether to send.
      */
-    function releaseEtherTo(
-        address recipient,
-        uint256 amount
-    ) public onlyAuthorized nonReentrant {
+    function releaseEtherTo(address recipient, uint256 amount)
+        public
+        onlyAuthorized
+        nonReentrant
+    {
         require(recipient != address(0), "EV:recipient");
         recipient.sendEther(amount);
         emit EtherReleased(recipient, amount);
