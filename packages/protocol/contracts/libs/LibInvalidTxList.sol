@@ -98,6 +98,7 @@ library LibInvalidTxList {
         }
     }
 
+    // Checks hint and txIdx both have 0 values.
     function _checkParams(Hint hint, uint256 txIdx) private pure {
         if (hint != Hint.NONE || txIdx != 0) revert ERR_PARAMS_NOT_DEFAULTS();
     }
