@@ -8,6 +8,7 @@
   import { ethers } from "ethers";
   setupI18n({ withLocale: "en" });
 
+  console.log(import.meta.env.VITE_L1_RPC_URL);
   const l1Provider = new ethers.providers.JsonRpcProvider(
     import.meta.env.VITE_L1_RPC_URL
   );

@@ -209,7 +209,6 @@
 
     try {
       const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
-
       // TODO: remove. this check prevents this code from running before we deploy next testnet
       // since the state vars have had large changes.
       if (stateVars.length < 10) {
@@ -240,7 +239,7 @@
       });
 
       statusIndicators.push({
-        status: stateVars[9],
+        status: stateVars[6],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Average Block Time",
