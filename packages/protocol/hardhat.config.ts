@@ -22,7 +22,7 @@ const config: HardhatUserConfig = {
             "thirdparty/",
             "common/EssentialContract.sol",
         ],
-        outputDir: "../website/pages/docs/contract-documentation/",
+        outputDir: "../website/pages/docs/reference/contract-documentation/",
         pages: "files",
         templates: "./solidity-docgen/templates",
     },

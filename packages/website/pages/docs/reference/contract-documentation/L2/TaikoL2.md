@@ -10,10 +10,10 @@ title: TaikoL2
 bytes32 publicInputHash
 ```
 
-### latestSyncedHeader
+### latestSyncedL1Height
 
 ```solidity
-bytes32 latestSyncedHeader
+uint256 latestSyncedL1Height
 ```
 
 ### BlockInvalidated
@@ -51,18 +51,18 @@ variables because they are not part of the Trie structure.
 ### invalidateBlock
 
 ```solidity
-function invalidateBlock(bytes txList, enum LibInvalidTxList.Reason hint, uint256 txIdx) external
+function invalidateBlock(bytes txList, enum LibInvalidTxList.Hint hint, uint256 txIdx) external
 ```
 
 Invalidate a L2 block by verifying its txList is not intrinsically valid.
 
 #### Parameters
 
-| Name   | Type                         | Description                                                                                      |
-| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| txList | bytes                        | The L2 block's txlist.                                                                           |
-| hint   | enum LibInvalidTxList.Reason | A hint for this method to invalidate the txList.                                                 |
-| txIdx  | uint256                      | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
+| Name   | Type                       | Description                                                                                      |
+| ------ | -------------------------- | ------------------------------------------------------------------------------------------------ |
+| txList | bytes                      | The L2 block's txlist.                                                                           |
+| hint   | enum LibInvalidTxList.Hint | A hint for this method to invalidate the txList.                                                 |
+| txIdx  | uint256                    | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
 
 ### getConfig
 
