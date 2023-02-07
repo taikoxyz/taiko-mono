@@ -33,7 +33,7 @@ library LibSharedConfig {
                 minTxGasLimit: 21000, // owner:david
                 anchorTxGasLimit: 250000, // owner:david
                 // TODO(daniel): How is feePremiumLamda calculated.
-                feePremiumLamda: 590, // owner:daniel
+                slotSmoothingFactor: 59000, // owner:daniel
                 rewardBurnBips: 100, // owner:daniel. 100 basis points or 1%
                 proposerDepositPctg: 25, // owner:daniel - 25%
                 // Moving average factors
