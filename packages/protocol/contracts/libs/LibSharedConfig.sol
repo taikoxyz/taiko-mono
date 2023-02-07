@@ -56,9 +56,9 @@ library LibSharedConfig {
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 initialUncleDelay: 10 minutes,
-                enableTokenomics: false,
+                enableTokenomics: true,
                 enablePublicInputsCheck: true,
-                enableProofValidation: false,
+                enableProofValidation: true,
                 enableOracleProver: true
             });
     }
