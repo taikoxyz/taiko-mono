@@ -55,13 +55,12 @@ is authorized.
 | ------ | ------- | ------------------------ |
 | amount | uint256 | Amount of Ether to send. |
 
-### releaseEtherTo
+### releaseEther
 
 ```solidity
-function releaseEtherTo(address recipient, uint256 amount) public
+function releaseEther(address recipient, uint256 amount) public
 ```
 
-TODO(dave): update name to `releaseEther`
 Transfer Ether from EtherVault to a designated address, checking that the
 sender is authorized.
 
@@ -93,7 +92,6 @@ Set the authorized status of an address, only the owner can call this.
 function isAuthorized(address addr) public view returns (bool)
 ```
 
-TODO(dave): remove helper, can directly use `authorizedAddrs[addr]`.
 Get the authorized status of an address.
 
 #### Parameters

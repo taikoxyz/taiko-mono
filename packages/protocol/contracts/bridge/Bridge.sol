@@ -48,7 +48,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
     receive() external payable {
-        // TODO(dave): require the sender is the TokenVault or EtherVault?
+        // TODO(dave): require the sender is the TokenVault or EtherVault
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
