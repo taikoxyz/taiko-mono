@@ -28,7 +28,7 @@ contract Bridge is EssentialContract, IBridge {
      * State Variables   *
      *********************/
 
-    LibBridgeData.State private state; // 50 slots reserved
+    LibBridgeData.State private _state; // 50 slots reserved
     uint256[50] private __gap;
 
     /*********************
@@ -61,7 +61,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external payable nonReentrant returns (bytes32 msgHash) {
         return
             LibBridgeSend.sendMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message
             });
@@ -73,7 +73,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeRelease.releaseEther({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 proof: proof
@@ -86,7 +86,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeProcess.processMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 proof: proof
@@ -99,7 +99,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeRetry.retryMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 isLastAttempt: isLastAttempt
@@ -149,7 +149,7 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function context() public view returns (Context memory) {
-        return state.ctx;
+        return _state.ctx;
     }
 
     function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
