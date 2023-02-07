@@ -89,7 +89,6 @@ library LibBridgeProcess {
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
-        // TODO(dave): can we just catch this earlier (in sendMessage) and throw an error?
         // if the user is sending to the bridge or zero-address, just process as DONE
         // and refund the owner
         if (message.to == address(this) || message.to == address(0)) {
