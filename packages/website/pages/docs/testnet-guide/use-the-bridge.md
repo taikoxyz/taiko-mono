@@ -1,6 +1,6 @@
 # Use the bridge
 
-These steps will help you to use the bridge to transfer assets between Ethereum A1 and Taiko A1. All the bridge contracts can be found [here](/docs/reference/testnet/contract-addresses).
+These steps will help you to use the bridge to transfer assets between Ethereum A1 and Taiko A1. All the bridge contracts can be found [here](/docs/reference/contract-addresses).
 
 ## Prerequisites
 

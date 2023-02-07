@@ -148,7 +148,7 @@ function getProposedBlock(uint256 id) public view returns (struct TaikoData.Prop
 ### getSyncedHeader
 
 ```solidity
-function getSyncedHeader(uint256 number) public view returns (bytes32 header)
+function getSyncedHeader(uint256 number) public view returns (bytes32)
 ```
 
 ### getLatestSyncedHeader
@@ -169,10 +169,10 @@ function getStateVariables() public view returns (uint64, uint64, uint64, uint25
 function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v, uint256 r, uint256 s)
 ```
 
-### getBlockProvers
+### getForkChoice
 
 ```solidity
-function getBlockProvers(uint256 id, bytes32 parentHash) public view returns (address[])
+function getForkChoice(uint256 id, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
 ```
 
 ### getUncleProofDelay
@@ -185,4 +185,10 @@ function getUncleProofDelay(uint256 blockId) public view returns (uint64)
 
 ```solidity
 function getConfig() public pure virtual returns (struct TaikoData.Config)
+```
+
+### isBlockVerifiable
+
+```solidity
+function isBlockVerifiable(uint256 blockId, bytes32 parentHash) public view returns (bool)
 ```
