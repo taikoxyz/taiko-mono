@@ -21,13 +21,19 @@ if __name__ == "__main__":
         print("error: Number of ZKPs must be between 1 and 5")
         exit(1)
 
+    if zk_proofs_per_block == 1:
+        min_num_slots = math.ceil(1.0 * proof_time / block_time)
+        initial_uncle_delay = proof_time
+    else:
+        print("Inital uncle proof delay (minutes)", end=": ")
+        initial_uncle_delay = int(input()) * 60
+        min_num_slots = math.ceil(1.0 * (proof_time + initial_uncle_delay) / block_time)
+
+
     print("Extra slots (e.g, 50 means 50% more slots)", end=": ")
     extra_slots = int(input())
 
     print("---------")
-    min_num_slots = math.ceil(1.0 * proof_time / block_time)
-    if zk_proofs_per_block > 1:
-        min_num_slots *= 2
 
     print("min num slots:", min_num_slots)
     max_num_slots = min_num_slots + math.ceil(min_num_slots * extra_slots / 100) + 1
@@ -46,6 +52,7 @@ if __name__ == "__main__":
     # print(1.0*(f+n*1000)*(f+n*1000-1000)/((f+1000)*f))
 
     print("---------")
+    print("initialUncleDelay:", initial_uncle_delay)
     print("maxNumBlocks:", max_num_slots)
     print("zkProofsPerBlock:", zk_proofs_per_block)
     print("slotSmoothingFactor:", fee_smoothing_factor)
