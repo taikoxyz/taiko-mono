@@ -14,7 +14,10 @@ import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 
 /**
- * Vault that holds Ether.
+ * EtherVault is a special vault contract that:
+ * - Is initialized with 2^128 Ether.
+ * - Allows the contract owner to authorize addresses.
+ * - Allows authorized addresses to send/release Ether.
  * @author dantaik <dan@taiko.xyz>
  */
 contract EtherVault is EssentialContract {
@@ -24,6 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
+    // TODO(dave): renamed `authorizedAddrs` to `_authorizedAddresses`
     mapping(address => bool) private authorizedAddrs;
     uint256[49] private __gap;
 
@@ -67,7 +71,7 @@ contract EtherVault is EssentialContract {
     /**
      * Transfer Ether from EtherVault to the sender, checking that the sender
      * is authorized.
-     * @param amount Amount of ether to send.
+     * @param amount Amount of Ether to send.
      */
     function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
@@ -75,9 +79,10 @@ contract EtherVault is EssentialContract {
     }
 
     /**
-     * Transfer Ether from EtherVault to an desinated address, checking that the
+     * TODO(dave): update name to `releaseEther`
+     * Transfer Ether from EtherVault to a designated address, checking that the
      * sender is authorized.
-     * @param recipient Address to receive Ether
+     * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
     function releaseEtherTo(
@@ -104,6 +109,7 @@ contract EtherVault is EssentialContract {
     }
 
     /**
+     * TODO(dave): remove helper, can directly use `authorizedAddrs[addr]`.
      * Get the authorized status of an address.
      * @param addr Address to get the authorized status of.
      */

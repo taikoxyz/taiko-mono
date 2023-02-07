@@ -14,7 +14,6 @@ import "./LibBridgeStatus.sol";
 
 /**
  * Process bridge messages on the destination chain.
- *
  * @title LibBridgeProcess
  * @author dantaik <dan@taiko.xyz>
  */
@@ -31,7 +30,6 @@ library LibBridgeProcess {
      * then takes custody of the ether from the EtherVault and attempts to
      * invoke the messageCall, changing the message's status accordingly.
      * Finally, it refunds the processing fee if needed.
-     *
      * @param state The bridge state.
      * @param resolver The address resolver.
      * @param message The message to process.
@@ -43,15 +41,15 @@ library LibBridgeProcess {
         IBridge.Message calldata message,
         bytes calldata proof
     ) external {
+        // If the gas limit is set to zero, only the owner can process the message.
         if (message.gasLimit == 0) {
             require(msg.sender == message.owner, "B:forbidden");
         }
 
-        // The message's destination chain must be the current chain.
         require(message.destChainId == block.chainid, "B:destChainId");
 
-        // The status of the message must be "NEW"; RETRIABLE is handled in
-        // LibBridgeRetry.sol
+        // The message status must be "NEW"; "RETRIABLE" is handled in
+        // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
         require(
             LibBridgeStatus.getMessageStatus(msgHash) ==
@@ -76,30 +74,36 @@ library LibBridgeProcess {
             "B:notReceived"
         );
 
-        // We retrieve the necessary ether from EtherVault
+        // We retrieve the necessary ether from EtherVault if receiving on
+        // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             EtherVault(payable(ethVault)).releaseEther(
                 message.depositValue + message.callValue + message.processingFee
             );
         }
-        // We deposit Ether first before the message call in case the call
-        // will actually consume the Ether.
+        // We send the Ether before the message call in case the call will
+        // actually consume Ether.
         message.owner.sendEther(message.depositValue);
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
 
+        // TODO(dave): can we just catch this earlier (in sendMessage) and throw an error?
+        // if the user is sending to the bridge or zero-address, just process as DONE
+        // and refund the owner
         if (message.to == address(this) || message.to == address(0)) {
             // For these two special addresses, the call will not be actually
             // invoked but will be marked DONE. The callValue will be refunded.
             status = LibBridgeStatus.MessageStatus.DONE;
             refundAmount = message.callValue;
         } else {
+            // use the specified message gas limit if not called by the owner
             uint256 gasLimit = msg.sender == message.owner
                 ? gasleft()
                 : message.gasLimit;
 
+            // this will call receiveERC20 on the tokenVault, sending the tokens to the user
             bool success = LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
@@ -117,17 +121,20 @@ library LibBridgeProcess {
             }
         }
 
+        // Mark the status as DONE or RETRIABLE.
         LibBridgeStatus.updateMessageStatus(msgHash, status);
 
         address refundAddress = message.refundAddress == address(0)
             ? message.owner
             : message.refundAddress;
 
+        // if sender is the refundAddress
         if (msg.sender == refundAddress) {
-            refundAddress.sendEther(refundAmount + message.processingFee);
+            refundAddress.sendEther(message.processingFee + refundAmount);
         } else {
-            // First attempt relayer gets the processingFee
-            // message.owner has to eat the cost.
+            // if sender is another address (eg. the relayer)
+            // First attempt relayer is rewarded the processingFee
+            // message.owner has to eat the cost
             msg.sender.sendEther(message.processingFee);
             refundAddress.sendEther(refundAmount);
         }

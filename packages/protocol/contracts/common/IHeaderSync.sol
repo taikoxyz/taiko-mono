@@ -7,8 +7,9 @@
 pragma solidity ^0.8.9;
 
 /**
+ * Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes
+ * the methods needed to access the block hashes of the other chain.
  * @author dantaik <dan@taiko.xyz>
- * @notice Interface to set and get an address for a name.
  */
 interface IHeaderSync {
     event HeaderSynced(

@@ -18,9 +18,8 @@ import "./libs/LibBridgeStatus.sol";
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
- *
- * @author dantaik <dan@taiko.xyz>
  * @dev The code hash for the same address on L1 and L2 may be different.
+ * @author dantaik <dan@taiko.xyz>
  */
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
@@ -47,8 +46,10 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// Allow Bridge to receive ETH from EtherVault.
-    receive() external payable {}
+    /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
+    receive() external payable {
+        // TODO(dave): require the sender is the TokenVault or EtherVault?
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
