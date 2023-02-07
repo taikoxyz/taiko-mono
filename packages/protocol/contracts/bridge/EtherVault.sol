@@ -27,8 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    // TODO(dave): renamed `authorizedAddrs` to `_authorizedAddresses`
-    mapping(address => bool) private authorizedAddrs;
+    mapping(address => bool) private _isAuthorized;
     uint256[49] private __gap;
 
     /*********************
@@ -44,7 +43,7 @@ contract EtherVault is EssentialContract {
      *********************/
 
     modifier onlyAuthorized() {
-        require(isAuthorized(msg.sender), "EV:denied");
+        require(_isAuthorized[msg.sender], "EV:denied");
         _;
     }
 
@@ -55,7 +54,7 @@ contract EtherVault is EssentialContract {
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         require(
-            address(this).balance == 0 || isAuthorized(msg.sender),
+            address(this).balance == 0 || _isAuthorized[msg.sender],
             "EV:denied"
         );
     }
@@ -101,19 +100,10 @@ contract EtherVault is EssentialContract {
      */
     function authorize(address addr, bool authorized) public onlyOwner {
         require(
-            addr != address(0) && authorizedAddrs[addr] != authorized,
+            addr != address(0) && _isAuthorized[addr] != authorized,
             "EV:param"
         );
-        authorizedAddrs[addr] = authorized;
+        _isAuthorized[addr] = authorized;
         emit Authorized(addr, authorized);
-    }
-
-    /**
-     * TODO(dave): remove helper, can directly use `authorizedAddrs[addr]`.
-     * Get the authorized status of an address.
-     * @param addr Address to get the authorized status of.
-     */
-    function isAuthorized(address addr) public view returns (bool) {
-        return authorizedAddrs[addr];
     }
 }
