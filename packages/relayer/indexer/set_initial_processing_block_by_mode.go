@@ -16,12 +16,12 @@ func (svc *Service) setInitialProcessingBlockByMode(
 	var startingBlock uint64 = 0
 
 	if svc.taikol1 != nil {
-		genesis, _, _, _, _, _, _, _, _, _, err := svc.taikol1.GetStateVariables(nil)
+		stateVars, err := svc.taikol1.GetStateVariables(nil)
 		if err != nil {
 			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
 		}
 
-		startingBlock = genesis
+		startingBlock = stateVars.GenesisHeight
 	}
 
 	switch mode {
