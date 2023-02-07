@@ -27,7 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    mapping(address => bool) private _isAuthorized;
+    mapping(address => bool) private _authorizedAddrs;
     uint256[49] private __gap;
 
     /*********************
@@ -43,7 +43,7 @@ contract EtherVault is EssentialContract {
      *********************/
 
     modifier onlyAuthorized() {
-        require(_isAuthorized[msg.sender], "EV:denied");
+        require(isAuthorized(msg.sender), "EV:denied");
         _;
     }
 
@@ -54,7 +54,7 @@ contract EtherVault is EssentialContract {
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
         require(
-            address(this).balance == 0 || _isAuthorized[msg.sender],
+            address(this).balance == 0 || isAuthorized(msg.sender),
             "EV:denied"
         );
     }
@@ -78,12 +78,13 @@ contract EtherVault is EssentialContract {
     }
 
     /**
+     * TODO(dave): update name to `releaseEther`
      * Transfer Ether from EtherVault to a designated address, checking that the
      * sender is authorized.
      * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
-    function releaseEther(
+    function releaseEtherTo(
         address recipient,
         uint256 amount
     ) public onlyAuthorized nonReentrant {
@@ -99,10 +100,18 @@ contract EtherVault is EssentialContract {
      */
     function authorize(address addr, bool authorized) public onlyOwner {
         require(
-            addr != address(0) && _isAuthorized[addr] != authorized,
+            addr != address(0) && _authorizedAddrs[addr] != authorized,
             "EV:param"
         );
-        _isAuthorized[addr] = authorized;
+        _authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
+    }
+
+    /**
+     * Get the authorized status of an address.
+     * @param addr Address to get the authorized status of.
+     */
+    function isAuthorized(address addr) public view returns (bool) {
+        return _authorizedAddrs[addr];
     }
 }
