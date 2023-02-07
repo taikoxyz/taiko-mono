@@ -29,7 +29,6 @@ if __name__ == "__main__":
         initial_uncle_delay = int(input()) * 60
         min_num_slots = math.ceil(1.0 * (proof_time + initial_uncle_delay) / block_time)
 
-
     print("Extra slots (e.g, 50 means 50% more slots)", end=": ")
     extra_slots = int(input())
 
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     # print(1.0*(f+n*1000)*(f+n*1000-1000)/((f+1000)*f))
 
     print("---------")
-    print("initialUncleDelay:", initial_uncle_delay)
+    print("initialUncleDelay:", int(initial_uncle_delay / 60), "minutes")
     print("maxNumBlocks:", max_num_slots)
     print("zkProofsPerBlock:", zk_proofs_per_block)
     print("slotSmoothingFactor:", fee_smoothing_factor)
