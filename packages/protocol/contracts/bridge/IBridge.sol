@@ -16,15 +16,15 @@ interface IBridge {
     struct Message {
         // Message ID.
         uint256 id;
-        /// Message sender address (auto filled).
+        // Message sender address (auto filled).
         address sender;
-        /// Source chain ID (auto filled).
+        // Source chain ID (auto filled).
         uint256 srcChainId;
-        /// Destination chain ID (auto filled).
+        // Destination chain ID (auto filled).
         uint256 destChainId;
-        /// Owner address of the bridged asset.
+        // Owner address of the bridged asset.
         address owner;
-        /// Destination address.
+        // Destination address.
         address to;
         // Alternate address to send any refund. If blank, defaults to owner.
         address refundAddress;
