@@ -38,14 +38,16 @@ library LibBridgeSend {
         IBridge.Message memory message
     ) internal returns (bytes32 msgHash) {
         require(message.owner != address(0), "B:owner");
-        require(message.destChainId != block.chainid, "B:destChainId");
 
-        require(message.to != address(0), "B:toZeroAddr");
-        require(
-            message.to !=
-                resolver.resolve(message.destChainId, "bridge", false),
-            "B:toBridge"
+        (bool destChainEnabled, address destChain) = isDestChainEnabled(
+            resolver,
+            message.destChainId
         );
+        require(
+            destChainEnabled && message.destChainId != block.chainid,
+            "B:destChainId"
+        );
+        require(message.to != address(0) && message.to != destChain, "B:to");
 
         uint256 expectedAmount = message.depositValue +
             message.callValue +
@@ -75,8 +77,9 @@ library LibBridgeSend {
     function isDestChainEnabled(
         AddressResolver resolver,
         uint256 chainId
-    ) internal view returns (bool) {
-        return resolver.resolve(chainId, "bridge", true) != address(0);
+    ) internal view returns (bool enabled, address destBridge) {
+        destBridge = resolver.resolve(chainId, "bridge", true);
+        enabled = destBridge != address(0);
     }
 
     function isMessageSent(
