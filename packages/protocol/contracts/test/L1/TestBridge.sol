@@ -8,4 +8,10 @@ pragma solidity ^0.8.9;
 
 import "../../bridge/Bridge.sol";
 
-contract TestBridge is Bridge {}
+contract TestBridge is Bridge {
+    error InvalidProcessMessageGasLimit(uint256 provided, uint256 minimum);
+
+    function hack() public {
+        revert InvalidProcessMessageGasLimit(0, 1);
+    }
+}

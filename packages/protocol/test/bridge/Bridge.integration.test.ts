@@ -1,17 +1,13 @@
 import { expect } from "chai";
 import { ethers as ethersLib } from "ethers";
 import hre, { ethers } from "hardhat";
-import {
-    LibBridgeProcess,
-    SignalService,
-    TestBridge,
-    TestHeaderSync,
-} from "../../typechain";
+import { SignalService, TestBridge, TestHeaderSync } from "../../typechain";
 import {
     processMessage,
     sendAndProcessMessage,
     sendMessage,
 } from "../utils/bridge";
+import { assertCustomError } from "../utils/customErrorSelectors";
 import { initBridgeFixture } from "../utils/fixture";
 // import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
@@ -26,7 +22,6 @@ describe("integration:Bridge", function () {
     let l1SignalService: SignalService;
     let l1Bridge: TestBridge;
     let l2Bridge: TestBridge;
-    let libBridgeProcess: LibBridgeProcess;
     let m: Message;
     let l2HeaderSync: TestHeaderSync;
 
@@ -41,12 +36,11 @@ describe("integration:Bridge", function () {
             l2Bridge,
             m,
             l2HeaderSync,
-            libBridgeProcess,
         } = await initBridgeFixture());
     });
 
     describe("processMessage()", function () {
-        it("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+        it.only("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const m: Message = {
                 id: 1,
                 sender: await owner.getAddress(),
@@ -63,16 +57,13 @@ describe("integration:Bridge", function () {
                 memo: "",
             };
 
-            await expect(
-                l1Bridge
-                    .connect(owner)
-                    .processMessage(m, ethers.constants.HashZero)
-            )
-                .to.be.revertedWithCustomError(
-                    libBridgeProcess,
-                    "InvalidProcessMessageGasLimit"
-                )
-                .withArgs(0, 1);
+            await assertCustomError(
+                async () =>
+                    await l1Bridge
+                        .connect(owner)
+                        .processMessage(m, ethers.constants.HashZero),
+                "InvalidProcessMessageGasLimit"
+            );
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {

@@ -1,10 +1,9 @@
 import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
+import "@nomiclabs/hardhat-waffle";
 import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
-import "@nomicfoundation/hardhat-chai-matchers";
-import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
 import "./tasks/deploy_L1";
@@ -12,7 +11,7 @@ import "./tasks/compile_yul";
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik";
-const config: HardhatUserConfig = {
+const config = {
     docgen: {
         exclude: [
             "bridge/libs/",
