@@ -32,7 +32,7 @@ struct Message {
 
 ```solidity
 struct Context {
-  bytes32 signal;
+  bytes32 msgHash;
   address sender;
   uint256 srcChainId;
 }
@@ -41,68 +41,61 @@ struct Context {
 ### SignalSent
 
 ```solidity
-event SignalSent(address sender, bytes32 signal)
+event SignalSent(address sender, bytes32 msgHash)
 ```
 
 ### MessageSent
 
 ```solidity
-event MessageSent(bytes32 signal, struct IBridge.Message message)
+event MessageSent(bytes32 msgHash, struct IBridge.Message message)
+```
+
+### EtherReleased
+
+```solidity
+event EtherReleased(bytes32 msgHash, address to, uint256 amount)
 ```
 
 ### sendMessage
 
 ```solidity
-function sendMessage(struct IBridge.Message message) external payable returns (bytes32 signal)
+function sendMessage(struct IBridge.Message message) external payable returns (bytes32 msgHash)
 ```
 
 Sends a message to the destination chain and takes custody
 of Ether required in this contract. All extra Ether will be refunded.
 
-### sendSignal
+### releaseEther
 
 ```solidity
-function sendSignal(bytes32 signal) external
+function releaseEther(struct IBridge.Message message, bytes proof) external
 ```
-
-Stores a signal on the bridge contract and emits an event for the
-relayer to pick up.
 
 ### isMessageSent
 
 ```solidity
-function isMessageSent(bytes32 signal) external view returns (bool)
+function isMessageSent(bytes32 msgHash) external view returns (bool)
 ```
 
-Checks if a signal has been stored on the bridge contract by the
+Checks if a msgHash has been stored on the bridge contract by the
 current address.
 
 ### isMessageReceived
 
 ```solidity
-function isMessageReceived(bytes32 signal, uint256 srcChainId, bytes proof) external view returns (bool)
+function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes proof) external view returns (bool)
 ```
 
-Checks if a signal has been received on the destination chain and
+Checks if a msgHash has been received on the destination chain and
 sent by the src chain.
 
-### isSignalSent
+### isMessageFailed
 
 ```solidity
-function isSignalSent(address sender, bytes32 signal) external view returns (bool)
+function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes proof) external view returns (bool)
 ```
 
-Checks if a signal has been stored on the bridge contract by the
-specified address.
-
-### isSignalReceived
-
-```solidity
-function isSignalReceived(bytes32 signal, uint256 srcChainId, address sender, bytes proof) external view returns (bool)
-```
-
-Check if a signal has been received on the destination chain and sent
-by the specified sender.
+Checks if a msgHash has been failed on the destination chain.
 
 ### context
 
@@ -111,3 +104,9 @@ function context() external view returns (struct IBridge.Context context)
 ```
 
 Returns the bridge state context.
+
+### hashMessage
+
+```solidity
+function hashMessage(struct IBridge.Message message) external pure returns (bytes32)
+```
