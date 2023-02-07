@@ -31,11 +31,21 @@ docker run -d \
   --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
   --http.api debug,eth,net,web3,txpool,miner
 
-docker run -d \
-  --name $TEST_NODE_CONTAINER_NAME_L2 \
-  -p 28545:8545 \
-  gcr.io/evmchain/hardhat-node:latest \
-  hardhat node --hostname "0.0.0.0"
+if [[ $TEST_TYPE = "integration" ]]
+then 
+    docker run -d \
+      --name $TEST_NODE_CONTAINER_NAME_L2 \
+      -p 28545:8545 \
+      ethereum/client-go:v1.10.26 \
+      --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
+      --http.api debug,eth,net,web3,txpool,miner
+else
+    docker run -d \
+      --name $TEST_NODE_CONTAINER_NAME_L2 \
+      -p 28545:8545 \
+      gcr.io/evmchain/hardhat-node:latest \
+      hardhat node --hostname "0.0.0.0"
+fi
 
 function waitTestNode {
   echo "Waiting for test node: $1"
