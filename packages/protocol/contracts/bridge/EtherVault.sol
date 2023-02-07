@@ -78,13 +78,12 @@ contract EtherVault is EssentialContract {
     }
 
     /**
-     * TODO(dave): update name to `releaseEther`
      * Transfer Ether from EtherVault to a designated address, checking that the
      * sender is authorized.
      * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
-    function releaseEtherTo(
+    function releaseEther(
         address recipient,
         uint256 amount
     ) public onlyAuthorized nonReentrant {

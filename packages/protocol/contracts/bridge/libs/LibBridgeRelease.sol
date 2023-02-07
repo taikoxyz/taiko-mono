@@ -52,8 +52,7 @@ library LibBridgeRelease {
             address ethVault = resolver.resolve("ether_vault", true);
             // if on Taiko
             if (ethVault != address(0)) {
-                // TODO(dave): rename to `releaseEther`
-                EtherVault(payable(ethVault)).releaseEtherTo(
+                EtherVault(payable(ethVault)).releaseEther(
                     message.owner,
                     releaseAmount
                 );
