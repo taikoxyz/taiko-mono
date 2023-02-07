@@ -9,6 +9,7 @@ pragma solidity ^0.8.9;
 import "../L1/TaikoData.sol";
 
 /*
+> cd /Users/d/Projects/taiko/taiko-mono/packages/protocol/utils/generate_config
 > python3 main.py
 Expected block time (seconds): 20
 Expected proof time (minutes): 10
