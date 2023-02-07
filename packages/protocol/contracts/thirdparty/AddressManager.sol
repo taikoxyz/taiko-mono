@@ -68,10 +68,10 @@ contract AddressManager is OwnableUpgradeable {
      * @param _name String name to associate an address with.
      * @param _address Address to associate with the name.
      */
-    function setAddress(string memory _name, address _address)
-        external
-        onlyOwner
-    {
+    function setAddress(
+        string memory _name,
+        address _address
+    ) external onlyOwner {
         bytes32 nameHash = _getNameHash(_name);
         address oldAddress = addresses[nameHash];
         addresses[nameHash] = _address;

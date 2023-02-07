@@ -152,15 +152,7 @@ library LibProposing {
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
-    )
-        public
-        view
-        returns (
-            uint256 newFeeBase,
-            uint256 fee,
-            uint256 deposit
-        )
-    {
+    ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
         (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
@@ -261,19 +253,17 @@ library LibProposing {
         require(meta.extraData.length <= 32, "L1:extraData");
     }
 
-    function _calculateCommitHash(address beneficiary, bytes32 txListHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _calculateCommitHash(
+        address beneficiary,
+        bytes32 txListHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 
-    function _aggregateCommitHash(uint256 commitHeight, bytes32 commitHash)
-        private
-        pure
-        returns (bytes32)
-    {
+    function _aggregateCommitHash(
+        uint256 commitHeight,
+        bytes32 commitHash
+    ) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
 }

@@ -280,11 +280,9 @@ library LibMerkleTrie {
      * @param _proof RLP-encoded proof to parse.
      * @return _parsed Proof parsed into easily accessible structs.
      */
-    function _parseProof(bytes memory _proof)
-        private
-        pure
-        returns (TrieNode[] memory _parsed)
-    {
+    function _parseProof(
+        bytes memory _proof
+    ) private pure returns (TrieNode[] memory _parsed) {
         LibRLPReader.RLPItem[] memory nodes = LibRLPReader.readList(_proof);
         TrieNode[] memory proof = new TrieNode[](nodes.length);
 
@@ -306,11 +304,9 @@ library LibMerkleTrie {
      * @param _node Node to pull an ID for.
      * @return _nodeID ID for the node, depending on the size of its contents.
      */
-    function _getNodeID(LibRLPReader.RLPItem memory _node)
-        private
-        pure
-        returns (bytes32 _nodeID)
-    {
+    function _getNodeID(
+        LibRLPReader.RLPItem memory _node
+    ) private pure returns (bytes32 _nodeID) {
         bytes memory nodeID;
 
         if (_node.length < 32) {
@@ -329,11 +325,9 @@ library LibMerkleTrie {
      * @param _node Node to get a path for.
      * @return _path Node path, converted to an array of nibbles.
      */
-    function _getNodePath(TrieNode memory _node)
-        private
-        pure
-        returns (bytes memory _path)
-    {
+    function _getNodePath(
+        TrieNode memory _node
+    ) private pure returns (bytes memory _path) {
         return
             LibBytesUtils.toNibbles(LibRLPReader.readBytes(_node.decoded[0]));
     }
@@ -343,11 +337,9 @@ library LibMerkleTrie {
      * @param _node Node to get a value for.
      * @return _value Node value, as hex bytes.
      */
-    function _getNodeValue(TrieNode memory _node)
-        private
-        pure
-        returns (bytes memory _value)
-    {
+    function _getNodeValue(
+        TrieNode memory _node
+    ) private pure returns (bytes memory _value) {
         return LibRLPReader.readBytes(_node.decoded[_node.decoded.length - 1]);
     }
 
@@ -358,11 +350,10 @@ library LibMerkleTrie {
      * @param _b Second nibble array.
      * @return _shared Number of shared nibbles.
      */
-    function _getSharedNibbleLength(bytes memory _a, bytes memory _b)
-        private
-        pure
-        returns (uint256 _shared)
-    {
+    function _getSharedNibbleLength(
+        bytes memory _a,
+        bytes memory _b
+    ) private pure returns (uint256 _shared) {
         uint256 i = 0;
         while (_a.length > i && _b.length > i && _a[i] == _b[i]) {
             ++i;

@@ -50,15 +50,10 @@ library LibAnchorSignature {
     uint256 public constant K_2_INVM_N =
         0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
-    function signTransaction(bytes32 digest, uint8 k)
-        internal
-        view
-        returns (
-            uint8 v,
-            uint256 r,
-            uint256 s
-        )
-    {
+    function signTransaction(
+        bytes32 digest,
+        uint8 k
+    ) internal view returns (uint8 v, uint256 r, uint256 s) {
         require(k == 1 || k == 2, "invalid k value");
 
         r = k == 1 ? GX : GX2;

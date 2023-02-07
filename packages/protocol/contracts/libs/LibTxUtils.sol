@@ -15,7 +15,10 @@ import "../thirdparty/LibRLPWriter.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxUtils {
-    function hashUnsignedTx(uint256 chainId, LibTxDecoder.Tx memory transaction)
+    function hashUnsignedTx(
+        uint256 chainId,
+        LibTxDecoder.Tx memory transaction
+    )
         internal
         pure
         returns (
@@ -87,11 +90,10 @@ library LibTxUtils {
         hash = keccak256(unsignedTxRlp);
     }
 
-    function recoverSender(uint256 chainId, LibTxDecoder.Tx memory transaction)
-        internal
-        pure
-        returns (address)
-    {
+    function recoverSender(
+        uint256 chainId,
+        LibTxDecoder.Tx memory transaction
+    ) internal pure returns (address) {
         return
             ecrecover(
                 hashUnsignedTx(chainId, transaction),

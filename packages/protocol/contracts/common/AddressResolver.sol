@@ -34,12 +34,10 @@ abstract contract AddressResolver {
      * @param allowZeroAddress True to allow zero address to be returned.
      * @return The name's corresponding address.
      */
-    function resolve(string memory name, bool allowZeroAddress)
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(
+        string memory name,
+        bool allowZeroAddress
+    ) public view virtual returns (address payable) {
         return _resolve(block.chainid, name, allowZeroAddress);
     }
 

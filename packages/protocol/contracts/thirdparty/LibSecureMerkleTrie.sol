@@ -85,11 +85,9 @@ library LibSecureMerkleTrie {
      * @param _key Key to get a secure key from.
      * @return _secureKey Secure version of the key.
      */
-    function _getSecureKey(bytes memory _key)
-        private
-        pure
-        returns (bytes memory _secureKey)
-    {
+    function _getSecureKey(
+        bytes memory _key
+    ) private pure returns (bytes memory _secureKey) {
         return abi.encodePacked(keccak256(_key));
     }
 }

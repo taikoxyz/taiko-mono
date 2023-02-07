@@ -55,12 +55,9 @@ contract Bridge is EssentialContract, IBridge {
         EssentialContract._init(_addressManager);
     }
 
-    function sendMessage(Message calldata message)
-        external
-        payable
-        nonReentrant
-        returns (bytes32 msgHash)
-    {
+    function sendMessage(
+        Message calldata message
+    ) external payable nonReentrant returns (bytes32 msgHash) {
         return
             LibBridgeSend.sendMessage({
                 state: state,
@@ -82,10 +79,10 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function processMessage(Message calldata message, bytes calldata proof)
-        external
-        nonReentrant
-    {
+    function processMessage(
+        Message calldata message,
+        bytes calldata proof
+    ) external nonReentrant {
         return
             LibBridgeProcess.processMessage({
                 state: state,
@@ -95,10 +92,10 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function retryMessage(Message calldata message, bool isLastAttempt)
-        external
-        nonReentrant
-    {
+    function retryMessage(
+        Message calldata message,
+        bool isLastAttempt
+    ) external nonReentrant {
         return
             LibBridgeRetry.retryMessage({
                 state: state,
@@ -144,12 +141,9 @@ contract Bridge is EssentialContract, IBridge {
             });
     }
 
-    function getMessageStatus(bytes32 msgHash)
-        public
-        view
-        virtual
-        returns (LibBridgeStatus.MessageStatus)
-    {
+    function getMessageStatus(
+        bytes32 msgHash
+    ) public view virtual returns (LibBridgeStatus.MessageStatus) {
         return LibBridgeStatus.getMessageStatus(msgHash);
     }
 
@@ -162,20 +156,15 @@ contract Bridge is EssentialContract, IBridge {
             LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
     }
 
-    function hashMessage(Message calldata message)
-        public
-        pure
-        override
-        returns (bytes32)
-    {
+    function hashMessage(
+        Message calldata message
+    ) public pure override returns (bytes32) {
         return LibBridgeData.hashMessage(message);
     }
 
-    function getMessageStatusSlot(bytes32 msgHash)
-        public
-        pure
-        returns (bytes32)
-    {
+    function getMessageStatusSlot(
+        bytes32 msgHash
+    ) public pure returns (bytes32) {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
 }

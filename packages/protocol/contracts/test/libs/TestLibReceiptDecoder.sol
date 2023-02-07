@@ -15,11 +15,9 @@ contract TestLibReceiptDecoder {
         emit TestLibReceiptDecoderEvent(a, b);
     }
 
-    function decodeReceipt(bytes calldata encoded)
-        public
-        pure
-        returns (LibReceiptDecoder.Receipt memory receipt)
-    {
+    function decodeReceipt(
+        bytes calldata encoded
+    ) public pure returns (LibReceiptDecoder.Receipt memory receipt) {
         return LibReceiptDecoder.decodeReceipt(encoded);
     }
 }

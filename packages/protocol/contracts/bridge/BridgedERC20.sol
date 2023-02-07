@@ -60,30 +60,29 @@ contract BridgedERC20 is
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeMintTo(address account, uint256 amount)
-        public
-        onlyFromNamed("token_vault")
-    {
+    function bridgeMintTo(
+        address account,
+        uint256 amount
+    ) public onlyFromNamed("token_vault") {
         _mint(account, amount);
         emit BridgeMint(account, amount);
     }
 
     /// @dev only a TokenVault can call this function
-    function bridgeBurnFrom(address account, uint256 amount)
-        public
-        onlyFromNamed("token_vault")
-    {
+    function bridgeBurnFrom(
+        address account,
+        uint256 amount
+    ) public onlyFromNamed("token_vault") {
         _burn(account, amount);
         emit BridgeBurn(account, amount);
     }
 
     /// @dev any address can call this
     // caller must have at least amount to call this
-    function transfer(address to, uint256 amount)
-        public
-        override(ERC20Upgradeable, IERC20Upgradeable)
-        returns (bool)
-    {
+    function transfer(
+        address to,
+        uint256 amount
+    ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
         require(to != address(this), "BE:to");
         return ERC20Upgradeable.transfer(to, amount);
     }

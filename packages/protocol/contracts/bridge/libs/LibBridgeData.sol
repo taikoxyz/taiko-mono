@@ -43,11 +43,9 @@ library LibBridgeData {
      * @dev Hashes messages and returns the hash signed with
      * "TAIKO_BRIDGE_MESSAGE" for verification.
      */
-    function hashMessage(IBridge.Message memory message)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function hashMessage(
+        IBridge.Message memory message
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encode("TAIKO_BRIDGE_MESSAGE", message));
     }
 }

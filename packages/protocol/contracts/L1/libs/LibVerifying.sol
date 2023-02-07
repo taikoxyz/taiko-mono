@@ -122,15 +122,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
-    )
-        public
-        view
-        returns (
-            uint256 newFeeBase,
-            uint256 reward,
-            uint256 tRelBp
-        )
-    {
+    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
         (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,

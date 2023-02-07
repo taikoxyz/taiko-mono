@@ -69,19 +69,17 @@ library LibBridgeSend {
         emit LibBridgeData.MessageSent(msgHash, message);
     }
 
-    function isDestChainEnabled(AddressResolver resolver, uint256 chainId)
-        internal
-        view
-        returns (bool)
-    {
+    function isDestChainEnabled(
+        AddressResolver resolver,
+        uint256 chainId
+    ) internal view returns (bool) {
         return resolver.resolve(chainId, "bridge", true) != address(0);
     }
 
-    function isMessageSent(AddressResolver resolver, bytes32 msgHash)
-        internal
-        view
-        returns (bool)
-    {
+    function isMessageSent(
+        AddressResolver resolver,
+        bytes32 msgHash
+    ) internal view returns (bool) {
         return
             ISignalService(resolver.resolve("signal_service", false))
                 .isSignalSent({app: address(this), signal: msgHash});
