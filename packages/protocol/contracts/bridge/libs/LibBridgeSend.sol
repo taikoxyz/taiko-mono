@@ -38,10 +38,13 @@ library LibBridgeSend {
         IBridge.Message memory message
     ) internal returns (bytes32 msgHash) {
         require(message.owner != address(0), "B:owner");
+        require(message.destChainId != block.chainid, "B:destChainId");
+
+        require(message.to != address(0), "B:toZeroAddr");
         require(
-            message.destChainId != block.chainid &&
-                isDestChainEnabled(resolver, message.destChainId),
-            "B:destChainId"
+            message.to !=
+                resolver.resolve(message.destChainId, "bridge", false),
+            "B:toBridge"
         );
 
         uint256 expectedAmount = message.depositValue +
