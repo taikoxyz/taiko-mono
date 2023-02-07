@@ -4,7 +4,11 @@ title: EtherVault
 
 ## EtherVault
 
-Vault that holds Ether.
+EtherVault is a special vault contract that:
+
+- Is initialized with 2^128 Ether.
+- Allows the contract owner to authorize addresses.
+- Allows authorized addresses to send/release Ether.
 
 ### Authorized
 
@@ -49,7 +53,7 @@ is authorized.
 
 | Name   | Type    | Description              |
 | ------ | ------- | ------------------------ |
-| amount | uint256 | Amount of ether to send. |
+| amount | uint256 | Amount of Ether to send. |
 
 ### releaseEtherTo
 
@@ -57,15 +61,16 @@ is authorized.
 function releaseEtherTo(address recipient, uint256 amount) public
 ```
 
-Transfer Ether from EtherVault to an desinated address, checking that the
+TODO(dave): update name to `releaseEther`
+Transfer Ether from EtherVault to a designated address, checking that the
 sender is authorized.
 
 #### Parameters
 
-| Name      | Type    | Description              |
-| --------- | ------- | ------------------------ |
-| recipient | address | Address to receive Ether |
-| amount    | uint256 | Amount of ether to send. |
+| Name      | Type    | Description               |
+| --------- | ------- | ------------------------- |
+| recipient | address | Address to receive Ether. |
+| amount    | uint256 | Amount of ether to send.  |
 
 ### authorize
 
@@ -88,6 +93,7 @@ Set the authorized status of an address, only the owner can call this.
 function isAuthorized(address addr) public view returns (bool)
 ```
 
+TODO(dave): remove helper, can directly use `authorizedAddrs[addr]`.
 Get the authorized status of an address.
 
 #### Parameters
