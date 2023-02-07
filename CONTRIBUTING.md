@@ -13,7 +13,6 @@ Here are some ways you can contribute:
 
 - Open a new issue [here](https://github.com/taikoxyz/taiko-mono/issues).
 - Work on an existing issue (check out the [good first issues list](https://github.com/taikoxyz/taiko-mono/labels/good%20first%20issue)).
-- Ask questions and participate in [discussions](https://github.com/taikoxyz/taiko-mono/discussions).
 
 > Check out the [coding standards](#coding-standards) and [documentation standards](#documentation-standards) before you start working on a pull request.
 
