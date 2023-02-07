@@ -508,6 +508,9 @@ describe("integration:Bridge", function () {
                 memo: "",
             };
 
+            // blocked here, I get reverted with B:destchainId, I've tried manually setting
+            // enabledDestChainId to a different int, makes no difference. Is there a way to
+            // have the gethNode have a different chainID?
             console.log("L1: " + l1Provider.network.chainId);
             console.log("L2: " + l2Provider.network.chainId);
             const { msgHash, message } = await sendMessage(l2Bridge, m);
@@ -526,10 +529,6 @@ describe("integration:Bridge", function () {
             // );
             // expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
             // expect(messageStatusChangedEvent.args.status).to.be.eq(1);
-
-            // blocked here, we can't do the test l1 to l2 because isMessageFailed()
-            // needs eth_getProof on L2 to be called, but we can't do the test l2 to l1 either
-            // since processMessage() needs eth_getProof on L2 to be called as well.
         });
     });
 
