@@ -27,7 +27,7 @@ library LibSharedConfig {
                 maxBytesPerTxList: 10240, // TODO
                 minTxGasLimit: 21000, // TODO
                 anchorTxGasLimit: 250000,
-                feePremiumLamda: 590,
+                feeSmoothingFactor: 590000,
                 rewardBurnBips: 100, // 100 basis points or 1%
                 proposerDepositPctg: 25, // 25%
                 // Moving average factors
