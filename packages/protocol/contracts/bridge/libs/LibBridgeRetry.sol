@@ -61,7 +61,8 @@ library LibBridgeRetry {
 
         // successful invocation
         if (
-            // TODO(dave): do we want to use gasleft() here? couldn't it consume beyond the gas limit?
+            // The message.gasLimit only apply for processMessage, if it fails
+            // then whoever calls retryMessage will use the tx's gasLimit.
             LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,
