@@ -219,7 +219,9 @@
           address: string
         ) => {
           const stateVars = await getStateVariables(provider, address);
-          return stateVars.lastProposedAt.toNumber();
+          return new Date(
+            stateVars.lastProposedAt.toNumber() * 1000
+          ).toString();
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
@@ -237,7 +239,7 @@
           address: string
         ) => {
           const stateVars = await getStateVariables(provider, address);
-          return stateVars.lastProvenAt.toNumber();
+          return new Date(stateVars.lastProvenAt.toNumber() * 1000).toString();
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
