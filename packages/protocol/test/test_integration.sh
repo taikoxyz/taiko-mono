@@ -37,7 +37,7 @@ then
       --name $TEST_NODE_CONTAINER_NAME_L2 \
       -p 28545:8545 \
       ethereum/client-go:v1.10.26 \
-      --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
+      --networkid 12345 --http --http.addr 0.0.0.0 --http.vhosts "*" \
       --http.api debug,eth,net,web3,txpool,miner
 else
     docker run -d \

@@ -48,6 +48,7 @@ describe("integration:Bridge", function () {
         const { chainId } = await ethers.provider.getNetwork();
 
         srcChainId = chainId;
+        console.log(srcChainId);
 
         l1Provider = getL1Provider();
 
@@ -61,6 +62,7 @@ describe("integration:Bridge", function () {
         const l2Network = await l2Provider.getNetwork();
 
         enabledDestChainId = l2Network.chainId;
+        console.log(enabledDestChainId);
 
         const addressManager: AddressManager = await deployAddressManager(
             owner
