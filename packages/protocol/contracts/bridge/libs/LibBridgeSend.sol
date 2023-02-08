@@ -20,7 +20,9 @@ library LibBridgeSend {
     using LibBridgeData for IBridge.Message;
 
     /**
-     * Initiate a bridge request.
+     * Send a message to the Bridge with the details of the request. The Bridge
+     * takes custody of the funds, unless the source chain is Taiko, in which
+     * the funds are sent to and managed by the EtherVault.
      *
      * @param message Specifies the `depositValue`, `callValue`,
      * and `processingFee`. These must sum to `msg.value`. It also specifies the
@@ -54,8 +56,9 @@ library LibBridgeSend {
             message.processingFee;
         require(expectedAmount == msg.value, "B:value");
 
-        // For each message, expectedAmount is sent to ethVault to be handled.
-        // Processing will retrieve these funds directly from ethVault.
+        // If on Taiko, send the expectedAmount to the EtherVault. Otherwise,
+        // store it here on the Bridge. Processing will release Ether from the
+        // EtherVault or the Bridge on the destination chain.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             ethVault.sendEther(expectedAmount);

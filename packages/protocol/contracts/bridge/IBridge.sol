@@ -8,23 +8,37 @@ pragma solidity ^0.8.9;
 
 /**
  * Bridge interface.
- * @dev Cross-chain Ether is held by Bridges, not TokenVaults.
+ * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
+ * not TokenVaults.
  * @author dantaik <dan@taiko.xyz>
  */
 interface IBridge {
     struct Message {
-        uint256 id; // auto filled
-        address sender; // auto filled
-        uint256 srcChainId; // auto filled
+        // Message ID.
+        uint256 id;
+        // Message sender address (auto filled).
+        address sender;
+        // Source chain ID (auto filled).
+        uint256 srcChainId;
+        // Destination chain ID (auto filled).
         uint256 destChainId;
+        // Owner address of the bridged asset.
         address owner;
-        address to; // target address on destChain
-        address refundAddress; // if address(0), refunds to owner
-        uint256 depositValue; // value to be deposited at "to" address
-        uint256 callValue; // value to be called on destChain
-        uint256 processingFee; // processing fee sender is willing to pay
+        // Destination address.
+        address to;
+        // Alternate address to send any refund. If blank, defaults to owner.
+        address refundAddress;
+        // Amount to bridge.
+        uint256 depositValue;
+        // callValue to invoke on the destination chain, for ERC20 transfers.
+        uint256 callValue;
+        // Processing fee for the relayer. Zero if owner will process themself.
+        uint256 processingFee;
+        // gasLimit to invoke on the destination chain, for ERC20 transfers.
         uint256 gasLimit;
-        bytes data; // calldata
+        // callData to invoke on the destination chain, for ERC20 transfers.
+        bytes data;
+        // Optional memo.
         string memo;
     }
 

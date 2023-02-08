@@ -4,7 +4,11 @@ title: EtherVault
 
 ## EtherVault
 
-Vault that holds Ether.
+EtherVault is a special vault contract that:
+
+- Is initialized with 2^128 Ether.
+- Allows the contract owner to authorize addresses.
+- Allows authorized addresses to send/release Ether.
 
 ### Authorized
 
@@ -49,23 +53,23 @@ is authorized.
 
 | Name   | Type    | Description              |
 | ------ | ------- | ------------------------ |
-| amount | uint256 | Amount of ether to send. |
+| amount | uint256 | Amount of Ether to send. |
 
-### releaseEtherTo
+### releaseEther
 
 ```solidity
-function releaseEtherTo(address recipient, uint256 amount) public
+function releaseEther(address recipient, uint256 amount) public
 ```
 
-Transfer Ether from EtherVault to an desinated address, checking that the
+Transfer Ether from EtherVault to a designated address, checking that the
 sender is authorized.
 
 #### Parameters
 
-| Name      | Type    | Description              |
-| --------- | ------- | ------------------------ |
-| recipient | address | Address to receive Ether |
-| amount    | uint256 | Amount of ether to send. |
+| Name      | Type    | Description               |
+| --------- | ------- | ------------------------- |
+| recipient | address | Address to receive Ether. |
+| amount    | uint256 | Amount of ether to send.  |
 
 ### authorize
 

@@ -6,7 +6,8 @@ title: IBridge
 
 Bridge interface.
 
-_Cross-chain Ether is held by Bridges, not TokenVaults._
+_Ether is held by Bridges on L1 and by the EtherVault on L2,
+not TokenVaults._
 
 ### Message
 

@@ -35,11 +35,11 @@ function anchor(uint256 l1Height, bytes32 l1Hash) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer
-bridging. This function will also check certain block-level global
-variables because they are not part of the Trie structure.
+message verification (eg. bridging). This function will also check
+certain block-level global variables because they are not part of the
+Trie structure.
 
-       Note that this transaction shall be the first transaction in every
-       L2 block.
+Note: This transaction shall be the first transaction in every L2 block.
 
 #### Parameters
 

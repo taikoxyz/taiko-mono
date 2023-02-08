@@ -19,7 +19,8 @@ import "./IBridge.sol";
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
- *
+ * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
+ * not TokenVaults.
  * @author dantaik <dan@taiko.xyz>
  */
 contract TokenVault is EssentialContract {
@@ -95,6 +96,7 @@ contract TokenVault is EssentialContract {
         address token,
         uint256 amount
     );
+
     event ERC20Received(
         bytes32 indexed msgHash,
         address indexed from,
@@ -113,14 +115,14 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * Transfers Ether to this vault and sends a message to the destination
-     * chain so the user can receive Ether.
-     *
-     * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
-     *      not TokenVaults.
-     * @param destChainId The destination chain ID where the `to` address lives.
-     * @param to The destination address.
-     * @param processingFee @custom:see Bridge
+     * Receives Ether and constructs a Bridge message. Sends the Ether and
+     * message along to the Bridge.
+     * @param destChainId @custom:see IBridge.Message.
+     * @param to @custom:see IBridge.Message.
+     * @param gasLimit @custom:see IBridge.Message.
+     * @param processingFee @custom:see IBridge.Message
+     * @param refundAddress @custom:see IBridge.Message
+     * @param memo @custom:see IBridge.Message
      */
     function sendEther(
         uint256 destChainId,
@@ -141,17 +143,15 @@ contract TokenVault is EssentialContract {
         message.destChainId = destChainId;
         message.owner = msg.sender;
         message.to = to;
-
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
         message.depositValue = msg.value - processingFee;
         message.refundAddress = refundAddress;
         message.memo = memo;
 
+        // prevent future PRs from changing the callValue when it must be zero
         require(message.callValue == 0, "V:callValue");
 
-        // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
-        // the TokenVault
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);

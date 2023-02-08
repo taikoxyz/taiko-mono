@@ -60,17 +60,13 @@ contract SignalService is ISignalService, EssentialContract {
         require(signal != 0, "B:signal");
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
+        // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
         bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko", false))
             .getSyncedHeader(sp.header.height);
 
-        if (
-            syncedHeaderHash == 0 ||
-            syncedHeaderHash != sp.header.hashBlockHeader()
-        ) {
-            return false;
-        }
-
         return
+            syncedHeaderHash != 0 &&
+            syncedHeaderHash == sp.header.hashBlockHeader() &&
             LibTrieProof.verify({
                 stateRoot: sp.header.stateRoot,
                 addr: resolve(srcChainId, "signal_service", false),
@@ -80,6 +76,11 @@ contract SignalService is ISignalService, EssentialContract {
             });
     }
 
+    /**
+     * @param app The srcAddress of the app (eg. the Bridge).
+     * @param signal The signal to store.
+     * @return signalSlot The storage key for the signal on the signal service.
+     */
     function getSignalSlot(
         address app,
         bytes32 signal

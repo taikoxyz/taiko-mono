@@ -16,7 +16,9 @@ import "../libs/LibInvalidTxList.sol";
 import "../libs/LibSharedConfig.sol";
 import "../libs/LibTxDecoder.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * @author dantaik <dan@taiko.xyz>
+ */
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     using LibTxDecoder for bytes;
 
@@ -24,8 +26,8 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * State Variables    *
      **********************/
 
-    mapping(uint256 => bytes32) private l2Hashes;
-    mapping(uint256 => bytes32) private l1Hashes;
+    mapping(uint256 => bytes32) private _l2Hashes;
+    mapping(uint256 => bytes32) private _l1Hashes;
     bytes32 public publicInputHash;
     uint256 public latestSyncedL1Height;
 
@@ -63,12 +65,13 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * External Functions *
      **********************/
 
-    /** Persist the latest L1 block height and hash to L2 for cross-layer
-     *        bridging. This function will also check certain block-level global
-     *        variables because they are not part of the Trie structure.
+    /**
+     * Persist the latest L1 block height and hash to L2 for cross-layer
+     * message verification (eg. bridging). This function will also check
+     * certain block-level global variables because they are not part of the
+     * Trie structure.
      *
-     *        Note that this transaction shall be the first transaction in every
-     *        L2 block.
+     * Note: This transaction shall be the first transaction in every L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
@@ -80,7 +83,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         }
 
         latestSyncedL1Height = l1Height;
-        l1Hashes[l1Height] = l1Hash;
+        _l1Hashes[l1Height] = l1Hash;
         emit HeaderSynced(block.number, l1Height, l1Hash);
     }
 
@@ -135,11 +138,11 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     function getSyncedHeader(
         uint256 number
     ) public view override returns (bytes32) {
-        return l1Hashes[number];
+        return _l1Hashes[number];
     }
 
     function getLatestSyncedHeader() public view override returns (bytes32) {
-        return l1Hashes[latestSyncedL1Height];
+        return _l1Hashes[latestSyncedL1Height];
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
@@ -148,7 +151,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         } else if (number < block.number && number >= block.number - 256) {
             return blockhash(number);
         } else {
-            return l2Hashes[number];
+            return _l2Hashes[number];
         }
     }
 
@@ -189,7 +192,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             ancestors: ancestors
         });
 
-        l2Hashes[parentHeight] = parentHash;
+        _l2Hashes[parentHeight] = parentHash;
     }
 
     function _hashPublicInputs(
