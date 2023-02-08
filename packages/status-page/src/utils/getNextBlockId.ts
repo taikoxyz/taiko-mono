@@ -7,6 +7,6 @@ export const getNextBlockId = async (
 ): Promise<number> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
-  const nextBlockId = stateVariables[3];
+  const nextBlockId = stateVariables.nextBlockId;
   return BigNumber.from(nextBlockId).toNumber();
 };

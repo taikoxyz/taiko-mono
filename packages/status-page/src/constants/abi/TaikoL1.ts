@@ -277,30 +277,6 @@ export default [
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "id",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes32",
-        name: "parentHash",
-        type: "bytes32",
-      },
-    ],
-    name: "getBlockProvers",
-    outputs: [
-      {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     inputs: [],
     name: "getConfig",
     outputs: [
@@ -436,6 +412,21 @@ export default [
             name: "enableTokenomics",
             type: "bool",
           },
+          {
+            internalType: "bool",
+            name: "enablePublicInputsCheck",
+            type: "bool",
+          },
+          {
+            internalType: "bool",
+            name: "enableProofValidation",
+            type: "bool",
+          },
+          {
+            internalType: "bool",
+            name: "enableOracleProver",
+            type: "bool",
+          },
         ],
         internalType: "struct TaikoData.Config",
         name: "",
@@ -443,6 +434,47 @@ export default [
       },
     ],
     stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "id",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
+        name: "parentHash",
+        type: "bytes32",
+      },
+    ],
+    name: "getForkChoice",
+    outputs: [
+      {
+        components: [
+          {
+            internalType: "bytes32",
+            name: "blockHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "uint64",
+            name: "provenAt",
+            type: "uint64",
+          },
+          {
+            internalType: "address[]",
+            name: "provers",
+            type: "address[]",
+          },
+        ],
+        internalType: "struct TaikoData.ForkChoice",
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -528,24 +560,61 @@ export default [
     name: "getStateVariables",
     outputs: [
       {
-        internalType: "uint64",
+        components: [
+          {
+            internalType: "uint64",
+            name: "genesisHeight",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "genesisTimestamp",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "statusBits",
+            type: "uint64",
+          },
+          {
+            internalType: "uint256",
+            name: "feeBase",
+            type: "uint256",
+          },
+          {
+            internalType: "uint64",
+            name: "nextBlockId",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "lastProposedAt",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "avgBlockTime",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "latestVerifiedHeight",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "latestVerifiedId",
+            type: "uint64",
+          },
+          {
+            internalType: "uint64",
+            name: "avgProofTime",
+            type: "uint64",
+          },
+        ],
+        internalType: "struct LibUtils.StateVariables",
         name: "",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "",
-        type: "uint64",
-      },
-      {
-        internalType: "uint64",
-        name: "",
-        type: "uint64",
-      },
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
+        type: "tuple",
       },
     ],
     stateMutability: "view",
@@ -563,7 +632,7 @@ export default [
     outputs: [
       {
         internalType: "bytes32",
-        name: "header",
+        name: "",
         type: "bytes32",
       },
     ],
@@ -623,6 +692,30 @@ export default [
     name: "init",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
+        name: "parentHash",
+        type: "bytes32",
+      },
+    ],
+    name: "isBlockVerifiable",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -743,6 +836,11 @@ export default [
         name: "name",
         type: "string",
       },
+      {
+        internalType: "bool",
+        name: "allowZeroAddress",
+        type: "bool",
+      },
     ],
     name: "resolve",
     outputs: [
@@ -766,6 +864,11 @@ export default [
         internalType: "string",
         name: "name",
         type: "string",
+      },
+      {
+        internalType: "bool",
+        name: "allowZeroAddress",
+        type: "bool",
       },
     ],
     name: "resolve",
