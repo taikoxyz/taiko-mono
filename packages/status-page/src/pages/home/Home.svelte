@@ -230,6 +230,24 @@
       statusIndicators.push({
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
+        header: "Latest Proof",
+        intervalInMs: 5 * 1000,
+        statusFunc: async (
+          provider: ethers.providers.JsonRpcProvider,
+          address: string
+        ) => {
+          const stateVars = await getStateVariables(provider, address);
+          return stateVars.lastProvenAt.toNumber();
+        },
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip: "The most recent block proof submitted on TaikoL1 contract.",
+      });
+
+      statusIndicators.push({
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
         statusFunc: async (
           provider: ethers.providers.JsonRpcProvider,
           address: string
