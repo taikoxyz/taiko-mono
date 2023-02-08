@@ -81,19 +81,21 @@ Here is the general user flow, for Taiko's bridge:
 
 ## How does ERC-20 bridging work?
 
+ERC-20 tokens originate from a canonical chain. In order to send a token and bridge it to the other chain, a new BridgedERC20 contract needs to be deployed on the destination chain. For example the HORSE token's canonical chain is Ethereum A1: https://l1explorer.a1.taiko.xyz/address/0x3E3a3416DbCc5cb4448B6b171fF15f9Da35Ab72d. So to enable sending it to Taiko A1, we need to deploy the BridgedERC20 contract for it, which can be found here: https://l2explorer.a1.taiko.xyz/address/0xb8eA36284d1Fa062cc0c969E28a49f3531cFB1bf.
+
+### Bridge from canonical chain to destination chain
+
 Here are the overall steps for transferring canonical ERC-20 from a source chain to the destination chain:
 
 1. A contract for the ERC-20 must first be deployed on the destination chain
-
-ERC-20 contracts exist on either chain, the canonical chain or the bridged one. In order to send a token and bridge it to the other chain, a new BridgedERC20 contract needs to be deployed on the destination chain.
-
-For example the HORSE token's canonical chain is Ethereum A1: https://l1explorer.a1.taiko.xyz/address/0x3E3a3416DbCc5cb4448B6b171fF15f9Da35Ab72d. So to enable sending it to Taiko A1, we need to deploy the BridgedERC20 contract for it, which can be found here: https://l2explorer.a1.taiko.xyz/address/0xb8eA36284d1Fa062cc0c969E28a49f3531cFB1bf.
 
 2. Call sendERC20 on the source chain TokenVault, this will **transfer** the amount by using the `safeTransferFrom` function on the canonical ERC-20 contract, on the source chain, to the TokenVault.
 
 3. Send a message to the Signal Service (on the source chain), this message will contain some metadata related to the bridge request, but most importantly it includes the calldata for the `receiveERC20` method.
 
 4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain Signal Service. After verifying this occurred and doing some checks, it will attempt to invoke the `receiveERC20` method encoded in the message. This will **mint** ERC-20 on the BridgedERC20 contract to the `to` address on the destination chain!
+
+### Bridge from destination chain back to canonical chain
 
 Okay now let's do the reverse, how do we transfer a bridged token from a source chain to the destination chain?
 
