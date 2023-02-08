@@ -177,41 +177,38 @@
 
   onMount(async () => {
     try {
-      const config = await getConfig(l1Provider, l1TaikoAddress);
-      console.log(config);
-      if (!Object.hasOwn(config, "enableTokenomics")) return;
-      if (config.enableTokenomics) {
-        statusIndicators.push({
-          statusFunc: getBlockFee,
-          watchStatusFunc: null,
-          provider: l1Provider,
-          contractAddress: l1TaikoAddress,
-          header: "Block Fee",
-          intervalInMs: 15000,
-          colorFunc: null,
-          tooltip:
-            "The current fee to propose a block to the TaikoL1 smart contract.",
-        });
+      statusIndicators.push({
+        statusFunc: getBlockFee,
+        watchStatusFunc: null,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Block Fee",
+        intervalInMs: 15000,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current fee to propose a block to the TaikoL1 smart contract.",
+      });
 
-        statusIndicators.push({
-          statusFunc: getProofReward,
-          watchStatusFunc: null,
-          provider: l1Provider,
-          contractAddress: l1TaikoAddress,
-          header: "Proof Reward",
-          intervalInMs: 15000,
-          colorFunc: null,
-          tooltip:
-            "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
-        });
-      }
+      statusIndicators.push({
+        statusFunc: getProofReward,
+        watchStatusFunc: null,
+        provider: l1Provider,
+        contractAddress: l1TaikoAddress,
+        header: "Proof Reward",
+        intervalInMs: 15000,
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
+        tooltip:
+          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+      });
     } catch (e) {
       console.error(e);
     }
 
     try {
-      const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
-
       statusIndicators.push({
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
