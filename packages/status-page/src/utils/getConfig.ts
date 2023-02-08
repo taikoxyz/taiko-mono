@@ -1,4 +1,4 @@
-import { BigNumber, Contract, ethers } from "ethers";
+import { Contract, ethers } from "ethers";
 import TaikoL1 from "../constants/abi/TaikoL1";
 
 export const getConfig = async (

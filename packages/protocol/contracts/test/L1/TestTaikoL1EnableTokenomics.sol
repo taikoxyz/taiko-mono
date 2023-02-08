@@ -31,7 +31,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.maxBytesPerTxList = 10240; // TODO
         config.minTxGasLimit = 21000; // TODO
         config.anchorTxGasLimit = 250000;
-        config.feePremiumLamda = 590;
+        config.slotSmoothingFactor = 590000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 

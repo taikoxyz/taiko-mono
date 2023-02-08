@@ -1,6 +1,6 @@
-import type { ethers } from "ethers";
+import type { BigNumber, ethers } from "ethers";
 
-type Status = string | number | boolean;
+type Status = string | number | boolean | BigNumber;
 
 type StatusIndicatorProp = {
   statusFunc?: (

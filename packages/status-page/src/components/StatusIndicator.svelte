@@ -50,7 +50,7 @@
         statusValue = 0;
       }
     } catch (e) {
-      console.error(e);
+      console.error(header, e);
     }
 
     if (watchStatusFunc) {
