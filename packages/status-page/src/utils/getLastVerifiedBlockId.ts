@@ -7,6 +7,6 @@ export const getLastVerifiedBlockId = async (
 ): Promise<number> => {
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
-  const latestVerifiedId = stateVariables[8];
+  const latestVerifiedId = stateVariables.latestVerifiedId;
   return BigNumber.from(latestVerifiedId).toNumber();
 };
