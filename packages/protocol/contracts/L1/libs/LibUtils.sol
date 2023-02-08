@@ -124,12 +124,14 @@ library LibUtils {
         uint256 feeBase
     ) internal view returns (uint256) {
         // m is the `n'` in the whitepaper
-        uint256 m = config.maxNumBlocks - 1 + config.feePremiumLamda;
+        uint256 m = 1000 *
+            (config.maxNumBlocks - 1) +
+            config.slotSmoothingFactor;
         // n is the number of unverified blocks
-        uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
+        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1 : m - n + 1;
-        return (feeBase * (m - 1) * m) / (m - n) / k;
+        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+        return (feeBase * (m - 1000) * m) / (m - n) / k;
     }
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
