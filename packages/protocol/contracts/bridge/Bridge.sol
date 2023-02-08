@@ -50,10 +50,8 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable {
         // If on Ethereum, ensure sender is TokenVault. If on Taiko, ensure
         // sender is TokenVault or EtherVault.
-        address etherVault = this.resolve("ether_vault", true);
-
         require(
-            msg.sender == etherVault ||
+            msg.sender == this.resolve("ether_vault", true) ||
                 msg.sender == this.resolve("token_vault", false)
         );
     }
