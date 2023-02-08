@@ -6,8 +6,8 @@ import {
     AddressManager,
     Bridge,
     SignalService,
-    TestHeaderSync,
     TestBadReceiver,
+    TestHeaderSync,
 } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import {
@@ -516,6 +516,8 @@ describe("integration:Bridge", function () {
             console.log("L1: " + l1Provider.network.chainId);
             console.log("L2: " + l2Provider.network.chainId);
             const { msgHash, message } = await sendMessage(l2Bridge, m);
+
+            console.log({ msgHash, message });
 
             // const messageStatus = await l1Bridge.getMessageStatus(msgHash);
             // expect(messageStatus).to.be.eq(0);
