@@ -50,9 +50,9 @@ func (p *Processor) ProcessMessage(
 
 	key := hex.EncodeToString(hashed)
 
-	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, event.Raw.Address, key, latestSyncedHeader)
+	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
-		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: signal: %v, from: %v",
+		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v",
 			event.Message.SrcChainId,
 			event.Message.DestChainId,
 			event.Raw.TxHash.Hex(),
