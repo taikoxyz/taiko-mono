@@ -365,6 +365,8 @@ library LibProving {
 
         fc.provers.push(prover);
 
+        state.lastProvenAt = uint64(block.timestamp);
+
         emit BlockProven({
             id: target.id,
             parentHash: parentHash,
