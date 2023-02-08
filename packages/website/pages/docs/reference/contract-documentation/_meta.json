@@ -5,10 +5,13 @@
   "L2": {
     "title": "L2"
   },
-  "bridge": {
-    "title": "Bridge"
-  },
   "common": {
     "title": "Common"
+  },
+  "signal": {
+    "title": "Signal"
+  },
+  "bridge": {
+    "title": "Bridge"
   }
 }
