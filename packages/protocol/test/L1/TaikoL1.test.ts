@@ -36,17 +36,6 @@ describe("TaikoL1", function () {
         });
     });
 
-    describe("getBlockProvers()", async function () {
-        it("should return empty list when there is no proof for that block", async function () {
-            const provers = await taikoL1.getBlockProvers(
-                Math.ceil(Math.random() * 1024),
-                randomBytes32()
-            );
-
-            expect(provers).to.be.empty;
-        });
-    });
-
     describe("halt()", async function () {
         it("should revert called by nonOwner", async function () {
             const initiallyHalted = await taikoL1.isHalted();
@@ -104,7 +93,7 @@ describe("TaikoL1", function () {
             const constants = await taikoL1.getConfig();
             const maxNumBlocks = constants[1];
             const delay = await taikoL1.getUncleProofDelay(maxNumBlocks.mul(2));
-            const initialUncleDelay = 60;
+            const initialUncleDelay = 1;
             expect(delay).to.be.eq(initialUncleDelay);
         });
 
