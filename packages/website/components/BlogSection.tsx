@@ -44,14 +44,13 @@ interface Wnft {
 }
 
 interface Post {
-  OriginalDigest : string;
+  OriginalDigest: string;
   content: Content;
   authorship: Authorship;
   digest: string;
   version: string;
   wnft: Wnft;
 }
-
 
 function getReadingTime(text) {
   const wordsPerMinute = 200;
@@ -78,7 +77,7 @@ function getDateTime(timestamp: string): string {
 
 function checkIfPostAreSet(posts) {
   if (posts.length > 0) {
-    return posts.map((post : Post) => (
+    return posts.map((post: Post) => (
       <div
         key={post.content.title}
         className="flex flex-col overflow-hidden rounded-lg shadow-lg"
@@ -89,7 +88,7 @@ function checkIfPostAreSet(posts) {
             target="_blank"
           >
             <img
-              className="h-54 w-full object-cover crop-image"
+              className="w-full h-48 object-cover object-top"
               src={`https://ipfs.io/ipfs/${post.wnft.imageURI}`}
               alt=""
             />
@@ -131,8 +130,8 @@ function checkIfPostAreSet(posts) {
         key={i}
         className="flex flex-col overflow-hidden rounded-lg shadow-lg"
       >
-        <div className="load-wraper">
-          <div className="activity"></div>
+        <div className="h-80 animate-pulse">
+          <div className="h-full w-full bg-neutral-800"></div>
         </div>
       </div>
     ));
@@ -147,7 +146,7 @@ export default function BlogSection(): JSX.Element {
       // only use the last three
       result = result.sort((a, b) => b.content.timestamp - a.content.timestamp);
       result = result.slice(0, 3);
-
+      
       setPosts(result);
     });
     // getting the information of the post via the arweave GraphQL and SDK
