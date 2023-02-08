@@ -14,8 +14,7 @@ Because we're a fork of Geth, you can consult the [Geth minimum requirements](ht
 
 - CPU with 2+ cores
 - 4GB RAM
-- 1TB free storage space to sync the Mainnet
-  - (**only ~50GB for the Taiko A1 testnet**)
+- ~50GB for the Taiko A1 testnet
 - 8 MBit/sec download Internet service
 
 ### Recommended:
