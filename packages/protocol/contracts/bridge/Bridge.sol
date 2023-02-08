@@ -152,9 +152,13 @@ contract Bridge is EssentialContract, IBridge {
         return _state.ctx;
     }
 
-    function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return
-            LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+    function isDestChainEnabled(
+        uint256 _chainId
+    ) public view returns (bool enabled) {
+        (enabled, ) = LibBridgeSend.isDestChainEnabled(
+            AddressResolver(this),
+            _chainId
+        );
     }
 
     function hashMessage(

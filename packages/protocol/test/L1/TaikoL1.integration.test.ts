@@ -259,7 +259,7 @@ describe("integration:TaikoL1", function () {
             await commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider, 0);
 
             const stateVariables = await taikoL1.getStateVariables();
-            const nextBlockId = stateVariables[4];
+            const nextBlockId = stateVariables.nextBlockId;
             const proposedBlock = await taikoL1.getProposedBlock(
                 nextBlockId.sub(1)
             );
@@ -285,7 +285,7 @@ describe("integration:TaikoL1", function () {
                 );
 
                 const stateVariables = await taikoL1.getStateVariables();
-                const nextBlockId = stateVariables[4];
+                const nextBlockId = stateVariables.nextBlockId;
                 const proposedBlock = await taikoL1.getProposedBlock(
                     nextBlockId.sub(1)
                 );

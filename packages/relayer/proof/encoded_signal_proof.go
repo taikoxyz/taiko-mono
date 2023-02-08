@@ -19,7 +19,7 @@ import (
 func (p *Prover) EncodedSignalProof(
 	ctx context.Context,
 	caller relayer.Caller,
-	bridgeAddress common.Address,
+	signalServiceAddress common.Address,
 	key string,
 	blockHash common.Hash,
 ) ([]byte, error) {
@@ -28,7 +28,7 @@ func (p *Prover) EncodedSignalProof(
 		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedStorageProof, err := p.encodedStorageProof(ctx, caller, bridgeAddress, key, blockHeader.Height.Int64())
+	encodedStorageProof, err := p.encodedStorageProof(ctx, caller, signalServiceAddress, key, blockHeader.Height.Int64())
 	if err != nil {
 		return nil, errors.Wrap(err, "p.getEncodedStorageProof")
 	}
@@ -52,18 +52,18 @@ func (p *Prover) EncodedSignalProof(
 func (p *Prover) encodedStorageProof(
 	ctx context.Context,
 	c relayer.Caller,
-	bridgeAddress common.Address,
+	signalServiceAddress common.Address,
 	key string,
 	blockNumber int64,
 ) ([]byte, error) {
 	var ethProof StorageProof
 
-	log.Infof("getting proof for: %v, key: %v, blockNum: %v", bridgeAddress, key, blockNumber)
+	log.Infof("getting proof for: %v, key: %v, blockNum: %v", signalServiceAddress, key, blockNumber)
 
 	err := c.CallContext(ctx,
 		&ethProof,
 		"eth_getProof",
-		bridgeAddress,
+		signalServiceAddress,
 		[]string{key},
 		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
 	)
