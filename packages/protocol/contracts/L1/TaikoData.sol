@@ -101,7 +101,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime;
-        uint64 lastProvenAt;
+        uint64 __reservedC1;
         // Reserved
         uint256[42] __gap;
     }

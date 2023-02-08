@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BigNumber, ethers } from "ethers";
+  import { BigNumber, Contract, ethers } from "ethers";
   import { getLatestSyncedHeader } from "../../utils/getLatestSyncedHeader";
   import StatusIndicator from "../../components/StatusIndicator.svelte";
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
@@ -15,9 +15,9 @@
   import { onMount } from "svelte";
   import { getProofReward } from "../../utils/getProofReward";
   import type { Status, StatusIndicatorProp } from "../../domain/status";
-  import { getConfig } from "../../utils/getConfig";
   import { getStateVariables } from "../../utils/getStateVariables";
   import { truncateString } from "../../utils/truncateString";
+  import TaikoL1 from "../../constants/abi/TaikoL1";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -233,13 +233,18 @@
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Latest Proof",
-        intervalInMs: 5 * 1000,
-        statusFunc: async (
+        intervalInMs: 0,
+        status: "0",
+        watchStatusFunc: async (
           provider: ethers.providers.JsonRpcProvider,
-          address: string
+          address: string,
+          onEvent: (value: Status) => void
         ) => {
-          const stateVars = await getStateVariables(provider, address);
-          return new Date(stateVars.lastProvenAt.toNumber() * 1000).toString();
+          const contract = new Contract(address, TaikoL1, provider);
+          contract.on("BlockProven", (id, parentHash, blockHash, timestamp) => {
+            console.log("block proven", timestamp);
+            onEvent(new Date(timestamp).toString());
+          });
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?

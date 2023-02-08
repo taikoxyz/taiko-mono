@@ -30,7 +30,6 @@ library LibUtils {
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;
         uint64 avgProofTime;
-        uint64 lastProvenAt;
     }
     event Halted(bool halted);
 
@@ -75,8 +74,7 @@ library LibUtils {
                 avgBlockTime: state.avgBlockTime,
                 latestVerifiedHeight: state.latestVerifiedHeight,
                 latestVerifiedId: state.latestVerifiedId,
-                avgProofTime: state.avgProofTime,
-                lastProvenAt: state.lastProvenAt
+                avgProofTime: state.avgProofTime
             });
     }
 
