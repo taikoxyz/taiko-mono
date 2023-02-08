@@ -37,56 +37,71 @@ library LibInvalidTxList {
     // NOTE: If the order of this enum changes, then some test cases that using
     // this enum in generate_genesis.test.ts may also needs to be
     // modified accordingly.
-    enum Reason {
-        OK,
-        BINARY_TOO_LARGE,
-        BINARY_NOT_DECODABLE,
-        BLOCK_TOO_MANY_TXS,
-        BLOCK_GAS_LIMIT_TOO_LARGE,
+    error ERR_PARAMS_NOT_DEFAULTS();
+    error ERR_INVALID_TX_IDX();
+    error ERR_INVALID_HINT();
+    error ERR_VERIFICAITON_FAILURE();
+
+    enum Hint {
+        NONE,
         TX_INVALID_SIG,
         TX_GAS_LIMIT_TOO_SMALL
     }
 
-    function isTxListInvalid(
+    function verifyTxListInvalid(
         TaikoData.Config memory config,
         bytes calldata encoded,
-        Reason hint,
+        Hint hint,
         uint256 txIdx
-    ) internal pure returns (Reason) {
+    ) internal pure {
         if (encoded.length > config.maxBytesPerTxList) {
-            return Reason.BINARY_TOO_LARGE;
+            _checkParams(hint, txIdx);
+            return;
         }
 
         try LibTxDecoder.decodeTxList(config.chainId, encoded) returns (
             LibTxDecoder.TxList memory txList
         ) {
             if (txList.items.length > config.maxTransactionsPerBlock) {
-                return Reason.BLOCK_TOO_MANY_TXS;
+                _checkParams(hint, txIdx);
+                return;
             }
 
             if (LibTxDecoder.sumGasLimit(txList) > config.blockMaxGasLimit) {
-                return Reason.BLOCK_GAS_LIMIT_TOO_LARGE;
+                _checkParams(hint, txIdx);
+                return;
             }
 
-            require(txIdx < txList.items.length, "invalid txIdx");
+            if (txIdx >= txList.items.length) {
+                revert ERR_INVALID_TX_IDX();
+            }
+
             LibTxDecoder.Tx memory _tx = txList.items[txIdx];
 
-            if (hint == Reason.TX_INVALID_SIG) {
-                require(
-                    LibTxUtils.recoverSender(config.chainId, _tx) == address(0),
-                    "bad hint TX_INVALID_SIG"
-                );
-                return Reason.TX_INVALID_SIG;
+            if (hint == Hint.TX_INVALID_SIG) {
+                if (
+                    LibTxUtils.recoverSender(config.chainId, _tx) != address(0)
+                ) {
+                    revert ERR_INVALID_HINT();
+                }
+                return;
             }
 
-            if (hint == Reason.TX_GAS_LIMIT_TOO_SMALL) {
-                require(_tx.gasLimit >= config.minTxGasLimit, "bad hint");
-                return Reason.TX_GAS_LIMIT_TOO_SMALL;
+            if (hint == Hint.TX_GAS_LIMIT_TOO_SMALL) {
+                if (_tx.gasLimit >= config.minTxGasLimit) {
+                    revert ERR_INVALID_HINT();
+                }
+                return;
             }
 
-            revert("failed to prove txlist invalid");
+            revert ERR_VERIFICAITON_FAILURE();
         } catch (bytes memory) {
-            return Reason.BINARY_NOT_DECODABLE;
+            _checkParams(hint, txIdx);
         }
+    }
+
+    // Checks hint and txIdx both have 0 values.
+    function _checkParams(Hint hint, uint256 txIdx) private pure {
+        if (hint != Hint.NONE || txIdx != 0) revert ERR_PARAMS_NOT_DEFAULTS();
     }
 }
