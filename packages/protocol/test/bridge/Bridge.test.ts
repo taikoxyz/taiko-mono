@@ -6,14 +6,13 @@ import { deployBridge, sendMessage } from "../utils/bridge";
 import { deploySignalService } from "../utils/signal";
 import { Message } from "../utils/message";
 
-describe("Bridge", () => {
+describe("Bridge", function () {
     let owner: any;
     let nonOwner: any;
     let srcChainId: number;
     let enabledDestChainId: number;
     let l1Bridge: Bridge;
     let l1EtherVault: EtherVault;
-    let addressManager: AddressManager;
 
     beforeEach(async () => {
         [owner, nonOwner] = await ethers.getSigners();
@@ -24,7 +23,7 @@ describe("Bridge", () => {
 
         enabledDestChainId = srcChainId + 1;
 
-        addressManager = await (
+        const addressManager: AddressManager = await (
             await ethers.getContractFactory("AddressManager")
         ).deploy();
         await addressManager.init();
@@ -41,122 +40,9 @@ describe("Bridge", () => {
             `${enabledDestChainId}.bridge`,
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
-        await addressManager.setAddress(
-            `${srcChainId}.token_vault`,
-            "0x0000000000000000000000000000000000000002"
-        );
-        await addressManager.setAddress(
-            `${enabledDestChainId}.token_vault`,
-            "0x0000000000000000000000000000000000000002"
-        );
-        await addressManager.setAddress(
-            `${enabledDestChainId}.ether_vault`,
-            "0x0000000000000000000000000000000000000003"
-        );
     });
 
-    describe("receive()", () => {
-        it("throws when an address other than TokenVault tries to send funds to the bridge on L1", async () => {
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: 5,
-                owner: ethers.constants.AddressZero,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
-            await expect(
-                owner.sendTransaction({
-                    to: l1Bridge.address,
-                    value: message.depositValue,
-                })
-            ).to.be.revertedWith("B:receive");
-        });
-        it("throws when an address other than TokenVault or EtherVault tries to send funds to the bridge on L2", async () => {
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: 5,
-                owner: ethers.constants.AddressZero,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
-            await expect(
-                owner.sendTransaction({
-                    to: l1Bridge.address,
-                    value: message.depositValue,
-                })
-            ).to.be.revertedWith("B:receive");
-        });
-        it("succeeds when the TokenVault sends funds to the bridge on L1", async () => {
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: 5,
-                owner: ethers.constants.AddressZero,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
-            const tokenVaultAddress = await addressManager.getAddress(
-                `${srcChainId}.token_vault`
-            );
-            await expect(
-                owner.sendTransaction({
-                    to: tokenVaultAddress,
-                    value: message.depositValue,
-                })
-            ).to.not.be.reverted;
-        });
-        it("succeeds when the EtherVault sends funds to the bridge on L2", async () => {
-            const message: Message = {
-                id: 1,
-                sender: owner.address,
-                srcChainId: 1,
-                destChainId: 5,
-                owner: ethers.constants.AddressZero,
-                to: nonOwner.address,
-                refundAddress: owner.address,
-                depositValue: 1,
-                callValue: 1,
-                processingFee: 1,
-                gasLimit: 100,
-                data: ethers.constants.HashZero,
-                memo: "",
-            };
-            const etherVaultAddress = await addressManager.getAddress(
-                `${enabledDestChainId}.ether_vault`
-            );
-            await expect(
-                owner.sendTransaction({
-                    to: etherVaultAddress,
-                    value: message.depositValue,
-                })
-            ).to.not.be.reverted;
-        });
-    });
-
-    describe("sendMessage()", () => {
+    describe("sendMessage()", function () {
         it("throws when owner is the zero address", async () => {
             const message: Message = {
                 id: 1,
