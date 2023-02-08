@@ -63,6 +63,7 @@ type NewServiceOpts struct {
 	DestBridgeAddress           common.Address
 	SrcTaikoAddress             common.Address
 	DestTaikoAddress            common.Address
+	SrcSignalServiceAddress     common.Address
 	BlockBatchSize              uint64
 	NumGoroutines               int
 	SubscriptionBackoff         time.Duration
@@ -159,6 +160,7 @@ func NewService(opts NewServiceOpts) (*Service, error) {
 		SrcETHClient:              opts.EthClient,
 		ProfitableOnly:            opts.ProfitableOnly,
 		HeaderSyncIntervalSeconds: opts.HeaderSyncIntervalInSeconds,
+		SrcSignalServiceAddress:   opts.SrcSignalServiceAddress,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "message.NewProcessor")

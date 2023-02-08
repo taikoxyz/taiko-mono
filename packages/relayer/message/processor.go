@@ -32,9 +32,10 @@ type Processor struct {
 
 	mu *sync.Mutex
 
-	destNonce     uint64
-	relayerAddr   common.Address
-	confirmations uint64
+	destNonce               uint64
+	relayerAddr             common.Address
+	srcSignalServiceAddress common.Address
+	confirmations           uint64
 
 	profitableOnly            relayer.ProfitableOnly
 	headerSyncIntervalSeconds int64
@@ -50,6 +51,7 @@ type NewProcessorOpts struct {
 	EventRepo                 relayer.EventRepository
 	DestHeaderSyncer          relayer.HeaderSyncer
 	RelayerAddress            common.Address
+	SrcSignalServiceAddress   common.Address
 	Confirmations             uint64
 	ProfitableOnly            relayer.ProfitableOnly
 	HeaderSyncIntervalSeconds int64
@@ -106,9 +108,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 
 		mu: &sync.Mutex{},
 
-		destNonce:     0,
-		relayerAddr:   opts.RelayerAddress,
-		confirmations: opts.Confirmations,
+		destNonce:               0,
+		relayerAddr:             opts.RelayerAddress,
+		srcSignalServiceAddress: opts.SrcSignalServiceAddress,
+		confirmations:           opts.Confirmations,
 
 		profitableOnly:            opts.ProfitableOnly,
 		headerSyncIntervalSeconds: opts.HeaderSyncIntervalSeconds,
