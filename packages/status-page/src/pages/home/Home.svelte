@@ -17,6 +17,7 @@
   import type { Status, StatusIndicatorProp } from "../../domain/status";
   import { getConfig } from "../../utils/getConfig";
   import { getStateVariables } from "../../utils/getStateVariables";
+  import { truncateString } from "../../utils/truncateString";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -177,6 +178,7 @@
   onMount(async () => {
     try {
       const config = await getConfig(l1Provider, l1TaikoAddress);
+      console.log(config);
       if (!Object.hasOwn(config, "enableTokenomics")) return;
       if (config.enableTokenomics) {
         statusIndicators.push({
@@ -209,18 +211,19 @@
 
     try {
       const stateVars = await getStateVariables(l1Provider, l1TaikoAddress);
-      // TODO: remove. this check prevents this code from running before we deploy next testnet
-      // since the state vars have had large changes.
-      if (stateVars.length < 10) {
-        return;
-      }
 
       statusIndicators.push({
-        status: stateVars[4],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Latest Proposal",
-        intervalInMs: 0,
+        intervalInMs: 5 * 1000,
+        statusFunc: async (
+          provider: ethers.providers.JsonRpcProvider,
+          address: string
+        ) => {
+          const stateVars = await getStateVariables(provider, address);
+          return stateVars.lastProposedAt.toNumber();
+        },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
         },
@@ -228,35 +231,58 @@
       });
 
       statusIndicators.push({
-        status: stateVars[9],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
+        statusFunc: async (
+          provider: ethers.providers.JsonRpcProvider,
+          address: string
+        ) => {
+          const stateVars = await getStateVariables(provider, address);
+          return stateVars.avgProofTime.toNumber();
+        },
+        colorFunc: function (status: Status) {
+          return "green"; // todo: whats green, yellow, red?
+        },
         header: "Average Proof Time",
-        intervalInMs: 0,
-        colorFunc: null,
+        intervalInMs: 5 * 1000,
         tooltip:
           "The current average proof time, updated when a block is successfully proven.",
       });
 
       statusIndicators.push({
-        status: stateVars[6],
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Average Block Time",
-        intervalInMs: 0,
+        intervalInMs: 5 * 1000,
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
+        },
+        statusFunc: async (
+          provider: ethers.providers.JsonRpcProvider,
+          address: string
+        ) => {
+          const stateVars = await getStateVariables(provider, address);
+          return stateVars.avgBlockTime.toNumber();
         },
         tooltip:
           "The current average block time, updated when a block is successfully proposed.",
       });
 
       statusIndicators.push({
-        status: `${ethers.utils.parseEther(stateVars[3])} ${feeTokenSymbol}`,
         provider: l1Provider,
         contractAddress: l1TaikoAddress,
         header: "Fee Base",
         intervalInMs: 0,
+        statusFunc: async (
+          provider: ethers.providers.JsonRpcProvider,
+          address: string
+        ) => {
+          const stateVars = await getStateVariables(provider, address);
+          return `${truncateString(
+            ethers.utils.formatEther(stateVars.feeBase),
+            6
+          )} ${feeTokenSymbol}`;
+        },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
         },
