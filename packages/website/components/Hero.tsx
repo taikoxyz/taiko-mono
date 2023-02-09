@@ -38,7 +38,7 @@ export default function Hero() {
 
   return (
     <div className="mx-auto max-w-[90rem]">
-      <div className="relative bg-neutral-50 dark:bg-neutral-900">
+      <div className="relative bg-neutral-50 dark:bg-neutral-900 mt-3">
         <main className="lg:relative">
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
             <div className="pl-[max(env(safe-area-inset-left),1.5rem)]">
