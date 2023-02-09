@@ -1,4 +1,4 @@
-# Overview
+# Block proposal & verification
 
 Taiko aims to build a secure, decentralized, and permissionless rollup on Ethereum. These requirements dictate the following properties:
 
