@@ -17,8 +17,8 @@
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
-  "Snæfellsjökull": {
-    "title": "Snæfellsjökull Testnet",
+  "testnet-links-dropdown": {
+    "title": "Testnet Links",
     "type": "menu",
     "items": {
       "status": {
