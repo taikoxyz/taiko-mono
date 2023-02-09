@@ -23,13 +23,11 @@
     "items": {
       "status": {
         "title": "Status",
-        "type": "page",
         "href": "https://status.a1.taiko.xyz",
         "newWindow": true
       },
       "bridge": {
         "title": "Bridge",
-        "type": "page",
         "href": "https://bridge.a1.taiko.xyz",
         "newWindow": true
       },

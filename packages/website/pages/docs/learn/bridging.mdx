@@ -1,4 +1,4 @@
-# Bridge
+# Bridging
 
 Let's explain bridging on Taiko. We will go over the following topics:
 
@@ -17,20 +17,20 @@ Bridges are foundational for cross-chain users and applications. Users might com
 
 ### Taiko stores block hashes of each chain
 
-Taiko deploys two smart contracts which stores the hashes of the other chain:
+Taiko deploys two smart contracts which store the hashes of the other chain:
 
 - TaikoL1 stores a blockNumber->blockHash mapping `l2Hashes` (deployed on Ethereum)
 - TaikoL2 stores a blockNumber->blockHash mapping `l1Hashes` (deployed on Taiko)
 
-Every time a L2 block is created on Taiko, the hash of the enclosing block on L1 is stored in the TaikoL2 contract. And every time a L1 block is verified, the L2 hash is stored in the TaikoL1 contract (only the latest one, if multiple ones are verified at once).
+Every time an L2 block is created on Taiko, the hash of the enclosing block on L1 is stored in the TaikoL2 contract. And every time an L1 block is verified, the L2 hash is stored in the TaikoL1 contract (only the latest one, if multiple ones are verified at once).
 
 ### Merkle trees enable verifying values exist on the other chain
 
-Merkle trees are a data storage structure which allow a lot of data to be fingerprinted with a single hash, called the root hash. The way that they are structured enables one to verify that some value exists within this large data structure, without actually needing to have access to the entire merkle tree. To do this, the verifier would need:
+Merkle trees are a data storage structure that allows a lot of data to be fingerprinted with a single hash, called the root hash. The way that they are structured enables one to verify that some value exists within this large data structure, without actually needing to have access to the entire merkle tree. To do this, the verifier would need:
 
 - The root hash, this represents the root of the merkle tree
 - The value, this is the value we are checking is inside the root hash
-- A list of intermediate sibling hashes, these are the hashes which enable the verifier to re-calculate the root hash
+- A list of intermediate sibling hashes, these are the hashes that enable the verifier to re-calculate the root hash
 
 A verifier will take the value, which is a leaf in the merkle tree, and it will recalculate the merkle root. A simple way to think of this is that it checks if the calculated root hash matches the one we were provided. If it does, it means we have proved that this exists in the root hash.
 
@@ -42,7 +42,7 @@ Taiko's signal service is a smart contract available on both L1 and L2, availabl
 
 You can store signals and check if a signal was sent from an address. It also exposes one more important function: `isSignalReceived`.
 
-What does this function do? The first thing to understand, is that the Taiko protocol maintains two important contracts:
+What does this function do? The first thing to understand is that the Taiko protocol maintains two important contracts:
 
 - [TaikoL1](/docs/reference/contract-documentation/L1/TaikoL1)
 - [TaikoL2](/docs/reference/contract-documentation/L2/TaikoL2)
@@ -51,11 +51,11 @@ These contracts both keep track of the block hashes on the **other chain**. So T
 
 So, `isSignalReceived` can prove on either chain that you sent a signal to the Signal Service on the other chain. A user or dapp can call `eth_getProof`(https://eips.ethereum.org/EIPS/eip-1186) which generates a merkle proof.
 
-You need to:
+You need to provide `eth_getProof` with:
 
-1. Provide the signal (the data you want to prove exists within the storage root of some block on the chain)
+1. The signal (the data you want to prove exists within the storage root of some block on the chain)
 2. The address of the signal service (the contract address which stores the provided signal)
-3. (optional) The block number you are asserting the signal was sent on (if you don't provide this, it will default to the latest block number)
+3. The block number you are asserting the signal was sent on (optional—if you don't provide this, it will default to the latest block number)
 
 And, `eth_getProof` will generate a merkle proof (it will give the necessary sibling hashes and the height of the block, that along with the signal, can rebuild the merkle storage root of the block you are asserting the signal exists in).
 
@@ -63,25 +63,26 @@ This means, assuming that the hashes which TaikoL1 and TaikoL2 maintain are both
 
 1. First, we can send a message on some source chain, and store it on the signal service.
 2. Next, we call `eth_getProof`, which will give us a proof that we did indeed send a message on the source chain.
-3. Then we call `isSignalReceived` on the destination chain's SignalService which essentially just verifies the merkle proof. `isSignalReceived` will lookup the block hash you are asserting you had stored a message on the source chain (where you originally sent the message), and with the sibling hashes inside the merkle proof it will rebuild the merkle root, which verifies the signal was included in that merkle root, meaning it was sent.
+3. Finally, we call `isSignalReceived` on the destination chain's SignalService which essentially just verifies the merkle proof. `isSignalReceived` will lookup the block hash you are asserting you had stored a message on the source chain (where you originally sent the message), and with the sibling hashes inside the merkle proof it will rebuild the merkle root, which verifies the signal was included in that merkle root, meaning it was sent.
 
-And boom! We have sent a cross-chain message. Confusing? Well leave some feedback please if it is, so we can clear it up. Want to start buidling? Well head over to the [Signal Service tutorial](/docs/tutorials/signal-service-tutorial) where we will build a dapp together, using Taiko's Signal Service.
+And boom! We have sent a cross-chain message. Confusing? Well leave some feedback please if it is, so we can clear it up.
 
 ## A flowchart of bridging for the visual learners
 
-![bridging flowcshart](/images/diagrams/bridging-ether-2023-01-24-0546.png)
+![bridging send message flowchart](/images/diagrams/bridging-send-message.png) \
+![bridging process message flowchart](/images/diagrams/bridging-process-message.png)
 
 ## How does Ether bridging work?
 
 Here is the general user flow, for Taiko's bridge:
 
-1. The user sends their funds to the the Bridge contract
+1. The user sends their funds to the Bridge contract
 2. The Bridge locks the Ether, and stores a message by calling the SignalService:sendSignal(message)
 3. The user receives Ether on the destination chain, if they (or another) provide a valid merkle proof that the message was received on the source chain
 
 ## How does ERC-20 bridging work?
 
-ERC-20 tokens originate from a canonical chain. In order to send a token and bridge it to the other chain, a new BridgedERC20 contract needs to be deployed on the destination chain. For example the HORSE token's canonical chain is Ethereum A1: https://l1explorer.a1.taiko.xyz/address/0x3E3a3416DbCc5cb4448B6b171fF15f9Da35Ab72d. So to enable sending it to Taiko A1, we need to deploy the BridgedERC20 contract for it, which can be found here: https://l2explorer.a1.taiko.xyz/address/0xb8eA36284d1Fa062cc0c969E28a49f3531cFB1bf.
+ERC-20 tokens originate from a canonical chain. To send a token and bridge it to the other chain, a new BridgedERC20 contract needs to be deployed on the destination chain. For example, the HORSE token's canonical chain is [deployed on Ethereum A1](https://l1explorer.a1.taiko.xyz/address/0x3E3a3416DbCc5cb4448B6b171fF15f9Da35Ab72d). To enable bridging to Taiko A1, there is also a BridgedERC20 contract for it [deployed on Taiko A1](https://l2explorer.a1.taiko.xyz/address/0xb8eA36284d1Fa062cc0c969E28a49f3531cFB1bf).
 
 ### Bridge from canonical chain to destination chain
 
@@ -95,7 +96,7 @@ Here are the overall steps for transferring canonical ERC-20 from a source chain
 
 4. Process the message on the destination chain by submitting a merkle proof (generated from the source chain), proving that a message is included in the state of the source chain Signal Service. After verifying this occurred and doing some checks, it will attempt to invoke the `receiveERC20` method encoded in the message. This will **mint** ERC-20 on the BridgedERC20 contract to the `to` address on the destination chain!
 
-### Bridge from destination chain back to canonical chain
+### Bridge from destination chain back to the canonical chain
 
 Okay now let's do the reverse, how do we transfer a bridged token from a source chain to the destination chain?
 
