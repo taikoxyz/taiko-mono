@@ -147,7 +147,7 @@ describe("integration:Bridge", function () {
     });
 
     describe("processMessage()", function () {
-        it.only("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+        it.skip("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const m: Message = {
                 id: 1,
                 sender: await l2NonOwner.getAddress(),

@@ -83,7 +83,7 @@ async function initIntegrationFixture(
     }
 
     // set up interval mining so we always get new blocks
-    await l2Provider.send("evm_setAutomine", [true]);
+    // await l2Provider.send("evm_setAutomine", [true]);
 
     // send transactions to L1 so we always get new blocks
     const interval = setInterval(
