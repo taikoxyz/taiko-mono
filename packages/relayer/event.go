@@ -53,6 +53,7 @@ type Event struct {
 	CanonicalTokenSymbol   string         `json:"canonicalTokenSymbol"`
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
+	Amount                 string
 }
 
 // SaveEventOpts
@@ -66,6 +67,7 @@ type SaveEventOpts struct {
 	CanonicalTokenSymbol   string
 	CanonicalTokenName     string
 	CanonicalTokenDecimals uint8
+	Amount                 string
 }
 
 // EventRepository is used to interact with events in the store

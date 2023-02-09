@@ -36,6 +36,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		CanonicalTokenSymbol:   opts.CanonicalTokenSymbol,
 		CanonicalTokenName:     opts.CanonicalTokenName,
 		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
+		Amount:                 opts.Amount,
 	}
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")

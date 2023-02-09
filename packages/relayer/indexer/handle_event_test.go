@@ -134,12 +134,13 @@ func Test_eventStatusFromMsgHash(t *testing.T) {
 	}
 }
 
-func Test_eventTypeAndCanonicalTokenFromEvent(t *testing.T) {
+func Test_eventTypeAmountAndCanonicalTokenFromEvent(t *testing.T) {
 	tests := []struct {
 		name               string
 		event              *bridge.BridgeMessageSent
 		wantEventType      relayer.EventType
 		wantCanonicalToken relayer.CanonicalToken
+		wantAmount         *big.Int
 		wantError          error
 	}{
 		{
@@ -158,6 +159,7 @@ func Test_eventTypeAndCanonicalTokenFromEvent(t *testing.T) {
 				Symbol:   "TEST",
 				Name:     "TestERC20",
 			},
+			big.NewInt(1),
 			nil,
 		},
 		{
@@ -165,20 +167,23 @@ func Test_eventTypeAndCanonicalTokenFromEvent(t *testing.T) {
 			&bridge.BridgeMessageSent{
 				Message: bridge.IBridgeMessage{
 					// nolint lll
-					Data: common.Hex2Bytes("00"),
+					DepositValue: big.NewInt(1),
+					Data:         common.Hex2Bytes("00"),
 				},
 			},
 			relayer.EventTypeSendETH,
 			relayer.CanonicalToken{},
+			big.NewInt(1),
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventType, canonicalToken, err := eventTypeAndCanonicalTokenFromEvent(tt.event)
+			eventType, canonicalToken, amount, err := eventTypeAmountAndCanonicalTokenFromEvent(tt.event)
 			assert.Equal(t, tt.wantEventType, eventType)
 			assert.Equal(t, tt.wantCanonicalToken, canonicalToken)
+			assert.Equal(t, tt.wantAmount, amount)
 			assert.Equal(t, tt.wantError, err)
 		})
 	}

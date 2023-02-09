@@ -64,6 +64,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				CanonicalTokenSymbol:   "ETH",
 				CanonicalTokenName:     "Ethereum",
 				CanonicalTokenDecimals: 18,
+				Amount:                 "1",
 			},
 			nil,
 		},
@@ -119,6 +120,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 						CanonicalTokenSymbol:   "ETH",
 						CanonicalTokenName:     "Ethereum",
 						CanonicalTokenDecimals: 18,
+						Amount:                 "1",
 					},
 				)
 				assert.Equal(t, nil, err)
@@ -149,6 +151,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 		CanonicalTokenSymbol:   "ETH",
 		CanonicalTokenName:     "Ethereum",
 		CanonicalTokenDecimals: 18,
+		Amount:                 "1",
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -175,6 +178,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 					CanonicalTokenSymbol:   "ETH",
 					CanonicalTokenName:     "Ethereum",
 					CanonicalTokenDecimals: 18,
+					Amount:                 "1",
 				},
 			},
 			nil,
@@ -225,6 +229,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		CanonicalTokenSymbol:   "ETH",
 		CanonicalTokenName:     "Ethereum",
 		CanonicalTokenDecimals: 18,
+		Amount:                 "1",
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -249,6 +254,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 					CanonicalTokenSymbol:   "ETH",
 					CanonicalTokenName:     "Ethereum",
 					CanonicalTokenDecimals: 18,
+					Amount:                 "1",
 				},
 			},
 			nil,
