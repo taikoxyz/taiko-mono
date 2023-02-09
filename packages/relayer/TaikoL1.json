@@ -344,7 +344,7 @@
           },
           {
             "internalType": "uint256",
-            "name": "feePremiumLamda",
+            "name": "slotSmoothingFactor",
             "type": "uint256"
           },
           {

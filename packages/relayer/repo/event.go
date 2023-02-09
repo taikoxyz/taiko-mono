@@ -27,10 +27,15 @@ func NewEventRepository(db relayer.DB) (*EventRepository, error) {
 
 func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
-		Data:    datatypes.JSON(opts.Data),
-		Status:  opts.Status,
-		ChainID: opts.ChainID.Int64(),
-		Name:    opts.Name,
+		Data:                   datatypes.JSON(opts.Data),
+		Status:                 opts.Status,
+		ChainID:                opts.ChainID.Int64(),
+		Name:                   opts.Name,
+		EventType:              opts.EventType,
+		CanonicalTokenAddress:  opts.CanonicalTokenAddress,
+		CanonicalTokenSymbol:   opts.CanonicalTokenSymbol,
+		CanonicalTokenName:     opts.CanonicalTokenName,
+		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
 	}
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")

@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -87,4 +88,13 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 			return nil
 		}
 	}
+}
+
+type CanonicalToken struct {
+	// nolint
+	ChainId  *big.Int       `json:"chainId"`
+	Addr     common.Address `json:"addr"`
+	Decimals uint8          `json:"decimals"`
+	Symbol   string         `json:"symbol"`
+	Name     string         `json:"name"`
 }
