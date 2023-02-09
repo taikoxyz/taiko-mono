@@ -141,10 +141,14 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 	addr := common.HexToAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
 
 	_, err = eventRepo.Save(context.Background(), relayer.SaveEventOpts{
-		Name:    "name",
-		Data:    fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
-		ChainID: big.NewInt(1),
-		Status:  relayer.EventStatusDone,
+		Name:                   "name",
+		Data:                   fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())),
+		ChainID:                big.NewInt(1),
+		Status:                 relayer.EventStatusDone,
+		CanonicalTokenAddress:  "0x1",
+		CanonicalTokenSymbol:   "ETH",
+		CanonicalTokenName:     "Ethereum",
+		CanonicalTokenDecimals: 18,
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {
