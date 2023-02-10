@@ -9,10 +9,10 @@
   },
   "dependencies": {
     "arweave": "^1.12.2",
-    "next": "^13.1.4",
+    "next": "^13.1.6",
     "next-themes": "^0.2.1",
-    "nextra": "^2.2.12",
-    "nextra-theme-docs": "^2.2.12",
+    "nextra": "^2.2.14",
+    "nextra-theme-docs": "^2.2.14",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "sharp": "^0.31.3"
