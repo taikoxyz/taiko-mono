@@ -112,7 +112,7 @@ func Run(
 	}()
 
 	if !httpOnly {
-		indexers, closeFunc, err := makeIndexers(layer, db, profitableOnly, l1EthClient, l2EthClient)
+		indexers, closeFunc, err := makeIndexers(layer, db, profitableOnly)
 		if err != nil {
 			sqlDB.Close()
 			log.Fatal(err)
@@ -137,8 +137,6 @@ func makeIndexers(
 	layer relayer.Layer,
 	db relayer.DB,
 	profitableOnly relayer.ProfitableOnly,
-	l1EthClient *ethclient.Client,
-	l2EthClient *ethclient.Client,
 ) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
@@ -177,6 +175,16 @@ func makeIndexers(
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
 	if err != nil || confirmations <= 0 {
 		confirmations = defaultConfirmations
+	}
+
+	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
