@@ -88,7 +88,7 @@ function checkIfPostAreSet(posts) {
             target="_blank"
           >
             <img
-              className="w-full h-48 object-cover object-top"
+              className="w-full h-40 sm:h-64 lg:h-36 xl:h-48 object-cover object-top"
               src={`https://ipfs.io/ipfs/${post.wnft.imageURI}`}
               alt=""
             />
