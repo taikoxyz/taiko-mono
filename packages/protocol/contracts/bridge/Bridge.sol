@@ -50,8 +50,9 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable {
         // Ensure the sender is either the Ether vault or the token vault.
         require(
-            msg.sender == this.resolve("token_vault", false) ||
-                msg.sender == this.resolve("ether_vault", true)
+            msg.sender == this.resolve("token_vault", true) ||
+                msg.sender == this.resolve("ether_vault", true),
+            "B:receiveReject"
         );
     }
 
