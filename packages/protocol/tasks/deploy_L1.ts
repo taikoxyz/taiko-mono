@@ -331,5 +331,7 @@ async function deployPlonkVerifier(hre: any): Promise<any> {
         "../contracts/libs/yul/PlonkVerifier.yulp"
     );
 
-    return { address: await utils.deployBytecode(hre, byteCode) };
+    return {
+        address: await utils.deployBytecode(hre, byteCode, "PlonkVerifier"),
+    };
 }
