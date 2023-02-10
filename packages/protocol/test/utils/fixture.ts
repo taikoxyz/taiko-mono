@@ -82,12 +82,15 @@ async function initIntegrationFixture(
         await mintTx.wait(1);
     }
 
-    // set up interval mining so we always get new blocks
-    // await l2Provider.send("evm_setAutomine", [true]);
-
     // send transactions to L1 so we always get new blocks
     const interval = setInterval(
         async () => await sendTinyEtherToZeroAddress(l1Signer),
+        1 * 1000
+    );
+
+    // send transactions to L2 so we always get new blocks (replaces evm_setAutomine?)
+    const interval2 = setInterval(
+        async () => await sendTinyEtherToZeroAddress(l2Signer),
         1 * 1000
     );
 
@@ -124,6 +127,7 @@ async function initIntegrationFixture(
         tkoTokenL1,
         l1AddressManager,
         interval,
+        interval2,
         chan,
         config,
         proposer,
