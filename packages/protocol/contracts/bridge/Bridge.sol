@@ -37,7 +37,8 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageStatusChanged(
         bytes32 indexed msgHash,
-        LibBridgeStatus.MessageStatus status
+        LibBridgeStatus.MessageStatus status,
+        address transactor
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
