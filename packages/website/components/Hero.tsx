@@ -1,40 +1,45 @@
+import { useLayoutEffect } from "react";
+import { gsap } from "gsap/dist/gsap";
+import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+
 export default function Hero() {
-  // Enlarges and decreases the opacity of the taikoGeom image upon scroll
-  if (typeof window !== "undefined") {
-    const changeTaikoGeom = () => {
-      // only do animation on home page
-      if (window.location.pathname !== "/") {
-        return;
-      }
+  useLayoutEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
 
-      const taikoGeom = document.getElementById("taikoGeom");
-      const taikoGeomParent = document.getElementById("taikoGeomParent");
-      const elementHeight = window.pageYOffset;
+    // Enlarge the TaikoGeom
+    gsap.to(".taikoGeom", {
+      width: 5000,
+      scrollTrigger: {
+        trigger: ".taikoGeom",
+        start: "top 100",
+        end: "+=800",
+        scrub: true,
+      },
+    });
 
-      // Enlarge the TaikoGeom width on scroll
-      if (window.innerWidth.valueOf() < 500) {
-        taikoGeomParent.style.width = `${
-          window.innerWidth.valueOf() * 0.91666667 + elementHeight * 9
-        }px`;
+    // Lower the TaikoGeom opacity to 0 with an exponential function
+    gsap.to(".taikoGeom", {
+      opacity: 0,
+      ease: "expo.out",
+      scrollTrigger: {
+        trigger: ".taikoGeom",
+        start: "top 100",
+        end: "+=800",
+        scrub: true,
+      },
+    });
 
-        // Lower the TaikoGeom opacity on scroll
-        // Smaller screens need a faster decrease
-        if (1 - elementHeight * 0.003 >= 0) {
-          taikoGeom.style.opacity = `${
-            (1 - elementHeight * 0.003) * (1 - elementHeight * 0.003)
-          }`;
-        }
-      } else {
-        taikoGeomParent.style.width = `${
-          window.innerWidth.valueOf() / 2 + elementHeight * 9
-        }px`;
-
-        // Lower the TaikoGeom opacity on scroll
-        taikoGeom.style.opacity = `${1 - elementHeight / 250}`;
-      }
-    };
-    window.addEventListener("scroll", changeTaikoGeom);
-  }
+    // Enlarge the TaikoGeomParent on scrolling to show the full TaikoGeom
+    gsap.to(".taikoGeomParent", {
+      width: 5000,
+      scrollTrigger: {
+        trigger: ".taikoGeom",
+        start: "top 100",
+        end: "+=800",
+        scrub: true,
+      },
+    });
+  });
 
   return (
     <div className="mx-auto max-w-[90rem]">
@@ -63,11 +68,11 @@ export default function Hero() {
 
           <div
             id="taikoGeomParent"
-            className="absolute inset-y-0 right-0 overflow-hidden h-full w-11/12 lg:absolute lg:inset-y-0 lg:right-0 lg:h-full lg:w-1/2"
+            className="absolute inset-y-0 right-0 overflow-hidden h-full w-11/12 lg:absolute lg:inset-y-0 lg:right-0 lg:h-full lg:w-1/2 taikoGeomParent"
           >
             <img
               id="taikoGeom"
-              className="absolute z-0 -right-6 overflow-visible h-full w-full object-cover max-w-none"
+              className="absolute z-0 -right-6 overflow-visible h-full w-full object-cover max-w-none taikoGeom"
               src="/images/Taiko_GEOM_1_Fluo_Sliced.svg"
               alt=""
             />

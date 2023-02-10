@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "arweave": "^1.12.6",
+    "gsap": "^3.11.4",
     "next": "^13.1.6",
     "next-themes": "^0.2.1",
     "nextra": "^2.2.14",
