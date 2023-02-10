@@ -38,7 +38,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
 
-    /// The lastest L1 block where a L2 bock has been proposed.
+    // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
     uint256[46] private __gap;
