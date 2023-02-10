@@ -75,7 +75,8 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash (some blocks' hashes won't be persisted)
+        // block id => block hash (some blocks' hashes won't be persisted,
+        // only the latest one if verified in a batch)
         mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;

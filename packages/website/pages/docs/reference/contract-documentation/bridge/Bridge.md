@@ -12,7 +12,7 @@ _The code hash for the same address on L1 and L2 may be different._
 ### MessageStatusChanged
 
 ```solidity
-event MessageStatusChanged(bytes32 signal, enum LibBridgeStatus.MessageStatus status)
+event MessageStatusChanged(bytes32 msgHash, enum LibBridgeStatus.MessageStatus status)
 ```
 
 ### DestChainEnabled
@@ -27,7 +27,7 @@ event DestChainEnabled(uint256 chainId, bool enabled)
 receive() external payable
 ```
 
-Allow Bridge to receive ETH from EtherVault.
+Allow Bridge to receive ETH from the TokenVault or EtherVault.
 
 ### init
 
@@ -40,20 +40,17 @@ _Initializer to be called after being deployed behind a proxy._
 ### sendMessage
 
 ```solidity
-function sendMessage(struct IBridge.Message message) external payable returns (bytes32 signal)
+function sendMessage(struct IBridge.Message message) external payable returns (bytes32 msgHash)
 ```
 
 Sends a message to the destination chain and takes custody
 of Ether required in this contract. All extra Ether will be refunded.
 
-### sendSignal
+### releaseEther
 
 ```solidity
-function sendSignal(bytes32 signal) external
+function releaseEther(struct IBridge.Message message, bytes proof) external
 ```
-
-Stores a signal on the bridge contract and emits an event for the
-relayer to pick up.
 
 ### processMessage
 
@@ -70,43 +67,33 @@ function retryMessage(struct IBridge.Message message, bool isLastAttempt) extern
 ### isMessageSent
 
 ```solidity
-function isMessageSent(bytes32 signal) public view virtual returns (bool)
+function isMessageSent(bytes32 msgHash) public view virtual returns (bool)
 ```
 
-Checks if a signal has been stored on the bridge contract by the
+Checks if a msgHash has been stored on the bridge contract by the
 current address.
 
 ### isMessageReceived
 
 ```solidity
-function isMessageReceived(bytes32 signal, uint256 srcChainId, bytes proof) public view virtual returns (bool)
+function isMessageReceived(bytes32 msgHash, uint256 srcChainId, bytes proof) public view virtual returns (bool)
 ```
 
-Checks if a signal has been received on the destination chain and
+Checks if a msgHash has been received on the destination chain and
 sent by the src chain.
 
-### isSignalSent
+### isMessageFailed
 
 ```solidity
-function isSignalSent(address sender, bytes32 signal) public view virtual returns (bool)
+function isMessageFailed(bytes32 msgHash, uint256 destChainId, bytes proof) public view virtual returns (bool)
 ```
 
-Checks if a signal has been stored on the bridge contract by the
-specified address.
-
-### isSignalReceived
-
-```solidity
-function isSignalReceived(bytes32 signal, uint256 srcChainId, address sender, bytes proof) public view virtual returns (bool)
-```
-
-Check if a signal has been received on the destination chain and sent
-by the specified sender.
+Checks if a msgHash has been failed on the destination chain.
 
 ### getMessageStatus
 
 ```solidity
-function getMessageStatus(bytes32 signal) public view virtual returns (enum LibBridgeStatus.MessageStatus)
+function getMessageStatus(bytes32 msgHash) public view virtual returns (enum LibBridgeStatus.MessageStatus)
 ```
 
 ### context
@@ -123,8 +110,14 @@ Returns the bridge state context.
 function isDestChainEnabled(uint256 _chainId) public view returns (bool)
 ```
 
+### hashMessage
+
+```solidity
+function hashMessage(struct IBridge.Message message) public pure returns (bytes32)
+```
+
 ### getMessageStatusSlot
 
 ```solidity
-function getMessageStatusSlot(bytes32 signal) public pure returns (bytes32)
+function getMessageStatusSlot(bytes32 msgHash) public pure returns (bytes32)
 ```

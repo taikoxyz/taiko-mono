@@ -13,7 +13,6 @@ import "./LibBridgeStatus.sol";
 
 /**
  * Retry bridge messages.
- *
  * @title LibBridgeRetry
  * @author dantaik <dan@taiko.xyz>
  */
@@ -23,17 +22,18 @@ library LibBridgeRetry {
     using LibBridgeData for LibBridgeData.State;
 
     /**
-     * Retry a bridge message on the destination chain. This function can be
-     * called by any address, including `message.owner`. It can only be called
-     * on messages marked "RETRIABLE". It attempts to reinvoke the messageCall.
-     * If reinvoking fails and `isLastAttempt` is set to true, then the message
-     * is marked "DONE" and cannot be retried.
-     *
+     * Retries to invoke the messageCall, the owner has already been sent Ether.
+     * - This function can be called by any address, including `message.owner`.
+     * - Can only be called on messages marked "RETRIABLE".
+     * - It attempts to reinvoke the messageCall.
+     * - If it succeeds, the message is marked as "DONE".
+     * - If it fails and `isLastAttempt` is set to true, the message is marked
+     *   as "FAILED" and cannot be retried.
      * @param state The bridge state.
      * @param resolver The address resolver.
      * @param message The message to retry.
      * @param isLastAttempt Specifies if this is the last attempt to retry the
-     *        message.
+     * message.
      */
     function retryMessage(
         LibBridgeData.State storage state,
@@ -61,6 +61,8 @@ library LibBridgeRetry {
 
         // successful invocation
         if (
+            // The message.gasLimit only apply for processMessage, if it fails
+            // then whoever calls retryMessage will use the tx's gasLimit.
             LibBridgeInvoke.invokeMessageCall({
                 state: state,
                 message: message,

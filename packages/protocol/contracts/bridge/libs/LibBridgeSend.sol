@@ -20,7 +20,9 @@ library LibBridgeSend {
     using LibBridgeData for IBridge.Message;
 
     /**
-     * Initiate a bridge request.
+     * Send a message to the Bridge with the details of the request. The Bridge
+     * takes custody of the funds, unless the source chain is Taiko, in which
+     * the funds are sent to and managed by the EtherVault.
      *
      * @param message Specifies the `depositValue`, `callValue`,
      * and `processingFee`. These must sum to `msg.value`. It also specifies the
@@ -38,19 +40,25 @@ library LibBridgeSend {
         IBridge.Message memory message
     ) internal returns (bytes32 msgHash) {
         require(message.owner != address(0), "B:owner");
+
+        (bool destChainEnabled, address destChain) = isDestChainEnabled(
+            resolver,
+            message.destChainId
+        );
         require(
-            message.destChainId != block.chainid &&
-                isDestChainEnabled(resolver, message.destChainId),
+            destChainEnabled && message.destChainId != block.chainid,
             "B:destChainId"
         );
+        require(message.to != address(0) && message.to != destChain, "B:to");
 
         uint256 expectedAmount = message.depositValue +
             message.callValue +
             message.processingFee;
         require(expectedAmount == msg.value, "B:value");
 
-        // For each message, expectedAmount is sent to ethVault to be handled.
-        // Processing will retrieve these funds directly from ethVault.
+        // If on Taiko, send the expectedAmount to the EtherVault. Otherwise,
+        // store it here on the Bridge. Processing will release Ether from the
+        // EtherVault or the Bridge on the destination chain.
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {
             ethVault.sendEther(expectedAmount);
@@ -72,8 +80,9 @@ library LibBridgeSend {
     function isDestChainEnabled(
         AddressResolver resolver,
         uint256 chainId
-    ) internal view returns (bool) {
-        return resolver.resolve(chainId, "bridge", true) != address(0);
+    ) internal view returns (bool enabled, address destBridge) {
+        destBridge = resolver.resolve(chainId, "bridge", true);
+        enabled = destBridge != address(0);
     }
 
     function isMessageSent(

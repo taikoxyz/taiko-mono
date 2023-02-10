@@ -19,7 +19,8 @@ import "./IBridge.sol";
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
  * It also manages the mapping between canonical ERC20 tokens and their bridged
  * tokens.
- *
+ * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
+ * not TokenVaults.
  * @author dantaik <dan@taiko.xyz>
  */
 contract TokenVault is EssentialContract {
@@ -45,16 +46,18 @@ contract TokenVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    // Tracks if a token on the current chain is a canoncial or bridged token.
+    // Tracks if a token on the current chain is a canonical or bridged token.
     mapping(address => bool) public isBridgedToken;
 
     // Mappings from bridged tokens to their canonical tokens.
     mapping(address => CanonicalERC20) public bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
+    // Also storing chainId for tokens across other chains aside from Ethereum.
     // chainId => canonical address => bridged address
     mapping(uint256 => mapping(address => address)) public canonicalToBridged;
 
+    // Tracks the token and amount associated with a message hash.
     mapping(bytes32 => MessageDeposit) public messageDeposits;
 
     uint256[47] private __gap;
@@ -95,6 +98,7 @@ contract TokenVault is EssentialContract {
         address token,
         uint256 amount
     );
+
     event ERC20Received(
         bytes32 indexed msgHash,
         address indexed from,
@@ -113,14 +117,14 @@ contract TokenVault is EssentialContract {
     }
 
     /**
-     * Transfers Ether to this vault and sends a message to the destination
-     * chain so the user can receive Ether.
-     *
-     * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
-     *      not TokenVaults.
-     * @param destChainId The destination chain ID where the `to` address lives.
-     * @param to The destination address.
-     * @param processingFee @custom:see Bridge
+     * Receives Ether and constructs a Bridge message. Sends the Ether and
+     * message along to the Bridge.
+     * @param destChainId @custom:see IBridge.Message
+     * @param to @custom:see IBridge.Message
+     * @param gasLimit @custom:see IBridge.Message
+     * @param processingFee @custom:see IBridge.Message
+     * @param refundAddress @custom:see IBridge.Message
+     * @param memo @custom:see IBridge.Message
      */
     function sendEther(
         uint256 destChainId,
@@ -141,17 +145,15 @@ contract TokenVault is EssentialContract {
         message.destChainId = destChainId;
         message.owner = msg.sender;
         message.to = to;
-
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
         message.depositValue = msg.value - processingFee;
         message.refundAddress = refundAddress;
         message.memo = memo;
 
+        // prevent future PRs from changing the callValue when it must be zero
         require(message.callValue == 0, "V:callValue");
 
-        // Ether are held by the Bridge on L1 and by the EtherVault on L2, not
-        // the TokenVault
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
         }(message);
@@ -170,14 +172,14 @@ contract TokenVault is EssentialContract {
      * destination chain so the user can receive the same amount of tokens
      * by invoking the message call.
      *
+     * @param destChainId @custom:see IBridge.Message
+     * @param to @custom:see IBridge.Message
      * @param token The address of the token to be sent.
-     * @param destChainId The destination chain ID where the `to` address lives.
-     * @param to The destination address.
-     * @param refundAddress The fee refund address. If this address is
-     *        address(0), extra fees will be refunded back to the `to` address.
      * @param amount The amount of token to be transferred.
-     * @param processingFee @custom:see Bridge
-     * @param gasLimit @custom:see Bridge
+     * @param gasLimit @custom:see IBridge.Message
+     * @param processingFee @custom:see IBridge.Message
+     * @param refundAddress @custom:see IBridge.Message
+     * @param memo @custom:see IBridge.Message
      */
     function sendERC20(
         uint256 destChainId,
@@ -200,13 +202,14 @@ contract TokenVault is EssentialContract {
         CanonicalERC20 memory canonicalToken;
         uint256 _amount;
 
+        // is a bridged token, meaning, it does not live on this chain
         if (isBridgedToken[token]) {
             BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
             require(canonicalToken.addr != address(0), "V:canonicalToken");
             _amount = amount;
         } else {
-            // The canonical token lives on this chain
+            // is a canonical token, meaning, it lives on this chain
             ERC20Upgradeable t = ERC20Upgradeable(token);
             canonicalToken = CanonicalERC20({
                 chainId: block.chainid,
@@ -224,7 +227,6 @@ contract TokenVault is EssentialContract {
         IBridge.Message memory message;
         message.destChainId = destChainId;
         message.owner = msg.sender;
-
         message.to = resolve(destChainId, "token_vault", false);
         message.data = abi.encodeWithSelector(
             TokenVault.receiveERC20.selector,
@@ -233,7 +235,6 @@ contract TokenVault is EssentialContract {
             to,
             _amount
         );
-
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
         message.depositValue = msg.value - processingFee;
@@ -244,6 +245,7 @@ contract TokenVault is EssentialContract {
             value: msg.value
         }(message);
 
+        // record the deposit for this message
         messageDeposits[msgHash] = MessageDeposit(token, _amount);
 
         emit ERC20Sent({
@@ -261,9 +263,9 @@ contract TokenVault is EssentialContract {
      * a proof that the message processing on the destination Bridge has failed.
      *
      * @param message The message that corresponds the ERC20 deposit on the
-     *                source chain.
+     * source chain.
      * @param proof The proof from the destination chain to show the message
-     *              has failed.
+     * has failed.
      */
     function releaseERC20(
         IBridge.Message calldata message,
@@ -303,10 +305,11 @@ contract TokenVault is EssentialContract {
 
     /**
      * @dev This function can only be called by the bridge contract while
-     *      invoking a message call.
+     * invoking a message call. See sendERC20, which sets the data to invoke
+     * this function.
      * @param canonicalToken The canonical ERC20 token which may or may not
-     *        live on this chain. If not, a BridgedERC20 contract will be
-     *        deployed.
+     * live on this chain. If not, a BridgedERC20 contract will be
+     * deployed.
      * @param from The source address.
      * @param to The destination address.
      * @param amount The amount of tokens to be sent. 0 is a valid value.
@@ -357,6 +360,10 @@ contract TokenVault is EssentialContract {
             token != address(0) ? token : _deployBridgedToken(canonicalToken);
     }
 
+    /**
+     * @dev Deploys a new BridgedERC20 contract and initializes it. This must be
+     * called before the first time a bridged token is sent to this chain.
+     */
     function _deployBridgedToken(
         CanonicalERC20 calldata canonicalToken
     ) private returns (address bridgedToken) {

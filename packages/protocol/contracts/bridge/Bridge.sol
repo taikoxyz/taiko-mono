@@ -18,9 +18,8 @@ import "./libs/LibBridgeStatus.sol";
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
- *
- * @author dantaik <dan@taiko.xyz>
  * @dev The code hash for the same address on L1 and L2 may be different.
+ * @author dantaik <dan@taiko.xyz>
  */
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
@@ -29,7 +28,7 @@ contract Bridge is EssentialContract, IBridge {
      * State Variables   *
      *********************/
 
-    LibBridgeData.State private state; // 50 slots reserved
+    LibBridgeData.State private _state; // 50 slots reserved
     uint256[50] private __gap;
 
     /*********************
@@ -38,7 +37,8 @@ contract Bridge is EssentialContract, IBridge {
 
     event MessageStatusChanged(
         bytes32 indexed msgHash,
-        LibBridgeStatus.MessageStatus status
+        LibBridgeStatus.MessageStatus status,
+        address transactor
     );
 
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
@@ -47,8 +47,10 @@ contract Bridge is EssentialContract, IBridge {
      * External Functions*
      *********************/
 
-    /// Allow Bridge to receive ETH from EtherVault.
-    receive() external payable {}
+    /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
+    receive() external payable {
+        // TODO(dave,PR#13110): require the sender is the TokenVault or EtherVault
+    }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
@@ -60,7 +62,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external payable nonReentrant returns (bytes32 msgHash) {
         return
             LibBridgeSend.sendMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message
             });
@@ -72,7 +74,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeRelease.releaseEther({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 proof: proof
@@ -85,7 +87,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeProcess.processMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 proof: proof
@@ -98,7 +100,7 @@ contract Bridge is EssentialContract, IBridge {
     ) external nonReentrant {
         return
             LibBridgeRetry.retryMessage({
-                state: state,
+                state: _state,
                 resolver: AddressResolver(this),
                 message: message,
                 isLastAttempt: isLastAttempt
@@ -148,12 +150,16 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function context() public view returns (Context memory) {
-        return state.ctx;
+        return _state.ctx;
     }
 
-    function isDestChainEnabled(uint256 _chainId) public view returns (bool) {
-        return
-            LibBridgeSend.isDestChainEnabled(AddressResolver(this), _chainId);
+    function isDestChainEnabled(
+        uint256 _chainId
+    ) public view returns (bool enabled) {
+        (enabled, ) = LibBridgeSend.isDestChainEnabled(
+            AddressResolver(this),
+            _chainId
+        );
     }
 
     function hashMessage(

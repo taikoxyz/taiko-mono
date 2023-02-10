@@ -13,8 +13,7 @@ import "../../libs/LibMath.sol";
 import "../IBridge.sol";
 
 /**
- * Stores message data for the bridge.
- *
+ * Stores message metadata on the Bridge.
  * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeData {
@@ -40,8 +39,8 @@ library LibBridgeData {
     event DestChainEnabled(uint256 indexed chainId, bool enabled);
 
     /**
-     * @dev Hashes messages and returns the hash signed with
-     * "TAIKO_BRIDGE_MESSAGE" for verification.
+     * @return msgHash The keccak256 hash of the message encoded with
+     * "TAIKO_BRIDGE_MESSAGE".
      */
     function hashMessage(
         IBridge.Message memory message
