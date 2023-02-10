@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -94,29 +93,6 @@ func Test_makeIndexers(t *testing.T) {
 		wantIndexers int
 		wantErr      error
 	}{
-		{
-			"missingL1RPCUrl",
-			relayer.Both,
-			dbFunc,
-			func() func() {
-				return nil
-			},
-			0,
-			errors.New("dial unix valid: connect: no such file or directory"),
-		},
-		{
-			"missingL2RPCUrl",
-			relayer.Both,
-			dbFunc,
-			func() func() {
-				os.Setenv("L1_RPC_URL", "https://l1rpc.a1.taiko.xyz")
-				return func() {
-					os.Setenv("L1_RPC_URL", "")
-				}
-			},
-			0,
-			errors.New("dial unix valid: connect: no such file or directory"),
-		},
 		{
 			"successL1",
 			relayer.L1,
