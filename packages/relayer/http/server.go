@@ -14,14 +14,20 @@ import (
 )
 
 type Server struct {
-	echo      *echo.Echo
-	eventRepo relayer.EventRepository
+	echo        *echo.Echo
+	eventRepo   relayer.EventRepository
+	blockRepo   relayer.BlockRepository
+	l1EthClient relayer.EthClient
+	l2EthClient relayer.EthClient
 }
 
 type NewServerOpts struct {
 	Echo        *echo.Echo
 	EventRepo   relayer.EventRepository
+	BlockRepo   relayer.BlockRepository
 	CorsOrigins []string
+	L1EthClient relayer.EthClient
+	L2EthClient relayer.EthClient
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -37,6 +43,18 @@ func (opts NewServerOpts) Validate() error {
 		return relayer.ErrNoCORSOrigins
 	}
 
+	if opts.L1EthClient == nil {
+		return relayer.ErrNoEthClient
+	}
+
+	if opts.L2EthClient == nil {
+		return relayer.ErrNoEthClient
+	}
+
+	if opts.BlockRepo == nil {
+		return relayer.ErrNoBlockRepository
+	}
+
 	return nil
 }
 
@@ -46,8 +64,11 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
-		echo:      opts.Echo,
-		eventRepo: opts.EventRepo,
+		blockRepo:   opts.BlockRepo,
+		echo:        opts.Echo,
+		eventRepo:   opts.EventRepo,
+		l1EthClient: opts.L1EthClient,
+		l2EthClient: opts.L2EthClient,
 	}
 
 	corsOrigins := opts.CorsOrigins

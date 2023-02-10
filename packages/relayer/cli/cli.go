@@ -88,7 +88,17 @@ func Run(
 		log.Fatal(err)
 	}
 
-	srv, err := newHTTPServer(db)
+	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	srv, err := newHTTPServer(db, l1EthClient, l2EthClient)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,7 +112,7 @@ func Run(
 	}()
 
 	if !httpOnly {
-		indexers, closeFunc, err := makeIndexers(layer, db, profitableOnly)
+		indexers, closeFunc, err := makeIndexers(layer, db, profitableOnly, l1EthClient, l2EthClient)
 		if err != nil {
 			sqlDB.Close()
 			log.Fatal(err)
@@ -127,6 +137,8 @@ func makeIndexers(
 	layer relayer.Layer,
 	db relayer.DB,
 	profitableOnly relayer.ProfitableOnly,
+	l1EthClient *ethclient.Client,
+	l2EthClient *ethclient.Client,
 ) ([]*indexer.Service, func(), error) {
 	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
@@ -165,16 +177,6 @@ func makeIndexers(
 	confirmations, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_BEFORE_PROCESSING"))
 	if err != nil || confirmations <= 0 {
 		confirmations = defaultConfirmations
-	}
-
-	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
-	if err != nil {
-		return nil, nil, err
 	}
 
 	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
@@ -341,7 +343,7 @@ func loadAndValidateEnv() error {
 	return errors.Errorf("Missing env vars: %v", missing)
 }
 
-func newHTTPServer(db relayer.DB) (*http.Server, error) {
+func newHTTPServer(db relayer.DB, l1EthClient relayer.EthClient, l2EthClient relayer.EthClient) (*http.Server, error) {
 	eventRepo, err := repo.NewEventRepository(db)
 	if err != nil {
 		return nil, err
@@ -351,6 +353,8 @@ func newHTTPServer(db relayer.DB) (*http.Server, error) {
 		EventRepo:   eventRepo,
 		Echo:        echo.New(),
 		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
+		L1EthClient: l1EthClient,
+		L2EthClient: l2EthClient,
 	})
 	if err != nil {
 		return nil, err

@@ -98,3 +98,8 @@ type CanonicalToken struct {
 	Symbol   string         `json:"symbol"`
 	Name     string         `json:"name"`
 }
+
+type EthClient interface {
+	BlockNumber(ctx context.Context) (uint64, error)
+	ChainID(ctx context.Context) (*big.Int, error)
+}

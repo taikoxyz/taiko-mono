@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/mock"
 )
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
@@ -203,7 +204,7 @@ func Test_makeIndexers(t *testing.T) {
 				defer reset()
 			}
 
-			indexers, cancel, err := makeIndexers(tt.layer, tt.dbFunc(t), relayer.ProfitableOnly(true))
+			indexers, cancel, err := makeIndexers(tt.layer, tt.dbFunc(t), relayer.ProfitableOnly(true), nil, nil)
 			if cancel != nil {
 				defer cancel()
 			}
@@ -226,12 +227,12 @@ func Test_newHTTPServer(t *testing.T) {
 
 	defer cancel()
 
-	srv, err := newHTTPServer(db)
+	srv, err := newHTTPServer(db, &mock.EthClient{}, &mock.EthClient{})
 	assert.Nil(t, err)
 	assert.NotNil(t, srv)
 }
 
 func Test_newHTTPServer_nilDB(t *testing.T) {
-	_, err := newHTTPServer(nil)
+	_, err := newHTTPServer(nil, &mock.EthClient{}, &mock.EthClient{})
 	assert.NotNil(t, err)
 }
