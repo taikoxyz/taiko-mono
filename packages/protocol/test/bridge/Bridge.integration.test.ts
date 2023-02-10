@@ -185,7 +185,9 @@ describe("integration:Bridge", function () {
 
             // recalling this process should be prevented as it's status is no longer NEW
             await expect(
-                l2Bridge.processMessage(message, signalProof)
+                l2Bridge.processMessage(message, signalProof, {
+                    gasLimit: 1000000,
+                })
             ).to.be.revertedWith("B:status");
         });
 
