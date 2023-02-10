@@ -56,7 +56,9 @@ describe("integration:Bridge", function () {
 
         l2Signer = await getDefaultL2Signer();
 
-        l2NonOwner = await l2Provider.getSigner();
+        l2NonOwner = await l2Provider.getSigner(
+            await ethers.Wallet.createRandom().getAddress()
+        );
 
         const l2Network = await l2Provider.getNetwork();
 
@@ -147,15 +149,15 @@ describe("integration:Bridge", function () {
     });
 
     describe("processMessage()", function () {
-        it.skip("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
+        it.only("should throw if message.gasLimit == 0 & msg.sender is not message.owner", async function () {
             const m: Message = {
                 id: 1,
                 sender: await l2NonOwner.getAddress(),
                 srcChainId: srcChainId,
                 destChainId: enabledDestChainId,
-                owner: owner.address,
-                to: owner.address,
-                refundAddress: owner.address,
+                owner: await l2NonOwner.getAddress(),
+                to: await l2Signer.getAddress(),
+                refundAddress: await l2NonOwner.getAddress(),
                 depositValue: 1000,
                 callValue: 1000,
                 processingFee: 1000,
@@ -163,14 +165,21 @@ describe("integration:Bridge", function () {
                 data: ethers.constants.HashZero,
                 memo: "",
             };
-            await l2Bridge
-                .connect(l2Signer)
-                .processMessage(m, ethers.constants.HashZero);
-            console.log("hi");
+
+            expect(await l2NonOwner.getAddress()).to.not.be.eq(
+                await l2Signer.getAddress()
+            );
+
+            const { msgHash } = await sendMessage(l1Bridge, m);
+
+            expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
+
             await expect(
                 l2Bridge
                     .connect(l2Signer)
-                    .processMessage(m, ethers.constants.HashZero)
+                    .processMessage(m, ethers.constants.HashZero, {
+                        gasLimit: 100000,
+                    })
             ).to.be.revertedWith("B:forbidden");
         });
 

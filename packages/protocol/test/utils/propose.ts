@@ -27,7 +27,10 @@ const proposeBlock = async (
         id: 0,
         l1Height: 0,
         l1Hash: ethers.constants.HashZero,
-        beneficiary: block.miner,
+        beneficiary:
+            block.miner === ethers.constants.AddressZero
+                ? ethers.Wallet.createRandom().address
+                : block.miner,
         txListHash: txListHash,
         mixHash: ethers.constants.HashZero,
         extraData: block.extraData,
