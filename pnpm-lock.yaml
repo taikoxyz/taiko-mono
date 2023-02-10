@@ -2458,7 +2458,7 @@ packages:
       unist-util-position-from-estree: 1.1.2
       unist-util-stringify-position: 3.0.3
       unist-util-visit: 4.1.2
-      vfile: 5.3.7
+      vfile: 5.3.6
     transitivePeerDependencies:
       - supports-color
     dev: false
