@@ -81,13 +81,13 @@ describe("EtherVault", function () {
             await expect(
                 etherVault
                     .connect(authorized)
-                    .releaseEther(balance.add(additionalAmount))
+                    ["releaseEther(uint256)"](balance.add(additionalAmount))
             ).to.be.revertedWith("ETH transfer failed");
         });
 
         it("throws if not authorized", async () => {
             await expect(
-                etherVault.connect(notAuthorized).releaseEther(1)
+                etherVault.connect(notAuthorized)["releaseEther(uint256)"](1)
             ).to.be.revertedWith("EV:denied");
         });
 
@@ -99,7 +99,7 @@ describe("EtherVault", function () {
 
             const tx = await etherVault
                 .connect(authorized)
-                .releaseEther(amount);
+                ["releaseEther(uint256)"](amount);
             const receipt = await tx.wait();
             const gasUsed = receipt.cumulativeGasUsed.mul(
                 receipt.effectiveGasPrice
@@ -116,7 +116,9 @@ describe("EtherVault", function () {
         it("emits EtherReleased event upon success", async () => {
             const amount = 69;
 
-            await expect(etherVault.connect(authorized).releaseEther(amount))
+            await expect(
+                etherVault.connect(authorized)["releaseEther(uint256)"](amount)
+            )
                 .to.emit(etherVault, "EtherReleased")
                 .withArgs(authorized.address, amount);
         });

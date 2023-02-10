@@ -10,7 +10,10 @@ import "../../common/AddressResolver.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * LibVerifying.
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
@@ -107,8 +110,10 @@ library LibVerifying {
             if (latestL2Height > state.latestVerifiedHeight) {
                 state.latestVerifiedHeight = latestL2Height;
 
-                // Note that not all L2 hashes are stored on L1, only the last
-                // verified one in a batch.
+                // Note: Not all L2 hashes are stored on L1, only the last
+                // verified one in a batch. This is sufficient because the last
+                // verified hash is the only one needed checking the existence
+                // of a cross-chain message with a merkle proof.
                 state.l2Hashes[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;

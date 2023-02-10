@@ -27,7 +27,7 @@ event DestChainEnabled(uint256 chainId, bool enabled)
 receive() external payable
 ```
 
-Allow Bridge to receive ETH from EtherVault.
+Allow Bridge to receive ETH from the TokenVault or EtherVault.
 
 ### init
 

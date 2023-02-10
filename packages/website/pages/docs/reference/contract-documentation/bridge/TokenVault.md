@@ -8,6 +8,9 @@ This vault holds all ERC20 tokens (but not Ether) that users have deposited.
 It also manages the mapping between canonical ERC20 tokens and their bridged
 tokens.
 
+_Ether is held by Bridges on L1 and by the EtherVault on L2,
+not TokenVaults._
+
 ### CanonicalERC20
 
 ```solidity
@@ -95,22 +98,19 @@ function init(address addressManager) external
 function sendEther(uint256 destChainId, address to, uint256 gasLimit, uint256 processingFee, address refundAddress, string memo) external payable
 ```
 
-Transfers Ether to this vault and sends a message to the destination
-chain so the user can receive Ether.
-
-_Ether is held by Bridges on L1 and by the EtherVault on L2,
-not TokenVaults._
+Receives Ether and constructs a Bridge message. Sends the Ether and
+message along to the Bridge.
 
 #### Parameters
 
-| Name          | Type    | Description                                            |
-| ------------- | ------- | ------------------------------------------------------ |
-| destChainId   | uint256 | The destination chain ID where the `to` address lives. |
-| to            | address | The destination address.                               |
-| gasLimit      | uint256 |                                                        |
-| processingFee | uint256 | @custom:see Bridge                                     |
-| refundAddress | address |                                                        |
-| memo          | string  |                                                        |
+| Name          | Type    | Description                  |
+| ------------- | ------- | ---------------------------- |
+| destChainId   | uint256 | @custom:see IBridge.Message. |
+| to            | address | @custom:see IBridge.Message. |
+| gasLimit      | uint256 | @custom:see IBridge.Message. |
+| processingFee | uint256 | @custom:see IBridge.Message  |
+| refundAddress | address | @custom:see IBridge.Message  |
+| memo          | string  | @custom:see IBridge.Message  |
 
 ### sendERC20
 

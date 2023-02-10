@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
+import type { Status } from "src/domain/status";
 
-export const displayStatusValue = (value: string | number | boolean) => {
+export const displayStatusValue = (value: Status) => {
   if (typeof value === "string") {
     if (!value) return "0x";
     if (ethers.utils.isHexString(value)) {

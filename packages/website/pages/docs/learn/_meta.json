@@ -1,8 +1,8 @@
 {
-  "overview": {
-    "title": "Overview"
+  "block-proposal-and-verification": {
+    "title": "Block proposal & verification"
   },
-  "bridge": {
-    "title": "Bridge"
+  "bridging": {
+    "title": "Bridging"
   }
 }

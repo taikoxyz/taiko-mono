@@ -17,19 +17,17 @@
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
-  "Snæfellsjökull": {
-    "title": "Snæfellsjökull Testnet",
+  "testnet-links-dropdown": {
+    "title": "Testnet Links",
     "type": "menu",
     "items": {
       "status": {
         "title": "Status",
-        "type": "page",
         "href": "https://status.a1.taiko.xyz",
         "newWindow": true
       },
       "bridge": {
         "title": "Bridge",
-        "type": "page",
         "href": "https://bridge.a1.taiko.xyz",
         "newWindow": true
       },

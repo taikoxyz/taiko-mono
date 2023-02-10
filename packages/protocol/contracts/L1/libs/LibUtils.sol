@@ -19,6 +19,18 @@ library LibUtils {
 
     bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
+    struct StateVariables {
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 statusBits;
+        uint256 feeBase;
+        uint64 nextBlockId;
+        uint64 lastProposedAt;
+        uint64 avgBlockTime;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
+        uint64 avgProofTime;
+    }
     event Halted(bool halted);
 
     function halt(TaikoData.State storage state, bool toHalt) internal {
@@ -50,34 +62,20 @@ library LibUtils {
 
     function getStateVariables(
         TaikoData.State storage state
-    )
-        internal
-        view
-        returns (
-            uint64 genesisHeight,
-            uint64 genesisTimestamp,
-            uint64 statusBits,
-            uint256 feeBase,
-            uint64 nextBlockId,
-            uint64 lastProposedAt,
-            uint64 avgBlockTime,
-            uint64 latestVerifiedHeight,
-            uint64 latestVerifiedId,
-            uint64 avgProofTime
-        )
-    {
-        genesisHeight = state.genesisHeight;
-        genesisTimestamp = state.genesisTimestamp;
-        statusBits = state.statusBits;
-
-        feeBase = state.feeBase;
-        nextBlockId = state.nextBlockId;
-        lastProposedAt = state.lastProposedAt;
-        avgBlockTime = state.avgBlockTime;
-
-        latestVerifiedHeight = state.latestVerifiedHeight;
-        latestVerifiedId = state.latestVerifiedId;
-        avgProofTime = state.avgProofTime;
+    ) internal view returns (StateVariables memory) {
+        return
+            StateVariables({
+                genesisHeight: state.genesisHeight,
+                genesisTimestamp: state.genesisTimestamp,
+                statusBits: state.statusBits,
+                feeBase: state.feeBase,
+                nextBlockId: state.nextBlockId,
+                lastProposedAt: state.lastProposedAt,
+                avgBlockTime: state.avgBlockTime,
+                latestVerifiedHeight: state.latestVerifiedHeight,
+                latestVerifiedId: state.latestVerifiedId,
+                avgProofTime: state.avgProofTime
+            });
     }
 
     function isHalted(
@@ -126,12 +124,14 @@ library LibUtils {
         uint256 feeBase
     ) internal view returns (uint256) {
         // m is the `n'` in the whitepaper
-        uint256 m = config.maxNumBlocks - 1 + config.feePremiumLamda;
+        uint256 m = 1000 *
+            (config.maxNumBlocks - 1) +
+            config.slotSmoothingFactor;
         // n is the number of unverified blocks
-        uint256 n = state.nextBlockId - state.latestVerifiedId - 1;
+        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
         // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1 : m - n + 1;
-        return (feeBase * (m - 1) * m) / (m - n) / k;
+        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+        return (feeBase * (m - 1000) * m) / (m - n) / k;
     }
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
