@@ -24,11 +24,7 @@ library LibBridgeStatus {
         FAILED
     }
 
-    event MessageStatusChanged(
-        bytes32 indexed msgHash,
-        MessageStatus status,
-        address transactor
-    );
+    event MessageStatusChanged(bytes32 indexed msgHash, MessageStatus status);
 
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
@@ -42,11 +38,7 @@ library LibBridgeStatus {
     ) internal {
         if (getMessageStatus(msgHash) != status) {
             _setMessageStatus(msgHash, status);
-            emit LibBridgeStatus.MessageStatusChanged(
-                msgHash,
-                status,
-                msg.sender
-            );
+            emit LibBridgeStatus.MessageStatusChanged(msgHash, status);
         }
     }
 
