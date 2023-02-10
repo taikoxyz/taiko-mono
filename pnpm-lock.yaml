@@ -330,6 +330,7 @@ importers:
       '@types/react': ^18.0.27
       arweave: ^1.12.2
       autoprefixer: ^10.4.13
+      mdast-util-mdx-jsx: 2.1.1
       next: ^13.1.6
       next-themes: ^0.2.1
       nextra: ^2.2.14
@@ -342,6 +343,7 @@ importers:
       typescript: ^4.9.4
     dependencies:
       arweave: 1.12.2
+      mdast-util-mdx-jsx: 2.1.1
       next: 13.1.6_biqbaboplfbrettd7655fr4n2y
       next-themes: 0.2.1_3vryta7zmbcsw4rrqf4axjqggm
       nextra: 2.2.14_3vryta7zmbcsw4rrqf4axjqggm
@@ -13317,26 +13319,29 @@ packages:
       - supports-color
     dev: false
 
-  /mdast-util-mdx-jsx/2.1.0:
-    resolution: {integrity: sha512-KzgzfWMhdteDkrY4mQtyvTU5bc/W4ppxhe9SzelO6QUUiwLAM+Et2Dnjjprik74a336kHdo0zKm7Tp+n6FFeRg==}
+  /mdast-util-mdx-jsx/2.1.1:
+    resolution: {integrity: sha512-dV398twlcAKiqQfj3BkC4PWinVlG1YSL/qs71M7z8xmSksqp3lATH+qrmWUJBOIjOYcD5xuIu6k1ld2btB3EqQ==}
     dependencies:
       '@types/estree-jsx': 1.0.0
       '@types/hast': 2.3.4
       '@types/mdast': 3.0.10
       ccount: 2.0.1
+      mdast-util-from-markdown: 1.2.0
       mdast-util-to-markdown: 1.5.0
       parse-entities: 4.0.0
       stringify-entities: 4.0.3
       unist-util-remove-position: 4.0.2
       unist-util-stringify-position: 3.0.3
       vfile-message: 3.1.4
+    transitivePeerDependencies:
+      - supports-color
     dev: false
 
   /mdast-util-mdx/2.0.0:
     resolution: {integrity: sha512-M09lW0CcBT1VrJUaF/PYxemxxHa7SLDHdSn94Q9FhxjCQfuW7nMAWKWimTmA3OyDMSTH981NN1csW1X+HPSluw==}
     dependencies:
       mdast-util-mdx-expression: 1.3.1
-      mdast-util-mdx-jsx: 2.1.0
+      mdast-util-mdx-jsx: 2.1.1
       mdast-util-mdxjs-esm: 1.3.0
     transitivePeerDependencies:
       - supports-color
