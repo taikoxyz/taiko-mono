@@ -54,8 +54,11 @@ const commitAndProposeLatestBlock = async (
     );
     const commitReceipt = await tx.wait(1);
 
-    for (let i = 0; i < commitConfirmations.toNumber(); i++) {
-        await sendTinyEtherToZeroAddress(l1Signer);
+    console.log("commited");
+
+    for (let i = 0; i < commitConfirmations.toNumber() + 5; i++) {
+        async () => await sendTinyEtherToZeroAddress(l1Signer);
+        console.log(i);
     }
 
     const proposeReceipt = await proposeBlock(
@@ -66,9 +69,14 @@ const commitAndProposeLatestBlock = async (
         block.gasLimit,
         commitSlot
     );
+
+    console.log("proposed");
+
     const proposedEvent: BlockProposedEvent = (
         proposeReceipt.events as any[]
     ).find((e) => e.event === "BlockProposed");
+
+    console.log("event exists");
     return { proposedEvent, proposeReceipt, commitReceipt, commit, block };
 };
 

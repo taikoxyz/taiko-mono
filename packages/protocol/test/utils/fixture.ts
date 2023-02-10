@@ -4,7 +4,7 @@ import { getDefaultL2Signer, getL1Provider, getL2Provider } from "./provider";
 import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
 import deployTkoToken from "./tkoToken";
-import { ethers as hardhatEthers } from "hardhat";
+// import { ethers as hardhatEthers } from "hardhat";
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { SimpleChannel } from "channel-ts";
 import Proposer from "./proposer";
@@ -18,10 +18,16 @@ async function initIntegrationFixture(
 
     l1Provider.pollingInterval = 100;
 
-    const signers = await hardhatEthers.getSigners();
-    const l1Signer = signers[0];
+    const l1Signer = await l1Provider
+        .getSigner
+        // (
+        //     await l1Provider.listAccounts()
+        // )[0]
+        ();
 
     const l2Provider = getL2Provider();
+
+    l2Provider.pollingInterval = 100;
 
     const l2Signer = await getDefaultL2Signer();
 
