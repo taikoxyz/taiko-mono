@@ -51,7 +51,7 @@ contract Bridge is EssentialContract, IBridge {
     receive() external payable {
         require(
             msg.sender == resolve("token_vault", true) ||
-                msg.sender == resolve("ether_valut", true) ||
+                msg.sender == resolve("ether_vault", true) ||
                 msg.sender == owner(),
             "B:receive"
         );
