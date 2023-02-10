@@ -131,9 +131,7 @@ async function processMessage(
         blockHeader
     );
 
-    const tx = await l2Bridge.processMessage(message, signalProof, {
-        gasLimit: 1000000,
-    });
+    const tx = await l2Bridge.processMessage(message, signalProof);
     return { tx, signalProof, block, blockHeader };
 }
 
