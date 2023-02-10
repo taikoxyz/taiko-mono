@@ -233,6 +233,10 @@ export async function deployContracts(hre: any) {
         );
     }
 
+    // BullToken
+    // TODO(david): remove this deployment after we finish bridge testing in devnet.
+    const BullToken = await utils.deployContract(hre, "BullToken");
+
     // save deployments
     const deployments = {
         network,
@@ -245,7 +249,8 @@ export async function deployContracts(hre: any) {
             { TaikoL1: TaikoL1.address },
             { Bridge: Bridge.address },
             { SignalService: SignalService.address },
-            { TokenVault: TokenVault.address }
+            { TokenVault: TokenVault.address },
+            { BullToken: BullToken.address }
         ),
     };
 
@@ -326,5 +331,7 @@ async function deployPlonkVerifier(hre: any): Promise<any> {
         "../contracts/libs/yul/PlonkVerifier.yulp"
     );
 
-    return { address: await utils.deployBytecode(hre, byteCode) };
+    return {
+        address: await utils.deployBytecode(hre, byteCode, "PlonkVerifier"),
+    };
 }
