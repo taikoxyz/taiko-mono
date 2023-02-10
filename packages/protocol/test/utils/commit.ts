@@ -61,6 +61,7 @@ const commitAndProposeLatestBlock = async (
         console.log(i);
     }
 
+    // fails out here, L1:notCommited
     const proposeReceipt = await proposeBlock(
         taikoL1.connect(l1Signer),
         block,
