@@ -88,7 +88,17 @@ func Run(
 		log.Fatal(err)
 	}
 
-	srv, err := newHTTPServer(db)
+	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	srv, err := newHTTPServer(db, l1EthClient, l2EthClient)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,12 +179,12 @@ func makeIndexers(
 
 	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
 	if err != nil {
-		return nil, nil, err
+		log.Fatal(err)
 	}
 
 	l2EthClient, err := ethclient.Dial(os.Getenv("L2_RPC_URL"))
 	if err != nil {
-		return nil, nil, err
+		log.Fatal(err)
 	}
 
 	l1RpcClient, err := rpc.DialContext(context.Background(), os.Getenv("L1_RPC_URL"))
@@ -341,8 +351,13 @@ func loadAndValidateEnv() error {
 	return errors.Errorf("Missing env vars: %v", missing)
 }
 
-func newHTTPServer(db relayer.DB) (*http.Server, error) {
+func newHTTPServer(db relayer.DB, l1EthClient relayer.EthClient, l2EthClient relayer.EthClient) (*http.Server, error) {
 	eventRepo, err := repo.NewEventRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	blockRepo, err := repo.NewBlockRepository(db)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +366,9 @@ func newHTTPServer(db relayer.DB) (*http.Server, error) {
 		EventRepo:   eventRepo,
 		Echo:        echo.New(),
 		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
+		L1EthClient: l1EthClient,
+		L2EthClient: l2EthClient,
+		BlockRepo:   blockRepo,
 	})
 	if err != nil {
 		return nil, err
