@@ -10758,7 +10758,7 @@ packages:
       hastscript: 7.2.0
       property-information: 6.2.0
       vfile: 5.3.7
-      vfile-location: 4.0.1
+      vfile-location: 4.1.0
       web-namespaces: 2.0.1
     dev: false
 
@@ -13814,7 +13814,7 @@ packages:
       estree-util-visit: 1.2.1
       micromark-util-types: 1.0.2
       uvu: 0.5.6
-      vfile-location: 4.0.1
+      vfile-location: 4.1.0
       vfile-message: 3.1.3
     dev: false
 
@@ -19090,8 +19090,8 @@ packages:
       extsprintf: 1.3.0
     dev: true
 
-  /vfile-location/4.0.1:
-    resolution: {integrity: sha512-JDxPlTbZrZCQXogGheBHjbRWjESSPEak770XwWPfw5mTc1v1nWGLB/apzZxsx8a0SJVfF8HK8ql8RD308vXRUw==}
+  /vfile-location/4.1.0:
+    resolution: {integrity: sha512-YF23YMyASIIJXpktBa4vIGLJ5Gs88UB/XePgqPmTa7cDA+JeO3yclbpheQYCHjVHBn/yePzrXuygIL+xbvRYHw==}
     dependencies:
       '@types/unist': 2.0.6
       vfile: 5.3.7
