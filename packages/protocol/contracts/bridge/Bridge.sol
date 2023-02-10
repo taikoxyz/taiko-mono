@@ -50,8 +50,9 @@ contract Bridge is EssentialContract, IBridge {
     /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
     receive() external payable {
         require(
-            msg.sender != resolve("token_vault", true) &&
-                msg.sender != resolve("ether_valut", true),
+            msg.sender == owner() ||
+                msg.sender == resolve("token_vault", true) ||
+                msg.sender == resolve("ether_valut", true),
             "B:receive"
         );
     }
