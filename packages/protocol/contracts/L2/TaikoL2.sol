@@ -179,7 +179,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 number = block.number;
         uint256 chainId = block.chainid;
 
-        // put the previous 255 blockhashes(excluding the parent's) into a
+        // put the previous 255 blockhashes (excluding the parent's) into a
         // ring buffer.
         for (uint256 i = 2; i <= 256 && number >= i; ++i) {
             ancestors[(number - i) % 255] = blockhash(number - i);
