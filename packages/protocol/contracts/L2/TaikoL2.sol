@@ -44,17 +44,22 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     uint256[46] private __gap;
 
     /**********************
-     * Events             *
+     * Events and Errors  *
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
+
+    error L2_INVALID_SENDER();
+    error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_GAS_PRICE();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
      * Constructor         *
      **********************/
 
     constructor(address _addressManager) {
-        require(block.chainid != 0, "L2:chainId");
+        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
         AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
@@ -110,11 +115,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Hint hint,
         uint256 txIdx
     ) external {
-        require(
-            msg.sender == LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
-            "L2:sender"
-        );
-        require(tx.gasprice == 0, "L2:gasPrice");
+        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
+            revert L2_INVALID_SENDER();
+
+        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
 
         TaikoData.Config memory config = getConfig();
         LibInvalidTxList.verifyTxListInvalid({
@@ -184,16 +188,17 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 parentHeight = number - 1;
         bytes32 parentHash = blockhash(parentHeight);
 
-        require(
-            _publicInputHash ==
-                _hashPublicInputs({
-                    chainId: chainId,
-                    number: parentHeight,
-                    baseFee: 0,
-                    ancestors: ancestors
-                }),
-            "L2:_publicInputHash"
-        );
+        if (
+            _publicInputHash !=
+            _hashPublicInputs({
+                chainId: chainId,
+                number: parentHeight,
+                baseFee: 0,
+                ancestors: ancestors
+            })
+        ) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
 
         // replace the oldest block hash with the parent's blockhash
         ancestors[parentHeight % 255] = parentHash;
