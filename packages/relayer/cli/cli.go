@@ -357,12 +357,18 @@ func newHTTPServer(db relayer.DB, l1EthClient relayer.EthClient, l2EthClient rel
 		return nil, err
 	}
 
+	blockRepo, err := repo.NewBlockRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
 	srv, err := http.NewServer(http.NewServerOpts{
 		EventRepo:   eventRepo,
 		Echo:        echo.New(),
 		CorsOrigins: strings.Split(os.Getenv("CORS_ORIGINS"), ","),
 		L1EthClient: l1EthClient,
 		L2EthClient: l2EthClient,
+		BlockRepo:   blockRepo,
 	})
 	if err != nil {
 		return nil, err

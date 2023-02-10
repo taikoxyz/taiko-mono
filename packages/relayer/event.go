@@ -53,7 +53,7 @@ type Event struct {
 	CanonicalTokenSymbol   string         `json:"canonicalTokenSymbol"`
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
-	Amount                 string
+	Amount                 string         `json:"amount"`
 }
 
 // SaveEventOpts
