@@ -54,6 +54,8 @@ library LibProving {
     error L1_CIRCUIT_LENGTH();
     error L1_META_HEADER_MISMATCH();
     error L1_ZKP();
+    error L1_TOO_MANY_PROVERS();
+    error L1_DUP_PROVERS();
     error L1_ANCHOR_TYPE();
     error L1_ANCHOR_DEST();
     error L1_ANCHOR_GAS_LIMIT();
@@ -62,6 +64,10 @@ library LibProving {
     error L1_ANCHOR_SIG_S();
     error L1_ANCHOR_RECEIPT_PROOF();
     error L1_ANCHOR_RECEIPT_STATUS();
+    error L1_ANCHOR_RECEIPT_LOGS();
+    error L1_ANCHOR_RECEIPT_ADDR();
+    error L1_ANCHOR_RECEIPT_TOPICS();
+    error L1_ANCHOR_RECEIPT_DATA();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -203,22 +209,21 @@ library LibProving {
             .decodeReceipt(invalidateBlockReceipt);
         if (receipt.status != 1) revert L1_ANCHOR_RECEIPT_STATUS();
 
-        require(receipt.logs.length == 1, "L1:receipt:logsize");
+        if (receipt.logs.length != 1) revert L1_ANCHOR_RECEIPT_LOGS();
 
         {
             LibReceiptDecoder.Log memory log = receipt.logs[0];
-            require(
-                log.contractAddress ==
-                    resolver.resolve(config.chainId, "taiko", false),
-                "L1:receipt:addr"
-            );
-            require(log.data.length == 0, "L1:receipt:data");
-            require(
-                log.topics.length == 2 &&
-                    log.topics[0] == INVALIDATE_BLOCK_LOG_TOPIC &&
-                    log.topics[1] == target.txListHash,
-                "L1:receipt:topics"
-            );
+            if (
+                log.contractAddress !=
+                resolver.resolve(config.chainId, "taiko", false)
+            ) revert L1_ANCHOR_RECEIPT_ADDR();
+
+            if (log.data.length != 0) revert L1_ANCHOR_RECEIPT_DATA();
+            if (
+                log.topics.length != 2 ||
+                log.topics[0] != INVALIDATE_BLOCK_LOG_TOPIC ||
+                log.topics[1] != target.txListHash
+            ) revert L1_ANCHOR_RECEIPT_TOPICS();
         }
 
         // ZK-prove block and mark block proven as invalid.
@@ -328,10 +333,8 @@ library LibProving {
                 // We keep fc.provenAt as 0.
             }
         } else {
-            require(
-                fc.provers.length < config.maxProofsPerForkChoice,
-                "L1:proof:tooMany"
-            );
+            if (fc.provers.length >= config.maxProofsPerForkChoice)
+                revert L1_TOO_MANY_PROVERS();
 
             require(
                 fc.provenAt == 0 ||
@@ -346,7 +349,7 @@ library LibProving {
             );
 
             for (uint256 i = 0; i < fc.provers.length; ++i) {
-                require(fc.provers[i] != prover, "L1:prover:dup");
+                if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
             }
 
             if (fc.blockHash != blockHash) {
