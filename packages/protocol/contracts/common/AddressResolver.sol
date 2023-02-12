@@ -87,6 +87,8 @@ abstract contract AddressResolver {
         );
         addr = payable(_addressManager.getAddress(string(key)));
         if (!allowZeroAddress) {
+            // We do not use custom error so this string-based
+            // error message is more helpful for diagnosis.
             require(
                 addr != address(0),
                 string(abi.encodePacked("AR:zeroAddr:", key))
