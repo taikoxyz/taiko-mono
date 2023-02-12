@@ -24,7 +24,16 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_PROPOSING_INVALID_METADATA_FIELD();
+    error L1_METADATA_FIELD();
+    error L1_EXTRA_DATA();
+    error L1_ID();
+    error L1_TOO_MANY();
+    error L1_GAS_LIMIT();
+    error L1_COMMITTED();
+    error L1_NOT_COMMITTED();
+    error L1_SOLO_PROPOSER();
+    error L1_INPUT_SIZE();
+    error L1_TX_LIST();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -40,7 +49,8 @@ library LibProposing {
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        require(state.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        if (state.commits[msg.sender][commitSlot] == hash)
+            revert L1_COMMITTED();
         state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted({
@@ -62,14 +72,12 @@ library LibProposing {
 
         // TODO(daniel): remove this special address.
         address soloProposer = resolver.resolve("solo_proposer", true);
-        require(
-            soloProposer == address(0) || soloProposer == msg.sender,
-            "L1:soloProposer"
-        );
+        if (soloProposer != address(0) && soloProposer != msg.sender)
+            revert L1_SOLO_PROPOSER();
 
         assert(!LibUtils.isHalted(state));
 
-        require(inputs.length == 2, "L1:inputs:size");
+        if (inputs.length != 2) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -84,18 +92,16 @@ library LibProposing {
         {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
-            require(
-                txList.length >= 0 &&
-                    txList.length <= config.maxBytesPerTxList &&
-                    meta.txListHash == txList.hashTxList(),
-                "L1:txList"
-            );
+            if (
+                txList.length < 0 ||
+                txList.length > config.maxBytesPerTxList ||
+                meta.txListHash != txList.hashTxList()
+            ) revert L1_TX_LIST();
 
-            require(
-                state.nextBlockId <
-                    state.latestVerifiedId + config.maxNumBlocks,
-                "L1:tooMany"
-            );
+            if (
+                state.nextBlockId >=
+                state.latestVerifiedId + config.maxNumBlocks
+            ) revert L1_TOO_MANY();
 
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;
@@ -192,7 +198,9 @@ library LibProposing {
         uint256 maxNumBlocks,
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
-        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
+        if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
+            revert L1_ID();
+        }
         return state.getProposedBlock(maxNumBlocks, id);
     }
 
@@ -218,16 +226,15 @@ library LibProposing {
             meta.txListHash
         );
 
-        require(
-            isCommitValid({
+        if (
+            !isCommitValid({
                 state: state,
                 commitConfirmations: commitConfirmations,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
-            }),
-            "L1:notCommitted"
-        );
+            })
+        ) revert L1_NOT_COMMITTED();
 
         if (meta.commitSlot == 0) {
             // Special handling of slot 0 for refund; non-zero slots
@@ -248,10 +255,12 @@ library LibProposing {
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||
             meta.txListHash == 0
-        ) revert L1_PROPOSING_INVALID_METADATA_FIELD();
+        ) revert L1_METADATA_FIELD();
 
-        require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
-        require(meta.extraData.length <= 32, "L1:extraData");
+        if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
+        if (meta.extraData.length > 32) {
+            revert L1_EXTRA_DATA();
+        }
     }
 
     function _calculateCommitHash(

@@ -39,7 +39,7 @@ const proposeBlock = async (
 
     const inputs = buildProposeBlockInputs(block, meta);
 
-    const tx = await taikoL1.proposeBlock(inputs);
+    const tx = await taikoL1.proposeBlock(inputs, { gasLimit: 500000 });
     const receipt = await tx.wait(1);
     return receipt;
 };

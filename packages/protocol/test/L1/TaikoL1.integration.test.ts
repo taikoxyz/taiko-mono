@@ -18,8 +18,11 @@ import Proposer from "../utils/proposer";
 import { proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { sendTinyEtherToZeroAddress } from "../utils/seed";
-import { commitProposeProveAndVerify, verifyBlocks } from "../utils/verify";
-import { txShouldRevertWithCustomError } from "../utils/errors";
+import { commitProposeProveAndVerify } from "../utils/verify";
+import {
+    txShouldRevertWithCustomError,
+    readShouldRevertWithCustomError,
+} from "../utils/errors";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -108,8 +111,9 @@ describe("integration:TaikoL1", function () {
 
     describe("getProposedBlock()", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
-            await expect(taikoL1.getProposedBlock(123)).to.be.revertedWith(
-                "L1:id"
+            await readShouldRevertWithCustomError(
+                taikoL1.getProposedBlock(123),
+                "L1_ID()"
             );
         });
 
@@ -199,10 +203,14 @@ describe("integration:TaikoL1", function () {
             };
 
             const inputs = buildProposeBlockInputs(block, meta);
+            const txPromise = (
+                await taikoL1.proposeBlock(inputs, { gasLimit: 500000 })
+            ).wait(1);
             await txShouldRevertWithCustomError(
-                taikoL1.proposeBlock(inputs, { gasLimit: 500000 }),
+                txPromise,
+
                 l1Provider,
-                "L1_PROPOSING_INVALID_METADATA_FIELD()"
+                "L1_METADATA_FIELD()"
             );
         });
 
@@ -230,8 +238,13 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
 
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:gasLimit"
+            const txPromise = (
+                await taikoL1.proposeBlock(inputs, { gasLimit: 250000 })
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
+                l1Provider,
+                "L1_GAS_LIMIT()"
             );
         });
 
@@ -255,8 +268,13 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
 
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:extraData"
+            const txPromise = (
+                await taikoL1.proposeBlock(inputs, { gasLimit: 500000 })
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
+                l1Provider,
+                "L1_EXTRA_DATA()"
             );
         });
 
@@ -308,9 +326,11 @@ describe("integration:TaikoL1", function () {
 
             // now expect another proposed block to be invalid since all slots are full and none have
             // been proven.
-            await expect(
-                commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider)
-            ).to.be.revertedWith("L1:tooMany");
+            await txShouldRevertWithCustomError(
+                commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider),
+                l1Provider,
+                "L1_TOO_MANY()"
+            );
         });
     });
 
@@ -367,9 +387,13 @@ describe("integration:TaikoL1", function () {
     describe("verifyBlocks", function () {
         it("can not be called manually to verify block if chain is halted", async function () {
             await halt(taikoL1.connect(l1Signer), true);
-
-            await expect(verifyBlocks(taikoL1, 1)).to.be.revertedWith(
-                "L1:halted"
+            const txPromise = (
+                await taikoL1.verifyBlocks(1, { gasLimit: 100000 })
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
+                l1Provider,
+                "L1_HALTED()"
             );
         });
     });
