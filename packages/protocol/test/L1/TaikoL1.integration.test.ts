@@ -19,9 +19,11 @@ import { proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { sendTinyEtherToZeroAddress } from "../utils/seed";
 import { commitProposeProveAndVerify, verifyBlocks } from "../utils/verify";
+import { txShouldRevertWithCustomError } from "../utils/errors";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
+    let l1Provider: ethersLib.providers.JsonRpcProvider;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
     let l1Signer: any;
     let proposerSigner: any;
@@ -37,6 +39,7 @@ describe("integration:TaikoL1", function () {
 
     beforeEach(async function () {
         ({
+            l1Provider,
             taikoL1,
             l2Provider,
             l1Signer,
@@ -168,6 +171,7 @@ describe("integration:TaikoL1", function () {
             expect(forkChoice.provers[0]).to.be.eq(await l1Signer.getAddress());
         });
     });
+
     describe("commitBlock() -> proposeBlock() integration", async function () {
         it("should fail if a proposed block's placeholder field values are not default", async function () {
             const block = await l2Provider.getBlock("latest");
@@ -195,9 +199,10 @@ describe("integration:TaikoL1", function () {
             };
 
             const inputs = buildProposeBlockInputs(block, meta);
-
-            await expect(taikoL1.proposeBlock(inputs)).to.be.revertedWith(
-                "L1:placeholder"
+            await txShouldRevertWithCustomError(
+                l1Provider,
+                taikoL1.proposeBlock(inputs, { gasLimit: 1000000 }),
+                "L1_PROPOSING_INVALID_METADATA_FIELD()"
             );
         });
 

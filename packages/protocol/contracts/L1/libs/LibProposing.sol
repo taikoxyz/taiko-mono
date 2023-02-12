@@ -24,6 +24,8 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
+    error L1_PROPOSING_INVALID_METADATA_FIELD();
+
     function commitBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -238,16 +240,15 @@ library LibProposing {
         TaikoData.Config memory config,
         TaikoData.BlockMetadata memory meta
     ) private pure {
-        require(
-            meta.id == 0 &&
-                meta.l1Height == 0 &&
-                meta.l1Hash == 0 &&
-                meta.mixHash == 0 &&
-                meta.timestamp == 0 &&
-                meta.beneficiary != address(0) &&
-                meta.txListHash != 0,
-            "L1:placeholder"
-        );
+        if (
+            meta.id != 0 ||
+            meta.l1Height != 0 ||
+            meta.l1Hash != 0 ||
+            meta.mixHash != 0 ||
+            meta.timestamp != 0 ||
+            meta.beneficiary == address(0) ||
+            meta.txListHash == 0
+        ) revert L1_PROPOSING_INVALID_METADATA_FIELD();
 
         require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
         require(meta.extraData.length <= 32, "L1:extraData");
