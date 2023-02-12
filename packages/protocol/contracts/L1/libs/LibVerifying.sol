@@ -27,7 +27,7 @@ library LibVerifying {
     );
 
     error L1_HALTED();
-    error L1_0_FEE_BASE;
+    error L1_0_FEE_BASE();
 
     function init(
         TaikoData.State storage state,
