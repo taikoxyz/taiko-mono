@@ -26,6 +26,8 @@ library LibVerifying {
         bytes32 srcHash
     );
 
+    error L1_HALTED();
+
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
@@ -53,7 +55,7 @@ library LibVerifying {
     ) public {
         bool halted = LibUtils.isHalted(state);
         if (checkHalt) {
-            require(!halted, "L1:halted");
+            if (halted) revert L1_HALTED();
         } else if (halted) {
             // skip finalizing blocks
             return;

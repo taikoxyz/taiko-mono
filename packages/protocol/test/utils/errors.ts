@@ -7,10 +7,12 @@ async function txShouldRevertWithCustomError(
     customError: String
 ) {
     try {
-        await (await txPromise).wait(1);
+        await txPromise;
         expect.fail("Expected promise to throw but it didn't");
     } catch (tx) {
+        // console.log(tx)
         const _tx = await provider.getTransaction(tx.transactionHash);
+        // console.log(_tx)
         const code = await provider.call(_tx, _tx.blockNumber);
         const expectedCode = utils
             .keccak256(utils.toUtf8Bytes(customError))
@@ -27,4 +29,24 @@ async function txShouldRevertWithCustomError(
     }
 }
 
-export { txShouldRevertWithCustomError };
+async function readShouldRevertWithCustomError(
+    txPromise: Promise<any>,
+    customError: String
+) {
+    try {
+        await txPromise;
+
+        expect.fail("Expected promise to throw but it didn't");
+    } catch (result) {
+        if (result.errorSignature !== customError) {
+            expect.fail(
+                "Error code mismatch: actual=",
+                result.errorSignature,
+                "expected=",
+                customError
+            );
+        }
+    }
+}
+
+export { txShouldRevertWithCustomError, readShouldRevertWithCustomError };

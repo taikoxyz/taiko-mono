@@ -24,7 +24,11 @@ library LibProposing {
     );
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_PROPOSING_INVALID_METADATA_FIELD();
+    error L1_METADATA_FIELD();
+    error L1_EXTRA_DATA();
+    error L1_ID();
+    error L1_TOO_MANY();
+    error L1_GAS_LIMIT();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -91,11 +95,10 @@ library LibProposing {
                 "L1:txList"
             );
 
-            require(
-                state.nextBlockId <
-                    state.latestVerifiedId + config.maxNumBlocks,
-                "L1:tooMany"
-            );
+            if (
+                state.nextBlockId >=
+                state.latestVerifiedId + config.maxNumBlocks
+            ) revert L1_TOO_MANY();
 
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;
@@ -192,7 +195,9 @@ library LibProposing {
         uint256 maxNumBlocks,
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
-        require(id > state.latestVerifiedId && id < state.nextBlockId, "L1:id");
+        if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
+            revert L1_ID();
+        }
         return state.getProposedBlock(maxNumBlocks, id);
     }
 
@@ -248,10 +253,12 @@ library LibProposing {
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||
             meta.txListHash == 0
-        ) revert L1_PROPOSING_INVALID_METADATA_FIELD();
+        ) revert L1_METADATA_FIELD();
 
-        require(meta.gasLimit <= config.blockMaxGasLimit, "L1:gasLimit");
-        require(meta.extraData.length <= 32, "L1:extraData");
+        if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
+        if (meta.extraData.length > 32) {
+            revert L1_EXTRA_DATA();
+        }
     }
 
     function _calculateCommitHash(

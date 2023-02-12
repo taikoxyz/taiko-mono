@@ -48,6 +48,8 @@ library LibProving {
         address prover
     );
 
+    error L1_ID();
+
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -65,7 +67,7 @@ library LibProving {
         bytes calldata anchorReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockId, "L1:id");
+        if (evidence.meta.id != blockId) revert L1_ID();
 
         uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         require(
@@ -173,7 +175,7 @@ library LibProving {
         bytes calldata invalidateBlockReceipt = inputs[2];
 
         // Check evidence
-        require(evidence.meta.id == blockId, "L1:id");
+        if (evidence.meta.id != blockId) revert L1_ID();
         require(
             evidence.proofs.length == 1 + config.zkProofsPerBlock,
             "L1:proof:size"
