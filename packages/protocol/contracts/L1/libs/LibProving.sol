@@ -49,6 +49,10 @@ library LibProving {
     );
 
     error L1_ID();
+    error L1_INPUT_SIZE();
+    error L1_PROOF_LENGTH();
+    error L1_CIRCUIT_LENGTH();
+    error L1_ANCHOR_TYPE();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -60,7 +64,7 @@ library LibProving {
         assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
-        require(inputs.length == 3, "L1:inputs:size");
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         bytes calldata anchorTx = inputs[1];
@@ -70,14 +74,11 @@ library LibProving {
         if (evidence.meta.id != blockId) revert L1_ID();
 
         uint256 zkProofsPerBlock = config.zkProofsPerBlock;
-        require(
-            evidence.proofs.length == 2 + zkProofsPerBlock,
-            "L1:proof:size"
-        );
-        require(
-            evidence.circuits.length == zkProofsPerBlock,
-            "L1:circuits:size"
-        );
+        if (evidence.proofs.length != 2 + zkProofsPerBlock)
+            revert L1_PROOF_LENGTH();
+
+        if (evidence.circuits.length != zkProofsPerBlock)
+            revert L1_CIRCUIT_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
@@ -89,7 +90,7 @@ library LibProving {
                 config.chainId,
                 anchorTx
             );
-            require(_tx.txType == 0, "L1:anchor:type");
+            if (_tx.txType != 0) revert L1_ANCHOR_TYPE();
             require(
                 _tx.destination ==
                     resolver.resolve(config.chainId, "taiko", false),
@@ -166,7 +167,7 @@ library LibProving {
         assert(!LibUtils.isHalted(state));
 
         // Check and decode inputs
-        require(inputs.length == 3, "L1:inputs:size");
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
         TaikoData.BlockMetadata memory target = abi.decode(
             inputs[1],
