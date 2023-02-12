@@ -49,13 +49,18 @@ library LibProving {
     );
 
     error L1_ID();
+    error L1_PROVER();
+    error L1_TOO_LATE();
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
+    error L1_CONFLICT_PROOF();
     error L1_CIRCUIT_LENGTH();
-    error L1_META_HEADER_MISMATCH();
+    error L1_META_MISMATCH();
     error L1_ZKP();
     error L1_TOO_MANY_PROVERS();
     error L1_DUP_PROVERS();
+    error L1_NOT_FIRST_PROVER();
+    error L1_CANNOT_BE_FIRST_PROVER();
     error L1_ANCHOR_TYPE();
     error L1_ANCHOR_DEST();
     error L1_ANCHOR_GAS_LIMIT();
@@ -247,8 +252,8 @@ library LibProving {
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
-        require(evidence.meta.id == target.id, "L1:height");
-        require(evidence.prover != address(0), "L1:prover");
+        if (evidence.meta.id != target.id) revert L1_ID();
+        if (evidence.prover == address(0)) revert L1_PROVER();
 
         _checkMetadata({state: state, config: config, meta: target});
         _validateHeaderForMetadata({
@@ -268,10 +273,10 @@ library LibProving {
             .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
             if (msg.sender == resolver.resolve("oracle_prover", false)) {
-                require(_blockHash == 0, "L1:mustBeFirstProver");
+                if (_blockHash != 0) revert L1_NOT_FIRST_PROVER();
                 skipZKPVerification = true;
             } else {
-                require(_blockHash != 0, "L1:mustNotBeFirstProver");
+                if (_blockHash == 0) revert L1_CANNOT_BE_FIRST_PROVER();
             }
         }
 
@@ -279,8 +284,8 @@ library LibProving {
 
         if (!skipZKPVerification) {
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
-                require(
-                    proofVerifier.verifyZKP({
+                if (
+                    !proofVerifier.verifyZKP({
                         verifierId: string(
                             abi.encodePacked(
                                 "plonk_verifier_",
@@ -293,9 +298,8 @@ library LibProving {
                         blockHash: blockHash,
                         prover: evidence.prover,
                         txListHash: evidence.meta.txListHash
-                    }),
-                    "L1:zkp"
-                );
+                    })
+                ) revert L1_ZKP();
             }
         }
 
@@ -336,17 +340,16 @@ library LibProving {
             if (fc.provers.length >= config.maxProofsPerForkChoice)
                 revert L1_TOO_MANY_PROVERS();
 
-            require(
-                fc.provenAt == 0 ||
-                    block.timestamp <
-                    LibUtils.getUncleProofDeadline({
-                        state: state,
-                        config: config,
-                        fc: fc,
-                        blockId: target.id
-                    }),
-                "L1:tooLate"
-            );
+            if (
+                fc.provenAt != 0 &&
+                block.timestamp >=
+                LibUtils.getUncleProofDeadline({
+                    state: state,
+                    config: config,
+                    fc: fc,
+                    blockId: target.id
+                })
+            ) revert L1_TOO_LATE();
 
             for (uint256 i = 0; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
@@ -356,7 +359,7 @@ library LibProving {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
-                    revert("L1:proof:conflict");
+                    revert L1_CONFLICT_PROOF();
                 } else {
                     LibUtils.halt(state, true);
                     return;
@@ -403,15 +406,12 @@ library LibProving {
         TaikoData.Config memory config,
         TaikoData.BlockMetadata memory meta
     ) private view {
-        require(
-            meta.id > state.latestVerifiedId && meta.id < state.nextBlockId,
-            "L1:meta:id"
-        );
-        require(
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash ==
-                meta.hashMetadata(),
-            "L1:metaHash"
-        );
+        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
+            revert L1_ID();
+        if (
+            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
+            meta.hashMetadata()
+        ) revert L1_META_MISMATCH();
     }
 
     function _validateHeaderForMetadata(
@@ -429,6 +429,6 @@ library LibProving {
             header.extraData.length != meta.extraData.length ||
             keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
-        ) revert L1_META_HEADER_MISMATCH();
+        ) revert L1_META_MISMATCH();
     }
 }
