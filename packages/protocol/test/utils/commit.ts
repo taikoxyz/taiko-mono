@@ -31,7 +31,9 @@ const commitBlock = async (
     receipt: ethers.ContractReceipt;
 }> => {
     const commit = generateCommitHash(block);
-    const tx = await taikoL1.commitBlock(commitSlot, commit.hash);
+    const tx = await taikoL1.commitBlock(commitSlot, commit.hash, {
+        gasLimit: 200000,
+    });
     const receipt = await tx.wait(1);
     const blockCommittedEvent = receipt.events!.find(
         (e) => e.event === "BlockCommitted"
