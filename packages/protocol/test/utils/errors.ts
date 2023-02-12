@@ -2,8 +2,8 @@ import { ethers, utils } from "ethers";
 import { expect } from "chai";
 
 async function txShouldRevertWithCustomError(
-    provider: ethers.providers.JsonRpcProvider,
     txPromise: Promise<any>,
+    provider: ethers.providers.JsonRpcProvider,
     customError: String
 ) {
     try {

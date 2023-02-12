@@ -200,8 +200,8 @@ describe("integration:TaikoL1", function () {
 
             const inputs = buildProposeBlockInputs(block, meta);
             await txShouldRevertWithCustomError(
+                taikoL1.proposeBlock(inputs),
                 l1Provider,
-                taikoL1.proposeBlock(inputs, { gasLimit: 1000000 }),
                 "L1_PROPOSING_INVALID_METADATA_FIELD()"
             );
         });
