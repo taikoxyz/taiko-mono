@@ -62,7 +62,7 @@ describe("TaikoL1", function () {
         it("should revert when size of inputs is les than 2", async function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("L1:inputs:size");
+            ).to.be.revertedWith("L1_INPUT_SIZE()");
         });
 
         it("should revert when halted", async function () {
@@ -77,7 +77,7 @@ describe("TaikoL1", function () {
         it("should revert when size of inputs is les than 2", async function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("L1:inputs:size");
+            ).to.be.revertedWith("L1_INPUT_SIZE()");
         });
 
         it("should revert when halted", async function () {

@@ -29,6 +29,11 @@ library LibProposing {
     error L1_ID();
     error L1_TOO_MANY();
     error L1_GAS_LIMIT();
+    error L1_COMMITTED();
+    error L1_NOT_COMMITTED();
+    error L1_SOLO_PROPOSER();
+    error L1_INPUT_SIZE();
+    error L1_TX_LIST();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -44,7 +49,8 @@ library LibProposing {
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
-        require(state.commits[msg.sender][commitSlot] != hash, "L1:committed");
+        if (state.commits[msg.sender][commitSlot] == hash)
+            revert L1_COMMITTED();
         state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted({
@@ -66,14 +72,12 @@ library LibProposing {
 
         // TODO(daniel): remove this special address.
         address soloProposer = resolver.resolve("solo_proposer", true);
-        require(
-            soloProposer == address(0) || soloProposer == msg.sender,
-            "L1:soloProposer"
-        );
+        if (soloProposer != address(0) && soloProposer != msg.sender)
+            revert L1_SOLO_PROPOSER();
 
         assert(!LibUtils.isHalted(state));
 
-        require(inputs.length == 2, "L1:inputs:size");
+        if (inputs.length != 2) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -88,12 +92,11 @@ library LibProposing {
         {
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
-            require(
-                txList.length >= 0 &&
-                    txList.length <= config.maxBytesPerTxList &&
-                    meta.txListHash == txList.hashTxList(),
-                "L1:txList"
-            );
+            if (
+                txList.length < 0 ||
+                txList.length > config.maxBytesPerTxList ||
+                meta.txListHash != txList.hashTxList()
+            ) revert L1_TX_LIST();
 
             if (
                 state.nextBlockId >=
@@ -223,16 +226,15 @@ library LibProposing {
             meta.txListHash
         );
 
-        require(
-            isCommitValid({
+        if (
+            !isCommitValid({
                 state: state,
                 commitConfirmations: commitConfirmations,
                 commitSlot: meta.commitSlot,
                 commitHeight: meta.commitHeight,
                 commitHash: commitHash
-            }),
-            "L1:notCommitted"
-        );
+            })
+        ) revert L1_NOT_COMMITTED();
 
         if (meta.commitSlot == 0) {
             // Special handling of slot 0 for refund; non-zero slots
