@@ -2,7 +2,7 @@ import { expect } from "chai";
 // eslint-disable-next-line import/no-named-default
 import { default as hre, ethers } from "hardhat";
 
-describe("i-ntegration:LibReceiptDecoder", function () {
+describe("integration:LibReceiptDecoder", function () {
     let libReceiptDecoder: any;
 
     before(async function () {
