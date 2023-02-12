@@ -52,7 +52,10 @@ library LibProving {
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CIRCUIT_LENGTH();
+    error L1_META_HEADER_MISMATCH();
     error L1_ANCHOR_TYPE();
+    error L1_ANCHOR_SIG_R();
+    error L1_ANCHOR_SIG_S();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -382,17 +385,15 @@ library LibProving {
         uint256 chainId,
         LibTxDecoder.Tx memory _tx
     ) private view {
-        require(
-            _tx.r == LibAnchorSignature.GX || _tx.r == LibAnchorSignature.GX2,
-            "L1:sig:r"
-        );
+        if (_tx.r != LibAnchorSignature.GX && _tx.r != LibAnchorSignature.GX2)
+            revert L1_ANCHOR_SIG_R();
 
         if (_tx.r == LibAnchorSignature.GX2) {
             (, , uint256 s) = LibAnchorSignature.signTransaction(
                 LibTxUtils.hashUnsignedTx(chainId, _tx),
                 1
             );
-            require(s == 0, "L1:sig:s");
+            if (s != 0) revert L1_ANCHOR_SIG_S();
         }
     }
 
@@ -417,17 +418,16 @@ library LibProving {
         BlockHeader memory header,
         TaikoData.BlockMetadata memory meta
     ) private pure {
-        require(
-            header.parentHash != 0 &&
-                header.beneficiary == meta.beneficiary &&
-                header.difficulty == 0 &&
-                header.gasLimit == meta.gasLimit + config.anchorTxGasLimit &&
-                header.gasUsed > 0 &&
-                header.timestamp == meta.timestamp &&
-                header.extraData.length == meta.extraData.length &&
-                keccak256(header.extraData) == keccak256(meta.extraData) &&
-                header.mixHash == meta.mixHash,
-            "L1:meta:headerMismatch"
-        );
+        if (
+            header.parentHash == 0 ||
+            header.beneficiary != meta.beneficiary ||
+            header.difficulty != 0 ||
+            header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
+            header.gasUsed == 0 ||
+            header.timestamp != meta.timestamp ||
+            header.extraData.length != meta.extraData.length ||
+            keccak256(header.extraData) != keccak256(meta.extraData) ||
+            header.mixHash != meta.mixHash
+        ) revert L1_META_HEADER_MISMATCH();
     }
 }
