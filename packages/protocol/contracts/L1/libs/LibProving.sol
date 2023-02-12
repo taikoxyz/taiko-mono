@@ -53,9 +53,15 @@ library LibProving {
     error L1_PROOF_LENGTH();
     error L1_CIRCUIT_LENGTH();
     error L1_META_HEADER_MISMATCH();
+    error L1_ZKP();
     error L1_ANCHOR_TYPE();
+    error L1_ANCHOR_DEST();
+    error L1_ANCHOR_GAS_LIMIT();
+    error L1_ANCHOR_CALLDATA();
     error L1_ANCHOR_SIG_R();
     error L1_ANCHOR_SIG_S();
+    error L1_ANCHOR_RECEIPT_PROOF();
+    error L1_ANCHOR_RECEIPT_STATUS();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -94,58 +100,52 @@ library LibProving {
                 anchorTx
             );
             if (_tx.txType != 0) revert L1_ANCHOR_TYPE();
-            require(
-                _tx.destination ==
-                    resolver.resolve(config.chainId, "taiko", false),
-                "L1:anchor:dest"
-            );
-            require(
-                _tx.gasLimit == config.anchorTxGasLimit,
-                "L1:anchor:gasLimit"
-            );
+            if (
+                _tx.destination !=
+                resolver.resolve(config.chainId, "taiko", false)
+            ) revert L1_ANCHOR_DEST();
+            if (_tx.gasLimit != config.anchorTxGasLimit)
+                revert L1_ANCHOR_GAS_LIMIT();
 
             // Check anchor tx's signature is valid and deterministic
             _validateAnchorTxSignature(config.chainId, _tx);
 
             // Check anchor tx's calldata is valid
-            require(
-                LibBytesUtils.equal(
+            if (
+                !LibBytesUtils.equal(
                     _tx.data,
                     bytes.concat(
                         ANCHOR_TX_SELECTOR,
                         bytes32(evidence.meta.l1Height),
                         evidence.meta.l1Hash
                     )
-                ),
-                "L1:anchor:calldata"
-            );
+                )
+            ) revert L1_ANCHOR_CALLDATA();
 
             // Check anchor tx is the 1st tx in the block
-            require(
-                proofVerifier.verifyMKP({
+            if (
+                !proofVerifier.verifyMKP({
                     key: LibRLPWriter.writeUint(0),
                     value: anchorTx,
                     proof: evidence.proofs[zkProofsPerBlock],
                     root: evidence.header.transactionsRoot
-                }),
-                "L1:tx:proof"
-            );
+                })
+            ) revert L1_ZKP();
 
             // Check anchor tx does not throw
 
             LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
                 .decodeReceipt(anchorReceipt);
 
-            require(receipt.status == 1, "L1:receipt:status");
-            require(
-                proofVerifier.verifyMKP({
+            if (receipt.status != 1) revert L1_ANCHOR_RECEIPT_STATUS();
+            if (
+                !proofVerifier.verifyMKP({
                     key: LibRLPWriter.writeUint(0),
                     value: anchorReceipt,
                     proof: evidence.proofs[zkProofsPerBlock + 1],
                     root: evidence.header.receiptsRoot
-                }),
-                "L1:receipt:proof"
-            );
+                })
+            ) revert L1_ANCHOR_RECEIPT_PROOF();
         }
 
         // ZK-prove block and mark block proven to be valid.
@@ -180,31 +180,29 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        require(
-            evidence.proofs.length == 1 + config.zkProofsPerBlock,
-            "L1:proof:size"
-        );
+        if (evidence.proofs.length != 1 + config.zkProofsPerBlock)
+            revert L1_PROOF_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
 
         // Check the event is the first one in the throw-away block
-        require(
-            proofVerifier.verifyMKP({
+        if (
+            !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: invalidateBlockReceipt,
                 proof: evidence.proofs[config.zkProofsPerBlock],
                 root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
+            })
+        ) revert L1_ANCHOR_RECEIPT_PROOF();
 
         // Check the 1st receipt is for an InvalidateBlock tx with
         // a BlockInvalidated event
         LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
             .decodeReceipt(invalidateBlockReceipt);
-        require(receipt.status == 1, "L1:receipt:status");
+        if (receipt.status != 1) revert L1_ANCHOR_RECEIPT_STATUS();
+
         require(receipt.logs.length == 1, "L1:receipt:logsize");
 
         {
