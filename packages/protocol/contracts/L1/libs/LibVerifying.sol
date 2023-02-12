@@ -27,13 +27,14 @@ library LibVerifying {
     );
 
     error L1_HALTED();
+    error L1_0_FEE_BASE;
 
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) public {
-        require(feeBase > 0, "L1:feeBase");
+        if (feeBase == 0) revert L1_0_FEE_BASE();
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
