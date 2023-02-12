@@ -200,7 +200,8 @@ action("Generate Genesis", function () {
                 TaikoL2.invalidateBlock(
                     bytes,
                     1, // hint: TX_INVALID_SIG
-                    0
+                    0,
+                    { gasLimit: 500000 }
                 )
             ).to.be.revertedWith("L2:sender");
 
