@@ -244,7 +244,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: ethers.utils.hexlify(ethers.utils.randomBytes(33)), // invalid extradata

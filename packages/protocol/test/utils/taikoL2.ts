@@ -27,7 +27,7 @@ async function deployTaikoL2(
         )
     )
         .connect(signer)
-        .deploy(addressManager.address);
+        .deploy(addressManager.address, { gasLimit: 5000000 });
 
     return taikoL2 as TaikoL2;
 }
