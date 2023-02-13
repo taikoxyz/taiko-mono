@@ -26,25 +26,40 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * State Variables    *
      **********************/
 
+    // Mapping from L2 block numbers to their block hashes.
+    // All L2 block hashes will be saved in this mapping.
     mapping(uint256 => bytes32) private _l2Hashes;
+
+    // Mapping from L1 block numbers to their block hashes.
+    // Note that only hashes of L1 blocks where at least one L2
+    // block has been proposed will be saved in this mapping.
     mapping(uint256 => bytes32) private _l1Hashes;
-    bytes32 public publicInputHash;
+
+    // A hash to check te integrity of public inputs.
+    bytes32 private _publicInputHash;
+
+    // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
     uint256[46] private __gap;
 
     /**********************
-     * Events             *
+     * Events and Errors  *
      **********************/
 
     event BlockInvalidated(bytes32 indexed txListHash);
+
+    error L2_INVALID_SENDER();
+    error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_GAS_PRICE();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
      * Constructor         *
      **********************/
 
     constructor(address _addressManager) {
-        require(block.chainid != 0, "L2:chainId");
+        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
         AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
@@ -53,7 +68,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
             ancestors[i] = blockhash(number - i - 2);
         }
 
-        publicInputHash = _hashPublicInputs({
+        _publicInputHash = _hashPublicInputs({
             chainId: block.chainid,
             number: number,
             baseFee: 0,
@@ -100,11 +115,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         LibInvalidTxList.Hint hint,
         uint256 txIdx
     ) external {
-        require(
-            msg.sender == LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS,
-            "L2:sender"
-        );
-        require(tx.gasprice == 0, "L2:gasPrice");
+        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
+            revert L2_INVALID_SENDER();
+
+        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
 
         TaikoData.Config memory config = getConfig();
         LibInvalidTxList.verifyTxListInvalid({
@@ -165,7 +179,8 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 number = block.number;
         uint256 chainId = block.chainid;
 
-        // from 2 to 256, while nnumber is greater than that number
+        // put the previous 255 blockhashes (excluding the parent's) into a
+        // ring buffer.
         for (uint256 i = 2; i <= 256 && number >= i; ++i) {
             ancestors[(number - i) % 255] = blockhash(number - i);
         }
@@ -173,19 +188,21 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 parentHeight = number - 1;
         bytes32 parentHash = blockhash(parentHeight);
 
-        require(
-            publicInputHash ==
-                _hashPublicInputs({
-                    chainId: chainId,
-                    number: parentHeight,
-                    baseFee: 0,
-                    ancestors: ancestors
-                }),
-            "L2:publicInputHash"
-        );
+        if (
+            _publicInputHash !=
+            _hashPublicInputs({
+                chainId: chainId,
+                number: parentHeight,
+                baseFee: 0,
+                ancestors: ancestors
+            })
+        ) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
 
+        // replace the oldest block hash with the parent's blockhash
         ancestors[parentHeight % 255] = parentHash;
-        publicInputHash = _hashPublicInputs({
+        _publicInputHash = _hashPublicInputs({
             chainId: chainId,
             number: number,
             baseFee: 0,

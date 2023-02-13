@@ -65,7 +65,7 @@ Let's walk through an example:
 
 1. First, we can send a message on some source chain, and store it on the signal service.
 2. Next, we call `eth_getProof`, which will give us a proof that we did indeed send a message on the source chain.
-3. Finally, we call `isSignalReceived` on the destination chain's SignalService which essentially just verifies the merkle proof. `isSignalReceived` will lookup the block hash you are asserting you had stored a message on the source chain (where you originally sent the message), and with the sibling hashes inside the merkle proof it will rebuild the merkle root, which verifies the signal was included in that merkle root—meaning it was sent.
+3. Finally, we call `isSignalReceived` on the destination chain's SignalService which essentially just verifies the merkle proof. `isSignalReceived` will look up the block hash you are asserting you had stored a message on the source chain (where you originally sent the message), and with the sibling hashes inside the merkle proof it will rebuild the merkle root, which verifies the signal was included in that merkle root—meaning it was sent.
 
 And boom! We have sent a cross-chain message. Confusing? Well leave some feedback please if it is, so we can clear it up.
 
