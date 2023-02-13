@@ -225,13 +225,16 @@ action("Generate Genesis", function () {
                 gasUsed: receipt.gasUsed,
             });
 
-            await txShouldRevertWithCustomError(
-                TaikoL2.invalidateBlock(
+            const txPromise = (
+                await TaikoL2.invalidateBlock(
                     bytes,
                     1, // hint: TX_INVALID_SIG
                     0,
                     { gasLimit: 500000 }
-                ),
+                )
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
                 provider,
                 "L2_INVALID_SENDER()"
             );
