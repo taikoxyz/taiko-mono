@@ -113,7 +113,7 @@ describe("integration:TaikoL1", function () {
             );
         });
 
-        it.only("should return valid block if it's been commmited and proposed", async function () {
+        it("should return valid block if it's been commmited and proposed", async function () {
             const commitSlot = 0;
             const { proposedEvent } = await commitAndProposeLatestBlock(
                 taikoL1,
@@ -190,7 +190,7 @@ describe("integration:TaikoL1", function () {
                 id: 1,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
@@ -219,7 +219,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,

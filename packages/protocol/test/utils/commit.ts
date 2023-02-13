@@ -8,16 +8,21 @@ import { sendTinyEtherToZeroAddress } from "./seed";
 
 const generateCommitHash = (
     block: ethers.providers.Block
-): { hash: string; txListHash: string } => {
+): { hash: string; txListHash: string; beneficiary: string } => {
     const txListHash = ethers.utils.keccak256(RLP.encode(block.transactions));
+    const beneficiary =
+        block.miner === ethers.constants.AddressZero
+            ? ethers.Wallet.createRandom().address
+            : block.miner;
+
     const hash = ethers.utils.keccak256(
         ethers.utils.solidityPack(
             ["address", "bytes32"],
-            [block.miner, txListHash]
+            [beneficiary, txListHash]
         )
     );
 
-    return { hash: hash, txListHash: txListHash };
+    return { hash, txListHash, beneficiary };
 };
 
 const commitBlock = async (
@@ -26,7 +31,7 @@ const commitBlock = async (
     commitSlot: number = 0
 ): Promise<{
     tx: ethers.ContractTransaction;
-    commit: { hash: string; txListHash: string };
+    commit: { hash: string; txListHash: string; beneficiary: string };
     blockCommittedEvent: BlockCommittedEvent | undefined;
     receipt: ethers.ContractReceipt;
 }> => {
@@ -57,7 +62,7 @@ const commitAndProposeLatestBlock = async (
     console.log("commited");
 
     for (let i = 0; i < commitConfirmations.toNumber() + 5; i++) {
-        async () => await sendTinyEtherToZeroAddress(l1Signer);
+        await sendTinyEtherToZeroAddress(l1Signer);
         console.log(i);
     }
 
@@ -68,7 +73,8 @@ const commitAndProposeLatestBlock = async (
         commit.txListHash,
         commitReceipt.blockNumber as number,
         block.gasLimit,
-        commitSlot
+        commitSlot,
+        commit.beneficiary
     );
 
     console.log("proposed");

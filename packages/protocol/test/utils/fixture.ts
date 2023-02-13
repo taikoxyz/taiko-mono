@@ -1,14 +1,18 @@
+import { SimpleChannel } from "channel-ts";
 import { ethers } from "ethers";
 import deployAddressManager from "./addressManager";
-import { getDefaultL2Signer, getL1Provider, getL2Provider } from "./provider";
+import Proposer from "./proposer";
+import Prover from "./prover";
+import {
+    getDefaultL1Signer,
+    getDefaultL2Signer,
+    getL1Provider,
+    getL2Provider,
+} from "./provider";
+import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
 import deployTkoToken from "./tkoToken";
-// import { ethers as hardhatEthers } from "hardhat";
-import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
-import { SimpleChannel } from "channel-ts";
-import Proposer from "./proposer";
-import Prover from "./prover";
 
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
@@ -18,12 +22,7 @@ async function initIntegrationFixture(
 
     l1Provider.pollingInterval = 100;
 
-    const l1Signer = await l1Provider
-        .getSigner
-        // (
-        //     await l1Provider.listAccounts()
-        // )[0]
-        ();
+    const l1Signer = await getDefaultL1Signer();
 
     const l2Provider = getL2Provider();
 
@@ -31,11 +30,14 @@ async function initIntegrationFixture(
 
     const l2Signer = await getDefaultL2Signer();
 
+    await Promise.all([l1Signer.unlock(""), l2Signer.unlock("")]);
+
     const l2AddressManager = await deployAddressManager(l2Signer);
     const taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager, false);
+    const taikoL2DeployReceipt = await taikoL2.deployTransaction.wait();
 
-    const genesisHash = taikoL2.deployTransaction.blockHash as string;
-    const genesisHeight = taikoL2.deployTransaction.blockNumber as number;
+    const genesisHash = taikoL2DeployReceipt.blockHash as string;
+    const genesisHeight = taikoL2DeployReceipt.blockNumber as number;
 
     const l1AddressManager = await deployAddressManager(l1Signer);
     const taikoL1 = await deployTaikoL1(
