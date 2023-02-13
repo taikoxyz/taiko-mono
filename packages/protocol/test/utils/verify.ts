@@ -13,7 +13,8 @@ import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
     // Since we are connecting to a geth node with clique consensus (auto mine), we
-    // need to manually mine a new block here to ensure the latest block.timestamp increased as expected.
+    // need to manually mine a new block here to ensure the latest block.timestamp increased as expected when
+    // calling eth_estimateGas.
     await sendTinyEtherToZeroAddress(await getDefaultL1Signer());
 
     const verifyTx = await taikoL1.verifyBlocks(maxBlocks);
