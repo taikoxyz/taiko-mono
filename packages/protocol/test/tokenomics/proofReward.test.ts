@@ -5,11 +5,11 @@ import { TaikoL1 } from "../../typechain";
 import { TestTkoToken } from "../../typechain/TestTkoToken";
 import { pickRandomElement } from "../utils/array";
 import blockListener from "../utils/blockListener";
+import { initIntegrationFixture } from "../utils/fixture";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { createAndSeedWallets } from "../utils/seed";
 import { commitProposeProveAndVerify } from "../utils/verify";
-import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
@@ -50,7 +50,7 @@ describe("tokenomics: proofReward", function () {
 
     it(`proofReward is 1 wei if the prover does not hold any tkoTokens on L1`, async function () {
         let proposed: boolean = false;
-        l2Provider.on("block", function (blockNumber: number) {
+        l2Provider.on("block", function () {
             if (proposed) {
                 chan.close();
                 l2Provider.off("block");
@@ -58,7 +58,7 @@ describe("tokenomics: proofReward", function () {
             }
             proposed = true;
 
-            chan.send(blockNumber);
+            chan.send(genesisHeight + 1);
         });
 
         /* eslint-disable-next-line */

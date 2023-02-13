@@ -68,39 +68,6 @@ describe("integration:TaikoL1", function () {
         chan.close();
     });
 
-    describe("getLatestSyncedHeader", function () {
-        it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
-            l2Provider.on("block", blockListener(chan, genesisHeight));
-
-            let blocks: number = 0;
-            // iterate through blockHashHistory twice and try to get latest synced header each time.
-            // we modulo the header height by blockHashHistory in the protocol, so
-            // this test ensures that logic is sound.
-            /* eslint-disable-next-line */
-            for await (const blockNumber of chan) {
-                if (blocks > config.blockHashHistory.toNumber() * 2 + 1) {
-                    chan.close();
-                    return;
-                }
-
-                const { verifyEvent } = await commitProposeProveAndVerify(
-                    taikoL1,
-                    l2Provider,
-                    blockNumber,
-                    proposer,
-                    tkoTokenL1,
-                    prover
-                );
-
-                expect(verifyEvent).not.to.be.undefined;
-
-                const header = await taikoL1.getLatestSyncedHeader();
-                expect(header).to.be.eq(verifyEvent.args.blockHash);
-                blocks++;
-            }
-        });
-    });
-
     describe("isCommitValid()", async function () {
         it("should not be valid if it has not been committed", async function () {
             const block = await l2Provider.getBlock("latest");
@@ -345,6 +312,39 @@ describe("integration:TaikoL1", function () {
             await expect(
                 commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider)
             ).to.be.revertedWith("L1:tooMany");
+        });
+    });
+
+    describe("getLatestSyncedHeader", function () {
+        it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
+            l2Provider.on("block", blockListener(chan, genesisHeight));
+
+            let blocks: number = 0;
+            // iterate through blockHashHistory twice and try to get latest synced header each time.
+            // we modulo the header height by blockHashHistory in the protocol, so
+            // this test ensures that logic is sound.
+            /* eslint-disable-next-line */
+            for await (const blockNumber of chan) {
+                if (blocks > config.blockHashHistory.toNumber() * 2 + 1) {
+                    chan.close();
+                    return;
+                }
+
+                const { verifyEvent } = await commitProposeProveAndVerify(
+                    taikoL1,
+                    l2Provider,
+                    blockNumber,
+                    proposer,
+                    tkoTokenL1,
+                    prover
+                );
+
+                expect(verifyEvent).not.to.be.undefined;
+
+                const header = await taikoL1.getLatestSyncedHeader();
+                expect(header).to.be.eq(verifyEvent.args.blockHash);
+                blocks++;
+            }
         });
     });
 

@@ -30,7 +30,11 @@ async function initIntegrationFixture(
 
     const l2Signer = await getDefaultL2Signer();
 
-    await Promise.all([l1Signer.unlock(""), l2Signer.unlock("")]);
+    // When connecting to a geth node, we need to unlock the account manually, and
+    // we can safely ignore the unlock error when connecting to a hardhat node.
+    try {
+        await Promise.all([l1Signer.unlock(""), l2Signer.unlock("")]);
+    } catch (_) {}
 
     const l2AddressManager = await deployAddressManager(l2Signer);
     const taikoL2 = await deployTaikoL2(l2Signer, l2AddressManager, false);
