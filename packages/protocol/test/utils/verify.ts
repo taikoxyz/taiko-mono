@@ -12,7 +12,7 @@ import { sendTinyEtherToZeroAddress } from "./seed";
 import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
-    // Since we are connecting a geth node with clique consensus (auto mine), we
+    // Since we are connecting to a geth node with clique consensus (auto mine), we
     // need to manually mine a new block here to ensure the latest block.timestamp increased as expected.
     await sendTinyEtherToZeroAddress(await getDefaultL1Signer());
 
