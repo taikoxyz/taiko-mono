@@ -77,7 +77,11 @@ library LibProving {
             "L1:circuits:size"
         );
 
-        {
+        IProofVerifier proofVerifier = IProofVerifier(
+            resolver.resolve("proof_verifier", false)
+        );
+
+        if (config.enableProofValidation) {
             // Check anchor tx is valid
             LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
                 config.chainId,
@@ -109,38 +113,34 @@ library LibProving {
                 ),
                 "L1:anchor:calldata"
             );
+
+            // Check anchor tx is the 1st tx in the block
+            require(
+                proofVerifier.verifyMKP({
+                    key: LibRLPWriter.writeUint(0),
+                    value: anchorTx,
+                    proof: evidence.proofs[zkProofsPerBlock],
+                    root: evidence.header.transactionsRoot
+                }),
+                "L1:tx:proof"
+            );
+
+            // Check anchor tx does not throw
+
+            LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
+                .decodeReceipt(anchorReceipt);
+
+            require(receipt.status == 1, "L1:receipt:status");
+            require(
+                proofVerifier.verifyMKP({
+                    key: LibRLPWriter.writeUint(0),
+                    value: anchorReceipt,
+                    proof: evidence.proofs[zkProofsPerBlock + 1],
+                    root: evidence.header.receiptsRoot
+                }),
+                "L1:receipt:proof"
+            );
         }
-
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
-        // Check anchor tx is the 1st tx in the block
-        require(
-            proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorTx,
-                proof: evidence.proofs[zkProofsPerBlock],
-                root: evidence.header.transactionsRoot
-            }),
-            "L1:tx:proof"
-        );
-
-        // Check anchor tx does not throw
-
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(anchorReceipt);
-
-        require(receipt.status == 1, "L1:receipt:status");
-        require(
-            proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorReceipt,
-                proof: evidence.proofs[zkProofsPerBlock + 1],
-                root: evidence.header.receiptsRoot
-            }),
-            "L1:receipt:proof"
-        );
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({

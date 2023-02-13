@@ -78,19 +78,21 @@ function compileYulContract(contractPath: string): string {
     return byteCode;
 }
 
-async function deployBytecode(hre: any, byteCode: string): Promise<any> {
+async function deployBytecode(
+    hre: any,
+    byteCode: string,
+    name: string
+): Promise<any> {
     const [signer] = await hre.ethers.getSigners();
 
     const tx = await signer.sendTransaction({ data: byteCode });
     const receipt = await tx.wait();
 
-    log.debug(
-        `PlonkVerifier deploying, tx ${tx.hash}, waiting for confirmations`
-    );
+    log.debug(`${name} deploying, tx ${tx.hash}, waiting for confirmations`);
 
     if (receipt.status !== 1) {
         throw new Error(
-            `failed to create PlonkVerifier contract, transaction ${tx.hash} reverted`
+            `failed to create ${name} contract, transaction ${tx.hash} reverted`
         );
     }
 

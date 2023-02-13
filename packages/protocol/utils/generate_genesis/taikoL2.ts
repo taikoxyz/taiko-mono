@@ -316,7 +316,7 @@ async function generateContractConfigs(
                 // AddressResolver
                 _addressManager: addressMap.AddressManager,
                 // Bridge
-                state: {},
+                _state: {},
             },
         },
         TokenVault: {
@@ -349,7 +349,7 @@ async function generateContractConfigs(
                 _addressManager: addressMap.AddressManager,
                 // EtherVault
                 // Authorize L2 bridge
-                authorizedAddrs: { [`${addressMap.Bridge}`]: true },
+                _authorizedAddrs: { [`${addressMap.Bridge}`]: true },
             },
         },
         SignalService: {

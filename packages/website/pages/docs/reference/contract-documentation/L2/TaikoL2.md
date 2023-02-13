@@ -10,10 +10,10 @@ title: TaikoL2
 bytes32 publicInputHash
 ```
 
-### latestSyncedHeader
+### latestSyncedL1Height
 
 ```solidity
-bytes32 latestSyncedHeader
+uint256 latestSyncedL1Height
 ```
 
 ### BlockInvalidated
@@ -35,11 +35,11 @@ function anchor(uint256 l1Height, bytes32 l1Hash) external
 ```
 
 Persist the latest L1 block height and hash to L2 for cross-layer
-bridging. This function will also check certain block-level global
-variables because they are not part of the Trie structure.
+message verification (eg. bridging). This function will also check
+certain block-level global variables because they are not part of the
+Trie structure.
 
-       Note that this transaction shall be the first transaction in every
-       L2 block.
+Note: This transaction shall be the first transaction in every L2 block.
 
 #### Parameters
 
@@ -51,18 +51,18 @@ variables because they are not part of the Trie structure.
 ### invalidateBlock
 
 ```solidity
-function invalidateBlock(bytes txList, enum LibInvalidTxList.Reason hint, uint256 txIdx) external
+function invalidateBlock(bytes txList, enum LibInvalidTxList.Hint hint, uint256 txIdx) external
 ```
 
 Invalidate a L2 block by verifying its txList is not intrinsically valid.
 
 #### Parameters
 
-| Name   | Type                         | Description                                                                                      |
-| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| txList | bytes                        | The L2 block's txlist.                                                                           |
-| hint   | enum LibInvalidTxList.Reason | A hint for this method to invalidate the txList.                                                 |
-| txIdx  | uint256                      | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
+| Name   | Type                       | Description                                                                                      |
+| ------ | -------------------------- | ------------------------------------------------------------------------------------------------ |
+| txList | bytes                      | The L2 block's txlist.                                                                           |
+| hint   | enum LibInvalidTxList.Hint | A hint for this method to invalidate the txList.                                                 |
+| txIdx  | uint256                    | If the hint is for a specific transaction in txList, txIdx specifies which transaction to check. |
 
 ### getConfig
 

@@ -24,7 +24,7 @@ library TaikoData {
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 anchorTxGasLimit;
-        uint256 feePremiumLamda;
+        uint256 slotSmoothingFactor;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
         // Moving average factors
@@ -40,6 +40,7 @@ library TaikoData {
         uint64 initialUncleDelay;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
+        bool enableProofValidation;
         bool enableOracleProver;
     }
 
@@ -74,7 +75,8 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash (some blocks' hashes won't be persisted)
+        // block id => block hash (some blocks' hashes won't be persisted,
+        // only the latest one if verified in a batch)
         mapping(uint256 => bytes32) l2Hashes;
         // block id => ProposedBlock
         mapping(uint256 => ProposedBlock) proposedBlocks;

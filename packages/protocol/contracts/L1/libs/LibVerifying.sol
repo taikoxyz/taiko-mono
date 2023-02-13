@@ -10,7 +10,10 @@ import "../../common/AddressResolver.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+/**
+ * LibVerifying.
+ * @author dantaik <dan@taiko.xyz>
+ */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
@@ -77,7 +80,7 @@ library LibVerifying {
 
             // Uncle proof can not take more than 2x time the first proof did.
             if (
-                !_isVerifiable({
+                !isVerifiable({
                     state: state,
                     config: config,
                     fc: fc,
@@ -107,8 +110,10 @@ library LibVerifying {
             if (latestL2Height > state.latestVerifiedHeight) {
                 state.latestVerifiedHeight = latestL2Height;
 
-                // Note that not all L2 hashes are stored on L1, only the last
-                // verified one in a batch.
+                // Note: Not all L2 hashes are stored on L1, only the last
+                // verified one in a batch. This is sufficient because the last
+                // verified hash is the only one needed checking the existence
+                // of a cross-chain message with a merkle proof.
                 state.l2Hashes[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
@@ -247,12 +252,12 @@ library LibVerifying {
         delete fc.provers;
     }
 
-    function _isVerifiable(
+    function isVerifiable(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 blockId
-    ) private view returns (bool) {
+    ) public view returns (bool) {
         return
             // TODO(daniel): remove the next line.
             (!config.enableOracleProver || fc.provers.length > 1) &&

@@ -8,6 +8,9 @@ This vault holds all ERC20 tokens (but not Ether) that users have deposited.
 It also manages the mapping between canonical ERC20 tokens and their bridged
 tokens.
 
+_Ether is held by Bridges on L1 and by the EtherVault on L2,
+not TokenVaults._
+
 ### CanonicalERC20
 
 ```solidity
@@ -17,6 +20,15 @@ struct CanonicalERC20 {
   uint8 decimals;
   string symbol;
   string name;
+}
+```
+
+### MessageDeposit
+
+```solidity
+struct MessageDeposit {
+  address token;
+  uint256 amount;
 }
 ```
 
@@ -38,6 +50,12 @@ mapping(address => struct TokenVault.CanonicalERC20) bridgedToCanonical
 mapping(uint256 => mapping(address => address)) canonicalToBridged
 ```
 
+### messageDeposits
+
+```solidity
+mapping(bytes32 => struct TokenVault.MessageDeposit) messageDeposits
+```
+
 ### BridgedERC20Deployed
 
 ```solidity
@@ -47,25 +65,25 @@ event BridgedERC20Deployed(uint256 srcChainId, address canonicalToken, address b
 ### EtherSent
 
 ```solidity
-event EtherSent(address to, uint256 destChainId, uint256 amount, bytes32 signal)
-```
-
-### EtherReceived
-
-```solidity
-event EtherReceived(address from, uint256 amount)
+event EtherSent(bytes32 msgHash, address from, address to, uint256 destChainId, uint256 amount)
 ```
 
 ### ERC20Sent
 
 ```solidity
-event ERC20Sent(address to, uint256 destChainId, address token, uint256 amount, bytes32 signal)
+event ERC20Sent(bytes32 msgHash, address from, address to, uint256 destChainId, address token, uint256 amount)
+```
+
+### ERC20Released
+
+```solidity
+event ERC20Released(bytes32 msgHash, address from, address token, uint256 amount)
 ```
 
 ### ERC20Received
 
 ```solidity
-event ERC20Received(address to, address from, uint256 srcChainId, address token, uint256 amount)
+event ERC20Received(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
 ```
 
 ### init
@@ -80,22 +98,19 @@ function init(address addressManager) external
 function sendEther(uint256 destChainId, address to, uint256 gasLimit, uint256 processingFee, address refundAddress, string memo) external payable
 ```
 
-Transfers Ether to this vault and sends a message to the destination
-chain so the user can receive Ether.
-
-_Ether is held by Bridges on L1 and by the EtherVault on L2,
-not TokenVaults._
+Receives Ether and constructs a Bridge message. Sends the Ether and
+message along to the Bridge.
 
 #### Parameters
 
-| Name          | Type    | Description                                            |
-| ------------- | ------- | ------------------------------------------------------ |
-| destChainId   | uint256 | The destination chain ID where the `to` address lives. |
-| to            | address | The destination address.                               |
-| gasLimit      | uint256 |                                                        |
-| processingFee | uint256 | @custom:see Bridge                                     |
-| refundAddress | address |                                                        |
-| memo          | string  |                                                        |
+| Name          | Type    | Description                  |
+| ------------- | ------- | ---------------------------- |
+| destChainId   | uint256 | @custom:see IBridge.Message. |
+| to            | address | @custom:see IBridge.Message. |
+| gasLimit      | uint256 | @custom:see IBridge.Message. |
+| processingFee | uint256 | @custom:see IBridge.Message  |
+| refundAddress | address | @custom:see IBridge.Message  |
+| memo          | string  | @custom:see IBridge.Message  |
 
 ### sendERC20
 
@@ -119,6 +134,22 @@ by invoking the message call.
 | processingFee | uint256 | @custom:see Bridge                                                                                           |
 | refundAddress | address | The fee refund address. If this address is address(0), extra fees will be refunded back to the `to` address. |
 | memo          | string  |                                                                                                              |
+
+### releaseERC20
+
+```solidity
+function releaseERC20(struct IBridge.Message message, bytes proof) external
+```
+
+Release deposited ERC20 back to the owner on the source TokenVault with
+a proof that the message processing on the destination Bridge has failed.
+
+#### Parameters
+
+| Name    | Type                   | Description                                                          |
+| ------- | ---------------------- | -------------------------------------------------------------------- |
+| message | struct IBridge.Message | The message that corresponds the ERC20 deposit on the source chain.  |
+| proof   | bytes                  | The proof from the destination chain to show the message has failed. |
 
 ### receiveERC20
 

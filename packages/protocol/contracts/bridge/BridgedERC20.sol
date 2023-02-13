@@ -24,7 +24,6 @@ contract BridgedERC20 is
 {
     address public srcToken;
     uint256 public srcChainId;
-
     uint256[48] private __gap;
 
     event BridgeMint(address indexed account, uint256 amount);

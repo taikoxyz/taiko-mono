@@ -27,7 +27,7 @@ library LibSharedConfig {
                 maxBytesPerTxList: 10240, // TODO
                 minTxGasLimit: 21000, // TODO
                 anchorTxGasLimit: 250000,
-                feePremiumLamda: 590,
+                slotSmoothingFactor: 590000,
                 rewardBurnBips: 100, // 100 basis points or 1%
                 proposerDepositPctg: 25, // 25%
                 // Moving average factors
@@ -41,8 +41,9 @@ library LibSharedConfig {
                 proofTimeCap: 60 minutes,
                 bootstrapDiscountHalvingPeriod: 180 days,
                 initialUncleDelay: 60 minutes,
-                enableTokenomics: true,
+                enableTokenomics: false,
                 enablePublicInputsCheck: true,
+                enableProofValidation: false,
                 enableOracleProver: true
             });
     }

@@ -14,7 +14,10 @@ import "../common/EssentialContract.sol";
 import "../libs/LibAddress.sol";
 
 /**
- * Vault that holds Ether.
+ * EtherVault is a special vault contract that:
+ * - Is initialized with 2^128 Ether.
+ * - Allows the contract owner to authorize addresses.
+ * - Allows authorized addresses to send/release Ether.
  * @author dantaik <dan@taiko.xyz>
  */
 contract EtherVault is EssentialContract {
@@ -24,7 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    mapping(address => bool) private authorizedAddrs;
+    mapping(address => bool) private _authorizedAddrs;
     uint256[49] private __gap;
 
     /*********************
@@ -67,7 +70,7 @@ contract EtherVault is EssentialContract {
     /**
      * Transfer Ether from EtherVault to the sender, checking that the sender
      * is authorized.
-     * @param amount Amount of ether to send.
+     * @param amount Amount of Ether to send.
      */
     function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
         msg.sender.sendEther(amount);
@@ -75,12 +78,12 @@ contract EtherVault is EssentialContract {
     }
 
     /**
-     * Transfer Ether from EtherVault to an desinated address, checking that the
+     * Transfer Ether from EtherVault to a designated address, checking that the
      * sender is authorized.
-     * @param recipient Address to receive Ether
+     * @param recipient Address to receive Ether.
      * @param amount Amount of ether to send.
      */
-    function releaseEtherTo(
+    function releaseEther(
         address recipient,
         uint256 amount
     ) public onlyAuthorized nonReentrant {
@@ -96,10 +99,10 @@ contract EtherVault is EssentialContract {
      */
     function authorize(address addr, bool authorized) public onlyOwner {
         require(
-            addr != address(0) && authorizedAddrs[addr] != authorized,
+            addr != address(0) && _authorizedAddrs[addr] != authorized,
             "EV:param"
         );
-        authorizedAddrs[addr] = authorized;
+        _authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }
 
@@ -108,6 +111,6 @@ contract EtherVault is EssentialContract {
      * @param addr Address to get the authorized status of.
      */
     function isAuthorized(address addr) public view returns (bool) {
-        return authorizedAddrs[addr];
+        return _authorizedAddrs[addr];
     }
 }

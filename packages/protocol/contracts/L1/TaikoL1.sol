@@ -256,18 +256,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     function getStateVariables()
         public
         view
-        returns (
-            uint64 /*genesisHeight*/,
-            uint64 /*genesisTimestamp*/,
-            uint64 /*statusBits*/,
-            uint256 /*feeBase*/,
-            uint64 /*nextBlockId*/,
-            uint64 /*lastProposedAt*/,
-            uint64 /*avgBlockTime*/,
-            uint64 /*latestVerifiedHeight*/,
-            uint64 /*latestVerifiedId*/,
-            uint64 /*avgProofTime*/
-        )
+        returns (LibUtils.StateVariables memory)
     {
         return state.getStateVariables();
     }
@@ -279,11 +268,11 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         return LibAnchorSignature.signTransaction(hash, k);
     }
 
-    function getBlockProvers(
+    function getForkChoice(
         uint256 id,
         bytes32 parentHash
-    ) public view returns (address[] memory) {
-        return state.forkChoices[id][parentHash].provers;
+    ) public view returns (TaikoData.ForkChoice memory) {
+        return state.forkChoices[id][parentHash];
     }
 
     function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
@@ -292,5 +281,18 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
+    }
+
+    function isBlockVerifiable(
+        uint256 blockId,
+        bytes32 parentHash
+    ) public view returns (bool) {
+        return
+            LibVerifying.isVerifiable({
+                state: state,
+                config: getConfig(),
+                fc: state.forkChoices[blockId][parentHash],
+                blockId: blockId
+            });
     }
 }
