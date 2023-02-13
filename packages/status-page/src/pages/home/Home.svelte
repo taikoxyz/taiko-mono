@@ -242,7 +242,7 @@
         ) => {
           const contract = new Contract(address, TaikoL1, provider);
           contract.on("BlockProven", (id, parentHash, blockHash, timestamp) => {
-            onEvent(new Date(timestamp.toNumber()).toString());
+            onEvent(new Date(timestamp.toNumber() * 1000).toString());
           });
         },
         colorFunc: function (status: Status) {
