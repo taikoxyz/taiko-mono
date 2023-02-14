@@ -51,6 +51,7 @@ library LibProposing {
 
         if (state.commits[msg.sender][commitSlot] == hash)
             revert L1_COMMITTED();
+
         state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted({
@@ -236,9 +237,14 @@ library LibProposing {
             })
         ) revert L1_NOT_COMMITTED();
 
-        if (meta.commitSlot == 0) {
-            // Special handling of slot 0 for refund; non-zero slots
-            // are supposed to managed by node software for reuse.
+        if (meta.commitSlot % 2 == 0) {
+            // Using an even muber as the commit slot will make
+            // the corresponding block proposal cheaper as the
+            // commit record will be deleted when block is
+            // proposed;
+            // Using an odd number will allows another block commmit
+            // to reuse a previous commit's storage thus new commits
+            // are cheaper.
             delete state.commits[msg.sender][meta.commitSlot];
         }
     }
