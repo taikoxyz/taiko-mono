@@ -38,7 +38,7 @@ library LibSharedConfig {
                 commitConfirmations: 0, // owner:daniel
                 maxProofsPerForkChoice: 3, // owner:daniel
                 blockMaxGasLimit: 5000000, // owner:david
-                maxTransactionsPerBlock: 80, //  owner:david
+                maxTransactionsPerBlock: 79, //  owner:david
                 maxBytesPerTxList: 1500000, // owner:david - TODO: do we need to change this?
                 minTxGasLimit: 21000, // owner:david
                 anchorTxGasLimit: 250000, // owner:david
