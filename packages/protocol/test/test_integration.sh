@@ -5,6 +5,7 @@ set -eou pipefail
 DIR=$(cd $(dirname ${BASH_SOURCE[0]}); pwd)
 TEST_NODE_CONTAINER_NAME_L1="test-ethereum-node-l1"
 TEST_NODE_CONTAINER_NAME_L2="test-ethereum-node-l2"
+TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME="import-test-account-eth"
 TEST_ACCOUNT_ADDRESS="0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39"
 TEST_ACCOUNT_PRIV_KEY="2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200"
 GETH_NODE_KEY_L1="14d2deec982957c89c56e1dc768a1d47c40398376ed2ba7e2df51eb029e71a83"
@@ -21,7 +22,8 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
-  $TEST_NODE_CONTAINER_NAME_L2 &> /dev/null
+  $TEST_NODE_CONTAINER_NAME_L2 \
+  $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
 
 # Start a test ethereum node
 docker run -d \
@@ -43,6 +45,12 @@ else
       -p 28545:8545 \
       gcr.io/evmchain/hardhat-node:latest \
       hardhat node --hostname "0.0.0.0"
+    
+    docker run -d \
+      --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
+      --add-host host.docker.internal:host-gateway \
+      ethereum/client-go:latest \
+      --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 fi
 
 function waitTestNode {
@@ -73,7 +81,8 @@ waitTestNode http://localhost:28545
 
 function cleanup {
   docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
-    $TEST_NODE_CONTAINER_NAME_L2 &> /dev/null
+    $TEST_NODE_CONTAINER_NAME_L2 \
+    $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME &> /dev/null
 }
 
 trap cleanup EXIT INT KILL ERR
