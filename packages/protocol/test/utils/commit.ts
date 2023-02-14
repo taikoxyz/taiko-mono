@@ -65,7 +65,6 @@ const commitAndProposeLatestBlock = async (
         await sendTinyEtherToZeroAddress(l1Signer);
     }
 
-    // fails out here, L1:notCommited
     const proposeReceipt = await proposeBlock(
         taikoL1.connect(l1Signer),
         block,
@@ -73,8 +72,7 @@ const commitAndProposeLatestBlock = async (
         commitReceipt.blockNumber as number,
         block.gasLimit,
         commitSlot,
-        commit.beneficiary，
-        { gasLimit: 500000 }
+        commit.beneficiary
     );
 
     const proposedEvent: BlockProposedEvent = (
