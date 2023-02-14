@@ -66,7 +66,7 @@ describe("tokenomics: blockFee", function () {
         }
     });
 
-    it.only("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
+    it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
         // get the initial tkoBalance, which should decrease every block proposal
         let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
             await proposerSigner.getAddress()

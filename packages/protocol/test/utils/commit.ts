@@ -59,11 +59,8 @@ const commitAndProposeLatestBlock = async (
     );
     const commitReceipt = await tx.wait(1);
 
-    console.log("commited");
-
     for (let i = 0; i < commitConfirmations.toNumber() + 5; i++) {
         await sendTinyEtherToZeroAddress(l1Signer);
-        console.log(i);
     }
 
     // fails out here, L1:notCommited
@@ -77,13 +74,10 @@ const commitAndProposeLatestBlock = async (
         commit.beneficiary
     );
 
-    console.log("proposed");
-
     const proposedEvent: BlockProposedEvent = (
         proposeReceipt.events as any[]
     ).find((e) => e.event === "BlockProposed");
 
-    console.log("event exists");
     return { proposedEvent, proposeReceipt, commitReceipt, commit, block };
 };
 

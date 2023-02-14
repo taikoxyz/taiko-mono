@@ -47,7 +47,6 @@ describe("integration:TaikoL1", function () {
             chan,
             config,
         } = await initIntegrationFixture(false, false));
-        console.log("fixture deployed");
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
@@ -56,10 +55,8 @@ describe("integration:TaikoL1", function () {
             0,
             proposerSigner
         );
-        console.log("proposer deployed");
 
         prover = new Prover(taikoL1, l2Provider, proverSigner);
-        console.log("proposer deployed");
     });
 
     afterEach(() => {
@@ -123,17 +120,14 @@ describe("integration:TaikoL1", function () {
             );
             expect(proposedEvent).not.to.be.undefined;
             expect(proposedEvent.args.meta.commitSlot).to.be.eq(commitSlot);
-            console.log("passed");
 
             const proposedBlock = await taikoL1.getProposedBlock(
                 proposedEvent.args.meta.id
             );
-            console.log("passed2");
             expect(proposedBlock).not.to.be.undefined;
             expect(proposedBlock.proposer).to.be.eq(
                 await l1Signer.getAddress()
             );
-            console.log("passed3");
         });
     });
 
