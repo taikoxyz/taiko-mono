@@ -236,17 +236,6 @@ library LibProposing {
                 commitHash: commitHash
             })
         ) revert L1_NOT_COMMITTED();
-
-        if (meta.commitSlot % 2 == 0) {
-            // Using an even number as the commit slot will
-            // make the corresponding block proposal cheaper
-            // as the commit record will be deleted when the
-            // block is proposed;
-            // Using an odd number will allow new commits to
-            // reuse a previous commit's storage thus new
-            // commits are cheaper.
-            delete state.commits[msg.sender][meta.commitSlot];
-        }
     }
 
     function _validateMetadata(
