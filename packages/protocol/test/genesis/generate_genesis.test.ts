@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
+import { txShouldRevertWithCustomError } from "../utils/errors";
 
 const ethers = hre.ethers;
 const action = process.env.TEST_L2_GENESIS ? describe : describe.skip;
@@ -196,14 +197,6 @@ action("Generate Genesis", function () {
 
             const [bytes, txNums] = await generateMaxSizeInvalidTxList(TaikoL2);
 
-            await expect(
-                TaikoL2.invalidateBlock(
-                    bytes,
-                    1, // hint: TX_INVALID_SIG
-                    0
-                )
-            ).to.be.revertedWith("L2:sender");
-
             const taikoL2WithGoldenTouchSigner = new hre.ethers.Contract(
                 TaikoL2Alloc.address,
                 require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
@@ -231,6 +224,20 @@ action("Generate Genesis", function () {
                 hint: "TX_INVALID_SIG",
                 gasUsed: receipt.gasUsed,
             });
+
+            const txPromise = (
+                await TaikoL2.invalidateBlock(
+                    bytes,
+                    1, // hint: TX_INVALID_SIG
+                    0,
+                    { gasLimit: 500000 }
+                )
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
+                provider,
+                "L2_INVALID_SENDER()"
+            );
         });
 
         it("Bridge", async function () {

@@ -173,7 +173,6 @@ async function commitProposeProveAndVerify(
 }
 
 export {
-    verifyBlocks,
     verifyBlockAndAssert,
     sleepUntilBlockIsVerifiable,
     commitProposeProveAndVerify,

@@ -242,8 +242,7 @@
         ) => {
           const contract = new Contract(address, TaikoL1, provider);
           contract.on("BlockProven", (id, parentHash, blockHash, timestamp) => {
-            console.log("block proven", timestamp);
-            onEvent(new Date(timestamp).toString());
+            onEvent(new Date(timestamp.toNumber() * 1000).toString());
           });
         },
         colorFunc: function (status: Status) {
@@ -284,7 +283,7 @@
           address: string
         ) => {
           const stateVars = await getStateVariables(provider, address);
-          return stateVars.avgBlockTime.toNumber();
+          return `${stateVars.avgBlockTime.toNumber()} seconds`;
         },
         tooltip:
           "The current average block time, updated when a block is successfully proposed.",

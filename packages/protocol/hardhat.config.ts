@@ -7,8 +7,8 @@ import "hardhat-gas-reporter";
 import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
-import "./tasks/deploy_L1";
 import "./tasks/compile_yul";
+import "./tasks/deploy_L1";
 
 const hardhatMnemonic =
     "test test test test test test test test test test test taik";
@@ -82,6 +82,44 @@ const config: HardhatUserConfig = {
                     : [],
             url: process.env.ROPSTEN_URL || "",
         },
+        internal_devnet_l1: {
+            url: "https://l1rpc.internal.taiko.xyz/",
+            accounts:
+                process.env.PRIVATE_KEY !== undefined
+                    ? [process.env.PRIVATE_KEY]
+                    : [],
+        },
+        internal_devnet_l2: {
+            url: "https://l2rpc.internal.taiko.xyz/",
+            accounts:
+                process.env.PRIVATE_KEY !== undefined
+                    ? [process.env.PRIVATE_KEY]
+                    : [],
+        },
+    },
+    etherscan: {
+        apiKey: {
+            internal_devnet_l1: "internal_devnet_l1_key",
+            internal_devnet_l2: "internal_devnet_l2_key",
+        },
+        customChains: [
+            {
+                network: "internal_devnet_l1",
+                chainId: 31336,
+                urls: {
+                    apiURL: "https://l1explorer.internal.taiko.xyz/api",
+                    browserURL: "https://l1explorer.internal.taiko.xyz",
+                },
+            },
+            {
+                network: "internal_devnet_l2",
+                chainId: 167001,
+                urls: {
+                    apiURL: "https://l2explorer.internal.taiko.xyz/api",
+                    browserURL: "https://l2explorer.internal.taiko.xyz",
+                },
+            },
+        ],
     },
     solidity: {
         settings: {

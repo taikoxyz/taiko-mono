@@ -288,7 +288,7 @@ async function generateContractConfigs(
                 _addressManager: addressMap.AddressManager,
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
-                publicInputHash: `${ethers.utils.solidityKeccak256(
+                _publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["uint256", "uint256", "uint256", "bytes32[255]"],
                     [
                         chainId,
