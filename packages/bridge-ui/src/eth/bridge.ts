@@ -131,6 +131,7 @@ class ETHBridge implements BridgeInterface {
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+        srcSignalServiceAddress: chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       };
 
       const proof = await this.prover.GenerateProof(proofOpts);

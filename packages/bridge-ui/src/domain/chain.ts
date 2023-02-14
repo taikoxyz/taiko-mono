@@ -13,6 +13,46 @@ export const CHAIN_ID_TAIKO = import.meta.env
   ? BigNumber.from(import.meta.env.VITE_TAIKO_CHAIN_ID).toNumber()
   : 167001;
 
+const L1_RPC = import.meta.env
+  ? import.meta.env.VITE_L1_RPC_URL
+  : "https://l1rpc.internal.taiko.xyz/";
+
+const L2_RPC = import.meta.env
+  ? import.meta.env.VITE_L2_RPC_URL
+  : "https://l2rpc.internal.taiko.xyz/";
+
+const L1_BRIDGE_ADDRESS = import.meta.env
+  ? import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS
+  : "0x0237443359aB0b11EcDC41A7aF1C90226a88c70f";
+
+const L2_BRIDGE_ADDRESS = import.meta.env
+  ? import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS
+  : "0x0000777700000000000000000000000000000004";
+
+const L1_HEADER_SYNC_ADDRESS = import.meta.env
+? import.meta.env.VITE_MAINNET_HEADER_SYNC_ADDRESS
+: "0xa6421A7f48498cee3aEb6428a8A2DD5fAA3AcE2f";
+
+const L2_HEADER_SYNC_ADDRESS = import.meta.env
+  ? import.meta.env.VITE_TAIKO_HEADER_SYNC_ADDRESS
+  : "0x0000777700000000000000000000000000000001";
+
+const L1_SIGNAL_SERVICE_ADDRESS = import.meta.env
+  ? import.meta.env.VITE_MAINNET_SIGNAL_SERVICE_ADDRESS
+  : "0x403cc7802725928652a3d116Bb1781005e2e76d3";
+
+const L2_SIGNAL_SERVICE_ADDRESS = import.meta.env
+  ? import.meta.env.VITE_TAIKO_SIGNAL_SERVICE_ADDRESS
+  : "0x0000777700000000000000000000000000000007";
+
+const L1_EXPLORER_URL = import.meta.env
+  ? import.meta.env.VITE_L1_EXPLORER_URL
+  : "https://l1explorer.internal.taiko.xyz/";
+
+const L2_EXPLORER_URL = import.meta.env
+  ? import.meta.env.VITE_L2_EXPLORER_URL
+  : "https://l2explorer.internal.taiko.xyz/";
+
 export type Chain = {
   id: number;
   name: string;
@@ -22,6 +62,7 @@ export type Chain = {
   bridgeAddress: string;
   headerSyncAddress: string;
   explorerUrl: string;
+  signalServiceAddress: string,
 };
 
 export const CHAIN_MAINNET = {
@@ -29,31 +70,25 @@ export const CHAIN_MAINNET = {
   name: import.meta.env
     ? import.meta.env.VITE_MAINNET_CHAIN_NAME
     : "Ethereum A1",
-  rpc: "https://l1rpc.a1.taiko.xyz",
+  rpc: L1_RPC,
   enabled: true,
   icon: Eth,
-  bridgeAddress: import.meta.env
-    ? import.meta.env.VITE_MAINNET_BRIDGE_ADDRESS
-    : "0x3612E284D763f42f5E4CB72B1602b23DAEC3cA60",
-  headerSyncAddress: import.meta.env
-    ? import.meta.env.VITE_MAINNET_HEADER_SYNC_ADDRESS
-    : "0x7B3AF414448ba906f02a1CA307C56c4ADFF27ce7",
-  explorerUrl: "https://l1explorer.a1.taiko.xyz",
+  bridgeAddress: L1_BRIDGE_ADDRESS,
+  headerSyncAddress: L1_HEADER_SYNC_ADDRESS,
+  explorerUrl: L1_EXPLORER_URL,
+  signalServiceAddress: L1_SIGNAL_SERVICE_ADDRESS
 };
 
 export const CHAIN_TKO = {
   id: CHAIN_ID_TAIKO,
-  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A1",
-  rpc: "https://l2rpc.a1.taiko.xyz",
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A2",
+  rpc: L2_RPC,
   enabled: true,
   icon: Taiko,
-  bridgeAddress: import.meta.env
-    ? import.meta.env.VITE_TAIKO_BRIDGE_ADDRESS
-    : "0x0000777700000000000000000000000000000004",
-  headerSyncAddress: import.meta.env
-    ? import.meta.env.VITE_TAIKO_HEADER_SYNC_ADDRESS
-    : "0x0000777700000000000000000000000000000001",
-  explorerUrl: "https://l2explorer.a1.taiko.xyz",
+  bridgeAddress: L2_BRIDGE_ADDRESS,
+  headerSyncAddress: L2_HEADER_SYNC_ADDRESS,
+  explorerUrl: L2_EXPLORER_URL,
+  signalServiceAddress: L2_SIGNAL_SERVICE_ADDRESS,
 };
 
 export const chains: Record<string, Chain> = {
@@ -63,18 +98,20 @@ export const chains: Record<string, Chain> = {
 
 export const mainnet: WagmiChain = {
   id: CHAIN_ID_MAINNET,
-  name: "Ethereum A1",
+  name: import.meta.env
+  ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+  : "Ethereum A2",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: {
-      http: ["https://l1rpc.a1.taiko.xyz"],
+      http: [L1_RPC],
     },
   },
   blockExplorers: {
     default: {
       name: "Main",
-      url: "https://l1explorer.a1.taiko.xyz",
+      url: L1_EXPLORER_URL,
     },
   },
   // ens: {
@@ -84,18 +121,18 @@ export const mainnet: WagmiChain = {
 
 export const taiko: WagmiChain = {
   id: CHAIN_ID_TAIKO,
-  name: "Taiko A1",
+  name: import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A2",
   network: "",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: {
-      http: ["https://l2rpc.a1.taiko.xyz"],
+      http: [L2_RPC],
     },
   },
   blockExplorers: {
     default: {
       name: "Main",
-      url: "https://l2explorer.a1.taiko.xyz",
+      url: L2_EXPLORER_URL,
     },
   },
   // ens: {

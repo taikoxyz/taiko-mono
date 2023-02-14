@@ -179,6 +179,7 @@ class ERC20Bridge implements Bridge {
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+          srcSignalServiceAddress: chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       });
 
       return await contract.processMessage(opts.message, proof);

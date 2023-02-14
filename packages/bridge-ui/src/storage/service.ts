@@ -42,6 +42,11 @@ class StorageService implements Transactioner {
 
         const srcProvider = this.providerMap.get(tx.fromChainId);
 
+        // Ignore transactions from chains not supported by the bridge
+        if(!srcProvider) {
+          return null;
+        }
+
         const receipt = await srcProvider.getTransactionReceipt(
           tx.ethersTx.hash
         );
@@ -132,7 +137,7 @@ class StorageService implements Transactioner {
         };
 
         bridgeTxs.push(bridgeTx);
-      })
+      }).filter(tx => tx)
     );
 
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));

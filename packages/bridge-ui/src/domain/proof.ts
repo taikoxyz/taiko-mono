@@ -20,6 +20,7 @@ type GenerateProofOpts = {
   destChain: number;
   destHeaderSyncAddress: string;
   srcChain: number;
+  srcSignalServiceAddress: string;
 };
 
 interface Prover {

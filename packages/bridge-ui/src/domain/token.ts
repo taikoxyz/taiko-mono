@@ -51,14 +51,14 @@ export const TKO: Token = {
   logoComponent: Tko,
 };
 
-export const HORSE: Token = {
-  name: "Horse Token",
+export const TEST_ERC20: Token = {
+  name: import.meta.env ? import.meta.env.VITE_TEST_ERC20_NAME_MAINNET : "Bull Token",
   addresses: [
     {
       chainId: CHAIN_MAINNET.id,
       address: import.meta.env
         ? import.meta.env.VITE_TEST_ERC20_ADDRESS_MAINNET
-        : "",
+        : "0x1B5Ccd66cc2408A0084047720167F6234Dc5498A",
     },
     {
       chainId: CHAIN_TKO.id,
@@ -66,8 +66,8 @@ export const HORSE: Token = {
     },
   ],
   decimals: 18,
-  symbol: "HORSE",
+  symbol: import.meta.env ? import.meta.env.VITE_TEST_ERC20_SYMBOL_MAINNET : "BULL",
   logoComponent: Horse,
 };
 
-export const tokens = [ETH, HORSE];
+export const tokens = [ETH, TEST_ERC20];
