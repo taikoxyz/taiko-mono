@@ -26,10 +26,12 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     uint256[50] private __gap;
 
     /*********************
-     * Events            *
+     * Events and Errors *
      *********************/
     event Mint(address account, uint256 amount);
     event Burn(address account, uint256 amount);
+
+    error TKO_INVALID_ADDR();
 
     /*********************
      * External Functions*
@@ -55,7 +57,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TKO: invalid to");
+        if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -64,7 +66,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "TKO: invalid to");
+        if (to == address(this)) revert TKO_INVALID_ADDR();
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
@@ -78,7 +80,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address account,
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
-        require(account != address(0), "TKO: invalid address");
+        if (account == address(0)) revert TKO_INVALID_ADDR();
         _mint(account, amount);
         emit Mint(account, amount);
     }
@@ -93,7 +95,7 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         address account,
         uint256 amount
     ) public onlyFromNamed("proto_broker") {
-        require(account != address(0), "TKO: invalid address");
+        if (account == address(0)) revert TKO_INVALID_ADDR();
         _burn(account, amount);
         emit Burn(account, amount);
     }
