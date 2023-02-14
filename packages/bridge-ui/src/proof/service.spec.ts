@@ -115,6 +115,7 @@ describe("prover tests", () => {
         srcChain: srcChain,
         destChain: destChain,
         destHeaderSyncAddress: ethers.constants.AddressZero,
+        srcSignalServiceAddress: ethers.constants.AddressZero,
       })
     ).rejects.toThrowError("invalid proof");
   });
@@ -141,6 +142,7 @@ describe("prover tests", () => {
       srcChain: srcChain,
       destChain: destChain,
       destHeaderSyncAddress: ethers.constants.AddressZero,
+      srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
   });
@@ -169,6 +171,7 @@ describe("prover tests", () => {
       srcChain: srcChain,
       destChain: destChain,
       destHeaderSyncAddress: ethers.constants.AddressZero,
+      srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProofWithBaseFee);
   });
