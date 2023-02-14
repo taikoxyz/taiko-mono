@@ -39,7 +39,7 @@ library LibSharedConfig {
                 maxProofsPerForkChoice: 3, // owner:daniel
                 blockMaxGasLimit: 5000000, // owner:david
                 maxTransactionsPerBlock: 79, //  owner:david
-                maxBytesPerTxList: 1500000, // owner:david - TODO: do we need to change this?
+                maxBytesPerTxList: 120000, // owner:david
                 minTxGasLimit: 21000, // owner:david
                 anchorTxGasLimit: 250000, // owner:david
                 slotSmoothingFactor: 16789, // owner:daniel
