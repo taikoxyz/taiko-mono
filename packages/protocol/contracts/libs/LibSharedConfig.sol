@@ -34,7 +34,7 @@ library LibSharedConfig {
                 maxNumBlocks: 61, // owner:daniel
                 blockHashHistory: 40, // owner:daniel
                 zkProofsPerBlock: 1, // owner:daniel
-                maxVerificationsPerTx: 20, //owner:david - TODO: what's the actual tx gas cost?
+                maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost
                 commitConfirmations: 0, // owner:daniel
                 maxProofsPerForkChoice: 3, // owner:daniel
                 blockMaxGasLimit: 5000000, // owner:david - TODO: do we need to change this?
