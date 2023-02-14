@@ -3,7 +3,6 @@ import { AddressManager, BridgedERC20 } from "../../typechain";
 import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import {
-    ADDRESS_RESOLVER_DENIED,
     ERC20_BURN_AMOUNT_EXCEEDED,
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors";
@@ -173,7 +172,7 @@ describe("BridgedERC20", function () {
             const amount = BigNumber.from(1);
             await expect(
                 erc20.bridgeMintTo(owner.address, amount)
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWith("RESOLVER_DENIED()");
         });
 
         it("successfully mintes and emits BridgeMint when called by token_vault, balance inceases for account specified, burns and emits BridgeBurn", async () => {
@@ -210,7 +209,7 @@ describe("BridgedERC20", function () {
             const amount = BigNumber.from(1);
             await expect(
                 erc20.bridgeBurnFrom(owner.address, amount)
-            ).to.be.revertedWith(ADDRESS_RESOLVER_DENIED);
+            ).to.be.revertedWith("RESOLVER_DENIED()");
         });
 
         it("can not burn an amount greater than was minted", async () => {

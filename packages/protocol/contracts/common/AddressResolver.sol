@@ -21,8 +21,11 @@ abstract contract AddressResolver {
 
     uint256[49] private __gap;
 
+    error RESOLVER_DENIED();
+    error RESOLVER_INVALID_ADDR();
+
     modifier onlyFromNamed(string memory name) {
-        require(msg.sender == resolve(name, false), "AR:denied");
+        if (msg.sender != resolve(name, false)) revert RESOLVER_DENIED();
         _;
     }
 
@@ -68,7 +71,7 @@ abstract contract AddressResolver {
     }
 
     function _init(address addressManager_) internal virtual {
-        require(addressManager_ != address(0), "AR:zeroAddress");
+        if (addressManager_ == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(addressManager_);
     }
 
@@ -84,6 +87,8 @@ abstract contract AddressResolver {
         );
         addr = payable(_addressManager.getAddress(string(key)));
         if (!allowZeroAddress) {
+            // We do not use custom error so this string-based
+            // error message is more helpful for diagnosis.
             require(
                 addr != address(0),
                 string(abi.encodePacked("AR:zeroAddr:", key))

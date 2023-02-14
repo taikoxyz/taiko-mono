@@ -19,6 +19,9 @@ library LibUtils {
 
     bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
+    error L1_HALT_CONDITION();
+    error L1_BLOCK_NUMBER();
+
     struct StateVariables {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -34,7 +37,7 @@ library LibUtils {
     event Halted(bool halted);
 
     function halt(TaikoData.State storage state, bool toHalt) internal {
-        require(isHalted(state) != toHalt, "L1:precondition");
+        if (isHalted(state) == toHalt) revert L1_HALT_CONDITION();
         setBit(state, MASK_HALT, toHalt);
         emit Halted(toHalt);
     }
@@ -52,11 +55,11 @@ library LibUtils {
         uint256 number,
         uint256 blockHashHistory
     ) internal view returns (bytes32) {
-        require(
-            number + blockHashHistory > state.latestVerifiedHeight &&
-                number <= state.latestVerifiedHeight,
-            "L1:number"
-        );
+        if (
+            number + blockHashHistory <= state.latestVerifiedHeight ||
+            number > state.latestVerifiedHeight
+        ) revert L1_BLOCK_NUMBER();
+
         return state.l2Hashes[number % blockHashHistory];
     }
 
