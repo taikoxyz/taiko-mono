@@ -26,7 +26,7 @@
 
   export let colorFunc: (value: Status) => string;
 
-  export let onClick: (value: Status) => void = null;
+  export let onClick: (value: Status) => void;
 
   export let header: string;
 
@@ -89,7 +89,7 @@
       <span
         transition:fade
         class="pt-2 inline-block align-bottom {onClick ? 'cursor-pointer' : ''}"
-        on:click={() => onClick(statusValue)}
+        on:click={() => (onClick ? onClick(statusValue) : "")}
       >
         <span class={colorFunc(statusValue)}>
           {displayStatusValue(statusValue)}
