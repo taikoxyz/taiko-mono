@@ -422,7 +422,7 @@
     on:click={approve}
     disabled={btnDisabled}
   >
-    {$_("home.approve")}
+    {$_("home.bridge")}
   </button>
 {/if}
 
