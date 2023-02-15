@@ -109,10 +109,10 @@ library LibProposing {
             meta.l1Hash = blockhash(block.number - 1);
             meta.timestamp = uint64(block.timestamp);
 
-            // After The Merge, mixHash contains the prevrandao
+            // After The Merge, L1 mixHash contains the prevrandao
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
-            // add salt to this random number.
+            // add salt to this random number as L2 mixHash
             meta.mixHash = keccak256(
                 abi.encodePacked(block.prevrandao, state.nextBlockId)
             );
