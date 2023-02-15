@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         });
         LibVerifying.verifyBlocks({
             state: state,
-            config: getConfig(),
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
