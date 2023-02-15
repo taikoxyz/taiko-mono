@@ -51,6 +51,7 @@ library LibProposing {
 
         if (state.commits[msg.sender][commitSlot] == hash)
             revert L1_COMMITTED();
+
         state.commits[msg.sender][commitSlot] = hash;
 
         emit BlockCommitted({
@@ -235,12 +236,6 @@ library LibProposing {
                 commitHash: commitHash
             })
         ) revert L1_NOT_COMMITTED();
-
-        if (meta.commitSlot == 0) {
-            // Special handling of slot 0 for refund; non-zero slots
-            // are supposed to managed by node software for reuse.
-            delete state.commits[msg.sender][meta.commitSlot];
-        }
     }
 
     function _validateMetadata(
