@@ -13,7 +13,7 @@ function ThemedImage() {
         : "/images/logotype-black.png"
     );
     console.log("resolved theme", resolvedTheme);
-  }, []);
+  }, [resolvedTheme]);
 
   return src ? (
     <Image
