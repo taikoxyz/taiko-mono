@@ -47,18 +47,20 @@ contract TokenVault is EssentialContract {
      *********************/
 
     // Tracks if a token on the current chain is a canonical or bridged token.
-    mapping(address => bool) public isBridgedToken;
+    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
     // Mappings from bridged tokens to their canonical tokens.
-    mapping(address => CanonicalERC20) public bridgedToCanonical;
+    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20)
+        public bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
     // Also storing chainId for tokens across other chains aside from Ethereum.
-    // chainId => canonical address => bridged address
-    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+    mapping(uint256 chainId => mapping(address canonicalAddress => address bridgedAddress))
+        public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 => MessageDeposit) public messageDeposits;
+    mapping(bytes32 msgHash => MessageDeposit messageDeposit)
+        public messageDeposits;
 
     uint256[47] private __gap;
 
