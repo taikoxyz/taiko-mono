@@ -50,6 +50,9 @@ export default {
     );
   },
   logo: <ThemedImage />,
+  nextThemes: {
+    defaultTheme: "dark",
+  },
   primaryHue: 315,
   project: {
     link: "https://github.com/taikoxyz",
