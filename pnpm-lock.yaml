@@ -330,6 +330,7 @@ importers:
       '@next/font': ^13.1.6
       '@types/node': ^18.13.0
       '@types/react': ^18.0.27
+      arweave: ^1.12.6
       autoprefixer: ^10.4.13
       next: ^13.1.6
       next-themes: ^0.2.1
@@ -342,6 +343,7 @@ importers:
       tailwindcss: ^3.2.6
       typescript: ^4.9.5
     dependencies:
+      arweave: 1.12.6
       next: 13.1.6_biqbaboplfbrettd7655fr4n2y
       next-themes: 0.2.1_3vryta7zmbcsw4rrqf4axjqggm
       nextra: 2.2.14_3vryta7zmbcsw4rrqf4axjqggm
@@ -4970,6 +4972,12 @@ packages:
     resolution: {integrity: sha512-Of/R0wqp83cgHozfIYLbBMnej79U/SVGOOyuB3VVFv1NRM/PSFMK12x9KVtiYzJqmnU5WR2qp0Z5rHb7sWGnFQ==}
     dev: false
 
+  /arconnect/0.4.2:
+    resolution: {integrity: sha512-Jkpd4QL3TVqnd3U683gzXmZUVqBUy17DdJDuL/3D9rkysLgX6ymJ2e+sR+xyZF5Rh42CBqDXWNMmCjBXeP7Gbw==}
+    dependencies:
+      arweave: 1.12.6
+    dev: false
+
   /are-we-there-yet/2.0.0:
     resolution: {integrity: sha512-Ci/qENmwHnsYo9xKIcUJN5LeDKdJ6R1Z1j9V/J5wyq8nh/mYPEpIKJbBZXtZjG04HiK7zV/p6Vs9952MrMeUIw==}
     engines: {node: '>=10'}
@@ -5096,6 +5104,16 @@ packages:
     resolution: {integrity: sha512-3CYzex9M9FGQjCGMGyi6/31c8GJbgb0qGyrx5HWxPd0aCwh4cB2YjMb2Xf9UuoogrMrlO9cTqnB5rI5GHZTcUA==}
     engines: {node: '>=0.10.0'}
     dev: true
+
+  /arweave/1.12.6:
+    resolution: {integrity: sha512-OglStwi/79e69XO42DbaqoOBNC9CZS+EupusYawRLMj0V2/zRlhrJi0WDuy4IaqY9LQYv8dHD9iyThvRUl9mqw==}
+    engines: {node: '>=16.15.0'}
+    dependencies:
+      arconnect: 0.4.2
+      asn1.js: 5.4.1
+      base64-js: 1.5.1
+      bignumber.js: 9.1.0
+    dev: false
 
   /asap/2.0.6:
     resolution: {integrity: sha512-BSHWgDSAiKs50o2Re8ppvp3seVHXSRM44cdSsT9FfNEUUZLOGWVCsiWaRPWM1Znn+mqZ1OfVZ3z3DWEzSp7hRA==}
