@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.2.0...status-page-v0.3.0) (2023-02-15)
+
+
+### Features
+
+* **protocol:** change statevariables to return a struct ([#13113](https://github.com/taikoxyz/taiko-mono/issues/13113)) ([0bffeb0](https://github.com/taikoxyz/taiko-mono/commit/0bffeb0f3d17938bf2146772962719ae21ce22fa))
+* **relayer:** catch relayer & status page up to new testnet ([#13114](https://github.com/taikoxyz/taiko-mono/issues/13114)) ([543f242](https://github.com/taikoxyz/taiko-mono/commit/543f242bfbf18b155f3476c2d172e79d3041ffc9))
+
+
+### Bug Fixes
+
+* **status-page:** Status block proven ([#13150](https://github.com/taikoxyz/taiko-mono/issues/13150)) ([21e62fd](https://github.com/taikoxyz/taiko-mono/commit/21e62fd87bd2020dcc519b68bd19848424d4e902))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.1.0...status-page-v0.2.0) (2023-01-31)
 
 
