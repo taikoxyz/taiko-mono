@@ -51,7 +51,7 @@ export default {
   },
   logo: <ThemedImage />,
   nextThemes: {
-    defaultTheme: "dark",
+    defaultTheme: "system",
   },
   primaryHue: 315,
   project: {
