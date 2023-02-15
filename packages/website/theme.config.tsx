@@ -7,12 +7,9 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a
-        href="https://twitter.com/taikoxyz/status/1623338218505793536?s=20&t=YL1BSjeBUDlOzQftyhCKeQ"
-        target="_blank"
-      >
-        📌 The alpha-1 testnet (Snæfellsjökull) will be deprecated on February
-        15th, around 14:00UTC. Read more →
+      <a href="https://twitter.com/taikoxyz/" target="_blank">
+        📌 The alpha-1 testnet (Snæfellsjökull) has been shut down, with the
+        alpha-2 testnet coming soon. Follow us to stay updated →
       </a>
     ),
   },
