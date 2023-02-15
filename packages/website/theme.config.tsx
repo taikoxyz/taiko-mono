@@ -19,7 +19,7 @@ export default {
   chat: {
     link: "https://discord.gg/taikoxyz",
   },
-  darkMode: true,
+  darkMode: false,
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
