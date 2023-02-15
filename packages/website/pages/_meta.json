@@ -11,7 +11,7 @@
     "title": "Docs",
     "type": "page"
   },
-  "showcase-page": {
+  "showcase": {
     "title": "Showcase",
     "type": "page",
     "theme": {
