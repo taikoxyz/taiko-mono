@@ -18,11 +18,7 @@
     "newWindow": true
   },
   "testnet-links-dropdown": {
-<<<<<<< HEAD
     "title": "Testnet Links",
-=======
-    "title": "Snæfellsjökull Testnet",
->>>>>>> 494a6341 (fix(website): fix darkmode bug on docs website)
     "type": "menu",
     "items": {
       "status": {
