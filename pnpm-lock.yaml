@@ -151,6 +151,7 @@ importers:
       glob: ^8.1.0
       hardhat: ^2.8.3
       hardhat-abi-exporter: ^2.10.0
+      hardhat-contract-sizer: ^2.8.0
       hardhat-docgen: ^1.3.0
       hardhat-gas-reporter: ^1.0.7
       lint-staged: ^12.3.4
@@ -199,6 +200,7 @@ importers:
       glob: 8.1.0
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
       hardhat-abi-exporter: 2.10.1_hardhat@2.12.2
+      hardhat-contract-sizer: 2.8.0_hardhat@2.12.2
       hardhat-docgen: 1.3.0_lfwxduevmqdtswpjkbv2koayie
       hardhat-gas-reporter: 1.0.9_hardhat@2.12.2
       lint-staged: 12.5.0
@@ -1574,6 +1576,13 @@ packages:
       - supports-color
       - utf-8-validate
     dev: false
+
+  /@colors/colors/1.5.0:
+    resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
+    engines: {node: '>=0.1.90'}
+    requiresBuild: true
+    dev: true
+    optional: true
 
   /@cspotcode/source-map-support/0.8.1:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -6752,6 +6761,15 @@ packages:
       colors: 1.4.0
     dev: true
 
+  /cli-table3/0.6.3:
+    resolution: {integrity: sha512-w5Jac5SykAeZJKntOxJCrm63Eg5/4dhMWIcuTbo9rpE+brgaSZo0RuNJZeOyMgsUdhDeojvgyQLmjI+K50ZGyg==}
+    engines: {node: 10.* || >= 12.*}
+    dependencies:
+      string-width: 4.2.3
+    optionalDependencies:
+      '@colors/colors': 1.5.0
+    dev: true
+
   /cli-truncate/2.1.0:
     resolution: {integrity: sha512-n8fOixwDD6b/ObinzTrp1ZKFzbgvKZvuz/TvejnLn1aQfC6r52XEx85FmuC+3HI+JM7coBRXUvNqEU2PHVrHpg==}
     engines: {node: '>=8'}
@@ -10468,6 +10486,17 @@ packages:
       '@ethersproject/abi': 5.7.0
       delete-empty: 3.0.0
       hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
+    dev: true
+
+  /hardhat-contract-sizer/2.8.0_hardhat@2.12.2:
+    resolution: {integrity: sha512-jXt2Si3uIDx5z99J+gvKa0yvIw156pE4dpH9X/PvTQv652BUd+qGj7WT93PXnHXGh5qhQLkjDYeZMYNOThfjFg==}
+    peerDependencies:
+      hardhat: ^2.0.0
+    dependencies:
+      chalk: 4.1.2
+      cli-table3: 0.6.3
+      hardhat: 2.12.2_2dtigtkb225m7ii7q45utxqwgi
+      strip-ansi: 6.0.1
     dev: true
 
   /hardhat-docgen/1.3.0_lfwxduevmqdtswpjkbv2koayie:
