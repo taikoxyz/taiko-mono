@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.2.0...website-v0.3.0) (2023-02-15)
+
+
+### Features
+
+* add theme switch on website home page ([#13084](https://github.com/taikoxyz/taiko-mono/issues/13084)) ([34c5501](https://github.com/taikoxyz/taiko-mono/commit/34c550100331f5067609773b38d8e63c26ea3bac))
+* **protocol:** add more protocol/tokenomics tests ([#12988](https://github.com/taikoxyz/taiko-mono/issues/12988)) ([3a7523f](https://github.com/taikoxyz/taiko-mono/commit/3a7523f0008d58bee3e839bed37d62161aa39b36))
+* **website:** automatically publish latest blog posts to website ([#13027](https://github.com/taikoxyz/taiko-mono/issues/13027)) ([9fbf102](https://github.com/taikoxyz/taiko-mono/commit/9fbf10214f531556dff8a1b591f76e7f71a580e2))
+* **website:** init bridge and signal service documentation ([#13117](https://github.com/taikoxyz/taiko-mono/issues/13117)) ([eeb3a0e](https://github.com/taikoxyz/taiko-mono/commit/eeb3a0e18aba5742a4695fa80c9f7cdab6b2758e))
+* **website:** minor various improvements to website and docs  ([#13121](https://github.com/taikoxyz/taiko-mono/issues/13121)) ([6cd06f1](https://github.com/taikoxyz/taiko-mono/commit/6cd06f16891d8391ccb501cc0f1ceb9cc0ba838c))
+
+
+### Bug Fixes
+
+* **website:** fix link to the contract addresses ([#13104](https://github.com/taikoxyz/taiko-mono/issues/13104)) ([f7026ff](https://github.com/taikoxyz/taiko-mono/commit/f7026ff6a3247668bb88ca8758307d4cca1c264c))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/website-v0.1.0...website-v0.2.0) (2023-01-31)
 
 
