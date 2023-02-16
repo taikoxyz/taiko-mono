@@ -95,7 +95,7 @@ contract TaikoL1 is
         });
         LibVerifying.verifyBlocks({
             state: state,
-            config: getConfig(),
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false

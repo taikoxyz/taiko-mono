@@ -66,9 +66,9 @@ const commitAndProposeLatestBlock = async (
         commit.txListHash,
         commitReceipt.blockNumber as number,
         block.gasLimit,
-        commitSlot,
-        { gasLimit: 500000 }
+        commitSlot
     );
+
     const proposedEvent: BlockProposedEvent = (
         proposeReceipt.events as any[]
     ).find((e) => e.event === "BlockProposed");
