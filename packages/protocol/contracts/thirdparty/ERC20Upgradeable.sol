@@ -66,9 +66,10 @@ contract ERC20Upgradeable is
     IERC20Upgradeable,
     IERC20MetadataUpgradeable
 {
-    mapping(address => uint256) private _balances;
+    mapping(address owner => uint256 balance) private _balances;
 
-    mapping(address => mapping(address => uint256)) private _allowances;
+    mapping(address owner => mapping(address spender => uint256 allowance))
+        private _allowances;
 
     uint256 private _totalSupply;
 
