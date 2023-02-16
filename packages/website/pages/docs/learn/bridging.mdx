@@ -90,7 +90,7 @@ ERC-20 tokens originate from a canonical chain. To send a token and bridge it to
 
 Here are the overall steps for transferring canonical ERC-20 from a source chain to the destination chain:
 
-1. A contract for the ERC-20 must first be deployed on the destination chain
+1. A contract for the ERC-20 must first be deployed on the destination chain (will be done automatically by the TokenVault if not already deployed)
 
 2. Call sendERC20 on the source chain TokenVault, this will **transfer** the amount by using the `safeTransferFrom` function on the canonical ERC-20 contract, on the source chain, to the TokenVault.
 
