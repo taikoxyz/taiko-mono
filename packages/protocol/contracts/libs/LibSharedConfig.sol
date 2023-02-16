@@ -37,7 +37,7 @@ library LibSharedConfig {
                 maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost
                 commitConfirmations: 0, // owner:daniel
                 maxProofsPerForkChoice: 3, // owner:daniel
-                blockMaxGasLimit: 5000000, // owner:david
+                blockMaxGasLimit: 6000000, // owner:david
                 maxTransactionsPerBlock: 79, //  owner:david
                 maxBytesPerTxList: 120000, // owner:david
                 minTxGasLimit: 21000, // owner:david
