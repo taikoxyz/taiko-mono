@@ -12,7 +12,7 @@
 
 // @dev we need to update this when we update LibProving.sol
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../../L1/libs/LibProving.sol";
 import "../../common/AddressResolver.sol";
