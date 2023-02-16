@@ -69,7 +69,7 @@ async function getPosts(response) {
           }
 
           const jsonString = JSON.stringify(posts);
-          fs.writeFile("./public/posts.json", jsonString);
+          fs.writeFile("./public/posts.json", jsonString, err);
         })
         .catch();
     })
