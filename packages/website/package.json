@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "private": true,
   "scripts": {
-    "build": "pnpm next build",
+    "build": "node scripts/test.ts && pnpm next build",
     "dev": "pnpm next dev",
     "start": "pnpm next start"
   },
