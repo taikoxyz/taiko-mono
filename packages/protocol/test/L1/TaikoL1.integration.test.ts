@@ -200,7 +200,7 @@ describe("integration:TaikoL1", function () {
             for await (const blockNumber of chan) {
                 if (
                     blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber()
+                    genesisHeight + config.maxNumBlocks.toNumber() - 1
                 ) {
                     break;
                 }
@@ -233,7 +233,6 @@ describe("integration:TaikoL1", function () {
                 const verifiedEvent = await verifyBlocks(taikoL1, 1);
                 expect(verifiedEvent).not.to.be.undefined;
 
-                console.log(verifiedEvent.args);
                 forkChoice = await taikoL1.getForkChoice(
                     proposedEvent.args.id.toNumber(),
                     block.parentHash
