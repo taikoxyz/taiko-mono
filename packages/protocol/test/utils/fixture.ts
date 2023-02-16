@@ -41,7 +41,7 @@ async function initIntegrationFixture(
         l2Signer,
         l2AddressManager,
         false,
-        5000000 // Need to set explicitly gasLimit here, otherwise the deployment transaction may fail.
+        5000000 // Note: need to explicitly set gasLimit here, otherwise the deployment transaction may fail.
     );
     const taikoL2DeployReceipt = await taikoL2.deployTransaction.wait();
 
