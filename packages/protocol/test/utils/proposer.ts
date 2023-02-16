@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { TaikoL1 } from "../../typechain";
+import { BlockProposedEvent } from "../../typechain/LibProposing";
 import { commitBlock } from "./commit";
 import { proposeBlock } from "./propose";
 import sleep from "./sleep";
@@ -58,9 +59,13 @@ class Proposer {
                 commitSlot
             );
 
+            const proposedEvent: BlockProposedEvent = (
+                receipt.events as any[]
+            ).find((e) => e.event === "BlockProposed");
+
             this.proposingMutex = false;
 
-            return receipt;
+            return { receipt, proposedEvent };
         } finally {
             this.proposingMutex = false;
         }

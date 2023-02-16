@@ -42,7 +42,7 @@ contract AddressManager is OwnableUpgradeable {
      * Variables *
      *************/
 
-    mapping(bytes32 => address) private addresses;
+    mapping(bytes32 nameHash => address addr) private addresses;
 
     /**********
      * Events *
