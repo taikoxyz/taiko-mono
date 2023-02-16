@@ -12,6 +12,7 @@ import "../libs/LibAnchorSignature.sol";
 import "../libs/LibSharedConfig.sol";
 import "./TaikoData.sol";
 import "./TaikoEvents.sol";
+import "./TaikoCustomErrors.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibUtils.sol";
@@ -20,7 +21,12 @@ import "./libs/LibVerifying.sol";
 /**
  * @author dantaik <dan@taiko.xyz>
  */
-contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
+contract TaikoL1 is
+    EssentialContract,
+    IHeaderSync,
+    TaikoEvents,
+    TaikoCustomErrors
+{
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
