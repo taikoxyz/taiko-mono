@@ -1,19 +1,16 @@
 import { useLayoutEffect } from "react";
 import { gsap } from "gsap/dist/gsap";
-import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 
 export default function Hero() {
   useLayoutEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
-
     // Enlarge the TaikoGeom
     gsap.to(".taikoGeom", {
-      width: 5000,
+      width: 3000,
       scrollTrigger: {
         trigger: ".taikoGeom",
         start: "top 100",
         end: "+=800",
-        scrub: true,
+        scrub: 1,
       },
     });
 
@@ -25,7 +22,7 @@ export default function Hero() {
         trigger: ".taikoGeom",
         start: "top 100",
         end: "+=800",
-        scrub: true,
+        scrub: 1,
       },
     });
 
@@ -36,7 +33,7 @@ export default function Hero() {
         trigger: ".taikoGeom",
         start: "top 100",
         end: "+=800",
-        scrub: true,
+        scrub: 1,
       },
     });
   });
