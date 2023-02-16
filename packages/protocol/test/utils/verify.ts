@@ -123,7 +123,6 @@ async function commitProposeProveAndVerify(
 
     console.log("proving", blockNumber);
     const provedEvent = await prover.prove(
-        await prover.getSigner().getAddress(),
         proposedEvent.args.id.toNumber(),
         blockNumber,
         proposedEvent.args.meta as any as BlockMetadata
@@ -180,6 +179,7 @@ async function commitProposeProveAndVerify(
 }
 
 export {
+    verifyBlocks,
     verifyBlockAndAssert,
     sleepUntilBlockIsVerifiable,
     commitProposeProveAndVerify,

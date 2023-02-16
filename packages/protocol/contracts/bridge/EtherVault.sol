@@ -27,7 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    mapping(address => bool) private _authorizedAddrs;
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
     /*********************

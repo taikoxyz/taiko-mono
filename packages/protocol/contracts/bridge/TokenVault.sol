@@ -47,18 +47,20 @@ contract TokenVault is EssentialContract {
      *********************/
 
     // Tracks if a token on the current chain is a canonical or bridged token.
-    mapping(address => bool) public isBridgedToken;
+    mapping(address tokenAddress => bool isBridged) public isBridgedToken;
 
     // Mappings from bridged tokens to their canonical tokens.
-    mapping(address => CanonicalERC20) public bridgedToCanonical;
+    mapping(address bridgedAddress => CanonicalERC20 canonicalErc20)
+        public bridgedToCanonical;
 
     // Mappings from canonical tokens to their bridged tokens.
     // Also storing chainId for tokens across other chains aside from Ethereum.
-    // chainId => canonical address => bridged address
-    mapping(uint256 => mapping(address => address)) public canonicalToBridged;
+    mapping(uint256 chainId => mapping(address canonicalAddress => address bridgedAddress))
+        public canonicalToBridged;
 
     // Tracks the token and amount associated with a message hash.
-    mapping(bytes32 => MessageDeposit) public messageDeposits;
+    mapping(bytes32 msgHash => MessageDeposit messageDeposit)
+        public messageDeposits;
 
     uint256[47] private __gap;
 
@@ -109,6 +111,21 @@ contract TokenVault is EssentialContract {
     );
 
     /*********************
+     * Custom Errors*
+     *********************/
+
+    error TOKENVAULT_INVALID_TO();
+    error TOKENVAULT_INVALID_VALUE();
+    error TOKENVAULT_INVALID_CALL_VALUE();
+    error TOKENVAULT_INVALID_TOKEN();
+    error TOKENVAULT_INVALID_AMOUNT();
+    error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
+    error TOKENVAULT_INVALID_OWNER();
+    error TOKENVAULT_INVALID_SRC_CHAIN_ID();
+    error TOKENVAULT_MESSAGE_NOT_FAILED();
+    error TOKENVAULT_INVALID_SENDER();
+
+    /*********************
      * External Functions*
      *********************/
 
@@ -134,12 +151,11 @@ contract TokenVault is EssentialContract {
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
-        require(
-            to != address(0) &&
-                to != resolve(destChainId, "token_vault", false),
-            "V:to"
-        );
-        require(msg.value > processingFee, "V:msgValue");
+        if (
+            to == address(0) || to == resolve(destChainId, "token_vault", false)
+        ) revert TOKENVAULT_INVALID_TO();
+
+        if (msg.value <= processingFee) revert TOKENVAULT_INVALID_VALUE();
 
         IBridge.Message memory message;
         message.destChainId = destChainId;
@@ -152,7 +168,7 @@ contract TokenVault is EssentialContract {
         message.memo = memo;
 
         // prevent future PRs from changing the callValue when it must be zero
-        require(message.callValue == 0, "V:callValue");
+        if (message.callValue != 0) revert TOKENVAULT_INVALID_CALL_VALUE();
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
@@ -191,13 +207,13 @@ contract TokenVault is EssentialContract {
         address refundAddress,
         string memory memo
     ) external payable nonReentrant {
-        require(
-            to != address(0) &&
-                to != resolve(destChainId, "token_vault", false),
-            "V:to"
-        );
-        require(token != address(0), "V:token");
-        require(amount > 0, "V:amount");
+        if (
+            to == address(0) || to == resolve(destChainId, "token_vault", false)
+        ) revert TOKENVAULT_INVALID_TO();
+
+        if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
+
+        if (amount == 0) revert TOKENVAULT_INVALID_AMOUNT();
 
         CanonicalERC20 memory canonicalToken;
         uint256 _amount;
@@ -206,7 +222,8 @@ contract TokenVault is EssentialContract {
         if (isBridgedToken[token]) {
             BridgedERC20(token).bridgeBurnFrom(msg.sender, amount);
             canonicalToken = bridgedToCanonical[token];
-            require(canonicalToken.addr != address(0), "V:canonicalToken");
+            if (canonicalToken.addr == address(0))
+                revert TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
             _amount = amount;
         } else {
             // is a canonical token, meaning, it lives on this chain
@@ -271,20 +288,19 @@ contract TokenVault is EssentialContract {
         IBridge.Message calldata message,
         bytes calldata proof
     ) external nonReentrant {
-        require(message.owner != address(0), "B:owner");
-        require(message.srcChainId == block.chainid, "B:srcChainId");
+        if (message.owner == address(0)) revert TOKENVAULT_INVALID_OWNER();
+        if (message.srcChainId != block.chainid)
+            revert TOKENVAULT_INVALID_SRC_CHAIN_ID();
 
         IBridge bridge = IBridge(resolve("bridge", false));
         bytes32 msgHash = bridge.hashMessage(message);
 
         address token = messageDeposits[msgHash].token;
         uint256 amount = messageDeposits[msgHash].amount;
-        require(token != address(0), "B:ERC20Released");
-        require(
-            bridge.isMessageFailed(msgHash, message.destChainId, proof),
-            "V:notFailed"
-        );
+        if (token == address(0)) revert TOKENVAULT_INVALID_TOKEN();
 
+        if (!bridge.isMessageFailed(msgHash, message.destChainId, proof))
+            revert TOKENVAULT_MESSAGE_NOT_FAILED();
         messageDeposits[msgHash] = MessageDeposit(address(0), 0);
 
         if (amount > 0) {
@@ -321,10 +337,8 @@ contract TokenVault is EssentialContract {
         uint256 amount
     ) external nonReentrant onlyFromNamed("bridge") {
         IBridge.Context memory ctx = IBridge(msg.sender).context();
-        require(
-            ctx.sender == resolve(ctx.srcChainId, "token_vault", false),
-            "V:sender"
-        );
+        if (ctx.sender != resolve(ctx.srcChainId, "token_vault", false))
+            revert TOKENVAULT_INVALID_SENDER();
 
         address token;
         if (canonicalToken.chainId == block.chainid) {
@@ -367,12 +381,11 @@ contract TokenVault is EssentialContract {
     function _deployBridgedToken(
         CanonicalERC20 calldata canonicalToken
     ) private returns (address bridgedToken) {
-        bytes32 salt = keccak256(
-            abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
-        );
         bridgedToken = Create2Upgradeable.deploy(
             0, // amount of Ether to send
-            salt,
+            keccak256(
+                abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
+            ),
             type(BridgedERC20).creationCode
         );
 

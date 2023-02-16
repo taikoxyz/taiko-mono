@@ -4,6 +4,7 @@ import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
 import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
@@ -133,7 +134,7 @@ const config: HardhatUserConfig = {
                 },
             },
         },
-        version: "0.8.9",
+        version: "0.8.18",
     },
 };
 
