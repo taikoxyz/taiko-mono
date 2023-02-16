@@ -89,4 +89,4 @@ trap cleanup EXIT INT KILL ERR
 
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "^$TEST_TYPE"
+  npx hardhat test --network l1_test --grep "^$TEST_TYPE:"
