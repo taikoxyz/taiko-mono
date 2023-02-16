@@ -1,0 +1,3 @@
+## Intrinsic validity function
+
+TODO
