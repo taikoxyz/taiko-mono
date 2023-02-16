@@ -1,4 +1,3 @@
-// import  Arweave  from 'arweave';
 const Arweave = require("arweave");
 const fs = require("fs");
 
