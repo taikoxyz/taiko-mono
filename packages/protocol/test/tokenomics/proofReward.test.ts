@@ -16,7 +16,6 @@ import {
     verifyBlocks,
 } from "../utils/verify";
 
-
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
     let l2Provider: ethers.providers.JsonRpcProvider;
