@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "compile": "pnpm hardhat compile",
@@ -76,7 +76,7 @@
     "prettier-plugin-solidity": "^1.1.2",
     "rlp": "^3.0.0",
     "solhint": "^3.3.8",
-    "solidity-coverage": "^0.8.2",
+    "solidity-coverage": "github:cyberhorsey/solidity-coverage",
     "solidity-docgen": "^0.6.0-beta.34",
     "ts-node": "^10.5.0",
     "typechain": "^5.2.0",

@@ -1,6 +1,6 @@
 {
   "name": "@taiko/website",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "build": "pnpm next build",
@@ -8,6 +8,7 @@
     "start": "pnpm next start"
   },
   "dependencies": {
+    "arweave": "^1.12.6",
     "next": "^13.1.6",
     "next-themes": "^0.2.1",
     "nextra": "^2.2.14",
