@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.2.0...protocol-v0.3.0) (2023-02-15)
+
+
+### Features
+
+* **protocol:** add a script to calculate `slotSmoothingFactor` ([#13109](https://github.com/taikoxyz/taiko-mono/issues/13109)) ([61dbc23](https://github.com/taikoxyz/taiko-mono/commit/61dbc2304227b8e844fd19a8b7c5f1cf46f79379))
+* **protocol:** add more protocol/tokenomics tests ([#12988](https://github.com/taikoxyz/taiko-mono/issues/12988)) ([3a7523f](https://github.com/taikoxyz/taiko-mono/commit/3a7523f0008d58bee3e839bed37d62161aa39b36))
+* **protocol:** change statevariables to return a struct ([#13113](https://github.com/taikoxyz/taiko-mono/issues/13113)) ([0bffeb0](https://github.com/taikoxyz/taiko-mono/commit/0bffeb0f3d17938bf2146772962719ae21ce22fa))
+* **protocol:** check message.to on source chain as well ([#13107](https://github.com/taikoxyz/taiko-mono/issues/13107)) ([b55a646](https://github.com/taikoxyz/taiko-mono/commit/b55a6461f7bc665254825b7627cf0e2fb91c716f))
+* **protocol:** deploy a test ERC-20 token to test bridge ([#13132](https://github.com/taikoxyz/taiko-mono/issues/13132)) ([95596e4](https://github.com/taikoxyz/taiko-mono/commit/95596e4e2bf3506d94d83e85494ddade1f35dc70))
+* **protocol:** improve precision for slot-availability multipliers ([#13108](https://github.com/taikoxyz/taiko-mono/issues/13108)) ([3ed5138](https://github.com/taikoxyz/taiko-mono/commit/3ed513850eba361a5ee45fc7143e4dd30c4ed025))
+* **protocol:** no longer delete commit records ([#13152](https://github.com/taikoxyz/taiko-mono/issues/13152)) ([edbdd3d](https://github.com/taikoxyz/taiko-mono/commit/edbdd3d2859e2769ef759ae0c1d8936eff4e4a06))
+* **protocol:** re-implement bridge receive check ([#13134](https://github.com/taikoxyz/taiko-mono/issues/13134)) ([3c10706](https://github.com/taikoxyz/taiko-mono/commit/3c107066dabb1dda55814c10933d604d5069de93))
+* **protocol:** restrict receive()'s msg.sender to vaults ([#13110](https://github.com/taikoxyz/taiko-mono/issues/13110)) ([2d8fa12](https://github.com/taikoxyz/taiko-mono/commit/2d8fa12a72f6850f75adb468d945af080671f3f8))
+* **protocol:** revert Bridge receive() checks ([#13128](https://github.com/taikoxyz/taiko-mono/issues/13128)) ([675611d](https://github.com/taikoxyz/taiko-mono/commit/675611d2a765c706d6d308635a5820639cbd39c4))
+* **protocol:** update Yul PlonkVerifier ([#13133](https://github.com/taikoxyz/taiko-mono/issues/13133)) ([5d9b063](https://github.com/taikoxyz/taiko-mono/commit/5d9b063ab260476023365856c4bbfee151029995))
+
+
+### Bug Fixes
+
+* **protocol:** allow resolver to return zero address for EtherVault ([#13083](https://github.com/taikoxyz/taiko-mono/issues/13083)) ([cb34cf0](https://github.com/taikoxyz/taiko-mono/commit/cb34cf0e0fd182feb6eed4abf6ca9f6a2801e5f1))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.1.0...protocol-v0.2.0) (2023-01-31)
 
 ### Features

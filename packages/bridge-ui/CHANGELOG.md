@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.1...bridge-ui-v0.1.2) (2023-02-15)
+
+
+### Bug Fixes
+
+* **bridge:** light theme toggle chain button ([#13089](https://github.com/taikoxyz/taiko-mono/issues/13089)) ([ed5a748](https://github.com/taikoxyz/taiko-mono/commit/ed5a7488395aef747bc2b9b27067ecca769991cc))
+
 ## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.0...bridge-ui-v0.1.1) (2023-01-31)
 
 

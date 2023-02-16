@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.1.0...relayer-v0.2.0) (2023-02-15)
+
+
+### Features
+
+* **protocol:** change statevariables to return a struct ([#13113](https://github.com/taikoxyz/taiko-mono/issues/13113)) ([0bffeb0](https://github.com/taikoxyz/taiko-mono/commit/0bffeb0f3d17938bf2146772962719ae21ce22fa))
+* **relayer:** catch relayer & status page up to new testnet ([#13114](https://github.com/taikoxyz/taiko-mono/issues/13114)) ([543f242](https://github.com/taikoxyz/taiko-mono/commit/543f242bfbf18b155f3476c2d172e79d3041ffc9))
+* **relayer:** prepare bridge relayer API for frontend ([#13124](https://github.com/taikoxyz/taiko-mono/issues/13124)) ([ef1f691](https://github.com/taikoxyz/taiko-mono/commit/ef1f691ac9e6b3138b1ee80bc7bebcf53b749581))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.0.1...relayer-v0.1.0) (2023-01-19)
 
 
