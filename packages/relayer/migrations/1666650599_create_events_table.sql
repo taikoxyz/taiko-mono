@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS events (
     canonical_token_name VARCHAR(255) DEFAULT "",
     canonical_token_decimals int DEFAULT 0,
     amount VARCHAR(255) NOT NULL,
+    transactor VARCHAR(42) DEFAULT "",
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

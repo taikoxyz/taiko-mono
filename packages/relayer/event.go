@@ -54,6 +54,7 @@ type Event struct {
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
 	Amount                 string         `json:"amount"`
+	Transactor             string         `json:"transactor"`
 }
 
 // SaveEventOpts
@@ -68,12 +69,13 @@ type SaveEventOpts struct {
 	CanonicalTokenName     string
 	CanonicalTokenDecimals uint8
 	Amount                 string
+	Transactor             string
 }
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
-	UpdateStatus(ctx context.Context, id int, status EventStatus) error
+	UpdateStatus(ctx context.Context, id int, status EventStatus, transactor string) error
 	FindAllByAddressAndChainID(
 		ctx context.Context,
 		chainID *big.Int,

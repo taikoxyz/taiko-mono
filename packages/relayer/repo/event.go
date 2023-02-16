@@ -37,6 +37,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		CanonicalTokenName:     opts.CanonicalTokenName,
 		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
 		Amount:                 opts.Amount,
+		Transactor:             opts.Transactor,
 	}
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
@@ -45,13 +46,22 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	return e, nil
 }
 
-func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
+func (r *EventRepository) UpdateStatus(
+	ctx context.Context,
+	id int,
+	status relayer.EventStatus,
+	transactor string,
+) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.First")
 	}
 
 	e.Status = status
+	if transactor != "" {
+		e.Transactor = transactor
+	}
+
 	if err := r.db.GormDB().Save(e).Error; err != nil {
 		return errors.Wrap(err, "r.db.Save")
 	}

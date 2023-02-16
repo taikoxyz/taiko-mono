@@ -32,7 +32,12 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	return nil, nil
 }
 
-func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
+func (r *EventRepository) UpdateStatus(
+	ctx context.Context,
+	id int,
+	status relayer.EventStatus,
+	transactor string,
+) error {
 	var event *relayer.Event
 
 	var index int
@@ -51,6 +56,9 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	}
 
 	event.Status = status
+	if transactor != "" {
+		event.Transactor = transactor
+	}
 
 	r.events[index] = event
 

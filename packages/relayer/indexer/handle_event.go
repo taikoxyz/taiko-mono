@@ -51,6 +51,15 @@ func (svc *Service) handleEvent(
 		return errors.Wrap(err, "eventTypeAmountAndCanonicalTokenFromEvent(event)")
 	}
 
+	transactor := ""
+
+	if eventStatus == relayer.EventStatusDone {
+		transactor, err = svc.getTransactorForMessage(event.MsgHash)
+		if err != nil {
+			return errors.Wrap(err, "svc.getTransactorForMessage(event.MsgHash)")
+		}
+	}
+
 	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
 		Name:                   eventName,
 		Data:                   string(marshaled),
@@ -62,6 +71,7 @@ func (svc *Service) handleEvent(
 		CanonicalTokenName:     canonicalToken.Name,
 		CanonicalTokenDecimals: canonicalToken.Decimals,
 		Amount:                 amount.String(),
+		Transactor:             transactor,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
@@ -78,6 +88,12 @@ func (svc *Service) handleEvent(
 	}
 
 	return nil
+}
+
+func (svc *Service) getTransactorForMessage(msgHash common.Hash) (string, error) {
+	transactor := ""
+
+	return transactor, nil
 }
 
 func eventTypeAmountAndCanonicalTokenFromEvent(

@@ -65,6 +65,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				CanonicalTokenName:     "Ethereum",
 				CanonicalTokenDecimals: 18,
 				Amount:                 "1",
+				Transactor:             "0x1",
 			},
 			nil,
 		},
@@ -88,21 +89,24 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	tests := []struct {
-		name    string
-		id      int
-		status  relayer.EventStatus
-		wantErr bool
+		name       string
+		id         int
+		status     relayer.EventStatus
+		transactor string
+		wantErr    bool
 	}{
 		{
 			"success",
 			1,
 			relayer.EventStatusDone,
+			"0x2",
 			false,
 		},
 		{
 			"errNotFound",
 			123,
 			relayer.EventStatusDone,
+			"0x2",
 			true,
 		},
 	}
@@ -121,11 +125,12 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 						CanonicalTokenName:     "Ethereum",
 						CanonicalTokenDecimals: 18,
 						Amount:                 "1",
+						Transactor:             "0x1",
 					},
 				)
 				assert.Equal(t, nil, err)
 			}
-			err := eventRepo.UpdateStatus(context.Background(), tt.id, tt.status)
+			err := eventRepo.UpdateStatus(context.Background(), tt.id, tt.status, tt.transactor)
 			assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
@@ -152,6 +157,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 		CanonicalTokenName:     "Ethereum",
 		CanonicalTokenDecimals: 18,
 		Amount:                 "1",
+		Transactor:             "0x1",
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -179,6 +185,7 @@ func TestIntegration_Event_FindAllByAddressAndChainID(t *testing.T) {
 					CanonicalTokenName:     "Ethereum",
 					CanonicalTokenDecimals: 18,
 					Amount:                 "1",
+					Transactor:             "0x1",
 				},
 			},
 			nil,
@@ -230,6 +237,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		CanonicalTokenName:     "Ethereum",
 		CanonicalTokenDecimals: 18,
 		Amount:                 "1",
+		Transactor:             "0x1",
 	})
 	assert.Equal(t, nil, err)
 	tests := []struct {
@@ -255,6 +263,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 					CanonicalTokenName:     "Ethereum",
 					CanonicalTokenDecimals: 18,
 					Amount:                 "1",
+					Transactor:             "0x1",
 				},
 			},
 			nil,
