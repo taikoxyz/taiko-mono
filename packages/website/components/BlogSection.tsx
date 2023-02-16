@@ -75,7 +75,7 @@ function getDateTime(timestamp: string): string {
 }
 
 export default function BlogSection(): JSX.Element {
-  const [posts, setPosts] = useState<Object[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   useEffect(() => {
     fetch("/posts.json")
       .then((response) => response.json())

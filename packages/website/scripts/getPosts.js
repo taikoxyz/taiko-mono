@@ -1,6 +1,6 @@
 // import  Arweave  from 'arweave';
-const Arweave = require('arweave')
-const fs = require('fs')
+const Arweave = require("arweave");
+const fs = require("fs");
 
 const arweave = Arweave.init({
   host: "arweave.net",
@@ -8,12 +8,11 @@ const arweave = Arweave.init({
   protocol: "https",
 });
 
-
 async function getTransanctionIds() {
-  await fetch('https://arweave.net/graphql', {
-    method: 'POST',
+  await fetch("https://arweave.net/graphql", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       query: `
@@ -43,8 +42,10 @@ async function getTransanctionIds() {
                     }
                   }
                 }
-              `})
-  }).then((res) => res.json())
+              `,
+    }),
+  })
+    .then((res) => res.json())
     .then((response) => {
       getPosts(response);
     })
@@ -52,32 +53,27 @@ async function getTransanctionIds() {
 }
 
 async function getPosts(response) {
-  const posts = []
-  Promise.all(response.data.transactions.edges.map((edge) => {
-    const transactionId = edge.node.id;
-    arweave.transactions
-      .getData(`${transactionId}`, { decode: true, string: true }).then((response) => JSON.parse(response))
-      .then((data) => {
-        // Check if the posts have the required keys
-        if (data.hasOwnProperty('wnft')) {
-
-          // add the original digest
-          data["OriginalDigest"] = edge.node.tags[4].value;
-          posts.push(data);
-        }
-
-        const jsonString = JSON.stringify(posts)
-        fs.writeFile('./public/posts.json', jsonString, err => {
-          if (err) {
-            console.log('Error writing file', err)
-          } else {
-            console.log('Successfully wrote file')
+  const posts = [];
+  Promise.all(
+    response.data.transactions.edges.map((edge) => {
+      const transactionId = edge.node.id;
+      arweave.transactions
+        .getData(`${transactionId}`, { decode: true, string: true })
+        .then((response) => JSON.parse(response))
+        .then((data) => {
+          // Check if the posts have the required keys
+          if (data.hasOwnProperty("wnft")) {
+            // add the original digest
+            data["OriginalDigest"] = edge.node.tags[4].value;
+            posts.push(data);
           }
+
+          const jsonString = JSON.stringify(posts);
+          fs.writeFile("./public/posts.json", jsonString);
         })
-
-      }).catch();
-  }))
-
+        .catch();
+    })
+  );
 }
 
 getTransanctionIds();
