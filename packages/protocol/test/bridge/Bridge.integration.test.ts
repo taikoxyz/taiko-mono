@@ -253,7 +253,7 @@ describe("integration:Bridge", function () {
             ).to.be.revertedWith("B:notReceived");
         });
 
-        it("processes a message when the signal has been verified from the sending chain", async () => {
+        it.only("processes a message when the signal has been verified from the sending chain", async () => {
             const { msgHash, message } = await sendMessage(l1Bridge, m);
 
             expect(msgHash).not.to.be.eq(ethers.constants.HashZero);

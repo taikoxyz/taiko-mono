@@ -40,7 +40,7 @@ library LibBridgeProcess {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
-    ) external {
+    ) internal {
         // If the gas limit is set to zero, only the owner can process the message.
         if (message.gasLimit == 0) {
             require(msg.sender == message.owner, "B:forbidden");

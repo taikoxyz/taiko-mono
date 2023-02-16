@@ -23,11 +23,11 @@ async function deployBridge(
         .connect(signer)
         .deploy();
 
-    const libBridgeProcess = await (
-        await hardhatEthers.getContractFactory("LibBridgeProcess")
-    )
-        .connect(signer)
-        .deploy();
+    // const libBridgeProcess = await (
+    //     await hardhatEthers.getContractFactory("LibBridgeProcess")
+    // )
+    //     .connect(signer)
+    //     .deploy();
 
     const libBridgeRetry = await (
         await hardhatEthers.getContractFactory("LibBridgeRetry")
@@ -38,7 +38,7 @@ async function deployBridge(
     const BridgeFactory = await hardhatEthers.getContractFactory("Bridge", {
         libraries: {
             LibTrieProof: libTrieProof.address,
-            LibBridgeProcess: libBridgeProcess.address,
+            // LibBridgeProcess: libBridgeProcess.address,
             LibBridgeRetry: libBridgeRetry.address,
         },
     });
@@ -132,6 +132,8 @@ async function processMessage(
     );
 
     const tx = await l2Bridge.processMessage(message, signalProof);
+    const receipt = await tx.wait(1);
+    console.log("process message gas used", receipt.gasUsed.toString());
     return { tx, signalProof, block, blockHeader };
 }
 
