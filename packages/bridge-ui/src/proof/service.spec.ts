@@ -109,7 +109,7 @@ describe("prover tests", () => {
 
     await expect(
       prover.GenerateProof({
-        signal: ethers.constants.HashZero,
+        msgHash: ethers.constants.HashZero,
         sender: ethers.constants.AddressZero,
         srcBridgeAddress: ethers.constants.AddressZero,
         srcChain: srcChain,
@@ -136,7 +136,7 @@ describe("prover tests", () => {
     const prover: ProofService = new ProofService(map);
 
     const proof = await prover.GenerateProof({
-      signal: ethers.constants.HashZero,
+      msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
@@ -165,7 +165,7 @@ describe("prover tests", () => {
     const prover: ProofService = new ProofService(map);
 
     const proof = await prover.GenerateProof({
-      signal: ethers.constants.HashZero,
+      msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
