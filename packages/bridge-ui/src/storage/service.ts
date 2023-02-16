@@ -89,10 +89,10 @@ class StorageService implements Transactioner {
           return;
         }
 
-        const signal = event.args.signal;
+        const msgHash = event.args.msgHash;
 
         const messageStatus: number = await destContract.getMessageStatus(
-          signal
+          msgHash
         );
 
         let amountInWei: BigNumber;
@@ -103,16 +103,16 @@ class StorageService implements Transactioner {
             TokenVault,
             srcProvider
           );
+          const filter = tokenVaultContract.filters.ERC20Sent(msgHash)
           const erc20Events = await tokenVaultContract.queryFilter(
-            "ERC20Sent",
+            filter,
             receipt.blockNumber,
             receipt.blockNumber
           );
 
           const erc20Event = erc20Events.find(
-            (e) => e.args.signal.toLowerCase() === signal.toLowerCase()
+            (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase()
           );
-
           if (!erc20Event) return;
 
           const erc20Contract = new Contract(
@@ -127,7 +127,7 @@ class StorageService implements Transactioner {
         const bridgeTx: BridgeTransaction = {
           message: event.args.message,
           receipt: receipt,
-          signal: event.args.signal,
+          msgHash: event.args.msgHash,
           ethersTx: tx.ethersTx,
           status: messageStatus,
           amountInWei: amountInWei,

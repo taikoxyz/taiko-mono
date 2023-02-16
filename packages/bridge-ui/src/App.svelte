@@ -50,6 +50,9 @@
   import BridgeABI from "./constants/abi/Bridge";
   import { providers } from "./store/providers";
   import HeaderAnnouncement from "./components/HeaderAnnouncement.svelte";
+  import type { TokenStore } from "./domain/token";
+  import { CustomTokenService } from "./storage/customTokenService";
+  import { userTokens, userTokenStore } from "./store/userTokenStore";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -130,15 +133,25 @@
     providerMap
   );
 
+  const tokenStore: TokenStore = new CustomTokenService(
+    window.localStorage,
+  );
+
+  userTokenStore.set(tokenStore);
+
   transactioner.set(storageTransactioner);
 
   signer.subscribe(async (store) => {
     if (store) {
+      const userAddress = await store.getAddress();
       const txs = await $transactioner.GetAllByAddress(
-        await store.getAddress()
+        userAddress
       );
 
       transactions.set(txs);
+
+      const tokens = await $userTokenStore.GetTokens(userAddress)
+      userTokens.set(tokens);
     }
     return store;
   });

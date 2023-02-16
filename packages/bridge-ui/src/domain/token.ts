@@ -70,4 +70,13 @@ export const TEST_ERC20: Token = {
   logoComponent: Horse,
 };
 
+export interface TokenStore {
+  StoreToken(
+    token: Token,
+    address: string
+  ): Promise<Token[]>;
+  GetTokens(address: string): Token[],
+  RemoveToken(token: Token, address: string): Token[],
+}
+
 export const tokens = [ETH, TEST_ERC20];

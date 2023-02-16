@@ -19,7 +19,7 @@ class ProofService implements Prover {
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ["address", "bytes32"],
-        [opts.sender, opts.signal]
+        [opts.sender, opts.msgHash]
       )
     );
 

@@ -154,7 +154,7 @@ class ERC20Bridge implements Bridge {
     );
 
     const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.signal
+      opts.msgHash
     );
 
     if (
@@ -173,7 +173,7 @@ class ERC20Bridge implements Bridge {
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
-        signal: opts.signal,
+        msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),

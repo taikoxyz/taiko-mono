@@ -64,7 +64,7 @@
         .Claim({
           signer: $signer,
           message: bridgeTx.message,
-          signal: bridgeTx.signal,
+          msgHash: bridgeTx.msgHash,
           destBridgeAddress:
             chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
           srcBridgeAddress:
@@ -109,7 +109,7 @@
       $providers.get(chains[transaction.message.destChainId.toNumber()].id)
     );
 
-    transaction.status = await contract.getMessageStatus(transaction.signal);
+    transaction.status = await contract.getMessageStatus(transaction.msgHash);
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);

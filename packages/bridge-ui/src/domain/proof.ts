@@ -14,7 +14,7 @@ type EthGetProofResponse = {
 };
 
 type GenerateProofOpts = {
-  signal: string;
+  msgHash: string;
   sender: string;
   srcBridgeAddress: string;
   destChain: number;

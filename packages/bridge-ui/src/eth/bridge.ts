@@ -109,7 +109,7 @@ class ETHBridge implements BridgeInterface {
     );
 
     const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.signal
+      opts.msgHash
     );
 
     if (messageStatus === MessageStatus.Done) {
@@ -125,7 +125,7 @@ class ETHBridge implements BridgeInterface {
     if (messageStatus === MessageStatus.New) {
       const proofOpts = {
         srcChain: opts.message.srcChainId.toNumber(),
-        signal: opts.signal,
+        msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
