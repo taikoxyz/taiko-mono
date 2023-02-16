@@ -1,4 +1,4 @@
-// import { Arweave } from 'arweave';
+// import  Arweave  from 'arweave';
 const Arweave = require('arweave')
 const fs = require('fs')
 
@@ -81,5 +81,3 @@ async function getPosts(response) {
 }
 
 getTransanctionIds();
-
-module.exports = {}

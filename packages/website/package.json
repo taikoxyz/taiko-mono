@@ -3,8 +3,7 @@
   "version": "0.3.0",
   "private": true,
   "scripts": {
-    "prebuild" : "node scripts/getPosts.ts",
-    "build": "pnpm next build",
+    "build": "node scripts/getPosts.js && pnpm next build",
     "dev": "pnpm next dev",
     "start": "pnpm next start"
   },
