@@ -22,11 +22,7 @@ async function onNewL2Block(
     newProofReward: BigNumber;
 }> {
     const block = await l2Provider.getBlock(blockNumber);
-    const receipt = await proposer.commitThenProposeBlock(block);
-    const proposedEvent: BlockProposedEvent = (receipt.events as any[]).find(
-        (e) => e.event === "BlockProposed"
-    );
-
+    const { proposedEvent } = await proposer.commitThenProposeBlock(block);
     const { id, meta } = proposedEvent.args;
 
     const { enableTokenomics } = await taikoL1.getConfig();
