@@ -17,11 +17,7 @@ import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
-import {
-    createAndSeedWallets,
-    seedTko,
-    sendTinyEtherToZeroAddress,
-} from "../utils/seed";
+import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
 import {
     commitProposeProveAndVerify,
     sleepUntilBlockIsVerifiable,
@@ -188,11 +184,7 @@ describe("integration:TaikoL1", function () {
         });
 
         it("returns empty after a block is verified", async function () {
-            const provers = (await createAndSeedWallets(2, l1Signer)).map(
-                (p: ethersLib.Wallet) => new Prover(taikoL1, l2Provider, p)
-            );
-
-            await seedTko(provers, tkoTokenL1.connect(l1Signer));
+            await seedTko([prover], tkoTokenL1.connect(l1Signer));
 
             const blockNumber = genesisHeight + 1;
             /* eslint-disable-next-line */
@@ -203,7 +195,7 @@ describe("integration:TaikoL1", function () {
                 block
             );
 
-            await provers[0].prove(
+            await prover.prove(
                 proposedEvent.args.id.toNumber(),
                 blockNumber,
                 proposedEvent.args.meta as any as BlockMetadata
