@@ -26,7 +26,7 @@ import {
 import { Block, getBlockHeader } from "../utils/rpc";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 
-describe("integration:Bridge", function () {
+describe("bridgeintegration:Bridge", function () {
     let owner: SignerWithAddress;
     let l1Provider: ethersLib.providers.JsonRpcProvider;
     let l2Provider: ethersLib.providers.JsonRpcProvider;

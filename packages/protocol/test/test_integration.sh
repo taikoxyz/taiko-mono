@@ -32,7 +32,7 @@ docker run -d \
   -e CHAIN_ID="1336" -e PERIOD="0" -e NODE_KEY=$GETH_NODE_KEY_L1 \
   gcr.io/evmchain/clique-geth:latest
 
-if [[ $TEST_TYPE = "integration" ]]
+if [[ $TEST_TYPE = "bridgeintegration" ]]
 then
     docker run -d \
       --name $TEST_NODE_CONTAINER_NAME_L2 \
