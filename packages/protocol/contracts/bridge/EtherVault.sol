@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 // solhint-disable-next-line max-line-length
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -27,7 +27,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    mapping(address => bool) private _authorizedAddrs;
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
     /*********************

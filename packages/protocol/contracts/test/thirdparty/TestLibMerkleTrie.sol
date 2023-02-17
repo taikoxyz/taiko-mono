@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 /* Library Imports */
 import {LibMerkleTrie} from "../../thirdparty/LibMerkleTrie.sol";

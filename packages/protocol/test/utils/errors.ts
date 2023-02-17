@@ -4,26 +4,31 @@ import { expect } from "chai";
 async function txShouldRevertWithCustomError(
     txPromise: Promise<any>,
     provider: ethers.providers.JsonRpcProvider,
-    customError: String
+    customError: string
 ) {
     try {
         await txPromise;
         expect.fail("Expected promise to throw but it didn't");
     } catch (tx) {
         // console.log(tx)
-        const _tx = await provider.getTransaction(tx.transactionHash);
-        // console.log(_tx)
-        const code = await provider.call(_tx, _tx.blockNumber);
+        const _tx = await provider.getTransaction(
+            (tx as { transactionHash: string }).transactionHash
+        );
+        const code = await provider.call(
+            _tx as ethers.providers.TransactionRequest,
+            _tx.blockNumber
+        );
+
         const expectedCode = utils
             .keccak256(utils.toUtf8Bytes(customError))
             .substring(0, 10);
 
         if (code !== expectedCode) {
             expect.fail(
-                "Error code mismatch: actual=",
-                code,
-                "expected=",
-                expectedCode
+                `Error code mismatch: actual=
+                ${code}
+                expected=
+                ${expectedCode}`
             );
         }
     }
@@ -31,19 +36,20 @@ async function txShouldRevertWithCustomError(
 
 async function readShouldRevertWithCustomError(
     txPromise: Promise<any>,
-    customError: String
+    customError: string
 ) {
     try {
         await txPromise;
 
         expect.fail("Expected promise to throw but it didn't");
     } catch (result) {
-        if (result.errorSignature !== customError) {
+        const r = result as { errorSignature: string };
+        if (r.errorSignature !== customError) {
             expect.fail(
-                "Error code mismatch: actual=",
-                result.errorSignature,
-                "expected=",
-                customError
+                `Error code mismatch: actual=
+                ${r.errorSignature} 
+                "expected=" 
+                ${customError}`
             );
         }
     }

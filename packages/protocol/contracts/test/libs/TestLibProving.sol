@@ -12,7 +12,7 @@
 
 // @dev we need to update this when we update LibProving.sol
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../../L1/libs/LibProving.sol";
 import "../../common/AddressResolver.sol";
@@ -79,6 +79,7 @@ library TestLibProving {
     error L1_ANCHOR_RECEIPT_ADDR();
     error L1_ANCHOR_RECEIPT_TOPICS();
     error L1_ANCHOR_RECEIPT_DATA();
+    error L1_HALTED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -87,7 +88,7 @@ library TestLibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
+        if (LibUtils.isHalted(state)) revert L1_HALTED();
 
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();

@@ -26,7 +26,6 @@ class Prover {
     }
 
     async prove(
-        proverAddress: string,
         blockId: number,
         blockNumber: number,
         meta: BlockMetadata
@@ -41,7 +40,7 @@ class Prover {
             blockProvenEvent = await proveBlock(
                 this.taikoL1,
                 this.l2Provider,
-                proverAddress,
+                await this.getSigner().getAddress(),
                 blockId,
                 blockNumber,
                 meta
