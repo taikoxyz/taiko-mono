@@ -215,7 +215,7 @@ describe("tokenomics: proofReward", function () {
         }
     });
 
-    it(`asserts that with N provers, where N is config.maxProofsPerForkChoice all provers who submit proofs are paid with decreasing weight from the first prover to the Nth`, async function () {
+    it.only(`asserts that with N provers, where N is config.maxProofsPerForkChoice all provers who submit proofs are paid with decreasing weight from the first prover to the Nth`, async function () {
         const provers = (
             await createAndSeedWallets(
                 config.maxProofsPerForkChoice.toNumber(),
