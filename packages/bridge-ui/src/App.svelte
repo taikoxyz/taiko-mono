@@ -50,7 +50,7 @@
   import BridgeABI from "./constants/abi/Bridge";
   import { providers } from "./store/providers";
   import HeaderAnnouncement from "./components/HeaderAnnouncement.svelte";
-  import type { TokenStore } from "./domain/token";
+  import type { TokenService } from "./domain/token";
   import { CustomTokenService } from "./storage/customTokenService";
   import { userTokens, userTokenStore } from "./store/userTokenStore";
 
@@ -133,7 +133,7 @@
     providerMap
   );
 
-  const tokenStore: TokenStore = new CustomTokenService(
+  const tokenStore: TokenService = new CustomTokenService(
     window.localStorage,
   );
 
@@ -193,7 +193,7 @@
             }
 
             transactionToIntervalMap.set(tx.ethersTx.hash, interval);
-            if (!tx.signal) return;
+            if (!tx.msgHash) return;
 
             const contract = new ethers.Contract(
               chains[tx.toChainId].bridgeAddress,
@@ -202,7 +202,7 @@
             );
 
             const messageStatus: MessageStatus =
-              await contract.getMessageStatus(tx.signal);
+              await contract.getMessageStatus(tx.msgHash);
 
             if (messageStatus === MessageStatus.Done) {
               successToast("Bridge message processed successfully");

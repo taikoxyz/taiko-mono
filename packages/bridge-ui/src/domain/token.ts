@@ -70,7 +70,7 @@ export const TEST_ERC20: Token = {
   logoComponent: Horse,
 };
 
-export interface TokenStore {
+export interface TokenService {
   StoreToken(
     token: Token,
     address: string

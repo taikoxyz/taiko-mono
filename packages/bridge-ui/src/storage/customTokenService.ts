@@ -1,11 +1,11 @@
-import type { Token, TokenStore } from "src/domain/token";
+import type { Token, TokenService } from "src/domain/token";
 
 interface storage {
   getItem(key: string): string;
   setItem(key: string, value: string);
 }
 
-class CustomTokenService implements TokenStore {
+class CustomTokenService implements TokenService {
   private readonly storage: storage;
 
   constructor(
