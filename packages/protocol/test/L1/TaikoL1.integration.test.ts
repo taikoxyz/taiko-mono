@@ -188,57 +188,43 @@ describe("integration:TaikoL1", function () {
         });
 
         it("returns empty after a block is verified", async function () {
-            const provers = (await createAndSeedWallets(2, l1Signer)).map(
-                (p: ethersLib.Wallet) => new Prover(taikoL1, l2Provider, p)
+            await seedTko([prover], tkoTokenL1.connect(l1Signer));
+
+            const blockNumber = genesisHeight + 1;
+            /* eslint-disable-next-line */
+            const block = await l2Provider.getBlock(blockNumber);
+
+            // commit and propose block, so our provers can prove it.
+            const { proposedEvent } = await proposer.commitThenProposeBlock(
+                block
             );
 
-            await seedTko(provers, tkoTokenL1.connect(l1Signer));
+            await prover.prove(
+                proposedEvent.args.id.toNumber(),
+                blockNumber,
+                proposedEvent.args.meta as any as BlockMetadata
+            );
 
-            l2Provider.on("block", blockListener(chan, genesisHeight));
+            let forkChoice = await taikoL1.getForkChoice(
+                proposedEvent.args.id.toNumber(),
+                block.parentHash
+            );
+            expect(forkChoice).not.to.be.undefined;
+            expect(forkChoice.provers.length).to.be.eq(1);
 
-            /* eslint-disable-next-line */
-            for await (const blockNumber of chan) {
-                if (
-                    blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
-                ) {
-                    break;
-                }
+            await sleepUntilBlockIsVerifiable(
+                taikoL1,
+                proposedEvent.args.id.toNumber(),
+                0
+            );
+            const verifiedEvent = await verifyBlocks(taikoL1, 1);
+            expect(verifiedEvent).not.to.be.undefined;
 
-                const block = await l2Provider.getBlock(blockNumber);
-
-                // commit and propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.commitThenProposeBlock(
-                    block
-                );
-
-                await provers[0].prove(
-                    proposedEvent.args.id.toNumber(),
-                    blockNumber,
-                    proposedEvent.args.meta as any as BlockMetadata
-                );
-
-                let forkChoice = await taikoL1.getForkChoice(
-                    proposedEvent.args.id.toNumber(),
-                    block.parentHash
-                );
-                expect(forkChoice).not.to.be.undefined;
-                expect(forkChoice.provers.length).to.be.eq(1);
-
-                await sleepUntilBlockIsVerifiable(
-                    taikoL1,
-                    proposedEvent.args.id.toNumber(),
-                    0
-                );
-                const verifiedEvent = await verifyBlocks(taikoL1, 1);
-                expect(verifiedEvent).not.to.be.undefined;
-
-                forkChoice = await taikoL1.getForkChoice(
-                    proposedEvent.args.id.toNumber(),
-                    block.parentHash
-                );
-                expect(forkChoice.provers.length).to.be.eq(0);
-            }
+            forkChoice = await taikoL1.getForkChoice(
+                proposedEvent.args.id.toNumber(),
+                block.parentHash
+            );
+            expect(forkChoice.provers.length).to.be.eq(0);
         });
     });
 
