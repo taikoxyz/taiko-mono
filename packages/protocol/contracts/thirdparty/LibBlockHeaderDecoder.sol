@@ -2,7 +2,7 @@
 // Taken from https://github.com/privacy-scaling-explorations/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol#L23
 // NOTE: No MIT license provided at the time, only SPDX-License-Identifier
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 /**
  * @title LibBlockHeaderDecoder
