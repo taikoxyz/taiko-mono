@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -28,12 +28,12 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 => bytes32) private _l2Hashes;
+    mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
     // Mapping from L1 block numbers to their block hashes.
     // Note that only hashes of L1 blocks where at least one L2
     // block has been proposed will be saved in this mapping.
-    mapping(uint256 => bytes32) private _l1Hashes;
+    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
 
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;

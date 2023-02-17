@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
 import "../../common/AddressResolver.sol";
@@ -73,6 +73,7 @@ library LibProving {
     error L1_ANCHOR_RECEIPT_ADDR();
     error L1_ANCHOR_RECEIPT_TOPICS();
     error L1_ANCHOR_RECEIPT_DATA();
+    error L1_HALTED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -81,7 +82,7 @@ library LibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
+        if (LibUtils.isHalted(state)) revert L1_HALTED();
 
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();

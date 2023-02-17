@@ -29,7 +29,7 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 /* External Imports */
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -42,7 +42,7 @@ contract AddressManager is OwnableUpgradeable {
      * Variables *
      *************/
 
-    mapping(bytes32 => address) private addresses;
+    mapping(bytes32 nameHash => address addr) private addresses;
 
     /**********
      * Events *

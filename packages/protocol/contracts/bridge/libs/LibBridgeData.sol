@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAddress.sol";
@@ -20,7 +20,7 @@ library LibBridgeData {
     struct State {
         uint256 nextMessageId;
         IBridge.Context ctx; // 3 slots
-        mapping(bytes32 => bool) etherReleased;
+        mapping(bytes32 msgHash => bool released) etherReleased;
         uint256[45] __gap;
     }
 

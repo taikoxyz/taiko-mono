@@ -132,7 +132,7 @@ describe("TokenVault", function () {
                     owner.address,
                     ""
                 )
-            ).to.be.revertedWith("V:msgValue");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_VALUE()");
         });
 
         it("throws when msg.value - processing fee is 0", async () => {
@@ -148,7 +148,7 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee,
                     }
                 )
-            ).to.be.revertedWith("V:msgValue");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_VALUE()");
         });
 
         it("throws when msg.value is < processingFee", async () => {
@@ -164,7 +164,7 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("V:msgValue");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_VALUE()");
         });
 
         it("throws when to is 0", async () => {
@@ -180,7 +180,7 @@ describe("TokenVault", function () {
                         value: defaultProcessingFee - 1,
                     }
                 )
-            ).to.be.revertedWith("V:to");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_TO()");
         });
 
         it("succeeds with processingFee", async () => {
@@ -258,7 +258,7 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:to");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_TO()");
         });
 
         it("should throw if to == destChainId.token_vault", async function () {
@@ -276,7 +276,7 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:to");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_TO()");
         });
 
         it("should throw if token == address(0)", async function () {
@@ -294,7 +294,7 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:token");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_TOKEN()");
         });
 
         it("should throw if amount <= 0", async function () {
@@ -312,7 +312,7 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:amount");
+            ).to.be.revertedWith("TOKENVAULT_INVALID_AMOUNT()");
         });
 
         it("should throw if isBridgedToken, and canonicalToken.addr == address(0)", async function () {
@@ -335,7 +335,7 @@ describe("TokenVault", function () {
                         value: 1,
                     }
                 )
-            ).to.be.revertedWith("V:canonicalToken");
+            ).to.be.revertedWith("TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND()");
         });
 
         it("should pass and emit ERC20Sent Event", async function () {

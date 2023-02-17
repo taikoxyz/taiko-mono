@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/contracts/bridge"
 )
 
@@ -38,6 +39,23 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 				err := svc.handleEvent(ctx, chainID, event)
 				if err != nil {
 					log.Errorf("svc.subscribe, svc.handleEvent: %v", err)
+				}
+
+				block, err := svc.blockRepo.GetLatestBlockProcessedForEvent(relayer.EventNameMessageSent, chainID)
+				if err != nil {
+					log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessedForEvent: %v", err)
+				}
+
+				if block.Height < event.Raw.BlockNumber {
+					err = svc.blockRepo.Save(relayer.SaveBlockOpts{
+						Height:    event.Raw.BlockNumber,
+						Hash:      event.Raw.BlockHash,
+						ChainID:   chainID,
+						EventName: relayer.EventNameMessageSent,
+					})
+					if err != nil {
+						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
+					}
 				}
 			}()
 		}
