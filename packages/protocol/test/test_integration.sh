@@ -47,12 +47,6 @@ else
       hardhat node --hostname "0.0.0.0"
 fi
 
-docker run -d \
-      --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
-      --add-host host.docker.internal:host-gateway \
-      ethereum/client-go:latest \
-      --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
-
 function waitTestNode {
   echo "Waiting for test node: $1"
   # Wait till the test node fully started
@@ -78,6 +72,12 @@ function waitTestNode {
 
 waitTestNode http://localhost:18545
 waitTestNode http://localhost:28545
+
+docker run -d \
+      --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
+      --add-host host.docker.internal:host-gateway \
+      ethereum/client-go:latest \
+      --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
 function cleanup {
   docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
