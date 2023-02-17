@@ -77,14 +77,20 @@ library LibBridgeProcess {
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0)) {
+        if (
+            ethVault != address(0) &&
+            (message.depositValue + message.callValue + message.processingFee >
+                0)
+        ) {
             EtherVault(payable(ethVault)).releaseEther(
                 message.depositValue + message.callValue + message.processingFee
             );
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
-        message.owner.sendEther(message.depositValue);
+        if (message.depositValue > 0) {
+            message.owner.sendEther(message.depositValue);
+        }
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
