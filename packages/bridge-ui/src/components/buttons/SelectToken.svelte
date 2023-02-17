@@ -74,10 +74,11 @@
       userTokens.set(updateTokensList);
       event.target.reset();
       showAddressField = false;
-      loading = false;
     } catch(error) {
       errorToast("Not a valid ERC20 address");
       console.error(error);
+    } finally {
+      loading = false;
     }
   }
   let customTokens = [];
