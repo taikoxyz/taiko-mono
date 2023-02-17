@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
@@ -109,9 +109,13 @@ library LibProposing {
             meta.l1Hash = blockhash(block.number - 1);
             meta.timestamp = uint64(block.timestamp);
 
-            // if multiple L2 blocks included in the same L1 block,
-            // their block.mixHash fields for randomness will be the same.
-            meta.mixHash = bytes32(block.difficulty);
+            // After The Merge, L1 mixHash contains the prevrandao
+            // from the beacon chain. Since multiple Taiko blocks
+            // can be proposed in one Ethereum block, we need to
+            // add salt to this random number as L2 mixHash
+            meta.mixHash = keccak256(
+                abi.encodePacked(block.prevrandao, state.nextBlockId)
+            );
         }
 
         uint256 deposit;
