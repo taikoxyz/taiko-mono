@@ -72,7 +72,7 @@ describe("integration:LibTrieProof", function () {
         it("verifies", async function () {
             const {
                 owner,
-                testLibTreProof,
+                testLibTrieProof,
                 signalService,
                 bridge,
                 enabledDestChainId,
@@ -147,7 +147,7 @@ describe("integration:LibTrieProof", function () {
                 ]
             );
             // proof verifies the storageValue at slot is 1
-            await testLibTreProof.verify(
+            await testLibTrieProof.verify(
                 stateRoot,
                 signalService.address,
                 slot,
