@@ -225,64 +225,50 @@ describe("tokenomics: proofReward", function () {
 
         await seedTko(provers, tkoTokenL1.connect(l1Signer));
 
-        l2Provider.on("block", blockListener(chan, genesisHeight));
+        const blockNumber = genesisHeight + 1;
 
-        /* eslint-disable-next-line */
-        for await (const blockNumber of chan) {
-            if (
-                blockNumber >
-                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
-            ) {
-                break;
-            }
+        const block = await l2Provider.getBlock(blockNumber);
 
-            const block = await l2Provider.getBlock(blockNumber);
+        // commit and propose block, so our provers can prove it.
+        const { proposedEvent } = await proposer.commitThenProposeBlock(block);
 
-            // commit and propose block, so our provers can prove it.
-            const { proposedEvent } = await proposer.commitThenProposeBlock(
-                block
+        // submit a proof for each prover
+        for (const prover of provers) {
+            await prover.prove(
+                proposedEvent.args.id.toNumber(),
+                blockNumber,
+                proposedEvent.args.meta as any as BlockMetadata
             );
+        }
 
-            // submit a proof for each prover
-            for (const prover of provers) {
-                await prover.prove(
-                    proposedEvent.args.id.toNumber(),
-                    blockNumber,
-                    proposedEvent.args.meta as any as BlockMetadata
+        const forkChoice = await taikoL1.getForkChoice(
+            proposedEvent.args.id.toNumber(),
+            block.parentHash
+        );
+        expect(forkChoice).not.to.be.undefined;
+        expect(forkChoice.provers.length).to.be.eq(
+            config.maxProofsPerForkChoice.toNumber()
+        );
+
+        await sleepUntilBlockIsVerifiable(
+            taikoL1,
+            proposedEvent.args.id.toNumber(),
+            0
+        );
+        await verifyBlocks(taikoL1, 1);
+
+        // all provers had same initial TKO balance.
+        // each prover in order should have less balance than the previous.
+        for (let i = 0; i < forkChoice.provers.length; i++) {
+            if (i !== 0) {
+                const proverBalance = await tkoTokenL1.balanceOf(
+                    forkChoice.provers[i]
                 );
-            }
+                const previousProverBalance = await tkoTokenL1.balanceOf(
+                    forkChoice.provers[i - 1]
+                );
 
-            const forkChoice = await taikoL1.getForkChoice(
-                proposedEvent.args.id.toNumber(),
-                block.parentHash
-            );
-            expect(forkChoice).not.to.be.undefined;
-            expect(forkChoice.provers.length).to.be.eq(
-                config.maxProofsPerForkChoice.toNumber()
-            );
-
-            await sleepUntilBlockIsVerifiable(
-                taikoL1,
-                proposedEvent.args.id.toNumber(),
-                0
-            );
-            await verifyBlocks(taikoL1, 1);
-
-            // all provers had same initial TKO balance.
-            // each prover in order should have less balance than the previous.
-            for (let i = 0; i < forkChoice.provers.length; i++) {
-                if (i !== 0) {
-                    const proverBalance = await tkoTokenL1.balanceOf(
-                        forkChoice.provers[i]
-                    );
-                    const previousProverBalance = await tkoTokenL1.balanceOf(
-                        forkChoice.provers[i - 1]
-                    );
-
-                    expect(previousProverBalance.gt(proverBalance)).to.be.eq(
-                        true
-                    );
-                }
+                expect(previousProverBalance.gt(proverBalance)).to.be.eq(true);
             }
         }
     });

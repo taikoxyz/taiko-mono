@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ func Test_subscribe(t *testing.T) {
 	svc, bridge := newTestService()
 
 	go func() {
-		_ = svc.subscribe(context.Background(), big.NewInt(1))
+		_ = svc.subscribe(context.Background(), mock.MockChainID)
 	}()
 
 	<-time.After(6 * time.Second)
