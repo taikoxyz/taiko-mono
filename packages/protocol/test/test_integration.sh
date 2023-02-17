@@ -45,13 +45,13 @@ else
       -p 28545:8545 \
       gcr.io/evmchain/hardhat-node:latest \
       hardhat node --hostname "0.0.0.0"
-    
-    docker run -d \
+fi
+
+docker run -d \
       --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
       --add-host host.docker.internal:host-gateway \
       ethereum/client-go:latest \
       --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
-fi
 
 function waitTestNode {
   echo "Waiting for test node: $1"
