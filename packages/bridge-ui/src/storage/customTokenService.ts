@@ -28,19 +28,19 @@ class CustomTokenService implements TokenService {
     return tokens;
   }
 
-  GetTokens(address: string) {
-    return JSON.parse(this.storage.getItem(`custom-tokens-${address.toLowerCase()}`));
+  GetTokens(address: string): Token[] {
+    return JSON.parse(this.storage.getItem(`custom-tokens-${address.toLowerCase()}`)) ?? [];
   }
 
-  RemoveToken(token: Token, address: string) {
+  RemoveToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(`custom-tokens-${address.toLowerCase()}`);
     let tokens = [];
     if(customTokens) {
       tokens = [...JSON.parse(customTokens)];
     }
-    const updateTokenList = tokens.filter(t => t.symbol !== token.symbol);
-    this.storage.setItem(`custom-tokens-${address.toLowerCase()}`, JSON.stringify(updateTokenList));
-    return updateTokenList;
+    const updatedTokenList = tokens.filter(t => t.symbol !== token.symbol);
+    this.storage.setItem(`custom-tokens-${address.toLowerCase()}`, JSON.stringify(updatedTokenList));
+    return updatedTokenList;
   }
 }
 
