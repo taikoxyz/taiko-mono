@@ -140,11 +140,13 @@ library LibBytesUtils {
     function toNibbles(
         bytes memory _bytes
     ) internal pure returns (bytes memory) {
-        bytes memory nibbles = new bytes(_bytes.length * 2);
+        uint256 nibblesLen = _bytes.length * 2;
+        bytes memory nibbles = new bytes(nibblesLen);
 
         for (uint256 i = 0; i < _bytes.length; ++i) {
-            nibbles[i * 2] = _bytes[i] >> 4;
-            nibbles[i * 2 + 1] = bytes1(uint8(_bytes[i]) % 16);
+            bytes1 byteValue = bytes1(_bytes[i]);
+            nibbles[i * 2] = byteValue >> 4;
+            nibbles[i * 2 + 1] = byteValue & 0x0f;
         }
 
         return nibbles;
