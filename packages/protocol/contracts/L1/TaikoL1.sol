@@ -198,7 +198,7 @@ contract TaikoL1 is
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = LibProposing.getBlockFee(
+        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
@@ -285,6 +285,17 @@ contract TaikoL1 is
 
     function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
+    }
+
+    function getProverRewardDistribution(
+        uint256 proverRewardRandomizedPercentage,
+        uint256 numProvers
+    ) public view returns (uint256[] memory) {
+        return
+            LibVerifying.getProverRewardDistribution(
+                proverRewardRandomizedPercentage,
+                numProvers
+            );
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

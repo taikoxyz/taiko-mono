@@ -148,12 +148,47 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
+    function getProverRewardDistribution(
+        uint256 proverRewardRandomizedPercentage,
+        uint256 numProvers
+    ) public view returns (uint256[] memory weights) {
+        uint256 randomized = proverRewardRandomizedPercentage;
+        if (randomized > 100) {
+            randomized = 100;
+        }
+
+        uint256 sum;
+        uint256 i;
+
+        if (randomized > 0) {
+            unchecked {
+                // calculate the randomized weight
+                uint256 seed = block.prevrandao;
+                for (i = 0; i < numProvers; ++i) {
+                    weights[i] = uint16(seed * (1 + i));
+                    sum += weights[i];
+                }
+                for (i = 0; i < numProvers; ++i) {
+                    weights[i] = (weights[i] * 100 * randomized) / sum;
+                }
+            }
+        }
+        unchecked {
+            // calculate the randomized and the fixed weight
+            sum = (1 << numProvers) - 1;
+            for (i = 0; i < numProvers; ++i) {
+                uint256 weight = 1 << (numProvers - 1 - i);
+                weights[i] += (weight * 100 * (100 - randomized)) / sum;
+            }
+        }
+    }
+
     function _refundProposerDeposit(
         TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
         TkoToken tkoToken
     ) private {
-        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
+        uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
         if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
             tkoToken.mint(target.proposer, refund);
@@ -166,30 +201,30 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint start;
-        uint count = fc.provers.length;
+        uint256 start;
+        uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
             start = 1;
             count -= 1;
         }
 
-        uint sum = (1 << count) - 1;
-        uint weight = 1 << (count - 1);
-        for (uint i = 0; i < count; ++i) {
-            uint proverReward = (reward * weight) / sum;
-            if (proverReward == 0) {
-                break;
-            }
+        uint256[] memory weights = getProverRewardDistribution(
+            config.proverRewardRandomizedPercentage,
+            count
+        );
 
-            if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
-                // Reduce reward to 1 wei as a penalty if the prover
-                // has 0 TKO balance. This allows the next prover reward
-                // to be fully paid.
-                proverReward = uint256(1);
+        for (uint i = 0; i < count; ++i) {
+            uint256 proverReward = (reward * weights[i]) / 1000000;
+            if (proverReward != 0) {
+                if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
+                    // Reduce reward to 1 wei as a penalty if the prover
+                    // has 0 TKO balance. This allows the next prover reward
+                    // to be fully paid.
+                    proverReward = uint256(1);
+                }
+                tkoToken.mint(fc.provers[start + i], proverReward);
             }
-            tkoToken.mint(fc.provers[start + i], proverReward);
-            weight = weight >> 1;
         }
     }
 
