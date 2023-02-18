@@ -180,9 +180,11 @@ library LibVerifying {
                 // weight will be:
                 // 1<<4=16, 1<<3=8, 1<<2=4, 1<<1=2, 1<<0=1
                 sum = (1 << numProvers) - 1;
+                uint256 fix = 100 - randomized;
+                uint256 weight = 1 << (numProvers - 1);
                 for (i = 0; i < numProvers; ++i) {
-                    uint256 weight = 1 << (numProvers - 1 - i);
-                    weights[i] += (weight * 100 * (100 - randomized)) / sum;
+                    weights[i] += (weight * 100 * fix) / sum;
+                    weight >>= 1;
                 }
             }
         }
@@ -206,11 +208,11 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint256 start;
+        uint256 offset;
         uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
-            start = 1;
+            offset = 1;
             count -= 1;
         }
 
@@ -222,13 +224,13 @@ library LibVerifying {
         for (uint i = 0; i < count; ++i) {
             uint256 proverReward = (reward * weights[i]) / 10000;
             if (proverReward != 0) {
-                if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
+                if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
                     // has 0 TKO balance. This allows the next prover reward
                     // to be fully paid.
                     proverReward = uint256(1);
                 }
-                tkoToken.mint(fc.provers[start + i], proverReward);
+                tkoToken.mint(fc.provers[offset + i], proverReward);
             }
         }
     }
