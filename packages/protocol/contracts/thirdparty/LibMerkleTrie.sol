@@ -354,10 +354,45 @@ library LibMerkleTrie {
         bytes memory _a,
         bytes memory _b
     ) private pure returns (uint256 _shared) {
-        uint256 i = 0;
-        while (_a.length > i && _b.length > i && _a[i] == _b[i]) {
-            ++i;
+        assembly {
+            // Load the lengths of the two byte arrays.
+            let lenA := mload(_a)
+            let lenB := mload(_b)
+
+            // Calculate the minimum of the two lengths.
+            let minLen := lenA
+            if gt(lenB, lenA) {
+                minLen := lenB
+            }
+
+            // Load the pointers to the start of each byte array.
+            let ptrA := add(_a, 32)
+            let ptrB := add(_b, 32)
+
+            // Initialize the shared nibble count to 0.
+            let shared := 0
+
+            // Loop over the byte arrays, comparing each nibble.
+            for {
+                let i := 0
+            } lt(i, minLen) {
+                i := add(i, 1)
+            } {
+                // Load the nibble at index i from each byte array.
+                let nibbleA := shr(4, and(mload(ptrA), 0xff))
+                let nibbleB := shr(4, and(mload(ptrB), 0xff))
+
+                // Compare the two nibbles.
+                if eq(nibbleA, nibbleB) {
+                    // Increment the shared nibble count and move to the next nibble.
+                    shared := add(shared, 1)
+                    ptrA := add(ptrA, 1)
+                    ptrB := add(ptrB, 1)
+                }
+            }
+
+            // Set the shared nibble count as the return value.
+            _shared := shared
         }
-        return i;
     }
 }
