@@ -25,6 +25,7 @@ type BridgeOpts = {
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+  isBridgedTokenAlreadyDeployed?: boolean;
 };
 
 type ClaimOpts = {

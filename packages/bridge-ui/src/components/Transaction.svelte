@@ -25,7 +25,6 @@
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
   import { fetchSigner, switchNetwork } from "@wagmi/core";
-  import Tooltip from "./Tooltip.svelte";
   import Bridge from "../constants/abi/Bridge";
   import ButtonWithTooltip from "./ButtonWithTooltip.svelte";
 

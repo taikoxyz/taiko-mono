@@ -37,6 +37,7 @@
   import { Funnel } from "svelte-heros-v2";
   import FaucetModal from "../modals/FaucetModal.svelte";
   import { fetchFeeData } from "@wagmi/core";
+  import { providers } from "../../store/providers";
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -215,6 +216,24 @@
       if (requiresAllowance) throw Error("requires additional allowance");
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
+
+      let isBridgedTokenAlreadyDeployed = false;
+      // check if token is deployed on destination chain
+      if ($token.symbol !== ETH.symbol) {
+        const provider = $providers.get($toChain.id);
+        const destTokenVaultAddress = $chainIdToTokenVaultAddress.get($toChain.id);
+        const destTokenVaultContract = new Contract(destTokenVaultAddress, TokenVault, provider);
+
+        const tokenAddressOnDestChain = $token.addresses.find(a => a.chainId === $toChain.id);
+        if(tokenAddressOnDestChain && tokenAddressOnDestChain.address === "0x00") {
+          // check if token is already deployed as BridgedERC20 on destination chain
+          const tokenAddressOnSourceChain = $token.addresses.find(a => a.chainId === $fromChain.id);
+          const bridgedTokenAddress = await destTokenVaultContract.canonicalToBridged($fromChain.id, tokenAddressOnSourceChain.address);
+          if(bridgedTokenAddress !== ethers.constants.AddressZero) {
+            isBridgedTokenAlreadyDeployed = true;
+          }
+        }
+      }
       const bridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
@@ -224,6 +243,7 @@
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
+        isBridgedTokenAlreadyDeployed
       };
 
       const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
