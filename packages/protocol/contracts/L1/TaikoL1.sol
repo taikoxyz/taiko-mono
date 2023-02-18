@@ -287,12 +287,12 @@ contract TaikoL1 is
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
     }
 
-    function getProverRewardDistribution(
+    function getProverRewardBips(
         uint256 proverRewardRandomizedPercentage,
         uint256 numProvers
     ) public view returns (uint256[] memory) {
         return
-            LibVerifying.getProverRewardDistribution(
+            LibVerifying.getProverRewardBips(
                 proverRewardRandomizedPercentage,
                 numProvers
             );

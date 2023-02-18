@@ -148,7 +148,7 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
-    function getProverRewardDistribution(
+    function getProverRewardBips(
         uint256 proverRewardRandomizedPercentage,
         uint256 numProvers
     ) public view returns (uint256[] memory weights) {
@@ -209,13 +209,13 @@ library LibVerifying {
             count -= 1;
         }
 
-        uint256[] memory weights = getProverRewardDistribution(
+        uint256[] memory weights = getProverRewardBips(
             config.proverRewardRandomizedPercentage,
             count
         );
 
         for (uint i = 0; i < count; ++i) {
-            uint256 proverReward = (reward * weights[i]) / 1000000;
+            uint256 proverReward = (reward * weights[i]) / 10000;
             if (proverReward != 0) {
                 if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
