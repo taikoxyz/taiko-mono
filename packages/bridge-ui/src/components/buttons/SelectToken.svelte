@@ -11,7 +11,7 @@
   import ERC20 from "../../constants/abi/ERC20";
   import { signer } from '../../store/signer';
   import { userTokens, userTokenStore } from '../../store/userTokenStore';
-  import { fromChain } from '../../store/chain';
+  import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
 
@@ -63,6 +63,10 @@
           {
             chainId: $fromChain.id,
             address: tokenAddress,
+          },
+          {
+            chainId: $toChain.id,
+            address: "0x00",
           }
         ],
         decimals: decimals,
