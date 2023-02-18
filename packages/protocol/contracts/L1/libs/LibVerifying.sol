@@ -162,7 +162,7 @@ library LibVerifying {
 
         if (randomized > 0) {
             unchecked {
-                // calculate the randomized weight
+                // Calculate the randomized weight
                 uint256 seed = block.prevrandao;
                 for (i = 0; i < numProvers; ++i) {
                     weights[i] = uint16(seed * (1 + i));
@@ -173,12 +173,17 @@ library LibVerifying {
                 }
             }
         }
-        unchecked {
-            // calculate the randomized and the fixed weight
-            sum = (1 << numProvers) - 1;
-            for (i = 0; i < numProvers; ++i) {
-                uint256 weight = 1 << (numProvers - 1 - i);
-                weights[i] += (weight * 100 * (100 - randomized)) / sum;
+
+        if (randomized != 100) {
+            unchecked {
+                // Add the fixed weight. If there are 5 provers, then their
+                // weight will be:
+                // 1<<4=16, 1<<3=8, 1<<2=4, 1<<1=2, 1<<0=1
+                sum = (1 << numProvers) - 1;
+                for (i = 0; i < numProvers; ++i) {
+                    uint256 weight = 1 << (numProvers - 1 - i);
+                    weights[i] += (weight * 100 * (100 - randomized)) / sum;
+                }
             }
         }
     }
