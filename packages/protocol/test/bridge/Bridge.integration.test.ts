@@ -257,7 +257,6 @@ describe("integration:Bridge", function () {
             const { msgHash, message } = await sendMessage(l1Bridge, m);
 
             expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
-            console.log(message);
 
             const messageStatus = await l1Bridge.getMessageStatus(msgHash);
 

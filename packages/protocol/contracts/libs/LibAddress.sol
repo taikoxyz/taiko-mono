@@ -20,8 +20,12 @@ library LibAddress {
      */
     function sendEther(address to, uint256 amount) internal {
         if (amount > 0) {
-            (bool success, ) = payable(to).call{value: amount}("");
-            require(success, "ETH transfer failed");
+            assembly {
+                let success := call(gas(), to, amount, 0, 0, 0, 0)
+                if iszero(success) {
+                    revert(0, 0)
+                }
+            }
         }
     }
 
