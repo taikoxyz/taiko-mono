@@ -48,7 +48,7 @@ contract TestTaikoL2 is TaikoL2 {
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
-        config.proverRewardRandomizedPercentage = 20;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableProofValidation = false;
