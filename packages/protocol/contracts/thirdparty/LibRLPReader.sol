@@ -93,7 +93,7 @@ library LibRLPReader {
         // simply set a reasonable maximum list length and decrease the size before we finish.
         RLPItem[] memory out = new RLPItem[](MAX_LIST_LENGTH);
 
-        uint256 itemCount = 0;
+        uint256 itemCount;
         uint256 offset = listOffset;
         while (offset < _in.length) {
             require(

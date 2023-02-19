@@ -180,7 +180,7 @@ library LibRLPWriter {
         }
 
         bytes memory res = new bytes(32 - i);
-        for (uint256 j = 0; j < res.length; ++j) {
+        for (uint256 j; j < res.length; ++j) {
             res[j] = b[i++];
         }
 
@@ -201,7 +201,7 @@ library LibRLPWriter {
         uint256 i;
 
         bytes memory res = new bytes(32);
-        for (uint256 j = 0; j < res.length; ++j) {
+        for (uint256 j; j < res.length; ++j) {
             res[j] = b[i++];
         }
 

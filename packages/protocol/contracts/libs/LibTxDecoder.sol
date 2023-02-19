@@ -220,7 +220,7 @@ library LibTxDecoder {
                 items[1]
             );
             bytes32[] memory slots = new bytes32[](slotListRLP.length);
-            for (uint256 j = 0; j < slotListRLP.length; ++j) {
+            for (uint256 j; j < slotListRLP.length; ++j) {
                 slots[j] = LibRLPReader.readBytes32(slotListRLP[j]);
             }
             accessList[i] = AccessItem(addr, slots);

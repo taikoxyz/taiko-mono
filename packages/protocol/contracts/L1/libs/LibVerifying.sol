@@ -66,7 +66,7 @@ library LibVerifying {
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
         ];
-        uint64 processed = 0;
+        uint64 processed;
 
         for (
             uint256 i = state.latestVerifiedId + 1;

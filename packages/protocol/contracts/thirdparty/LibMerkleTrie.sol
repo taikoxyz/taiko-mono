@@ -158,7 +158,7 @@ library LibMerkleTrie {
             bool _isFinalNode
         )
     {
-        uint256 pathLength = 0;
+        uint256 pathLength;
         bytes memory key = LibBytesUtils.toNibbles(_key);
 
         bytes32 currentNodeID = _root;
