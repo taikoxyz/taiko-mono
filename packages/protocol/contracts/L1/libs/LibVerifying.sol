@@ -167,6 +167,9 @@ library LibVerifying {
                 // Calculate the randomized weight
                 uint256 seed = block.prevrandao;
                 for (i = 0; i < numProvers; ++i) {
+                    // Get an uint16, note that smart provers may
+                    // choose the right timing to maximize their rewards
+                    // which helps blocks to be verified sooner.
                     bips[i] = uint16(seed * (1 + i));
                     sum += bips[i];
                 }
