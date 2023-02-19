@@ -82,7 +82,7 @@ library LibTxDecoder {
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
 
         Tx[] memory _txList = new Tx[](txs.length);
-        for (uint256 i = 0; i < txs.length; ++i) {
+        for (uint256 i; i < txs.length; ++i) {
             _txList[i] = decodeTx(chainId, LibRLPReader.readBytes(txs[i]));
         }
 
@@ -211,7 +211,7 @@ library LibTxDecoder {
         LibRLPReader.RLPItem[] memory accessListRLP
     ) internal pure returns (AccessItem[] memory accessList) {
         accessList = new AccessItem[](accessListRLP.length);
-        for (uint256 i = 0; i < accessListRLP.length; ++i) {
+        for (uint256 i; i < accessListRLP.length; ++i) {
             LibRLPReader.RLPItem[] memory items = LibRLPReader.readList(
                 accessListRLP[i]
             );
@@ -231,7 +231,7 @@ library LibTxDecoder {
         TxList memory txList
     ) internal pure returns (uint256 sum) {
         Tx[] memory items = txList.items;
-        for (uint256 i = 0; i < items.length; ++i) {
+        for (uint256 i; i < items.length; ++i) {
             sum += items[i].gasLimit;
         }
     }

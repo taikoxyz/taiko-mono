@@ -167,7 +167,7 @@ library LibMerkleTrie {
         TrieNode memory currentNode;
 
         // Proof is top-down, so we start at the first element (root).
-        for (uint256 i = 0; i < _proof.length; ++i) {
+        for (uint256 i; i < _proof.length; ++i) {
             currentNode = _proof[i];
             currentKeyIndex += currentKeyIncrement;
 
@@ -286,7 +286,7 @@ library LibMerkleTrie {
         LibRLPReader.RLPItem[] memory nodes = LibRLPReader.readList(_proof);
         TrieNode[] memory proof = new TrieNode[](nodes.length);
 
-        for (uint256 i = 0; i < nodes.length; ++i) {
+        for (uint256 i; i < nodes.length; ++i) {
             bytes memory encoded = LibRLPReader.readBytes(nodes[i]);
             proof[i] = TrieNode({
                 encoded: encoded,
@@ -354,7 +354,7 @@ library LibMerkleTrie {
         bytes memory _a,
         bytes memory _b
     ) private pure returns (uint256 _shared) {
-        uint256 i = 0;
+        uint256 i;
         while (_a.length > i && _b.length > i && _a[i] == _b[i]) {
             ++i;
         }

@@ -218,7 +218,7 @@ library LibVerifying {
 
         uint256[] memory weights = getProverRewardBips(config, count);
 
-        for (uint256 i = 0; i < count; ++i) {
+        for (uint256 i; i < count; ++i) {
             uint256 proverReward = (reward * weights[i]) / 10000;
             if (proverReward != 0) {
                 if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
@@ -288,7 +288,7 @@ library LibVerifying {
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint256 i = 0; i < fc.provers.length; ++i) {
+        for (uint256 i; i < fc.provers.length; ++i) {
             fc.provers[i] = address(0);
         }
         delete fc.provers;
