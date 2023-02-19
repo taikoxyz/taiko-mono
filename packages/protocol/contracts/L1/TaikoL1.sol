@@ -198,7 +198,7 @@ contract TaikoL1 is
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = LibProposing.getBlockFee(
+        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
