@@ -149,10 +149,10 @@ library LibVerifying {
     }
 
     function getProverRewardBips(
-        uint256 proverRewardRandomizedPercentage,
+        TaikoData.Config memory config,
         uint256 numProvers
     ) public view returns (uint256[] memory weights) {
-        uint256 randomized = proverRewardRandomizedPercentage;
+        uint256 randomized = config.proverRewardRandomizedPercentage;
         if (randomized > 100) {
             randomized = 100;
         }
@@ -216,10 +216,7 @@ library LibVerifying {
             count -= 1;
         }
 
-        uint256[] memory weights = getProverRewardBips(
-            config.proverRewardRandomizedPercentage,
-            count
-        );
+        uint256[] memory weights = getProverRewardBips(config, count);
 
         for (uint i = 0; i < count; ++i) {
             uint256 proverReward = (reward * weights[i]) / 10000;

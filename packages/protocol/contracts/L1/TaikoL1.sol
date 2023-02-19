@@ -288,14 +288,9 @@ contract TaikoL1 is
     }
 
     function getProverRewardBips(
-        uint256 proverRewardRandomizedPercentage,
         uint256 numProvers
     ) public view returns (uint256[] memory) {
-        return
-            LibVerifying.getProverRewardBips(
-                proverRewardRandomizedPercentage,
-                numProvers
-            );
+        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
