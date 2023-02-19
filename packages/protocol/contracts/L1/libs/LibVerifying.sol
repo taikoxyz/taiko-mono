@@ -151,7 +151,9 @@ library LibVerifying {
     function getProverRewardBips(
         TaikoData.Config memory config,
         uint256 numProvers
-    ) public view returns (uint256[] memory weights) {
+    ) public view returns (uint256[] memory bips) {
+        bips = new uint256[](numProvers);
+
         uint256 randomized = config.proverRewardRandomizedPercentage;
         if (randomized > 100) {
             randomized = 100;
@@ -165,11 +167,14 @@ library LibVerifying {
                 // Calculate the randomized weight
                 uint256 seed = block.prevrandao;
                 for (i = 0; i < numProvers; ++i) {
-                    weights[i] = uint16(seed * (1 + i));
-                    sum += weights[i];
+                    // Get an uint16, note that smart provers may
+                    // choose the right timing to maximize their rewards
+                    // which helps blocks to be verified sooner.
+                    bips[i] = uint16(seed * (1 + i));
+                    sum += bips[i];
                 }
                 for (i = 0; i < numProvers; ++i) {
-                    weights[i] = (weights[i] * 100 * randomized) / sum;
+                    bips[i] = (bips[i] * 100 * randomized) / sum;
                 }
             }
         }
@@ -183,7 +188,7 @@ library LibVerifying {
                 uint256 fix = 100 - randomized;
                 uint256 weight = 1 << (numProvers - 1);
                 for (i = 0; i < numProvers; ++i) {
-                    weights[i] += (weight * 100 * fix) / sum;
+                    bips[i] += (weight * 100 * fix) / sum;
                     weight >>= 1;
                 }
             }
@@ -216,10 +221,10 @@ library LibVerifying {
             count -= 1;
         }
 
-        uint256[] memory weights = getProverRewardBips(config, count);
+        uint256[] memory bips = getProverRewardBips(config, count);
 
         for (uint256 i; i < count; ++i) {
-            uint256 proverReward = (reward * weights[i]) / 10000;
+            uint256 proverReward = (reward * bips[i]) / 10000;
             if (proverReward != 0) {
                 if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
