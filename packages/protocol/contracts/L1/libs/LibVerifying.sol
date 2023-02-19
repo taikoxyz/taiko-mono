@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../../common/AddressResolver.sol";
 import "../TkoToken.sol";
@@ -153,7 +153,7 @@ library LibVerifying {
         uint256 tRelBp,
         TkoToken tkoToken
     ) private {
-        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
+        uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
         if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
             tkoToken.mint(target.proposer, refund);
@@ -166,18 +166,18 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint start;
-        uint count = fc.provers.length;
+        uint256 start;
+        uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
             start = 1;
             count -= 1;
         }
 
-        uint sum = (1 << count) - 1;
-        uint weight = 1 << (count - 1);
+        uint256 sum = (1 << count) - 1;
+        uint256 weight = 1 << (count - 1);
         for (uint i = 0; i < count; ++i) {
-            uint proverReward = (reward * weight) / sum;
+            uint256 proverReward = (reward * weight) / sum;
             if (proverReward == 0) {
                 break;
             }

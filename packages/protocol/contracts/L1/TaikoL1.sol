@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import "../common/EssentialContract.sol";
 import "../common/IHeaderSync.sol";
@@ -12,6 +12,7 @@ import "../libs/LibAnchorSignature.sol";
 import "../libs/LibSharedConfig.sol";
 import "./TaikoData.sol";
 import "./TaikoEvents.sol";
+import "./TaikoCustomErrors.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibUtils.sol";
@@ -20,7 +21,12 @@ import "./libs/LibVerifying.sol";
 /**
  * @author dantaik <dan@taiko.xyz>
  */
-contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
+contract TaikoL1 is
+    EssentialContract,
+    IHeaderSync,
+    TaikoEvents,
+    TaikoCustomErrors
+{
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
@@ -89,7 +95,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         });
         LibVerifying.verifyBlocks({
             state: state,
-            config: getConfig(),
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
@@ -192,7 +198,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = LibProposing.getBlockFee(
+        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );

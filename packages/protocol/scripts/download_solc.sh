@@ -8,7 +8,7 @@ if [ -f "solc" ]; then
   exit 0
 fi
 
-VERSION=v0.8.9
+VERSION=v0.8.18
 
 if [ "$(uname)" = 'Darwin' ]; then
   SOLC_FILE_NAME=solc-macos
