@@ -222,7 +222,7 @@ library LibProposing {
         TaikoData.State storage state,
         uint256 commitConfirmations,
         TaikoData.BlockMetadata memory meta
-    ) private {
+    ) private view {
         if (commitConfirmations == 0) {
             return;
         }
