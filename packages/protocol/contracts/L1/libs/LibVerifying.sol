@@ -20,11 +20,7 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event HeaderSynced(
-        uint256 indexed height,
-        uint256 indexed srcHeight,
-        bytes32 srcHash
-    );
+    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
     error L1_HALTED();
     error L1_0_FEE_BASE();
@@ -44,7 +40,7 @@ library LibVerifying {
         state.l2Hashes[0] = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(block.number, 0, genesisBlockHash);
+        emit HeaderSynced(0, genesisBlockHash);
     }
 
     function verifyBlocks(
@@ -120,7 +116,7 @@ library LibVerifying {
                 state.l2Hashes[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
-                emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
+                emit HeaderSynced(latestL2Height, latestL2Hash);
             }
         }
     }
