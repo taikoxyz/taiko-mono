@@ -12,7 +12,8 @@ function setupI18n({ withLocale: _locale } = { withLocale: "en" }) {
       },
       bridgeForm: {
         fieldLabel: "Amount",
-        maxLabel: "Max:",
+        maxLabel: "Max",
+        balance: "Balance",
         processingFeeLabel: "Processing Fee",
         bridge: "Bridge",
         approve: "Approve",
