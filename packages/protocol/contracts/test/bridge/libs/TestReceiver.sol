@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import "hardhat/console.sol";
-
 contract TestReceiver {
     event Received(address from, uint256 amount);
     event Fallback(address from, uint256 amount);

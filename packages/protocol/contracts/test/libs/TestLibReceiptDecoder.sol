@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibReceiptDecoder.sol";
+import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
 
 contract TestLibReceiptDecoder {
     event TestLibReceiptDecoderEvent(uint256 indexed a, bytes32 b);

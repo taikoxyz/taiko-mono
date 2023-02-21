@@ -7,7 +7,8 @@
 pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../../L1/ProofVerifier.sol";
-import "../../L1/TaikoL1.sol";
+import {TaikoL1} from "../../L1/TaikoL1.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     function getConfig()
