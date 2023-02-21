@@ -56,9 +56,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
+        bytes32 /*instance*/
     ) public pure override returns (bool) {
         return true;
     }
