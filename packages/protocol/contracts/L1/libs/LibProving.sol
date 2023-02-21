@@ -10,8 +10,6 @@ import {IProofVerifier} from "../ProofVerifier.sol";
 import "../../common/AddressResolver.sol";
 import "../../libs/LibAnchorSignature.sol";
 import "../../libs/LibBlockHeader.sol";
-import "../../libs/LibReceiptDecoder.sol";
-import "../../libs/LibTxDecoder.sol";
 import "../../libs/LibTxUtils.sol";
 import "../../thirdparty/LibBytesUtils.sol";
 import "../../thirdparty/LibRLPWriter.sol";
@@ -33,11 +31,6 @@ library LibProving {
         uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
-    bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
-        keccak256("BlockInvalidated(bytes32)");
-
-    bytes4 public constant ANCHOR_TX_SELECTOR =
-        bytes4(keccak256("anchor(uint256,bytes32)"));
 
     event BlockProven(
         uint256 indexed id,
