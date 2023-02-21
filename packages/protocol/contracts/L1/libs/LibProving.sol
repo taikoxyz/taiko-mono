@@ -103,14 +103,14 @@ library LibProving {
         );
 
         if (config.enableAnchorValidation) {
-            _proveAnchorForValidBlock(
-                config,
-                resolver,
-                proofVerifier,
-                evidence,
-                inputs[1],
-                inputs[2]
-            );
+            _proveAnchorForValidBlock({
+                config: config,
+                resolver: resolver,
+                proofVerifier: proofVerifier,
+                evidence: evidence,
+                anchorTx: inputs[1],
+                anchorReceipt: inputs[2]
+            });
         }
 
         // ZK-prove block and mark block proven to be valid.
@@ -153,14 +153,14 @@ library LibProving {
 
         // Check the event is the first one in the throw-away block
         if (config.enableAnchorValidation) {
-            _proveAnchorForInvalidBlock(
-                config,
-                resolver,
-                target,
-                proofVerifier,
-                evidence,
-                inputs[2]
-            );
+            _proveAnchorForInvalidBlock({
+                config: config,
+                resolver: resolver,
+                target: target,
+                proofVerifier: proofVerifier,
+                evidence: evidence,
+                invalidateBlockReceipt: inputs[2]
+            });
         }
 
         // ZK-prove block and mark block proven as invalid.
