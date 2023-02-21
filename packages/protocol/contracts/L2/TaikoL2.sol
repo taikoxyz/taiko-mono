@@ -19,7 +19,6 @@ import "../libs/LibSharedConfig.sol";
  * @author dantaik <dan@taiko.xyz>
  */
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
-
     /**********************
      * State Variables    *
      **********************/
@@ -45,11 +44,8 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Events and Errors  *
      **********************/
 
-    // event BlockInvalidated(bytes32 indexed txListHash);
-
     error L2_INVALID_SENDER();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************

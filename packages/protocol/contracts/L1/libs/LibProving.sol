@@ -31,7 +31,6 @@ library LibProving {
         uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
-
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -66,7 +65,7 @@ library LibProving {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
         // Check and decode inputs
-        if (inputs.length != 3) revert L1_INPUT_SIZE();
+        if (inputs.length != 1) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         // Check evidence
