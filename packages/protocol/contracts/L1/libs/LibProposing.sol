@@ -121,6 +121,12 @@ library LibProposing {
         }
 
         {
+            //TODO(daniel):
+            //Only if this is invalid, a "prover" can run this proof verification
+            // in the smart contract and prove that the block is invalid;
+            // Otherwise this proof is part of the main proof and is proven
+            // together in the aggregation circuit off-chain with the proofs
+            // of the other sub-circuits.
             IProofVerifier proofVerifier = IProofVerifier(
                 resolver.resolve("proof_verifier", false)
             );
@@ -128,10 +134,10 @@ library LibProposing {
                 verifierId: string(
                     abi.encodePacked(
                         "plonk_verifier_propose",
-                        bytes32(inputs[3])
+                        bytes32(inputs[2])
                     )
                 ),
-                zkproof: inputs[4],
+                zkproof: inputs[3],
                 instance: meta.txListHash
             });
 
