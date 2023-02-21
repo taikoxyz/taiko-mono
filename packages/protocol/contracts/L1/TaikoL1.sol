@@ -17,6 +17,7 @@ import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
