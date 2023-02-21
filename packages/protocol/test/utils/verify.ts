@@ -17,7 +17,10 @@ async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
     // calling eth_estimateGas.
     await sendTinyEtherToZeroAddress(await getDefaultL1Signer());
 
-    const verifyTx = await taikoL1.verifyBlocks(maxBlocks);
+    const verifyTx = await taikoL1.verifyBlocks(maxBlocks, {
+        gasLimit: 1000000,
+    });
+
     const verifyReceipt = await verifyTx.wait(1);
     const verifiedEvent: BlockVerifiedEvent = (
         verifyReceipt.events as any[]

@@ -58,7 +58,7 @@ const proveBlock = async (
         "0x",
         config.zkProofsPerBlock.toNumber()
     );
-    const tx = await taikoL1.proveBlock(blockId, inputs);
+    const tx = await taikoL1.proveBlock(blockId, inputs, { gasLimit: 1000000 });
     const receipt = await tx.wait(1);
     const event: BlockProvenEvent = (receipt.events as any[]).find(
         (e) => e.event === "BlockProven"
