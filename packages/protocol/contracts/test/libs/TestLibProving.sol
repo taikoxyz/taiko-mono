@@ -108,17 +108,6 @@ library TestLibProving {
             resolver.resolve("proof_verifier", false)
         );
 
-        if (config.enableAnchorValidation) {
-            _proveAnchorForValidBlock({
-                config: config,
-                resolver: resolver,
-                proofVerifier: proofVerifier,
-                evidence: evidence,
-                anchorTx: inputs[1],
-                anchorReceipt: inputs[2]
-            });
-        }
-
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
             state: state,
@@ -156,18 +145,6 @@ library TestLibProving {
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
-
-        // Check the event is the first one in the throw-away block
-        if (config.enableAnchorValidation) {
-            _proveAnchorForInvalidBlock({
-                config: config,
-                resolver: resolver,
-                target: target,
-                proofVerifier: proofVerifier,
-                evidence: evidence,
-                invalidateBlockReceipt: inputs[2]
-            });
-        }
 
         // ZK-prove block and mark block proven as invalid.
         _proveBlock({
