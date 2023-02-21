@@ -106,8 +106,6 @@ describe("tokenomics: blockFee", function () {
             expect(newProposerTkoBalance.lt(lastProposerTkoBalance)).to.be.eq(
                 true
             );
-            // question: not sure why this assertion failed?
-            console.log(lastBlockFee, newBlockFee);
             expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
             expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
 
