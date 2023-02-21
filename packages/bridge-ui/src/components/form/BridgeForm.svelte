@@ -113,6 +113,8 @@
     fromChain: Chain,
     signer: Signer
   ) {
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return false;
+
     const addr = await addrForToken();
     const allowance = await $activeBridge.RequiresAllowance({
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
