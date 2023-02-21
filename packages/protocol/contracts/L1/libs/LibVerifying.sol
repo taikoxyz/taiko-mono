@@ -66,7 +66,7 @@ library LibVerifying {
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
         ];
-        uint64 processed = 0;
+        uint64 processed;
 
         for (
             uint256 i = state.latestVerifiedId + 1;
@@ -233,7 +233,7 @@ library LibVerifying {
 
         uint256[] memory bips = getProverRewardBips(config, count);
 
-        for (uint256 i = 0; i < count; ++i) {
+        for (uint256 i; i < count; ++i) {
             uint256 proverReward = (reward * bips[i]) / 10000;
             if (proverReward != 0) {
                 if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
@@ -303,7 +303,7 @@ library LibVerifying {
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint256 i = 0; i < fc.provers.length; ++i) {
+        for (uint256 i; i < fc.provers.length; ++i) {
             fc.provers[i] = address(0);
         }
         delete fc.provers;
