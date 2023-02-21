@@ -24,11 +24,7 @@ import Proposer from "../utils/proposer";
 import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { getBlockHeader } from "../utils/rpc";
-import {
-    createAndSeedWallets,
-    seedTko,
-    sendTinyEtherToZeroAddress,
-} from "../utils/seed";
+import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
 import {
     commitProposeProveAndVerify,
     sleepUntilBlockIsVerifiable,
