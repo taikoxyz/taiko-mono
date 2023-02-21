@@ -84,6 +84,10 @@ contract TaikoL1 is
      *          will be the first transaction in the block -- if there are
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
+     *
+     *        - inputs[2] a byte32 that determins which verifier to run.
+     *
+     *        - inputs[3] a ZKP that verifies all signatures.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         TaikoData.Config memory config = getConfig();

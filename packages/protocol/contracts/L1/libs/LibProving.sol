@@ -68,7 +68,7 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes[] calldata inputs // more
+        bytes[] calldata inputs
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 

@@ -127,9 +127,7 @@ library LibProposing {
             bool verified = proofVerifier.verifyZKP({
                 verifierId: string(
                     abi.encodePacked(
-                        "plonk_verifier_",
-                        uint256(0), // as of know, 1 ZKP required for proposed block
-                        "_propose_",
+                        "plonk_verifier_propose",
                         bytes32(inputs[3])
                     )
                 ),
