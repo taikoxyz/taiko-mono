@@ -34,12 +34,12 @@ library LibSharedConfig {
                 maxNumBlocks: 61, // owner:daniel
                 blockHashHistory: 40, // owner:daniel
                 zkProofsPerBlock: 1, // owner:daniel
-                maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost
+                maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost.
                 commitConfirmations: 0, // owner:daniel
                 maxProofsPerForkChoice: 3, // owner:daniel
-                blockMaxGasLimit: 6000000, // owner:david
-                maxTransactionsPerBlock: 79, //  owner:david
-                maxBytesPerTxList: 120000, // owner:david
+                blockMaxGasLimit: 6000000, // owner:david. Set it to 6M, since its the upper limit of the Alpha-2 testnet's circuits.
+                maxTransactionsPerBlock: 79, //  owner:david. Set it to 79  (+1 TaikoL2.anchor transaction = 80), and 80 is the upper limit of the Alpha-2 testnet's circuits.
+                maxBytesPerTxList: 120000, // owner:david. Set it to 120KB, since 128KB is the upper size limit of a geth transaction, so using 120KB for the proposed transactions list calldata, 8K for the remaining tx fields.
                 minTxGasLimit: 21000, // owner:david
                 anchorTxGasLimit: 250000, // owner:david
                 slotSmoothingFactor: 16789, // owner:daniel
