@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.18;
 
+import {IProofVerifier} from "../ProofVerifier.sol";
 import "../../libs/LibTxDecoder.sol";
 import "../TkoToken.sol";
 import "./LibUtils.sol";
@@ -34,6 +35,7 @@ library LibProposing {
     error L1_SOLO_PROPOSER();
     error L1_INPUT_SIZE();
     error L1_TX_LIST();
+    error L1_ZKP();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -78,7 +80,7 @@ library LibProposing {
 
         assert(!LibUtils.isHalted(state));
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        if (inputs.length != 4) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -116,6 +118,26 @@ library LibProposing {
             meta.mixHash = keccak256(
                 abi.encodePacked(block.prevrandao, state.nextBlockId)
             );
+        }
+
+        {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
+            bool verified = proofVerifier.verifyZKP({
+                verifierId: string(
+                    abi.encodePacked(
+                        "plonk_verifier_",
+                        uint256(0), // as of know, 1 ZKP required for proposed block
+                        "_propose_",
+                        bytes32(inputs[3])
+                    )
+                ),
+                zkproof: inputs[4],
+                instance: meta.txListHash
+            });
+
+            if (!verified) revert L1_ZKP();
         }
 
         uint256 deposit;

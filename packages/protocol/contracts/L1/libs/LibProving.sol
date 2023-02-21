@@ -85,16 +85,11 @@ library LibProving {
         if (evidence.circuits.length != config.zkProofsPerBlock)
             revert L1_CIRCUIT_LENGTH();
 
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
-            proofVerifier: proofVerifier,
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
@@ -105,7 +100,6 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        IProofVerifier proofVerifier,
         Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
@@ -141,6 +135,10 @@ library LibProving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         if (!skipZKPVerification) {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
+
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 bytes32 instance = keccak256(
                     abi.encode(
@@ -149,20 +147,20 @@ library LibProving {
                         evidence.meta.txListHash
                     )
                 );
-                if (
-                    !proofVerifier.verifyZKP({
-                        verifierId: string(
-                            abi.encodePacked(
-                                "plonk_verifier_",
-                                i,
-                                "_",
-                                evidence.circuits[i]
-                            )
-                        ),
-                        zkproof: evidence.proofs[i],
-                        instance: instance
-                    })
-                ) revert L1_ZKP();
+
+                bool verified = proofVerifier.verifyZKP({
+                    verifierId: string(
+                        abi.encodePacked(
+                            "plonk_verifier_",
+                            i,
+                            "_prove_",
+                            evidence.circuits[i]
+                        )
+                    ),
+                    zkproof: evidence.proofs[i],
+                    instance: instance
+                });
+                if (!verified) revert L1_ZKP();
             }
         }
 
