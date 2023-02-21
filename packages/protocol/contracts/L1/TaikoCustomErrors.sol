@@ -19,6 +19,7 @@ abstract contract TaikoCustomErrors {
     error L1_ANCHOR_RECEIPT_PROOF();
     error L1_ANCHOR_RECEIPT_STATUS();
     error L1_ANCHOR_RECEIPT_TOPICS();
+    error L1_ANCHOR_TX_PROOF();
     error L1_ANCHOR_SIG_R();
     error L1_ANCHOR_SIG_S();
     error L1_ANCHOR_TYPE();
