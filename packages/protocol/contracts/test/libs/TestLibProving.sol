@@ -111,7 +111,7 @@ library TestLibProving {
             resolver.resolve("proof_verifier", false)
         );
 
-        if (config.enableProofValidation) {
+        if (config.enableAnchorValidation) {
             // Check anchor tx is valid
             LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
                 config.chainId,

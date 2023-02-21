@@ -49,7 +49,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.initialUncleDelay = 1 seconds;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
-        config.enableProofValidation = false;
+        config.enableAnchorValidation = false;
         config.enableOracleProver = false;
     }
 
