@@ -6,9 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../TaikoData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibProposing {
@@ -17,11 +23,7 @@ library LibProposing {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(
-        uint64 commitSlot,
-        uint64 commitHeight,
-        bytes32 commitHash
-    );
+    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_METADATA_FIELD();
@@ -54,11 +56,7 @@ library LibProposing {
 
         state.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted({
-            commitSlot: commitSlot,
-            commitHeight: uint64(block.number),
-            commitHash: commitHash
-        });
+        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
     }
 
     function proposeBlock(

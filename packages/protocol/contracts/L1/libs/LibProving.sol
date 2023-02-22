@@ -7,15 +7,16 @@
 pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
-import "../../common/AddressResolver.sol";
-import "../../libs/LibAnchorSignature.sol";
-import "../../libs/LibBlockHeader.sol";
-import "../../libs/LibReceiptDecoder.sol";
-import "../../libs/LibTxDecoder.sol";
-import "../../libs/LibTxUtils.sol";
-import "../../thirdparty/LibBytesUtils.sol";
-import "../../thirdparty/LibRLPWriter.sol";
-import "./LibUtils.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
+import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
+import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {LibTxUtils} from "../../libs/LibTxUtils.sol";
+import {LibBytesUtils} from "../../thirdparty/LibBytesUtils.sol";
+import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @author david <david@taiko.xyz>
@@ -284,7 +285,15 @@ library LibProving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         if (!skipZKPVerification) {
-            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
+            for (uint256 i; i < config.zkProofsPerBlock; ++i) {
+                bytes32 instance = keccak256(
+                    abi.encode(
+                        blockHash,
+                        evidence.prover,
+                        evidence.meta.txListHash
+                    )
+                );
+
                 if (
                     !proofVerifier.verifyZKP({
                         verifierId: string(
@@ -296,9 +305,7 @@ library LibProving {
                             )
                         ),
                         zkproof: evidence.proofs[i],
-                        blockHash: blockHash,
-                        prover: evidence.prover,
-                        txListHash: evidence.meta.txListHash
+                        instance: instance
                     })
                 ) revert L1_ZKP();
             }
@@ -352,7 +359,7 @@ library LibProving {
                 })
             ) revert L1_TOO_LATE();
 
-            for (uint256 i = 0; i < fc.provers.length; ++i) {
+            for (uint256 i; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
             }
 

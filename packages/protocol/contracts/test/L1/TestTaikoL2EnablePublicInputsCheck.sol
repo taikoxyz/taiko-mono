@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../../L2/TaikoL2.sol";
+import {TaikoL2} from "../../L2/TaikoL2.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
     constructor(address _addressManager) TaikoL2(_addressManager) {}
@@ -48,6 +49,7 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
         config.enableProofValidation = true;

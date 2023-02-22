@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibAnchorSignature.sol";
+import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
 
 library TestLibAnchorSignature {
     function signTransaction(

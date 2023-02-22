@@ -6,15 +6,18 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "../common/AddressResolver.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibAnchorSignature.sol";
-import "../libs/LibInvalidTxList.sol";
-import "../libs/LibSharedConfig.sol";
-import "../libs/LibTxDecoder.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
+import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
+import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
+import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
+import {TaikoData} from "../L1/TaikoData.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
@@ -64,7 +67,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
-        for (uint256 i = 0; i < 255 && number >= i + 2; ++i) {
+        for (uint256 i; i < 255 && number >= i + 2; ++i) {
             ancestors[i] = blockhash(number - i - 2);
         }
 
@@ -99,7 +102,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(block.number, l1Height, l1Hash);
+        emit HeaderSynced(l1Height, l1Hash);
     }
 
     /**
