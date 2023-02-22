@@ -10,6 +10,56 @@ export default [
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_AMOUNT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_CALL_VALUE",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_OWNER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_SENDER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_SRC_CHAIN_ID",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_TO",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_VALUE",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_MESSAGE_NOT_FAILED",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -255,7 +305,7 @@ export default [
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "bridgedAddress",
         "type": "address"
       }
     ],
@@ -294,12 +344,12 @@ export default [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "chainId",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "",
+        "name": "canonicalAddress",
         "type": "address"
       }
     ],
@@ -307,7 +357,7 @@ export default [
     "outputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "bridgedAddress",
         "type": "address"
       }
     ],
@@ -331,7 +381,7 @@ export default [
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "tokenAddress",
         "type": "address"
       }
     ],
@@ -339,7 +389,7 @@ export default [
     "outputs": [
       {
         "internalType": "bool",
-        "name": "",
+        "name": "isBridged",
         "type": "bool"
       }
     ],
@@ -350,7 +400,7 @@ export default [
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "msgHash",
         "type": "bytes32"
       }
     ],
@@ -682,4 +732,4 @@ export default [
     "stateMutability": "nonpayable",
     "type": "function"
   }
-]
+];
