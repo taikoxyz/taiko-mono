@@ -118,24 +118,6 @@ library LibProposing {
             );
         }
 
-        // {
-        //     IProofVerifier proofVerifier = IProofVerifier(
-        //         resolver.resolve("proof_verifier", false)
-        //     );
-        //     bool verified = proofVerifier.verifyZKP({
-        //         verifierId: string(
-        //             abi.encodePacked(
-        //                 "plonk_verifier_propose",
-        //                 bytes32(inputs[2])
-        //             )
-        //         ),
-        //         zkproof: inputs[3],
-        //         instance: meta.txListHash
-        //     });
-
-        //     if (!verified) revert L1_ZKP();
-        // }
-
         uint256 deposit;
         if (config.enableTokenomics) {
             uint256 newFeeBase;

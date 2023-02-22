@@ -119,15 +119,19 @@ library LibProving {
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
         );
-        bool verified = proofVerifier.verifyZKP({
-            verifierId: string(
-                abi.encodePacked("plonk_verifier_propose", circuit)
-            ),
-            zkproof: zkproof,
-            instance: meta.txListHash
-        });
+        string memory verifierId = string(
+            abi.encodePacked("plonk_verifier_propose", circuit)
+        );
 
-        if (verified) revert L1_BLOCK_ACTUALLY_VALID();
+        try
+            proofVerifier.verifyZKP({
+                verifierId: verifierId,
+                zkproof: zkproof,
+                instance: meta.txListHash
+            })
+        returns (bool verified) {
+            if (verified) revert L1_BLOCK_ACTUALLY_VALID();
+        } catch {}
 
         _markBlockProven({
             state: state,
