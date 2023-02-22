@@ -69,7 +69,7 @@ library TaikoData {
 
     struct Prover {
         address addr;
-        uint96 nonce;
+        uint32 nonce;
     }
 
     // 3 + n slots

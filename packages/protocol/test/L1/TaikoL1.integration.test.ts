@@ -503,6 +503,7 @@ describe("integration:TaikoL1", function () {
                     proposedEvent.args.meta as any as BlockMetadata,
                     header.blockHeader,
                     await prover.getSigner().getAddress(),
+                    0, // prover nonce
                     "0x",
                     "0x",
                     config.zkProofsPerBlock.toNumber()
@@ -602,10 +603,14 @@ describe("integration:TaikoL1", function () {
 
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = [];
+                const proverWithNonce:ProverWithNonce = {
+                        addr: await prover.getSigner().getAddress(),
+                        nonce: 0};
+
                 const evidence: Evidence = {
                     meta: proposedEvent.args.meta as any as BlockMetadata,
                     header: header.blockHeader,
-                    prover: await prover.getSigner().getAddress(),
+                    prover: proverWithNonce,
                     proofs: [],
                     circuits: [], // keep circuits array empty to fail check
                 };
@@ -662,10 +667,15 @@ describe("integration:TaikoL1", function () {
 
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = [];
+                const proverWithNonce: ProverWithNonce = {
+                    addr: ethers.constants.AddressZero,
+                    nonce: 0
+                };
+
                 const evidence: Evidence = {
                     meta: proposedEvent.args.meta as any as BlockMetadata,
                     header: header.blockHeader,
-                    prover: ethers.constants.AddressZero,
+                    prover: proverWithNonce,
                     proofs: [],
                     circuits: [],
                 };

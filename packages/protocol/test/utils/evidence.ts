@@ -1,12 +1,17 @@
 import { BlockMetadata } from "./block_metadata";
 import { BlockHeader } from "./rpc";
 
+type ProverWithNonce = {
+    addr: string;
+    nonce: number;
+};
+
 type Evidence = {
     meta: BlockMetadata;
     header: BlockHeader;
-    prover: string;
+    prover: ProverWithNonce;
     proofs: string[];
     circuits: number[];
 };
 
-export default Evidence;
+export {ProverWithNonce, Evidence};

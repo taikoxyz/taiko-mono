@@ -3,22 +3,24 @@ import { TaikoL1 } from "../../typechain";
 import { BlockProvenEvent } from "../../typechain/LibProving";
 import { BlockMetadata } from "./block_metadata";
 import { encodeEvidence } from "./encoding";
-import Evidence from "./evidence";
+import { ProverWithNonce, Evidence } from "./evidence";
 import { BlockHeader, getBlockHeader } from "./rpc";
 
 const buildProveBlockInputs = (
     meta: BlockMetadata,
     header: BlockHeader,
     prover: string,
+    proverNonce: number,
     anchorTx: Uint8Array | string,
     anchorReceipt: Uint8Array | string,
     zkProofsPerBlock: number
 ) => {
     const inputs = [];
+    const proverWithNonce: ProverWithNonce = {addr:prover, nonce:proverNonce};
     const evidence: Evidence = {
         meta: meta,
         header: header,
-        prover: prover,
+        prover:  proverWithNonce,
         proofs: [],
         circuits: [],
     };
@@ -54,6 +56,7 @@ const proveBlock = async (
         meta,
         header.blockHeader,
         proverAddress,
+        0, // prover nonce
         "0x",
         "0x",
         config.zkProofsPerBlock.toNumber()
