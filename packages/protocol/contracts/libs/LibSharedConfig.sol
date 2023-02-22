@@ -44,7 +44,7 @@ library LibSharedConfig {
                 proverRewardRandomizedPercentage: 0,
                 enableTokenomics: false,
                 enablePublicInputsCheck: true,
-                enableProofValidation: false,
+                enableAnchorValidation: false,
                 enableOracleProver: true
             });
     }

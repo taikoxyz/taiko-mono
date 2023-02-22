@@ -41,7 +41,7 @@ library TaikoData {
         uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
-        bool enableProofValidation;
+        bool enableAnchorValidation;
         bool enableOracleProver;
     }
 
