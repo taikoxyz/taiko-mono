@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "../L1/TaikoData.sol";
+import {TaikoData} from "../L1/TaikoData.sol";
 
 library LibSharedConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
