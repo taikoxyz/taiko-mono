@@ -275,8 +275,26 @@ library TestLibProving {
             }
         } else {
             // The block has been proven at least once.
-            if (fc.provers.length >= config.maxProofsPerForkChoice)
-                revert L1_TOO_MANY_PROVERS();
+            if (fc.blockHash != blockHash) {
+                // We have a problem here: two proofs are both valid but claims
+                // the new block has different hashes.
+                if (config.enableOracleProver) {
+                    // We trust the oracle prover so we revert this transaction.
+                    revert L1_CONFLICT_PROOF();
+                } else {
+                    // We do not know which prover to trust so we have to put
+                    // the blockchain to a halt.
+                    LibUtils.halt(state, true);
+                    return;
+                }
+            }
+
+            if (
+                (blockHash == LibUtils.BLOCK_DEADEND_HASH &&
+                    fc.provers.length >= 2) ||
+                (blockHash != LibUtils.BLOCK_DEADEND_HASH &&
+                    fc.provers.length >= config.maxProofsPerForkChoice)
+            ) revert L1_TOO_MANY_PROVERS();
 
             if (
                 fc.provenAt != 0 &&
@@ -291,20 +309,6 @@ library TestLibProving {
 
             for (uint256 i; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
-            }
-
-            if (fc.blockHash != blockHash) {
-                // We have a problem here: two proofs are both valid but claims
-                // the new block has different hashes.
-                if (config.enableOracleProver) {
-                    // We trust the oracle prover so we revert this transaction.
-                    revert L1_CONFLICT_PROOF();
-                } else {
-                    // We do not know which prover to trust so we have to put
-                    // the blockchain to a halt.
-                    LibUtils.halt(state, true);
-                    return;
-                }
             }
 
             if (fc.provenAt == 0) {
