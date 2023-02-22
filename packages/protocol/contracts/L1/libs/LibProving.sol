@@ -131,7 +131,7 @@ library LibProving {
                 resolver.resolve("proof_verifier", false)
             );
 
-            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
+            for (uint256 i; i < config.zkProofsPerBlock; ++i) {
                 bytes32 instance = keccak256(
                     abi.encode(
                         blockHash,
@@ -204,7 +204,7 @@ library LibProving {
                 })
             ) revert L1_TOO_LATE();
 
-            for (uint256 i = 0; i < fc.provers.length; ++i) {
+            for (uint256 i; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
             }
 

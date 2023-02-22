@@ -38,6 +38,7 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 initialUncleDelay;
+        uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableOracleProver;

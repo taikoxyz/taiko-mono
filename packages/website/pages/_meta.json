@@ -11,6 +11,13 @@
     "title": "Docs",
     "type": "page"
   },
+  "showcase": {
+    "title": "Showcase",
+    "type": "page",
+    "theme": {
+      "layout": "raw"
+    }
+  },
   "blog": {
     "title": "Blog",
     "type": "page",

@@ -253,6 +253,12 @@ contract TaikoL1 is
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
     }
 
+    function getProverRewardBips(
+        uint256 numProvers
+    ) public view returns (uint256[] memory) {
+        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
+    }
+
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
     }

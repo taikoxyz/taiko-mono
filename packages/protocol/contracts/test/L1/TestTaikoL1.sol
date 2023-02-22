@@ -47,6 +47,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
         config.enableOracleProver = false;
