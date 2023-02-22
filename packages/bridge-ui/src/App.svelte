@@ -52,7 +52,7 @@
   import HeaderAnnouncement from "./components/HeaderAnnouncement.svelte";
   import type { TokenService } from "./domain/token";
   import { CustomTokenService } from "./storage/customTokenService";
-  import { userTokens, userTokenStore } from "./store/userTokenStore";
+  import { userTokens, tokenService } from "./store/userToken";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -137,7 +137,7 @@
     window.localStorage,
   );
 
-  userTokenStore.set(tokenStore);
+  tokenService.set(tokenStore);
 
   transactioner.set(storageTransactioner);
 
@@ -150,7 +150,7 @@
 
       transactions.set(txs);
 
-      const tokens = await $userTokenStore.GetTokens(userAddress)
+      const tokens = await $tokenService.GetTokens(userAddress)
       userTokens.set(tokens);
     }
     return store;

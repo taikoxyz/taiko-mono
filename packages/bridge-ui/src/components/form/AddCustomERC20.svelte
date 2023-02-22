@@ -1,9 +1,10 @@
 <script lang="ts">
   import { ETH } from "../../domain/token";
+  import type { Token, TokenDetails } from "../../domain/token";
   import { Trash } from "svelte-heros-v2";
   import { signer } from "../../store/signer";
   import { token as tokenStore } from "../../store/token";
-  import { userTokens, userTokenStore } from "../../store/userTokenStore";
+  import { userTokens, tokenService } from "../../store/userToken";
   import Erc20 from "../icons/ERC20.svelte";
   import Modal from "../modals/Modal.svelte";
   import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
@@ -12,26 +13,28 @@
   import { errorToast } from "../../utils/toast";
   import { getProvider } from "@wagmi/core";
 
-  export let showAddressField = false;
-  export let addERC20;
-  export let loading = false;
-  export let loadingTokenDetails = false;
-  let tokenDetails = null;
-  let showError = false;
+  export let showAddressField: boolean = false;
+  export let addERC20: (event: SubmitEvent) => Promise<void>;
+  export let loading: boolean = false;
+  export let loadingTokenDetails: boolean = false;
+  let tokenDetails: TokenDetails = null;
+  let showError: boolean = false;
+  let tokenAddress: string;
 
-  let customTokens = [];
+  let customTokens: Token[] = [];
   userTokens.subscribe(tokens => customTokens = tokens);
 
   async function remove(token) {
     const address = await $signer.getAddress();
-    const updatedTokensList = $userTokenStore.RemoveToken(token, address);
+    const updatedTokensList = $tokenService.RemoveToken(token, address);
     userTokens.set(updatedTokensList);
     tokenStore.set(ETH);
   }
 
-  async function onInputHandler(event) {
+  $: onAddressChange(tokenAddress);
+
+  async function onAddressChange(tokenAddress: string) {
     showError = false;
-    const { value: tokenAddress } = event.target;
     if(ethers.utils.isAddress(tokenAddress)) {
       loadingTokenDetails = true;
       try {
@@ -45,6 +48,8 @@
         ]);
         const userTokenBalance = ethers.utils.formatUnits(userBalance, decimals);
         tokenDetails = {
+          address: tokenAddress,
+          decimals,
           symbol,
           userTokenBalance,
         };
@@ -69,7 +74,7 @@
         placeholder="Enter valid ERC20 Address"
         class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0"
         name="customTokenAddress"
-        on:input={onInputHandler}
+        bind:value={tokenAddress}
       />
       {#if tokenDetails}
         <div class="bg-dark-2 w-full flex items-center justify-between">

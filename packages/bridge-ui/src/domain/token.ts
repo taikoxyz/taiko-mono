@@ -17,6 +17,13 @@ export type Token = {
   logoComponent: ComponentType;
 };
 
+export type TokenDetails = {
+  symbol: string;
+  decimals: number;
+  address: string;
+  userTokenBalance: string;
+}
+
 export const ETH: Token = {
   name: "Ethereum",
   addresses: [
