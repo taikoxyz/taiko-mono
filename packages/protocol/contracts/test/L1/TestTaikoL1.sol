@@ -48,6 +48,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
         config.enableOracleProver = false;
@@ -56,9 +57,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
+        bytes32 /*instance*/
     ) public pure override returns (bool) {
         return true;
     }

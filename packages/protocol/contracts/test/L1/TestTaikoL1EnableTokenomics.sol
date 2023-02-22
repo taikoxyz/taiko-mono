@@ -48,6 +48,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.proofTimeCap = 5 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableProofValidation = false;
@@ -57,9 +58,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
+        bytes32 /*instance*/
     ) public pure override returns (bool) {
         return true;
     }

@@ -15,9 +15,7 @@ interface IProofVerifier {
     function verifyZKP(
         string memory verifierId,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) external view returns (bool verified);
 
     function verifyMKP(
@@ -36,17 +34,13 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
     function verifyZKP(
         string memory verifierId,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) external view returns (bool) {
         return
             LibZKP.verify({
                 plonkVerifier: resolve(verifierId, false),
                 zkproof: zkproof,
-                blockHash: blockHash,
-                prover: prover,
-                txListHash: txListHash
+                instance: instance
             });
     }
 

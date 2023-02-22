@@ -55,7 +55,7 @@ library LibTxUtils {
             transaction.txType == 0 ? txRLPItems.length : txRLPItems.length - 3
         );
 
-        for (uint256 i = 0; i < list.length; ++i) {
+        for (uint256 i; i < list.length; ++i) {
             // For Non-legacy transactions, accessList is always the
             // fourth to last item.
             if (transaction.txType != 0 && i == list.length - 1) {
