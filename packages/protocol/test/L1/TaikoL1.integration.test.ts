@@ -28,7 +28,7 @@ import {
     readShouldRevertWithCustomError,
 } from "../utils/errors";
 import { getBlockHeader } from "../utils/rpc";
-import Evidence from "../utils/evidence";
+import {ProverWithNonce, Evidence} from "../utils/evidence";
 import { encodeEvidence } from "../utils/encoding";
 
 describe("integration:TaikoL1", function () {
@@ -180,7 +180,7 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice.blockHash).to.be.eq(block.hash);
-            expect(forkChoice.provers[0]).to.be.eq(await l1Signer.getAddress());
+            expect(forkChoice.provers[0].addr).to.be.eq(await l1Signer.getAddress());
         });
 
         it("returns empty after a block is verified", async function () {
@@ -548,10 +548,14 @@ describe("integration:TaikoL1", function () {
 
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = [];
+                const proverWithNonce: ProverWithNonce = {
+                    addr: await prover.getSigner().getAddress(),
+                    nonce: 0
+                }
                 const evidence: Evidence = {
                     meta: proposedEvent.args.meta as any as BlockMetadata,
                     header: header.blockHeader,
-                    prover: await prover.getSigner().getAddress(),
+                    prover: proverWithNonce,
                     proofs: [], // keep proofs array empty to fail check
                     circuits: [],
                 };

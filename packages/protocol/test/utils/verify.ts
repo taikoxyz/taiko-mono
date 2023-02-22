@@ -137,7 +137,7 @@ async function commitProposeProveAndVerify(
 
     expect(forkChoice.blockHash).to.be.eq(blockHash);
 
-    expect(forkChoice.provers[0]).to.be.eq(
+    expect(forkChoice.provers[0].addr).to.be.eq(
         await prover.getSigner().getAddress()
     );
 
