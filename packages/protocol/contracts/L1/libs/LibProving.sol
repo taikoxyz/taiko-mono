@@ -285,6 +285,14 @@ library LibProving {
 
         if (!skipZKPVerification) {
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
+                bytes32 instance = keccak256(
+                    abi.encode(
+                        blockHash,
+                        evidence.prover,
+                        evidence.meta.txListHash
+                    )
+                );
+
                 if (
                     !proofVerifier.verifyZKP({
                         verifierId: string(
@@ -296,9 +304,7 @@ library LibProving {
                             )
                         ),
                         zkproof: evidence.proofs[i],
-                        blockHash: blockHash,
-                        prover: evidence.prover,
-                        txListHash: evidence.meta.txListHash
+                        instance: instance
                     })
                 ) revert L1_ZKP();
             }
