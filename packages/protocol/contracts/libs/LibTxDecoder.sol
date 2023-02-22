@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../thirdparty/LibBytesUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
+import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
 
 /// @author david <david@taiko.xyz>
 library LibTxDecoder {

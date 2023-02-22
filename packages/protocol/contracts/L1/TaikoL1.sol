@@ -6,17 +6,18 @@
 
 pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibAnchorSignature.sol";
-import "../libs/LibSharedConfig.sol";
-import "./TaikoData.sol";
-import "./TaikoEvents.sol";
-import "./TaikoCustomErrors.sol";
-import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
-import "./libs/LibUtils.sol";
-import "./libs/LibVerifying.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
+import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
+import {TaikoData} from "./TaikoData.sol";
+import {TaikoEvents} from "./TaikoEvents.sol";
+import {TaikoCustomErrors} from "./TaikoCustomErrors.sol";
+import {LibProposing} from "./libs/LibProposing.sol";
+import {LibProving} from "./libs/LibProving.sol";
+import {LibUtils} from "./libs/LibUtils.sol";
+import {LibVerifying} from "./libs/LibVerifying.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>

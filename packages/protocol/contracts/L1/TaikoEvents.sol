@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "./TaikoData.sol";
+import {TaikoData} from "./TaikoData.sol";
 
 /// @author david <david@taiko.xyz>
 abstract contract TaikoEvents {
