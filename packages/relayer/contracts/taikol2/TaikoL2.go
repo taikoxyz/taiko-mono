@@ -55,7 +55,7 @@ type TaikoDataConfig struct {
 	InitialUncleDelay              uint64
 	EnableTokenomics               bool
 	EnablePublicInputsCheck        bool
-	EnableProofValidation          bool
+	enableAnchorValidation          bool
 }
 
 // TaikoL2ABI is the input ABI used to generate the binding from.

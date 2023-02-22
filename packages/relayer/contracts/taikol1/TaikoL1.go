@@ -84,7 +84,7 @@ type TaikoDataConfig struct {
 	InitialUncleDelay              uint64
 	EnableTokenomics               bool
 	EnablePublicInputsCheck        bool
-	EnableProofValidation          bool
+	enableAnchorValidation          bool
 	EnableOracleProver             bool
 }
 
