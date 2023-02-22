@@ -202,14 +202,14 @@
       </div>
         {:else if transaction.receipt && transaction.status === MessageStatus.New}
           <button
-            class="cursor-pointer border rounded p-1 btn btn-sm"
+            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
             on:click={async () => await claim(transaction)}
           >
             Claim
           </button>
         {:else if transaction.status === MessageStatus.Retriable}
         <button
-          class="cursor-pointer border rounded p-1 btn btn-sm"
+          class="cursor-pointer border rounded p-1 btn btn-sm border-white"
           on:click={async () => await claim(transaction)}
         >
           Retry
@@ -217,10 +217,10 @@
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
           <button
-            class="cursor-pointer border rounded p-1 btn btn-sm"
+            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
             on:click={async () => await releaseTokens(transaction)}
           >
-            Failed
+            Release
           </button>
         {:else if transaction.status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
