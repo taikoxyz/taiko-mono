@@ -323,7 +323,6 @@ library TestLibProving {
         });
     }
 
-    // TODO(brecht): can we write a circuit for this function?
     function _proveAnchorForValidBlock(
         TaikoData.Config memory config,
         AddressResolver resolver,
@@ -384,7 +383,6 @@ library TestLibProving {
         ) revert L1_ANCHOR_RECEIPT_PROOF();
     }
 
-    // TODO(brecht): can we write a circuit for this function?
     function _proveAnchorForInvalidBlock(
         TaikoData.Config memory config,
         AddressResolver resolver,
