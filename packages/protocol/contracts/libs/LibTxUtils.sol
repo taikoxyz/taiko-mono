@@ -6,14 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../libs/LibTxDecoder.sol";
-import "../thirdparty/LibBytesUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
-import "../thirdparty/LibRLPWriter.sol";
+import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
+import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
-/// @author david <david@taiko.xyz>
 library LibTxUtils {
     function hashUnsignedTx(
         uint256 chainId,
@@ -55,7 +54,7 @@ library LibTxUtils {
             transaction.txType == 0 ? txRLPItems.length : txRLPItems.length - 3
         );
 
-        for (uint256 i = 0; i < list.length; ++i) {
+        for (uint256 i; i < list.length; ++i) {
             // For Non-legacy transactions, accessList is always the
             // fourth to last item.
             if (transaction.txType != 0 && i == list.length - 1) {

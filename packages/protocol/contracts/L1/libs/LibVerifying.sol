@@ -6,13 +6,17 @@
 
 pragma solidity ^0.8.18;
 
-import "../../common/AddressResolver.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 /**
  * LibVerifying.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
@@ -62,7 +66,7 @@ library LibVerifying {
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
         ];
-        uint64 processed = 0;
+        uint64 processed;
 
         for (
             uint256 i = state.latestVerifiedId + 1;
@@ -148,6 +152,63 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
+    /**
+     * A function that calculates the weight for each prover based on the number
+     * of provers and a random seed. The weight is a number between 0 and 100.
+     * The sum of the weights will be 100. The weight is calculated in bips,
+     * so the weight of 1 will be 0.01%.
+     *
+     * @param config The config of the Taiko protocol (stores the randomized percentage)
+     * @param numProvers The number of provers
+     * @return bips The weight of each prover in bips
+     */
+    function getProverRewardBips(
+        TaikoData.Config memory config,
+        uint256 numProvers
+    ) public view returns (uint256[] memory bips) {
+        bips = new uint256[](numProvers);
+
+        uint256 randomized = config.proverRewardRandomizedPercentage;
+        if (randomized > 100) {
+            randomized = 100;
+        }
+
+        uint256 sum;
+        uint256 i;
+
+        // Calculate the randomized weight
+        if (randomized > 0) {
+            unchecked {
+                uint256 seed = block.prevrandao;
+                for (i = 0; i < numProvers; ++i) {
+                    // Get an uint16, note that smart provers may
+                    // choose the right timing to maximize their rewards
+                    // which helps blocks to be verified sooner.
+                    bips[i] = uint16(seed * (1 + i));
+                    sum += bips[i];
+                }
+                for (i = 0; i < numProvers; ++i) {
+                    bips[i] = (bips[i] * 100 * randomized) / sum;
+                }
+            }
+        }
+
+        // Add the fixed weight. If there are 5 provers, then their
+        // weight will be:
+        // 1<<4=16, 1<<3=8, 1<<2=4, 1<<1=2, 1<<0=1
+        if (randomized != 100) {
+            unchecked {
+                sum = (1 << numProvers) - 1;
+                uint256 fix = 100 - randomized;
+                uint256 weight = 1 << (numProvers - 1);
+                for (i = 0; i < numProvers; ++i) {
+                    bips[i] += (weight * 100 * fix) / sum;
+                    weight >>= 1;
+                }
+            }
+        }
+    }
+
     function _refundProposerDeposit(
         TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
@@ -166,30 +227,27 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint256 start;
+        uint256 offset;
         uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
-            start = 1;
+            offset = 1;
             count -= 1;
         }
 
-        uint256 sum = (1 << count) - 1;
-        uint256 weight = 1 << (count - 1);
-        for (uint i = 0; i < count; ++i) {
-            uint256 proverReward = (reward * weight) / sum;
-            if (proverReward == 0) {
-                break;
-            }
+        uint256[] memory bips = getProverRewardBips(config, count);
 
-            if (tkoToken.balanceOf(fc.provers[start + i]) == 0) {
-                // Reduce reward to 1 wei as a penalty if the prover
-                // has 0 TKO balance. This allows the next prover reward
-                // to be fully paid.
-                proverReward = uint256(1);
+        for (uint256 i; i < count; ++i) {
+            uint256 proverReward = (reward * bips[i]) / 10000;
+            if (proverReward != 0) {
+                if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
+                    // Reduce reward to 1 wei as a penalty if the prover
+                    // has 0 TKO balance. This allows the next prover reward
+                    // to be fully paid.
+                    proverReward = uint256(1);
+                }
+                tkoToken.mint(fc.provers[offset + i], proverReward);
             }
-            tkoToken.mint(fc.provers[start + i], proverReward);
-            weight = weight >> 1;
         }
     }
 
@@ -249,7 +307,7 @@ library LibVerifying {
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint i = 0; i < fc.provers.length; ++i) {
+        for (uint256 i; i < fc.provers.length; ++i) {
             fc.provers[i] = address(0);
         }
         delete fc.provers;

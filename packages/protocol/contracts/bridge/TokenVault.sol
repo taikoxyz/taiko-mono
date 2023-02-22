@@ -7,13 +7,18 @@
 pragma solidity ^0.8.18;
 
 // solhint-disable-next-line max-line-length
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import {
+    SafeERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
+import {
+    Create2Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../L1/TkoToken.sol";
-import "./BridgedERC20.sol";
-import "./IBridge.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {TkoToken} from "../L1/TkoToken.sol";
+import {BridgedERC20} from "./BridgedERC20.sol";
+import {IBridge} from "./IBridge.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -21,7 +26,6 @@ import "./IBridge.sol";
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
  * not TokenVaults.
- * @author dantaik <dan@taiko.xyz>
  */
 contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;

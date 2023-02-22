@@ -419,7 +419,7 @@ export default [
           },
           {
             internalType: "bool",
-            name: "enableProofValidation",
+            name: "enableAnchorValidation",
             type: "bool",
           },
           {

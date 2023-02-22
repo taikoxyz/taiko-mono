@@ -6,15 +6,14 @@
 
 pragma solidity ^0.8.18;
 
-import "../../common/AddressResolver.sol";
-import "../../libs/LibAddress.sol";
-import "../../libs/LibBlockHeader.sol";
-import "../../libs/LibMath.sol";
-import "../IBridge.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
+import {LibMath} from "../../libs/LibMath.sol";
+import {IBridge} from "../IBridge.sol";
 
 /**
  * Stores message metadata on the Bridge.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeData {
     struct State {

@@ -158,7 +158,7 @@ library LibMerkleTrie {
             bool _isFinalNode
         )
     {
-        uint256 pathLength = 0;
+        uint256 pathLength;
         bytes memory key = LibBytesUtils.toNibbles(_key);
 
         bytes32 currentNodeID = _root;
@@ -167,7 +167,7 @@ library LibMerkleTrie {
         TrieNode memory currentNode;
 
         // Proof is top-down, so we start at the first element (root).
-        for (uint256 i = 0; i < _proof.length; ++i) {
+        for (uint256 i; i < _proof.length; ++i) {
             currentNode = _proof[i];
             currentKeyIndex += currentKeyIncrement;
 
@@ -286,7 +286,7 @@ library LibMerkleTrie {
         LibRLPReader.RLPItem[] memory nodes = LibRLPReader.readList(_proof);
         TrieNode[] memory proof = new TrieNode[](nodes.length);
 
-        for (uint256 i = 0; i < nodes.length; ++i) {
+        for (uint256 i; i < nodes.length; ++i) {
             bytes memory encoded = LibRLPReader.readBytes(nodes[i]);
             proof[i] = TrieNode({
                 encoded: encoded,
@@ -350,49 +350,21 @@ library LibMerkleTrie {
      * @param _b Second nibble array.
      * @return _shared Number of shared nibbles.
      */
+    /**
+     * @notice Utility; determines the number of nibbles shared between two
+     * nibble arrays.
+     * @param _a First nibble array.
+     * @param _b Second nibble array.
+     * @return _shared Number of shared nibbles.
+     */
     function _getSharedNibbleLength(
         bytes memory _a,
         bytes memory _b
     ) private pure returns (uint256 _shared) {
-        assembly {
-            // Load the lengths of the two byte arrays.
-            let lenA := mload(_a)
-            let lenB := mload(_b)
-
-            // Calculate the minimum of the two lengths.
-            let minLen := lenA
-            if gt(lenB, lenA) {
-                minLen := lenB
-            }
-
-            // Load the pointers to the start of each byte array.
-            let ptrA := add(_a, 32)
-            let ptrB := add(_b, 32)
-
-            // Initialize the shared nibble count to 0.
-            let shared := 0
-
-            // Loop over the byte arrays, comparing each nibble.
-            for {
-                let i := 0
-            } lt(i, minLen) {
-                i := add(i, 1)
-            } {
-                // Load the nibble at index i from each byte array.
-                let nibbleA := shr(4, and(mload(ptrA), 0xff))
-                let nibbleB := shr(4, and(mload(ptrB), 0xff))
-
-                // Compare the two nibbles.
-                if eq(nibbleA, nibbleB) {
-                    // Increment the shared nibble count and move to the next nibble.
-                    shared := add(shared, 1)
-                    ptrA := add(ptrA, 1)
-                    ptrB := add(ptrB, 1)
-                }
-            }
-
-            // Set the shared nibble count as the return value.
-            _shared := shared
+        uint256 i;
+        while (_a.length > i && _b.length > i && _a[i] == _b[i]) {
+            ++i;
         }
+        return i;
     }
 }
