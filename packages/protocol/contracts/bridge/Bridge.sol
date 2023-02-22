@@ -179,4 +179,8 @@ contract Bridge is EssentialContract, IBridge {
     ) public pure returns (bytes32) {
         return LibBridgeStatus.getMessageStatusSlot(msgHash);
     }
+
+    function isEtherReleased(bytes32 msgHash) public view returns (bool) {
+        return _state.etherReleased[msgHash];
+    }
 }
