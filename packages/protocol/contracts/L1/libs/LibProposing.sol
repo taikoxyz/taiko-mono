@@ -96,7 +96,7 @@ library LibProposing {
                 txList.length > config.maxBytesPerTxList ||
                 meta.txListHash != txList.hashTxList() ||
                 meta.sigProofHash !=
-                keccak256(abi.encodePacked(bytes32(inputs[2]), inputs[3]))
+                LibUtils.hashSigProof(bytes32(inputs[2]), inputs[3])
             ) revert L1_TX_LIST();
 
             if (

@@ -113,9 +113,8 @@ library LibProving {
         bytes32 circuit = bytes32(inputs[1]);
         bytes calldata zkproof = inputs[2];
 
-        if (
-            target.sigProofHash != keccak256(abi.encodePacked(circuit, zkproof))
-        ) revert L1_SIG_PROOF_MISMATCH();
+        if (target.sigProofHash != LibUtils.hashSigProof(circuit, zkproof))
+            revert L1_SIG_PROOF_MISMATCH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
