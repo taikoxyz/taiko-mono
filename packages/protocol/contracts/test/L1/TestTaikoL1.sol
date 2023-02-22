@@ -55,7 +55,9 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*instance*/
+        bytes32 /*blockHash*/,
+        address /*prover*/,
+        bytes32 /*txListHash*/
     ) public pure override returns (bool) {
         return true;
     }
