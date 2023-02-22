@@ -10,7 +10,7 @@
   import { ethers } from "ethers";
   import ERC20 from "../../constants/abi/ERC20";
   import { signer } from '../../store/signer';
-  import { userTokens, userTokenStore } from '../../store/userTokenStore';
+  import { userTokens, tokenService } from '../../store/userToken';
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
@@ -38,10 +38,11 @@
 
   let loading = false;
 
-  async function addERC20(event) {
+  async function addERC20(event: SubmitEvent) {
     try {
       loading = true;
-      const { customTokenAddress } = event.target;
+      const eventTarget = event.target as HTMLFormElement;
+      const { customTokenAddress } = eventTarget;
       const tokenAddress = customTokenAddress.value;
       if(!ethers.utils.isAddress(tokenAddress)) {
         throw new Error();
@@ -73,10 +74,10 @@
         symbol: symbol,
         logoComponent: null,
       }
-      const updateTokensList = await $userTokenStore.StoreToken(token, userAddress);
+      const updateTokensList = await $tokenService.StoreToken(token, userAddress);
       select(token);
       userTokens.set(updateTokensList);
-      event.target.reset();
+      eventTarget.reset();
       showAddressField = false;
     } catch(error) {
       errorToast("Not a valid ERC20 address");
