@@ -6,7 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import "../../thirdparty/LibBlockHeaderDecoder.sol";
+import {
+    LibBlockHeaderDecoder
+} from "../../thirdparty/LibBlockHeaderDecoder.sol";
 
 contract TestLibBlockHeaderDecoder {
     function decodeBlockHeader(

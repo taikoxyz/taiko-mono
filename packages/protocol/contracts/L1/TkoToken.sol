@@ -6,12 +6,17 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../common/IMintableERC20.sol";
-import "../libs/LibMath.sol";
-import "../thirdparty/ERC20Upgradeable.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IMintableERC20} from "../common/IMintableERC20.sol";
+import {LibMath} from "../libs/LibMath.sol";
+import {
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "../thirdparty/ERC20Upgradeable.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 /// @dev This is Taiko's governance and fee token.

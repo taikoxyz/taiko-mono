@@ -6,10 +6,12 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "../../libs/LibMath.sol";
-import "../TaikoData.sol";
+import {LibMath} from "../../libs/LibMath.sol";
+import {TaikoData} from "../TaikoData.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibUtils {
@@ -98,7 +100,7 @@ library LibUtils {
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = state.feeBase;
-            tRelBp = 0;
+            // tRelBp = 0;
         } else {
             uint256 _tAvg = tAvg > config.proofTimeCap
                 ? config.proofTimeCap
