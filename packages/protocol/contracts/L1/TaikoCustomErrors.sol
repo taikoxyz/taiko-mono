@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-/// @author david <david@taiko.xyz>
 abstract contract TaikoCustomErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_0_FEE_BASE();
@@ -21,6 +20,7 @@ abstract contract TaikoCustomErrors {
     error L1_ANCHOR_RECEIPT_TOPICS();
     error L1_ANCHOR_SIG_R();
     error L1_ANCHOR_SIG_S();
+    error L1_ANCHOR_TX_PROOF();
     error L1_ANCHOR_TYPE();
     error L1_BLOCK_NUMBER();
     error L1_CANNOT_BE_FIRST_PROVER();

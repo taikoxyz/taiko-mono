@@ -13,7 +13,6 @@ import {
 import {LibMath} from "../../libs/LibMath.sol";
 import {TaikoData} from "../TaikoData.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 library LibUtils {
     using LibMath for uint256;
 

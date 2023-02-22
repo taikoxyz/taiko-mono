@@ -31,7 +31,6 @@ import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
  *    `minTxGasLimit` (rule #5 in Ethereum yellow paper).
  *
  * @title LibInvalidTxList
- * @author david <david@taiko.xyz>
  */
 library LibInvalidTxList {
     // NOTE: If the order of this enum changes, then some test cases that using

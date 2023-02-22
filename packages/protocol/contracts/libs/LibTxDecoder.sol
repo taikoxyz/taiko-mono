@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
 import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
 
-/// @author david <david@taiko.xyz>
 library LibTxDecoder {
     struct TransactionLegacy {
         uint256 nonce;
