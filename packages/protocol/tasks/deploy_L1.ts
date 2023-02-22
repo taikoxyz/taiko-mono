@@ -210,12 +210,12 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            // string(abi.encodePacked("plonk_verifier_", i))
+            // string(abi.encodePacked("full_zkp_verifier_id_", i))
             `${chainId}.${Buffer.from(
                 ethers.utils.arrayify(
                     ethers.utils.solidityPack(
                         ["string", "uint256", "string", "uint16"],
-                        ["plonk_verifier_", 0, "_", 0]
+                        ["full_zkp_verifier_id_", 0, "_", 0]
                     )
                 )
             ).toString()}`,

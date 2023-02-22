@@ -136,7 +136,7 @@ library LibProving {
                 resolver.resolve("proof_verifier", false)
             );
             string memory verifierId = string(
-                abi.encodePacked("plonk_verifier_propose", circuit)
+                abi.encodePacked("sig_zkp_verifier_id_", circuit)
             );
             try
                 proofVerifier.verifyZKP({
@@ -216,7 +216,7 @@ library LibProving {
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
-                            "plonk_verifier_",
+                            "full_zkp_verifier_id_",
                             i,
                             "_prove_",
                             evidence.circuits[i]

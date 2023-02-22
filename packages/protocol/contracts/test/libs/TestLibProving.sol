@@ -63,6 +63,8 @@ library TestLibProving {
     error L1_NOT_FIRST_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_HALTED();
+    error L1_SIG_PROOF_MISMATCH();
+    error L1_BLOCK_ACTUALLY_VALID();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -94,6 +96,76 @@ library TestLibProving {
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
+        });
+    }
+
+    function proveBlockInvalid(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint256 blockId,
+        bytes[] calldata inputs
+    ) public {
+        assert(!LibUtils.isHalted(state));
+
+        // Check and decode inputs
+        if (inputs.length != 4) revert L1_INPUT_SIZE();
+
+        TaikoData.BlockMetadata memory target = abi.decode(
+            inputs[0],
+            (TaikoData.BlockMetadata)
+        );
+        if (target.id != blockId) revert L1_ID();
+        _checkMetadata({state: state, config: config, meta: target});
+
+        bytes32 circuit = bytes32(inputs[1]);
+        bytes calldata zkproof = inputs[2];
+
+        if (target.sigProofHash != LibUtils.hashSigProof(circuit, zkproof))
+            revert L1_SIG_PROOF_MISMATCH();
+
+        bytes32 parentHash = bytes32(inputs[3]);
+        bool skipZKPVerification;
+
+        if (config.enableOracleProver) {
+            bytes32 _blockHash = state
+            .forkChoices[target.id][parentHash].blockHash;
+
+            if (msg.sender == resolver.resolve("oracle_prover", false)) {
+                if (_blockHash != 0) revert L1_NOT_FIRST_PROVER();
+                skipZKPVerification = true;
+            } else {
+                if (_blockHash == 0) revert L1_CANNOT_BE_FIRST_PROVER();
+            }
+        }
+
+        if (skipZKPVerification) {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
+            string memory verifierId = string(
+                abi.encodePacked("sig_zkp_verifier_id_", circuit)
+            );
+            try
+                proofVerifier.verifyZKP({
+                    verifierId: verifierId,
+                    zkproof: zkproof,
+                    instance: target.txListHash
+                })
+            returns (bool verified) {
+                if (verified) revert L1_BLOCK_ACTUALLY_VALID();
+            } catch {
+                // bad proof
+            }
+        }
+
+        _markBlockProven({
+            state: state,
+            config: config,
+            prover: msg.sender,
+            target: target,
+            parentHash: parentHash,
+            blockHash: LibUtils.BLOCK_DEADEND_HASH
         });
     }
 
@@ -152,7 +224,7 @@ library TestLibProving {
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
-                            "plonk_verifier_",
+                            "full_zkp_verifier_id_",
                             i,
                             "_prove_",
                             evidence.circuits[i]
@@ -191,14 +263,18 @@ library TestLibProving {
             // This is the first proof for this block.
             fc.blockHash = blockHash;
 
-            if (!config.enableOracleProver) {
-                // If the oracle prover is not enabled
-                // we use the first prover's timestamp
-                fc.provenAt = uint64(block.timestamp);
+            if (config.enableOracleProver) {
+                // We keep fc.provenAt as 0 and do NOT
+                // push the prover into the prover list.
             } else {
-                // We keep fc.provenAt as 0.
+                // If the oracle prover is not enabled
+                // we use the first proof's timestamp
+                // as the block's provenAt timestamp
+                fc.provenAt = uint64(block.timestamp);
+                fc.provers.push(prover);
             }
         } else {
+            // The block has been proven at least once.
             if (fc.provers.length >= config.maxProofsPerForkChoice)
                 revert L1_TOO_MANY_PROVERS();
 
@@ -221,21 +297,21 @@ library TestLibProving {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
+                    // We trust the oracle prover so we revert this transaction.
                     revert L1_CONFLICT_PROOF();
                 } else {
+                    // We do not know which prover to trust so we have to put
+                    // the blockchain to a halt.
                     LibUtils.halt(state, true);
                     return;
                 }
             }
 
-            if (config.enableOracleProver && fc.provenAt == 0) {
-                // If the oracle prover is enabled, we
-                // use the second prover's timestamp.
+            if (fc.provenAt == 0) {
                 fc.provenAt = uint64(block.timestamp);
             }
+            fc.provers.push(prover);
         }
-
-        fc.provers.push(prover);
 
         emit BlockProven({
             id: target.id,
