@@ -116,13 +116,6 @@ library LibProving {
         if (target.sigProofHash != LibUtils.hashSigProof(circuit, zkproof))
             revert L1_SIG_PROOF_MISMATCH();
 
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-        string memory verifierId = string(
-            abi.encodePacked("plonk_verifier_propose", circuit)
-        );
-
         bytes32 parentHash = bytes32(inputs[3]);
         bool skipZKPVerification;
 
@@ -139,6 +132,12 @@ library LibProving {
         }
 
         if (skipZKPVerification) {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
+            string memory verifierId = string(
+                abi.encodePacked("plonk_verifier_propose", circuit)
+            );
             try
                 proofVerifier.verifyZKP({
                     verifierId: verifierId,
