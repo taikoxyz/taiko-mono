@@ -17,7 +17,6 @@ import {
 import {AddressResolver} from "./AddressResolver.sol";
 
 /**
- * @author dantaik <dan@taiko.xyz>
  * @dev This abstract contract serves as the base contract for many core
  *      components in this package.
  */
