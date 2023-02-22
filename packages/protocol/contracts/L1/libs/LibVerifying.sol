@@ -20,11 +20,7 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event HeaderSynced(
-        uint256 indexed height,
-        uint256 indexed srcHeight,
-        bytes32 srcHash
-    );
+    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
     error L1_HALTED();
     error L1_0_FEE_BASE();
@@ -44,7 +40,7 @@ library LibVerifying {
         state.l2Hashes[0] = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(block.number, 0, genesisBlockHash);
+        emit HeaderSynced(0, genesisBlockHash);
     }
 
     function verifyBlocks(
@@ -124,7 +120,7 @@ library LibVerifying {
                 state.l2Hashes[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
-                emit HeaderSynced(block.number, latestL2Height, latestL2Hash);
+                emit HeaderSynced(latestL2Height, latestL2Hash);
             }
         }
     }
@@ -157,7 +153,7 @@ library LibVerifying {
         uint256 tRelBp,
         TkoToken tkoToken
     ) private {
-        uint refund = (target.deposit * (10000 - tRelBp)) / 10000;
+        uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
         if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
             tkoToken.mint(target.proposer, refund);
@@ -170,18 +166,18 @@ library LibVerifying {
         uint256 reward,
         TkoToken tkoToken
     ) private {
-        uint start;
-        uint count = fc.provers.length;
+        uint256 start;
+        uint256 count = fc.provers.length;
 
         if (config.enableOracleProver) {
             start = 1;
             count -= 1;
         }
 
-        uint sum = (1 << count) - 1;
-        uint weight = 1 << (count - 1);
+        uint256 sum = (1 << count) - 1;
+        uint256 weight = 1 << (count - 1);
         for (uint i = 0; i < count; ++i) {
-            uint proverReward = (reward * weight) / sum;
+            uint256 proverReward = (reward * weight) / sum;
             if (proverReward == 0) {
                 break;
             }
