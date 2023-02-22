@@ -159,6 +159,7 @@ importers:
       prettier: ^2.5.1
       prettier-plugin-solidity: ^1.1.2
       rlp: ^3.0.0
+      solady: ^0.0.78
       solhint: ^3.3.8
       solidity-coverage: github:taikoxyz/solidity-coverage
       solidity-docgen: ^0.6.0-beta.34
@@ -208,6 +209,7 @@ importers:
       prettier: 2.8.0
       prettier-plugin-solidity: 1.1.2_prettier@2.8.0
       rlp: 3.0.0
+      solady: 0.0.78
       solhint: 3.3.8
       solidity-coverage: github.com/taikoxyz/solidity-coverage/ceb49fd1f6041e4fcd26079dfb0d3b0f58c812e5_hardhat@2.12.2
       solidity-docgen: 0.6.0-beta.34_hardhat@2.12.2
@@ -17150,6 +17152,10 @@ packages:
     dependencies:
       ip: 2.0.0
       smart-buffer: 4.2.0
+    dev: true
+
+  /solady/0.0.78:
+    resolution: {integrity: sha512-GMc0i+XxaXwGLFlgXjZXByZezaxr+FfTjobdaaeogwXEY1+E4/3pOOvyc+Y9mtKKEKDDC6uwp+fJa46rjsFfNQ==}
     dev: true
 
   /solc/0.4.26:

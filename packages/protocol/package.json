@@ -75,6 +75,7 @@
     "prettier": "^2.5.1",
     "prettier-plugin-solidity": "^1.1.2",
     "rlp": "^3.0.0",
+    "solady": "^0.0.78",
     "solhint": "^3.3.8",
     "solidity-coverage": "github:taikoxyz/solidity-coverage",
     "solidity-docgen": "^0.6.0-beta.34",
