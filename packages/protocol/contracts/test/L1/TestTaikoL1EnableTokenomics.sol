@@ -47,6 +47,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.proofTimeCap = 5 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableProofValidation = false;
