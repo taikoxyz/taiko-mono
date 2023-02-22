@@ -5,7 +5,7 @@
   import { ArrowTopRightOnSquare } from "svelte-heros-v2";
   import { MessageStatus } from "../domain/message";
   import { Contract, ethers } from "ethers";
-  import { bridges } from "../store/bridge";
+  import { bridges, chainIdToTokenVaultAddress } from "../store/bridge";
   import { signer } from "../store/signer";
   import {
     pendingTransactions,
@@ -32,6 +32,7 @@
 
   export let fromChain: Chain;
   export let toChain: Chain;
+  let loading: boolean;
 
   let processable: boolean = false;
   onMount(async () => {
@@ -39,6 +40,8 @@
   });
 
   async function claim(bridgeTx: BridgeTransaction) {
+    try {
+    loading = true;
     if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
       const chain = chains[bridgeTx.message.destChainId.toNumber()];
       await switchNetwork({
@@ -56,8 +59,6 @@
       const wagmiSigner = await fetchSigner();
       signer.set(wagmiSigner);
     }
-
-    try {
       const tx = await $bridges
         .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
         .Claim({
@@ -79,6 +80,8 @@
     } catch (e) {
       console.log(e);
       errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
     }
   }
 
@@ -112,6 +115,54 @@
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
+
+  async function releaseTokens(bridgeTx: BridgeTransaction) {
+    try {
+      loading = true;
+      if (fromChain.id !== bridgeTx.message.srcChainId.toNumber()) {
+      const chain = chains[bridgeTx.message.srcChainId.toNumber()];
+      await switchNetwork({
+        chainId: chain.id,
+      });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+
+      fromChainStore.set(chain);
+      if (chain === CHAIN_MAINNET) {
+        toChainStore.set(CHAIN_TKO);
+      } else {
+        toChainStore.set(CHAIN_MAINNET);
+      }
+      const wagmiSigner = await fetchSigner();
+      signer.set(wagmiSigner);
+    }
+      const tx = await $bridges
+        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
+        .ReleaseTokens({
+          signer: $signer,
+          message: bridgeTx.message,
+          msgHash: bridgeTx.msgHash,
+          destBridgeAddress:
+            chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
+          srcBridgeAddress:
+          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+          destProvider: $providers.get(bridgeTx.message.destChainId.toNumber()),
+          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(bridgeTx.message.srcChainId.toNumber())
+        });
+
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
+
+      successToast($_("toast.transactionSent"));
+    } catch (e) {
+      console.log(e);
+      errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <tr class="text-transaction-table">
@@ -135,7 +186,7 @@
       <span slot="buttonText">
     {#if !processable}
       Pending
-    {:else if !transaction.receipt && transaction.status === MessageStatus.New}
+    {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
       <div class="inline-block">
         <LottiePlayer
           src="/lottie/loader.json"
@@ -150,22 +201,27 @@
         />
       </div>
         {:else if transaction.receipt && transaction.status === MessageStatus.New}
-          <span
-            class="cursor-pointer border rounded p-1"
+          <button
+            class="cursor-pointer border rounded p-1 btn btn-sm"
             on:click={async () => await claim(transaction)}
           >
             Claim
-          </span>
+          </button>
         {:else if transaction.status === MessageStatus.Retriable}
-          <span
-            class="cursor-pointer border rounded p-1"
-            on:click={async () => await claim(transaction)}
-          >
-            Retry
-          </span>
+        <button
+          class="cursor-pointer border rounded p-1 btn btn-sm"
+          on:click={async () => await claim(transaction)}
+        >
+          Retry
+        </button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
-          Failed
+          <button
+            class="cursor-pointer border rounded p-1 btn btn-sm"
+            on:click={async () => await releaseTokens(transaction)}
+          >
+            Failed
+          </button>
         {:else if transaction.status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
         {/if}
