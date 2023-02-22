@@ -7,7 +7,7 @@ const arweave = Arweave.init({
   protocol: "https",
 });
 
-async function getTransanctionIds() {
+export default async function getTransanctionIds(req, res) {
   await fetch("https://arweave.net/graphql", {
     method: "POST",
     headers: {
@@ -48,6 +48,7 @@ async function getTransanctionIds() {
     .then((response) => {
       getPosts(response);
     })
+    .finally(() => res.send(200))
     .catch();
 }
 
@@ -66,7 +67,8 @@ async function getPosts(response) {
             data["OriginalDigest"] = edge.node.tags[4].value;
             posts.push(data);
           }
-
+        })
+        .then(() => {
           const jsonString = JSON.stringify(posts);
           fs.writeFile("./public/posts.json", jsonString, (err) => {});
         })
@@ -74,5 +76,3 @@ async function getPosts(response) {
     })
   );
 }
-
-getTransanctionIds();

@@ -1,6 +1,8 @@
 name: Website
 
 on:
+  schedule:
+    - cron: '0 1 * * *'
   push:
     branches: [main]
     paths:
@@ -27,3 +29,10 @@ jobs:
 
       - name: Build Website
         run: pnpm -F website build
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call our API route
+        run: |
+          curl --request POST \
+          --url 'https://taiko.xyz/api/getPosts'
