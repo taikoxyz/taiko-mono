@@ -14,9 +14,7 @@ library LibZKP {
     function verify(
         address plonkVerifier,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) internal view returns (bool verified) {
         // TODO(david):public input is assembled in client software
         // for testing purposes right now, move this part of logic
