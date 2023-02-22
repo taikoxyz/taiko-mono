@@ -6,9 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../TaikoData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 
 /// @author dantaik <dan@taiko.xyz>
 library LibProposing {

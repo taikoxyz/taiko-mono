@@ -6,15 +6,18 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "../common/AddressResolver.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibAnchorSignature.sol";
-import "../libs/LibInvalidTxList.sol";
-import "../libs/LibSharedConfig.sol";
-import "../libs/LibTxDecoder.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
+import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
+import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
+import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
+import {TaikoData} from "../L1/TaikoData.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>

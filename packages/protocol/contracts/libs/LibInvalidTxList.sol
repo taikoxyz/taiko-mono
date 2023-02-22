@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import "../L1/TaikoData.sol";
-import "../libs/LibTxDecoder.sol";
-import "../libs/LibTxUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
-import "../thirdparty/LibRLPWriter.sol";
+import {TaikoData} from "../L1/TaikoData.sol";
+import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
+import {LibTxUtils} from "../libs/LibTxUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
 /**
  * A library to invalidate a txList using the following rules:

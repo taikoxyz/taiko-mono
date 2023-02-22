@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "./LibUint512Math.sol";
+import {LibUint512Math} from "./LibUint512Math.sol";
 
 /// @author david <david@taiko.xyz>
 library LibAnchorSignature {
