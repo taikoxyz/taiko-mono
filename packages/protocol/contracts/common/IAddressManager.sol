@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 /**
- * @author dantaik <dan@taiko.xyz>
  * @notice Interface to set and get an address for a name.
  */
 interface IAddressManager {
