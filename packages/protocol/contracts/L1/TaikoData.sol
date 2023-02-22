@@ -113,6 +113,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[41] __gap;
+        uint256[39] __gap;
     }
 }

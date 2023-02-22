@@ -99,8 +99,8 @@ library LibProving {
 
         // block must be unclaimed.
         // we could allow reclaiming by another user, or allow anyone
-        // to submit proof, and first one gets the reward.
-        //  && state.claims[blockId].claimedAt < (block.timestamp - config.claimHoldTimeInSeconds)
+        // to submit proof, and first one gets the reward. right now it assumes
+        // after the claiming has happened, nobody else can claim, and anyone can submit proof.
         if (state.claims[blockId].claimer != address(0)) {
             revert L1_ALREADY_CLAIMED();
         }
