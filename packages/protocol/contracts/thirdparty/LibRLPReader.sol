@@ -411,26 +411,26 @@ library LibRLPReader {
         uint256 _src,
         uint256 _offset,
         uint256 _length
-    ) private pure returns (bytes memory) {
-        bytes memory out = new bytes(_length);
-        if (out.length == 0) {
-            return out;
+    ) internal pure returns (bytes memory) {
+        bytes memory result = new bytes(_length);
+        if (result.length == 0) {
+            return result;
         }
 
-        uint256 src = _src + _offset;
-        uint256 dest;
+        bytes memory src;
+        bytes memory dst;
         assembly {
-            dest := add(out, 32)
-        }
+            src := add(_src, _offset)
 
-        // Copy over as many complete words as we can.
-        for (uint256 i; i < _length / 32; ++i) {
-            assembly {
-                mstore(dest, mload(src))
+            dst := add(result, 32)
+
+            for {
+                let i := 0
+            } lt(i, _length) {
+                i := add(i, 32)
+            } {
+                mstore(add(dst, i), mload(add(src, i)))
             }
-
-            src += 32;
-            dest += 32;
         }
 
         // Pick out the remaining bytes.
@@ -440,9 +440,10 @@ library LibRLPReader {
         }
 
         assembly {
-            mstore(dest, or(and(mload(src), not(mask)), and(mload(dest), mask)))
+            mstore(dst, or(and(mload(src), not(mask)), and(mload(dst), mask)))
         }
-        return out;
+
+        return result;
     }
 
     /**
