@@ -139,42 +139,6 @@ contract TaikoL1 is
     }
 
     /**
-     * Prove a block is invalid with a zero-knowledge proof and a receipt
-     * merkel proof.
-     *
-     * @param blockId The index of the block to prove. This is also used to
-     *        select the right implementation version.
-     * @param inputs A list of data input:
-     *        - inputs[0] An Evidence object with various information regarding
-     *          the block to be proven and the actual proofs.
-     *        - inputs[1] The target block to be proven invalid.
-     *        - inputs[2] The receipt for the `invalidBlock` transaction
-     *          on L2. Note that the `invalidBlock` transaction is supposed to
-     *          be the only transaction in the L2 block.
-     */
-    function proveBlockInvalid(
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) external nonReentrant {
-        TaikoData.Config memory config = getConfig();
-
-        LibProving.proveBlockInvalid({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            inputs: inputs
-        });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx,
-            checkHalt: false
-        });
-    }
-
-    /**
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */

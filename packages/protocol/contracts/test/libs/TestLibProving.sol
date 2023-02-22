@@ -6,7 +6,6 @@
 
 // This file is an exact copy of LibProving.sol except the implementation of the following methods are empty:
 
-// _validateAnchorTxSignature
 // _checkMetadata
 // _validateHeaderForMetadata
 
@@ -39,12 +38,6 @@ library TestLibProving {
         uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
-    bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
-        keccak256("BlockInvalidated(bytes32)");
-
-    bytes4 public constant ANCHOR_TX_SELECTOR =
-        bytes4(keccak256("anchor(uint256,bytes32)"));
-
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -67,19 +60,6 @@ library TestLibProving {
     error L1_DUP_PROVERS();
     error L1_NOT_FIRST_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
-    error L1_ANCHOR_TYPE();
-    error L1_ANCHOR_DEST();
-    error L1_ANCHOR_GAS_LIMIT();
-    error L1_ANCHOR_CALLDATA();
-    error L1_ANCHOR_SIG_R();
-    error L1_ANCHOR_SIG_S();
-    error L1_ANCHOR_TX_PROOF();
-    error L1_ANCHOR_RECEIPT_PROOF();
-    error L1_ANCHOR_RECEIPT_STATUS();
-    error L1_ANCHOR_RECEIPT_LOGS();
-    error L1_ANCHOR_RECEIPT_ADDR();
-    error L1_ANCHOR_RECEIPT_TOPICS();
-    error L1_ANCHOR_RECEIPT_DATA();
     error L1_HALTED();
 
     function proveBlock(
@@ -104,80 +84,14 @@ library TestLibProving {
         if (evidence.circuits.length != config.zkProofsPerBlock)
             revert L1_CIRCUIT_LENGTH();
 
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
-        if (config.enableAnchorValidation) {
-            _proveAnchorForValidBlock({
-                config: config,
-                resolver: resolver,
-                proofVerifier: proofVerifier,
-                evidence: evidence,
-                anchorTx: inputs[1],
-                anchorReceipt: inputs[2]
-            });
-        }
-
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
-            proofVerifier: proofVerifier,
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
-        });
-    }
-
-    function proveBlockInvalid(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) public {
-        assert(!LibUtils.isHalted(state));
-
-        // Check and decode inputs
-        if (inputs.length != 3) revert L1_INPUT_SIZE();
-        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
-        TaikoData.BlockMetadata memory target = abi.decode(
-            inputs[1],
-            (TaikoData.BlockMetadata)
-        );
-
-        // Check evidence
-        if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.proofs.length != 1 + config.zkProofsPerBlock)
-            revert L1_PROOF_LENGTH();
-
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
-        // Check the event is the first one in the throw-away block
-        if (config.enableAnchorValidation) {
-            _proveAnchorForInvalidBlock({
-                config: config,
-                resolver: resolver,
-                target: target,
-                proofVerifier: proofVerifier,
-                evidence: evidence,
-                invalidateBlockReceipt: inputs[2]
-            });
-        }
-
-        // ZK-prove block and mark block proven as invalid.
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            proofVerifier: proofVerifier,
-            evidence: evidence,
-            target: target,
-            blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
         });
     }
 
@@ -185,7 +99,6 @@ library TestLibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        IProofVerifier proofVerifier,
         Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
@@ -221,6 +134,10 @@ library TestLibProving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         if (!skipZKPVerification) {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
+
             for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
                 bytes32 instance = keccak256(
                     abi.encode(
@@ -229,20 +146,20 @@ library TestLibProving {
                         evidence.meta.txListHash
                     )
                 );
-                if (
-                    !proofVerifier.verifyZKP({
-                        verifierId: string(
-                            abi.encodePacked(
-                                "plonk_verifier_",
-                                i,
-                                "_",
-                                evidence.circuits[i]
-                            )
-                        ),
-                        zkproof: evidence.proofs[i],
-                        instance: instance
-                    })
-                ) revert L1_ZKP();
+
+                bool verified = proofVerifier.verifyZKP({
+                    verifierId: string(
+                        abi.encodePacked(
+                            "plonk_verifier_",
+                            i,
+                            "_prove_",
+                            evidence.circuits[i]
+                        )
+                    ),
+                    zkproof: evidence.proofs[i],
+                    instance: instance
+                });
+                if (!verified) revert L1_ZKP();
             }
         }
 
@@ -327,109 +244,6 @@ library TestLibProving {
             prover: prover
         });
     }
-
-    function _proveAnchorForValidBlock(
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        IProofVerifier proofVerifier,
-        Evidence memory evidence,
-        bytes calldata anchorTx,
-        bytes calldata anchorReceipt
-    ) private view {
-        // Check anchor tx is valid
-        LibTxDecoder.Tx memory _tx = LibTxDecoder.decodeTx(
-            config.chainId,
-            anchorTx
-        );
-        if (_tx.txType != 0) revert L1_ANCHOR_TYPE();
-        if (_tx.destination != resolver.resolve(config.chainId, "taiko", false))
-            revert L1_ANCHOR_DEST();
-        if (_tx.gasLimit != config.anchorTxGasLimit)
-            revert L1_ANCHOR_GAS_LIMIT();
-
-        // Check anchor tx's signature is valid and deterministic
-        _validateAnchorTxSignature(config.chainId, _tx);
-
-        // Check anchor tx's calldata is valid
-        if (
-            !LibBytesUtils.equal(
-                _tx.data,
-                bytes.concat(
-                    ANCHOR_TX_SELECTOR,
-                    bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash
-                )
-            )
-        ) revert L1_ANCHOR_CALLDATA();
-
-        // Check anchor tx is the 1st tx in the block
-        uint zkProofsPerBlock = config.zkProofsPerBlock;
-        if (
-            !proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorTx,
-                proof: evidence.proofs[zkProofsPerBlock],
-                root: evidence.header.transactionsRoot
-            })
-        ) revert L1_ANCHOR_TX_PROOF();
-
-        // Check anchor tx does not throw
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(anchorReceipt);
-        if (receipt.status != 1) revert L1_ANCHOR_RECEIPT_STATUS();
-
-        if (
-            !proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: anchorReceipt,
-                proof: evidence.proofs[zkProofsPerBlock + 1],
-                root: evidence.header.receiptsRoot
-            })
-        ) revert L1_ANCHOR_RECEIPT_PROOF();
-    }
-
-    function _proveAnchorForInvalidBlock(
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.BlockMetadata memory target,
-        IProofVerifier proofVerifier,
-        Evidence memory evidence,
-        bytes calldata invalidateBlockReceipt
-    ) private view {
-        if (
-            !proofVerifier.verifyMKP({
-                key: LibRLPWriter.writeUint(0),
-                value: invalidateBlockReceipt,
-                proof: evidence.proofs[config.zkProofsPerBlock],
-                root: evidence.header.receiptsRoot
-            })
-        ) revert L1_ANCHOR_RECEIPT_PROOF();
-
-        // Check the 1st receipt is for an InvalidateBlock tx with
-        // a BlockInvalidated event
-        LibReceiptDecoder.Receipt memory receipt = LibReceiptDecoder
-            .decodeReceipt(invalidateBlockReceipt);
-        if (receipt.status != 1) revert L1_ANCHOR_RECEIPT_STATUS();
-        if (receipt.logs.length != 1) revert L1_ANCHOR_RECEIPT_LOGS();
-
-        LibReceiptDecoder.Log memory log = receipt.logs[0];
-        if (
-            log.contractAddress !=
-            resolver.resolve(config.chainId, "taiko", false)
-        ) revert L1_ANCHOR_RECEIPT_ADDR();
-
-        if (log.data.length != 0) revert L1_ANCHOR_RECEIPT_DATA();
-        if (
-            log.topics.length != 2 ||
-            log.topics[0] != INVALIDATE_BLOCK_LOG_TOPIC ||
-            log.topics[1] != target.txListHash
-        ) revert L1_ANCHOR_RECEIPT_TOPICS();
-    }
-
-    function _validateAnchorTxSignature(
-        uint256 chainId,
-        LibTxDecoder.Tx memory _tx
-    ) private view {}
 
     function _checkMetadata(
         TaikoData.State storage state,
