@@ -94,7 +94,9 @@ library LibProposing {
             if (
                 txList.length < 0 ||
                 txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != txList.hashTxList()
+                meta.txListHash != txList.hashTxList() ||
+                meta.sigProofHash !=
+                keccak256(abi.encodePacked(bytes32(inputs[2]), inputs[3]))
             ) revert L1_TX_LIST();
 
             if (
@@ -116,29 +118,23 @@ library LibProposing {
             );
         }
 
-        {
-            //TODO(daniel):
-            //Only if this is invalid, a "prover" can run this proof verification
-            // in the smart contract and prove that the block is invalid;
-            // Otherwise this proof is part of the main proof and is proven
-            // together in the aggregation circuit off-chain with the proofs
-            // of the other sub-circuits.
-            IProofVerifier proofVerifier = IProofVerifier(
-                resolver.resolve("proof_verifier", false)
-            );
-            bool verified = proofVerifier.verifyZKP({
-                verifierId: string(
-                    abi.encodePacked(
-                        "plonk_verifier_propose",
-                        bytes32(inputs[2])
-                    )
-                ),
-                zkproof: inputs[3],
-                instance: meta.txListHash
-            });
+        // {
+        //     IProofVerifier proofVerifier = IProofVerifier(
+        //         resolver.resolve("proof_verifier", false)
+        //     );
+        //     bool verified = proofVerifier.verifyZKP({
+        //         verifierId: string(
+        //             abi.encodePacked(
+        //                 "plonk_verifier_propose",
+        //                 bytes32(inputs[2])
+        //             )
+        //         ),
+        //         zkproof: inputs[3],
+        //         instance: meta.txListHash
+        //     });
 
-            if (!verified) revert L1_ZKP();
-        }
+        //     if (!verified) revert L1_ZKP();
+        // }
 
         uint256 deposit;
         if (config.enableTokenomics) {
@@ -275,7 +271,8 @@ library LibProposing {
             meta.mixHash != 0 ||
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||
-            meta.txListHash == 0
+            meta.txListHash == 0 ||
+            meta.sigProofHash == 0
         ) revert L1_METADATA_FIELD();
 
         if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();

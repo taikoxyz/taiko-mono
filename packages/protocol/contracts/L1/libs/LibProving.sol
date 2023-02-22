@@ -55,6 +55,8 @@ library LibProving {
     error L1_NOT_FIRST_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_HALTED();
+    error L1_SIG_PROOF_MISMATCH();
+    error L1_BLOCK_ACTUALLY_VALID();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -86,6 +88,54 @@ library LibProving {
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
+        });
+    }
+
+    function proveBlockInvalid(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint256 blockId,
+        bytes[] calldata inputs
+    ) public {
+        assert(!LibUtils.isHalted(state));
+
+        // Check and decode inputs
+        if (inputs.length != 4) revert L1_INPUT_SIZE();
+
+        TaikoData.BlockMetadata memory meta = abi.decode(
+            inputs[0],
+            (TaikoData.BlockMetadata)
+        );
+        if (meta.id != blockId) revert L1_ID();
+        _checkMetadata({state: state, config: config, meta: meta});
+
+        bytes32 circuit = bytes32(inputs[1]);
+        bytes calldata zkproof = inputs[2];
+
+        if (meta.sigProofHash != keccak256(abi.encodePacked(circuit, zkproof)))
+            revert L1_SIG_PROOF_MISMATCH();
+
+        IProofVerifier proofVerifier = IProofVerifier(
+            resolver.resolve("proof_verifier", false)
+        );
+        bool verified = proofVerifier.verifyZKP({
+            verifierId: string(
+                abi.encodePacked("plonk_verifier_propose", circuit)
+            ),
+            zkproof: zkproof,
+            instance: meta.txListHash
+        });
+
+        if (verified) revert L1_BLOCK_ACTUALLY_VALID();
+
+        _markBlockProven({
+            state: state,
+            config: config,
+            prover: msg.sender,
+            target: meta,
+            parentHash: bytes32(inputs[3]),
+            blockHash: LibUtils.BLOCK_DEADEND_HASH
         });
     }
 

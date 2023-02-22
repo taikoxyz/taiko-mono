@@ -49,6 +49,7 @@ library TaikoData {
         bytes32 l1Hash;
         address beneficiary;
         bytes32 txListHash;
+        bytes32 sigProofHash;
         bytes32 mixHash;
         bytes extraData;
         uint64 gasLimit;
