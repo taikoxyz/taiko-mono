@@ -18,11 +18,7 @@ library LibProposing {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(
-        uint64 commitSlot,
-        uint64 commitHeight,
-        bytes32 commitHash
-    );
+    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_METADATA_FIELD();
@@ -56,11 +52,7 @@ library LibProposing {
 
         state.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted({
-            commitSlot: commitSlot,
-            commitHeight: uint64(block.number),
-            commitHash: commitHash
-        });
+        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
     }
 
     function proposeBlock(

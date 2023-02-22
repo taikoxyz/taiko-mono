@@ -93,7 +93,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(block.number, l1Height, l1Hash);
+        emit HeaderSynced(l1Height, l1Hash);
     }
 
     /**********************
