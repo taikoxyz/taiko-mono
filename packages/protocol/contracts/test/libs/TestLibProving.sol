@@ -35,7 +35,7 @@ library TestLibProving {
     struct Evidence {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
-        address prover;
+        TaikoData.Prover prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
         // followed by MKPs.
         uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
@@ -53,7 +53,7 @@ library TestLibProving {
         bytes32 blockHash,
         uint64 timestamp,
         uint64 provenAt,
-        address prover
+        TaikoData.Prover prover
     );
 
     error L1_ID();
@@ -262,7 +262,7 @@ library TestLibProving {
         bytes32 blockHashOverride
     ) private {
         if (evidence.meta.id != target.id) revert L1_ID();
-        if (evidence.prover == address(0)) revert L1_PROVER();
+        if (evidence.prover.addr == address(0)) revert L1_PROVER();
 
         _checkMetadata({state: state, config: config, meta: target});
         _validateHeaderForMetadata({
@@ -296,7 +296,8 @@ library TestLibProving {
                 bytes32 instance = keccak256(
                     abi.encode(
                         blockHash,
-                        evidence.prover,
+                        evidence.prover.addr,
+                        evidence.prover.nonce,
                         evidence.meta.txListHash
                     )
                 );
@@ -331,7 +332,7 @@ library TestLibProving {
     function _markBlockProven(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        address prover,
+        TaikoData.Prover memory prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
         bytes32 blockHash
@@ -367,7 +368,10 @@ library TestLibProving {
             ) revert L1_TOO_LATE();
 
             for (uint256 i; i < fc.provers.length; ++i) {
-                if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
+                if (
+                    fc.provers[i].addr == prover.addr &&
+                    fc.provers[i].nonce == prover.nonce
+                ) revert L1_DUP_PROVERS();
             }
 
             if (fc.blockHash != blockHash) {

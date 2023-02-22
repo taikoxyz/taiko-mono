@@ -67,11 +67,16 @@ library TaikoData {
         uint64 proposedAt;
     }
 
+    struct Prover {
+        address addr;
+        uint96 nonce;
+    }
+
     // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
         uint64 provenAt;
-        address[] provers;
+        Prover[] provers;
     }
 
     // This struct takes 9 slots.

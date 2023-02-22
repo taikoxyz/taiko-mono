@@ -23,7 +23,7 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         uint64 timestamp,
         uint64 provenAt,
-        address prover
+        TaikoData.Prover prover
     );
 
     event Halted(bool halted);

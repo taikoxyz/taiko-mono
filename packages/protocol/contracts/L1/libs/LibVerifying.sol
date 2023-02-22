@@ -237,13 +237,13 @@ library LibVerifying {
         for (uint256 i; i < count; ++i) {
             uint256 proverReward = (reward * bips[i]) / 10000;
             if (proverReward != 0) {
-                if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
+                if (tkoToken.balanceOf(fc.provers[offset + i].addr) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
                     // has 0 TKO balance. This allows the next prover reward
                     // to be fully paid.
                     proverReward = uint256(1);
                 }
-                tkoToken.mint(fc.provers[offset + i], proverReward);
+                tkoToken.mint(fc.provers[offset + i].addr, proverReward);
             }
         }
     }
@@ -305,7 +305,8 @@ library LibVerifying {
         fc.blockHash = 0;
         fc.provenAt = 0;
         for (uint256 i; i < fc.provers.length; ++i) {
-            fc.provers[i] = address(0);
+            fc.provers[i].addr = address(0);
+            fc.provers[i].nonce = 0;
         }
         delete fc.provers;
     }
