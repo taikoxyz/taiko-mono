@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../thirdparty/LibRLPWriter.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
-/// @author david <david@taiko.xyz>
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;

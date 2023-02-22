@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-/// @author david <david@taiko.xyz>
 abstract contract TaikoCustomErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_0_FEE_BASE();

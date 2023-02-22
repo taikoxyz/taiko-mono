@@ -6,13 +6,17 @@
 
 pragma solidity ^0.8.18;
 
-import "../../common/AddressResolver.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 /**
  * LibVerifying.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;

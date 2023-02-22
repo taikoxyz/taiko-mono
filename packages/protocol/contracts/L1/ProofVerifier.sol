@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibZKP.sol";
-import "../thirdparty/LibMerkleTrie.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {LibZKP} from "../libs/LibZKP.sol";
+import {LibMerkleTrie} from "../thirdparty/LibMerkleTrie.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
     function verifyZKP(
         string memory verifierId,

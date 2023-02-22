@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-/// @author dantaik <dan@taiko.xyz>
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -79,7 +78,9 @@ library TaikoData {
         // only the latest one if verified in a batch
         mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
+        // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
+        // solhint-disable-next-line max-line-length
         mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // Never or rarely changed
         uint64 genesisHeight;

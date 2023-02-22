@@ -6,12 +6,16 @@
 
 pragma solidity ^0.8.18;
 
-import {IProofVerifier} from "../ProofVerifier.sol";
-import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../TaikoData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+
 library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
