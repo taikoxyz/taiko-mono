@@ -363,11 +363,13 @@ library TestLibProving {
             )
         ) revert L1_ANCHOR_CALLDATA();
         // Check anchor tx is the 1st tx in the block
+
+        uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         if (
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorTx,
-                proof: evidence.proofs[config.zkProofsPerBlock],
+                proof: evidence.proofs[zkProofsPerBlock],
                 root: evidence.header.transactionsRoot
             })
         ) revert L1_ANCHOR_TX_PROOF();
@@ -379,7 +381,7 @@ library TestLibProving {
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorReceipt,
-                proof: evidence.proofs[config.zkProofsPerBlock + 1],
+                proof: evidence.proofs[zkProofsPerBlock + 1],
                 root: evidence.header.receiptsRoot
             })
         ) revert L1_ANCHOR_RECEIPT_PROOF();
