@@ -4941,9 +4941,9 @@ packages:
     engines: {node: '>=12'}
     dev: true
 
-  /antlr4/4.11.0:
-    resolution: {integrity: sha512-GUGlpE2JUjAN+G8G5vY+nOoeyNhHsXoIJwP1XF1oRw89vifA1K46T6SEkwLwr7drihN7I/lf0DIjKc4OZvBX8w==}
-    engines: {node: '>=14'}
+  /antlr4/4.12.0:
+    resolution: {integrity: sha512-23iB5IzXJZRZeK9TigzUyrNc9pSmNqAerJRBcNq1ETrmttMWRgaYZzC561IgEO3ygKsDJTYDTozABXa4b/fTQQ==}
+    engines: {node: '>=16'}
     dev: true
 
   /antlr4ts/0.5.0-alpha.4:
@@ -10221,7 +10221,7 @@ packages:
       dir-glob: 3.0.1
       fast-glob: 3.2.12
       glob: 7.2.3
-      ignore: 5.2.0
+      ignore: 5.2.4
       merge2: 1.4.1
       slash: 3.0.0
     dev: true
@@ -17022,7 +17022,7 @@ packages:
     dependencies:
       '@solidity-parser/parser': 0.15.0
       ajv: 6.12.6
-      antlr4: 4.11.0
+      antlr4: 4.12.0
       ast-parents: 0.0.1
       chalk: 4.1.2
       commander: 10.0.0
