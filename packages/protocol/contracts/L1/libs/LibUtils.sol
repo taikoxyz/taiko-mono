@@ -150,28 +150,6 @@ library LibUtils {
         return (feeBase * gamma) / 1024;
     }
 
-    function getUncleProofDelay(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 blockId
-    ) internal view returns (uint64) {
-        if (blockId <= 2 * config.maxNumBlocks) {
-            return config.initialUncleDelay;
-        } else {
-            return state.avgProofTime;
-        }
-    }
-
-    // Returns a deterministic deadline for uncle proof submission.
-    function getUncleProofDeadline(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.ForkChoice storage fc,
-        uint256 blockId
-    ) internal view returns (uint64) {
-        return fc.provenAt + getUncleProofDelay(state, config, blockId);
-    }
-
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32) {

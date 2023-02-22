@@ -283,24 +283,6 @@ library TestLibProving {
                 // We keep fc.provenAt as 0.
             }
         } else {
-            if (fc.provers.length >= config.maxProofsPerForkChoice)
-                revert L1_TOO_MANY_PROVERS();
-
-            if (
-                fc.provenAt != 0 &&
-                block.timestamp >=
-                LibUtils.getUncleProofDeadline({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    blockId: target.id
-                })
-            ) revert L1_TOO_LATE();
-
-            for (uint256 i; i < fc.provers.length; ++i) {
-                if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
-            }
-
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
@@ -319,7 +301,7 @@ library TestLibProving {
             }
         }
 
-        fc.provers.push(prover);
+        fc.prover = prover;
 
         emit BlockProven({
             id: target.id,

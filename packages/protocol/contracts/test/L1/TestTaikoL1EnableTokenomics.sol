@@ -26,7 +26,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.zkProofsPerBlock = 1;
         config.maxVerificationsPerTx = 0; // dont verify blocks automatically
         config.commitConfirmations = 1;
-        config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 30000000; // TODO
         config.maxTransactionsPerBlock = 20; // TODO
         config.maxBytesPerTxList = 10240; // TODO
@@ -47,12 +46,14 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 5 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
-        config.initialUncleDelay = 1 seconds;
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableAnchorValidation = false;
         config.enableOracleProver = false;
+        config.claimHoldTimeInSeconds = 30 minutes;
+        config.claimDepositInWei = 1 ether;
+        config.claimGap = 0;
     }
 
     function verifyZKP(

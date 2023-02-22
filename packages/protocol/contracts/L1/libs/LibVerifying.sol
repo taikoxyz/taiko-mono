@@ -14,6 +14,7 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {TkoToken} from "../TkoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 
 /**
  * LibVerifying.
@@ -21,6 +22,7 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
+    using LibAddress for address;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
@@ -81,29 +83,27 @@ library LibVerifying {
                 i
             );
 
-            // Uncle proof can not take more than 2x time the first proof did.
-            if (
-                !isVerifiable({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    blockId: i
-                })
-            ) {
+            if (!isVerifiable({config: config, fc: fc})) {
                 break;
             } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock({
+                _verifyBlock({
                     state: state,
                     config: config,
                     resolver: resolver,
                     fc: fc,
                     target: target,
-                    latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
+                    blockId: i
                 });
+                if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+                    latestL2Height = latestL2Height + 1;
+                    latestL2Hash = fc.blockHash;
+                } else {
+                    latestL2Height = latestL2Height;
+                    latestL2Hash = latestL2Hash;
+                }
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
-                _cleanUp(fc);
+                _cleanUp(fc, state.claims[i]);
             }
         }
 
@@ -148,63 +148,6 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
-    /**
-     * A function that calculates the weight for each prover based on the number
-     * of provers and a random seed. The weight is a number between 0 and 100.
-     * The sum of the weights will be 100. The weight is calculated in bips,
-     * so the weight of 1 will be 0.01%.
-     *
-     * @param config The config of the Taiko protocol (stores the randomized percentage)
-     * @param numProvers The number of provers
-     * @return bips The weight of each prover in bips
-     */
-    function getProverRewardBips(
-        TaikoData.Config memory config,
-        uint256 numProvers
-    ) public view returns (uint256[] memory bips) {
-        bips = new uint256[](numProvers);
-
-        uint256 randomized = config.proverRewardRandomizedPercentage;
-        if (randomized > 100) {
-            randomized = 100;
-        }
-
-        uint256 sum;
-        uint256 i;
-
-        // Calculate the randomized weight
-        if (randomized > 0) {
-            unchecked {
-                uint256 seed = block.prevrandao;
-                for (i = 0; i < numProvers; ++i) {
-                    // Get an uint16, note that smart provers may
-                    // choose the right timing to maximize their rewards
-                    // which helps blocks to be verified sooner.
-                    bips[i] = uint16(seed * (1 + i));
-                    sum += bips[i];
-                }
-                for (i = 0; i < numProvers; ++i) {
-                    bips[i] = (bips[i] * 100 * randomized) / sum;
-                }
-            }
-        }
-
-        // Add the fixed weight. If there are 5 provers, then their
-        // weight will be:
-        // 1<<4=16, 1<<3=8, 1<<2=4, 1<<1=2, 1<<0=1
-        if (randomized != 100) {
-            unchecked {
-                sum = (1 << numProvers) - 1;
-                uint256 fix = 100 - randomized;
-                uint256 weight = 1 << (numProvers - 1);
-                for (i = 0; i < numProvers; ++i) {
-                    bips[i] += (weight * 100 * fix) / sum;
-                    weight >>= 1;
-                }
-            }
-        }
-    }
-
     function _refundProposerDeposit(
         TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
@@ -217,34 +160,34 @@ library LibVerifying {
         }
     }
 
-    function _rewardProvers(
-        TaikoData.Config memory config,
-        TaikoData.ForkChoice storage fc,
+    function _refundClaimerDeposit(address claimer, uint256 deposit) private {
+        claimer.sendEther(deposit);
+    }
+
+    function _rewardProver(
+        address prover,
         uint256 reward,
-        TkoToken tkoToken
+        TkoToken tkoToken,
+        TaikoData.State storage state,
+        uint256 blockId
     ) private {
-        uint256 offset;
-        uint256 count = fc.provers.length;
-
-        if (config.enableOracleProver) {
-            offset = 1;
-            count -= 1;
+        if (tkoToken.balanceOf(prover) == 0) {
+            // Reduce reward to 1 wei as a penalty if the prover
+            // has 0 TKO balance. This allows the next prover reward
+            // to be fully paid.
+            reward = uint256(1);
         }
 
-        uint256[] memory bips = getProverRewardBips(config, count);
+        tkoToken.mint(prover, reward);
 
-        for (uint256 i; i < count; ++i) {
-            uint256 proverReward = (reward * bips[i]) / 10000;
-            if (proverReward != 0) {
-                if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
-                    // Reduce reward to 1 wei as a penalty if the prover
-                    // has 0 TKO balance. This allows the next prover reward
-                    // to be fully paid.
-                    proverReward = uint256(1);
-                }
-                tkoToken.mint(fc.provers[offset + i], proverReward);
-            }
+        TaikoData.Claim storage claim = state.claims[blockId];
+
+        if (prover != claim.claimer) {
+            prover.sendEther(claim.deposit);
+        } else {
+            _refundClaimerDeposit(prover, claim.deposit);
         }
+        state.timesProofNotDeliveredForClaim[claim.claimer] += 1;
     }
 
     function _verifyBlock(
@@ -253,9 +196,8 @@ library LibVerifying {
         AddressResolver resolver,
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
-        uint64 latestL2Height,
-        bytes32 latestL2Hash
-    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
+        uint256 blockId
+    ) private {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
@@ -272,7 +214,7 @@ library LibVerifying {
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProvers(config, fc, reward, tkoToken);
+                _rewardProver(fc.prover, reward, tkoToken, state, blockId);
                 _refundProposerDeposit(target, tRelBp, tkoToken);
             }
             // Update feeBase and avgProofTime
@@ -290,41 +232,27 @@ library LibVerifying {
                 maf: config.proofTimeMAF
             })
             .toUint64();
-
-        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
-            _latestL2Height = latestL2Height + 1;
-            _latestL2Hash = fc.blockHash;
-        } else {
-            _latestL2Height = latestL2Height;
-            _latestL2Hash = latestL2Hash;
-        }
     }
 
-    function _cleanUp(TaikoData.ForkChoice storage fc) private {
+    function _cleanUp(
+        TaikoData.ForkChoice storage fc,
+        TaikoData.Claim storage claim
+    ) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint256 i; i < fc.provers.length; ++i) {
-            fc.provers[i] = address(0);
-        }
-        delete fc.provers;
+        fc.prover = address(0);
+        claim.deposit = 0;
+        claim.claimedAt = 0;
+        claim.claimer = address(0);
     }
 
     function isVerifiable(
-        TaikoData.State storage state,
         TaikoData.Config memory config,
-        TaikoData.ForkChoice storage fc,
-        uint256 blockId
+        TaikoData.ForkChoice storage fc
     ) public view returns (bool) {
         return
             // TODO(daniel): remove the next line.
-            (!config.enableOracleProver || fc.provers.length > 1) &&
-            fc.blockHash != 0 &&
-            block.timestamp >
-            LibUtils.getUncleProofDeadline({
-                state: state,
-                config: config,
-                fc: fc,
-                blockId: blockId
-            });
+            (!config.enableOracleProver || fc.prover != address(0)) &&
+            fc.blockHash != 0;
     }
 }

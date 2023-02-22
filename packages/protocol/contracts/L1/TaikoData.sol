@@ -17,7 +17,6 @@ library TaikoData {
         uint256 zkProofsPerBlock;
         uint256 maxVerificationsPerTx;
         uint256 commitConfirmations;
-        uint256 maxProofsPerForkChoice;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
@@ -36,8 +35,10 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
-        uint64 initialUncleDelay;
         uint64 proverRewardRandomizedPercentage;
+        uint64 claimHoldTimeInSeconds;
+        uint256 claimDepositInWei;
+        uint8 claimGap; // how many blocks between claiming, so one person can not claim every block
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;
@@ -70,7 +71,13 @@ library TaikoData {
     struct ForkChoice {
         bytes32 blockHash;
         uint64 provenAt;
-        address[] provers;
+        address prover;
+    }
+
+    struct Claim {
+        uint256 claimedAt;
+        address claimer;
+        uint256 deposit;
     }
 
     // This struct takes 9 slots.
@@ -83,6 +90,9 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
+        mapping(uint256 blockId => Claim claim) claims;
+        mapping(address claimer => uint256 numNotDelivered) timesProofNotDeliveredForClaim;
+        mapping(address claimer => uint256 blockId) lastBlockIdClaimed;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -103,6 +113,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[42] __gap;
+        uint256[41] __gap;
     }
 }

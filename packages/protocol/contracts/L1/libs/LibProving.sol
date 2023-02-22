@@ -47,6 +47,13 @@ library LibProving {
         address prover
     );
 
+    event BlockClaimed(
+        uint256 indexed id,
+        address claimer,
+        uint256 claimedAt,
+        uint256 deposit
+    );
+
     error L1_ID();
     error L1_PROVER();
     error L1_TOO_LATE();
@@ -56,7 +63,6 @@ library LibProving {
     error L1_CIRCUIT_LENGTH();
     error L1_META_MISMATCH();
     error L1_ZKP();
-    error L1_TOO_MANY_PROVERS();
     error L1_DUP_PROVERS();
     error L1_NOT_FIRST_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
@@ -74,6 +80,65 @@ library LibProving {
     error L1_ANCHOR_RECEIPT_DATA();
     error L1_ANCHOR_TX_PROOF();
     error L1_HALTED();
+    error L1_ALREADY_CLAIMED();
+    error L1_INVALID_CLAIM_DEPOSIT(uint256 amountSent, uint256 required);
+    error L1_BLOCK_NOT_CLAIMED();
+    error L1_CLAIMED_TOO_RECENTLY();
+    error L1_ALREADY_PROVEN();
+
+    // claimBlock lets a prover claim a block for only themselves to prove,
+    // for a limited amount of time.
+    // if the time passes and they dont submit a proof,
+    // they will lose their deposit.
+    function claimBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockId
+    ) public {
+        if (LibUtils.isHalted(state)) revert L1_HALTED();
+
+        // block must be unclaimed.
+        // we could allow reclaiming by another user, or allow anyone
+        // to submit proof, and first one gets the reward.
+        //  && state.claims[blockId].claimedAt < (block.timestamp - config.claimHoldTimeInSeconds)
+        if (state.claims[blockId].claimer != address(0)) {
+            revert L1_ALREADY_CLAIMED();
+        }
+
+        // if we set a claim gap, claimers can not claim sequential blocks to prove.
+        // a bit of forced decentralization of provers.
+        if (config.claimGap > 0) {
+            if (
+                state.lastBlockIdClaimed[tx.origin] + config.claimGap < blockId
+            ) {
+                revert L1_CLAIMED_TOO_RECENTLY();
+            }
+        }
+
+        // if user has claimed and not proven a block before, we multiply
+        // requiredDeposit by the number of times they have falsely claimed.
+        uint256 requiredDeposit = config.claimDepositInWei;
+        if (state.timesProofNotDeliveredForClaim[tx.origin] > 0) {
+            requiredDeposit =
+                config.claimDepositInWei *
+                state.timesProofNotDeliveredForClaim[tx.origin];
+        }
+
+        // if user hasnt sent enough to deposit, we dont allow them to claim.
+        if (msg.value < requiredDeposit)
+            revert L1_INVALID_CLAIM_DEPOSIT({
+                amountSent: msg.value,
+                required: requiredDeposit
+            });
+
+        state.claims[blockId] = TaikoData.Claim({
+            claimer: tx.origin,
+            claimedAt: block.timestamp,
+            deposit: msg.value
+        });
+
+        emit BlockClaimed(blockId, tx.origin, block.timestamp, msg.value);
+    }
 
     function proveBlock(
         TaikoData.State storage state,
@@ -83,6 +148,19 @@ library LibProving {
         bytes[] calldata inputs
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
+
+        // if claim is still valid
+        if (
+            block.timestamp - state.claims[blockId].claimedAt <
+            config.claimHoldTimeInSeconds
+        ) {
+            // block must be claimed by you
+            if (state.claims[blockId].claimer != tx.origin) {
+                revert L1_BLOCK_NOT_CLAIMED();
+            }
+        }
+
+        // otherwise anyone can prove, and when they do, they get your deposit as a bonus.
 
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
@@ -242,7 +320,6 @@ library LibProving {
 
         _markBlockProven({
             state: state,
-            config: config,
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
@@ -252,7 +329,6 @@ library LibProving {
 
     function _markBlockProven(
         TaikoData.State storage state,
-        TaikoData.Config memory config,
         address prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
@@ -262,55 +338,14 @@ library LibProving {
             parentHash
         ];
 
-        if (fc.blockHash == 0) {
-            // This is the first proof for this block.
-            fc.blockHash = blockHash;
+        if (fc.blockHash != 0) revert L1_ALREADY_PROVEN();
 
-            if (!config.enableOracleProver) {
-                // If the oracle prover is not enabled
-                // we use the first prover's timestamp
-                fc.provenAt = uint64(block.timestamp);
-            } else {
-                // We keep fc.provenAt as 0.
-            }
-        } else {
-            if (fc.provers.length >= config.maxProofsPerForkChoice)
-                revert L1_TOO_MANY_PROVERS();
+        // This is the first proof for this block.
+        fc.blockHash = blockHash;
 
-            if (
-                fc.provenAt != 0 &&
-                block.timestamp >=
-                LibUtils.getUncleProofDeadline({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    blockId: target.id
-                })
-            ) revert L1_TOO_LATE();
+        fc.provenAt = uint64(block.timestamp);
 
-            for (uint256 i; i < fc.provers.length; ++i) {
-                if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
-            }
-
-            if (fc.blockHash != blockHash) {
-                // We have a problem here: two proofs are both valid but claims
-                // the new block has different hashes.
-                if (config.enableOracleProver) {
-                    revert L1_CONFLICT_PROOF();
-                } else {
-                    LibUtils.halt(state, true);
-                    return;
-                }
-            }
-
-            if (config.enableOracleProver && fc.provenAt == 0) {
-                // If the oracle prover is enabled, we
-                // use the second prover's timestamp.
-                fc.provenAt = uint64(block.timestamp);
-            }
-        }
-
-        fc.provers.push(prover);
+        fc.prover = tx.origin;
 
         emit BlockProven({
             id: target.id,

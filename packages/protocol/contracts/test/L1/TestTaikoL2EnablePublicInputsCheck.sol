@@ -27,7 +27,6 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.zkProofsPerBlock = 1;
         config.maxVerificationsPerTx = 2;
         config.commitConfirmations = 1;
-        config.maxProofsPerForkChoice = 5;
         config.blockMaxGasLimit = 30000000; // TODO
         config.maxTransactionsPerBlock = 20; // TODO
         config.maxBytesPerTxList = 10240; // TODO
@@ -48,11 +47,14 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 180 days;
-        config.initialUncleDelay = 1 minutes;
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
         config.enableAnchorValidation = true;
         config.enableOracleProver = false;
+
+        config.claimHoldTimeInSeconds = 30 minutes;
+        config.claimDepositInWei = 1 ether;
+        config.claimGap = 0;
     }
 }

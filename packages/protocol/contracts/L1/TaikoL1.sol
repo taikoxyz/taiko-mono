@@ -205,14 +205,23 @@ contract TaikoL1 is
 
     function getProofReward(
         uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 reward) {
-        (, reward, ) = LibVerifying.getProofReward({
+        uint64 proposedAt,
+        uint256 blockId
+    ) public view returns (uint256 eth, uint256 token) {
+        (, token, ) = LibVerifying.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
             proposedAt: proposedAt
         });
+
+        eth = 0;
+        if (
+            state.claims[blockId].claimer != address(0) &&
+            !isClaimForProposedBlockStillValid(blockId)
+        ) {
+            eth = state.claims[blockId].deposit;
+        }
     }
 
     /**
@@ -281,16 +290,6 @@ contract TaikoL1 is
         return state.forkChoices[id][parentHash];
     }
 
-    function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
-        return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
-    }
-
-    function getProverRewardBips(
-        uint256 numProvers
-    ) public view returns (uint256[] memory) {
-        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
-    }
-
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
     }
@@ -301,10 +300,24 @@ contract TaikoL1 is
     ) public view returns (bool) {
         return
             LibVerifying.isVerifiable({
-                state: state,
                 config: getConfig(),
-                fc: state.forkChoices[blockId][parentHash],
-                blockId: blockId
+                fc: state.forkChoices[blockId][parentHash]
             });
+    }
+
+    function claimForProposedBlock(
+        uint256 blockId
+    ) public view returns (TaikoData.Claim memory claim) {
+        return state.claims[blockId];
+    }
+
+    // isClaimForProposed
+    function isClaimForProposedBlockStillValid(
+        uint256 blockId
+    ) public view returns (bool) {
+        if (state.claims[blockId].claimer == address(0)) return false;
+        return
+            block.timestamp - state.claims[blockId].claimedAt <
+            getConfig().claimHoldTimeInSeconds;
     }
 }
