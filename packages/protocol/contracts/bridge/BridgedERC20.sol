@@ -17,9 +17,6 @@ import {
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,

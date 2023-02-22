@@ -22,7 +22,6 @@ import {LibAddress} from "../libs/LibAddress.sol";
  * - Is initialized with 2^128 Ether.
  * - Allows the contract owner to authorize addresses.
  * - Allows authorized addresses to send/release Ether.
- * @author dantaik <dan@taiko.xyz>
  */
 contract EtherVault is EssentialContract {
     using LibAddress for address;

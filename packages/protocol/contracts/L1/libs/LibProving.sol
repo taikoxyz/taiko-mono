@@ -18,8 +18,6 @@ import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
-/// @author dantaik <dan@taiko.xyz>
-/// @author david <david@taiko.xyz>
 library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;

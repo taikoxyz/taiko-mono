@@ -16,7 +16,6 @@ import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;

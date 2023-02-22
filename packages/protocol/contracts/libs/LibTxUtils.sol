@@ -13,7 +13,6 @@ import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
 import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
 import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
-/// @author david <david@taiko.xyz>
 library LibTxUtils {
     function hashUnsignedTx(
         uint256 chainId,
