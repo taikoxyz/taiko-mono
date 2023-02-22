@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibTxUtils.sol";
+import {LibTxUtils} from "../../libs/LibTxUtils.sol";
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
 
 contract TestLibTxUtils {
     function hashUnsignedTx(

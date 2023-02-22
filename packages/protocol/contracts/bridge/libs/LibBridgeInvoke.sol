@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "./LibBridgeData.sol";
+import {LibBridgeData, IBridge, LibAddress} from "./LibBridgeData.sol";
 
 /**
  * @author dantaik <dan@taiko.xyz>
