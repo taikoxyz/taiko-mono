@@ -98,7 +98,7 @@ library LibUtils {
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = state.feeBase;
-            tRelBp = 0;
+            // tRelBp = 0;
         } else {
             uint256 _tAvg = tAvg > config.proofTimeCap
                 ? config.proofTimeCap

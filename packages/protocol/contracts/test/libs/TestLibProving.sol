@@ -290,7 +290,15 @@ library TestLibProving {
         bytes32 blockHash = evidence.header.hashBlockHeader();
 
         if (!skipZKPVerification) {
-            for (uint256 i = 0; i < config.zkProofsPerBlock; ++i) {
+            for (uint256 i; i < config.zkProofsPerBlock; ++i) {
+                bytes32 instance = keccak256(
+                    abi.encode(
+                        blockHash,
+                        evidence.prover,
+                        evidence.meta.txListHash
+                    )
+                );
+
                 if (
                     !proofVerifier.verifyZKP({
                         verifierId: string(
@@ -302,9 +310,7 @@ library TestLibProving {
                             )
                         ),
                         zkproof: evidence.proofs[i],
-                        blockHash: blockHash,
-                        prover: evidence.prover,
-                        txListHash: evidence.meta.txListHash
+                        instance: instance
                     })
                 ) revert L1_ZKP();
             }
@@ -358,7 +364,7 @@ library TestLibProving {
                 })
             ) revert L1_TOO_LATE();
 
-            for (uint256 i = 0; i < fc.provers.length; ++i) {
+            for (uint256 i; i < fc.provers.length; ++i) {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
             }
 

@@ -56,6 +56,7 @@ library LibSharedConfig {
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 initialUncleDelay: 10 minutes,
+                proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
                 enableProofValidation: true,
