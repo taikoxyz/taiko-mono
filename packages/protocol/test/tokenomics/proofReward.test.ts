@@ -10,11 +10,11 @@ import Prover from "../utils/prover";
 import { createAndSeedWallets, seedTko } from "../utils/seed";
 import {
     commitProposeProveAndVerify,
-    sleepUntilBlockIsVerifiable,
-    verifyBlocks,
+    // sleepUntilBlockIsVerifiable,
+    // verifyBlocks,
 } from "../utils/verify";
 import { initIntegrationFixture } from "../utils/fixture";
-import { BlockMetadata } from "../utils/block_metadata";
+// import { BlockMetadata } from "../utils/block_metadata";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
