@@ -22,6 +22,7 @@ const mockContract = {
 
 const mockProver = {
   GenerateProof: jest.fn(),
+  GenerateReleaseProof: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
