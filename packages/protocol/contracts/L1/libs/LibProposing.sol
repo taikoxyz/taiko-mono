@@ -95,8 +95,8 @@ library LibProposing {
                 txList.length < 0 ||
                 txList.length > config.maxBytesPerTxList ||
                 meta.txListHash != txList.hashTxList() ||
-                meta.sigProofHash !=
-                LibUtils.hashSigProof(bytes32(inputs[2]), inputs[3])
+                meta.txListProofHash !=
+                LibUtils.hashTxListProof(bytes32(inputs[2]), inputs[3])
             ) revert L1_TX_LIST();
 
             if (
@@ -254,7 +254,7 @@ library LibProposing {
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||
             meta.txListHash == 0 ||
-            meta.sigProofHash == 0
+            meta.txListProofHash == 0
         ) revert L1_METADATA_FIELD();
 
         if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();

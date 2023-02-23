@@ -122,7 +122,7 @@ library TestLibProving {
         bytes32 circuit = bytes32(inputs[1]);
         bytes calldata zkproof = inputs[2];
 
-        if (target.sigProofHash != LibUtils.hashSigProof(circuit, zkproof))
+        if (target.txListProofHash != LibUtils.hashTxListProof(circuit, zkproof))
             revert L1_SIG_PROOF_MISMATCH();
 
         bytes32 parentHash = bytes32(inputs[3]);
@@ -145,7 +145,7 @@ library TestLibProving {
                 resolver.resolve("proof_verifier", false)
             );
             string memory verifierId = string(
-                abi.encodePacked("sig_zkp_verifier_id_", circuit)
+                abi.encodePacked("txlist_verifier_", circuit)
             );
             try
                 proofVerifier.verifyZKP({
@@ -225,7 +225,7 @@ library TestLibProving {
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
-                            "full_zkp_verifier_id_",
+                            "block_verifier_",
                             i,
                             "_prove_",
                             evidence.circuits[i]

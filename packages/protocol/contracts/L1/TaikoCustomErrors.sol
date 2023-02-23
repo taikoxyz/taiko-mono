@@ -16,6 +16,7 @@ abstract contract TaikoCustomErrors {
     error L1_COMMITTED();
     error L1_CONFLICT_PROOF();
     error L1_DUP_PROVERS();
+    error L1_EMPTY_TXLIST_PROOF();
     error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
     error L1_HALTED();

@@ -178,7 +178,7 @@ library LibUtils {
         return keccak256(abi.encode(meta));
     }
 
-    function hashSigProof(
+    function hashTxListProof(
         bytes32 circuit,
         bytes calldata signatureProof
     ) internal pure returns (bytes32) {

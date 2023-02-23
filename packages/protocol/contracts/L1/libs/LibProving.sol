@@ -57,6 +57,7 @@ library LibProving {
     error L1_HALTED();
     error L1_SIG_PROOF_MISMATCH();
     error L1_BLOCK_ACTUALLY_VALID();
+    error L1_EMPTY_TXLIST_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -112,9 +113,10 @@ library LibProving {
         _checkMetadata({state: state, config: config, meta: target});
 
         bytes32 circuit = bytes32(inputs[1]);
-        bytes calldata zkproof = inputs[2];
+        bytes calldata txListProof = inputs[2];
+        if(txListProof.length == 0) revert L1_EMPTY_TXLIST_PROOF();
 
-        if (target.sigProofHash != LibUtils.hashSigProof(circuit, zkproof))
+        if (target.txListProofHash != LibUtils.hashTxListProof(circuit, txListProof))
             revert L1_SIG_PROOF_MISMATCH();
 
         bytes32 parentHash = bytes32(inputs[3]);
@@ -137,12 +139,12 @@ library LibProving {
                 resolver.resolve("proof_verifier", false)
             );
             string memory verifierId = string(
-                abi.encodePacked("sig_zkp_verifier_id_", circuit)
+                abi.encodePacked("txlist_verifier_", circuit)
             );
             try
                 proofVerifier.verifyZKP({
                     verifierId: verifierId,
-                    zkproof: zkproof,
+                    zkproof: txListProof,
                     instance: target.txListHash
                 })
             returns (bool verified) {
@@ -206,18 +208,24 @@ library LibProving {
             );
 
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
+
                 bytes32 instance = keccak256(
                     abi.encode(
                         blockHash,
                         evidence.prover,
-                        evidence.meta.txListHash
+                        evidence.meta.txListHash,
+                        // txListProofHash needs to be part of the main circuit's
+                        // public input otherwise a proposer may propose a valid
+                        // block with an invalid sigature proof, making the
+                        // chain nondeterministic.
+                        evidence.meta.txListProofHash
                     )
                 );
 
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
-                            "full_zkp_verifier_id_",
+                            "block_verifier_",
                             i,
                             "_prove_",
                             evidence.circuits[i]
