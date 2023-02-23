@@ -24,7 +24,7 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 /**
  * @title LibBytesUtils
@@ -142,7 +142,7 @@ library LibBytesUtils {
     ) internal pure returns (bytes memory) {
         bytes memory nibbles = new bytes(_bytes.length * 2);
 
-        for (uint256 i = 0; i < _bytes.length; ++i) {
+        for (uint256 i; i < _bytes.length; ++i) {
             nibbles[i * 2] = _bytes[i] >> 4;
             nibbles[i * 2 + 1] = bytes1(uint8(_bytes[i]) % 16);
         }
@@ -155,7 +155,7 @@ library LibBytesUtils {
     ) internal pure returns (bytes memory) {
         bytes memory ret = new bytes(_bytes.length / 2);
 
-        for (uint256 i = 0; i < ret.length; ++i) {
+        for (uint256 i; i < ret.length; ++i) {
             ret[i] = (_bytes[i * 2] << 4) | (_bytes[i * 2 + 1]);
         }
 

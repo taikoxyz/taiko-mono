@@ -4,18 +4,19 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 // solhint-disable-next-line max-line-length
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import {
+    IERC20MetadataUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../thirdparty/ERC20Upgradeable.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,

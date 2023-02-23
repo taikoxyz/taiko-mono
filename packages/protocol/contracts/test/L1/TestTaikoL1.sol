@@ -4,10 +4,11 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../../L1/ProofVerifier.sol";
-import "../../L1/TaikoL1.sol";
+import {TaikoL1} from "../../L1/TaikoL1.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 contract TestTaikoL1 is TaikoL1, IProofVerifier {
     function getConfig()
@@ -47,6 +48,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
         config.enableOracleProver = false;
@@ -55,9 +57,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
+        bytes32 /*instance*/
     ) public pure override returns (bool) {
         return true;
     }

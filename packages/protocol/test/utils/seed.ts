@@ -1,4 +1,5 @@
 import { BigNumber, ethers } from "ethers";
+import { TestTkoToken } from "../../typechain";
 
 const createAndSeedWallets = async (
     len: number,
@@ -30,4 +31,19 @@ const sendTinyEtherToZeroAddress = async (signer: any) => {
     await tx.wait(1);
 };
 
-export { createAndSeedWallets, sendTinyEtherToZeroAddress };
+const seedTko = async (
+    wallets: { getSigner: () => ethers.Wallet }[],
+    tkoToken: TestTkoToken
+) => {
+    for (const wallet of wallets) {
+        // prover needs TKO or their reward will be cut down to 1 wei.
+        await (
+            await tkoToken.mintAnyone(
+                await wallet.getSigner().getAddress(),
+                ethers.utils.parseEther("100")
+            )
+        ).wait(1);
+    }
+};
+
+export { createAndSeedWallets, sendTinyEtherToZeroAddress, seedTko };

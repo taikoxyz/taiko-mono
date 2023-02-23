@@ -4,17 +4,16 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/utils/Strings.sol";
-import "./IAddressManager.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IAddressManager} from "./IAddressManager.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
  * it uses an AddressManager to manage the name-to-address mapping.
  *
  * @title AddressResolver
- * @author dantaik <dan@taiko.xyz>
  */
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;

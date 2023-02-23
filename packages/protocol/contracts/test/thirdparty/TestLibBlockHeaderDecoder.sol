@@ -4,9 +4,11 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../thirdparty/LibBlockHeaderDecoder.sol";
+import {
+    LibBlockHeaderDecoder
+} from "../../thirdparty/LibBlockHeaderDecoder.sol";
 
 contract TestLibBlockHeaderDecoder {
     function decodeBlockHeader(

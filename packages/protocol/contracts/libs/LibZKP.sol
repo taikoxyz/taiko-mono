@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 library LibZKP {
     /*********************
@@ -14,9 +14,7 @@ library LibZKP {
     function verify(
         address plonkVerifier,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) internal view returns (bool verified) {
         // TODO(david):public input is assembled in client software
         // for testing purposes right now, move this part of logic

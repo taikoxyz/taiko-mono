@@ -4,9 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
-
-import "hardhat/console.sol";
+pragma solidity ^0.8.18;
 
 contract TestReceiver {
     event Received(address from, uint256 amount);

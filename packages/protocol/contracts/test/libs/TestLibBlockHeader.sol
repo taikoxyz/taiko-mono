@@ -4,9 +4,10 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../libs/LibBlockHeader.sol";
+import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
+import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 
 contract TestLibBlockHeader {
     function hashBlockHeader(

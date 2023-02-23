@@ -4,9 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../libs/LibAnchorSignature.sol";
+import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
 
 library TestLibAnchorSignature {
     function signTransaction(

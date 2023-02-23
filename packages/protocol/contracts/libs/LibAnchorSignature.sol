@@ -4,11 +4,10 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "./LibUint512Math.sol";
+import {LibUint512Math} from "./LibUint512Math.sol";
 
-/// @author david <david@taiko.xyz>
 library LibAnchorSignature {
     address public constant K_GOLDEN_TOUCH_ADDRESS =
         0x0000777735367b36bC9B61C50022d9D0700dB4Ec;

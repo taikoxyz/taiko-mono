@@ -4,16 +4,18 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../signal/ISignalService.sol";
-import "./LibBridgeData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
+import {IBridge} from "../IBridge.sol";
 
 /**
  * Entry point for starting a bridge transaction.
  *
  * @title LibBridgeSend
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeSend {
     using LibAddress for address;

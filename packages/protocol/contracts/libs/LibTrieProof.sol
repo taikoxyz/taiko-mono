@@ -4,15 +4,14 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../thirdparty/LibRLPReader.sol";
-import "../thirdparty/LibRLPWriter.sol";
-import "../thirdparty/LibSecureMerkleTrie.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
+import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
 
 /**
  * @title LibTrieProof
- * @author dantaik <dan@taiko.xyz>
  */
 library LibTrieProof {
     /*********************

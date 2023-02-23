@@ -10,7 +10,9 @@ import Prover from "./prover";
 import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
-    const verifyTx = await taikoL1.verifyBlocks(maxBlocks);
+    const verifyTx = await taikoL1.verifyBlocks(maxBlocks, {
+        gasLimit: 1000000,
+    });
     const verifyReceipt = await verifyTx.wait(1);
     const verifiedEvent: BlockVerifiedEvent = (
         verifyReceipt.events as any[]
@@ -116,7 +118,6 @@ async function commitProposeProveAndVerify(
 
     console.log("proving", blockNumber);
     const provedEvent = await prover.prove(
-        await prover.getSigner().getAddress(),
         proposedEvent.args.id.toNumber(),
         blockNumber,
         proposedEvent.args.meta as any as BlockMetadata
@@ -173,6 +174,7 @@ async function commitProposeProveAndVerify(
 }
 
 export {
+    verifyBlocks,
     verifyBlockAndAssert,
     sleepUntilBlockIsVerifiable,
     commitProposeProveAndVerify,

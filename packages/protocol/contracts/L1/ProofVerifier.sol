@@ -4,20 +4,17 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibZKP.sol";
-import "../thirdparty/LibMerkleTrie.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {LibZKP} from "../libs/LibZKP.sol";
+import {LibMerkleTrie} from "../thirdparty/LibMerkleTrie.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
     function verifyZKP(
         string memory verifierId,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) external view returns (bool verified);
 
     function verifyMKP(
@@ -36,17 +33,13 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
     function verifyZKP(
         string memory verifierId,
         bytes calldata zkproof,
-        bytes32 blockHash,
-        address prover,
-        bytes32 txListHash
+        bytes32 instance
     ) external view returns (bool) {
         return
             LibZKP.verify({
                 plonkVerifier: resolve(verifierId, false),
                 zkproof: zkproof,
-                blockHash: blockHash,
-                prover: prover,
-                txListHash: txListHash
+                instance: instance
             });
     }
 

@@ -4,10 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 /**
- * @author dantaik <dan@taiko.xyz>
  * @notice This library offers two functions for EIP-1559-style math.
  *      See more at https://dankradfeist.de/ethereum/2022/03/16/exponential-eip1559.html
  */

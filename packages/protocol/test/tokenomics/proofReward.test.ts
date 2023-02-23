@@ -7,9 +7,14 @@ import { pickRandomElement } from "../utils/array";
 import blockListener from "../utils/blockListener";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
-import { createAndSeedWallets } from "../utils/seed";
-import { commitProposeProveAndVerify } from "../utils/verify";
+import { createAndSeedWallets, seedTko } from "../utils/seed";
+import {
+    commitProposeProveAndVerify,
+    sleepUntilBlockIsVerifiable,
+    verifyBlocks,
+} from "../utils/verify";
 import { initIntegrationFixture } from "../utils/fixture";
+import { BlockMetadata } from "../utils/block_metadata";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
@@ -93,14 +98,8 @@ describe("tokenomics: proofReward", function () {
     they receive the proofReward.
     the proposer should receive a refund on his deposit because he holds a tkoBalance > 0 at time of verification.`, async function () {
         // prover needs TKO or their reward will be cut down to 1 wei.
-        await (
-            await tkoTokenL1
-                .connect(l1Signer)
-                .mintAnyone(
-                    await proverSigner.getAddress(),
-                    ethers.utils.parseEther("100")
-                )
-        ).wait(1);
+
+        await seedTko([prover], tkoTokenL1.connect(l1Signer));
 
         l2Provider.on("block", blockListener(chan, genesisHeight));
 
@@ -157,26 +156,9 @@ describe("tokenomics: proofReward", function () {
             (p: ethers.Wallet) => new Prover(taikoL1, l2Provider, p)
         );
 
-        for (const prover of provers) {
-            await (
-                await tkoTokenL1
-                    .connect(l1Signer)
-                    .mintAnyone(
-                        await prover.getSigner().getAddress(),
-                        ethers.utils.parseEther("10000")
-                    )
-            ).wait(1);
-        }
-        for (const proposer of proposers) {
-            await (
-                await tkoTokenL1
-                    .connect(l1Signer)
-                    .mintAnyone(
-                        await proposer.getSigner().getAddress(),
-                        ethers.utils.parseEther("10000")
-                    )
-            ).wait(1);
-        }
+        await seedTko(provers, tkoTokenL1.connect(l1Signer));
+
+        await seedTko(proposers, tkoTokenL1.connect(l1Signer));
 
         // prover needs TKO or their reward will be cut down to 1 wei.
         await (
@@ -192,7 +174,10 @@ describe("tokenomics: proofReward", function () {
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
-            if (blockNumber > genesisHeight + config.maxNumBlocks.toNumber()) {
+            if (
+                blockNumber >
+                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+            ) {
                 break;
             }
             const prover = pickRandomElement<Prover>(provers);
@@ -229,4 +214,62 @@ describe("tokenomics: proofReward", function () {
             );
         }
     });
+
+    // it(`asserts that with N provers, where N is config.maxProofsPerForkChoice all provers who submit proofs are paid with decreasing weight from the first prover to the Nth`, async function () {
+    //     const provers = (
+    //         await createAndSeedWallets(
+    //             config.maxProofsPerForkChoice.toNumber(),
+    //             l1Signer
+    //         )
+    //     ).map((p: ethers.Wallet) => new Prover(taikoL1, l2Provider, p));
+
+    //     await seedTko(provers, tkoTokenL1.connect(l1Signer));
+
+    //     const blockNumber = genesisHeight + 1;
+
+    //     const block = await l2Provider.getBlock(blockNumber);
+
+    //     // commit and propose block, so our provers can prove it.
+    //     const { proposedEvent } = await proposer.commitThenProposeBlock(block);
+
+    //     // submit a proof for each prover
+    //     for (const prover of provers) {
+    //         await prover.prove(
+    //             proposedEvent.args.id.toNumber(),
+    //             blockNumber,
+    //             proposedEvent.args.meta as any as BlockMetadata
+    //         );
+    //     }
+
+    //     const forkChoice = await taikoL1.getForkChoice(
+    //         proposedEvent.args.id.toNumber(),
+    //         block.parentHash
+    //     );
+    //     expect(forkChoice).not.to.be.undefined;
+    //     expect(forkChoice.provers.length).to.be.eq(
+    //         config.maxProofsPerForkChoice.toNumber()
+    //     );
+
+    //     await sleepUntilBlockIsVerifiable(
+    //         taikoL1,
+    //         proposedEvent.args.id.toNumber(),
+    //         0
+    //     );
+    //     await verifyBlocks(taikoL1, 1);
+
+    //     // all provers had same initial TKO balance.
+    //     // each prover in order should have less balance than the previous.
+    //     for (let i = 0; i < forkChoice.provers.length; i++) {
+    //         if (i !== 0) {
+    //             const proverBalance = await tkoTokenL1.balanceOf(
+    //                 forkChoice.provers[i]
+    //             );
+    //             const previousProverBalance = await tkoTokenL1.balanceOf(
+    //                 forkChoice.provers[i - 1]
+    //             );
+
+    //             expect(previousProverBalance.gt(proverBalance)).to.be.eq(true);
+    //         }
+    //     }
+    // });
 });

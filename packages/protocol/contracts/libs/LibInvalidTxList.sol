@@ -4,13 +4,13 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../L1/TaikoData.sol";
-import "../libs/LibTxDecoder.sol";
-import "../libs/LibTxUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
-import "../thirdparty/LibRLPWriter.sol";
+import {TaikoData} from "../L1/TaikoData.sol";
+import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
+import {LibTxUtils} from "../libs/LibTxUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
 /**
  * A library to invalidate a txList using the following rules:
@@ -31,7 +31,6 @@ import "../thirdparty/LibRLPWriter.sol";
  *    `minTxGasLimit` (rule #5 in Ethereum yellow paper).
  *
  * @title LibInvalidTxList
- * @author david <david@taiko.xyz>
  */
 library LibInvalidTxList {
     // NOTE: If the order of this enum changes, then some test cases that using

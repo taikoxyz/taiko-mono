@@ -4,16 +4,14 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../common/IHeaderSync.sol";
-import "../../libs/LibBlockHeader.sol";
-import "../../libs/LibTrieProof.sol";
-import "./LibBridgeData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
+import {LibTrieProof} from "../../libs/LibTrieProof.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 

@@ -348,13 +348,20 @@
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
 
     {#if $signer && tokenBalance}
-      <button class="label-text" on:click={useFullAmount}
-        >{$_("bridgeForm.maxLabel")}
-        {tokenBalance.length > 10
-          ? `${truncateString(tokenBalance, 6)}...`
-          : tokenBalance}
-        {$token.symbol}
-      </button>{/if}
+      <div class="label-text ">
+        <span>
+          {$_("bridgeForm.balance")}:
+          {tokenBalance.length > 10
+            ? `${truncateString(tokenBalance, 6)}...`
+            : tokenBalance}
+          {$token.symbol}
+        </span>
+
+        <button class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]" on:click={useFullAmount}>
+          {$_("bridgeForm.maxLabel")}
+        </button>
+      </div>
+    {/if}
   </label>
 
   <label

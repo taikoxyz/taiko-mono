@@ -4,23 +4,27 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibAnchorSignature.sol";
-import "../libs/LibSharedConfig.sol";
-import "./TaikoData.sol";
-import "./TaikoEvents.sol";
-import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
-import "./libs/LibUtils.sol";
-import "./libs/LibVerifying.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
+import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
+import {TaikoData} from "./TaikoData.sol";
+import {TaikoEvents} from "./TaikoEvents.sol";
+import {TaikoCustomErrors} from "./TaikoCustomErrors.sol";
+import {LibProposing} from "./libs/LibProposing.sol";
+import {LibProving} from "./libs/LibProving.sol";
+import {LibUtils} from "./libs/LibUtils.sol";
+import {LibVerifying} from "./libs/LibVerifying.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
-contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
+contract TaikoL1 is
+    EssentialContract,
+    IHeaderSync,
+    TaikoEvents,
+    TaikoCustomErrors
+{
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;
@@ -89,7 +93,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
         });
         LibVerifying.verifyBlocks({
             state: state,
-            config: getConfig(),
+            config: config,
             resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx,
             checkHalt: false
@@ -192,7 +196,7 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint fee, uint deposit) = LibProposing.getBlockFee(
+        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
@@ -279,6 +283,12 @@ contract TaikoL1 is EssentialContract, IHeaderSync, TaikoEvents {
 
     function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
+    }
+
+    function getProverRewardBips(
+        uint256 numProvers
+    ) public view returns (uint256[] memory) {
+        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

@@ -4,13 +4,13 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibBlockHeader.sol";
-import "../libs/LibTrieProof.sol";
-import "./ISignalService.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibBlockHeader, BlockHeader} from "../libs/LibBlockHeader.sol";
+import {LibTrieProof} from "../libs/LibTrieProof.sol";
+import {ISignalService} from "./ISignalService.sol";
 
 contract SignalService is ISignalService, EssentialContract {
     using LibBlockHeader for BlockHeader;

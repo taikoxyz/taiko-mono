@@ -4,9 +4,8 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-/// @author dantaik <dan@taiko.xyz>
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -38,9 +37,10 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 initialUncleDelay;
+        uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
-        bool enableProofValidation;
+        bool enableAnchorValidation;
         bool enableOracleProver;
     }
 
@@ -75,15 +75,14 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        // block id => block hash (some blocks' hashes won't be persisted,
-        // only the latest one if verified in a batch)
-        mapping(uint256 => bytes32) l2Hashes;
-        // block id => ProposedBlock
-        mapping(uint256 => ProposedBlock) proposedBlocks;
-        // block id => parent hash => fork choice
-        mapping(uint256 => mapping(bytes32 => ForkChoice)) forkChoices;
-        // proposer => commitSlot => hash(commitHash, commitHeight)
-        mapping(address => mapping(uint256 => bytes32)) commits;
+        // some blocks' hashes won't be persisted,
+        // only the latest one if verified in a batch
+        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
+        mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
+        // solhint-disable-next-line max-line-length
+        mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
+        // solhint-disable-next-line max-line-length
+        mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

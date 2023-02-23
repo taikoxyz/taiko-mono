@@ -4,17 +4,19 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../EtherVault.sol";
-import "./LibBridgeInvoke.sol";
-import "./LibBridgeData.sol";
-import "./LibBridgeStatus.sol";
+import {EtherVault} from "../EtherVault.sol";
+import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
+import {LibBridgeStatus} from "./LibBridgeStatus.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {IBridge} from "../IBridge.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 
 /**
  * Retry bridge messages.
  * @title LibBridgeRetry
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeRetry {
     using LibAddress for address;

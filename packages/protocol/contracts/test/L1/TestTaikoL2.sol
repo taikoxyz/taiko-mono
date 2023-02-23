@@ -4,9 +4,10 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../L2/TaikoL2.sol";
+import {TaikoL2} from "../../L2/TaikoL2.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 contract TestTaikoL2 is TaikoL2 {
     constructor(address _addressManager) TaikoL2(_addressManager) {}
@@ -48,9 +49,10 @@ contract TestTaikoL2 is TaikoL2 {
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 180 days;
         config.initialUncleDelay = 1 minutes;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
-        config.enableProofValidation = false;
+        config.enableAnchorValidation = false;
         config.enableOracleProver = false;
     }
 }

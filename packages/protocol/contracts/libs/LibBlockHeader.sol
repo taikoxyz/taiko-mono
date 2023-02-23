@@ -4,11 +4,10 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../thirdparty/LibRLPWriter.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
-/// @author david <david@taiko.xyz>
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;

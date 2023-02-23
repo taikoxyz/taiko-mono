@@ -4,24 +4,25 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {TkoToken} from "../TkoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../TaikoData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+
 library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(
-        uint64 commitSlot,
-        uint64 commitHeight,
-        bytes32 commitHash
-    );
+    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_METADATA_FIELD();
@@ -54,11 +55,7 @@ library LibProposing {
 
         state.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted({
-            commitSlot: commitSlot,
-            commitHeight: uint64(block.number),
-            commitHash: commitHash
-        });
+        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
     }
 
     function proposeBlock(
@@ -109,9 +106,13 @@ library LibProposing {
             meta.l1Hash = blockhash(block.number - 1);
             meta.timestamp = uint64(block.timestamp);
 
-            // if multiple L2 blocks included in the same L1 block,
-            // their block.mixHash fields for randomness will be the same.
-            meta.mixHash = bytes32(block.difficulty);
+            // After The Merge, L1 mixHash contains the prevrandao
+            // from the beacon chain. Since multiple Taiko blocks
+            // can be proposed in one Ethereum block, we need to
+            // add salt to this random number as L2 mixHash
+            meta.mixHash = keccak256(
+                abi.encodePacked(block.prevrandao, state.nextBlockId)
+            );
         }
 
         uint256 deposit;
@@ -218,7 +219,7 @@ library LibProposing {
         TaikoData.State storage state,
         uint256 commitConfirmations,
         TaikoData.BlockMetadata memory meta
-    ) private {
+    ) private view {
         if (commitConfirmations == 0) {
             return;
         }

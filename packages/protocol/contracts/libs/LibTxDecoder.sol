@@ -4,12 +4,11 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
-import "../thirdparty/LibBytesUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
+import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
 
-/// @author david <david@taiko.xyz>
 library LibTxDecoder {
     struct TransactionLegacy {
         uint256 nonce;
@@ -82,7 +81,7 @@ library LibTxDecoder {
         LibRLPReader.RLPItem[] memory txs = LibRLPReader.readList(encoded);
 
         Tx[] memory _txList = new Tx[](txs.length);
-        for (uint256 i = 0; i < txs.length; ++i) {
+        for (uint256 i; i < txs.length; ++i) {
             _txList[i] = decodeTx(chainId, LibRLPReader.readBytes(txs[i]));
         }
 
@@ -211,7 +210,7 @@ library LibTxDecoder {
         LibRLPReader.RLPItem[] memory accessListRLP
     ) internal pure returns (AccessItem[] memory accessList) {
         accessList = new AccessItem[](accessListRLP.length);
-        for (uint256 i = 0; i < accessListRLP.length; ++i) {
+        for (uint256 i; i < accessListRLP.length; ++i) {
             LibRLPReader.RLPItem[] memory items = LibRLPReader.readList(
                 accessListRLP[i]
             );
@@ -220,7 +219,7 @@ library LibTxDecoder {
                 items[1]
             );
             bytes32[] memory slots = new bytes32[](slotListRLP.length);
-            for (uint256 j = 0; j < slotListRLP.length; ++j) {
+            for (uint256 j; j < slotListRLP.length; ++j) {
                 slots[j] = LibRLPReader.readBytes32(slotListRLP[j]);
             }
             accessList[i] = AccessItem(addr, slots);
@@ -231,7 +230,7 @@ library LibTxDecoder {
         TxList memory txList
     ) internal pure returns (uint256 sum) {
         Tx[] memory items = txList.items;
-        for (uint256 i = 0; i < items.length; ++i) {
+        for (uint256 i; i < items.length; ++i) {
             sum += items[i].gasLimit;
         }
     }

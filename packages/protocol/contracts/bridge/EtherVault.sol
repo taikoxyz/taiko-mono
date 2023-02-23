@@ -4,21 +4,24 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.18;
 
 // solhint-disable-next-line max-line-length
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
+import {
+    SafeERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {
+    Create2Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../libs/LibAddress.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {LibAddress} from "../libs/LibAddress.sol";
 
 /**
  * EtherVault is a special vault contract that:
  * - Is initialized with 2^128 Ether.
  * - Allows the contract owner to authorize addresses.
  * - Allows authorized addresses to send/release Ether.
- * @author dantaik <dan@taiko.xyz>
  */
 contract EtherVault is EssentialContract {
     using LibAddress for address;
@@ -27,7 +30,7 @@ contract EtherVault is EssentialContract {
      * State Variables   *
      *********************/
 
-    mapping(address => bool) private _authorizedAddrs;
+    mapping(address addr => bool isAuthorized) private _authorizedAddrs;
     uint256[49] private __gap;
 
     /*********************
