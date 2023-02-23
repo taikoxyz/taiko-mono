@@ -9,7 +9,7 @@ There is a 500 character limit. And it should be alphanumerical. A definition sh
 
 ## Application-specific rollup
 
-A rollup that supports only a certain type of application or functionality. For example, a rollup that supports only ETH and ERC20 token transfers, or DEX swaps. This is in contrast to general-purpose rollups which support arbitrary computations.
+A [rollup](#rollup) that supports only a certain type of application or functionality. For example, a rollup that supports only ETH and ERC20 token transfers, or DEX swaps. This is in contrast to general-purpose rollups which support arbitrary computations.
 
 ## Arithmetic circuit
 
