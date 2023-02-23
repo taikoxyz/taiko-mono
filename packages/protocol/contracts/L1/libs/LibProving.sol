@@ -131,7 +131,7 @@ library LibProving {
             }
         }
 
-        if (skipZKPVerification) {
+        if (!skipZKPVerification) {
             IProofVerifier proofVerifier = IProofVerifier(
                 resolver.resolve("proof_verifier", false)
             );
