@@ -1,14 +1,23 @@
-name : Fetch Blog
+name: Fetch Blog
 
 on:
   schedule:
-    - cron: '12 1 * * *'
+    - cron: "12 * * * *"
 
 jobs:
   cron:
     runs-on: ubuntu-latest
     steps:
-      - name: Call our API route
-        run: |
-          curl --request POST \
-          --url 'https://taiko.xyz/api/getPosts'
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Run getPosts
+        run: node packages/website/getPosts.js

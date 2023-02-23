@@ -7,7 +7,7 @@ const arweave = Arweave.init({
   protocol: "https",
 });
 
-export default async function getTransanctionIds(req, res) {
+async function getTransanctionIds() {
   await fetch("https://arweave.net/graphql", {
     method: "POST",
     headers: {
@@ -48,7 +48,6 @@ export default async function getTransanctionIds(req, res) {
     .then((response) => {
       getPosts(response);
     })
-    .finally(() => res.send(200))
     .catch();
 }
 
@@ -70,9 +69,14 @@ async function getPosts(response) {
         })
         .then(() => {
           const jsonString = JSON.stringify(posts);
-          fs.writeFile("./public/posts.json", jsonString, (err) => {});
+          fs.writeFile(
+            "packages/website/public/posts.json",
+            jsonString,
+            (err) => {}
+          );
         })
         .catch();
     })
   );
 }
+getTransanctionIds();
