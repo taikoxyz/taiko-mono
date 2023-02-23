@@ -25,7 +25,6 @@
   import HeaderSync from "../constants/abi/HeaderSync";
   import { providers } from "../store/providers";
   import { fetchSigner, switchNetwork } from "@wagmi/core";
-  import Tooltip from "./Tooltip.svelte";
   import Bridge from "../constants/abi/Bridge";
   import ButtonWithTooltip from "./ButtonWithTooltip.svelte";
 
@@ -64,7 +63,7 @@
         .Claim({
           signer: $signer,
           message: bridgeTx.message,
-          signal: bridgeTx.signal,
+          msgHash: bridgeTx.msgHash,
           destBridgeAddress:
             chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
           srcBridgeAddress:
@@ -109,7 +108,7 @@
       $providers.get(chains[transaction.message.destChainId.toNumber()].id)
     );
 
-    transaction.status = await contract.getMessageStatus(transaction.signal);
+    transaction.status = await contract.getMessageStatus(transaction.msgHash);
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);

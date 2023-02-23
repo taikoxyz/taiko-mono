@@ -29,7 +29,7 @@
 </script>
 
 <div
-  class="flex items-center justify-between w-full px-4 md:px-8 py-6 text-sm md:text-lg text-white"
+  class="flex items-center justify-between w-full px-4 md:px-7 py-6 text-sm md:text-lg text-white"
 >
   <div class="flex items-center w-2/5 justify-center">
     {#if $fromChain}
