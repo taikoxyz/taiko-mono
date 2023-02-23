@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { SimpleChannel } from "channel-ts";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
-import { TaikoL1, TestTkoToken } from "../../typechain";
+import { TaikoL1, TestTaikoToken } from "../../typechain";
 import blockListener from "../utils/blockListener";
 import { BlockMetadata } from "../utils/block_metadata";
 import {
@@ -38,7 +38,7 @@ describe("integration:TaikoL1", function () {
     let l1Signer: any;
     let proposerSigner: any;
     let genesisHeight: number;
-    let tkoTokenL1: TestTkoToken;
+    let taikoTokenL1: TestTaikoToken;
     let chan: SimpleChannel<number>;
     let interval: any;
     let proverSigner: any;
@@ -59,7 +59,7 @@ describe("integration:TaikoL1", function () {
             interval,
             chan,
             config,
-            tkoTokenL1,
+            taikoTokenL1,
         } = await initIntegrationFixture(false, false));
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
@@ -184,7 +184,7 @@ describe("integration:TaikoL1", function () {
         });
 
         it("returns empty after a block is verified", async function () {
-            await seedTko([prover], tkoTokenL1.connect(l1Signer));
+            await seedTko([prover], taikoTokenL1.connect(l1Signer));
 
             const blockNumber = genesisHeight + 1;
             /* eslint-disable-next-line */
@@ -434,7 +434,7 @@ describe("integration:TaikoL1", function () {
                     l2Provider,
                     blockNumber,
                     proposer,
-                    tkoTokenL1,
+                    taikoTokenL1,
                     prover
                 );
 
@@ -458,7 +458,7 @@ describe("integration:TaikoL1", function () {
                     proposer,
                     taikoL1,
                     proposerSigner,
-                    tkoTokenL1
+                    taikoTokenL1
                 )
             ).to.be.reverted;
         });

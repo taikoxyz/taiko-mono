@@ -114,9 +114,9 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2Address)
     );
 
-    // TkoToken
-    const TkoToken = await utils.deployContract(hre, "TkoToken");
-    await utils.waitTx(hre, await TkoToken.init(
+    // TaikoToken
+    const TaikoToken = await utils.deployContract(hre, "TaikoToken");
+    await utils.waitTx(hre, await TaikoToken.init(
         "Test Taiko Token",
         "TTKO",
         AddressManager.address)
@@ -125,7 +125,7 @@ export async function deployContracts(hre: any) {
         hre,
         await AddressManager.setAddress(
             `${chainId}.tko_token`,
-            TkoToken.address
+            TaikoToken.address
         )
     );
 
@@ -149,7 +149,7 @@ export async function deployContracts(hre: any) {
         await AddressManager.setAddress(`${chainId}.taiko`, TaikoL1.address)
     );
 
-    // Used by TkoToken
+    // Used by TaikoToken
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
@@ -249,7 +249,7 @@ export async function deployContracts(hre: any) {
         l2GenesisBlockHash,
         contracts: Object.assign(
             { AddressManager: AddressManager.address },
-            { TkoToken: TkoToken.address },
+            { TaikoToken: TaikoToken.address },
             { TaikoL1: TaikoL1.address },
             { Bridge: Bridge.address },
             { SignalService: SignalService.address },
