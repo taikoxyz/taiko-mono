@@ -95,6 +95,9 @@ library TestLibProving {
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
+        // Check and decode inputs
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
+
         // if claim auction window is still going on, dont allow proof.
         if (
             block.timestamp -
@@ -104,8 +107,6 @@ library TestLibProving {
             revert L1_TOO_EARLY();
         }
 
-        // Check and decode inputs
-        if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         // Check evidence
