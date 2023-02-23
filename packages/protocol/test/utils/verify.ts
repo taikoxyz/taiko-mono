@@ -7,12 +7,20 @@ import { BlockInfo, BlockMetadata } from "./block_metadata";
 import { onNewL2Block } from "./onNewL2Block";
 import Proposer from "./proposer";
 import Prover from "./prover";
+import { getDefaultL1Signer } from "./provider";
+import { sendTinyEtherToZeroAddress } from "./seed";
 import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
+    // Since we are connecting to a geth node with clique consensus (auto mine), we
+    // need to manually mine a new block here to ensure the latest block.timestamp increased as expected when
+    // calling eth_estimateGas.
+    await sendTinyEtherToZeroAddress(await getDefaultL1Signer());
+
     const verifyTx = await taikoL1.verifyBlocks(maxBlocks, {
         gasLimit: 1000000,
     });
+
     const verifyReceipt = await verifyTx.wait(1);
     const verifiedEvent: BlockVerifiedEvent = (
         verifyReceipt.events as any[]
