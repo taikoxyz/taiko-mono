@@ -5,15 +5,15 @@ import {
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors";
 import { BigNumber } from "ethers";
-import deployTkoToken from "../utils/tkoToken";
-import { TestTkoToken } from "../../typechain/TestTkoToken";
+import deployTaikoToken from "../utils/taikoToken";
+import { TestTaikoToken } from "../../typechain/TestTaikoToken";
 import deployAddressManager from "../utils/addressManager";
 
-describe("TkoToken", function () {
+describe("TaikoToken", function () {
     let owner: any;
     let nonOwner: any;
     let protoBroker: any;
-    let token: TestTkoToken;
+    let token: TestTaikoToken;
     let amountMinted: BigNumber;
 
     before(async function () {
@@ -22,7 +22,7 @@ describe("TkoToken", function () {
 
     beforeEach(async function () {
         const addressManager = await deployAddressManager(owner);
-        token = await deployTkoToken(
+        token = await deployTaikoToken(
             owner,
             addressManager,
             protoBroker.address

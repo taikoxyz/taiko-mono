@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { SimpleChannel } from "channel-ts";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
-import { TaikoL1, TestTkoToken } from "../../typechain";
+import { TaikoL1, TestTaikoToken } from "../../typechain";
 import blockListener from "../utils/blockListener";
 import { BlockMetadata } from "../utils/block_metadata";
 import {
@@ -10,6 +10,12 @@ import {
     commitBlock,
     generateCommitHash,
 } from "../utils/commit";
+import { encodeEvidence } from "../utils/encoding";
+import {
+    readShouldRevertWithCustomError,
+    txShouldRevertWithCustomError,
+} from "../utils/errors";
+import Evidence from "../utils/evidence";
 import { initIntegrationFixture } from "../utils/fixture";
 import halt from "../utils/halt";
 import { onNewL2Block } from "../utils/onNewL2Block";
@@ -22,13 +28,7 @@ import {
     commitProposeClaimProveAndVerify,
     verifyBlocks,
 } from "../utils/verify";
-import {
-    txShouldRevertWithCustomError,
-    readShouldRevertWithCustomError,
-} from "../utils/errors";
 import { getBlockHeader } from "../utils/rpc";
-import Evidence from "../utils/evidence";
-import { encodeEvidence } from "../utils/encoding";
 import { claimBlock, waitForClaimToBeProvable } from "../utils/claim";
 
 describe("integration:TaikoL1", function () {
@@ -38,7 +38,7 @@ describe("integration:TaikoL1", function () {
     let l1Signer: any;
     let proposerSigner: any;
     let genesisHeight: number;
-    let tkoTokenL1: TestTkoToken;
+    let taikoTokenL1: TestTaikoToken;
     let chan: SimpleChannel<number>;
     let interval: any;
     let proverSigner: any;
@@ -59,7 +59,7 @@ describe("integration:TaikoL1", function () {
             interval,
             chan,
             config,
-            tkoTokenL1,
+            taikoTokenL1,
         } = await initIntegrationFixture(false, false));
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
@@ -197,7 +197,7 @@ describe("integration:TaikoL1", function () {
         });
 
         it("returns empty after a block is verified", async function () {
-            await seedTko([prover], tkoTokenL1.connect(l1Signer));
+            await seedTko([prover], taikoTokenL1.connect(l1Signer));
 
             const blockNumber = genesisHeight + 1;
             /* eslint-disable-next-line */
@@ -263,7 +263,7 @@ describe("integration:TaikoL1", function () {
                 id: 1,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
@@ -297,7 +297,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
@@ -327,7 +327,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: ethers.utils.hexlify(ethers.utils.randomBytes(33)), // invalid extradata
@@ -397,8 +397,40 @@ describe("integration:TaikoL1", function () {
 
             // now expect another proposed block to be invalid since all slots are full and none have
             // been proven.
+            const { commitConfirmations } = await taikoL1.getConfig();
+            const block = await l2Provider.getBlock("latest");
+            const { tx: commitBlockTx, commit } = await commitBlock(
+                taikoL1.connect(l1Signer),
+                block,
+                0
+            );
+            const commitReceipt = await commitBlockTx.wait(1);
+
+            for (let i = 0; i < commitConfirmations.toNumber() + 5; i++) {
+                await sendTinyEtherToZeroAddress(l1Signer);
+            }
+
+            const meta: BlockMetadata = {
+                id: 0,
+                l1Height: 0,
+                l1Hash: ethers.constants.HashZero,
+                beneficiary: commit.beneficiary,
+                txListHash: commit.txListHash,
+                mixHash: ethers.constants.HashZero,
+                extraData: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                gasLimit: block.gasLimit,
+                timestamp: 0,
+                commitSlot: 0,
+                commitHeight: commitReceipt.blockNumber,
+            };
+
             await txShouldRevertWithCustomError(
-                commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider),
+                (
+                    await taikoL1.proposeBlock(
+                        buildProposeBlockInputs(block, meta),
+                        { gasLimit: 500000 }
+                    )
+                ).wait(),
                 l1Provider,
                 "L1_TOO_MANY()"
             );
@@ -425,7 +457,7 @@ describe("integration:TaikoL1", function () {
                     l2Provider,
                     blockNumber,
                     proposer,
-                    tkoTokenL1,
+                    taikoTokenL1,
                     prover
                 );
 
@@ -449,7 +481,7 @@ describe("integration:TaikoL1", function () {
                     proposer,
                     taikoL1,
                     proposerSigner,
-                    tkoTokenL1
+                    taikoTokenL1
                 )
             ).to.be.reverted;
         });

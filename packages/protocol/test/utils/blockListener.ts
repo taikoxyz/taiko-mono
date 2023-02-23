@@ -13,8 +13,20 @@ const blockListener = function (
     chan: SimpleChannel<number>,
     genesisHeight: number
 ) {
+    let notFirstEvent = false;
+
     return function (blockNumber: number) {
-        if (blockNumber < genesisHeight) return;
+        if (blockNumber <= genesisHeight) return;
+        // Sometimes the first block number will be greater than start height,
+        // we need to fill the gap manually.
+        if (!notFirstEvent) {
+            if (blockNumber > genesisHeight) {
+                for (let i = genesisHeight + 1; i < blockNumber; i++) {
+                    chan.send(i);
+                }
+            }
+            notFirstEvent = true;
+        }
         chan.send(blockNumber);
     };
 };

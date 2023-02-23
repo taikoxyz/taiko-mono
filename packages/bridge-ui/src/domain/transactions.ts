@@ -5,7 +5,7 @@ export type BridgeTransaction = {
   ethersTx: ethers.Transaction;
   receipt?: ethers.providers.TransactionReceipt;
   status: MessageStatus;
-  signal?: string;
+  msgHash?: string;
   message?: Message;
   interval?: NodeJS.Timer;
   amountInWei?: BigNumber;

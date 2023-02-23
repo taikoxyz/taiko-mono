@@ -11,7 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {TkoToken} from "../TkoToken.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
@@ -151,12 +151,12 @@ library LibVerifying {
     function _refundProposerDeposit(
         TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
-        TkoToken tkoToken
+        TaikoToken taikoToken
     ) private {
         uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-        if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
+        if (refund > 0 && taikoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
-            tkoToken.mint(target.proposer, refund);
+            taikoToken.mint(target.proposer, refund);
         }
     }
 
@@ -167,18 +167,18 @@ library LibVerifying {
     function _rewardProver(
         address prover,
         uint256 reward,
-        TkoToken tkoToken,
+        TaikoToken taikoToken,
         TaikoData.State storage state,
         uint256 blockId
     ) private {
-        if (tkoToken.balanceOf(prover) == 0) {
+        if (taikoToken.balanceOf(prover) == 0) {
             // Reduce reward to 1 wei as a penalty if the prover
             // has 0 TKO balance. This allows the next prover reward
             // to be fully paid.
             reward = uint256(1);
         }
 
-        tkoToken.mint(prover, reward);
+        taikoToken.mint(prover, reward);
 
         TaikoData.Claim storage claim = state.claims[blockId];
 
@@ -211,12 +211,12 @@ library LibVerifying {
                     proposedAt: target.proposedAt
                 });
 
-                TkoToken tkoToken = TkoToken(
+                TaikoToken taikoToken = TaikoToken(
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProver(fc.prover, reward, tkoToken, state, blockId);
-                _refundProposerDeposit(target, tRelBp, tkoToken);
+                _rewardProver(fc.prover, reward, taikoToken, state, blockId);
+                _refundProposerDeposit(target, tRelBp, taikoToken);
             }
             // Update feeBase and avgProofTime
             state.feeBase = LibUtils.movingAverage({

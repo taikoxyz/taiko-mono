@@ -37,6 +37,8 @@
   import { Funnel } from "svelte-heros-v2";
   import FaucetModal from "../modals/FaucetModal.svelte";
   import { fetchFeeData } from "@wagmi/core";
+  import { providers } from "../../store/providers";
+  import { checkIfTokenIsDeployedCrossChain } from "../../utils/checkIfTokenIsDeployedCrossChain";
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -215,6 +217,11 @@
       if (requiresAllowance) throw Error("requires additional allowance");
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
+
+      const provider = $providers.get($toChain.id);
+      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get($toChain.id);
+      let isBridgedTokenAlreadyDeployed = await checkIfTokenIsDeployedCrossChain($token, provider, destTokenVaultAddress, $toChain, $fromChain);
+
       const bridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
@@ -224,6 +231,7 @@
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
+        isBridgedTokenAlreadyDeployed
       };
 
       const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
