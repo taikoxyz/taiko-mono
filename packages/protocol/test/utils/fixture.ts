@@ -12,7 +12,7 @@ import {
 import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
-import deployTkoToken from "./tkoToken";
+import deployTaikoToken from "./taikoToken";
 
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
@@ -62,7 +62,7 @@ async function initIntegrationFixture(
         l1Signer
     );
 
-    const tkoTokenL1 = await deployTkoToken(
+    const taikoTokenL1 = await deployTaikoToken(
         l1Signer,
         l1AddressManager,
         taikoL1.address
@@ -71,7 +71,7 @@ async function initIntegrationFixture(
     await (
         await l1AddressManager.setAddress(
             `${chainId}.tko_token`,
-            tkoTokenL1.address
+            taikoTokenL1.address
         )
     ).wait(1);
 
@@ -89,7 +89,7 @@ async function initIntegrationFixture(
     ).wait(1);
 
     if (mintTkoToProposer) {
-        const mintTx = await tkoTokenL1
+        const mintTx = await taikoTokenL1
             .connect(l1Signer)
             .mintAnyone(
                 await proposerSigner.getAddress(),
@@ -141,7 +141,7 @@ async function initIntegrationFixture(
         proverSigner,
         genesisHeight,
         genesisHash,
-        tkoTokenL1,
+        taikoTokenL1,
         l1AddressManager,
         interval,
         interval2,

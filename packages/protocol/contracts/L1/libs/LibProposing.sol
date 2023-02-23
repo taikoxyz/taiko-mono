@@ -11,7 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
-import {TkoToken} from "../TkoToken.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
@@ -121,7 +121,7 @@ library LibProposing {
             {
                 uint256 fee;
                 (newFeeBase, fee, deposit) = getBlockFee(state, config);
-                TkoToken(resolver.resolve("tko_token", false)).burn(
+                TaikoToken(resolver.resolve("tko_token", false)).burn(
                     msg.sender,
                     fee + deposit
                 );
