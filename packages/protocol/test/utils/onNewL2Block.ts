@@ -1,6 +1,5 @@
 import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TkoToken } from "../../typechain";
-import { BlockProposedEvent } from "../../typechain/LibProposing";
 import Proposer from "./proposer";
 
 // onNewL2Block should be called from a tokenomics test case when a new block
@@ -15,12 +14,7 @@ async function onNewL2Block(
     taikoL1: TaikoL1,
     proposerSigner: any,
     tkoTokenL1: TkoToken
-): Promise<{
-    proposedEvent: BlockProposedEvent;
-    newProposerTkoBalance: BigNumber;
-    newBlockFee: BigNumber;
-    newProofReward: BigNumber;
-}> {
+) {
     const block = await l2Provider.getBlock(blockNumber);
     const { proposedEvent } = await proposer.commitThenProposeBlock(block);
     const { id, meta } = proposedEvent.args;
@@ -29,7 +23,8 @@ async function onNewL2Block(
 
     const newProofReward = await taikoL1.getProofReward(
         new Date().getMilliseconds(),
-        meta.timestamp
+        meta.timestamp,
+        proposedEvent.args.id.toNumber()
     );
 
     const newProposerTkoBalance = enableTokenomics

@@ -19,8 +19,7 @@ import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
 import {
-    commitProposeProveAndVerify,
-    sleepUntilBlockIsVerifiable,
+    commitProposeClaimProveAndVerify,
     verifyBlocks,
 } from "../utils/verify";
 import {
@@ -30,8 +29,9 @@ import {
 import { getBlockHeader } from "../utils/rpc";
 import Evidence from "../utils/evidence";
 import { encodeEvidence } from "../utils/encoding";
+import { claimBlock, waitForClaimToBeProvable } from "../utils/claim";
 
-describe("integration:TaikoL1", function () {
+describe.only("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let l1Provider: ethersLib.providers.JsonRpcProvider;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
@@ -164,6 +164,19 @@ describe("integration:TaikoL1", function () {
                 0
             );
 
+            const { claimBlockBidEvent } = await claimBlock(
+                taikoL1,
+                proposedEvent.args.id.toNumber(),
+                config.baseClaimDepositInWei.add("1")
+            );
+
+            expect(claimBlockBidEvent).not.to.be.undefined;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
+
             expect(proposedEvent).not.to.be.undefined;
             const proveEvent = await proveBlock(
                 taikoL1,
@@ -180,7 +193,7 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice.blockHash).to.be.eq(block.hash);
-            expect(forkChoice.provers[0]).to.be.eq(await l1Signer.getAddress());
+            expect(forkChoice.prover).to.be.eq(await l1Signer.getAddress());
         });
 
         it("returns empty after a block is verified", async function () {
@@ -195,6 +208,19 @@ describe("integration:TaikoL1", function () {
                 block
             );
 
+            const { claimBlockBidEvent } = await claimBlock(
+                taikoL1,
+                proposedEvent.args.id.toNumber(),
+                config.baseClaimDepositInWei.add("1")
+            );
+
+            expect(claimBlockBidEvent).not.to.be.undefined;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
+
             await prover.prove(
                 proposedEvent.args.id.toNumber(),
                 blockNumber,
@@ -206,13 +232,8 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice).not.to.be.undefined;
-            expect(forkChoice.provers.length).to.be.eq(1);
+            expect(forkChoice.prover).to.be.eq(await l1Signer.getAddress());
 
-            await sleepUntilBlockIsVerifiable(
-                taikoL1,
-                proposedEvent.args.id.toNumber(),
-                0
-            );
             const verifiedEvent = await verifyBlocks(taikoL1, 1);
             expect(verifiedEvent).not.to.be.undefined;
 
@@ -220,7 +241,7 @@ describe("integration:TaikoL1", function () {
                 proposedEvent.args.id.toNumber(),
                 block.parentHash
             );
-            expect(forkChoice.provers.length).to.be.eq(0);
+            expect(forkChoice.prover).to.be.eq(ethers.constants.AddressZero);
         });
     });
 
@@ -397,7 +418,7 @@ describe("integration:TaikoL1", function () {
                     return;
                 }
 
-                const { verifyEvent } = await commitProposeProveAndVerify(
+                const { verifyEvent } = await commitProposeClaimProveAndVerify(
                     taikoL1,
                     l2Provider,
                     blockNumber,
@@ -498,6 +519,12 @@ describe("integration:TaikoL1", function () {
                     block
                 );
 
+                await claimBlock(
+                    taikoL1,
+                    proposedEvent.args.id.toNumber(),
+                    config.baseClaimDepositInWei.add("1")
+                );
+
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = buildProveBlockInputs(
                     proposedEvent.args.meta as any as BlockMetadata,
@@ -543,6 +570,12 @@ describe("integration:TaikoL1", function () {
                 // commit and propose block, so our provers can prove it.
                 const { proposedEvent } = await proposer.commitThenProposeBlock(
                     block
+                );
+
+                await claimBlock(
+                    taikoL1,
+                    proposedEvent.args.id.toNumber(),
+                    config.baseClaimDepositInWei.add("1")
                 );
 
                 const header = await getBlockHeader(l2Provider, blockNumber);

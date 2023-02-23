@@ -99,7 +99,7 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) public {
+    ) internal {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
         if (state.proposedBlocks[blockId].proposer == address(0)) {

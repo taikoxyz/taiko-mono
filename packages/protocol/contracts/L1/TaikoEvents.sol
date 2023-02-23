@@ -25,5 +25,12 @@ abstract contract TaikoEvents {
         address prover
     );
 
+    event ClaimBlockBid(
+        uint256 indexed id,
+        address claimer,
+        uint256 claimedAt,
+        uint256 deposit
+    );
+
     event Halted(bool halted);
 }

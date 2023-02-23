@@ -107,10 +107,10 @@ describe("tokenomics: blockFee", function () {
                 true
             );
             expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
-            expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
+            expect(newProofReward.token.gt(lastProofReward)).to.be.eq(true);
 
             lastBlockFee = newBlockFee;
-            lastProofReward = newProofReward;
+            lastProofReward = newProofReward.token;
             lastProposerTkoBalance = newProposerTkoBalance;
         }
     });

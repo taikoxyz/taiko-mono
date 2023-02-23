@@ -100,6 +100,14 @@ contract TaikoL1 is
         });
     }
 
+    function claimBlock(uint256 blockId) external payable nonReentrant {
+        LibProving.claimBlock({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
+    }
+
     /**
      * Prove a block is valid with a zero-knowledge proof, a transaction
      * merkel proof, and a receipt merkel proof.

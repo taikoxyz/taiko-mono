@@ -4,10 +4,10 @@ import { ethers } from "hardhat";
 import { TaikoL1, TkoToken } from "../../typechain";
 import { BlockVerifiedEvent } from "../../typechain/LibVerifying";
 import { BlockInfo, BlockMetadata } from "./block_metadata";
+import { claimBlock, waitForClaimToBeProvable } from "./claim";
 import { onNewL2Block } from "./onNewL2Block";
 import Proposer from "./proposer";
 import Prover from "./prover";
-import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
     const verifyTx = await taikoL1.verifyBlocks(maxBlocks, {
@@ -20,24 +20,12 @@ async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
     return verifiedEvent;
 }
 
-async function sleepUntilBlockIsVerifiable(
-    taikoL1: TaikoL1,
-    id: number,
-    provenAt: number
-) {
-    const delay = await taikoL1.getUncleProofDelay(id);
-    const delayInMs = delay.mul(1000);
-    await sleep(5 * delayInMs.toNumber()); // TODO: use provenAt, calc difference, etc
-}
-
 async function verifyBlockAndAssert(
     taikoL1: TaikoL1,
     tkoTokenL1: TkoToken,
     block: BlockInfo,
     lastProofReward: BigNumber
-): Promise<{ newProofReward: BigNumber }> {
-    await sleepUntilBlockIsVerifiable(taikoL1, block.id, block.provenAt);
-
+) {
     const isVerifiable = await taikoL1.isBlockVerifiable(
         block.id,
         block.parentHash
@@ -71,15 +59,16 @@ async function verifyBlockAndAssert(
         proverTkoBalanceAfterVerification.gt(proverTkoBalanceBeforeVerification)
     ).to.be.eq(true);
 
-    const newProofReward = await taikoL1.getProofReward(
+    const { eth: ethReward, token: tokenReward } = await taikoL1.getProofReward(
         block.proposedAt,
-        block.provenAt
+        block.provenAt,
+        verifiedEvent.args.id
     );
 
     // last proof reward should be larger than the new proof reward,
     // since we have stopped proposing, and slots are growing as we verify.
     if (lastProofReward.gt(0)) {
-        expect(newProofReward).to.be.lt(lastProofReward);
+        expect(tokenReward).to.be.lt(lastProofReward);
     }
 
     // latest synced header should be our just-verified block hash.
@@ -89,15 +78,15 @@ async function verifyBlockAndAssert(
     // fork choice should be nullified via _cleanUp in LibVerifying
     const forkChoice = await taikoL1.getForkChoice(block.id, block.parentHash);
     expect(forkChoice.provenAt).to.be.eq(BigNumber.from(0));
-    expect(forkChoice.provers).to.be.empty;
+    expect(forkChoice.prover).to.be.eq(ethers.constants.AddressZero);
     expect(forkChoice.blockHash).to.be.eq(ethers.constants.HashZero);
 
     // proposer should be minted their refund of their deposit back after
     // verification, as long as their balance is > 0;
-    return { newProofReward };
+    return { tokenReward, ethReward };
 }
 
-async function commitProposeProveAndVerify(
+async function commitProposeClaimProveAndVerify(
     taikoL1: TaikoL1,
     l2Provider: ethersLib.providers.JsonRpcProvider,
     blockNumber: number,
@@ -115,6 +104,17 @@ async function commitProposeProveAndVerify(
         tkoTokenL1
     );
     expect(proposedEvent).not.to.be.undefined;
+
+    console.log("claiming", blockNumber);
+
+    const config = await taikoL1.getConfig();
+    await claimBlock(
+        taikoL1,
+        proposedEvent.args.id.toNumber(),
+        config.baseClaimDepositInWei.add("1")
+    );
+
+    await waitForClaimToBeProvable(taikoL1, proposedEvent.args.id.toNumber());
 
     console.log("proving", blockNumber);
     const provedEvent = await prover.prove(
@@ -137,9 +137,7 @@ async function commitProposeProveAndVerify(
 
     expect(forkChoice.blockHash).to.be.eq(blockHash);
 
-    expect(forkChoice.provers[0]).to.be.eq(
-        await prover.getSigner().getAddress()
-    );
+    expect(forkChoice.prover).to.be.eq(await prover.getSigner().getAddress());
 
     const blockInfo = {
         proposedAt: proposedBlock.proposedAt.toNumber(),
@@ -151,13 +149,6 @@ async function commitProposeProveAndVerify(
         deposit: proposedBlock.deposit,
         proposer: proposedBlock.proposer,
     };
-
-    // make sure block is verifiable before we processe
-    await sleepUntilBlockIsVerifiable(
-        taikoL1,
-        blockInfo.id,
-        blockInfo.provenAt
-    );
 
     const isVerifiable = await taikoL1.isBlockVerifiable(
         blockInfo.id,
@@ -173,9 +164,4 @@ async function commitProposeProveAndVerify(
     return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
 }
 
-export {
-    verifyBlocks,
-    verifyBlockAndAssert,
-    sleepUntilBlockIsVerifiable,
-    commitProposeProveAndVerify,
-};
+export { verifyBlocks, verifyBlockAndAssert, commitProposeClaimProveAndVerify };

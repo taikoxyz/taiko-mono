@@ -9,7 +9,7 @@ import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { createAndSeedWallets, seedTko } from "../utils/seed";
 import {
-    commitProposeProveAndVerify,
+    commitProposeClaimProveAndVerify,
     // sleepUntilBlockIsVerifiable,
     // verifyBlocks,
 } from "../utils/verify";
@@ -71,7 +71,7 @@ describe("tokenomics: proofReward", function () {
             const proverTkoBalanceBeforeVerification =
                 await tkoTokenL1.balanceOf(await prover.getSigner().address);
 
-            await commitProposeProveAndVerify(
+            await commitProposeClaimProveAndVerify(
                 taikoL1,
                 l2Provider,
                 blockNumber,
@@ -114,7 +114,7 @@ describe("tokenomics: proofReward", function () {
             const proverTkoBalanceBeforeVerification =
                 await tkoTokenL1.balanceOf(await prover.getSigner().address);
 
-            await commitProposeProveAndVerify(
+            await commitProposeClaimProveAndVerify(
                 taikoL1,
                 l2Provider,
                 blockNumber,
@@ -190,7 +190,7 @@ describe("tokenomics: proofReward", function () {
                 await proposer.getSigner().getAddress()
             );
 
-            await commitProposeProveAndVerify(
+            await commitProposeClaimProveAndVerify(
                 taikoL1,
                 l2Provider,
                 blockNumber,
