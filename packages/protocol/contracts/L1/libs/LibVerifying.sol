@@ -11,7 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {TkoToken} from "../TkoToken.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
@@ -212,12 +212,12 @@ library LibVerifying {
     function _refundProposerDeposit(
         TaikoData.ProposedBlock storage target,
         uint256 tRelBp,
-        TkoToken tkoToken
+        TaikoToken taikoToken
     ) private {
         uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-        if (refund > 0 && tkoToken.balanceOf(target.proposer) > 0) {
+        if (refund > 0 && taikoToken.balanceOf(target.proposer) > 0) {
             // Do not refund proposer with 0 TKO balance.
-            tkoToken.mint(target.proposer, refund);
+            taikoToken.mint(target.proposer, refund);
         }
     }
 
@@ -225,7 +225,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 reward,
-        TkoToken tkoToken
+        TaikoToken taikoToken
     ) private {
         uint256 offset;
         uint256 count = fc.provers.length;
@@ -240,13 +240,13 @@ library LibVerifying {
         for (uint256 i; i < count; ++i) {
             uint256 proverReward = (reward * bips[i]) / 10000;
             if (proverReward != 0) {
-                if (tkoToken.balanceOf(fc.provers[offset + i]) == 0) {
+                if (taikoToken.balanceOf(fc.provers[offset + i]) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
                     // has 0 TKO balance. This allows the next prover reward
                     // to be fully paid.
                     proverReward = uint256(1);
                 }
-                tkoToken.mint(fc.provers[offset + i], proverReward);
+                taikoToken.mint(fc.provers[offset + i], proverReward);
             }
         }
     }
@@ -272,12 +272,12 @@ library LibVerifying {
                     proposedAt: target.proposedAt
                 });
 
-                TkoToken tkoToken = TkoToken(
+                TaikoToken taikoToken = TaikoToken(
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProvers(config, fc, reward, tkoToken);
-                _refundProposerDeposit(target, tRelBp, tkoToken);
+                _rewardProvers(config, fc, reward, taikoToken);
+                _refundProposerDeposit(target, tRelBp, taikoToken);
             }
             // Update feeBase and avgProofTime
             state.feeBase = LibUtils.movingAverage({

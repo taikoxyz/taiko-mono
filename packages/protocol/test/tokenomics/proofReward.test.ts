@@ -2,9 +2,11 @@ import { expect } from "chai";
 import { SimpleChannel } from "channel-ts";
 import { ethers } from "ethers";
 import { TaikoL1 } from "../../typechain";
-import { TestTkoToken } from "../../typechain/TestTkoToken";
+import { TestTaikoToken } from "../../typechain/TestTaikoToken";
 import { pickRandomElement } from "../utils/array";
 import blockListener from "../utils/blockListener";
+// import { BlockMetadata } from "../utils/block_metadata";
+import { initIntegrationFixture } from "../utils/fixture";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { createAndSeedWallets, seedTko } from "../utils/seed";
@@ -13,8 +15,6 @@ import {
     // sleepUntilBlockIsVerifiable,
     // verifyBlocks,
 } from "../utils/verify";
-import { initIntegrationFixture } from "../utils/fixture";
-// import { BlockMetadata } from "../utils/block_metadata";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
@@ -22,7 +22,7 @@ describe("tokenomics: proofReward", function () {
     let l1Signer: any;
     let proverSigner: any;
     let genesisHeight: number;
-    let tkoTokenL1: TestTkoToken;
+    let taikoTokenL1: TestTaikoToken;
     let interval: any;
     let chan: SimpleChannel<number>;
     let proposer: Proposer;
@@ -38,7 +38,7 @@ describe("tokenomics: proofReward", function () {
             l1Signer,
             proverSigner,
             genesisHeight,
-            tkoTokenL1,
+            taikoTokenL1,
             interval,
             chan,
             config,
@@ -53,9 +53,9 @@ describe("tokenomics: proofReward", function () {
         chan.close();
     });
 
-    it(`proofReward is 1 wei if the prover does not hold any tkoTokens on L1`, async function () {
+    it(`proofReward is 1 wei if the prover does not hold any taikoTokens on L1`, async function () {
         let proposed: boolean = false;
-        l2Provider.on("block", function (blockNumber: number) {
+        l2Provider.on("block", function () {
             if (proposed) {
                 chan.close();
                 l2Provider.off("block");
@@ -63,25 +63,25 @@ describe("tokenomics: proofReward", function () {
             }
             proposed = true;
 
-            chan.send(blockNumber);
+            chan.send(genesisHeight + 1);
         });
 
         /* eslint-disable-next-line */
         for await (const blockNumber of chan) {
             const proverTkoBalanceBeforeVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+                await taikoTokenL1.balanceOf(await prover.getSigner().address);
 
             await commitProposeProveAndVerify(
                 taikoL1,
                 l2Provider,
                 blockNumber,
                 proposer,
-                tkoTokenL1,
+                taikoTokenL1,
                 prover
             );
 
             const proverTkoBalanceAfterVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+                await taikoTokenL1.balanceOf(await prover.getSigner().address);
 
             // prover should have given 1 TKO token, since they
             // held no TKO balance.
@@ -99,7 +99,7 @@ describe("tokenomics: proofReward", function () {
     the proposer should receive a refund on his deposit because he holds a tkoBalance > 0 at time of verification.`, async function () {
         // prover needs TKO or their reward will be cut down to 1 wei.
 
-        await seedTko([prover], tkoTokenL1.connect(l1Signer));
+        await seedTko([prover], taikoTokenL1.connect(l1Signer));
 
         l2Provider.on("block", blockListener(chan, genesisHeight));
 
@@ -112,19 +112,19 @@ describe("tokenomics: proofReward", function () {
                 break;
             }
             const proverTkoBalanceBeforeVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+                await taikoTokenL1.balanceOf(await prover.getSigner().address);
 
             await commitProposeProveAndVerify(
                 taikoL1,
                 l2Provider,
                 blockNumber,
                 proposer,
-                tkoTokenL1,
+                taikoTokenL1,
                 prover
             );
 
             const proverTkoBalanceAfterVerification =
-                await tkoTokenL1.balanceOf(await prover.getSigner().address);
+                await taikoTokenL1.balanceOf(await prover.getSigner().address);
 
             expect(
                 proverTkoBalanceAfterVerification.gt(
@@ -156,13 +156,13 @@ describe("tokenomics: proofReward", function () {
             (p: ethers.Wallet) => new Prover(taikoL1, l2Provider, p)
         );
 
-        await seedTko(provers, tkoTokenL1.connect(l1Signer));
+        await seedTko(provers, taikoTokenL1.connect(l1Signer));
 
-        await seedTko(proposers, tkoTokenL1.connect(l1Signer));
+        await seedTko(proposers, taikoTokenL1.connect(l1Signer));
 
         // prover needs TKO or their reward will be cut down to 1 wei.
         await (
-            await tkoTokenL1
+            await taikoTokenL1
                 .connect(l1Signer)
                 .mintAnyone(
                     await proverSigner.getAddress(),
@@ -182,11 +182,11 @@ describe("tokenomics: proofReward", function () {
             }
             const prover = pickRandomElement<Prover>(provers);
             const proposer = pickRandomElement<Proposer>(proposers);
-            const proverTkoBalanceBefore = await tkoTokenL1.balanceOf(
+            const proverTkoBalanceBefore = await taikoTokenL1.balanceOf(
                 await prover.getSigner().getAddress()
             );
 
-            const proposerTkoBalanceBefore = await tkoTokenL1.balanceOf(
+            const proposerTkoBalanceBefore = await taikoTokenL1.balanceOf(
                 await proposer.getSigner().getAddress()
             );
 
@@ -195,15 +195,15 @@ describe("tokenomics: proofReward", function () {
                 l2Provider,
                 blockNumber,
                 proposer,
-                tkoTokenL1,
+                taikoTokenL1,
                 prover
             );
 
-            const proverTkoBalanceAfter = await tkoTokenL1.balanceOf(
+            const proverTkoBalanceAfter = await taikoTokenL1.balanceOf(
                 await prover.getSigner().getAddress()
             );
 
-            const proposerTkoBalanceAfter = await tkoTokenL1.balanceOf(
+            const proposerTkoBalanceAfter = await taikoTokenL1.balanceOf(
                 await proposer.getSigner().getAddress()
             );
 
@@ -223,7 +223,7 @@ describe("tokenomics: proofReward", function () {
     //         )
     //     ).map((p: ethers.Wallet) => new Prover(taikoL1, l2Provider, p));
 
-    //     await seedTko(provers, tkoTokenL1.connect(l1Signer));
+    //     await seedTko(provers, taikoTokenL1.connect(l1Signer));
 
     //     const blockNumber = genesisHeight + 1;
 
@@ -261,10 +261,10 @@ describe("tokenomics: proofReward", function () {
     //     // each prover in order should have less balance than the previous.
     //     for (let i = 0; i < forkChoice.provers.length; i++) {
     //         if (i !== 0) {
-    //             const proverBalance = await tkoTokenL1.balanceOf(
+    //             const proverBalance = await taikoTokenL1.balanceOf(
     //                 forkChoice.provers[i]
     //             );
-    //             const previousProverBalance = await tkoTokenL1.balanceOf(
+    //             const previousProverBalance = await taikoTokenL1.balanceOf(
     //                 forkChoice.provers[i - 1]
     //             );
 

@@ -10,7 +10,7 @@ import { chainIdToTokenVaultAddress } from "../store/bridge";
 import { get } from "svelte/store";
 import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import { ProcessingFeeMethod } from "../domain/fee";
-import { ETH, HORSE } from "../domain/token";
+import { ETH, TEST_ERC20 } from "../domain/token";
 import { signer } from "../store/signer";
 import {
   erc20DeployedGasLimit,
@@ -150,7 +150,7 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      HORSE,
+      TEST_ERC20,
       mockSigner as unknown as Signer
     );
 
@@ -179,7 +179,7 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      HORSE,
+      TEST_ERC20,
       mockSigner as unknown as Signer
     );
 

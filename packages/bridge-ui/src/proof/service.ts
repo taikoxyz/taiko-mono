@@ -19,7 +19,7 @@ class ProofService implements Prover {
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ["address", "bytes32"],
-        [opts.sender, opts.signal]
+        [opts.sender, opts.msgHash]
       )
     );
 
@@ -61,7 +61,7 @@ class ProofService implements Prover {
 
     // rpc call to get the merkle proof what value is at key on the bridge contract
     const proof: EthGetProofResponse = await provider.send("eth_getProof", [
-      opts.srcBridgeAddress,
+      opts.srcSignalServiceAddress,
       [key],
       block.hash,
     ]);

@@ -8,6 +8,7 @@ import {
     TestHeaderSync,
     LibTrieProof,
 } from "../../typechain";
+import { MessageStatusChangedEvent } from "../../typechain/LibBridgeStatus";
 import { Message } from "./message";
 import { Block, BlockHeader, getBlockHeader } from "./rpc";
 import { getSignalProof } from "./signal";
@@ -100,6 +101,7 @@ async function processMessage(
     signalProof: string;
     block: Block;
     blockHeader: BlockHeader;
+    messageStatusChangedEvent: MessageStatusChangedEvent;
 }> {
     const sender = l1Bridge.address;
 
@@ -119,8 +121,10 @@ async function processMessage(
 
     const tx = await l2Bridge.processMessage(message, signalProof);
     const receipt = await tx.wait(1);
-    console.log("process message gas used", receipt.gasUsed.toString());
-    return { tx, signalProof, block, blockHeader };
+    const messageStatusChangedEvent = (receipt.events || []).find(
+        (e) => e.event === "MessageStatusChanged"
+    ) as any as MessageStatusChangedEvent;
+    return { tx, signalProof, block, blockHeader, messageStatusChangedEvent };
 }
 
 async function sendAndProcessMessage(

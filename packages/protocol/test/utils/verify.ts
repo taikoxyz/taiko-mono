@@ -1,18 +1,26 @@
 import { expect } from "chai";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
-import { TaikoL1, TkoToken } from "../../typechain";
+import { TaikoL1, TaikoToken } from "../../typechain";
 import { BlockVerifiedEvent } from "../../typechain/LibVerifying";
 import { BlockInfo, BlockMetadata } from "./block_metadata";
 import { onNewL2Block } from "./onNewL2Block";
 import Proposer from "./proposer";
 import Prover from "./prover";
+import { getDefaultL1Signer } from "./provider";
+import { sendTinyEtherToZeroAddress } from "./seed";
 import sleep from "./sleep";
 
 async function verifyBlocks(taikoL1: TaikoL1, maxBlocks: number) {
+    // Since we are connecting to a geth node with clique consensus (auto mine), we
+    // need to manually mine a new block here to ensure the latest block.timestamp increased as expected when
+    // calling eth_estimateGas.
+    await sendTinyEtherToZeroAddress(await getDefaultL1Signer());
+
     const verifyTx = await taikoL1.verifyBlocks(maxBlocks, {
         gasLimit: 1000000,
     });
+
     const verifyReceipt = await verifyTx.wait(1);
     const verifiedEvent: BlockVerifiedEvent = (
         verifyReceipt.events as any[]
@@ -32,7 +40,7 @@ async function sleepUntilBlockIsVerifiable(
 
 async function verifyBlockAndAssert(
     taikoL1: TaikoL1,
-    tkoTokenL1: TkoToken,
+    taikoTokenL1: TaikoToken,
     block: BlockInfo,
     lastProofReward: BigNumber
 ): Promise<{ newProofReward: BigNumber }> {
@@ -47,11 +55,11 @@ async function verifyBlockAndAssert(
 
     const prover = block.forkChoice.provers[0];
 
-    const proverTkoBalanceBeforeVerification = await tkoTokenL1.balanceOf(
+    const proverTkoBalanceBeforeVerification = await taikoTokenL1.balanceOf(
         prover
     );
 
-    const proposerTkoBalanceBeforeVerification = await tkoTokenL1.balanceOf(
+    const proposerTkoBalanceBeforeVerification = await taikoTokenL1.balanceOf(
         block.proposer
     );
 
@@ -62,7 +70,7 @@ async function verifyBlockAndAssert(
     expect(verifiedEvent.args.blockHash).to.be.eq(block.blockHash);
     expect(verifiedEvent.args.id.eq(block.id)).to.be.eq(true);
 
-    const proverTkoBalanceAfterVerification = await tkoTokenL1.balanceOf(
+    const proverTkoBalanceAfterVerification = await taikoTokenL1.balanceOf(
         prover
     );
 
@@ -102,7 +110,7 @@ async function commitProposeProveAndVerify(
     l2Provider: ethersLib.providers.JsonRpcProvider,
     blockNumber: number,
     proposer: Proposer,
-    tkoTokenL1: TkoToken,
+    taikoTokenL1: TaikoToken,
     prover: Prover
 ) {
     console.log("proposing", blockNumber);
@@ -112,7 +120,7 @@ async function commitProposeProveAndVerify(
         proposer,
         taikoL1,
         proposer.getSigner(),
-        tkoTokenL1
+        taikoTokenL1
     );
     expect(proposedEvent).not.to.be.undefined;
 
