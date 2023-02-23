@@ -30,7 +30,10 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    error L1_INVALID_PARAM();
+    modifier onlyFromEOA() {
+        if (msg.sender != tx.origin) revert L1_CONTRACT_NOT_ALLOWED();
+        _;
+    }
 
     function init(
         address _addressManager,
@@ -83,7 +86,9 @@ contract TaikoL1 is
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
      */
-    function proposeBlock(bytes[] calldata inputs) external nonReentrant {
+    function proposeBlock(
+        bytes[] calldata inputs
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -118,7 +123,7 @@ contract TaikoL1 is
     function proveBlock(
         uint256 blockId,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -153,7 +158,7 @@ contract TaikoL1 is
     function proveBlockInvalid(
         uint256 blockId,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
 
         LibProving.proveBlockInvalid({
@@ -176,7 +181,7 @@ contract TaikoL1 is
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) external onlyFromEOA nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
