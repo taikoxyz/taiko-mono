@@ -348,7 +348,7 @@ library LibProving {
 
         fc.provenAt = uint64(block.timestamp);
 
-        fc.prover = tx.origin;
+        fc.prover = prover;
 
         emit BlockProven({
             id: target.id,
