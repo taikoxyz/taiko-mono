@@ -18,7 +18,7 @@ describe("LibZKP", function () {
         );
     });
 
-    it("should successfully verifiy the given proof (zkp + instance)", async function () {
+    it("should successfully verifiy the given zkp and instance", async function () {
         const result = await libZKP.verify(
             plonkVerifierAddress,
             testProof.result.circuit.proof,
