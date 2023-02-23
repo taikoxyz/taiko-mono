@@ -39,26 +39,30 @@
     processable = await isProcessable();
   });
 
+  async function switchChainAndSetSigner(chain: Chain) {
+    await switchNetwork({
+      chainId: chain.id,
+    });
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+
+    fromChainStore.set(chain);
+    if (chain === CHAIN_MAINNET) {
+      toChainStore.set(CHAIN_TKO);
+    } else {
+      toChainStore.set(CHAIN_MAINNET);
+    }
+    const wagmiSigner = await fetchSigner();
+    signer.set(wagmiSigner);
+  }
+
   async function claim(bridgeTx: BridgeTransaction) {
     try {
-    loading = true;
-    if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
-      const chain = chains[bridgeTx.message.destChainId.toNumber()];
-      await switchNetwork({
-        chainId: chain.id,
-      });
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-
-      fromChainStore.set(chain);
-      if (chain === CHAIN_MAINNET) {
-        toChainStore.set(CHAIN_TKO);
-      } else {
-        toChainStore.set(CHAIN_MAINNET);
+      loading = true;
+      if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
+        const chain = chains[bridgeTx.message.destChainId.toNumber()];
+        await switchChainAndSetSigner(chain)
       }
-      const wagmiSigner = await fetchSigner();
-      signer.set(wagmiSigner);
-    }
       const tx = await $bridges
         .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
         .Claim({
@@ -69,6 +73,41 @@
             chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
           srcBridgeAddress:
             chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+        });
+
+      pendingTransactions.update((store) => {
+        store.push(tx);
+        return store;
+      });
+
+      successToast($_("toast.transactionSent"));
+    } catch (e) {
+      console.log(e);
+      errorToast($_("toast.errorSendingTransaction"));
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function releaseTokens(bridgeTx: BridgeTransaction) {
+    try {
+      loading = true;
+      if (fromChain.id !== bridgeTx.message.srcChainId.toNumber()) {
+        const chain = chains[bridgeTx.message.srcChainId.toNumber()];
+        await switchChainAndSetSigner(chain)
+      }
+      const tx = await $bridges
+        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
+        .ReleaseTokens({
+          signer: $signer,
+          message: bridgeTx.message,
+          msgHash: bridgeTx.msgHash,
+          destBridgeAddress:
+            chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
+          srcBridgeAddress:
+          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+          destProvider: $providers.get(bridgeTx.message.destChainId.toNumber()),
+          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(bridgeTx.message.srcChainId.toNumber())
         });
 
       pendingTransactions.update((store) => {
@@ -115,54 +154,6 @@
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
-
-  async function releaseTokens(bridgeTx: BridgeTransaction) {
-    try {
-      loading = true;
-      if (fromChain.id !== bridgeTx.message.srcChainId.toNumber()) {
-      const chain = chains[bridgeTx.message.srcChainId.toNumber()];
-      await switchNetwork({
-        chainId: chain.id,
-      });
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-
-      fromChainStore.set(chain);
-      if (chain === CHAIN_MAINNET) {
-        toChainStore.set(CHAIN_TKO);
-      } else {
-        toChainStore.set(CHAIN_MAINNET);
-      }
-      const wagmiSigner = await fetchSigner();
-      signer.set(wagmiSigner);
-    }
-      const tx = await $bridges
-        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
-        .ReleaseTokens({
-          signer: $signer,
-          message: bridgeTx.message,
-          msgHash: bridgeTx.msgHash,
-          destBridgeAddress:
-            chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
-          srcBridgeAddress:
-          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
-          destProvider: $providers.get(bridgeTx.message.destChainId.toNumber()),
-          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(bridgeTx.message.srcChainId.toNumber())
-        });
-
-      pendingTransactions.update((store) => {
-        store.push(tx);
-        return store;
-      });
-
-      successToast($_("toast.transactionSent"));
-    } catch (e) {
-      console.log(e);
-      errorToast($_("toast.errorSendingTransaction"));
-    } finally {
-      loading = false;
-    }
-  }
 </script>
 
 <tr class="text-transaction-table">

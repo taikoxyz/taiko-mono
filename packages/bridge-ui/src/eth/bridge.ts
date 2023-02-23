@@ -139,7 +139,7 @@ class ETHBridge implements BridgeInterface {
 
       return await contract.processMessage(opts.message, proof);
     } else {
-      return await contract.retryMessage(opts.message);
+      return await contract.retryMessage(opts.message, true);
     }
   }
 
@@ -178,7 +178,6 @@ class ETHBridge implements BridgeInterface {
       };
 
       const proof = await this.prover.GenerateReleaseProof(proofOpts);
-      console.log(proof);
 
       const srcBridgeContract: Contract = new Contract(
           opts.srcBridgeAddress,

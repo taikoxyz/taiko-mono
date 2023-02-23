@@ -232,7 +232,6 @@ class ERC20Bridge implements Bridge {
       };
 
       const proof = await this.prover.GenerateReleaseProof(proofOpts);
-      console.log(proof);
 
       const srcTokenVaultContract: Contract = new Contract(
           opts.srcTokenVaultAddress,
