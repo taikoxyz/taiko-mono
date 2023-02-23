@@ -116,7 +116,7 @@ export async function deployContracts(hre: any) {
 
     // TkoToken
     const TkoToken = await utils.deployContract(hre, "TkoToken");
-    await utils.waitTx(hre, await TkoToken.init(AddressManager.address));
+    await utils.waitTx(hre, await TkoToken.init("TTKO", AddressManager.address));
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
