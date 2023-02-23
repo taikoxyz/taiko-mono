@@ -189,7 +189,7 @@ library LibProving {
         // if claim is still valid
         if (
             block.timestamp - state.claims[blockId].claimedAt <
-            config.claimHoldTimeInSeconds
+            config.claimHoldTimeInSeconds + state.avgProofTime
         ) {
             // block must be claimed by you
             if (state.claims[blockId].claimer != tx.origin) {
