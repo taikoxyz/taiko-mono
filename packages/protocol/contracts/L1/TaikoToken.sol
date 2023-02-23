@@ -19,7 +19,7 @@ import {
 } from "../thirdparty/ERC20Upgradeable.sol";
 
 /// @dev This is Taiko's governance and fee token.
-contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
+contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
@@ -44,11 +44,15 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /// @dev Initializer to be called after being deployed behind a proxy.
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
-    function init(address _addressManager) external initializer {
+    function init(
+        string memory _name,
+        string memory _symbol,
+        address _addressManager
+    ) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
-            name_: "Taiko Token",
-            symbol_: "TKO",
+            name_: _name,
+            symbol_: _symbol,
             decimals_: 18
         });
     }

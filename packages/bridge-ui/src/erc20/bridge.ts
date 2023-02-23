@@ -44,6 +44,10 @@ class ERC20Bridge implements Bridge {
       memo: opts.memo ?? "",
     };
 
+    if(!opts.isBridgedTokenAlreadyDeployed) {
+      message.gasLimit = message.gasLimit.add(BigNumber.from(2500000));
+    }
+
     return { contract, owner, message };
   }
 
@@ -154,7 +158,7 @@ class ERC20Bridge implements Bridge {
     );
 
     const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.signal
+      opts.msgHash
     );
 
     if (
@@ -173,13 +177,18 @@ class ERC20Bridge implements Bridge {
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
-        signal: opts.signal,
+        msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+          srcSignalServiceAddress: chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       });
+
+      if(opts.message.gasLimit.gt(BigNumber.from(2500000))) {
+        return await contract.processMessage(opts.message, proof, { gasLimit: opts.message.gasLimit });
+      }
 
       return await contract.processMessage(opts.message, proof);
     } else {

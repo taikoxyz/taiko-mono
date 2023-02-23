@@ -14,12 +14,13 @@ type EthGetProofResponse = {
 };
 
 type GenerateProofOpts = {
-  signal: string;
+  msgHash: string;
   sender: string;
   srcBridgeAddress: string;
   destChain: number;
   destHeaderSyncAddress: string;
   srcChain: number;
+  srcSignalServiceAddress: string;
 };
 
 interface Prover {

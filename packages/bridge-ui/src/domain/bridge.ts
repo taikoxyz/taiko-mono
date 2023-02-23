@@ -25,11 +25,12 @@ type BridgeOpts = {
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+  isBridgedTokenAlreadyDeployed?: boolean;
 };
 
 type ClaimOpts = {
   message: Message;
-  signal: string;
+  msgHash: string;
   signer: ethers.Signer;
   destBridgeAddress: string;
   srcBridgeAddress: string;

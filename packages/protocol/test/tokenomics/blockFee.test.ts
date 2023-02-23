@@ -2,14 +2,14 @@ import { expect } from "chai";
 import { SimpleChannel } from "channel-ts";
 import { BigNumber, ethers } from "ethers";
 import { AddressManager, TaikoL1 } from "../../typechain";
-import { TestTkoToken } from "../../typechain/TestTkoToken";
+import { TestTaikoToken } from "../../typechain/TestTaikoToken";
 import blockListener from "../utils/blockListener";
 import { onNewL2Block } from "../utils/onNewL2Block";
 import Proposer from "../utils/proposer";
 
+import { initIntegrationFixture } from "../utils/fixture";
 import sleep from "../utils/sleep";
 import { deployTaikoL1 } from "../utils/taikoL1";
-import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: blockFee", function () {
     let taikoL1: TaikoL1;
@@ -17,7 +17,7 @@ describe("tokenomics: blockFee", function () {
     let proposerSigner: any;
     let genesisHeight: number;
     let genesisHash: string;
-    let tkoTokenL1: TestTkoToken;
+    let taikoTokenL1: TestTaikoToken;
     let l1AddressManager: AddressManager;
     let interval: any;
     let chan: SimpleChannel<number>;
@@ -32,7 +32,7 @@ describe("tokenomics: blockFee", function () {
             proposerSigner,
             genesisHeight,
             genesisHash,
-            tkoTokenL1,
+            taikoTokenL1,
             l1AddressManager,
             interval,
             chan,
@@ -68,7 +68,7 @@ describe("tokenomics: blockFee", function () {
 
     it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
         // get the initial tkoBalance, which should decrease every block proposal
-        let lastProposerTkoBalance = await tkoTokenL1.balanceOf(
+        let lastProposerTkoBalance = await taikoTokenL1.balanceOf(
             await proposerSigner.getAddress()
         );
 
@@ -100,7 +100,7 @@ describe("tokenomics: blockFee", function () {
                     proposer,
                     taikoL1,
                     proposerSigner,
-                    tkoTokenL1
+                    taikoTokenL1
                 );
 
             expect(newProposerTkoBalance.lt(lastProposerTkoBalance)).to.be.eq(

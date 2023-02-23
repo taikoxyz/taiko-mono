@@ -109,12 +109,13 @@ describe("prover tests", () => {
 
     await expect(
       prover.GenerateProof({
-        signal: ethers.constants.HashZero,
+        msgHash: ethers.constants.HashZero,
         sender: ethers.constants.AddressZero,
         srcBridgeAddress: ethers.constants.AddressZero,
         srcChain: srcChain,
         destChain: destChain,
         destHeaderSyncAddress: ethers.constants.AddressZero,
+        srcSignalServiceAddress: ethers.constants.AddressZero,
       })
     ).rejects.toThrowError("invalid proof");
   });
@@ -135,12 +136,13 @@ describe("prover tests", () => {
     const prover: ProofService = new ProofService(map);
 
     const proof = await prover.GenerateProof({
-      signal: ethers.constants.HashZero,
+      msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
       destHeaderSyncAddress: ethers.constants.AddressZero,
+      srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProof);
   });
@@ -163,12 +165,13 @@ describe("prover tests", () => {
     const prover: ProofService = new ProofService(map);
 
     const proof = await prover.GenerateProof({
-      signal: ethers.constants.HashZero,
+      msgHash: ethers.constants.HashZero,
       sender: ethers.constants.AddressZero,
       srcBridgeAddress: ethers.constants.AddressZero,
       srcChain: srcChain,
       destChain: destChain,
       destHeaderSyncAddress: ethers.constants.AddressZero,
+      srcSignalServiceAddress: ethers.constants.AddressZero,
     });
     expect(proof).toBe(expectedProofWithBaseFee);
   });

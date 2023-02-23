@@ -15,6 +15,7 @@ abstract contract TaikoCustomErrors {
     error L1_CIRCUIT_LENGTH();
     error L1_COMMITTED();
     error L1_CONFLICT_PROOF();
+    error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
     error L1_EMPTY_TXLIST_PROOF();
     error L1_EXTRA_DATA();
@@ -23,6 +24,7 @@ abstract contract TaikoCustomErrors {
     error L1_HALT_CONDITION();
     error L1_ID();
     error L1_INPUT_SIZE();
+    error L1_INVALID_PARAM();
     error L1_METADATA_FIELD();
     error L1_META_MISMATCH();
     error L1_NOT_COMMITTED();

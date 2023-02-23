@@ -16,7 +16,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/Create2Upgradeable.sol";
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {TkoToken} from "../L1/TkoToken.sol";
+import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
 

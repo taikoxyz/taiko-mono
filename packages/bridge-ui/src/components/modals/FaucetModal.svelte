@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BigNumber, ethers, logger, Signer } from "ethers";
-  import { HORSE } from "../../domain/token";
+  import { TEST_ERC20 } from "../../domain/token";
   import { pendingTransactions } from "../../store/transactions";
   import { signer } from "../../store/signer";
   import { errorToast, successToast } from "../../utils/toast";
@@ -28,7 +28,7 @@
     if (!signer) return;
     const balance = await signer.getBalance();
     const contract = new ethers.Contract(
-      HORSE.addresses[0].address,
+      TEST_ERC20.addresses[0].address,
       MintableERC20,
       signer
     );
@@ -47,7 +47,7 @@
 
   async function mint() {
     try {
-      if ($fromChain.id !== HORSE.addresses[0].chainId) {
+      if ($fromChain.id !== TEST_ERC20.addresses[0].chainId) {
         await switchNetwork({
           chainId: CHAIN_MAINNET.id,
         });
@@ -56,7 +56,7 @@
         signer.set(wagmiSigner);
       }
       const contract = new ethers.Contract(
-        HORSE.addresses[0].address,
+        TEST_ERC20.addresses[0].address,
         MintableERC20,
         $signer
       );
@@ -81,8 +81,12 @@
 
 <Modal title={"ERC20 Faucet"} bind:isOpen>
   You can request 1000 {$token.symbol}. {$token.symbol} is only available to be minted
-  on Ethereum A1. If you are on Taiko A1, your network will be changed first. You
-  must have a small amount of ETH in your Ethereum A1 wallet to send the transaction.
+  on {import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A2"}. If you are on {import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : "Taiko A2"}, your network will be changed first. You
+  must have a small amount of ETH in your {import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : "Ethereum A2"} wallet to send the transaction.
   <br />
   <button
     class="btn btn-dark-5 h-[60px] text-base"

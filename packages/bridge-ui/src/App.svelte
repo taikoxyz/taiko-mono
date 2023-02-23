@@ -50,6 +50,9 @@
   import BridgeABI from "./constants/abi/Bridge";
   import { providers } from "./store/providers";
   import HeaderAnnouncement from "./components/HeaderAnnouncement.svelte";
+  import type { TokenService } from "./domain/token";
+  import { CustomTokenService } from "./storage/customTokenService";
+  import { userTokens, tokenService } from "./store/userToken";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -130,15 +133,25 @@
     providerMap
   );
 
+  const tokenStore: TokenService = new CustomTokenService(
+    window.localStorage,
+  );
+
+  tokenService.set(tokenStore);
+
   transactioner.set(storageTransactioner);
 
   signer.subscribe(async (store) => {
     if (store) {
+      const userAddress = await store.getAddress();
       const txs = await $transactioner.GetAllByAddress(
-        await store.getAddress()
+        userAddress
       );
 
       transactions.set(txs);
+
+      const tokens = await $tokenService.GetTokens(userAddress)
+      userTokens.set(tokens);
     }
     return store;
   });
@@ -180,7 +193,7 @@
             }
 
             transactionToIntervalMap.set(tx.ethersTx.hash, interval);
-            if (!tx.signal) return;
+            if (!tx.msgHash) return;
 
             const contract = new ethers.Contract(
               chains[tx.toChainId].bridgeAddress,
@@ -189,7 +202,7 @@
             );
 
             const messageStatus: MessageStatus =
-              await contract.getMessageStatus(tx.signal);
+              await contract.getMessageStatus(tx.msgHash);
 
             if (messageStatus === MessageStatus.Done) {
               successToast("Bridge message processed successfully");
