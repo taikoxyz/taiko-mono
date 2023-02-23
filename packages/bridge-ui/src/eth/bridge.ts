@@ -150,13 +150,13 @@ class ETHBridge implements BridgeInterface {
         opts.destProvider
     );
       
-      const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(
-        opts.msgHash
-        );
-        
-        if (messageStatus === MessageStatus.Done) {
-          throw Error("message already processed");
-        }
+    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(
+      opts.msgHash
+    );
+      
+    if (messageStatus === MessageStatus.Done) {
+      throw Error("message already processed");
+    }
 
     const signerAddress = await opts.signer.getAddress();
 

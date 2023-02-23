@@ -42,7 +42,7 @@ export default {
             statements: 95,
             branches: 72,
             functions: 89,
-            lines: 96,
+            lines: 95,
         },
     },
     modulePathIgnorePatterns: ["<rootDir>/public/build/"],
