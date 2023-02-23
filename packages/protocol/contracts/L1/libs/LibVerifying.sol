@@ -185,10 +185,10 @@ library LibVerifying {
         if (prover != claim.claimer) {
             prover.sendEther(claim.deposit / 2);
             payable(0).transfer(claim.deposit / 2);
+            state.timesProofNotDeliveredForClaim[claim.claimer] += 1;
         } else {
             _refundClaimerDeposit(prover, claim.deposit);
         }
-        state.timesProofNotDeliveredForClaim[claim.claimer] += 1;
     }
 
     function _verifyBlock(

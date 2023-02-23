@@ -36,8 +36,9 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 proverRewardRandomizedPercentage;
-        uint64 claimHoldTimeInSeconds;
+        uint64 baseClaimHoldTimeInSeconds;
         uint256 baseClaimDepositInWei;
+        uint256 minimumClaimBidIncreaseInWei;
         uint64 claimAuctionWindowInSeconds;
         uint8 claimGap; // how many blocks between claiming, so one person can not claim every block
         bool enableTokenomics;

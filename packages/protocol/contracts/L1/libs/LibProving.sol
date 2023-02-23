@@ -102,12 +102,18 @@ library LibProving {
     ) internal {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
-        if (state.proposedBlocks[blockId].proposer == address(0)) {
+        if (
+            state.proposedBlocks[blockId % config.maxNumBlocks].proposer ==
+            address(0)
+        ) {
             revert L1_ID();
         }
 
+        // if claimauctionwindow is set, we need to make sure this bid
+        // is within it.
         if (
-            block.timestamp - state.proposedBlocks[blockId].proposedAt >
+            block.timestamp -
+                state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt >
             config.claimAuctionWindowInSeconds
         ) {
             revert L1_TOO_LATE();
@@ -132,7 +138,7 @@ library LibProving {
         if (state.timesProofNotDeliveredForClaim[tx.origin] > 0) {
             baseDepositRequired =
                 config.baseClaimDepositInWei *
-                state.timesProofNotDeliveredForClaim[tx.origin];
+                (state.timesProofNotDeliveredForClaim[tx.origin] + 1);
         }
 
         // if user hasnt sent enough to meet their personal base deposit amount
@@ -147,7 +153,11 @@ library LibProving {
         TaikoData.Claim memory currentClaim = state.claims[blockId];
         // if there is an existing claimer, we need to see if msg.value sent is higher than the previous deposit.
         if (currentClaim.claimer != address(0)) {
-            if (msg.value < currentClaim.deposit) {
+            if (
+                msg.value <= currentClaim.deposit ||
+                msg.value <
+                currentClaim.deposit + config.minimumClaimBidIncreaseInWei
+            ) {
                 revert L1_INVALID_CLAIM_DEPOSIT({
                     amountSent: msg.value,
                     required: currentClaim.deposit
@@ -180,7 +190,8 @@ library LibProving {
 
         // if claim auction window is still going on, dont allow proof.
         if (
-            block.timestamp - state.proposedBlocks[blockId].proposedAt <
+            block.timestamp -
+                state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
             config.claimAuctionWindowInSeconds
         ) {
             revert L1_TOO_EARLY();
@@ -195,7 +206,7 @@ library LibProving {
         // if claim is still valid
         if (
             block.timestamp - state.claims[blockId].claimedAt <
-            config.claimHoldTimeInSeconds + state.avgProofTime
+            config.baseClaimHoldTimeInSeconds + state.avgProofTime
         ) {
             // block must be claimed by you.
             // TODO: move this later and use evidence.prover?

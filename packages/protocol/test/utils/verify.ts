@@ -108,12 +108,15 @@ async function commitProposeClaimProveAndVerify(
     console.log("claiming", blockNumber);
 
     const config = await taikoL1.getConfig();
-    await claimBlock(
-        taikoL1,
+
+    const { claimBlockBidEvent } = await claimBlock(
+        taikoL1.connect(await prover.getSigner()),
         proposedEvent.args.id.toNumber(),
         config.baseClaimDepositInWei.add("1")
     );
+    expect(claimBlockBidEvent).not.to.be.undefined;
 
+    console.log("claimed");
     await waitForClaimToBeProvable(taikoL1, proposedEvent.args.id.toNumber());
 
     console.log("proving", blockNumber);
@@ -161,7 +164,13 @@ async function commitProposeClaimProveAndVerify(
     expect(verifyEvent).not.to.be.eq(undefined);
     console.log("verified", blockNumber);
 
-    return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
+    return {
+        verifyEvent,
+        proposedEvent,
+        provedEvent,
+        proposedBlock,
+        claimBlockBidEvent,
+    };
 }
 
 export { verifyBlocks, verifyBlockAndAssert, commitProposeClaimProveAndVerify };

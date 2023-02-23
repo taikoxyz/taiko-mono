@@ -232,7 +232,9 @@ describe.only("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice).not.to.be.undefined;
-            expect(forkChoice.prover).to.be.eq(await l1Signer.getAddress());
+            expect(forkChoice.prover).to.be.eq(
+                await prover.getSigner().getAddress()
+            );
 
             const verifiedEvent = await verifyBlocks(taikoL1, 1);
             expect(verifiedEvent).not.to.be.undefined;
@@ -404,7 +406,7 @@ describe.only("integration:TaikoL1", function () {
     });
 
     describe("getLatestSyncedHeader", function () {
-        it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
+        it.only("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;

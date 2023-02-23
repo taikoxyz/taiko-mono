@@ -53,8 +53,9 @@ contract TestTaikoL2 is TaikoL2 {
         config.enableAnchorValidation = false;
         config.enableOracleProver = false;
         config.claimAuctionWindowInSeconds = 1 minutes;
-        config.claimHoldTimeInSeconds = 30 minutes;
+        config.baseClaimHoldTimeInSeconds = 30 minutes;
         config.baseClaimDepositInWei = 0.01 ether;
+        config.minimumClaimBidIncreaseInWei = 1 wei;
         config.claimGap = 0;
     }
 }

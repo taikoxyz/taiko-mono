@@ -330,7 +330,7 @@ contract TaikoL1 is
         if (state.claims[blockId].claimer == address(0)) return false;
         return
             block.timestamp - state.claims[blockId].claimedAt <
-            getConfig().claimHoldTimeInSeconds;
+            getConfig().baseClaimHoldTimeInSeconds;
     }
 
     function isClaimedBlockProvable(
@@ -338,7 +338,10 @@ contract TaikoL1 is
     ) public view returns (bool) {
         if (state.claims[blockId].claimer == address(0)) return false;
         if (
-            block.timestamp - state.proposedBlocks[blockId].proposedAt >
+            block.timestamp -
+                state
+                    .proposedBlocks[blockId % getConfig().maxNumBlocks]
+                    .proposedAt >
             getConfig().claimAuctionWindowInSeconds
         ) {
             return true;
