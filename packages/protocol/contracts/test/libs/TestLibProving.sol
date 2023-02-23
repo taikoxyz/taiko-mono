@@ -83,6 +83,8 @@ library TestLibProving {
     error L1_ANCHOR_RECEIPT_DATA();
     error L1_ANCHOR_TX_PROOF();
     error L1_HALTED();
+    error L1_TOO_EARLY();
+    error L1_BLOCK_NOT_CLAIMED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -93,12 +95,33 @@ library TestLibProving {
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
+        // if claim auction window is still going on, dont allow proof.
+        if (
+            block.timestamp -
+                state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
+            config.claimAuctionWindowInSeconds
+        ) {
+            revert L1_TOO_EARLY();
+        }
+
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
+
+        // if claim is still valid
+        if (
+            block.timestamp - state.claims[blockId].claimedAt <
+            config.baseClaimHoldTimeInSeconds + state.avgProofTime
+        ) {
+            // block must be claimed by you.
+            // TODO: move this later and use evidence.prover?
+            if (state.claims[blockId].claimer != evidence.prover) {
+                revert L1_BLOCK_NOT_CLAIMED();
+            }
+        }
 
         uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         if (evidence.proofs.length != 2 + zkProofsPerBlock)

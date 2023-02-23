@@ -31,7 +31,7 @@ import Evidence from "../utils/evidence";
 import { encodeEvidence } from "../utils/encoding";
 import { claimBlock, waitForClaimToBeProvable } from "../utils/claim";
 
-describe.only("integration:TaikoL1", function () {
+describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let l1Provider: ethersLib.providers.JsonRpcProvider;
     let l2Provider: ethersLib.providers.JsonRpcProvider;
@@ -165,7 +165,7 @@ describe.only("integration:TaikoL1", function () {
             );
 
             const { claimBlockBidEvent } = await claimBlock(
-                taikoL1,
+                taikoL1.connect(prover.getSigner()),
                 proposedEvent.args.id.toNumber(),
                 config.baseClaimDepositInWei.add("1")
             );
@@ -209,7 +209,7 @@ describe.only("integration:TaikoL1", function () {
             );
 
             const { claimBlockBidEvent } = await claimBlock(
-                taikoL1,
+                taikoL1.connect(prover.getSigner()),
                 proposedEvent.args.id.toNumber(),
                 config.baseClaimDepositInWei.add("1")
             );
@@ -406,7 +406,7 @@ describe.only("integration:TaikoL1", function () {
     });
 
     describe("getLatestSyncedHeader", function () {
-        it.only("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
+        it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;
@@ -522,7 +522,7 @@ describe.only("integration:TaikoL1", function () {
                 );
 
                 await claimBlock(
-                    taikoL1,
+                    taikoL1.connect(prover.getSigner()),
                     proposedEvent.args.id.toNumber(),
                     config.baseClaimDepositInWei.add("1")
                 );
@@ -575,7 +575,7 @@ describe.only("integration:TaikoL1", function () {
                 );
 
                 await claimBlock(
-                    taikoL1,
+                    taikoL1.connect(prover.getSigner()),
                     proposedEvent.args.id.toNumber(),
                     config.baseClaimDepositInWei.add("1")
                 );

@@ -260,6 +260,15 @@ library LibProving {
     ) public {
         assert(!LibUtils.isHalted(state));
 
+        // if claim auction window is still going on, dont allow proof.
+        if (
+            block.timestamp -
+                state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
+            config.claimAuctionWindowInSeconds
+        ) {
+            revert L1_TOO_EARLY();
+        }
+
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -270,6 +279,19 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
+
+        // if claim is still valid
+        if (
+            block.timestamp - state.claims[blockId].claimedAt <
+            config.baseClaimHoldTimeInSeconds + state.avgProofTime
+        ) {
+            // block must be claimed by you.
+            // TODO: move this later and use evidence.prover?
+            if (state.claims[blockId].claimer != evidence.prover) {
+                revert L1_BLOCK_NOT_CLAIMED();
+            }
+        }
+
         if (evidence.proofs.length != 1 + config.zkProofsPerBlock)
             revert L1_PROOF_LENGTH();
 
