@@ -1,0 +1,14 @@
+name : Fetch Blog
+
+on:
+  schedule:
+    - cron: '12 1 * * *'
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call our API route
+        run: |
+          curl --request POST \
+          --url 'https://taiko.xyz/api/getPosts'
