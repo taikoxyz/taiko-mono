@@ -311,7 +311,11 @@ contract TaikoL1 is
         return state.claims[blockId];
     }
 
-    // isClaimForProposed
+    // TODO: remove this and the isClaimedBlockProvable for a
+    // ClaimedBlockStatus enum instead, determining whether
+    // a claimed block is Unclaimed, in the ClaimingWindow,
+    // Claimed and waiting for proof, or Claimed but claim is no longer valid
+    // and anyone can prove
     function isClaimForProposedBlockStillValid(
         uint256 blockId
     ) public view returns (bool) {
