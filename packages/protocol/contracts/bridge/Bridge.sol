@@ -158,6 +158,10 @@ contract Bridge is EssentialContract, IBridge {
         return _state.ctx;
     }
 
+    function isEtherReleased(bytes32 msgHash) public view returns (bool) {
+        return _state.etherReleased[msgHash];
+    }
+
     function isDestChainEnabled(
         uint256 _chainId
     ) public view returns (bool enabled) {
