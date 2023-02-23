@@ -10,7 +10,6 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {LibZKP} from "../libs/LibZKP.sol";
 import {LibMerkleTrie} from "../thirdparty/LibMerkleTrie.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 interface IProofVerifier {
     function verifyZKP(
         string memory verifierId,

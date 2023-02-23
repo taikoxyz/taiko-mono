@@ -12,7 +12,6 @@ import {LibSecureMerkleTrie} from "../thirdparty/LibSecureMerkleTrie.sol";
 
 /**
  * @title LibTrieProof
- * @author dantaik <dan@taiko.xyz>
  */
 library LibTrieProof {
     /*********************

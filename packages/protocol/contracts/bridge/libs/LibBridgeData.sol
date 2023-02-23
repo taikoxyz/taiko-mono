@@ -14,7 +14,6 @@ import {IBridge} from "../IBridge.sol";
 
 /**
  * Stores message metadata on the Bridge.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeData {
     struct State {

@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 /**
- * @author dantaik <dan@taiko.xyz>
  * @notice This library offers additional math functions for uint256.
  */
 
