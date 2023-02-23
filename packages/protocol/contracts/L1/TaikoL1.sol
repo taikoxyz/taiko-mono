@@ -86,9 +86,11 @@ contract TaikoL1 is
      *        - inputs[2] a byte32 that determins which verifier to run.
      *
      *        - inputs[3] a ZKP that verifies all transactions are valid -- they
-     *          have the right RLP encoding, the data size is within the limit,
-     *          and all signatures are valid. With this proof, all proposed blocks
-     *          are guaranteed to be valid.
+     *          have the right RLP encoding, the data size is within the limit, its
+     *          gasLimit > intrinsic gas cost, and all signatures are valid.
+     *          With this proof being valid, all proposed blocks are guaranteed to
+     *          be valid; if this proof is invalid, there is no way to generate a
+     *          main zk-proof at all.
      */
     function proposeBlock(bytes[] calldata inputs) external nonReentrant {
         TaikoData.Config memory config = getConfig();
