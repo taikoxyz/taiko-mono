@@ -113,6 +113,9 @@ library LibProving {
             ) {
                 revert L1_CLAIMED_TOO_RECENTLY();
             }
+
+            // todo later: check other claimed blocks by this user and ensure
+            // they are spaced out by claimGap length
         }
 
         // if user has claimed and not proven a block before, we multiply
