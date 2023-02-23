@@ -420,6 +420,25 @@ export default [
         "internalType": "bytes32",
         "name": "msgHash",
         "type": "bytes32"
+      }
+    ],
+    "name": "isEtherReleased",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "msgHash",
+        "type": "bytes32"
       },
       {
         "internalType": "uint256",

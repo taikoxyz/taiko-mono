@@ -27,6 +27,7 @@
   import { fetchSigner, switchNetwork } from "@wagmi/core";
   import Bridge from "../constants/abi/Bridge";
   import ButtonWithTooltip from "./ButtonWithTooltip.svelte";
+  import TokenVault from "../constants/abi/TokenVault";
 
   export let transaction: BridgeTransaction;
 
@@ -151,6 +152,29 @@
     );
 
     transaction.status = await contract.getMessageStatus(transaction.msgHash);
+    if(transaction.status === MessageStatus.Failed) {
+      if(transaction.message.data !== "0x") {
+        const srcTokenVaultContract = new ethers.Contract(
+          $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+          TokenVault,
+          $providers.get(chains[transaction.message.srcChainId.toNumber()].id)
+        )
+        const {token, amount} = await srcTokenVaultContract.messageDeposits(transaction.msgHash);
+        if(token === ethers.constants.AddressZero && amount.eq(0)) {
+          transaction.status = MessageStatus.FailedReleased;
+        }
+      } else {
+        const srcBridgeContract = new ethers.Contract(
+          chains[transaction.fromChainId].bridgeAddress,
+          Bridge,
+          $providers.get(chains[transaction.message.srcChainId.toNumber()].id)
+        )
+        const {token, amount} = await srcBridgeContract.isEtherReleased(transaction.msgHash);
+        if(token === ethers.constants.AddressZero && amount.eq(0)) {
+          transaction.status = MessageStatus.FailedReleased;
+        }
+      }
+    }
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
@@ -215,6 +239,8 @@
           </button>
         {:else if transaction.status === MessageStatus.Done}
           <span class="border border-transparent p-0">Claimed</span>
+        {:else if transaction.status === MessageStatus.FailedReleased}
+          <span class="border border-transparent p-0">Released</span>
         {/if}
       </span>
     </ButtonWithTooltip>
