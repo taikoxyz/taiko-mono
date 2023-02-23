@@ -17,7 +17,6 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 /**
  * Retry bridge messages.
  * @title LibBridgeRetry
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeRetry {
     using LibAddress for address;

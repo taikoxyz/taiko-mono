@@ -52,7 +52,7 @@ contract TestTaikoL2 is TaikoL2 {
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
-        config.enableProofValidation = false;
+        config.enableAnchorValidation = false;
         config.enableOracleProver = false;
     }
 }
