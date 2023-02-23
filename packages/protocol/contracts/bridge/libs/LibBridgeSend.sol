@@ -16,7 +16,6 @@ import {IBridge} from "../IBridge.sol";
  * Entry point for starting a bridge transaction.
  *
  * @title LibBridgeSend
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeSend {
     using LibAddress for address;

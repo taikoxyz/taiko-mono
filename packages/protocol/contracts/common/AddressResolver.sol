@@ -14,7 +14,6 @@ import {IAddressManager} from "./IAddressManager.sol";
  * it uses an AddressManager to manage the name-to-address mapping.
  *
  * @title AddressResolver
- * @author dantaik <dan@taiko.xyz>
  */
 abstract contract AddressResolver {
     IAddressManager internal _addressManager;

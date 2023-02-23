@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 /**
  * This library offers address-related methods.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibAddress {
     /**

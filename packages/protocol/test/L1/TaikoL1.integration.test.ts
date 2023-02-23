@@ -10,6 +10,12 @@ import {
     commitBlock,
     generateCommitHash,
 } from "../utils/commit";
+import { encodeEvidence } from "../utils/encoding";
+import {
+    readShouldRevertWithCustomError,
+    txShouldRevertWithCustomError,
+} from "../utils/errors";
+import Evidence from "../utils/evidence";
 import { initIntegrationFixture } from "../utils/fixture";
 import halt from "../utils/halt";
 import { onNewL2Block } from "../utils/onNewL2Block";
@@ -17,19 +23,13 @@ import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
+import { getBlockHeader } from "../utils/rpc";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
 import {
     commitProposeProveAndVerify,
     sleepUntilBlockIsVerifiable,
     verifyBlocks,
 } from "../utils/verify";
-import {
-    txShouldRevertWithCustomError,
-    readShouldRevertWithCustomError,
-} from "../utils/errors";
-import { getBlockHeader } from "../utils/rpc";
-import Evidence from "../utils/evidence";
-import { encodeEvidence } from "../utils/encoding";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -240,7 +240,7 @@ describe("integration:TaikoL1", function () {
                 id: 1,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
@@ -274,7 +274,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: block.extraData,
@@ -304,7 +304,7 @@ describe("integration:TaikoL1", function () {
                 id: 0,
                 l1Height: 0,
                 l1Hash: ethers.constants.HashZero,
-                beneficiary: block.miner,
+                beneficiary: commit.beneficiary,
                 txListHash: commit.txListHash,
                 mixHash: ethers.constants.HashZero,
                 extraData: ethers.utils.hexlify(ethers.utils.randomBytes(33)), // invalid extradata
@@ -374,8 +374,40 @@ describe("integration:TaikoL1", function () {
 
             // now expect another proposed block to be invalid since all slots are full and none have
             // been proven.
+            const { commitConfirmations } = await taikoL1.getConfig();
+            const block = await l2Provider.getBlock("latest");
+            const { tx: commitBlockTx, commit } = await commitBlock(
+                taikoL1.connect(l1Signer),
+                block,
+                0
+            );
+            const commitReceipt = await commitBlockTx.wait(1);
+
+            for (let i = 0; i < commitConfirmations.toNumber() + 5; i++) {
+                await sendTinyEtherToZeroAddress(l1Signer);
+            }
+
+            const meta: BlockMetadata = {
+                id: 0,
+                l1Height: 0,
+                l1Hash: ethers.constants.HashZero,
+                beneficiary: commit.beneficiary,
+                txListHash: commit.txListHash,
+                mixHash: ethers.constants.HashZero,
+                extraData: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                gasLimit: block.gasLimit,
+                timestamp: 0,
+                commitSlot: 0,
+                commitHeight: commitReceipt.blockNumber,
+            };
+
             await txShouldRevertWithCustomError(
-                commitAndProposeLatestBlock(taikoL1, l1Signer, l2Provider),
+                (
+                    await taikoL1.proposeBlock(
+                        buildProposeBlockInputs(block, meta),
+                        { gasLimit: 500000 }
+                    )
+                ).wait(),
                 l1Provider,
                 "L1_TOO_MANY()"
             );

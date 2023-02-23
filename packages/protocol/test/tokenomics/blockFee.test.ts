@@ -7,9 +7,9 @@ import blockListener from "../utils/blockListener";
 import { onNewL2Block } from "../utils/onNewL2Block";
 import Proposer from "../utils/proposer";
 
+import { initIntegrationFixture } from "../utils/fixture";
 import sleep from "../utils/sleep";
 import { deployTaikoL1 } from "../utils/taikoL1";
-import { initIntegrationFixture } from "../utils/fixture";
 
 describe("tokenomics: blockFee", function () {
     let taikoL1: TaikoL1;
