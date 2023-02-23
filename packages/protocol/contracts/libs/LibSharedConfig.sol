@@ -59,8 +59,9 @@ library LibSharedConfig {
                 enablePublicInputsCheck: true,
                 enableAnchorValidation: true,
                 enableOracleProver: true,
+                claimAuctionWindowInSeconds: 1 minutes,
                 claimHoldTimeInSeconds: 30 minutes,
-                claimDepositInWei: 1 ether,
+                baseClaimDepositInWei: 1 ether,
                 claimGap: 0
             });
     }

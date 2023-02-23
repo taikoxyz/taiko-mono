@@ -50,8 +50,9 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
         config.enableOracleProver = false;
+        config.claimAuctionWindowInSeconds = 1 minutes;
         config.claimHoldTimeInSeconds = 30 minutes;
-        config.claimDepositInWei = 1 ether;
+        config.baseClaimDepositInWei = 1 ether;
         config.claimGap = 0;
     }
 

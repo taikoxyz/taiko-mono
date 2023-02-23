@@ -183,7 +183,8 @@ library LibVerifying {
         TaikoData.Claim storage claim = state.claims[blockId];
 
         if (prover != claim.claimer) {
-            prover.sendEther(claim.deposit);
+            prover.sendEther(claim.deposit / 2);
+            payable(0).transfer(claim.deposit / 2);
         } else {
             _refundClaimerDeposit(prover, claim.deposit);
         }

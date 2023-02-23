@@ -17,11 +17,13 @@ import {LibBytesUtils} from "../../thirdparty/LibBytesUtils.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 
 library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
+    using LibAddress for address;
 
     struct Evidence {
         TaikoData.BlockMetadata meta;
@@ -47,7 +49,7 @@ library LibProving {
         address prover
     );
 
-    event BlockClaimed(
+    event ClaimBlockBid(
         uint256 indexed id,
         address claimer,
         uint256 claimedAt,
@@ -85,6 +87,7 @@ library LibProving {
     error L1_BLOCK_NOT_CLAIMED();
     error L1_CLAIMED_TOO_RECENTLY();
     error L1_ALREADY_PROVEN();
+    error L1_TOO_EARLY();
 
     // claimBlock lets a prover claim a block for only themselves to prove,
     // for a limited amount of time.
@@ -97,12 +100,15 @@ library LibProving {
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
-        // block must be unclaimed.
-        // we could allow reclaiming by another user, or allow anyone
-        // to submit proof, and first one gets the reward. right now it assumes
-        // after the claiming has happened, nobody else can claim, and anyone can submit proof.
-        if (state.claims[blockId].claimer != address(0)) {
-            revert L1_ALREADY_CLAIMED();
+        if (state.proposedBlocks[blockId].proposer == address(0)) {
+            revert L1_ID();
+        }
+
+        if (
+            block.timestamp - state.proposedBlocks[blockId].proposedAt >
+            config.claimAuctionWindowInSeconds
+        ) {
+            revert L1_TOO_LATE();
         }
 
         // if we set a claim gap, claimers can not claim sequential blocks to prove.
@@ -120,27 +126,45 @@ library LibProving {
 
         // if user has claimed and not proven a block before, we multiply
         // requiredDeposit by the number of times they have falsely claimed.
-        uint256 requiredDeposit = config.claimDepositInWei;
+        uint256 baseDepositRequired = config.baseClaimDepositInWei;
         if (state.timesProofNotDeliveredForClaim[tx.origin] > 0) {
-            requiredDeposit =
-                config.claimDepositInWei *
+            baseDepositRequired =
+                config.baseClaimDepositInWei *
                 state.timesProofNotDeliveredForClaim[tx.origin];
         }
 
-        // if user hasnt sent enough to deposit, we dont allow them to claim.
-        if (msg.value < requiredDeposit)
+        // if user hasnt sent enough to meet their personal base deposit amount
+        // we dont allow them to claim.
+        if (msg.value < baseDepositRequired) {
             revert L1_INVALID_CLAIM_DEPOSIT({
                 amountSent: msg.value,
-                required: requiredDeposit
+                required: baseDepositRequired
             });
+        }
 
+        TaikoData.Claim memory currentClaim = state.claims[blockId];
+        // if there is an existing claimer, we need to see if msg.value sent is higher than the previous deposit.
+        if (currentClaim.claimer != address(0)) {
+            if (msg.value < currentClaim.deposit) {
+                revert L1_INVALID_CLAIM_DEPOSIT({
+                    amountSent: msg.value,
+                    required: currentClaim.deposit
+                });
+            } else {
+                // otherwise we have a new high bid, and can refund the previous claimer
+                // refund the previous claimer
+                currentClaim.claimer.sendEther(currentClaim.deposit);
+            }
+        }
+
+        // then we can update the claim for the blockID to the new claimer
         state.claims[blockId] = TaikoData.Claim({
             claimer: tx.origin,
             claimedAt: block.timestamp,
             deposit: msg.value
         });
 
-        emit BlockClaimed(blockId, tx.origin, block.timestamp, msg.value);
+        emit ClaimBlockBid(blockId, tx.origin, block.timestamp, msg.value);
     }
 
     function proveBlock(
@@ -151,6 +175,14 @@ library LibProving {
         bytes[] calldata inputs
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
+
+        // if claim auction window is still going on, dont allow proof.
+        if (
+            block.timestamp - state.proposedBlocks[blockId].proposedAt <
+            config.claimAuctionWindowInSeconds
+        ) {
+            revert L1_TOO_EARLY();
+        }
 
         // if claim is still valid
         if (
