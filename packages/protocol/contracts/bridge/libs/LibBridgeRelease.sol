@@ -12,9 +12,6 @@ import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 import {IBridge} from "../IBridge.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 

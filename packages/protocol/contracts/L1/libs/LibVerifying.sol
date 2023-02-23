@@ -17,7 +17,6 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 
 /**
  * LibVerifying.
- * @author dantaik <dan@taiko.xyz>
  */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;

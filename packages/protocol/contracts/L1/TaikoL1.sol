@@ -19,9 +19,6 @@ import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
 import {AddressResolver} from "../common/AddressResolver.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 contract TaikoL1 is
     EssentialContract,
     IHeaderSync,

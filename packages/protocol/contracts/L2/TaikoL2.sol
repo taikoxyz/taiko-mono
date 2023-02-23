@@ -19,9 +19,6 @@ import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
 import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     using LibTxDecoder for bytes;
 

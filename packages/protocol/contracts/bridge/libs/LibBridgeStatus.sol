@@ -12,9 +12,6 @@ import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;
 

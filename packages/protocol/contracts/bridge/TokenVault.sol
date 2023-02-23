@@ -26,7 +26,6 @@ import {IBridge} from "./IBridge.sol";
  * tokens.
  * @dev Ether is held by Bridges on L1 and by the EtherVault on L2,
  * not TokenVaults.
- * @author dantaik <dan@taiko.xyz>
  */
 contract TokenVault is EssentialContract {
     using SafeERC20Upgradeable for ERC20Upgradeable;

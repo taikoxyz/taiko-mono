@@ -19,7 +19,6 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 /**
  * Process bridge messages on the destination chain.
  * @title LibBridgeProcess
- * @author dantaik <dan@taiko.xyz>
  */
 library LibBridgeProcess {
     using LibMath for uint256;
