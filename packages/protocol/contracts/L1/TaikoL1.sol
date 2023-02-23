@@ -320,4 +320,18 @@ contract TaikoL1 is
             block.timestamp - state.claims[blockId].claimedAt <
             getConfig().claimHoldTimeInSeconds;
     }
+
+    function isClaimedBlockProvable(
+        uint256 blockId
+    ) public view returns (bool) {
+        if (state.claims[blockId].claimer == address(0)) return false;
+        if (
+            block.timestamp - state.proposedBlocks[blockId].proposedAt >
+            getConfig().claimAuctionWindowInSeconds
+        ) {
+            return true;
+        }
+
+        return false;
+    }
 }
