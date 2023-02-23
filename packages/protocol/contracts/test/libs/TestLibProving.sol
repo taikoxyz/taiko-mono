@@ -115,6 +115,7 @@ library TestLibProving {
             inputs[0],
             (TaikoData.BlockMetadata)
         );
+
         if (target.id != blockId) revert L1_ID();
         _checkMetadata({state: state, config: config, meta: target});
 
