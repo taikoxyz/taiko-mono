@@ -31,6 +31,7 @@ contract TaikoL1 is
     uint256[100] private __gap;
 
     modifier onlyFromEOA() {
+        // solhint-disable-next-line avoid-tx-origin
         if (msg.sender != tx.origin) revert L1_CONTRACT_NOT_ALLOWED();
         _;
     }
@@ -296,10 +297,6 @@ contract TaikoL1 is
         return LibVerifying.getProverRewardBips(getConfig(), numProvers);
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory) {
-        return LibSharedConfig.getConfig();
-    }
-
     function isBlockVerifiable(
         uint256 blockId,
         bytes32 parentHash
@@ -311,5 +308,9 @@ contract TaikoL1 is
                 fc: state.forkChoices[blockId][parentHash],
                 blockId: blockId
             });
+    }
+
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
+        return LibSharedConfig.getConfig();
     }
 }
