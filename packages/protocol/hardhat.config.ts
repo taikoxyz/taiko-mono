@@ -3,8 +3,8 @@ import "@nomiclabs/hardhat-waffle";
 import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "hardhat-abi-exporter";
-import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import "hardhat-gas-reporter";
 import { HardhatUserConfig } from "hardhat/config";
 import "solidity-coverage";
 import "solidity-docgen";
@@ -47,6 +47,7 @@ const config: HardhatUserConfig = {
                 mnemonic: hardhatMnemonic,
             },
             gas: 8000000,
+            allowUnlimitedContractSize: true,
         },
         mainnet: {
             accounts:

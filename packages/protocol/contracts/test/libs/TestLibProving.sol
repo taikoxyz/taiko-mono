@@ -438,4 +438,10 @@ library TestLibProving {
         BlockHeader memory header,
         TaikoData.BlockMetadata memory meta
     ) private pure {}
+
+    function _getInstance(
+        LibProving.Evidence memory evidence
+    ) public pure returns (bytes32 instance) {
+        return LibProving._getInstance(evidence);
+    }
 }
