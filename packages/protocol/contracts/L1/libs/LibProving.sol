@@ -186,23 +186,23 @@ library LibProving {
             revert L1_TOO_EARLY();
         }
 
-        // if claim is still valid
-        if (
-            block.timestamp - state.claims[blockId].claimedAt <
-            config.claimHoldTimeInSeconds + state.avgProofTime
-        ) {
-            // block must be claimed by you
-            if (state.claims[blockId].claimer != tx.origin) {
-                revert L1_BLOCK_NOT_CLAIMED();
-            }
-        }
-
         // otherwise anyone can prove, and when they do, they get your deposit as a bonus.
 
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
+        // if claim is still valid
+        if (
+            block.timestamp - state.claims[blockId].claimedAt <
+            config.claimHoldTimeInSeconds + state.avgProofTime
+        ) {
+            // block must be claimed by you.
+            // TODO: move this later and use evidence.prover?
+            if (state.claims[blockId].claimer != evidence.prover) {
+                revert L1_BLOCK_NOT_CLAIMED();
+            }
+        }
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
 
