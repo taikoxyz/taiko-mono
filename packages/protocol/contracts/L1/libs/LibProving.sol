@@ -92,7 +92,9 @@ library LibProving {
     // claimBlock lets a prover claim a block for only themselves to prove,
     // for a limited amount of time.
     // if the time passes and they dont submit a proof,
-    // they will lose their deposit.
+    // they will lose their deposit, half to the new prover, half is burnt.
+    // there is a set window anyone can bid, then the winner has N time to prove it.
+    // after which anyone can prove.
     function claimBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
