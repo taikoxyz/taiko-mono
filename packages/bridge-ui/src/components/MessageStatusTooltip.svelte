@@ -31,7 +31,7 @@
           message, and you must retry the processing yourself.
         </li>
         <li class="mb-2">
-          <strong>Failed</strong>: Your bridged asset is unable to be processed
+          <strong>Release</strong>: Your bridged asset is unable to be processed
           and is available to you on the source chain.
         </li>
       </ul>
