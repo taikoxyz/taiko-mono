@@ -169,8 +169,8 @@
           Bridge,
           $providers.get(chains[transaction.message.srcChainId.toNumber()].id)
         )
-        const {token, amount} = await srcBridgeContract.isEtherReleased(transaction.msgHash);
-        if(token === ethers.constants.AddressZero && amount.eq(0)) {
+        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(transaction.msgHash);
+        if(isFailedMessageResolved) {
           transaction.status = MessageStatus.FailedReleased;
         }
       }
