@@ -47,7 +47,6 @@ const config: HardhatUserConfig = {
                 mnemonic: hardhatMnemonic,
             },
             gas: 8000000,
-            allowUnlimitedContractSize: true,
         },
         mainnet: {
             accounts:
