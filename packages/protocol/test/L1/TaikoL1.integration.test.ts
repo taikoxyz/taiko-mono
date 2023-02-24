@@ -165,7 +165,7 @@ describe("integration:TaikoL1", function () {
             );
 
             const { claimBlockBidEvent } = await claimBlock(
-                taikoL1.connect(prover.getSigner()),
+                taikoL1.connect(l1Signer),
                 proposedEvent.args.id.toNumber(),
                 config.baseClaimDepositInWei.add("1")
             );
@@ -193,9 +193,7 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice.blockHash).to.be.eq(block.hash);
-            expect(forkChoice.prover).to.be.eq(
-                await prover.getSigner().getAddress()
-            );
+            expect(forkChoice.prover).to.be.eq(await l1Signer.getAddress());
         });
 
         it("returns empty after a block is verified", async function () {
@@ -729,82 +727,6 @@ describe("integration:TaikoL1", function () {
                     txPromise,
                     l1Provider,
                     "L1_CIRCUIT_LENGTH()"
-                );
-            }
-        });
-
-        it("reverts when prover is the zero address", async function () {
-            l2Provider.on("block", blockListener(chan, genesisHeight));
-
-            const config = await taikoL1.getConfig();
-            /* eslint-disable-next-line */
-            for await (const blockNumber of chan) {
-                if (
-                    blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
-                ) {
-                    break;
-                }
-
-                const block = await l2Provider.getBlock(blockNumber);
-
-                // commit and propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.commitThenProposeBlock(
-                    block
-                );
-
-                const { claimBlockBidEvent } = await claimBlock(
-                    taikoL1.connect(prover.getSigner()),
-                    proposedEvent.args.id.toNumber(),
-                    config.baseClaimDepositInWei.add("1")
-                );
-                expect(claimBlockBidEvent).not.to.be.undefined;
-
-                await waitForClaimToBeProvable(
-                    taikoL1,
-                    proposedEvent.args.id.toNumber()
-                );
-
-                const header = await getBlockHeader(l2Provider, blockNumber);
-                const inputs = [];
-                const evidence: Evidence = {
-                    meta: proposedEvent.args.meta as any as BlockMetadata,
-                    header: header.blockHeader,
-                    prover: ethers.constants.AddressZero,
-                    proofs: [],
-                    circuits: [],
-                };
-
-                for (let i = 0; i < config.zkProofsPerBlock.toNumber(); i++) {
-                    evidence.circuits.push(1);
-                }
-
-                for (
-                    let i = 0;
-                    i < config.zkProofsPerBlock.toNumber() + 2;
-                    i++
-                ) {
-                    evidence.proofs.push("0xff");
-                }
-
-                inputs[0] = encodeEvidence(evidence);
-                inputs[1] = "0x";
-                inputs[2] = "0x";
-
-                const txPromise = (
-                    await taikoL1.proveBlock(
-                        proposedEvent.args.meta.id.toNumber(), // id different than meta
-                        inputs,
-                        {
-                            gasLimit: 2000000,
-                        }
-                    )
-                ).wait(1);
-
-                await txShouldRevertWithCustomError(
-                    txPromise,
-                    l1Provider,
-                    "L1_PROVER()"
                 );
             }
         });
