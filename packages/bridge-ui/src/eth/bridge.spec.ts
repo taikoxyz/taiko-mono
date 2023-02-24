@@ -1,4 +1,4 @@
-import { BigNumber, Wallet } from "ethers";
+import { BigNumber, ethers, Wallet } from "ethers";
 import {
   CHAIN_ID_MAINNET,
   CHAIN_ID_TAIKO,
@@ -18,10 +18,12 @@ const mockContract = {
   getMessageStatus: jest.fn(),
   processMessage: jest.fn(),
   retryMessage: jest.fn(),
+  releaseEther: jest.fn(),
 };
 
 const mockProver = {
   GenerateProof: jest.fn(),
+  GenerateReleaseProof: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
@@ -36,6 +38,9 @@ jest.mock("ethers", () => ({
   Contract: function () {
     return mockContract;
   },
+  providers: {
+    JsonRpcProvider: jest.fn()
+  }
 }));
 
 describe("bridge tests", () => {
@@ -249,5 +254,77 @@ describe("bridge tests", () => {
     expect(mockProver.GenerateProof).not.toHaveBeenCalled();
 
     expect(mockContract.retryMessage).toHaveBeenCalled();
+  });
+
+  it("release tokens throws if message is already in DONE status", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Done;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(mockProver);
+
+    expect(mockContract.releaseEther).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+
+    await expect(bridge.ReleaseTokens({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        sender: "0x01",
+        gasLimit: BigNumber.from(1),
+      } as unknown as Message,
+      msgHash: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+      destProvider: new ethers.providers.JsonRpcProvider(),
+      srcTokenVaultAddress: "0x"
+    })).rejects.toThrowError("message already processed");
+  });
+
+  it("release tokens", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Failed;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ETHBridge(mockProver);
+
+    expect(mockContract.releaseEther).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+
+    await bridge.ReleaseTokens({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        sender: "0x01",
+        gasLimit: BigNumber.from(1),
+      } as unknown as Message,
+      msgHash: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+      destProvider: new ethers.providers.JsonRpcProvider(),
+      srcTokenVaultAddress: "0x"
+    });
+
+    expect(mockProver.GenerateReleaseProof).toHaveBeenCalled();
+
+    expect(mockContract.releaseEther).toHaveBeenCalled();
   });
 });
