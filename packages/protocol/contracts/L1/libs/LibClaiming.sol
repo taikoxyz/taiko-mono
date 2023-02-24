@@ -20,6 +20,13 @@ library LibClaiming {
         uint256 deposit
     );
 
+    event BidRefunded(
+        uint256 indexed id,
+        address claimer,
+        uint256 refundedAt,
+        uint256 refund
+    );
+
     error L1_ID();
     error L1_TOO_LATE();
     error L1_HALTED();
@@ -89,7 +96,6 @@ library LibClaiming {
         // if there is an existing claimer, we need to see if msg.value sent is higher than the previous deposit.
         if (currentClaim.claimer != address(0)) {
             if (
-                msg.value <= currentClaim.deposit ||
                 msg.value <
                 currentClaim.deposit + config.minimumClaimBidIncreaseInWei
             ) {
@@ -98,6 +104,12 @@ library LibClaiming {
                 // otherwise we have a new high bid, and can refund the previous claimer
                 // refund the previous claimer
                 currentClaim.claimer.sendEther(currentClaim.deposit);
+                emit BidRefunded(
+                    blockId,
+                    currentClaim.claimer,
+                    block.timestamp,
+                    currentClaim.deposit
+                );
             }
         }
 

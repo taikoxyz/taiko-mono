@@ -32,5 +32,12 @@ abstract contract TaikoEvents {
         uint256 deposit
     );
 
+    event BidRefunded(
+        uint256 indexed id,
+        address claimer,
+        uint256 refundedAt,
+        uint256 refund
+    );
+
     event Halted(bool halted);
 }
