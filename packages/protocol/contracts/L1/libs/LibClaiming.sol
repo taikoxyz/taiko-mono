@@ -32,7 +32,6 @@ library LibClaiming {
     error L1_HALTED();
     error L1_ALREADY_CLAIMED();
     error L1_INVALID_CLAIM_DEPOSIT();
-    error L1_CLAIMED_TOO_RECENTLY();
 
     // claimBlock lets a prover claim a block for only themselves to prove,
     // for a limited amount of time.
@@ -62,19 +61,6 @@ library LibClaiming {
             config.claimAuctionWindowInSeconds
         ) {
             revert L1_TOO_LATE();
-        }
-
-        // if we set a claim gap, claimers can not claim sequential blocks to prove.
-        // a bit of forced decentralization of provers.
-        if (config.claimGap > 0) {
-            if (
-                state.lastBlockIdClaimed[tx.origin] + config.claimGap < blockId
-            ) {
-                revert L1_CLAIMED_TOO_RECENTLY();
-            }
-
-            // todo later: check other claimed blocks by this user and ensure
-            // they are spaced out by claimGap length
         }
 
         // if user has claimed and not proven a block before, we multiply

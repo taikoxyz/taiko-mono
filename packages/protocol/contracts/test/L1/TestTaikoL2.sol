@@ -56,6 +56,5 @@ contract TestTaikoL2 is TaikoL2 {
         config.baseClaimHoldTimeInSeconds = 30 minutes;
         config.baseClaimDepositInWei = 0.01 ether;
         config.minimumClaimBidIncreaseInWei = 1 wei;
-        config.claimGap = 0;
     }
 }

@@ -54,7 +54,6 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.baseClaimHoldTimeInSeconds = 30 minutes;
         config.baseClaimDepositInWei = 0.000000001 ether;
         config.minimumClaimBidIncreaseInWei = 1 wei;
-        config.claimGap = 0;
     }
 
     function verifyZKP(

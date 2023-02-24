@@ -40,7 +40,6 @@ library TaikoData {
         uint256 baseClaimDepositInWei;
         uint256 minimumClaimBidIncreaseInWei;
         uint64 claimAuctionWindowInSeconds;
-        uint8 claimGap; // how many blocks between claiming, so one person can not claim every block
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;

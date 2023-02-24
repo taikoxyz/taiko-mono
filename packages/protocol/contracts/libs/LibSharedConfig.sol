@@ -62,8 +62,7 @@ library LibSharedConfig {
                 claimAuctionWindowInSeconds: 1 minutes, // owner: jeff
                 baseClaimHoldTimeInSeconds: 30 minutes, // owner: jeff
                 baseClaimDepositInWei: 1 ether, // owner: jeff
-                minimumClaimBidIncreaseInWei: 1 wei, // owner: jeff
-                claimGap: 0
+                minimumClaimBidIncreaseInWei: 1 wei // owner: jeff
             });
     }
 }

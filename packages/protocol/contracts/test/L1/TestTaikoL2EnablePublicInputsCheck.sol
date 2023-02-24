@@ -56,6 +56,5 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.baseClaimHoldTimeInSeconds = 30 minutes;
         config.baseClaimDepositInWei = 1 ether;
         config.minimumClaimBidIncreaseInWei = 1 wei;
-        config.claimGap = 0;
     }
 }
