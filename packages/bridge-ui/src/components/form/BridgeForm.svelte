@@ -42,7 +42,7 @@
 
   let amount: string;
   let amountInput: HTMLInputElement;
-  let requiresAllowance: boolean = true;
+  let requiresAllowance: boolean = false;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
   let customFee: string = "0";
@@ -115,7 +115,7 @@
     fromChain: Chain,
     signer: Signer
   ) {
-    if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return false;
 
     const addr = await addrForToken();
     const allowance = await $activeBridge.RequiresAllowance({
