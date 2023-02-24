@@ -49,7 +49,7 @@ abstract contract TaikoCustomErrors {
     error L1_TX_LIST();
     error L1_ZKP();
     error L1_ALREADY_CLAIMED();
-    error L1_INVALID_CLAIM_DEPOSIT(uint256 amountSent, uint256 required);
+    error L1_INVALID_CLAIM_DEPOSIT();
     error L1_BLOCK_NOT_CLAIMED();
     error L1_CLAIMED_TOO_RECENTLY();
     error L1_ALREADY_PROVEN();

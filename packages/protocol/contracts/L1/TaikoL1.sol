@@ -18,6 +18,7 @@ import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
 import {AddressResolver} from "../common/AddressResolver.sol";
+import {LibClaiming} from "./libs/LibClaiming.sol";
 
 contract TaikoL1 is
     EssentialContract,
@@ -107,7 +108,7 @@ contract TaikoL1 is
     }
 
     function claimBlock(uint256 blockId) external payable nonReentrant {
-        LibProving.claimBlock({
+        LibClaiming.claimBlock({
             state: state,
             config: getConfig(),
             blockId: blockId

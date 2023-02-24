@@ -437,6 +437,76 @@ describe("integration:TaikoL1", function () {
         });
     });
 
+    describe("claimBlock", function () {
+        it("reverts if halted", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+
+            await halt(taikoL1, true);
+            await txShouldRevertWithCustomError(
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id, {
+                        gasLimit: 500000,
+                        value: config.baseClaimDepositInWei.add(
+                            config.minimumClaimBidIncreaseInWei
+                        ),
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_HALTED()"
+            );
+        });
+
+        it("reverts if block isnt actually proposed", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+
+            await txShouldRevertWithCustomError(
+                // add 1 to the id to make it not actually proposed
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id.add(1), {
+                        gasLimit: 500000,
+                        value: config.baseClaimDepositInWei.add(
+                            config.minimumClaimBidIncreaseInWei
+                        ),
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_ID()"
+            );
+        });
+        it("reverts if the value is less than the necessary claim deposit", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+
+            expect(proposedEvent).not.to.be.undefined;
+
+            await txShouldRevertWithCustomError(
+                // add 1 to the id to make it not actually proposed
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id.toNumber(), {
+                        gasLimit: 500000,
+                        value: 1,
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_INVALID_CLAIM_DEPOSIT()"
+            );
+        });
+    });
+
     describe("getLatestSyncedHeader", function () {
         it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
