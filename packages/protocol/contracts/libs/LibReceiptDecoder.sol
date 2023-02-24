@@ -6,12 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import "../thirdparty/LibBytesUtils.sol";
-import "../thirdparty/LibRLPReader.sol";
+import {LibBytesUtils} from "../thirdparty/LibBytesUtils.sol";
+import {LibRLPReader} from "../thirdparty/LibRLPReader.sol";
 
-/**
- * @author david <david@taiko.xyz>
- */
 library LibReceiptDecoder {
     struct Receipt {
         uint64 status;
@@ -60,7 +57,7 @@ library LibReceiptDecoder {
     ) internal pure returns (Log[] memory) {
         Log[] memory logs = new Log[](logsRlp.length);
 
-        for (uint256 i = 0; i < logsRlp.length; ++i) {
+        for (uint256 i; i < logsRlp.length; ++i) {
             LibRLPReader.RLPItem[] memory rlpItems = LibRLPReader.readList(
                 logsRlp[i]
             );
@@ -77,7 +74,7 @@ library LibReceiptDecoder {
     ) internal pure returns (bytes32[] memory) {
         bytes32[] memory topics = new bytes32[](topicsRlp.length);
 
-        for (uint256 i = 0; i < topicsRlp.length; ++i) {
+        for (uint256 i; i < topicsRlp.length; ++i) {
             topics[i] = LibRLPReader.readBytes32(topicsRlp[i]);
         }
 

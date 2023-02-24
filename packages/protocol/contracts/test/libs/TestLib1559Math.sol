@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/Lib1559Math.sol";
+import {Lib1559Math} from "../../libs/Lib1559Math.sol";
 
 contract TestLib1559Math {
     function adjustTarget(

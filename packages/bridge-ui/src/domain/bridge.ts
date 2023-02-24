@@ -25,14 +25,25 @@ type BridgeOpts = {
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+  isBridgedTokenAlreadyDeployed?: boolean;
 };
 
 type ClaimOpts = {
   message: Message;
-  signal: string;
+  msgHash: string;
   signer: ethers.Signer;
   destBridgeAddress: string;
   srcBridgeAddress: string;
+};
+
+type ReleaseOpts = {
+  message: Message;
+  msgHash: string;
+  signer: ethers.Signer;
+  destBridgeAddress: string;
+  srcBridgeAddress: string;
+  destProvider: ethers.providers.JsonRpcProvider;
+  srcTokenVaultAddress: string;
 };
 
 interface Bridge {
@@ -41,6 +52,7 @@ interface Bridge {
   Bridge(opts: BridgeOpts): Promise<Transaction>;
   EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
   Claim(opts: ClaimOpts): Promise<Transaction>;
+  ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
 }
 
-export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts };
+export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts, ReleaseOpts };

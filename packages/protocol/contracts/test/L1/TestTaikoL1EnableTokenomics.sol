@@ -7,7 +7,8 @@
 pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../../L1/ProofVerifier.sol";
-import "../../L1/TaikoL1.sol";
+import {TaikoL1} from "../../L1/TaikoL1.sol";
+import {TaikoData} from "../../L1/TaikoData.sol";
 
 contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
     function getConfig()
@@ -47,18 +48,17 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.proofTimeCap = 5 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.initialUncleDelay = 1 seconds;
+        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
-        config.enableProofValidation = false;
+        config.enableAnchorValidation = false;
         config.enableOracleProver = false;
     }
 
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
-        bytes32 /*blockHash*/,
-        address /*prover*/,
-        bytes32 /*txListHash*/
+        bytes32 /*instance*/
     ) public pure override returns (bool) {
         return true;
     }
