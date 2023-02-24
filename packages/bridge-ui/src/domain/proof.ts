@@ -23,8 +23,19 @@ type GenerateProofOpts = {
   srcSignalServiceAddress: string;
 };
 
+type GenerateReleaseProofOpts = {
+  msgHash: string;
+  sender: string;
+  destBridgeAddress: string;
+  destChain: number;
+  destHeaderSyncAddress: string;
+  srcHeaderSyncAddress: string;
+  srcChain: number;
+};
+
 interface Prover {
   GenerateProof(opts: GenerateProofOpts): Promise<string>;
+  GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string>;
 }
 
-export { GenerateProofOpts, Prover, StorageEntry, EthGetProofResponse };
+export { GenerateProofOpts, Prover, StorageEntry, EthGetProofResponse, GenerateReleaseProofOpts };

@@ -1,11 +1,13 @@
 import { Contract, ethers } from "ethers";
 import { RLP } from "ethers/lib/utils.js";
+import Bridge from "../constants/abi/Bridge";
 import HeaderSync from "../constants/abi/HeaderSync";
 import type { Block, BlockHeader } from "../domain/block";
 import type {
   Prover,
   GenerateProofOpts,
   EthGetProofResponse,
+  GenerateReleaseProofOpts,
 } from "../domain/proof";
 
 class ProofService implements Prover {
@@ -15,7 +17,7 @@ class ProofService implements Prover {
     this.providerMap = providerMap;
   }
 
-  async GenerateProof(opts: GenerateProofOpts): Promise<string> {
+  private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ["address", "bytes32"],
@@ -23,14 +25,10 @@ class ProofService implements Prover {
       )
     );
 
-    const provider = this.providerMap.get(opts.srcChain);
+    return key;
+  }
 
-    const contract = new Contract(
-      opts.destHeaderSyncAddress,
-      HeaderSync,
-      this.providerMap.get(opts.destChain)
-    );
-
+  private static async getBlockAndBlockHeader(contract: ethers.Contract, provider: ethers.providers.JsonRpcProvider): Promise<{block: Block, blockHeader: BlockHeader}> {
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
 
     const block: Block = await provider.send("eth_getBlockByHash", [
@@ -59,17 +57,10 @@ class ProofService implements Prover {
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
     };
 
-    // rpc call to get the merkle proof what value is at key on the bridge contract
-    const proof: EthGetProofResponse = await provider.send("eth_getProof", [
-      opts.srcSignalServiceAddress,
-      [key],
-      block.hash,
-    ]);
+    return { block, blockHeader };
+  }
 
-    if (proof.storageProof[0].value !== "0x1") {
-      throw Error("invalid proof");
-    }
-
+  private static getSignalProof(proof: EthGetProofResponse, blockHeader: BlockHeader) {
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = ethers.utils.defaultAbiCoder.encode(
       ["bytes", "bytes"],
@@ -85,6 +76,60 @@ class ProofService implements Prover {
     );
 
     return signalProof;
+  }
+
+  async GenerateProof(opts: GenerateProofOpts): Promise<string> {
+    const key = ProofService.getKey(opts);
+
+    const provider = this.providerMap.get(opts.srcChain);
+
+    const contract = new Contract(
+      opts.destHeaderSyncAddress,
+      HeaderSync,
+      this.providerMap.get(opts.destChain)
+    );
+
+    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+
+    // rpc call to get the merkle proof what value is at key on the SignalService contract
+    const proof: EthGetProofResponse = await provider.send("eth_getProof", [
+      opts.srcSignalServiceAddress,
+      [key],
+      block.hash,
+    ]);
+
+    if (proof.storageProof[0].value !== "0x1") {
+      throw Error("invalid proof");
+    }
+
+    return ProofService.getSignalProof(proof, blockHeader);
+  }
+
+  async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
+    const key = ProofService.getKey(opts);
+
+    const provider = this.providerMap.get(opts.destChain);
+
+    const contract = new Contract(
+      opts.srcHeaderSyncAddress,
+      HeaderSync,
+      this.providerMap.get(opts.srcChain)
+    );
+
+    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+
+    // rpc call to get the merkle proof what value is at key on the SignalService contract
+    const proof: EthGetProofResponse = await provider.send("eth_getProof", [
+      opts.destBridgeAddress,
+      [key],
+      block.hash,
+    ]);
+
+    if (proof.storageProof[0].value !== "0x3") {
+      throw Error("invalid proof");
+    }
+
+    return ProofService.getSignalProof(proof, blockHeader);
   }
 }
 

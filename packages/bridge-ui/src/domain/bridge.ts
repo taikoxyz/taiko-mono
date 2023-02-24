@@ -36,12 +36,23 @@ type ClaimOpts = {
   srcBridgeAddress: string;
 };
 
+type ReleaseOpts = {
+  message: Message;
+  msgHash: string;
+  signer: ethers.Signer;
+  destBridgeAddress: string;
+  srcBridgeAddress: string;
+  destProvider: ethers.providers.JsonRpcProvider;
+  srcTokenVaultAddress: string;
+};
+
 interface Bridge {
   RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
   Approve(opts: ApproveOpts): Promise<Transaction>;
   Bridge(opts: BridgeOpts): Promise<Transaction>;
   EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
   Claim(opts: ClaimOpts): Promise<Transaction>;
+  ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
 }
 
-export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts };
+export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts, ReleaseOpts };
