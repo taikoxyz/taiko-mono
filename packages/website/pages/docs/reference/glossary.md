@@ -177,7 +177,7 @@ A blockchain that fully outsources at least one of the 4 components (Consensus, 
 
 ## Multi-proof system
 
-A multisignature solution of different proving systems. For example, a combination of fraud proof and validity proof. That seems to be pretty reliable as the correlation between them is extremely low due to their designs. A more complex example of a multi-proof system: if anyone submits two conflicting state roots to a prover and both roots pass, that prover is turned off.
+A rollup settlement concept that relies on a combination of multiple different proving systems. For example, a combination of fraud proof and validity proof. The goal is to reduce reliance on a single system-type or implementation. A more complex example of a multi-proof system: if anyone submits two conflicting state roots to a prover and both roots pass, that prover is turned off.
 
 ## Multi-scalar multiplication (MSM)
 
@@ -193,7 +193,7 @@ A software client that participates in the network.
 
 ## Operator
 
-One running the node to keep a full copy of the blockchain and broadcast transactions across the network.
+An operator is the entity charged with managing a rollup and progressing its state. While similar to the concept of a proposer, operator is often meant to convey a centralized rollup implementation, with a single operator acting as node, proposer (and prover if ZK).
 
 ## Optimistic rollup
 
@@ -222,15 +222,12 @@ A proposal to implement most of the logic and architecture that make up a full D
 
 ## Prover
 
-An entity in a ZK-Rollup that creates a short proof to convince the verifier that the statement is true.
+An entity that generates the cryptographic proof to convince the verifier that the statement is true (without revealing its inputs). In a ZK-Rollup, the prover generates the ZK (validity) proof. 
+If used in the context of an optimistic rollup, the prover generates the fraud proof to show that an incorrect state was submitted.
 
-## Rewards (in rollups)
+## Rewards
 
-An amount of the network’s token included in each new block as a reward to the prover who generated the proof for the block.
-
-## Rewards (in PoS)
-
-The amount of ETH validators receive when they make votes that are consistent with the majority of other validators, when they propose blocks, and when they participate in sync committees.
+In the context of a rollup, an amount of some token allotted as a reward to the participant—proposer and/or prover—who performed a service for the network.
 
 ## Rollup
 
@@ -238,7 +235,7 @@ A type of layer 2 scaling solution that batches multiple transactions and submi
 
 ## Rollup-as-a-service
 
-An SDK that allows anyone to launch rollups quickly.
+An SDK or service that allows anyone to launch rollups quickly. Emphasis may be placed on the ability to customize the modular components of a rollup: VM, DA layer, proof system.
 
 ## Rollup contracts
 
@@ -250,7 +247,7 @@ A protocol that a program uses to request a service from a program located on an
 
 ## Scalability
 
-The ability of blockchain to handle a high volume of transactions quickly (often defined as TBS – transactions per second).
+The ability of a blockchain to handle a high level of throughput as measured in transactions per second (TPS), holding decentralization and hardware requirements constant.
 
 ## Sequencer
 
@@ -272,13 +269,13 @@ Short for "succinct non-interactive argument of knowledge", a SNARK is a widely 
 
 Short for "scalable transparent argument of knowledge", a STARK is a type of zero-knowledge proof that resolves one of the primary weaknesses of ZK-SNARKs, its reliance on a "trusted setup”. STARKs also come with much simpler cryptographic assumptions, avoiding the need for elliptic curves, pairings, and the knowledge-of-exponent assumption and instead relying purely on hashes and information theory. This means that they are secure even against attackers with quantum computers.
 
-## Succintness
+## Succinctness
 
 A property of ZKP that stands for the following terms: (i) the proof of statement is shorter than the statement itself, (ii) the time to verify the proof is faster than just to evaluate the function from scratch.
 
 ## Time Delay
 
-The transaction processing time that takes place on the network. It’s often called ‘latency’.
+In regards to upgradeability, a predefined amount of time that must elapse before the rollup smart contracts or parameters are updated. This protects users from malicious upgrades by giving them time to exit the rollup before upgrades come into effect.
 
 ## Transaction
 
@@ -321,7 +318,7 @@ Taking smart contract source code written in a high-level language (Solidity, V
 
 ## Upgradeability
 
-The contracts used in a rollup might be updated by the rollup admin key.
+The ability for smart contracts and parameters used in a rollup to be updated by holders of an admin key. Upgradeability represents a vector of risk for users, and should be decentralized and combined with time delays for greater security guarantees.
 
 ## Validator
 
@@ -337,11 +334,11 @@ An off-chain solution that uses validity proofs to improve transaction through
 
 ## Verifier
 
-An entity in a ZK-Rollup that verifies zero-knowledge proofs submitted by block proposer.
+An entity in a ZK-Rollup, often a smart contract, that verifies zero-knowledge proofs submitted by a prover.
 
 ## Verkle tree
 
-TODO
+A data storage format of which you can make a proof that it contains some pieces of data to anyone who has the root of the tree. While similar to Merkle Patricia Trees, key differences include a much wider tree format which leads to smaller proof sizes.
 
 ## Volition
 
@@ -349,12 +346,12 @@ A hybrid data availability mode, where the user can choose whether to place data
 
 ## Zero-knowledge
 
-TODO
+A cryptographic technology and sub-discipline of cryptography that allows an individual to prove that a statement or computation is true without revealing any additional information.
 
 ## Zero-knowledge proof (ZKP)
 
-A zero-knowledge proof is a cryptographic method that allows an individual to prove that a statement is true without conveying any additional information.
+A zero-knowledge proof is the resulting output of a zero-knowledge cryptographic method.
 
 ## ZK-EVM
 
-A part of ZK-Rollup that generates Zero-Knowledge Proofs to verify the correctness of programs.
+A set of circuits that prove the execution of the Ethereum Virtual Machine. It is the core component of a ZK-Rollup that generates Zero-knowledge proofs to verify the correctness of programs. Increasingly, it is used to describe a ZK-Rollup as whole which is EVM-compatible, as opposed to just the set of circuits.
