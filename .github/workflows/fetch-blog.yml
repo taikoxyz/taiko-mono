@@ -10,5 +10,4 @@ jobs:
     steps:
       - name: Call our API route
         run: |
-          curl --request POST \
-          --url 'https://taiko.xyz/api/getPosts'
+          curl --request POST --url 'https://taiko.xyz/api/getPosts'
