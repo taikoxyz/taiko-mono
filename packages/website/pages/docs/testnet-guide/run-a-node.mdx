@@ -63,7 +63,7 @@ Because we use a fork of geth, you can consult the [geth minimum requirements](h
     **Steps - Windows**
     
     1. Open the git bash terminal
-    
+
     - Start a git bash terminal by searching for git bash in the Start menu.
     - Enter the following commands in the sections below. If copy and pasting does not work, please try pasting with SHIFT + INSERT , otherwise it will need to be typed out.
     
@@ -117,6 +117,7 @@ Because we use a fork of geth, you can consult the [geth minimum requirements](h
     ```
     
     Finally, save the `.env` and start proposing by starting up your node again.
+
   </Tab>
   <Tab>
     **Steps - Mac**
@@ -163,6 +164,7 @@ Because we use a fork of geth, you can consult the [geth minimum requirements](h
     ```
     
     Finally, save the `.env` and start proposing by starting up your node again.
+
   </Tab>
   <Tab>
     **Steps - Linux**
@@ -207,7 +209,7 @@ Because we use a fork of geth, you can consult the [geth minimum requirements](h
     L1_PROPOSER_PRIVATE_KEY=your private key from a test wallet
     L2_SUGGESTED_FEE_RECIPIENT=your test wallets address (starts with 0x...)
     ```
-    
+
     Finally, save the `.env` and start proposing by starting up your node again.
   </Tab>
 </Tabs>
@@ -305,7 +307,6 @@ Next, check the proposer image's log (`docker compose logs -f taiko_client_propo
 - Your L1 proposer account ran out of ETH (needed to propose tx's). Please refer to [Request from faucet](/docs/testnet-guide/request-from-faucet).
 - There is no available block slot to propose in the Taiko L1 smart contract, so you must wait for one to become available (you can check the protocol smart contract's status with [`TaikoL1.getStateVariables`](https://taiko.xyz/docs/smart-contracts/L1/TaikoL1#getstatevariables)).
 
-
 If the above does not work, please try resyncing the images and start over
 
 ```sh
@@ -314,6 +315,7 @@ git pull
 docker compose pull
 docker compose up -d
 ```
+
 The commands below will redo *Configure node as proposer (optional)* (found in the section **Steps**-Setup and Configure Node).
 
 ```sh
