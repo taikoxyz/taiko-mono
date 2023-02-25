@@ -1,4 +1,4 @@
-import { BigNumber, Wallet } from "ethers";
+import { BigNumber, ethers, Wallet } from "ethers";
 import {
   CHAIN_ID_MAINNET,
   CHAIN_ID_TAIKO,
@@ -20,10 +20,12 @@ const mockContract = {
   processMessage: jest.fn(),
   retryMessage: jest.fn(),
   getMessageStatus: jest.fn(),
+  releaseERC20: jest.fn(),
 };
 
 const mockProver = {
   GenerateProof: jest.fn(),
+  GenerateReleaseProof: jest.fn(),
 };
 
 jest.mock("ethers", () => ({
@@ -199,7 +201,7 @@ describe("bridge tests", () => {
       "0xfake",
       opts.tokenAddress,
       opts.amountInWei,
-      BigNumber.from(140000),
+      BigNumber.from(2640000),
       opts.processingFeeInWei,
       "0xfake",
       opts.memo,
@@ -235,7 +237,7 @@ describe("bridge tests", () => {
       "0xfake",
       opts.tokenAddress,
       opts.amountInWei,
-      BigNumber.from(0),
+      BigNumber.from(2500000),
       BigNumber.from(0),
       "0xfake",
       "",
@@ -261,7 +263,7 @@ describe("bridge tests", () => {
           destChainId: BigNumber.from(CHAIN_ID_MAINNET),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
-        signal: "0x",
+        msgHash: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
         signer: wallet,
@@ -285,7 +287,7 @@ describe("bridge tests", () => {
           destChainId: BigNumber.from(CHAIN_ID_MAINNET),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
-        signal: "0x",
+        msgHash: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
         signer: wallet,
@@ -314,7 +316,7 @@ describe("bridge tests", () => {
           destChainId: BigNumber.from(CHAIN_ID_MAINNET),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
-        signal: "0x",
+        msgHash: "0x",
         srcBridgeAddress: "0x",
         destBridgeAddress: "0x",
         signer: wallet,
@@ -349,7 +351,7 @@ describe("bridge tests", () => {
         sender: "0x01",
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
-      signal: "0x",
+      msgHash: "0x",
       srcBridgeAddress: "0x",
       destBridgeAddress: "0x",
       signer: wallet,
@@ -385,7 +387,7 @@ describe("bridge tests", () => {
         sender: "0x01",
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
-      signal: "0x",
+      msgHash: "0x",
       srcBridgeAddress: "0x",
       destBridgeAddress: "0x",
       signer: wallet,
@@ -394,5 +396,77 @@ describe("bridge tests", () => {
     expect(mockProver.GenerateProof).not.toHaveBeenCalled();
 
     expect(mockContract.retryMessage).toHaveBeenCalled();
+  });
+
+  it("release tokens throws if message is already in DONE status", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Done;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(mockProver);
+
+    expect(mockContract.releaseERC20).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+
+    await expect(bridge.ReleaseTokens({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        sender: "0x01",
+        gasLimit: BigNumber.from(1),
+      } as unknown as Message,
+      msgHash: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+      destProvider: new ethers.providers.JsonRpcProvider(),
+      srcTokenVaultAddress: "0x"
+    })).rejects.toThrowError("message already processed");
+  });
+
+  it("release tokens", async () => {
+    mockContract.getMessageStatus.mockImplementationOnce(() => {
+      return MessageStatus.Failed;
+    });
+
+    mockSigner.getAddress.mockImplementationOnce(() => {
+      return "0x";
+    });
+
+    const wallet = new Wallet("0x");
+
+    const bridge: Bridge = new ERC20Bridge(mockProver);
+
+    expect(mockContract.releaseERC20).not.toHaveBeenCalled();
+
+    expect(mockProver.GenerateReleaseProof).not.toHaveBeenCalled();
+
+    await bridge.ReleaseTokens({
+      message: {
+        owner: "0x",
+        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
+        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        sender: "0x01",
+        gasLimit: BigNumber.from(1),
+      } as unknown as Message,
+      msgHash: "0x",
+      srcBridgeAddress: "0x",
+      destBridgeAddress: "0x",
+      signer: wallet,
+      destProvider: new ethers.providers.JsonRpcProvider(),
+      srcTokenVaultAddress: "0x"
+    });
+
+    expect(mockProver.GenerateReleaseProof).toHaveBeenCalled();
+
+    expect(mockContract.releaseERC20).toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import type {
   Bridge,
   BridgeOpts,
   ClaimOpts,
+  ReleaseOpts,
 } from "../domain/bridge";
 import TokenVault from "../constants/abi/TokenVault";
 import ERC20 from "../constants/abi/ERC20";
@@ -43,6 +44,10 @@ class ERC20Bridge implements Bridge {
         : BigNumber.from(0),
       memo: opts.memo ?? "",
     };
+
+    if(!opts.isBridgedTokenAlreadyDeployed) {
+      message.gasLimit = message.gasLimit.add(BigNumber.from(2500000));
+    }
 
     return { contract, owner, message };
   }
@@ -154,7 +159,7 @@ class ERC20Bridge implements Bridge {
     );
 
     const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.signal
+      opts.msgHash
     );
 
     if (
@@ -173,17 +178,68 @@ class ERC20Bridge implements Bridge {
     if (messageStatus === MessageStatus.New) {
       const proof = await this.prover.GenerateProof({
         srcChain: opts.message.srcChainId.toNumber(),
-        signal: opts.signal,
+        msgHash: opts.msgHash,
         sender: opts.srcBridgeAddress,
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+          srcSignalServiceAddress: chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       });
+
+      if(opts.message.gasLimit.gt(BigNumber.from(2500000))) {
+        return await contract.processMessage(opts.message, proof, { gasLimit: opts.message.gasLimit });
+      }
 
       return await contract.processMessage(opts.message, proof);
     } else {
       return await contract.retryMessage(opts.message, false);
+    }
+  }
+
+  async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
+    const destBridgeContract: Contract = new Contract(
+        opts.destBridgeAddress,
+        BridgeABI,
+        opts.destProvider
+    );
+      
+      const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(
+        opts.msgHash
+        );
+        
+        if (messageStatus === MessageStatus.Done) {
+          throw Error("message already processed");
+        }
+
+    const signerAddress = await opts.signer.getAddress();
+
+    if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
+      throw Error("user can not release these tokens, it is not their message");
+    }
+
+    if (messageStatus === MessageStatus.Failed) {
+      const proofOpts = {
+        srcChain: opts.message.srcChainId.toNumber(),
+        msgHash: opts.msgHash,
+        sender: opts.srcBridgeAddress,
+        destBridgeAddress: opts.destBridgeAddress,
+        destChain: opts.message.destChainId.toNumber(),
+        destHeaderSyncAddress:
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
+        srcHeaderSyncAddress:
+          chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
+      };
+
+      const proof = await this.prover.GenerateReleaseProof(proofOpts);
+
+      const srcTokenVaultContract: Contract = new Contract(
+          opts.srcTokenVaultAddress,
+          TokenVault,
+          opts.signer
+      );
+
+      return await srcTokenVaultContract.releaseERC20(opts.message, proof);
     }
   }
 }

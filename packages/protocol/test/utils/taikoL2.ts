@@ -5,7 +5,8 @@ import { AddressManager, TaikoL2 } from "../../typechain";
 async function deployTaikoL2(
     signer: ethers.Signer,
     addressManager: AddressManager,
-    enablePublicInputsCheck: boolean = true
+    enablePublicInputsCheck: boolean = true,
+    gasLimit: number | undefined = undefined
 ): Promise<TaikoL2> {
     // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
     const l2LibTxDecoder = await (
@@ -27,7 +28,7 @@ async function deployTaikoL2(
         )
     )
         .connect(signer)
-        .deploy(addressManager.address);
+        .deploy(addressManager.address, { gasLimit });
 
     return taikoL2 as TaikoL2;
 }

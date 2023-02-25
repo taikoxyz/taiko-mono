@@ -6,16 +6,20 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import "../common/EssentialContract.sol";
-import "../common/IMintableERC20.sol";
-import "../libs/LibMath.sol";
-import "../thirdparty/ERC20Upgradeable.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IMintableERC20} from "../common/IMintableERC20.sol";
+import {LibMath} from "../libs/LibMath.sol";
+import {
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "../thirdparty/ERC20Upgradeable.sol";
 
-/// @author dantaik <dan@taiko.xyz>
 /// @dev This is Taiko's governance and fee token.
-contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
+contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     using LibMath for uint256;
     using SafeCastUpgradeable for uint256;
 
@@ -40,11 +44,15 @@ contract TkoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     /// @dev Initializer to be called after being deployed behind a proxy.
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
-    function init(address _addressManager) external initializer {
+    function init(
+        string memory _name,
+        string memory _symbol,
+        address _addressManager
+    ) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
-            name_: "Taiko Token",
-            symbol_: "TKO",
+            name_: _name,
+            symbol_: _symbol,
             decimals_: 18
         });
     }

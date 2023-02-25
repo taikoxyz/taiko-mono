@@ -21,16 +21,17 @@ const proposeBlock = async (
     txListHash: string,
     commitHeight: number,
     gasLimit: BigNumber,
-    commitSlot: number = 0
+    commitSlot: number = 0,
+    beneficiary: string
 ) => {
     const meta: BlockMetadata = {
         id: 0,
         l1Height: 0,
         l1Hash: ethers.constants.HashZero,
-        beneficiary: block.miner,
+        beneficiary,
         txListHash: txListHash,
         mixHash: ethers.constants.HashZero,
-        extraData: block.extraData,
+        extraData: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
         gasLimit: gasLimit,
         timestamp: 0,
         commitSlot: commitSlot,
@@ -39,7 +40,7 @@ const proposeBlock = async (
 
     const inputs = buildProposeBlockInputs(block, meta);
 
-    const tx = await taikoL1.proposeBlock(inputs, { gasLimit: 500000 });
+    const tx = await taikoL1.proposeBlock(inputs, { gasLimit: 1000000 });
     const receipt = await tx.wait(1);
     return receipt;
 };

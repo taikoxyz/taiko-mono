@@ -36,6 +36,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:tokenomics
 
+      - name: protocol - Bridge Tests
+        working-directory: ./packages/protocol
+        run: pnpm test:bridge
+
       - name: protocol - Test Coverage
         working-directory: ./packages/protocol
         run: pnpm test:coverage

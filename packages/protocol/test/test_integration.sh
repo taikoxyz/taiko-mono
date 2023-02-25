@@ -8,6 +8,8 @@ TEST_NODE_CONTAINER_NAME_L2="test-ethereum-node-l2"
 TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME="import-test-account-eth"
 TEST_ACCOUNT_ADDRESS="0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39"
 TEST_ACCOUNT_PRIV_KEY="2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200"
+GETH_NODE_KEY_L1="14d2deec982957c89c56e1dc768a1d47c40398376ed2ba7e2df51eb029e71a83"
+GETH_NODE_KEY_L2="141ca39f5c00141ed7f065f5a5c9c9177fdbbe496b9bfc3e3dc7233802dc366c"
 
 if ! command -v docker &> /dev/null 2>&1; then
     echo "ERROR: `docker` command not found"
@@ -27,15 +29,23 @@ docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
 docker run -d \
   --name $TEST_NODE_CONTAINER_NAME_L1 \
   -p 18545:8545 \
-  ethereum/client-go:v1.10.26 \
-  --dev --http --http.addr 0.0.0.0 --http.vhosts "*" \
-  --http.api debug,eth,net,web3,txpool,miner
+  -e CHAIN_ID="1336" -e PERIOD="0" -e NODE_KEY=$GETH_NODE_KEY_L1 \
+  gcr.io/evmchain/clique-geth:latest
 
-docker run -d \
-  --name $TEST_NODE_CONTAINER_NAME_L2 \
-  -p 28545:8545 \
-  gcr.io/evmchain/hardhat-node:latest \
-  hardhat node --hostname "0.0.0.0"
+if [[ $TEST_TYPE = "integrationbridge" ]]
+then
+    docker run -d \
+      --name $TEST_NODE_CONTAINER_NAME_L2 \
+      -p 28545:8545 \
+      -e CHAIN_ID="1337" -e PERIOD="0" -e NODE_KEY=$GETH_NODE_KEY_L2 \
+      gcr.io/evmchain/clique-geth:latest
+else
+    docker run -d \
+      --name $TEST_NODE_CONTAINER_NAME_L2 \
+      -p 28545:8545 \
+      gcr.io/evmchain/hardhat-node:latest \
+      hardhat node --hostname "0.0.0.0"
+fi
 
 function waitTestNode {
   echo "Waiting for test node: $1"
@@ -63,12 +73,11 @@ function waitTestNode {
 waitTestNode http://localhost:18545
 waitTestNode http://localhost:28545
 
-# Import ETHs from the random pre-allocated developer account to the test account
 docker run -d \
-  --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
-  --add-host host.docker.internal:host-gateway \
-  ethereum/client-go:latest \
-  --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
+      --name $TEST_IMPORT_TEST_ACCOUNT_ETH_JOB_NAME \
+      --add-host host.docker.internal:host-gateway \
+      ethereum/client-go:latest \
+      --exec 'eth.sendTransaction({from: eth.coinbase, to: "'0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39'", value: web3.toWei(1024, "'ether'")})' attach http://host.docker.internal:18545
 
 function cleanup {
   docker rm --force $TEST_NODE_CONTAINER_NAME_L1 \
@@ -80,4 +89,4 @@ trap cleanup EXIT INT KILL ERR
 
 # Run the tests
 PRIVATE_KEY=$TEST_ACCOUNT_PRIV_KEY \
-  npx hardhat test --network l1_test --grep "^$TEST_TYPE"
+  npx hardhat test --network l1_test --grep "^$TEST_TYPE:"

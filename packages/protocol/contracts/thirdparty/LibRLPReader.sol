@@ -93,7 +93,7 @@ library LibRLPReader {
         // simply set a reasonable maximum list length and decrease the size before we finish.
         RLPItem[] memory out = new RLPItem[](MAX_LIST_LENGTH);
 
-        uint256 itemCount = 0;
+        uint256 itemCount;
         uint256 offset = listOffset;
         while (offset < _in.length) {
             require(
@@ -424,7 +424,7 @@ library LibRLPReader {
         }
 
         // Copy over as many complete words as we can.
-        for (uint256 i = 0; i < _length / 32; ++i) {
+        for (uint256 i; i < _length / 32; ++i) {
             assembly {
                 mstore(dest, mload(src))
             }

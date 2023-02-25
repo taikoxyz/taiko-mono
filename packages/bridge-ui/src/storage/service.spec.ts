@@ -21,6 +21,9 @@ const mockContract = {
   queryFilter: jest.fn(),
   getMessageStatus: jest.fn(),
   symbol: jest.fn(),
+  filters: {
+    ERC20Sent: jest.fn(),
+  }
 };
 
 jest.mock("ethers", () => ({
@@ -71,14 +74,15 @@ const mockEvent = {
     message: {
       owner: "0x123",
     },
-    signal: "0x456",
+    msgHash: "0x456",
+    amount: "100",
   },
 };
 
 const mockErc20Event = {
   args: {
     amount: "100",
-    signal: "0x456",
+    msgHash: "0x456",
   },
 };
 
@@ -271,7 +275,7 @@ describe("storage tests", () => {
         receipt: {
           blockNumber: 1,
         },
-        signal: "0x456",
+        msgHash: "0x456",
         status: 0,
         fromChainId: CHAIN_ID_MAINNET,
         toChainId: CHAIN_ID_TAIKO,
@@ -336,7 +340,7 @@ describe("storage tests", () => {
         receipt: {
           blockNumber: 1,
         },
-        signal: "0x456",
+        msgHash: "0x456",
         status: 0,
         symbol: "TKO",
         fromChainId: CHAIN_ID_MAINNET,

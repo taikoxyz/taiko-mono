@@ -6,9 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../thirdparty/LibRLPWriter.sol";
+import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
 
-/// @author david <david@taiko.xyz>
 struct BlockHeader {
     bytes32 parentHash;
     bytes32 ommersHash;
@@ -35,7 +34,15 @@ library LibBlockHeader {
     function hashBlockHeader(
         BlockHeader memory header
     ) internal pure returns (bytes32) {
-        bytes[] memory list;
+        bytes memory rlpHeader = LibRLPWriter.writeList(
+            getBlockHeaderRLPItemsList(header)
+        );
+        return keccak256(rlpHeader);
+    }
+
+    function getBlockHeaderRLPItemsList(
+        BlockHeader memory header
+    ) internal pure returns (bytes[] memory list) {
         if (header.baseFeePerGas == 0) {
             // non-EIP11559 transaction
             list = new bytes[](15);
@@ -64,9 +71,6 @@ library LibBlockHeader {
             // non-EIP11559 transaction
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
         }
-
-        bytes memory rlpHeader = LibRLPWriter.writeList(list);
-        return keccak256(rlpHeader);
     }
 
     function isPartiallyValidForTaiko(

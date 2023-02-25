@@ -6,20 +6,20 @@
 
 pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "./IBridge.sol";
-import "./libs/LibBridgeData.sol";
-import "./libs/LibBridgeProcess.sol";
-import "./libs/LibBridgeRelease.sol";
-import "./libs/LibBridgeRetry.sol";
-import "./libs/LibBridgeSend.sol";
-import "./libs/LibBridgeStatus.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IBridge} from "./IBridge.sol";
+import {LibBridgeData} from "./libs/LibBridgeData.sol";
+import {LibBridgeProcess} from "./libs/LibBridgeProcess.sol";
+import {LibBridgeRelease} from "./libs/LibBridgeRelease.sol";
+import {LibBridgeRetry} from "./libs/LibBridgeRetry.sol";
+import {LibBridgeSend} from "./libs/LibBridgeSend.sol";
+import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
 
 /**
  * Bridge contract which is deployed on both L1 and L2. Mostly a thin wrapper
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
- * @author dantaik <dan@taiko.xyz>
  */
 contract Bridge is EssentialContract, IBridge {
     using LibBridgeData for Message;
@@ -156,6 +156,10 @@ contract Bridge is EssentialContract, IBridge {
 
     function context() public view returns (Context memory) {
         return _state.ctx;
+    }
+
+    function isEtherReleased(bytes32 msgHash) public view returns (bool) {
+        return _state.etherReleased[msgHash];
     }
 
     function isDestChainEnabled(

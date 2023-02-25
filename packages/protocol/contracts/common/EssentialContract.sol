@@ -6,14 +6,17 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 // solhint-disable-next-line max-line-length
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "./AddressResolver.sol";
+import {AddressResolver} from "./AddressResolver.sol";
 
 /**
- * @author dantaik <dan@taiko.xyz>
  * @dev This abstract contract serves as the base contract for many core
  *      components in this package.
  */

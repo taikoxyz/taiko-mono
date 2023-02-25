@@ -6,22 +6,23 @@
 
 pragma solidity ^0.8.18;
 
-import "../../libs/LibTxDecoder.sol";
-import "../TkoToken.sol";
-import "./LibUtils.sol";
+import {
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-/// @author dantaik <dan@taiko.xyz>
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {TaikoToken} from "../TaikoToken.sol";
+import {LibUtils} from "./LibUtils.sol";
+import {TaikoData} from "../TaikoData.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+
 library LibProposing {
     using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(
-        uint64 commitSlot,
-        uint64 commitHeight,
-        bytes32 commitHash
-    );
+    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_METADATA_FIELD();
@@ -54,11 +55,7 @@ library LibProposing {
 
         state.commits[msg.sender][commitSlot] = hash;
 
-        emit BlockCommitted({
-            commitSlot: commitSlot,
-            commitHeight: uint64(block.number),
-            commitHash: commitHash
-        });
+        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
     }
 
     function proposeBlock(
@@ -124,7 +121,7 @@ library LibProposing {
             {
                 uint256 fee;
                 (newFeeBase, fee, deposit) = getBlockFee(state, config);
-                TkoToken(resolver.resolve("tko_token", false)).burn(
+                TaikoToken(resolver.resolve("tko_token", false)).burn(
                     msg.sender,
                     fee + deposit
                 );

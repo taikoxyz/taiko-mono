@@ -6,21 +6,19 @@
 
 pragma solidity ^0.8.18;
 
-import "../common/EssentialContract.sol";
-import "../common/IHeaderSync.sol";
-import "../libs/LibAnchorSignature.sol";
-import "../libs/LibSharedConfig.sol";
-import "./TaikoData.sol";
-import "./TaikoEvents.sol";
-import "./TaikoCustomErrors.sol";
-import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
-import "./libs/LibUtils.sol";
-import "./libs/LibVerifying.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
+import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
+import {TaikoData} from "./TaikoData.sol";
+import {TaikoEvents} from "./TaikoEvents.sol";
+import {TaikoCustomErrors} from "./TaikoCustomErrors.sol";
+import {LibProposing} from "./libs/LibProposing.sol";
+import {LibProving} from "./libs/LibProving.sol";
+import {LibUtils} from "./libs/LibUtils.sol";
+import {LibVerifying} from "./libs/LibVerifying.sol";
+import {AddressResolver} from "../common/AddressResolver.sol";
 
-/**
- * @author dantaik <dan@taiko.xyz>
- */
 contract TaikoL1 is
     EssentialContract,
     IHeaderSync,
@@ -32,7 +30,11 @@ contract TaikoL1 is
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    error L1_INVALID_PARAM();
+    modifier onlyFromEOA() {
+        // solhint-disable-next-line avoid-tx-origin
+        if (msg.sender != tx.origin) revert L1_CONTRACT_NOT_ALLOWED();
+        _;
+    }
 
     function init(
         address _addressManager,
@@ -85,7 +87,9 @@ contract TaikoL1 is
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
      */
-    function proposeBlock(bytes[] calldata inputs) external nonReentrant {
+    function proposeBlock(
+        bytes[] calldata inputs
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -120,7 +124,7 @@ contract TaikoL1 is
     function proveBlock(
         uint256 blockId,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
@@ -155,7 +159,7 @@ contract TaikoL1 is
     function proveBlockInvalid(
         uint256 blockId,
         bytes[] calldata inputs
-    ) external nonReentrant {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
 
         LibProving.proveBlockInvalid({
@@ -178,7 +182,7 @@ contract TaikoL1 is
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
-    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) external onlyFromEOA nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
@@ -287,8 +291,10 @@ contract TaikoL1 is
         return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory) {
-        return LibSharedConfig.getConfig();
+    function getProverRewardBips(
+        uint256 numProvers
+    ) public view returns (uint256[] memory) {
+        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
     }
 
     function isBlockVerifiable(
@@ -302,5 +308,9 @@ contract TaikoL1 is
                 fc: state.forkChoices[blockId][parentHash],
                 blockId: blockId
             });
+    }
+
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
+        return LibSharedConfig.getConfig();
     }
 }

@@ -56,7 +56,8 @@ class Proposer {
                 commit.txListHash,
                 commitReceipt.blockNumber as number,
                 block.gasLimit,
-                commitSlot
+                commitSlot,
+                commit.beneficiary
             );
 
             const proposedEvent: BlockProposedEvent = (

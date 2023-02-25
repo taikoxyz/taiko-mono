@@ -6,18 +6,13 @@
 
 pragma solidity ^0.8.18;
 
-import "./TaikoData.sol";
+import {TaikoData} from "./TaikoData.sol";
 
-/// @author david <david@taiko.xyz>
 abstract contract TaikoEvents {
     // The following events must match the definitions in other V1 libraries.
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event BlockCommitted(
-        uint64 commitSlot,
-        uint64 commitHeight,
-        bytes32 commitHash
-    );
+    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 

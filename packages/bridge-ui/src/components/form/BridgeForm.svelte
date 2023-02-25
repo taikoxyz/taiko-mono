@@ -37,10 +37,12 @@
   import { Funnel } from "svelte-heros-v2";
   import FaucetModal from "../modals/FaucetModal.svelte";
   import { fetchFeeData } from "@wagmi/core";
+  import { providers } from "../../store/providers";
+  import { checkIfTokenIsDeployedCrossChain } from "../../utils/checkIfTokenIsDeployedCrossChain";
 
   let amount: string;
   let amountInput: HTMLInputElement;
-  let requiresAllowance: boolean = true;
+  let requiresAllowance: boolean = false;
   let btnDisabled: boolean = true;
   let tokenBalance: string;
   let customFee: string = "0";
@@ -113,7 +115,7 @@
     fromChain: Chain,
     signer: Signer
   ) {
-    if (!fromChain || !amt || !token || !bridgeType || !signer) return true;
+    if (!fromChain || !amt || !token || !bridgeType || !signer) return false;
 
     const addr = await addrForToken();
     const allowance = await $activeBridge.RequiresAllowance({
@@ -215,6 +217,11 @@
       if (requiresAllowance) throw Error("requires additional allowance");
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
+
+      const provider = $providers.get($toChain.id);
+      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get($toChain.id);
+      let isBridgedTokenAlreadyDeployed = await checkIfTokenIsDeployedCrossChain($token, provider, destTokenVaultAddress, $toChain, $fromChain);
+
       const bridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
@@ -224,6 +231,7 @@
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
+        isBridgedTokenAlreadyDeployed
       };
 
       const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
@@ -348,13 +356,20 @@
     <span class="label-text">{$_("bridgeForm.fieldLabel")}</span>
 
     {#if $signer && tokenBalance}
-      <button class="label-text" on:click={useFullAmount}
-        >{$_("bridgeForm.maxLabel")}
-        {tokenBalance.length > 10
-          ? `${truncateString(tokenBalance, 6)}...`
-          : tokenBalance}
-        {$token.symbol}
-      </button>{/if}
+      <div class="label-text ">
+        <span>
+          {$_("bridgeForm.balance")}:
+          {tokenBalance.length > 10
+            ? `${truncateString(tokenBalance, 6)}...`
+            : tokenBalance}
+          {$token.symbol}
+        </span>
+
+        <button class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]" on:click={useFullAmount}>
+          {$_("bridgeForm.maxLabel")}
+        </button>
+      </div>
+    {/if}
   </label>
 
   <label
