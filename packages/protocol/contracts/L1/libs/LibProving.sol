@@ -208,20 +208,6 @@ library LibProving {
             );
 
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
-
-                bytes32 instance = keccak256(
-                    abi.encode(
-                        blockHash,
-                        evidence.prover,
-                        evidence.meta.txListHash,
-                        // txListProofHash needs to be part of the main circuit's
-                        // public input otherwise a proposer may propose a valid
-                        // block with an invalid sigature proof, making the
-                        // chain nondeterministic.
-                        evidence.meta.txListProofHash
-                    )
-                );
-
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
@@ -232,7 +218,7 @@ library LibProving {
                         )
                     ),
                     zkproof: evidence.proofs[i],
-                    instance: instance
+                    instance: _getInstance(evidence)
                 });
                 if (!verified) revert L1_ZKP();
             }
@@ -357,5 +343,25 @@ library LibProving {
             keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
         ) revert L1_META_MISMATCH();
+    }
+
+    function _getInstance(
+        Evidence memory evidence
+    ) internal pure returns (bytes32 instance) {
+        bytes[] memory headerRLPItemsList = LibBlockHeader
+            .getBlockHeaderRLPItemsList(evidence.header);
+        bytes[] memory instanceRLPItemsList = new bytes[](
+            headerRLPItemsList.length + 2
+        );
+
+        for (uint256 i; i < headerRLPItemsList.length; ++i) {
+            instanceRLPItemsList[i] = headerRLPItemsList[i];
+        }
+        instanceRLPItemsList[headerRLPItemsList.length] = LibRLPWriter
+            .writeAddress(evidence.prover);
+        instanceRLPItemsList[headerRLPItemsList.length + 1] = LibRLPWriter
+            .writeHash(evidence.meta.txListHash);
+
+        instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
     }
 }
