@@ -70,7 +70,7 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        bytes32 blockHash;
+        IHeaderSync.SyncData l2SyncData;
         uint64 provenAt;
         address[] provers;
     }

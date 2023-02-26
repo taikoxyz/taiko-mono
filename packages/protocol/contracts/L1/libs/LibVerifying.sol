@@ -23,7 +23,7 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, IHeaderSync.SyncData syncData);
 
     event HeaderSynced(
         uint256 indexed srcHeight,
@@ -50,7 +50,7 @@ library LibVerifying {
             signalServiceStorageRoot: 0
         });
 
-        emit BlockVerified(0, genesisBlockHash);
+        emit BlockVerified(0, state.l2SyncData[0]);
         emit HeaderSynced(0, state.l2SyncData[0]);
     }
 
@@ -72,7 +72,7 @@ library LibVerifying {
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state
             .l2SyncData[latestL2Height % config.blockHashHistory]
-            .blockHash; // TODO(whys)
+            .blockHash;
         uint64 processed;
 
         for (
@@ -109,7 +109,7 @@ library LibVerifying {
                     latestL2Hash: latestL2Hash
                 });
                 processed += 1;
-                emit BlockVerified(i, fc.blockHash);
+                emit BlockVerified(i, fc.l2SyncData);
                 _cleanUp(fc);
             }
         }
@@ -126,8 +126,8 @@ library LibVerifying {
                 // of a cross-chain message with a merkle proof.
                 IHeaderSync.SyncData memory syncData = IHeaderSync.SyncData({
                     blockHash: latestL2Hash,
-                    signalServiceStorageRoot: 0x0
-                }); // TODO(why)
+                    signalServiceStorageRoot: 0x0 // TODO
+                });
                 state.l2SyncData[
                     latestL2Height % config.blockHashHistory
                 ] = syncData;
@@ -302,9 +302,9 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+        if (fc.l2SyncData.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
             _latestL2Height = latestL2Height + 1;
-            _latestL2Hash = fc.blockHash;
+            _latestL2Hash = fc.l2SyncData.blockHash;
         } else {
             _latestL2Height = latestL2Height;
             _latestL2Hash = latestL2Hash;
@@ -312,8 +312,10 @@ library LibVerifying {
     }
 
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
-        fc.blockHash = 0;
+        fc.l2SyncData.blockHash = 0;
+        fc.l2SyncData.signalServiceStorageRoot = 0;
         fc.provenAt = 0;
+
         for (uint256 i; i < fc.provers.length; ++i) {
             fc.provers[i] = address(0);
         }
@@ -329,7 +331,7 @@ library LibVerifying {
         return
             // TODO(daniel): remove the next line.
             (!config.enableOracleProver || fc.provers.length > 1) &&
-            fc.blockHash != 0 &&
+            fc.l2SyncData.blockHash != 0 &&
             block.timestamp >
             LibUtils.getUncleProofDeadline({
                 state: state,

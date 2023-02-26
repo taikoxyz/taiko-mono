@@ -202,7 +202,9 @@ library LibProving {
         // TODO(daniel): remove this special address.
         if (config.enableOracleProver) {
             bytes32 _blockHash = state
-            .forkChoices[target.id][evidence.header.parentHash].blockHash;
+                .forkChoices[target.id][evidence.header.parentHash]
+                .l2SyncData
+                .blockHash;
 
             if (msg.sender == resolver.resolve("oracle_prover", false)) {
                 if (_blockHash != 0) revert L1_NOT_FIRST_PROVER();
@@ -239,7 +241,10 @@ library LibProving {
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
+            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride,
+            signalServiceStorageRoot: blockHashOverride == 0
+                ? evidence.l2SignalServiceStorageRoot
+                : bytes32(0)
         });
     }
 
@@ -249,15 +254,17 @@ library LibProving {
         address prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
-        bytes32 blockHash
+        bytes32 blockHash,
+        bytes32 signalServiceStorageRoot
     ) private {
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             parentHash
         ];
 
-        if (fc.blockHash == 0) {
+        if (fc.l2SyncData.blockHash == 0) {
             // This is the first proof for this block.
-            fc.blockHash = blockHash;
+            fc.l2SyncData.blockHash = blockHash;
+            fc.l2SyncData.signalServiceStorageRoot = signalServiceStorageRoot;
 
             if (!config.enableOracleProver) {
                 // If the oracle prover is not enabled
@@ -285,7 +292,7 @@ library LibProving {
                 if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
             }
 
-            if (fc.blockHash != blockHash) {
+            if (fc.l2SyncData.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
