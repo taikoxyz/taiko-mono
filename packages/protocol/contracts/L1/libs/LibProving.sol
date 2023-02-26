@@ -45,29 +45,28 @@ library LibProving {
         address prover
     );
 
-    error L1_ID();
-    error L1_PROVER();
-    error L1_INPUT_SIZE();
-    error L1_PROOF_LENGTH();
-    error L1_CONFLICT_PROOF();
-    error L1_META_MISMATCH();
-    error L1_ZKP();
     error L1_ALREADY_PROVEN();
-    error L1_CANNOT_BE_FIRST_PROVER();
-    error L1_ANCHOR_TYPE();
+    error L1_ANCHOR_CALLDATA();
     error L1_ANCHOR_DEST();
     error L1_ANCHOR_GAS_LIMIT();
-    error L1_ANCHOR_CALLDATA();
-    error L1_ANCHOR_SIG_R();
-    error L1_ANCHOR_SIG_S();
+    error L1_ANCHOR_RECEIPT_ADDR();
+    error L1_ANCHOR_RECEIPT_DATA();
+    error L1_ANCHOR_RECEIPT_LOGS();
     error L1_ANCHOR_RECEIPT_PROOF();
     error L1_ANCHOR_RECEIPT_STATUS();
-    error L1_ANCHOR_RECEIPT_LOGS();
-    error L1_ANCHOR_RECEIPT_ADDR();
     error L1_ANCHOR_RECEIPT_TOPICS();
-    error L1_ANCHOR_RECEIPT_DATA();
+    error L1_ANCHOR_SIG_R();
+    error L1_ANCHOR_SIG_S();
     error L1_ANCHOR_TX_PROOF();
-    error L1_HALTED();
+    error L1_ANCHOR_TYPE();
+    error L1_CANNOT_BE_FIRST_PROVER();
+    error L1_CONFLICT_PROOF();
+    error L1_ID();
+    error L1_INPUT_SIZE();
+    error L1_META_MISMATCH();
+    error L1_PROOF_LENGTH();
+    error L1_PROVER();
+    error L1_ZKP();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -76,8 +75,6 @@ library LibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        if (LibUtils.isHalted(state)) revert L1_HALTED();
-
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -121,8 +118,6 @@ library LibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
-
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));

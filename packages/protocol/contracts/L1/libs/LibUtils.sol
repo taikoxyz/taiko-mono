@@ -16,11 +16,8 @@ import {TaikoData} from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    uint64 public constant MASK_HALT = 1 << 0;
-
     bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
-    error L1_HALT_CONDITION();
     error L1_BLOCK_NUMBER();
 
     struct StateVariables {
@@ -73,12 +70,6 @@ library LibUtils {
                 latestVerifiedId: state.latestVerifiedId,
                 avgProofTime: state.avgProofTime
             });
-    }
-
-    function isHalted(
-        TaikoData.State storage state
-    ) internal view returns (bool) {
-        return isBitOne(state, MASK_HALT);
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.

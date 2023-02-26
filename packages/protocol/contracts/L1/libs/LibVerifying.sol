@@ -26,7 +26,6 @@ library LibVerifying {
 
     event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
-    error L1_HALTED();
     error L1_0_FEE_BASE();
 
     function init(

@@ -76,7 +76,6 @@ library TestLibProving {
     error L1_ANCHOR_RECEIPT_TOPICS();
     error L1_ANCHOR_RECEIPT_DATA();
     error L1_ANCHOR_TX_PROOF();
-    error L1_HALTED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -85,8 +84,6 @@ library TestLibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        if (LibUtils.isHalted(state)) revert L1_HALTED();
-
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
@@ -130,8 +127,6 @@ library TestLibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) public {
-        assert(!LibUtils.isHalted(state));
-
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));

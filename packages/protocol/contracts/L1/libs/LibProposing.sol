@@ -25,15 +25,15 @@ library LibProposing {
     event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_METADATA_FIELD();
-    error L1_EXTRA_DATA();
-    error L1_ID();
-    error L1_TOO_MANY();
-    error L1_GAS_LIMIT();
     error L1_COMMITTED();
+    error L1_EXTRA_DATA();
+    error L1_GAS_LIMIT();
+    error L1_ID();
+    error L1_INPUT_SIZE();
+    error L1_METADATA_FIELD();
     error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
-    error L1_INPUT_SIZE();
+    error L1_TOO_MANY();
     error L1_TX_LIST();
 
     function commitBlock(
@@ -68,8 +68,6 @@ library LibProposing {
         address soloProposer = resolver.resolve("solo_proposer", true);
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
-
-        assert(!LibUtils.isHalted(state));
 
         if (inputs.length != 2) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(

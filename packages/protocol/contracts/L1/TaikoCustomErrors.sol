@@ -31,8 +31,6 @@ abstract contract TaikoCustomErrors {
     error L1_DUP_PROVERS();
     error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
-    error L1_HALTED();
-    error L1_HALT_CONDITION();
     error L1_ID();
     error L1_INPUT_SIZE();
     error L1_INVALID_PARAM();
