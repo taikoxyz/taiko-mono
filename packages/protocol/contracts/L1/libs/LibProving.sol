@@ -64,6 +64,7 @@ library LibProving {
     error L1_ID();
     error L1_INPUT_SIZE();
     error L1_META_MISMATCH();
+    error L1_NOT_ORACLE_PROVER();
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_ZKP();
@@ -191,9 +192,11 @@ library LibProving {
             : blockHashOverride;
 
         if (fc.blockHash == 0) {
-            if (msg.sender == resolver.resolve("oracle_prover", true)) {
+            address oracleProver = resolver.resolve("oracle_prover", true);
+            if (msg.sender == oracleProver) {
                 oracleProving = true;
             } else {
+                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
                 fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }
