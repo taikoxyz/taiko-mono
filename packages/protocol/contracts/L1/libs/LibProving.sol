@@ -223,8 +223,8 @@ library LibProving {
             id: target.id,
             parentHash: evidence.header.parentHash,
             blockHash: _blockHash,
-            prover: oracleProving ? address(0) : fc.prover,
-            provenAt: oracleProving ? 0 : fc.provenAt
+            prover: fc.prover,
+            provenAt: fc.provenAt
         });
     }
 
