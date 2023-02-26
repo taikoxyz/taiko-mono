@@ -83,7 +83,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reservedA1;
-        uint64 statusBits; // rarely change
+        uint64 __reservedA2;
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
         // Changed when a block is proposed

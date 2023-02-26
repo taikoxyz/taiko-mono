@@ -21,10 +21,9 @@ library LibUtils {
     error L1_BLOCK_NUMBER();
 
     struct StateVariables {
+        uint256 feeBase;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 statusBits;
-        uint256 feeBase;
         uint64 nextBlockId;
         uint64 lastProposedAt;
         uint64 avgBlockTime;
@@ -59,10 +58,9 @@ library LibUtils {
     ) internal view returns (StateVariables memory) {
         return
             StateVariables({
+                feeBase: state.feeBase,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
-                statusBits: state.statusBits,
-                feeBase: state.feeBase,
                 nextBlockId: state.nextBlockId,
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
@@ -150,22 +148,5 @@ library LibUtils {
         }
         uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
         return _ma > 0 ? _ma : maValue;
-    }
-
-    function setBit(
-        TaikoData.State storage state,
-        uint64 mask,
-        bool one
-    ) private {
-        state.statusBits = one
-            ? state.statusBits | mask
-            : state.statusBits & ~mask;
-    }
-
-    function isBitOne(
-        TaikoData.State storage state,
-        uint64 mask
-    ) private view returns (bool) {
-        return state.statusBits & mask != 0;
     }
 }
