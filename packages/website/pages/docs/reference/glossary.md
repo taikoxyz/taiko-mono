@@ -35,7 +35,7 @@ A message-passing protocol between two blockchains (between [L1](#layer-1) and [
 
 ## Bytecode
 
-Generally, an instruction set designed for efficient execution by a software interpreter or a virtual machine. Unlike human-readable source code, bytecode is expressed numerically. Within the context of rollups, often related to whether the bytecode of programs on the rollup are capable of being run as-is on Ethereum as well, and vice versa.
+Generally, an instruction set designed for efficient execution by a software interpreter or a virtual machine. Unlike human-readable source code, bytecode is expressed numerically. Within the context of rollups, often related to the concept of [compatibility](#compatibility): whether the bytecode of programs on the rollup are capable of being run as-is on Ethereum as well, and vice versa.
 
 ## Challenge period
 
@@ -47,7 +47,7 @@ A program written for the purposes of being proven within a proving system. A ci
 
 ## Client
 
-Sometimes labelled interchangeably as a “[node](#node)”, they are tasked with processing transactions and managing the rollup’s state. They run the computations for each transaction according to the rollup’s virtual machine and protocol rules. If comparing to Ethereum clients, these would be execution clients such as Geth, as opposed to consensus clients.
+Sometimes labelled interchangeably as a “[node](#node)”, they are tasked with processing transactions and managing the rollup’s state. They run the computations for each transaction according to the rollup’s virtual machine and protocol rules. If comparing to Ethereum clients, these would be execution clients such as [Geth](#Geth), as opposed to consensus clients.
 
 ## Consensus
 
@@ -59,8 +59,8 @@ The degree to which a rollup can make use of existing patterns, code, and toolin
 
 ## Commitment Scheme
 
-A cryptographic primitive that (i) allows one (usually a [prover](#prover)) to commit to a chosen statement and send this commitment to the [verifier](#verifier) while keeping it hidden to others, (ii) and allows verifier to check the commitment and accept or reject it.
-The commitment scheme should satisfy two properties: (i) it should be binding that is once the prover has committed she is bound to the message she has committed, (ii) it should be hiding that is the commitment reveals nothing new about the message to the verifier.
+A cryptographic primitive that (i) allows one (usually a [prover](#prover)) to commit to a chosen statement and send this commitment to the [verifier](#verifier) while keeping it hidden to others, and (ii) allows verifier to check the commitment and accept or reject it.
+The commitment scheme should satisfy two properties: (i) it should be binding; that is, once the prover has committed she is bound to the message she has committed, (ii) it should be hiding; that is, the commitment reveals nothing new about the message to the verifier.
 
 ## Completeness
 
@@ -73,11 +73,11 @@ In comparison to other sharding mechanisms, where there are a fixed number of sh
 
 ## Data availability
 
-The property of a rollup’s state being reachable by any node retrieving the inputs that were rolled up and executed to reach said state. Data availability (DA) is the preeminent notion which allows a rollup to scale securely. A rollup is faced with a decision of what to use as a DA layer (data storage) to guarantee that any node can retrieve this data, permissionlessly, under any circumstance. For this reason, using Ethereum for DA currently provides the strongest security guarantees.
+The property of a rollup’s state being reachable by any node retrieving the inputs that were rolled up and executed to reach said state. Data availability (DA), specifically decoupling it from the rollup nodes themselves, is the preeminent notion which allows a rollup to scale securely. A rollup is faced with a decision of what to use as a DA layer (data storage) to guarantee that any node can retrieve this data, permissionlessly under any circumstance. For this reason, using Ethereum for DA currently provides the strongest security guarantees.
 
 ## Decentralization
 
-The concept of moving the control and execution of processes away from a central entity. In the context of rollups, there are several factors which separately can be more or less decentralized, leading to the degree to which the rollup as a whole is uncapturable by a central entity. The most significant factors include who can run a node, who can propose rollup blocks, who can prove blocks (in ZKRs), and who can [upgrade](#Upgradeability) the rollup smart contracts.
+The concept of moving the control and execution of processes away from a central entity. In the context of rollups, there are several factors which separately can be more or less decentralized, leading to the degree to which the rollup as a whole is uncapturable by a central entity. The most significant factors include who can run a node (and how easily), who can [propose](#proposer) rollup blocks, who can [prove](#prover) blocks (in ZK-Rollups), and who can [upgrade](#Upgradeability) the rollup smart contracts.
 
 ## Deterministic
 
@@ -105,7 +105,7 @@ The guarantee that a set of transactions before a given time will not change and
 
 ## Fast Fourier transform (FFT)
 
-An algorithm that computes the Discrete Fourier Transform (DFT) of a sequence in a more efficient manner, that is taking O(n*log(n)) instead of O(n*n). It is used for extremely fast multiplication of large numbers, multiplication of polynomials, and extremely fast generation and recovery of erasure codes.
+An algorithm that computes the Discrete Fourier Transform (DFT) of a sequence in a more efficient manner; that is, taking O(n*log(n)) instead of O(n*n). It is used for extremely fast multiplication of large numbers, multiplication of polynomials, and extremely fast generation and recovery of erasure codes.
 
 ## Fraud proof
 
@@ -190,7 +190,7 @@ The algorithm for calculating the sum of multiple scalar multiplications (produc
 
 ## Network
 
-Referring to the Ethereum network, a peer-to-peer network that propagates transactions and blocks to every Ethereum node (network participant).
+A constellation of nodes (peers) that communicate via a peer-to-peer protocol, for example, in propagating transactions and blocks to other nodes.
 
 ## Node
 
@@ -227,7 +227,7 @@ A proposal to implement most of the logic and architecture that make up a full D
 
 ## Prover
 
-An entity that generates the cryptographic proof to convince the verifier that the statement is true (without revealing its inputs). In a ZK-Rollup, the prover generates the ZK (validity) proof. 
+An entity that generates the cryptographic proof to convince the verifier that the statement is true (without revealing its inputs). In a ZK-Rollup, the prover generates the ZK (validity) proof to submit to the verifier contract.
 If used in the context of an optimistic rollup, the prover generates the fraud proof to show that an incorrect state was submitted.
 
 ## Rewards
@@ -244,7 +244,7 @@ An SDK or service that allows anyone to launch rollups quickly. Emphasis may be 
 
 ## Rollup contracts
 
-A bundle of smart contracts running on Ethereum that controls a ZK-Rollup protocol. It includes the main contract which stores rollup blocks, tracks deposits, and monitors state updates, and the verifier contract which verifies zero-knowledge proofs submitted by block proposers.
+A bundle of smart contracts running on Ethereum that controls a rollup protocol. It includes the main contract which stores rollup blocks, tracks deposits, and monitors state updates, and the verifier contract which verifies zero-knowledge proofs submitted by provers.
 
 ## RPC (Remote Procedure Call)
 
@@ -256,11 +256,11 @@ The ability of a blockchain to handle a high level of throughput as measured in 
 
 ## Sequencer
 
-A party responsible for ordering and executing transactions on the rollup. The sequencer verifies transactions, compresses the data into a block, and submits the batch to Ethereum L1 as a single transaction.
+A party responsible for ordering and executing transactions on the rollup. The sequencer verifies transactions, compresses the data into a block, and submits the batch to Ethereum L1 as a single transaction. Often synonymous with [proposer](#proposer).
 
 ## Settlement
 
-The layer of blockchain functionality where the execution of rollups is verified and disputes are resolved. This layer does not exist in monolithic chains and is an optional part of the modular chains.
+The mechanism with which the execution of rollup blocks and the resultant state is verified and possible disputes are resolved. In the context of rollups or other modular blockchains, it often refers to the proof system used--validity (ZK) or fraud proofs, or a combination thereof. Sometimes it will refer to this mechanism along with where the mechanism's outputs are ultimately published and verified, as in Ethereum being a settlement layer by verifying the proof(s).
 
 ## Smart contract
 
