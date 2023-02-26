@@ -33,7 +33,7 @@ library LibProposing {
     error L1_METADATA_FIELD();
     error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
-    error L1_TOO_MANY();
+    error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
 
     function commitBlock(
@@ -93,7 +93,7 @@ library LibProposing {
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
-            ) revert L1_TOO_MANY();
+            ) revert L1_TOO_MANY_BLOCKS();
 
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;

@@ -40,7 +40,7 @@ abstract contract TaikoCustomErrors {
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_SOLO_PROPOSER();
-    error L1_TOO_MANY();
+    error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
     error L1_ZKP();
 }
