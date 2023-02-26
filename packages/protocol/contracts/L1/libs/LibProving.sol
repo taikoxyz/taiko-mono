@@ -168,12 +168,29 @@ library LibProving {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        _checkMetadata({state: state, config: config, meta: target});
-        _validateHeaderForMetadata({
-            config: config,
-            header: evidence.header,
-            meta: evidence.meta
-        });
+        if (
+            target.id <= state.latestVerifiedId ||
+            target.id >= state.nextBlockId
+        ) revert L1_ID();
+        if (
+            state.getProposedBlock(config.maxNumBlocks, target.id).metaHash !=
+            target.hashMetadata()
+        ) revert L1_META_MISMATCH();
+
+        if (
+            evidence.header.parentHash == 0 ||
+            evidence.header.beneficiary != evidence.meta.beneficiary ||
+            evidence.header.difficulty != 0 ||
+            evidence.header.gasLimit !=
+            evidence.meta.gasLimit + config.anchorTxGasLimit ||
+            evidence.header.gasUsed == 0 ||
+            evidence.header.timestamp != evidence.meta.timestamp ||
+            evidence.header.extraData.length !=
+            evidence.meta.extraData.length ||
+            keccak256(evidence.header.extraData) !=
+            keccak256(evidence.meta.extraData) ||
+            evidence.header.mixHash != evidence.meta.mixHash
+        ) revert L1_META_MISMATCH();
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
@@ -333,37 +350,6 @@ library LibProving {
             );
             if (s != 0) revert L1_ANCHOR_SIG_S();
         }
-    }
-
-    function _checkMetadata(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta
-    ) private view {
-        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
-            revert L1_ID();
-        if (
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            meta.hashMetadata()
-        ) revert L1_META_MISMATCH();
-    }
-
-    function _validateHeaderForMetadata(
-        TaikoData.Config memory config,
-        BlockHeader memory header,
-        TaikoData.BlockMetadata memory meta
-    ) private pure {
-        if (
-            header.parentHash == 0 ||
-            header.beneficiary != meta.beneficiary ||
-            header.difficulty != 0 ||
-            header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-            header.gasUsed == 0 ||
-            header.timestamp != meta.timestamp ||
-            header.extraData.length != meta.extraData.length ||
-            keccak256(header.extraData) != keccak256(meta.extraData) ||
-            header.mixHash != meta.mixHash
-        ) revert L1_META_MISMATCH();
     }
 
     function _getInstance(
