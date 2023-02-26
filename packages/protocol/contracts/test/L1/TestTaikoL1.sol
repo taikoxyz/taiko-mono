@@ -48,7 +48,6 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
-        config.enableOracleProver = false;
     }
 
     function verifyZKP(

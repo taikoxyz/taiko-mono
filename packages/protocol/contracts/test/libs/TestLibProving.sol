@@ -205,18 +205,6 @@ library TestLibProving {
             evidence.header.parentHash
         ];
 
-        bytes32 blockHash = evidence.header.hashBlockHeader();
-        if (fc.blockHash == 0) {
-            if (config.enableOracleProver) {
-                if (msg.sender != resolver.resolve("oracle_prover", false))
-                    revert L1_NOT_ORACLE_PROVER();
-                skipZKPVerification = true;
-            }
-        } else {
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
-            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
-        }
-
         if (!skipZKPVerification) {
             if (
                 !proofVerifier.verifyZKP({
@@ -228,69 +216,6 @@ library TestLibProving {
                 })
             ) revert L1_ZKP();
         }
-
-        _markBlockProven({
-            state: state,
-            config: config,
-            prover: evidence.prover,
-            target: target,
-            parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
-        });
-    }
-
-    function _markBlockProven(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        address prover,
-        TaikoData.BlockMetadata memory target,
-        bytes32 parentHash,
-        bytes32 blockHash
-    ) private {
-        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
-            parentHash
-        ];
-
-        if (fc.blockHash == 0) {
-            // This is the first proof for this block.
-            fc.blockHash = blockHash;
-
-            if (!config.enableOracleProver) {
-                // If the oracle prover is not enabled
-                // we use the first prover's timestamp
-                fc.provenAt = uint64(block.timestamp);
-            } else {
-                // We keep fc.provenAt as 0.
-            }
-        } else {
-            if (fc.blockHash != blockHash) {
-                // We have a problem here: two proofs are both valid but claims
-                // the new block has different hashes.
-                if (config.enableOracleProver) {
-                    revert L1_CONFLICT_PROOF();
-                } else {
-                    LibUtils.halt(state, true);
-                    return;
-                }
-            }
-
-            if (config.enableOracleProver && fc.provenAt == 0) {
-                // If the oracle prover is enabled, we
-                // use the second prover's timestamp.
-                fc.provenAt = uint64(block.timestamp);
-            }
-        }
-
-        fc.prover = prover;
-
-        emit BlockProven({
-            id: target.id,
-            parentHash: parentHash,
-            blockHash: blockHash,
-            timestamp: target.timestamp,
-            provenAt: fc.provenAt,
-            prover: prover
-        });
     }
 
     function _proveAnchorForValidBlock(

@@ -28,7 +28,6 @@ library LibProving {
         BlockHeader header;
         address prover;
         bytes[] proofs;
-        // followed by MKPs.
         uint16 circuit;
     }
 
@@ -42,7 +41,6 @@ library LibProving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 timestamp,
         uint64 provenAt,
         address prover
     );
@@ -190,97 +188,51 @@ library LibProving {
 
         bool skipZKPVerification;
 
-        // TODO(daniel): remove this special address.
-
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             evidence.header.parentHash
         ];
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
+        bytes32 _blockHash = blockHashOverride == 0
+            ? blockHash
+            : blockHashOverride;
+        address oracleProver = resolver.resolve("oracle_prover", true);
+
         if (fc.blockHash == 0) {
-            if (config.enableOracleProver) {
-                if (msg.sender != resolver.resolve("oracle_prover", false))
-                    revert L1_NOT_ORACLE_PROVER();
+            if (msg.sender == oracleProver) {
                 skipZKPVerification = true;
-            }
-        } else {
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
-            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
-        }
-
-        if (!skipZKPVerification) {
-            if (
-                !proofVerifier.verifyZKP({
-                    verifierId: string(
-                        abi.encodePacked("plonk_verifier_", evidence.circuit)
-                    ),
-                    zkproof: evidence.proofs[1], // ???
-                    instance: _getInstance(evidence)
-                })
-            ) revert L1_ZKP();
-        }
-
-        _markBlockProven({
-            state: state,
-            config: config,
-            prover: evidence.prover,
-            target: target,
-            parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
-        });
-    }
-
-    function _markBlockProven(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        address prover,
-        TaikoData.BlockMetadata memory target,
-        bytes32 parentHash,
-        bytes32 blockHash
-    ) private {
-        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
-            parentHash
-        ];
-
-        if (fc.blockHash == 0) {
-            // This is the first proof for this block.
-            fc.blockHash = blockHash;
-
-            if (!config.enableOracleProver) {
-                // If the oracle prover is not enabled
-                // we use the first prover's timestamp
-                fc.provenAt = uint64(block.timestamp);
             } else {
-                // We keep fc.provenAt as 0.
-            }
-        } else {
-            if (fc.blockHash != blockHash) {
-                // We have a problem here: two proofs are both valid but claims
-                // the new block has different hashes.
-                if (config.enableOracleProver) {
-                    revert L1_CONFLICT_PROOF();
-                } else {
-                    LibUtils.halt(state, true);
-                    return;
-                }
-            }
-
-            if (config.enableOracleProver && fc.provenAt == 0) {
-                // If the oracle prover is enabled, we
-                // use the second prover's timestamp.
+                fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }
+            fc.blockHash = _blockHash;
+        } else {
+            if (fc.blockHash != _blockHash) revert L1_CONFLICT_PROOF();
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+
+            fc.prover = evidence.prover;
+            fc.provenAt = uint64(block.timestamp);
         }
 
-        fc.prover = prover;
+        if (skipZKPVerification) {
+            // do not verify zkp
+        } else {
+            bool verified = proofVerifier.verifyZKP({
+                verifierId: string(
+                    abi.encodePacked("plonk_verifier_", evidence.circuit)
+                ),
+                zkproof: evidence.proofs[1], // ???
+                instance: _getInstance(evidence)
+            });
+            if (!verified) revert L1_ZKP();
+        }
 
         emit BlockProven({
             id: target.id,
-            parentHash: parentHash,
-            blockHash: blockHash,
-            timestamp: target.timestamp,
+            parentHash: evidence.header.parentHash,
+            blockHash: _blockHash,
             provenAt: fc.provenAt,
-            prover: prover
+            prover: fc.prover
         });
     }
 

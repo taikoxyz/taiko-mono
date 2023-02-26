@@ -287,15 +287,15 @@ contract TaikoL1 is
         return state.forkChoices[id][parentHash];
     }
 
-    function isBlockVerifiable(
-        uint256 blockId,
-        bytes32 parentHash
-    ) public view returns (bool) {
-        return
-            LibVerifying.isVerifiable({
-                fc: state.forkChoices[blockId][parentHash]
-            });
-    }
+    // function isBlockVerifiable(
+    //     uint256 blockId,
+    //     bytes32 parentHash
+    // ) public view returns (bool) {
+    //     return
+    //         LibVerifying.isVerifiable({
+    //             fc: state.forkChoices[blockId][parentHash]
+    //         });
+    // }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();

@@ -38,7 +38,6 @@ library TaikoData {
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;
-        bool enableOracleProver;
     }
 
     struct BlockMetadata {
@@ -66,8 +65,8 @@ library TaikoData {
     // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
-        uint64 provenAt;
         address prover;
+        uint64 provenAt;
     }
 
     // This struct takes 9 slots.

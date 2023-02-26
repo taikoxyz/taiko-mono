@@ -19,7 +19,6 @@ Extra slots (e.g, 50 means 50% more slots): 100
 ---------
 min num slots: 30
 ---------
-initialUncleDelay: 10 minutes
 maxNumBlocks: 61
 slotSmoothingFactor: 16789
 */
@@ -55,8 +54,7 @@ library LibSharedConfig {
                 proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
-                enableAnchorValidation: true,
-                enableOracleProver: true
+                enableAnchorValidation: true
             });
     }
 }
