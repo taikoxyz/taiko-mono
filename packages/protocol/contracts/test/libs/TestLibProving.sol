@@ -122,8 +122,9 @@ library TestLibProving {
         bytes32 circuit = bytes32(inputs[1]);
         bytes calldata zkproof = inputs[2];
 
-        if (target.txListProofHash != LibUtils.hashTxListProof(circuit, zkproof))
-            revert L1_SIG_PROOF_MISMATCH();
+        if (
+            target.txListProofHash != LibUtils.hashTxListProof(circuit, zkproof)
+        ) revert L1_SIG_PROOF_MISMATCH();
 
         bytes32 parentHash = bytes32(inputs[3]);
         bool skipZKPVerification;

@@ -114,10 +114,12 @@ library LibProving {
 
         bytes32 circuit = bytes32(inputs[1]);
         bytes calldata txListProof = inputs[2];
-        if(txListProof.length == 0) revert L1_EMPTY_TXLIST_PROOF();
+        if (txListProof.length == 0) revert L1_EMPTY_TXLIST_PROOF();
 
-        if (target.txListProofHash != LibUtils.hashTxListProof(circuit, txListProof))
-            revert L1_SIG_PROOF_MISMATCH();
+        if (
+            target.txListProofHash !=
+            LibUtils.hashTxListProof(circuit, txListProof)
+        ) revert L1_SIG_PROOF_MISMATCH();
 
         bytes32 parentHash = bytes32(inputs[3]);
         bool skipZKPVerification;
@@ -350,17 +352,26 @@ library LibProving {
     ) internal pure returns (bytes32 instance) {
         bytes[] memory headerRLPItemsList = LibBlockHeader
             .getBlockHeaderRLPItemsList(evidence.header);
-        bytes[] memory instanceRLPItemsList = new bytes[](
-            headerRLPItemsList.length + 2
-        );
 
-        for (uint256 i; i < headerRLPItemsList.length; ++i) {
+        uint256 len = headerRLPItemsList.length;
+        bytes[] memory instanceRLPItemsList = new bytes[](len + 4);
+
+        for (uint256 i; i < len; ++i) {
             instanceRLPItemsList[i] = headerRLPItemsList[i];
         }
-        instanceRLPItemsList[headerRLPItemsList.length] = LibRLPWriter
-            .writeAddress(evidence.prover);
-        instanceRLPItemsList[headerRLPItemsList.length + 1] = LibRLPWriter
-            .writeHash(evidence.meta.txListHash);
+        instanceRLPItemsList[len] = LibRLPWriter.writeAddress(evidence.prover);
+
+        instanceRLPItemsList[len + 1] = LibRLPWriter.writeHash(
+            bytes32(evidence.meta.l1Height)
+        );
+
+        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
+            evidence.meta.l1Hash
+        );
+
+        instanceRLPItemsList[len + 3] = LibRLPWriter.writeHash(
+            evidence.meta.txListHash
+        );
 
         instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
     }
