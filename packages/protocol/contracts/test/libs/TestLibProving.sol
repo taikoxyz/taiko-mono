@@ -65,6 +65,7 @@ library TestLibProving {
     error L1_HALTED();
     error L1_SIG_PROOF_MISMATCH();
     error L1_BLOCK_ACTUALLY_VALID();
+    error L1_EMPTY_TXLIST_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -94,8 +95,7 @@ library TestLibProving {
             config: config,
             resolver: resolver,
             evidence: evidence,
-            target: evidence.meta,
-            blockHashOverride: 0
+            target: evidence.meta
         });
     }
 
@@ -120,10 +120,12 @@ library TestLibProving {
         _checkMetadata({state: state, config: config, meta: target});
 
         bytes32 circuit = bytes32(inputs[1]);
-        bytes calldata zkproof = inputs[2];
+        bytes calldata txListProof = inputs[2];
+        if (txListProof.length == 0) revert L1_EMPTY_TXLIST_PROOF();
 
         if (
-            target.txListProofHash != LibUtils.hashTxListProof(circuit, zkproof)
+            target.txListProofHash !=
+            LibUtils.hashTxListProof(circuit, txListProof)
         ) revert L1_SIG_PROOF_MISMATCH();
 
         bytes32 parentHash = bytes32(inputs[3]);
@@ -141,7 +143,7 @@ library TestLibProving {
             }
         }
 
-        if (skipZKPVerification) {
+        if (!skipZKPVerification) {
             IProofVerifier proofVerifier = IProofVerifier(
                 resolver.resolve("proof_verifier", false)
             );
@@ -151,7 +153,7 @@ library TestLibProving {
             try
                 proofVerifier.verifyZKP({
                     verifierId: verifierId,
-                    zkproof: zkproof,
+                    zkproof: txListProof,
                     instance: target.txListHash
                 })
             returns (bool verified) {
@@ -176,8 +178,7 @@ library TestLibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         Evidence memory evidence,
-        TaikoData.BlockMetadata memory target,
-        bytes32 blockHashOverride
+        TaikoData.BlockMetadata memory target
     ) private {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
@@ -215,14 +216,6 @@ library TestLibProving {
             );
 
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
-                bytes32 instance = keccak256(
-                    abi.encode(
-                        blockHash,
-                        evidence.prover,
-                        evidence.meta.txListHash
-                    )
-                );
-
                 bool verified = proofVerifier.verifyZKP({
                     verifierId: string(
                         abi.encodePacked(
@@ -233,7 +226,7 @@ library TestLibProving {
                         )
                     ),
                     zkproof: evidence.proofs[i],
-                    instance: instance
+                    instance: _getInstance(evidence)
                 });
                 if (!verified) revert L1_ZKP();
             }
@@ -245,7 +238,7 @@ library TestLibProving {
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
+            blockHash: blockHash
         });
     }
 
@@ -340,4 +333,33 @@ library TestLibProving {
         BlockHeader memory header,
         TaikoData.BlockMetadata memory meta
     ) private pure {}
+
+    function _getInstance(
+        Evidence memory evidence
+    ) internal pure returns (bytes32 instance) {
+        bytes[] memory headerRLPItemsList = LibBlockHeader
+            .getBlockHeaderRLPItemsList(evidence.header);
+
+        uint256 len = headerRLPItemsList.length;
+        bytes[] memory instanceRLPItemsList = new bytes[](len + 4);
+
+        for (uint256 i; i < len; ++i) {
+            instanceRLPItemsList[i] = headerRLPItemsList[i];
+        }
+        instanceRLPItemsList[len] = LibRLPWriter.writeAddress(evidence.prover);
+
+        instanceRLPItemsList[len + 1] = LibRLPWriter.writeHash(
+            bytes32(evidence.meta.l1Height)
+        );
+
+        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
+            evidence.meta.l1Hash
+        );
+
+        instanceRLPItemsList[len + 3] = LibRLPWriter.writeHash(
+            evidence.meta.txListHash
+        );
+
+        instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
+    }
 }
