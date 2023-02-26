@@ -227,7 +227,7 @@ library LibProving {
 
         SyncData memory l2SyncData = SyncData({
             blockHash: blockHash,
-            signalServiceStorageRoot: 0
+            signalServiceStorageRoot: 0 // TODO: read this value
         });
 
         _markBlockProven({
