@@ -23,6 +23,10 @@ library LibProving {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
+    bool constant VALIDATE_ANCHOR_TX_SIGNATURE = true;
+    bool constant CHECK_METADATA = true;
+    bool constant VALIDATE_HEADER_FOR_METADATA = true;
+
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
 
@@ -168,29 +172,34 @@ library LibProving {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        if (
-            target.id <= state.latestVerifiedId ||
-            target.id >= state.nextBlockId
-        ) revert L1_ID();
-        if (
-            state.getProposedBlock(config.maxNumBlocks, target.id).metaHash !=
-            target.hashMetadata()
-        ) revert L1_META_MISMATCH();
+        if (CHECK_METADATA) {
+            if (
+                target.id <= state.latestVerifiedId ||
+                target.id >= state.nextBlockId
+            ) revert L1_ID();
+            if (
+                state
+                    .getProposedBlock(config.maxNumBlocks, target.id)
+                    .metaHash != target.hashMetadata()
+            ) revert L1_META_MISMATCH();
+        }
 
-        if (
-            evidence.header.parentHash == 0 ||
-            evidence.header.beneficiary != evidence.meta.beneficiary ||
-            evidence.header.difficulty != 0 ||
-            evidence.header.gasLimit !=
-            evidence.meta.gasLimit + config.anchorTxGasLimit ||
-            evidence.header.gasUsed == 0 ||
-            evidence.header.timestamp != evidence.meta.timestamp ||
-            evidence.header.extraData.length !=
-            evidence.meta.extraData.length ||
-            keccak256(evidence.header.extraData) !=
-            keccak256(evidence.meta.extraData) ||
-            evidence.header.mixHash != evidence.meta.mixHash
-        ) revert L1_META_MISMATCH();
+        if (VALIDATE_HEADER_FOR_METADATA) {
+            if (
+                evidence.header.parentHash == 0 ||
+                evidence.header.beneficiary != evidence.meta.beneficiary ||
+                evidence.header.difficulty != 0 ||
+                evidence.header.gasLimit !=
+                evidence.meta.gasLimit + config.anchorTxGasLimit ||
+                evidence.header.gasUsed == 0 ||
+                evidence.header.timestamp != evidence.meta.timestamp ||
+                evidence.header.extraData.length !=
+                evidence.meta.extraData.length ||
+                keccak256(evidence.header.extraData) !=
+                keccak256(evidence.meta.extraData) ||
+                evidence.header.mixHash != evidence.meta.mixHash
+            ) revert L1_META_MISMATCH();
+        }
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
@@ -265,7 +274,7 @@ library LibProving {
         if (_tx.gasLimit != config.anchorTxGasLimit)
             revert L1_ANCHOR_GAS_LIMIT();
 
-        {
+        if (VALIDATE_ANCHOR_TX_SIGNATURE) {
             // Check anchor tx's signature is valid and deterministic
             if (
                 _tx.r != LibAnchorSignature.GX &&
@@ -349,22 +358,6 @@ library LibProving {
             log.topics[0] != INVALIDATE_BLOCK_LOG_TOPIC ||
             log.topics[1] != target.txListHash
         ) revert L1_ANCHOR_RECEIPT_TOPICS();
-    }
-
-    function _validateAnchorTxSignature(
-        uint256 chainId,
-        LibTxDecoder.Tx memory _tx
-    ) private view {
-        if (_tx.r != LibAnchorSignature.GX && _tx.r != LibAnchorSignature.GX2)
-            revert L1_ANCHOR_SIG_R();
-
-        if (_tx.r == LibAnchorSignature.GX2) {
-            (, , uint256 s) = LibAnchorSignature.signTransaction(
-                LibTxUtils.hashUnsignedTx(chainId, _tx),
-                1
-            );
-            if (s != 0) revert L1_ANCHOR_SIG_S();
-        }
     }
 
     function _getInstance(
