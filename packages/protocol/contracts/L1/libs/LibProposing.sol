@@ -15,7 +15,7 @@ import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {SyncData} from "../../common/IHeaderSync.sol";
 import {ISignalService} from "../../signal/ISignalService.sol";
 
 library LibProposing {
@@ -108,7 +108,7 @@ library LibProposing {
 
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;
-            meta.l1SyncData = IHeaderSync.SyncData({
+            meta.l1SyncData = SyncData({
                 blockHash: blockhash(block.number - 1),
                 signalServiceStorageRoot: ISignalService(
                     resolver.resolve("signal_service", false)

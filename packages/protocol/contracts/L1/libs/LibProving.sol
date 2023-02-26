@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {SyncData} from "../../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
 import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
@@ -23,16 +23,6 @@ library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
-
-    struct Evidence {
-        TaikoData.BlockMetadata meta;
-        BlockHeader header;
-        bytes32 l2SignalServiceStorageRoot;
-        address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
-        // followed by MKPs.
-        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
-    }
 
     event BlockProven(
         uint256 indexed id,
@@ -72,7 +62,10 @@ library LibProving {
 
         // Check and decode inputs
         if (inputs.length != 1) revert L1_INPUT_SIZE();
-        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        TaikoData.Evidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.Evidence)
+        );
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
@@ -88,8 +81,7 @@ library LibProving {
             state: state,
             config: config,
             resolver: resolver,
-            evidence: evidence,
-            target: evidence.meta
+            evidence: evidence
         });
     }
 
@@ -159,7 +151,7 @@ library LibProving {
             }
         }
 
-        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
+        SyncData memory l2SyncData = SyncData({
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
             signalServiceStorageRoot: 0
         });
@@ -178,13 +170,11 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        Evidence memory evidence,
-        TaikoData.BlockMetadata memory target
+        TaikoData.Evidence memory evidence
     ) private {
-        if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        _checkMetadata({state: state, config: config, meta: target});
+        _checkMetadata({state: state, config: config, meta: evidence.meta});
         _validateHeaderForMetadata({
             config: config,
             header: evidence.header,
@@ -199,7 +189,7 @@ library LibProving {
         // TODO(daniel): remove this special address.
         if (config.enableOracleProver) {
             bytes32 _blockHash = state
-                .forkChoices[target.id][evidence.header.parentHash]
+                .forkChoices[evidence.meta.id][evidence.header.parentHash]
                 .l2SyncData
                 .blockHash;
 
@@ -235,8 +225,8 @@ library LibProving {
             }
         }
 
-        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
-            blockHash: LibUtils.BLOCK_DEADEND_HASH,
+        SyncData memory l2SyncData = SyncData({
+            blockHash: blockHash,
             signalServiceStorageRoot: 0
         });
 
@@ -244,7 +234,7 @@ library LibProving {
             state: state,
             config: config,
             prover: evidence.prover,
-            target: target,
+            target: evidence.meta,
             parentHash: evidence.header.parentHash,
             l2SyncData: l2SyncData
         });
@@ -256,7 +246,7 @@ library LibProving {
         address prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
-        IHeaderSync.SyncData memory l2SyncData
+        SyncData memory l2SyncData
     ) private {
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             parentHash
@@ -362,7 +352,7 @@ library LibProving {
     }
 
     function _getInstance(
-        Evidence memory evidence
+        TaikoData.Evidence memory evidence
     ) internal pure returns (bytes32 instance) {
         (bytes[] memory items, uint256 filledCount) = LibBlockHeader
             .getBlockHeaderRLPItemsList(evidence.header, 4);

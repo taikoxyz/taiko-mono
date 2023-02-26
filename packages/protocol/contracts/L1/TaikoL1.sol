@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {IHeaderSync, SyncData} from "../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
 import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
 import {TaikoData} from "./TaikoData.sol";
@@ -256,7 +256,7 @@ contract TaikoL1 is
 
     function getSyncData(
         uint256 number
-    ) public view override returns (IHeaderSync.SyncData memory) {
+    ) public view override returns (SyncData memory) {
         return state.getL2BlockHash(number, getConfig().blockHashHistory);
     }
 
@@ -264,7 +264,7 @@ contract TaikoL1 is
         public
         view
         override
-        returns (IHeaderSync.SyncData memory)
+        returns (SyncData memory)
     {
         return
             state.getL2BlockHash(

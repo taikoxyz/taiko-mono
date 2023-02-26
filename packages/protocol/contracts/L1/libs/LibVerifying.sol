@@ -11,7 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {SyncData} from "../../common/IHeaderSync.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -23,12 +23,9 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, IHeaderSync.SyncData syncData);
+    event BlockVerified(uint256 indexed id, SyncData syncData);
 
-    event HeaderSynced(
-        uint256 indexed srcHeight,
-        IHeaderSync.SyncData syncData
-    );
+    event HeaderSynced(uint256 indexed srcHeight, SyncData syncData);
 
     error L1_HALTED();
     error L1_0_FEE_BASE();
@@ -45,7 +42,7 @@ library LibVerifying {
         state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        state.l2SyncData[0] = IHeaderSync.SyncData({
+        state.l2SyncData[0] = SyncData({
             blockHash: genesisBlockHash,
             signalServiceStorageRoot: 0
         });
@@ -124,7 +121,7 @@ library LibVerifying {
                 // verified one in a batch. This is sufficient because the last
                 // verified hash is the only one needed checking the existence
                 // of a cross-chain message with a merkle proof.
-                IHeaderSync.SyncData memory syncData = IHeaderSync.SyncData({
+                SyncData memory syncData = SyncData({
                     blockHash: latestL2Hash,
                     signalServiceStorageRoot: 0x0 // TODO: fc.l2SyncData.signalServiceStorageRoot
                 });

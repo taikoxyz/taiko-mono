@@ -12,7 +12,7 @@ import {
 } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import {AddressResolver} from "../common/AddressResolver.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {IHeaderSync, SyncData} from "../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
 import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
 import {LibSharedConfig} from "../libs/LibSharedConfig.sol";

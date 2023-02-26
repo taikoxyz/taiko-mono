@@ -6,16 +6,16 @@
 
 pragma solidity ^0.8.18;
 
+struct SyncData {
+    bytes32 blockHash;
+    bytes32 signalServiceStorageRoot;
+}
+
 /**
  * Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes
  * the methods needed to access the block hashes of the other chain.
  */
 interface IHeaderSync {
-    struct SyncData {
-        bytes32 blockHash;
-        bytes32 signalServiceStorageRoot;
-    }
-
     event HeaderSynced(uint256 indexed srcHeight, SyncData syncData);
 
     function getSyncData(

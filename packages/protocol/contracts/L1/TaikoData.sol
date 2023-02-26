@@ -6,7 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {SyncData} from "../common/IHeaderSync.sol";
+import {BlockHeader} from "../libs/LibBlockHeader.sol";
 
 library TaikoData {
     struct Config {
@@ -44,11 +45,10 @@ library TaikoData {
         bool enablePublicInputsCheck;
         bool enableOracleProver;
     }
-
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
-        IHeaderSync.SyncData l1SyncData;
+        SyncData l1SyncData;
         address beneficiary;
         bytes32 txListHash;
         bytes32 txListProofHash;
@@ -70,16 +70,26 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        IHeaderSync.SyncData l2SyncData;
+        SyncData l2SyncData;
         uint64 provenAt;
         address[] provers;
+    }
+
+    struct Evidence {
+        TaikoData.BlockMetadata meta;
+        BlockHeader header;
+        bytes32 l2SignalServiceStorageRoot;
+        address prover;
+        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
+        // followed by MKPs.
+        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
     }
 
     // This struct takes 9 slots.
     struct State {
         // some blocks' hashes won't be persisted,
         // only the latest one if verified in a batch
-        mapping(uint256 blockId => IHeaderSync.SyncData) l2SyncData;
+        mapping(uint256 blockId => SyncData) l2SyncData;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice)) forkChoices;

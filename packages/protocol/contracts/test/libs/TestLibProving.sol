@@ -16,7 +16,7 @@ pragma solidity ^0.8.18;
 
 import {LibProving, IProofVerifier} from "../../L1/libs/LibProving.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {IHeaderSync, SyncData} from "../../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
 import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
@@ -31,16 +31,6 @@ library TestLibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
-
-    struct Evidence {
-        TaikoData.BlockMetadata meta;
-        BlockHeader header;
-        bytes32 l2SignalServiceStorageRoot;
-        address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
-        // followed by MKPs.
-        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
-    }
 
     event BlockProven(
         uint256 indexed id,
@@ -80,7 +70,10 @@ library TestLibProving {
 
         // Check and decode inputs
         if (inputs.length != 1) revert L1_INPUT_SIZE();
-        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        TaikoData.Evidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.Evidence)
+        );
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
@@ -167,7 +160,7 @@ library TestLibProving {
             }
         }
 
-        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
+        SyncData memory l2SyncData = SyncData({
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
             signalServiceStorageRoot: 0
         });
@@ -186,7 +179,7 @@ library TestLibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        Evidence memory evidence,
+        TaikoData.Evidence memory evidence,
         TaikoData.BlockMetadata memory target
     ) private {
         if (evidence.meta.id != target.id) revert L1_ID();
@@ -243,7 +236,7 @@ library TestLibProving {
             }
         }
 
-        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
+        SyncData memory l2SyncData = SyncData({
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
             signalServiceStorageRoot: 0
         });
@@ -264,7 +257,7 @@ library TestLibProving {
         address prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
-        IHeaderSync.SyncData memory l2SyncData
+        SyncData memory l2SyncData
     ) private {
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             parentHash
@@ -351,7 +344,7 @@ library TestLibProving {
     ) private pure {}
 
     function _getInstance(
-        Evidence memory evidence
+        TaikoData.Evidence memory evidence
     ) internal pure returns (bytes32 instance) {
         (bytes[] memory items, uint256 filledCount) = LibBlockHeader
             .getBlockHeaderRLPItemsList(evidence.header, 4);
