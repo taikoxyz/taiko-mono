@@ -1,5 +1,7 @@
 # How to contribute to this
 
+This glossary is meant to be for rollups at large; it's not tied to any specific rollup project or implementation. That said, if there is ambiguity in a definition, it can be assumed that the concept pertains to rollups built atop Ethereum. Further, some concepts apply to Ethereum/L1 as well as rollups (L2); the glossary tries not to define the concept in relation to Ethereum/L1. For Ethereum definitions, check out the [Ethereum glossary](https://ethereum.org/en/glossary/).
+
 There is a 500 character limit. And it should be alphanumerical. A definition should be of this format:
 
 ```
