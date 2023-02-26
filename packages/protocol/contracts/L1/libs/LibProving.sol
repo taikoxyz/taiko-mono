@@ -264,8 +264,23 @@ library LibProving {
             revert L1_ANCHOR_DEST();
         if (_tx.gasLimit != config.anchorTxGasLimit)
             revert L1_ANCHOR_GAS_LIMIT();
-        // Check anchor tx's signature is valid and deterministic
-        _validateAnchorTxSignature(config.chainId, _tx);
+
+        {
+            // Check anchor tx's signature is valid and deterministic
+            if (
+                _tx.r != LibAnchorSignature.GX &&
+                _tx.r != LibAnchorSignature.GX2
+            ) revert L1_ANCHOR_SIG_R();
+
+            if (_tx.r == LibAnchorSignature.GX2) {
+                (, , uint256 s) = LibAnchorSignature.signTransaction(
+                    LibTxUtils.hashUnsignedTx(config.chainId, _tx),
+                    1
+                );
+                if (s != 0) revert L1_ANCHOR_SIG_S();
+            }
+        }
+
         // Check anchor tx's calldata is valid
         if (
             !LibBytesUtils.equal(
