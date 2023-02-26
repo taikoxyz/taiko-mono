@@ -461,8 +461,8 @@ library LibProving {
         );
 
         uint256 len = list.length;
-        list[len - 3] = LibRLPWriter.writeAddress(evidence.prover);
-        list[len - 2] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+        list[len - 2] = LibRLPWriter.writeAddress(evidence.prover);
+        list[len - 1] = LibRLPWriter.writeHash(evidence.meta.txListHash);
 
         return keccak256(LibRLPWriter.writeList(list));
     }
