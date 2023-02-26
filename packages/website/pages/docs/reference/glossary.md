@@ -11,7 +11,7 @@ There is a 500 character limit. And it should be alphanumerical. A definition sh
 
 ## Application-specific rollup
 
-A [rollup](#rollup) that supports only a certain type of application or functionality. For example, a rollup that supports only ETH and ERC20 token transfers, or DEX swaps. This is in contrast to general-purpose rollups which support arbitrary computations.
+A [rollup](#rollup) that supports only a certain type of application or functionality. For example, a rollup that supports only ETH and ERC20 token transfers, or DEX swaps. This is in contrast to [general-purpose rollups](#general-purpose-rollup) which support arbitrary computations.
 
 ## Arithmetic circuit
 
@@ -19,15 +19,15 @@ The computation model of zkSNARKs.
 
 ## Blobs
 
-The data that a rollup publishes to its L1/data availability (DA) layer. They consist of the L2 transactions that are rolled up, along with some metadata. Blobs are introduced as a new transaction type within Ethereum with EIP-4844, and has rollup scaling specifically in mind. Blobs persist on Ethereum’s Beacon Chain ephemerally.
+The data that a rollup publishes to its [L1](#layer-1)/[data availability (DA)](#data-availability) layer. They consist of the [L2](#layer-2) transactions that are rolled up, along with some metadata. Blobs are introduced as a new transaction type within Ethereum with [EIP-4844](#Proto-danksharding-(EIP-4844)), and has rollup scaling specifically in mind. Blobs persist on Ethereum’s Beacon Chain ephemerally.
 
 ## Blobspace
 
-The storage area within Ethereum’s Beacon nodes where blobs are published by rollups and ephemerally stored.
+The storage area within Ethereum’s Beacon nodes where [blobs](#blobs) are published by rollups and ephemerally stored.
 
 ## Block
 
-An ordered list of transactions and chain-related metadata that gets bundled together and published to the L1/DA layer. Nodes execute the transactions contained within blocks to change the rollup chain’s state. Protocol rules dictate what constitutes a valid block, and invalid blocks are skipped over.
+An ordered list of transactions and chain-related metadata that gets bundled together and published to the L1/DA layer. [Nodes](#node) execute the transactions contained within blocks to change the rollup chain’s state. Protocol rules dictate what constitutes a valid block, and invalid blocks are skipped over.
 
 ## Bridge
 
@@ -39,7 +39,7 @@ Generally, an instruction set designed for efficient execution by a software int
 
 ## Challenge period
 
-In optimistic rollups, the window of time wherein network participants can assert that some fraud was included in a prior block. Most optimistic rollups currently specify a challenge window of 7 days. By extending the period, there is more time for participants to guard against fraud (invalid state transitions), but also more time until finality is reached.
+In [optimistic rollups](#optimistic-rollup), the window of time wherein network participants can assert that some fraud was included in a prior block. Most optimistic rollups currently specify a challenge window of 7 days. By extending the period, there is more time for participants to guard against fraud (invalid state transitions), but also more time until [finality](#finality) is reached.
 
 ## Circuit
 
@@ -47,28 +47,28 @@ A program written for the purposes of being proven within a proving system. A ci
 
 ## Client
 
-Sometimes labelled interchangeably as a “node”, they are tasked with processing transactions and managing the rollup’s state. They run the computations for each transaction according to the rollup’s virtual machine and protocol rules. If comparing to Ethereum clients, these would be execution clients such as Geth, as opposed to consensus clients.
+Sometimes labelled interchangeably as a “[node](#node)”, they are tasked with processing transactions and managing the rollup’s state. They run the computations for each transaction according to the rollup’s virtual machine and protocol rules. If comparing to Ethereum clients, these would be execution clients such as Geth, as opposed to consensus clients.
 
 ## Consensus
 
-An agreement on the latest and correct state of a blockchain. Unlike L1 blockchains which coordinate participating nodes with consensus rules, rollups rely on L1s for reaching consensus by checking the state of the rollup smart contract deployed thereon.
+An agreement on the latest and correct state of a blockchain. Unlike [L1](#layer-1) blockchains which coordinate participating nodes with consensus rules, [rollups](#rollup) rely on L1s for reaching consensus by checking the state of the rollup smart contract deployed thereon.
 
 ## Compatibility
 
-The degree to which a rollup can make use of existing patterns, code, and tooling from another blockchain or development environment. Today, this typically refers to how well rollups and developers thereon can make use of the Ethereum Virtual Machine, existing smart contracts, and other Ethereum infrastructure.
+The degree to which a rollup can make use of existing patterns, code, and tooling from another blockchain or development environment. Today, this typically refers to how well rollups and developers thereon can make use of the [Ethereum Virtual Machine](#Ethereum-Virtual-Machine-(EVM)), existing smart contracts, and other Ethereum infrastructure.
 
 ## Commitment Scheme
 
-A cryptographic primitive that (i) allows one (usually a prover) to commit to a chosen statement and send this commitment to the verifier while keeping it hidden to others, (ii) and allows verifier to check the commitment and accept or reject it.
+A cryptographic primitive that (i) allows one (usually a [prover](#prover)) to commit to a chosen statement and send this commitment to the [verifier](#verifier) while keeping it hidden to others, (ii) and allows verifier to check the commitment and accept or reject it.
 The commitment scheme should satisfy two properties: (i) it should be binding that is once the prover has committed she is bound to the message she has committed, (ii) it should be hiding that is the commitment reveals nothing new about the message to the verifier.
 
 ## Completeness
 
-One of three properties of zero-knowledge proofs, completeness states that if a statement is true, an honest verifier will be convinced of this by an honest prover.
+One of three properties of [zero-knowledge proofs](#zero-knowledge-proof), completeness states that if a statement is true, an honest [verifier](#verifier) will be convinced of this by an honest [prover](#prover).
 
 ## Danksharding
 
-A sharding design proposed for Ethereum. Instead of providing more space for transactions, Ethereum sharding provides more space for blobs of data*.* Verifying a blob simply requires checking that the blob is available - that it can be downloaded from the network. The data space in these blobs is expected to be used by layer-2 rollup protocols.
+A sharding design proposed for Ethereum. Instead of providing more space for transactions, Ethereum sharding provides more space for [blobs](#blobs) of data. Verifying a blob simply requires checking that the blob is available - that it can be downloaded from the network. The data space in these blobs is expected to be used by layer-2 rollup protocols.
 In comparison to other sharding mechanisms, where there are a fixed number of shards with distinct blocks and distinct block proposers, in Danksharding there is only one proposer that chooses all transactions and all data that go into that slot.
 
 ## Data availability
@@ -77,7 +77,7 @@ The property of a rollup’s state being reachable by any node retrieving the in
 
 ## Decentralization
 
-The concept of moving the control and execution of processes away from a central entity. In the context of rollups, there are several factors which separately can be more or less decentralized, leading to the degree to which the rollup as a whole is uncapturable by a central entity. The most significant factors include who can run a node, who can propose rollup blocks, who can prove blocks (in ZKRs), and who can upgrade the rollup smart contracts.
+The concept of moving the control and execution of processes away from a central entity. In the context of rollups, there are several factors which separately can be more or less decentralized, leading to the degree to which the rollup as a whole is uncapturable by a central entity. The most significant factors include who can run a node, who can propose rollup blocks, who can prove blocks (in ZKRs), and who can [upgrade](#Upgradeability) the rollup smart contracts.
 
 ## Deterministic
 
@@ -85,19 +85,19 @@ The concept of some function or process having a single outcome that is knowable
 
 ## Ethereum Virtual Machine (EVM)
 
-A stack-based virtual machine that executes bytecode. In Ethereum, the execution model specifies how the system state is altered given a series of bytecode instructions and a small tuple of environmental data. In the context of rollups, the EVM is a choice of execution environment that rollups could implement, as in the case of EVM ZK-Rollups (ZK-EVMs) and EVM optimistic rollups.
+A stack-based virtual machine that executes [bytecode](#bytecode). In Ethereum, the execution model specifies how the system state is altered given a series of bytecode instructions and a small tuple of environmental data. In the context of rollups, the EVM is a choice of execution environment that rollups could implement, as in the case of EVM ZK-Rollups ([ZK-EVMs](#ZK-EVM)) and EVM [optimistic rollups](#optimistic-rollup).
 
 ## Execution environment
 
-Refers to both the environment where transactions are processed, constituted by the execution clients, as well as the virtual machine model which the clients run.
+Refers to both the environment where transactions are processed, constituted by the execution [clients](#client), as well as the virtual machine model which the clients run.
 
 ## Equivalence
 
-A perfect degree of compatibility; where one system or concept is indistinguishable from another in the domain being compared. In the context of rollups, it generally refers to the proximity to the EVM and to Ethereum architecture.
+A perfect degree of [compatibility](#compatibility); where one system or concept is indistinguishable from another in the domain being compared. In the context of rollups, it generally refers to the proximity to the [EVM](#Ethereum-Virtual-Machine-(EVM)) and to Ethereum architecture.
 
 ## Escape hatch
 
-The facility for any user of a rollup to exit the system with their assets under any circumstance. Most relevant in rollups with a centralized proposer, wherein users do not have the ability to propose blocks, but can nonetheless exit the rollup by interacting with a smart contract on L1.
+The facility for any user of a rollup to exit the system with their assets under any circumstance. Most relevant in rollups with a centralized [proposer](#proposer), wherein users do not have the ability to propose blocks, but can nonetheless exit the rollup by interacting with a smart contract on L1.
 
 ## Finality
 
