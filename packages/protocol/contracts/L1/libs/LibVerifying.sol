@@ -72,7 +72,7 @@ library LibVerifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (!isVerifiable(fc)) {
+            if (fc.blockHash == 0 || fc.prover == 0) {
                 break;
             } else {
                 (latestL2Height, latestL2Hash) = _verifyBlock({
@@ -273,11 +273,5 @@ library LibVerifying {
         fc.blockHash = 0;
         fc.prover = address(0);
         fc.provenAt = 0;
-    }
-
-    function isVerifiable(
-        TaikoData.ForkChoice storage fc
-    ) public view returns (bool) {
-        return fc.blockHash != 0 && fc.prover != address(0);
     }
 }
