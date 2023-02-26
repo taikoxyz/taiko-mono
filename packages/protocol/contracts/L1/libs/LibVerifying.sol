@@ -200,21 +200,20 @@ library LibVerifying {
         }
     }
 
-    function _rewardProvers(
+    function _rewardProver(
         TaikoData.ForkChoice storage fc,
         uint256 reward,
         TaikoToken taikoToken
     ) private {
+        if (reward == 0) return;
         uint256 _reward = reward;
-        if (_reward != 0) {
-            if (taikoToken.balanceOf(fc.prover) == 0) {
-                // Reduce reward to 1 wei as a penalty if the prover
-                // has 0 TKO balance. This allows the next prover reward
-                // to be fully paid.
-                _reward = uint256(1);
-            }
-            taikoToken.mint(fc.prover, _reward);
+        if (taikoToken.balanceOf(fc.prover) == 0) {
+            // Reduce reward to 1 wei as a penalty if the prover
+            // has 0 TKO balance. This allows the next prover reward
+            // to be fully paid.
+            _reward = uint256(1);
         }
+        taikoToken.mint(fc.prover, _reward);
     }
 
     function _verifyBlock(
@@ -242,7 +241,7 @@ library LibVerifying {
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProvers(fc, reward, taikoToken);
+                _rewardProver(fc, reward, taikoToken);
                 _refundProposerDeposit(target, tRelBp, taikoToken);
             }
             // Update feeBase and avgProofTime
@@ -272,8 +271,8 @@ library LibVerifying {
 
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
-        fc.provenAt = 0;
         fc.prover = address(0);
+        fc.provenAt = 0;
     }
 
     function isVerifiable(

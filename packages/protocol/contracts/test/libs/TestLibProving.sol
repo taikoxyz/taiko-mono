@@ -50,32 +50,33 @@ library TestLibProving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 provenAt,
-        address prover
+        address prover,
+        uint64 provenAt
     );
 
-    error L1_ID();
-    error L1_PROVER();
-    error L1_INPUT_SIZE();
-    error L1_PROOF_LENGTH();
-    error L1_CONFLICT_PROOF();
-    error L1_META_MISMATCH();
-    error L1_ZKP();
     error L1_ALREADY_PROVEN();
-    error L1_CANNOT_BE_FIRST_PROVER();
-    error L1_ANCHOR_TYPE();
+    error L1_ANCHOR_CALLDATA();
     error L1_ANCHOR_DEST();
     error L1_ANCHOR_GAS_LIMIT();
-    error L1_ANCHOR_CALLDATA();
-    error L1_ANCHOR_SIG_R();
-    error L1_ANCHOR_SIG_S();
+    error L1_ANCHOR_RECEIPT_ADDR();
+    error L1_ANCHOR_RECEIPT_DATA();
+    error L1_ANCHOR_RECEIPT_LOGS();
     error L1_ANCHOR_RECEIPT_PROOF();
     error L1_ANCHOR_RECEIPT_STATUS();
-    error L1_ANCHOR_RECEIPT_LOGS();
-    error L1_ANCHOR_RECEIPT_ADDR();
     error L1_ANCHOR_RECEIPT_TOPICS();
-    error L1_ANCHOR_RECEIPT_DATA();
+    error L1_ANCHOR_SIG_R();
+    error L1_ANCHOR_SIG_S();
     error L1_ANCHOR_TX_PROOF();
+    error L1_ANCHOR_TYPE();
+    error L1_CANNOT_BE_FIRST_PROVER();
+    error L1_CONFLICT_PROOF();
+    error L1_ID();
+    error L1_INPUT_SIZE();
+    error L1_META_MISMATCH();
+    error L1_NOT_ORACLE_PROVER();
+    error L1_PROOF_LENGTH();
+    error L1_PROVER();
+    error L1_ZKP();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -188,7 +189,7 @@ library TestLibProving {
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
-        bool skipZKPVerification;
+        bool oracleProving;
 
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             evidence.header.parentHash
@@ -200,9 +201,11 @@ library TestLibProving {
             : blockHashOverride;
 
         if (fc.blockHash == 0) {
-            if (msg.sender == resolver.resolve("oracle_prover", true)) {
-                skipZKPVerification = true;
+            address oracleProver = resolver.resolve("oracle_prover", true);
+            if (msg.sender == oracleProver) {
+                oracleProving = true;
             } else {
+                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
                 fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }
@@ -215,14 +218,14 @@ library TestLibProving {
             fc.provenAt = uint64(block.timestamp);
         }
 
-        if (skipZKPVerification) {
+        if (oracleProving) {
             // do not verify zkp
         } else {
             bool verified = proofVerifier.verifyZKP({
                 verifierId: string(
                     abi.encodePacked("plonk_verifier_", evidence.circuitId)
                 ),
-                zkproof: evidence.proofs[1], // ???
+                zkproof: evidence.proofs[0],
                 instance: _getInstance(evidence)
             });
             if (!verified) revert L1_ZKP();
@@ -232,8 +235,8 @@ library TestLibProving {
             id: target.id,
             parentHash: evidence.header.parentHash,
             blockHash: _blockHash,
-            provenAt: fc.provenAt,
-            prover: fc.prover
+            prover: fc.prover,
+            provenAt: fc.provenAt
         });
     }
 
@@ -268,8 +271,8 @@ library TestLibProving {
                 )
             )
         ) revert L1_ANCHOR_CALLDATA();
-        // Check anchor tx is the 1st tx in the block
 
+        // Check anchor tx is the 1st tx in the block
         if (
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
