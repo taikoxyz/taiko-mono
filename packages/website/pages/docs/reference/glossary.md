@@ -285,7 +285,7 @@ Data committed to the Ethereum Blockchain signed by an originating account, tar
 
 ## Trusted setup (ceremony)
 
-Generation of \*\*\*\*a piece of data that must then be used for some cryptographic protocol to run. Generating this data requires some secret information. The "trust" comes from the fact that a person generates a secret, uses it to generate the data, and then publishes the data and forgets the secret. Once the data is generated, and the secrets are forgotten, no further participation from the creators of the ceremony is required.
+Generation of a piece of data that must then be used for some cryptographic protocol to run. Generating this data requires some secret information. The "trust" comes from the fact that a person generates a secret, uses it to generate the data, and then publishes the data and forgets the secret. Once the data is generated, and the secrets are forgotten, no further participation from the creators of the ceremony is required.
 There are two types of trusted setup: (i) trusted setup per circuit where it is generated from scratch for each circuit, (ii) trusted universal (updatable) setup where it can be used for as many circuits as we want.
 
 ## Trustlessness
@@ -298,23 +298,23 @@ A system of data-manipulation rules (such as a computer's instruction set, a pro
 
 ## Type 1 to 4 ZK-EVMs
 
-\***\*Type 1 ZK-EVM (fully Ethereum-equivalent)\*\***
+**Type 1 ZK-EVM (fully Ethereum-equivalent)**
 
 Fully and uncompromisingly Ethereum-equivalent that is no part of the Ethereum system is changed to make it easier to generate proofs. They do not replace hashes, state trees, transaction trees, precompiles, or any other in-consensus logic, no matter how peripheral.
 
-\***\*Type 2 ZK-EVM (fully EVM-equivalent)\*\***
+**Type 2 ZK-EVM (fully EVM-equivalent)**
 
 Exactly EVM-equivalent, but not quite Ethereum-equivalent that is having some differences on the outside, particularly in data structures like the block structure and state tree to make proof generation faster.
 
-\***\*Type 2.5 ZK-EVM (EVM-equivalent, except for gas costs)\*\***
+**Type 2.5 ZK-EVM (EVM-equivalent, except for gas costs)**
 
 Greatly increasing the gas costs of specific operations in the EVM that are very difficult to ZK-prove such as precompiles, the KECCAK opcode, etc. That significantly improves worst-case prover times. Changing gas costs may reduce developer tooling compatibility and break a few applications.
 
-\***\*Type 3 ZK-EVM (almost EVM-equivalent)\*\***
+**Type 3 ZK-EVM (almost EVM-equivalent)**
 
 Removing a few features that are exceptionally hard to implement in a ZK-EVM implementation (precompiles are often at the top of the list) to further improve prover time and make the EVM easier to develop. They also often have minor differences in how they treat contract code, memory, or stack. Type 3 ZK-EVM is compatible with most applications, and requires some re-writing for the rest.
 
-\***\*Type 4 ZK-EVM (high-level-language equivalent)\*\***
+**Type 4 ZK-EVM (high-level-language equivalent)**
 
 Taking smart contract source code written in a high-level language (Solidity, Vyper, etc.) and compiling to some language that is explicitly designed to be ZK-SNARK-friendly. It allows us to avoid ZK-prooving all the different parts of each EVM execution step. But some applications written in Solidity or Vyper and compiled down might not work because contracts may not have the same addresses, handwritten EVM bytecode is more difficult to use, and lots of debugging infrastructure cannot be carried over.
 
@@ -357,3 +357,7 @@ A zero-knowledge proof is the resulting output of a zero-knowledge cryptographic
 ## ZK-EVM
 
 A set of circuits that prove the execution of the Ethereum Virtual Machine. It is the core component of a ZK-Rollup that generates Zero-knowledge proofs to verify the correctness of programs. Increasingly, it is used to describe a ZK-Rollup as whole which is EVM-compatible, as opposed to just the set of circuits.
+
+## ZK-Rollup
+
+A rollup that uses ZKPs (also often called validity proofs) to validate the correctness of the state transition function and update the rollup state. This is one of two main types of rollup constructions, along with optimistic rollups. In general, ZK-Rollups do not provide privacy preserving properties; privacy preserving ZK-Rollups are sometimes called ZK-ZK-Rollups.
