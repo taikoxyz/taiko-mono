@@ -342,8 +342,8 @@ library LibProving {
                 bytes.concat(
                     ANCHOR_TX_SELECTOR,
                     bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash,
-                    evidence.meta.l1SignalServiceStorageRoot
+                    evidence.meta.l1SyncData.blockHash,
+                    evidence.meta.l1SyncData.signalServiceStorageRoot
                 )
             )
         ) revert L1_ANCHOR_CALLDATA();

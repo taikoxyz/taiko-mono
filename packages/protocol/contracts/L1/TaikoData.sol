@@ -49,8 +49,7 @@ library TaikoData {
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
-        bytes32 l1Hash;
-        bytes32 l1SignalServiceStorageRoot;
+        IHeaderSync.SyncData l1SyncData;
         address beneficiary;
         bytes32 txListHash;
         bytes32 mixHash;

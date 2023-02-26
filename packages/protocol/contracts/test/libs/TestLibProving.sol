@@ -358,7 +358,7 @@ library TestLibProving {
                 bytes.concat(
                     ANCHOR_TX_SELECTOR,
                     bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash
+                    evidence.meta.l1SyncData.blockHash
                 )
             )
         ) revert L1_ANCHOR_CALLDATA();
