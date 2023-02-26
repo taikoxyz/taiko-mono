@@ -82,7 +82,7 @@ library TaikoData {
         mapping(uint256 blockId => IHeaderSync.SyncData) l2SyncData;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // Never or rarely changed

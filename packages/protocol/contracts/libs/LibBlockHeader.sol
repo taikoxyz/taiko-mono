@@ -34,21 +34,22 @@ library LibBlockHeader {
     function hashBlockHeader(
         BlockHeader memory header
     ) internal pure returns (bytes32) {
-        bytes memory rlpHeader = LibRLPWriter.writeList(
-            getBlockHeaderRLPItemsList(header)
-        );
-        return keccak256(rlpHeader);
+        (bytes[] memory items, ) = getBlockHeaderRLPItemsList(header, 0);
+        return keccak256(LibRLPWriter.writeList(items));
     }
 
     function getBlockHeaderRLPItemsList(
-        BlockHeader memory header
-    ) internal pure returns (bytes[] memory list) {
+        BlockHeader memory header,
+        uint256 extraSize
+    ) internal pure returns (bytes[] memory list, uint256 filledCount) {
         if (header.baseFeePerGas == 0) {
             // non-EIP11559 transaction
-            list = new bytes[](15);
+            filledCount = 15;
+            list = new bytes[](15 + extraSize);
         } else {
             // EIP1159 transaction
-            list = new bytes[](16);
+            filledCount = 16;
+            list = new bytes[](16 + extraSize);
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);

@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {IProofVerifier} from "../ProofVerifier.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {IHeaderSync} from "../../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
 import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
@@ -88,8 +89,7 @@ library LibProving {
             config: config,
             resolver: resolver,
             evidence: evidence,
-            target: evidence.meta,
-            blockHashOverride: 0
+            target: evidence.meta
         });
     }
 
@@ -127,7 +127,9 @@ library LibProving {
 
         if (config.enableOracleProver) {
             bytes32 _blockHash = state
-            .forkChoices[target.id][parentHash].blockHash;
+                .forkChoices[target.id][parentHash]
+                .l2SyncData
+                .blockHash;
 
             if (msg.sender == resolver.resolve("oracle_prover", false)) {
                 if (_blockHash != 0) revert L1_NOT_FIRST_PROVER();
@@ -157,13 +159,18 @@ library LibProving {
             }
         }
 
+        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
+            blockHash: LibUtils.BLOCK_DEADEND_HASH,
+            signalServiceStorageRoot: 0
+        });
+
         _markBlockProven({
             state: state,
             config: config,
             prover: msg.sender,
             target: target,
             parentHash: parentHash,
-            blockHash: LibUtils.BLOCK_DEADEND_HASH
+            l2SyncData: l2SyncData
         });
     }
 
@@ -172,8 +179,7 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         Evidence memory evidence,
-        TaikoData.BlockMetadata memory target,
-        bytes32 blockHashOverride
+        TaikoData.BlockMetadata memory target
     ) private {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
@@ -229,16 +235,18 @@ library LibProving {
             }
         }
 
+        IHeaderSync.SyncData memory l2SyncData = IHeaderSync.SyncData({
+            blockHash: LibUtils.BLOCK_DEADEND_HASH,
+            signalServiceStorageRoot: 0
+        });
+
         _markBlockProven({
             state: state,
             config: config,
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride,
-            signalServiceStorageRoot: blockHashOverride == 0
-                ? evidence.l2SignalServiceStorageRoot
-                : bytes32(0)
+            l2SyncData: l2SyncData
         });
     }
 
@@ -248,8 +256,7 @@ library LibProving {
         address prover,
         TaikoData.BlockMetadata memory target,
         bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 signalServiceStorageRoot
+        IHeaderSync.SyncData memory l2SyncData
     ) private {
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             parentHash
@@ -257,8 +264,7 @@ library LibProving {
 
         if (fc.l2SyncData.blockHash == 0) {
             // This is the first proof for this block.
-            fc.l2SyncData.blockHash = blockHash;
-            fc.l2SyncData.signalServiceStorageRoot = signalServiceStorageRoot;
+            fc.l2SyncData = l2SyncData;
 
             if (config.enableOracleProver) {
                 // We keep fc.provenAt as 0 and do NOT
@@ -272,7 +278,7 @@ library LibProving {
             }
         } else {
             // The block has been proven at least once.
-            if (fc.blockHash != blockHash) {
+            if (fc.l2SyncData.blockHash != l2SyncData.blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
                 if (config.enableOracleProver) {
@@ -287,9 +293,9 @@ library LibProving {
             }
 
             if (
-                (blockHash == LibUtils.BLOCK_DEADEND_HASH &&
+                (l2SyncData.blockHash == LibUtils.BLOCK_DEADEND_HASH &&
                     fc.provers.length >= 2) ||
-                (blockHash != LibUtils.BLOCK_DEADEND_HASH &&
+                (l2SyncData.blockHash != LibUtils.BLOCK_DEADEND_HASH &&
                     fc.provers.length >= config.maxProofsPerForkChoice)
             ) revert L1_TOO_MANY_PROVERS();
 
@@ -317,7 +323,7 @@ library LibProving {
         emit BlockProven({
             id: target.id,
             parentHash: parentHash,
-            blockHash: blockHash,
+            blockHash: l2SyncData.blockHash,
             timestamp: target.timestamp,
             provenAt: fc.provenAt,
             prover: prover
@@ -358,36 +364,25 @@ library LibProving {
     function _getInstance(
         Evidence memory evidence
     ) internal pure returns (bytes32 instance) {
-        bytes[] memory headerRLPItemsList = LibBlockHeader
-            .getBlockHeaderRLPItemsList(evidence.header);
+        (bytes[] memory items, uint256 filledCount) = LibBlockHeader
+            .getBlockHeaderRLPItemsList(evidence.header, 4);
 
-        uint256 len = headerRLPItemsList.length;
-        bytes[] memory instanceRLPItemsList = new bytes[](len + 5);
+        items[filledCount++] = LibRLPWriter.writeAddress(evidence.prover);
 
-        for (uint256 i; i < len; ++i) {
-            instanceRLPItemsList[i] = headerRLPItemsList[i];
-        }
-        
-        instanceRLPItemsList[len] = LibRLPWriter.writeAddress(evidence.prover);
-
-        instanceRLPItemsList[len + 1] = LibRLPWriter.writeHash(
-            evidence.meta.txListHash
-        );
-        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
-            evidence.l2SignalServiceStorageRoot
-
-        instanceRLPItemsList[len + 1] = LibRLPWriter.writeHash(
+        items[filledCount++] = LibRLPWriter.writeHash(
             bytes32(evidence.meta.l1Height)
         );
 
-        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
-            evidence.meta.l2SyncData.blockHash
-        );
-        
-        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
-            evidence.meta.l2SyncData.signalServiceStorageRoot
+        items[filledCount++] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+
+        items[filledCount++] = LibRLPWriter.writeHash(
+            evidence.meta.txListProofHash
         );
 
-        instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
+        items[filledCount++] = LibRLPWriter.writeHash(
+            evidence.l2SignalServiceStorageRoot
+        );
+
+        instance = keccak256(LibRLPWriter.writeList(items));
     }
 }
