@@ -50,8 +50,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        uint256 maxBlocks,
-        bool checkHalt
+        uint256 maxBlocks
     ) public {
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[
