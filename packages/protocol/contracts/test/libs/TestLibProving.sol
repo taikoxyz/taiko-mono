@@ -32,14 +32,6 @@ library TestLibProving {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    struct Evidence {
-        TaikoData.BlockMetadata meta;
-        BlockHeader header;
-        address prover;
-        bytes[] proofs;
-        uint16 circuitId;
-    }
-
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
 
@@ -87,7 +79,10 @@ library TestLibProving {
     ) public {
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
-        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        TaikoData.Evidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.Evidence)
+        );
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
@@ -130,7 +125,10 @@ library TestLibProving {
     ) public {
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
-        Evidence memory evidence = abi.decode(inputs[0], (Evidence));
+        TaikoData.Evidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.Evidence)
+        );
         TaikoData.BlockMetadata memory target = abi.decode(
             inputs[1],
             (TaikoData.BlockMetadata)
@@ -172,7 +170,7 @@ library TestLibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         IProofVerifier proofVerifier,
-        Evidence memory evidence,
+        TaikoData.Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
     ) private {
@@ -244,7 +242,7 @@ library TestLibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         IProofVerifier proofVerifier,
-        Evidence memory evidence,
+        TaikoData.Evidence memory evidence,
         bytes calldata anchorTx,
         bytes calldata anchorReceipt
     ) private view {
@@ -300,7 +298,7 @@ library TestLibProving {
         AddressResolver resolver,
         TaikoData.BlockMetadata memory target,
         IProofVerifier proofVerifier,
-        Evidence memory evidence,
+        TaikoData.Evidence memory evidence,
         bytes calldata invalidateBlockReceipt
     ) private view {
         if (
@@ -348,7 +346,7 @@ library TestLibProving {
     ) private pure {}
 
     function _getInstance(
-        Evidence memory evidence
+        TaikoData.Evidence memory evidence
     ) internal pure returns (bytes32 instance) {
         bytes[] memory headerRLPItemsList = LibBlockHeader
             .getBlockHeaderRLPItemsList(evidence.header);

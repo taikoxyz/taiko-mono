@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {BlockHeader} from "../libs/LibBlockHeader.sol";
+
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -52,6 +54,14 @@ library TaikoData {
         uint64 timestamp;
         uint64 commitHeight;
         uint64 commitSlot;
+    }
+
+    struct Evidence {
+        TaikoData.BlockMetadata meta;
+        BlockHeader header;
+        address prover;
+        bytes[] proofs;
+        uint16 circuitId;
     }
 
     // 3 slots
