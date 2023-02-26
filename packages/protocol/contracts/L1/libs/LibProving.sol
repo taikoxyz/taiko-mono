@@ -454,21 +454,16 @@ library LibProving {
 
     function _getInstance(
         Evidence memory evidence
-    ) internal pure returns (bytes32 instance) {
-        bytes[] memory headerRLPItemsList = LibBlockHeader
-            .getBlockHeaderRLPItemsList(evidence.header);
-        bytes[] memory instanceRLPItemsList = new bytes[](
-            headerRLPItemsList.length + 2
+    ) internal pure returns (bytes32) {
+        bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
+            evidence.header,
+            2
         );
 
-        for (uint256 i; i < headerRLPItemsList.length; ++i) {
-            instanceRLPItemsList[i] = headerRLPItemsList[i];
-        }
-        instanceRLPItemsList[headerRLPItemsList.length] = LibRLPWriter
-            .writeAddress(evidence.prover);
-        instanceRLPItemsList[headerRLPItemsList.length + 1] = LibRLPWriter
-            .writeHash(evidence.meta.txListHash);
+        uint256 len = list.length;
+        list[len - 3] = LibRLPWriter.writeAddress(evidence.prover);
+        list[len - 2] = LibRLPWriter.writeHash(evidence.meta.txListHash);
 
-        instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
+        return keccak256(LibRLPWriter.writeList(list));
     }
 }

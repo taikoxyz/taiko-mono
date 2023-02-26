@@ -224,14 +224,6 @@ library TestLibProving {
 
         if (!skipZKPVerification) {
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
-                bytes32 instance = keccak256(
-                    abi.encode(
-                        blockHash,
-                        evidence.prover,
-                        evidence.meta.txListHash
-                    )
-                );
-
                 if (
                     !proofVerifier.verifyZKP({
                         verifierId: string(
@@ -243,7 +235,7 @@ library TestLibProving {
                             )
                         ),
                         zkproof: evidence.proofs[i],
-                        instance: instance
+                        instance: _getInstance(evidence)
                     })
                 ) revert L1_ZKP();
             }
@@ -438,4 +430,19 @@ library TestLibProving {
         BlockHeader memory header,
         TaikoData.BlockMetadata memory meta
     ) private pure {}
+
+    function _getInstance(
+        Evidence memory evidence
+    ) internal pure returns (bytes32) {
+        bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
+            evidence.header,
+            2
+        );
+
+        uint256 len = list.length;
+        list[len - 3] = LibRLPWriter.writeAddress(evidence.prover);
+        list[len - 2] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+
+        return keccak256(LibRLPWriter.writeList(list));
+    }
 }
