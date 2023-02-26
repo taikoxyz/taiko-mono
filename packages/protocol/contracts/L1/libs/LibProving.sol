@@ -179,7 +179,7 @@ library LibProving {
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
 
-        bool skipZKPVerification;
+        bool oracleProving;
 
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             evidence.header.parentHash
@@ -192,7 +192,7 @@ library LibProving {
 
         if (fc.blockHash == 0) {
             if (msg.sender == resolver.resolve("oracle_prover", true)) {
-                skipZKPVerification = true;
+                oracleProving = true;
             } else {
                 fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
@@ -206,7 +206,7 @@ library LibProving {
             fc.provenAt = uint64(block.timestamp);
         }
 
-        if (skipZKPVerification) {
+        if (oracleProving) {
             // do not verify zkp
         } else {
             bool verified = proofVerifier.verifyZKP({
@@ -223,8 +223,8 @@ library LibProving {
             id: target.id,
             parentHash: evidence.header.parentHash,
             blockHash: _blockHash,
-            provenAt: skipZKPVerification ? 0 : fc.provenAt,
-            prover: skipZKPVerification ? address(0) : fc.prover
+            provenAt: oracleProving ? 0 : fc.provenAt,
+            prover: oracleProving ? address(0) : fc.prover
         });
     }
 
