@@ -41,8 +41,8 @@ library LibProving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 provenAt,
-        address prover
+        address prover,
+        uint64 provenAt
     );
 
     error L1_ALREADY_PROVEN();
@@ -223,8 +223,8 @@ library LibProving {
             id: target.id,
             parentHash: evidence.header.parentHash,
             blockHash: _blockHash,
-            provenAt: oracleProving ? 0 : fc.provenAt,
-            prover: oracleProving ? address(0) : fc.prover
+            prover: oracleProving ? address(0) : fc.prover,
+            provenAt: oracleProving ? 0 : fc.provenAt
         });
     }
 
