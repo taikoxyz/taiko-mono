@@ -72,7 +72,7 @@ library LibVerifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (fc.blockHash == 0 || fc.prover == 0) {
+            if (fc.blockHash == 0 || fc.prover == address(0)) {
                 break;
             } else {
                 (latestL2Height, latestL2Hash) = _verifyBlock({
@@ -86,7 +86,11 @@ library LibVerifying {
                 });
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
-                _cleanUp(fc);
+
+                // clean up the fork choice
+                fc.blockHash = 0;
+                fc.prover = address(0);
+                fc.provenAt = 0;
             }
         }
 
@@ -267,11 +271,5 @@ library LibVerifying {
             _latestL2Height = latestL2Height;
             _latestL2Hash = latestL2Hash;
         }
-    }
-
-    function _cleanUp(TaikoData.ForkChoice storage fc) private {
-        fc.blockHash = 0;
-        fc.prover = address(0);
-        fc.provenAt = 0;
     }
 }
