@@ -31,7 +31,7 @@ An ordered list of transactions and chain-related metadata that gets bundled tog
 
 ## Bridge
 
-A message-passing protocol between two blockchains (between L1 and L2, and between L2s). At its most basic, a bridge consists of a smart contract which can escrow funds on one side of the bridge, and instruct the release or minting of corresponding assets on the other side. How these instructions are validated is a critical factor in assessing the trust assumptions of a bridge.
+A message-passing protocol between two blockchains (between [L1](#layer-1) and [L2](#layer-2), and between L2s). At its most basic, a bridge consists of a [smart contract](#smart-contract) which can escrow funds on one side of the bridge, and instruct the release or minting of corresponding assets on the other side. How these instructions are validated is a critical factor in assessing the trust assumptions of a bridge.
 
 ## Bytecode
 
@@ -109,28 +109,31 @@ An algorithm that computes the Discrete Fourier Transform (DFT) of a sequence in
 
 ## Fraud proof
 
-Also referred to as a fault proof, it is the construction of an assertion that fraud was perpetrated on an optimistic rollup. More concretely, that an invalid state transition took place according to the protocol rules. The submitter of a fraud proof would expect a reward from the optimistic rollup protocol for helping maintain the integrity of the system.
+Also referred to as a fault proof, it is the construction of an assertion that fraud was perpetrated on an [optimistic rollup](#optimisitc-rollup). More concretely, that an invalid state transition took place according to the protocol rules. The submitter of a fraud proof would expect a reward from the optimistic rollup protocol for helping maintain the integrity of the system.
 
 ## FRI
 
 A proximity test method that is used to determine whether a set of points is mostly on a polynomial with a degree less than a specified value. It resembles the FFT but the arithmetic complexity of its prover is strictly linear and that of the verifier is strictly logarithmic.
 
+## Gas
+
+A virtual fuel used to execute [smart contracts](#smart-contract) on a [rollup](#rollup). The [EVM](#Ethereum-Virtual-Machine-(EVM)) (or other VM within the rollup) uses an accounting mechanism to correspond the consumption of gas to the consumption of computing resources, and to limit the consumption of computing resources.
+
 ## Gas limit
 
-The maximum amount of gas a transaction or block may consume.
+The maximum amount of [gas](#gas) a [transaction](#transaction) or [block](#block) may consume.
 
 ## Gas price
 
-Price in ether of one unit of gas specified in a transaction.
+Price in ether of one unit of [gas](#gas) specified in a [transaction](#transaction).
 
 ## General-purpose rollup
 
-A rollup that supports arbitrary computations and all applications and functionalities that are available on the corresponding Layer 1.
+A [rollup](#rollup) that supports arbitrary computations, allowing for the development of arbitrary applications and functionalities. 
 
 ## Geth (Go Ethereum)
 
-An Ethereum execution client meaning it handles transactions, deployment and execution of smart contracts and contains an embedded computer known as the Ethereum Virtual Machine.
-Running Geth alongside a consensus client turns a computer into an Ethereum node.
+An Ethereum execution [client](#client), meaning it handles [transactions](#transaction), deployment and execution of smart contracts and contains an embedded computer known as the [Ethereum Virtual Machine](#Ethereum-Virtual-Machine-(EVM)). Running Geth alongside a consensus client turns a computer into a full Ethereum node, or validator.
 
 ## Halo
 
@@ -171,7 +174,7 @@ Hashing the pairs of values at each layer (hashing hashes starting from layer 2)
 
 ## Merkle tree
 
-TODO
+A hash-based data structure in which each leaf node is a hash of a block of data, and each non-leaf node is a hash of its children. The root of the tree is a cryptographic fingerprint of the entire data structure. Merkle trees (Merkle Patricia Tries) are used in Ethereum to efficiently store key-value pairs.
 
 ## Modular blockchains
 
@@ -261,7 +264,7 @@ The layer of blockchain functionality where the execution of rollups is verified
 
 ## Smart contract
 
-A program that executes on the Ethereum computing infrastructure.
+A program that executes on the Ethereum computing infrastructure, or other blockchain.
 
 ## SNARK
 
@@ -300,15 +303,15 @@ A system of data-manipulation rules (such as a computer's instruction set, a pro
 
 **Type 1 ZK-EVM (fully Ethereum-equivalent)**
 
-Fully and uncompromisingly Ethereum-equivalent that is no part of the Ethereum system is changed to make it easier to generate proofs. They do not replace hashes, state trees, transaction trees, precompiles, or any other in-consensus logic, no matter how peripheral.
+Fully and uncompromisingly Ethereum-equivalent. No part of the Ethereum system is changed to make it easier to generate proofs. They do not replace hashes, state trees, transaction trees, precompiles, or any other in-consensus logic, no matter how peripheral.
 
 **Type 2 ZK-EVM (fully EVM-equivalent)**
 
-Exactly EVM-equivalent, but not quite Ethereum-equivalent that is having some differences on the outside, particularly in data structures like the block structure and state tree to make proof generation faster.
+Exactly EVM-equivalent, but not quite Ethereum-equivalent. There are some differences to Ethereum outside the EVM, particularly in data structures like the block structure and state tree to make proof generation faster.
 
 **Type 2.5 ZK-EVM (EVM-equivalent, except for gas costs)**
 
-Greatly increasing the gas costs of specific operations in the EVM that are very difficult to ZK-prove such as precompiles, the KECCAK opcode, etc. That significantly improves worst-case prover times. Changing gas costs may reduce developer tooling compatibility and break a few applications.
+Increasing the gas costs of specific operations in the EVM that are very difficult to ZK-prove such as precompiles, the KECCAK opcode, etc. This would significantly improve worst-case prover times. Changing gas costs may reduce developer tooling compatibility and break a few applications.
 
 **Type 3 ZK-EVM (almost EVM-equivalent)**
 
@@ -316,7 +319,7 @@ Removing a few features that are exceptionally hard to implement in a ZK-EVM imp
 
 **Type 4 ZK-EVM (high-level-language equivalent)**
 
-Taking smart contract source code written in a high-level language (Solidity, Vyper, etc.) and compiling to some language that is explicitly designed to be ZK-SNARK-friendly. It allows us to avoid ZK-prooving all the different parts of each EVM execution step. But some applications written in Solidity or Vyper and compiled down might not work because contracts may not have the same addresses, handwritten EVM bytecode is more difficult to use, and lots of debugging infrastructure cannot be carried over.
+Taking smart contract source code written in a high-level language (Solidity, Vyper, etc.) and compiling to some language that is explicitly designed to be ZK-friendly. It allows us to avoid ZK-proving all the different parts of each EVM execution step. Some applications written in Solidity or Vyper and then compiled down might not work because contracts may not have the same addresses, handwritten EVM bytecode is more difficult to use, and lots of debugging infrastructure cannot be carried over.
 
 ## Upgradeability
 
