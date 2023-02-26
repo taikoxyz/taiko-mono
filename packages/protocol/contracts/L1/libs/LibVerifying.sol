@@ -135,63 +135,6 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
-    /**
-     * A function that calculates the weight for each prover based on the number
-     * of provers and a random seed. The weight is a number between 0 and 100.
-     * The sum of the weights will be 100. The weight is calculated in bips,
-     * so the weight of 1 will be 0.01%.
-     *
-     * @param config The config of the Taiko protocol (stores the randomized percentage)
-     * @param numProvers The number of provers
-     * @return bips The weight of each prover in bips
-     */
-    function getProverRewardBips(
-        TaikoData.Config memory config,
-        uint256 numProvers
-    ) public view returns (uint256[] memory bips) {
-        bips = new uint256[](numProvers);
-
-        uint256 randomized = config.proverRewardRandomizedPercentage;
-        if (randomized > 100) {
-            randomized = 100;
-        }
-
-        uint256 sum;
-        uint256 i;
-
-        // Calculate the randomized weight
-        if (randomized > 0) {
-            unchecked {
-                uint256 seed = block.prevrandao;
-                for (i = 0; i < numProvers; ++i) {
-                    // Get an uint16, note that smart provers may
-                    // choose the right timing to maximize their rewards
-                    // which helps blocks to be verified sooner.
-                    bips[i] = uint16(seed * (1 + i));
-                    sum += bips[i];
-                }
-                for (i = 0; i < numProvers; ++i) {
-                    bips[i] = (bips[i] * 100 * randomized) / sum;
-                }
-            }
-        }
-
-        // Add the fixed weight. If there are 5 provers, then their
-        // weight will be:
-        // 1<<4=16, 1<<3=8, 1<<2=4, 1<<1=2, 1<<0=1
-        if (randomized != 100) {
-            unchecked {
-                sum = (1 << numProvers) - 1;
-                uint256 fix = 100 - randomized;
-                uint256 weight = 1 << (numProvers - 1);
-                for (i = 0; i < numProvers; ++i) {
-                    bips[i] += (weight * 100 * fix) / sum;
-                    weight >>= 1;
-                }
-            }
-        }
-    }
-
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
