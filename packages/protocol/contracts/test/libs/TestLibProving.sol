@@ -65,7 +65,6 @@ library TestLibProving {
     error L1_META_MISMATCH();
     error L1_ZKP();
     error L1_ALREADY_PROVEN();
-    error L1_NOT_ORACLE_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_ANCHOR_TYPE();
     error L1_ANCHOR_DEST();
