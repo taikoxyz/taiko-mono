@@ -126,7 +126,7 @@ library LibVerifying {
                 // of a cross-chain message with a merkle proof.
                 IHeaderSync.SyncData memory syncData = IHeaderSync.SyncData({
                     blockHash: latestL2Hash,
-                    signalServiceStorageRoot: 0x0 // TODO
+                    signalServiceStorageRoot: 0x0 // TODO: fc.l2SyncData.signalServiceStorageRoot
                 });
                 state.l2SyncData[
                     latestL2Height % config.blockHashHistory
