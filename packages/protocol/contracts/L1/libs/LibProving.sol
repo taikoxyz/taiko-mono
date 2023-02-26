@@ -262,8 +262,8 @@ library LibProving {
                 )
             )
         ) revert L1_ANCHOR_CALLDATA();
-        // Check anchor tx is the 1st tx in the block
 
+        // Check anchor tx is the 1st tx in the block
         if (
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
