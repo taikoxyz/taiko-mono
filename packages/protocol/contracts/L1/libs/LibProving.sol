@@ -87,8 +87,7 @@ library LibProving {
             config: config,
             resolver: resolver,
             evidence: evidence,
-            target: evidence.meta,
-            blockHashOverride: 0
+            target: evidence.meta
         });
     }
 
@@ -171,8 +170,7 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         Evidence memory evidence,
-        TaikoData.BlockMetadata memory target,
-        bytes32 blockHashOverride
+        TaikoData.BlockMetadata memory target
     ) private {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
@@ -232,7 +230,7 @@ library LibProving {
             prover: evidence.prover,
             target: target,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHashOverride == 0 ? blockHash : blockHashOverride
+            blockHash: blockHash
         });
     }
 
