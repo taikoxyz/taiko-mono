@@ -192,34 +192,6 @@ library LibVerifying {
         }
     }
 
-    function _refundProposerDeposit(
-        TaikoData.ProposedBlock storage target,
-        uint256 tRelBp,
-        TaikoToken taikoToken
-    ) private {
-        uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-        if (refund > 0 && taikoToken.balanceOf(target.proposer) > 0) {
-            // Do not refund proposer with 0 TKO balance.
-            taikoToken.mint(target.proposer, refund);
-        }
-    }
-
-    function _rewardProver(
-        TaikoData.ForkChoice storage fc,
-        uint256 reward,
-        TaikoToken taikoToken
-    ) private {
-        if (reward == 0) return;
-        uint256 _reward = reward;
-        if (taikoToken.balanceOf(fc.prover) == 0) {
-            // Reduce reward to 1 wei as a penalty if the prover
-            // has 0 TKO balance. This allows the next prover reward
-            // to be fully paid.
-            _reward = uint256(1);
-        }
-        taikoToken.mint(fc.prover, _reward);
-    }
-
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -245,8 +217,29 @@ library LibVerifying {
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProver(fc, reward, taikoToken);
-                _refundProposerDeposit(target, tRelBp, taikoToken);
+                // reward the prover
+                if (reward != 0) {
+                    uint256 _reward = reward;
+                    if (taikoToken.balanceOf(fc.prover) == 0) {
+                        // Reduce reward to 1 wei as a penalty if the prover
+                        // has 0 TKO balance. This allows the next prover reward
+                        // to be fully paid.
+                        _reward = uint256(1);
+                    }
+                    taikoToken.mint(fc.prover, _reward);
+                }
+
+                {
+                    // refund proposer deposit
+                    uint256 refund = (target.deposit * (10000 - tRelBp)) /
+                        10000;
+                    if (
+                        refund > 0 && taikoToken.balanceOf(target.proposer) > 0
+                    ) {
+                        // Do not refund proposer with 0 TKO balance.
+                        taikoToken.mint(target.proposer, refund);
+                    }
+                }
             }
             // Update feeBase and avgProofTime
             state.feeBase = LibUtils.movingAverage({
