@@ -287,26 +287,13 @@ contract TaikoL1 is
         return state.forkChoices[id][parentHash];
     }
 
-    function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
-        return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
-    }
-
-    function getProverRewardBips(
-        uint256 numProvers
-    ) public view returns (uint256[] memory) {
-        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
-    }
-
     function isBlockVerifiable(
         uint256 blockId,
         bytes32 parentHash
     ) public view returns (bool) {
         return
             LibVerifying.isVerifiable({
-                state: state,
-                config: getConfig(),
-                fc: state.forkChoices[blockId][parentHash],
-                blockId: blockId
+                fc: state.forkChoices[blockId][parentHash]
             });
     }
 

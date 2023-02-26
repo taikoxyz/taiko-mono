@@ -82,14 +82,7 @@ library LibVerifying {
             );
 
             // Uncle proof can not take more than 2x time the first proof did.
-            if (
-                !isVerifiable({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    blockId: i
-                })
-            ) {
+            if (!isVerifiable(fc)) {
                 break;
             } else {
                 (latestL2Height, latestL2Hash) = _verifyBlock({
@@ -218,32 +211,19 @@ library LibVerifying {
     }
 
     function _rewardProvers(
-        TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         uint256 reward,
         TaikoToken taikoToken
     ) private {
-        uint256 offset;
-        uint256 count = fc.provers.length;
-
-        if (config.enableOracleProver) {
-            offset = 1;
-            count -= 1;
-        }
-
-        uint256[] memory bips = getProverRewardBips(config, count);
-
-        for (uint256 i; i < count; ++i) {
-            uint256 proverReward = (reward * bips[i]) / 10000;
-            if (proverReward != 0) {
-                if (taikoToken.balanceOf(fc.provers[offset + i]) == 0) {
-                    // Reduce reward to 1 wei as a penalty if the prover
-                    // has 0 TKO balance. This allows the next prover reward
-                    // to be fully paid.
-                    proverReward = uint256(1);
-                }
-                taikoToken.mint(fc.provers[offset + i], proverReward);
+        uint256 _reward = reward;
+        if (_reward != 0) {
+            if (taikoToken.balanceOf(fc.prover) == 0) {
+                // Reduce reward to 1 wei as a penalty if the prover
+                // has 0 TKO balance. This allows the next prover reward
+                // to be fully paid.
+                _reward = uint256(1);
             }
+            taikoToken.mint(fc.prover, _reward);
         }
     }
 
@@ -272,7 +252,7 @@ library LibVerifying {
                     resolver.resolve("tko_token", false)
                 );
 
-                _rewardProvers(config, fc, reward, taikoToken);
+                _rewardProvers(fc, reward, taikoToken);
                 _refundProposerDeposit(target, tRelBp, taikoToken);
             }
             // Update feeBase and avgProofTime
@@ -303,28 +283,12 @@ library LibVerifying {
     function _cleanUp(TaikoData.ForkChoice storage fc) private {
         fc.blockHash = 0;
         fc.provenAt = 0;
-        for (uint256 i; i < fc.provers.length; ++i) {
-            fc.provers[i] = address(0);
-        }
-        delete fc.provers;
+        fc.prover = address(0);
     }
 
     function isVerifiable(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.ForkChoice storage fc,
-        uint256 blockId
+        TaikoData.ForkChoice storage fc
     ) public view returns (bool) {
-        return
-            // TODO(daniel): remove the next line.
-            (!config.enableOracleProver || fc.provers.length > 1) &&
-            fc.blockHash != 0 &&
-            block.timestamp >
-            LibUtils.getUncleProofDeadline({
-                state: state,
-                config: config,
-                fc: fc,
-                blockId: blockId
-            });
+        return fc.blockHash != 0 && fc.prover != address(0);
     }
 }

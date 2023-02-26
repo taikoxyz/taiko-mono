@@ -14,10 +14,8 @@ library TaikoData {
         uint256 blockHashHistory;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
-        uint256 zkProofsPerBlock;
         uint256 maxVerificationsPerTx;
         uint256 commitConfirmations;
-        uint256 maxProofsPerForkChoice;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
@@ -36,7 +34,6 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
-        uint64 initialUncleDelay;
         uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
@@ -70,7 +67,7 @@ library TaikoData {
     struct ForkChoice {
         bytes32 blockHash;
         uint64 provenAt;
-        address[] provers;
+        address prover;
     }
 
     // This struct takes 9 slots.

@@ -27,9 +27,9 @@ library LibProving {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
+        bytes[] proofs;
         // followed by MKPs.
-        uint16[] circuits; // The circuits IDs (size === zkProofsPerBlock)
+        uint16 circuit;
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -53,12 +53,10 @@ library LibProving {
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CONFLICT_PROOF();
-    error L1_CIRCUIT_LENGTH();
     error L1_META_MISMATCH();
     error L1_ZKP();
-    error L1_TOO_MANY_PROVERS();
-    error L1_DUP_PROVERS();
-    error L1_NOT_FIRST_PROVER();
+    error L1_ALREADY_PROVEN();
+    error L1_NOT_ORACLE_PROVER();
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_ANCHOR_TYPE();
     error L1_ANCHOR_DEST();
@@ -91,12 +89,7 @@ library LibProving {
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
 
-        uint256 zkProofsPerBlock = config.zkProofsPerBlock;
-        if (evidence.proofs.length != 2 + zkProofsPerBlock)
-            revert L1_PROOF_LENGTH();
-
-        if (evidence.circuits.length != zkProofsPerBlock)
-            revert L1_CIRCUIT_LENGTH();
+        if (evidence.proofs.length != 3) revert L1_PROOF_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
@@ -144,8 +137,7 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.proofs.length != 1 + config.zkProofsPerBlock)
-            revert L1_PROOF_LENGTH();
+        if (evidence.proofs.length != 2) revert L1_PROOF_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
@@ -199,37 +191,33 @@ library LibProving {
         bool skipZKPVerification;
 
         // TODO(daniel): remove this special address.
-        if (config.enableOracleProver) {
-            bytes32 _blockHash = state
-            .forkChoices[target.id][evidence.header.parentHash].blockHash;
 
-            if (msg.sender == resolver.resolve("oracle_prover", false)) {
-                if (_blockHash != 0) revert L1_NOT_FIRST_PROVER();
-                skipZKPVerification = true;
-            } else {
-                if (_blockHash == 0) revert L1_CANNOT_BE_FIRST_PROVER();
-            }
-        }
+        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
+            evidence.header.parentHash
+        ];
 
         bytes32 blockHash = evidence.header.hashBlockHeader();
+        if (fc.blockHash == 0) {
+            if (config.enableOracleProver) {
+                if (msg.sender != resolver.resolve("oracle_prover", false))
+                    revert L1_NOT_ORACLE_PROVER();
+                skipZKPVerification = true;
+            }
+        } else {
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
+        }
 
         if (!skipZKPVerification) {
-            for (uint256 i; i < config.zkProofsPerBlock; ++i) {
-                if (
-                    !proofVerifier.verifyZKP({
-                        verifierId: string(
-                            abi.encodePacked(
-                                "plonk_verifier_",
-                                i,
-                                "_",
-                                evidence.circuits[i]
-                            )
-                        ),
-                        zkproof: evidence.proofs[i],
-                        instance: _getInstance(evidence)
-                    })
-                ) revert L1_ZKP();
-            }
+            if (
+                !proofVerifier.verifyZKP({
+                    verifierId: string(
+                        abi.encodePacked("plonk_verifier_", evidence.circuit)
+                    ),
+                    zkproof: evidence.proofs[1], // ???
+                    instance: _getInstance(evidence)
+                })
+            ) revert L1_ZKP();
         }
 
         _markBlockProven({
@@ -266,24 +254,6 @@ library LibProving {
                 // We keep fc.provenAt as 0.
             }
         } else {
-            if (fc.provers.length >= config.maxProofsPerForkChoice)
-                revert L1_TOO_MANY_PROVERS();
-
-            if (
-                fc.provenAt != 0 &&
-                block.timestamp >=
-                LibUtils.getUncleProofDeadline({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    blockId: target.id
-                })
-            ) revert L1_TOO_LATE();
-
-            for (uint256 i; i < fc.provers.length; ++i) {
-                if (fc.provers[i] == prover) revert L1_DUP_PROVERS();
-            }
-
             if (fc.blockHash != blockHash) {
                 // We have a problem here: two proofs are both valid but claims
                 // the new block has different hashes.
@@ -302,7 +272,7 @@ library LibProving {
             }
         }
 
-        fc.provers.push(prover);
+        fc.prover = prover;
 
         emit BlockProven({
             id: target.id,
@@ -347,12 +317,11 @@ library LibProving {
         ) revert L1_ANCHOR_CALLDATA();
         // Check anchor tx is the 1st tx in the block
 
-        uint256 zkProofsPerBlock = config.zkProofsPerBlock;
         if (
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorTx,
-                proof: evidence.proofs[zkProofsPerBlock],
+                proof: evidence.proofs[1],
                 root: evidence.header.transactionsRoot
             })
         ) revert L1_ANCHOR_TX_PROOF();
@@ -364,7 +333,7 @@ library LibProving {
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: anchorReceipt,
-                proof: evidence.proofs[zkProofsPerBlock + 1],
+                proof: evidence.proofs[2],
                 root: evidence.header.receiptsRoot
             })
         ) revert L1_ANCHOR_RECEIPT_PROOF();
@@ -382,7 +351,7 @@ library LibProving {
             !proofVerifier.verifyMKP({
                 key: LibRLPWriter.writeUint(0),
                 value: invalidateBlockReceipt,
-                proof: evidence.proofs[config.zkProofsPerBlock],
+                proof: evidence.proofs[1],
                 root: evidence.header.receiptsRoot
             })
         ) revert L1_ANCHOR_RECEIPT_PROOF();
