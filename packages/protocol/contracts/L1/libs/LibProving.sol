@@ -223,8 +223,8 @@ library LibProving {
             id: target.id,
             parentHash: evidence.header.parentHash,
             blockHash: _blockHash,
-            provenAt: fc.provenAt,
-            prover: fc.prover
+            provenAt: skipZKPVerification ? 0 : fc.provenAt,
+            prover: skipZKPVerification ? address(0) : fc.prover
         });
     }
 
