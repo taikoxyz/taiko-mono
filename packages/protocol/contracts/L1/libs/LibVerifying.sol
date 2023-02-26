@@ -23,7 +23,6 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
-
     event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
     error L1_0_FEE_BASE();
