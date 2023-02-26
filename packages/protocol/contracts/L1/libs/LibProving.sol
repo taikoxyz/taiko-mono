@@ -216,7 +216,7 @@ library LibProving {
                 verifierId: string(
                     abi.encodePacked("plonk_verifier_", evidence.circuitId)
                 ),
-                zkproof: evidence.proofs[1], // ???
+                zkproof: evidence.proofs[0],
                 instance: _getInstance(evidence)
             });
             if (!verified) revert L1_ZKP();
