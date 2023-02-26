@@ -195,10 +195,9 @@ library LibProving {
         bytes32 _blockHash = blockHashOverride == 0
             ? blockHash
             : blockHashOverride;
-        address oracleProver = resolver.resolve("oracle_prover", true);
 
         if (fc.blockHash == 0) {
-            if (msg.sender == oracleProver) {
+            if (msg.sender == resolver.resolve("oracle_prover", true)) {
                 skipZKPVerification = true;
             } else {
                 fc.prover = evidence.prover;
