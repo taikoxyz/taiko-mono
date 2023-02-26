@@ -269,17 +269,12 @@ export async function deployContracts(hre: any) {
 }
 
 async function deployBaseLibs(hre: any) {
-    const libReceiptDecoder = await utils.deployContract(
-        hre,
-        "LibReceiptDecoder"
-    );
     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
 
     const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
     const libProposing = await utils.deployContract(hre, "LibProposing", {});
 
     const libProving = await utils.deployContract(hre, "LibProving", {
-        LibReceiptDecoder: libReceiptDecoder.address,
         LibTxDecoder: libTxDecoder.address,
     });
 

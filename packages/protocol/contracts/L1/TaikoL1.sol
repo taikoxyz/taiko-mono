@@ -86,6 +86,15 @@ contract TaikoL1 is
      *          will be the first transaction in the block -- if there are
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
+     *
+     *        - inputs[2] a byte32 that determins which verifier to run.
+     *
+     *        - inputs[3] a ZKP that verifies all transactions are valid -- they
+     *          have the right RLP encoding, the data size is within the limit, its
+     *          gasLimit > intrinsic gas cost, and all signatures are valid.
+     *          With this proof being valid, all proposed blocks are guaranteed to
+     *          be valid; if this proof is invalid, there is no way to generate a
+     *          main zk-proof at all.
      */
     function proposeBlock(
         bytes[] calldata inputs
@@ -115,12 +124,7 @@ contract TaikoL1 is
      * @param inputs A list of data input:
      *        - inputs[0] is an abi-encoded object with various information
      *          regarding  the block to be proven and the actual proofs.
-     *        - inputs[1] is the actual anchor transaction in this L2 block.
-     *          Note that the anchor transaction is always the first transaction
-     *          in the block.
-     *        - inputs[2] is the receipt of the anchor transaction.
      */
-
     function proveBlock(
         uint256 blockId,
         bytes[] calldata inputs
@@ -149,19 +153,18 @@ contract TaikoL1 is
      * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
      * @param inputs A list of data input:
-     *        - inputs[0] An Evidence object with various information regarding
-     *          the block to be proven and the actual proofs.
-     *        - inputs[1] The target block to be proven invalid.
-     *        - inputs[2] The receipt for the `invalidBlock` transaction
-     *          on L2. Note that the `invalidBlock` transaction is supposed to
-     *          be the only transaction in the L2 block.
+     *        - inputs[0] The target block's metadata.
+     *        - inputs[1] The circuit ID which is submitted by the block
+     *          proposer when the block is proposed.
+     *        - inputs[2] The signature zk-proof which is submitted by the
+     *          block proposer when the block is proposed.
+     *        - inputs[3] The parent block's blockhash.
      */
     function proveBlockInvalid(
         uint256 blockId,
         bytes[] calldata inputs
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
-
         LibProving.proveBlockInvalid({
             state: state,
             config: config,

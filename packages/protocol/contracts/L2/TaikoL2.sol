@@ -21,8 +21,6 @@ import {TaikoData} from "../L1/TaikoData.sol";
 import {ISignalService} from "../signal/ISignalService.sol";
 
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
-    using LibTxDecoder for bytes;
-
     /**********************
      * State Variables    *
      **********************/
@@ -48,11 +46,8 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Events and Errors  *
      **********************/
 
-    event BlockInvalidated(bytes32 indexed txListHash);
-
     error L2_INVALID_SENDER();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
@@ -112,39 +107,6 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         latestSyncedL1Height = l1Height;
 
         emit HeaderSynced(l1Height, syncData);
-    }
-
-    /**
-     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
-     *
-     * @param txList The L2 block's txlist.
-     * @param hint A hint for this method to invalidate the txList.
-     * @param txIdx If the hint is for a specific transaction in txList,
-     *        txIdx specifies which transaction to check.
-     */
-    function invalidateBlock(
-        bytes calldata txList,
-        LibInvalidTxList.Hint hint,
-        uint256 txIdx
-    ) external {
-        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
-            revert L2_INVALID_SENDER();
-
-        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
-
-        TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.verifyTxListInvalid({
-            config: config,
-            encoded: txList,
-            hint: hint,
-            txIdx: txIdx
-        });
-
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
-        }
-
-        emit BlockInvalidated(txList.hashTxList());
     }
 
     /**********************

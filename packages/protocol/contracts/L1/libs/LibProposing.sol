@@ -37,6 +37,7 @@ library LibProposing {
     error L1_SOLO_PROPOSER();
     error L1_INPUT_SIZE();
     error L1_TX_LIST();
+    error L1_ZKP();
 
     function commitBlock(
         TaikoData.State storage state,
@@ -77,7 +78,7 @@ library LibProposing {
 
         assert(!LibUtils.isHalted(state));
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        if (inputs.length != 4) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -95,7 +96,9 @@ library LibProposing {
             if (
                 txList.length < 0 ||
                 txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != txList.hashTxList()
+                meta.txListHash != txList.hashTxList() ||
+                meta.txListProofHash !=
+                LibUtils.hashTxListProof(bytes32(inputs[2]), inputs[3])
             ) revert L1_TX_LIST();
 
             if (
@@ -259,7 +262,8 @@ library LibProposing {
             meta.mixHash != 0 ||
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||
-            meta.txListHash == 0
+            meta.txListHash == 0 ||
+            meta.txListProofHash == 0
         ) revert L1_METADATA_FIELD();
 
         if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();

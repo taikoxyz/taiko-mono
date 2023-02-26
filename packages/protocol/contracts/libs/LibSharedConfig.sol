@@ -59,7 +59,6 @@ library LibSharedConfig {
                 proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
-                enableAnchorValidation: true,
                 enableOracleProver: true
             });
     }

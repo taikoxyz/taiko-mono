@@ -234,26 +234,18 @@ library LibVerifying {
         uint256 reward,
         TaikoToken taikoToken
     ) private {
-        uint256 offset;
-        uint256 count = fc.provers.length;
+        uint256[] memory bips = getProverRewardBips(config, fc.provers.length);
 
-        if (config.enableOracleProver) {
-            offset = 1;
-            count -= 1;
-        }
-
-        uint256[] memory bips = getProverRewardBips(config, count);
-
-        for (uint256 i; i < count; ++i) {
+        for (uint256 i; i < bips.length; ++i) {
             uint256 proverReward = (reward * bips[i]) / 10000;
             if (proverReward != 0) {
-                if (taikoToken.balanceOf(fc.provers[offset + i]) == 0) {
+                if (taikoToken.balanceOf(fc.provers[i]) == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
                     // has 0 TKO balance. This allows the next prover reward
                     // to be fully paid.
                     proverReward = uint256(1);
                 }
-                taikoToken.mint(fc.provers[offset + i], proverReward);
+                taikoToken.mint(fc.provers[i], proverReward);
             }
         }
     }

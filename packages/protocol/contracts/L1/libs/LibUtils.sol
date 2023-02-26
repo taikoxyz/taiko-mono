@@ -179,6 +179,13 @@ library LibUtils {
         return keccak256(abi.encode(meta));
     }
 
+    function hashTxListProof(
+        bytes32 circuit,
+        bytes calldata signatureProof
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(circuit, signatureProof));
+    }
+
     function movingAverage(
         uint256 maValue,
         uint256 newValue,

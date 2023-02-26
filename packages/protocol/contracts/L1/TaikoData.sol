@@ -42,7 +42,6 @@ library TaikoData {
         uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
-        bool enableAnchorValidation;
         bool enableOracleProver;
     }
 
@@ -52,6 +51,7 @@ library TaikoData {
         IHeaderSync.SyncData l1SyncData;
         address beneficiary;
         bytes32 txListHash;
+        bytes32 txListProofHash;
         bytes32 mixHash;
         bytes extraData;
         uint64 gasLimit;
