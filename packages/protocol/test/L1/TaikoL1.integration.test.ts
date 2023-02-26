@@ -414,7 +414,7 @@ describe("integration:TaikoL1", function () {
         });
     });
 
-    describe("getLatestSyncedHeader", function () {
+    describe("getLatestSyncData", function () {
         it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
@@ -440,7 +440,7 @@ describe("integration:TaikoL1", function () {
 
                 expect(verifyEvent).not.to.be.undefined;
 
-                const header = await taikoL1.getLatestSyncedHeader();
+                const header = await taikoL1.getLatestSyncData();
                 expect(header).to.be.eq(verifyEvent.args.blockHash);
                 blocks++;
             }

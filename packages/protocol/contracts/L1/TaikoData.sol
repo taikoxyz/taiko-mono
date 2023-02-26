@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {IHeaderSync} from "../common/IHeaderSync.sol";
+
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -48,6 +50,7 @@ library TaikoData {
         uint256 id;
         uint256 l1Height;
         bytes32 l1Hash;
+        bytes32 l1SignalServiceStorageRoot;
         address beneficiary;
         bytes32 txListHash;
         bytes32 mixHash;
@@ -77,7 +80,7 @@ library TaikoData {
     struct State {
         // some blocks' hashes won't be persisted,
         // only the latest one if verified in a batch
-        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
+        mapping(uint256 blockId => IHeaderSync.SyncData) l2SyncData;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;

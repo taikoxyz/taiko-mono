@@ -22,16 +22,16 @@ describe("TaikoL2", function () {
         });
     });
 
-    describe("getLatestSyncedHeader()", async function () {
+    describe("getLatestSyncData()", async function () {
         it("should be 0 because no headers have been synced", async function () {
-            const hash = await taikoL2.getLatestSyncedHeader();
+            const hash = await taikoL2.getLatestSyncData();
             expect(hash).to.be.eq(ethers.constants.HashZero);
         });
     });
 
-    describe("getSyncedHeader()", async function () {
+    describe("getSyncData()", async function () {
         it("should be 0 because header number has not been synced", async function () {
-            const hash = await taikoL2.getSyncedHeader(1);
+            const hash = await taikoL2.getSyncData(1);
             expect(hash).to.be.eq(ethers.constants.HashZero);
         });
     });

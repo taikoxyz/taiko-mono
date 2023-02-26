@@ -15,6 +15,7 @@ import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
 
 library LibProposing {
     using LibTxDecoder for bytes;
@@ -104,6 +105,10 @@ library LibProposing {
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;
             meta.l1Hash = blockhash(block.number - 1);
+            meta.l1SignalServiceStorageRoot = ISignalService(
+                resolver.resolve("signal_service", false)
+            ).getStorageRoot();
+
             meta.timestamp = uint64(block.timestamp);
 
             // After The Merge, L1 mixHash contains the prevrandao
@@ -247,6 +252,7 @@ library LibProposing {
             meta.id != 0 ||
             meta.l1Height != 0 ||
             meta.l1Hash != 0 ||
+            meta.l1SignalServiceStorageRoot != 0 ||
             meta.mixHash != 0 ||
             meta.timestamp != 0 ||
             meta.beneficiary == address(0) ||

@@ -10,6 +10,7 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
+import {IHeaderSync} from "../../common/IHeaderSync.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {TaikoData} from "../TaikoData.sol";
 
@@ -55,13 +56,13 @@ library LibUtils {
         TaikoData.State storage state,
         uint256 number,
         uint256 blockHashHistory
-    ) internal view returns (bytes32) {
+    ) internal view returns (IHeaderSync.SyncData memory) {
         if (
             number + blockHashHistory <= state.latestVerifiedHeight ||
             number > state.latestVerifiedHeight
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2Hashes[number % blockHashHistory];
+        return state.l2SyncData[number % blockHashHistory];
     }
 
     function getStateVariables(

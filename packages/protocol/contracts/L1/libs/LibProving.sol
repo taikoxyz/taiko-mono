@@ -26,6 +26,7 @@ library LibProving {
     struct Evidence {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
+        bytes32 l2SignalServiceStorageRoot;
         address prover;
         bytes[] proofs; // The first zkProofsPerBlock are ZKPs,
         // followed by MKPs.
@@ -341,7 +342,8 @@ library LibProving {
                 bytes.concat(
                     ANCHOR_TX_SELECTOR,
                     bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash
+                    evidence.meta.l1Hash,
+                    evidence.meta.l1SignalServiceStorageRoot
                 )
             )
         ) revert L1_ANCHOR_CALLDATA();
@@ -457,17 +459,20 @@ library LibProving {
     ) internal pure returns (bytes32 instance) {
         bytes[] memory headerRLPItemsList = LibBlockHeader
             .getBlockHeaderRLPItemsList(evidence.header);
-        bytes[] memory instanceRLPItemsList = new bytes[](
-            headerRLPItemsList.length + 2
-        );
 
-        for (uint256 i; i < headerRLPItemsList.length; ++i) {
+        uint256 len = headerRLPItemsList.length;
+        bytes[] memory instanceRLPItemsList = new bytes[](len + 3);
+
+        for (uint256 i; i < len; ++i) {
             instanceRLPItemsList[i] = headerRLPItemsList[i];
         }
-        instanceRLPItemsList[headerRLPItemsList.length] = LibRLPWriter
-            .writeAddress(evidence.prover);
-        instanceRLPItemsList[headerRLPItemsList.length + 1] = LibRLPWriter
-            .writeHash(evidence.meta.txListHash);
+        instanceRLPItemsList[len] = LibRLPWriter.writeAddress(evidence.prover);
+        instanceRLPItemsList[len + 1] = LibRLPWriter.writeHash(
+            evidence.meta.txListHash
+        );
+        instanceRLPItemsList[len + 2] = LibRLPWriter.writeHash(
+            evidence.l2SignalServiceStorageRoot
+        );
 
         instance = keccak256(LibRLPWriter.writeList(instanceRLPItemsList));
     }

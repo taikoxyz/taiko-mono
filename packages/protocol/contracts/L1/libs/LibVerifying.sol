@@ -11,6 +11,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {IHeaderSync} from "../../common/IHeaderSync.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -24,7 +25,10 @@ library LibVerifying {
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
 
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
+    event HeaderSynced(
+        uint256 indexed srcHeight,
+        IHeaderSync.SyncData syncData
+    );
 
     error L1_HALTED();
     error L1_0_FEE_BASE();
@@ -41,10 +45,13 @@ library LibVerifying {
         state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = genesisBlockHash;
+        state.l2SyncData[0] = IHeaderSync.SyncData({
+            blockHash: genesisBlockHash,
+            signalServiceStorageRoot: 0
+        });
 
         emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(0, genesisBlockHash);
+        emit HeaderSynced(0, state.l2SyncData[0]);
     }
 
     function verifyBlocks(
@@ -63,9 +70,9 @@ library LibVerifying {
         }
 
         uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[
-            latestL2Height % config.blockHashHistory
-        ];
+        bytes32 latestL2Hash = state
+            .l2SyncData[latestL2Height % config.blockHashHistory]
+            .blockHash; // TODO(whys)
         uint64 processed;
 
         for (
@@ -117,10 +124,14 @@ library LibVerifying {
                 // verified one in a batch. This is sufficient because the last
                 // verified hash is the only one needed checking the existence
                 // of a cross-chain message with a merkle proof.
-                state.l2Hashes[
+                IHeaderSync.SyncData memory syncData = IHeaderSync.SyncData({
+                    blockHash: latestL2Hash,
+                    signalServiceStorageRoot: 0x0
+                }); // TODO(why)
+                state.l2SyncData[
                     latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
-                emit HeaderSynced(latestL2Height, latestL2Hash);
+                ] = syncData;
+                emit HeaderSynced(latestL2Height, syncData);
             }
         }
     }

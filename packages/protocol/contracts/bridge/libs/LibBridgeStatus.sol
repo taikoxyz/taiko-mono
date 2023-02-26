@@ -73,7 +73,8 @@ library LibBridgeStatus {
             (LibBridgeData.StatusProof)
         );
         bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko", false))
-            .getSyncedHeader(sp.header.height);
+            .getSyncData(sp.header.height)
+            .blockHash;
 
         if (
             syncedHeaderHash == 0 ||

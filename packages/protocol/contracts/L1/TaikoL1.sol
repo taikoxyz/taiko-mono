@@ -251,13 +251,18 @@ contract TaikoL1 is
             LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
     }
 
-    function getSyncedHeader(
+    function getSyncData(
         uint256 number
-    ) public view override returns (bytes32) {
+    ) public view override returns (IHeaderSync.SyncData memory) {
         return state.getL2BlockHash(number, getConfig().blockHashHistory);
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
+    function getLatestSyncData()
+        public
+        view
+        override
+        returns (IHeaderSync.SyncData memory)
+    {
         return
             state.getL2BlockHash(
                 state.latestVerifiedHeight,

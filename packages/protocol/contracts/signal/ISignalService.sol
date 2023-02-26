@@ -40,4 +40,9 @@ interface ISignalService {
         bytes32 signal,
         bytes calldata proof
     ) external view returns (bool);
+
+    /**
+     * Return the storage root of this contract.
+     */
+    function getStorageRoot() external view returns (bytes32 storageRoot);
 }

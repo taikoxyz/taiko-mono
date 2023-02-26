@@ -18,6 +18,7 @@ import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
 import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
 import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
+import {ISignalService} from "../signal/ISignalService.sol";
 
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     using LibTxDecoder for bytes;
@@ -33,7 +34,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     // Mapping from L1 block numbers to their block hashes.
     // Note that only hashes of L1 blocks where at least one L2
     // block has been proposed will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
+    mapping(uint256 blockNumber => SyncData) private _l1SyncData;
 
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
@@ -90,16 +91,27 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
+     * @param l1SignalServiceStorageRoot The signal service's storage root on L1.
      */
-    function anchor(uint256 l1Height, bytes32 l1Hash) external {
+    function anchor(
+        uint256 l1Height,
+        bytes32 l1Hash,
+        bytes32 l1SignalServiceStorageRoot
+    ) external {
         TaikoData.Config memory config = getConfig();
         if (config.enablePublicInputsCheck) {
             _checkPublicInputs();
         }
 
+        SyncData memory syncData = SyncData({
+            blockHash: l1Hash,
+            signalServiceStorageRoot: l1SignalServiceStorageRoot
+        });
+
+        _l1SyncData[l1Height] = syncData;
         latestSyncedL1Height = l1Height;
-        _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(l1Height, l1Hash);
+
+        emit HeaderSynced(l1Height, syncData);
     }
 
     /**
@@ -149,14 +161,19 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         config.chainId = block.chainid;
     }
 
-    function getSyncedHeader(
+    function getSyncData(
         uint256 number
-    ) public view override returns (bytes32) {
-        return _l1Hashes[number];
+    ) public view override returns (SyncData memory) {
+        return _l1SyncData[number];
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
-        return _l1Hashes[latestSyncedL1Height];
+    function getLatestSyncData()
+        public
+        view
+        override
+        returns (SyncData memory)
+    {
+        return _l1SyncData[latestSyncedL1Height];
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {

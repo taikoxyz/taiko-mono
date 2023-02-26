@@ -11,18 +11,23 @@ import {IHeaderSync} from "../../common/IHeaderSync.sol";
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
 contract TestHeaderSync is IHeaderSync {
-    bytes32 public headerHash;
+    SyncData public syncData;
 
-    function setSyncedHeader(bytes32 header) external {
-        headerHash = header;
+    function setSyncedHeader(
+        bytes32 blockHash,
+        bytes32 signalServiceStorageRoot
+    ) external {
+        syncData.blockHash = blockHash;
+        syncData.signalServiceStorageRoot = signalServiceStorageRoot;
     }
 
-    function getSyncedHeader(uint256 number) external view returns (bytes32) {
-        number;
-        return headerHash;
+    function getSyncData(
+        uint256 /*number*/
+    ) external view returns (SyncData memory) {
+        return syncData;
     }
 
-    function getLatestSyncedHeader() external view returns (bytes32) {
-        return headerHash;
+    function getLatestSyncData() external view returns (SyncData memory) {
+        return syncData;
     }
 }

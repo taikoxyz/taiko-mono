@@ -91,7 +91,7 @@ async function verifyBlockAndAssert(
     }
 
     // latest synced header should be our just-verified block hash.
-    const latestHash = await taikoL1.getLatestSyncedHeader();
+    const latestHash = await taikoL1.getLatestSyncData();
     expect(latestHash).to.be.eq(block.blockHash);
 
     // fork choice should be nullified via _cleanUp in LibVerifying
