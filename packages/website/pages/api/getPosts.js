@@ -1,5 +1,4 @@
 const Arweave = require("arweave");
-const fs = require("fs");
 
 const arweave = Arweave.init({
   host: "arweave.net",
@@ -7,7 +6,10 @@ const arweave = Arweave.init({
   protocol: "https",
 });
 
-export default async function getTransanctionIds(req, res) {
+const posts = [];
+const hoursBetweenBlogPostFetches = 1
+
+const getTransactionIds = async () => {
   await fetch("https://arweave.net/graphql", {
     method: "POST",
     headers: {
@@ -48,12 +50,11 @@ export default async function getTransanctionIds(req, res) {
     .then((response) => {
       getPosts(response);
     })
-    .finally(() => res.send(200))
     .catch();
-}
+};
 
 async function getPosts(response) {
-  const posts = [];
+  posts.length = 0;
   Promise.all(
     response.data.transactions.edges.map((edge) => {
       const transactionId = edge.node.id;
@@ -68,11 +69,14 @@ async function getPosts(response) {
             posts.push(data);
           }
         })
-        .then(() => {
-          const jsonString = JSON.stringify(posts);
-          fs.writeFile("./public/posts.json", jsonString, (err) => {});
-        })
         .catch();
     })
   );
 }
+
+getTransactionIds();
+setInterval(getTransactionIds, hoursBetweenBlogPostFetches * 3600000);
+
+export default (req, res) => {
+  res.json(posts);
+};

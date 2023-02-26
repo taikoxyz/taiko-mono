@@ -77,7 +77,7 @@ function getDateTime(timestamp: string): string {
 export default function BlogSection(): JSX.Element {
   const [posts, setPosts] = useState<Post[]>([]);
   useEffect(() => {
-    fetch("/posts.json")
+    fetch("/api/getPosts")
       .then((response) => response.json())
       .then((json) => {
         json = json.sort((a, b) => b.content.timestamp - a.content.timestamp);
