@@ -23,6 +23,4 @@ abstract contract TaikoEvents {
         uint64 provenAt,
         address prover
     );
-
-    event Halted(bool halted);
 }

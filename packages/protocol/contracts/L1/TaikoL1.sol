@@ -193,14 +193,6 @@ contract TaikoL1 is
         });
     }
 
-    /**
-     * Halt or resume the chain.
-     * @param toHalt True to halt, false to resume.
-     */
-    function halt(bool toHalt) public onlyOwner {
-        LibUtils.halt(state, toHalt);
-    }
-
     function getBlockFee() public view returns (uint256) {
         (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
@@ -219,14 +211,6 @@ contract TaikoL1 is
             provenAt: provenAt,
             proposedAt: proposedAt
         });
-    }
-
-    /**
-     * Check if the L1 is halted.
-     * @return True if halted, false otherwise.
-     */
-    function isHalted() public view returns (bool) {
-        return LibUtils.isHalted(state);
     }
 
     function isCommitValid(
@@ -286,16 +270,6 @@ contract TaikoL1 is
     ) public view returns (TaikoData.ForkChoice memory) {
         return state.forkChoices[id][parentHash];
     }
-
-    // function isBlockVerifiable(
-    //     uint256 blockId,
-    //     bytes32 parentHash
-    // ) public view returns (bool) {
-    //     return
-    //         LibVerifying.isVerifiable({
-    //             fc: state.forkChoices[blockId][parentHash]
-    //         });
-    // }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();

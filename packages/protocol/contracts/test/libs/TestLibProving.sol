@@ -37,8 +37,7 @@ library TestLibProving {
         BlockHeader header;
         address prover;
         bytes[] proofs;
-        // followed by MKPs.
-        uint16 circuit;
+        uint16 circuitId;
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -51,14 +50,12 @@ library TestLibProving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 timestamp,
         uint64 provenAt,
         address prover
     );
 
     error L1_ID();
     error L1_PROVER();
-    error L1_TOO_LATE();
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CONFLICT_PROOF();
@@ -198,23 +195,51 @@ library TestLibProving {
 
         bool skipZKPVerification;
 
-        // TODO(daniel): remove this special address.
-
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
             evidence.header.parentHash
         ];
 
-        if (!skipZKPVerification) {
-            if (
-                !proofVerifier.verifyZKP({
-                    verifierId: string(
-                        abi.encodePacked("plonk_verifier_", evidence.circuit)
-                    ),
-                    zkproof: evidence.proofs[1], // ???
-                    instance: _getInstance(evidence)
-                })
-            ) revert L1_ZKP();
+        bytes32 blockHash = evidence.header.hashBlockHeader();
+        bytes32 _blockHash = blockHashOverride == 0
+            ? blockHash
+            : blockHashOverride;
+
+        if (fc.blockHash == 0) {
+            if (msg.sender == resolver.resolve("oracle_prover", true)) {
+                skipZKPVerification = true;
+            } else {
+                fc.prover = evidence.prover;
+                fc.provenAt = uint64(block.timestamp);
+            }
+            fc.blockHash = _blockHash;
+        } else {
+            if (fc.blockHash != _blockHash) revert L1_CONFLICT_PROOF();
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+
+            fc.prover = evidence.prover;
+            fc.provenAt = uint64(block.timestamp);
         }
+
+        if (skipZKPVerification) {
+            // do not verify zkp
+        } else {
+            bool verified = proofVerifier.verifyZKP({
+                verifierId: string(
+                    abi.encodePacked("plonk_verifier_", evidence.circuitId)
+                ),
+                zkproof: evidence.proofs[1], // ???
+                instance: _getInstance(evidence)
+            });
+            if (!verified) revert L1_ZKP();
+        }
+
+        emit BlockProven({
+            id: target.id,
+            parentHash: evidence.header.parentHash,
+            blockHash: _blockHash,
+            provenAt: fc.provenAt,
+            prover: fc.prover
+        });
     }
 
     function _proveAnchorForValidBlock(

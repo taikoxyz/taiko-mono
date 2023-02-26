@@ -28,7 +28,7 @@ library LibProving {
         BlockHeader header;
         address prover;
         bytes[] proofs;
-        uint16 circuit;
+        uint16 circuitId;
     }
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
@@ -47,7 +47,6 @@ library LibProving {
 
     error L1_ID();
     error L1_PROVER();
-    error L1_TOO_LATE();
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CONFLICT_PROOF();
@@ -217,7 +216,7 @@ library LibProving {
         } else {
             bool verified = proofVerifier.verifyZKP({
                 verifierId: string(
-                    abi.encodePacked("plonk_verifier_", evidence.circuit)
+                    abi.encodePacked("plonk_verifier_", evidence.circuitId)
                 ),
                 zkproof: evidence.proofs[1], // ???
                 instance: _getInstance(evidence)

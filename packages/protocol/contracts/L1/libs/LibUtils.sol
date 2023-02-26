@@ -35,13 +35,6 @@ library LibUtils {
         uint64 latestVerifiedId;
         uint64 avgProofTime;
     }
-    event Halted(bool halted);
-
-    function halt(TaikoData.State storage state, bool toHalt) internal {
-        if (isHalted(state) == toHalt) revert L1_HALT_CONDITION();
-        setBit(state, MASK_HALT, toHalt);
-        emit Halted(toHalt);
-    }
 
     function getProposedBlock(
         TaikoData.State storage state,

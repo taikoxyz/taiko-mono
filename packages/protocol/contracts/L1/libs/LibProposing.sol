@@ -43,10 +43,6 @@ library LibProposing {
         bytes32 commitHash
     ) public {
         assert(config.commitConfirmations > 0);
-        // It's OK to allow committing block when the system is halt.
-        // By not checking the halt status, this method will be cheaper.
-        //
-        // assert(!LibUtils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 

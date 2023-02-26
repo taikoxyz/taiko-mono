@@ -54,14 +54,6 @@ library LibVerifying {
         uint256 maxBlocks,
         bool checkHalt
     ) public {
-        bool halted = LibUtils.isHalted(state);
-        if (checkHalt) {
-            if (halted) revert L1_HALTED();
-        } else if (halted) {
-            // skip finalizing blocks
-            return;
-        }
-
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
