@@ -325,7 +325,7 @@ describe("integrationbridge:Bridge", function () {
 
             expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
 
-            expect(await l1Bridge.isMessageSent(msgHash)).to.be.eq(true);
+            expect(await l1Bridge.isMessageSent(msgHash)).to.be.true;
         });
     });
 
@@ -409,7 +409,7 @@ describe("integrationbridge:Bridge", function () {
                     srcChainId,
                     signalProof
                 )
-            ).to.be.eq(true);
+            ).to.be.true;
         });
     });
 
@@ -594,7 +594,7 @@ describe("integrationbridge:Bridge", function () {
 
             expect(
                 await l2Bridge.isMessageFailed(msgHash, srcChainId, signalProof)
-            ).to.be.eq(true);
+            ).to.be.true;
         });
     });
 });

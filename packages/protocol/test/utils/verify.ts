@@ -43,19 +43,18 @@ async function verifyBlockAndAssert(
         block.proposer
     );
 
-    expect(proposerBalanceBeforeVerification.gt(0)).to.be.eq(true);
+    expect(proposerBalanceBeforeVerification.gt(0)).to.be.true;
     const verifiedEvent = await verifyBlocks(taikoL1, 1);
     expect(verifiedEvent).to.be.not.undefined;
 
     expect(verifiedEvent.args.blockHash).to.be.eq(block.blockHash);
-    expect(verifiedEvent.args.id.eq(block.id)).to.be.eq(true);
+    expect(verifiedEvent.args.id.eq(block.id)).to.be.true;
 
     const proverBalanceAfterVerification = await taikoTokenL1.balanceOf(prover);
 
     // prover should have increased in balance as he received the proof reward.
-    expect(
-        proverBalanceAfterVerification.gt(proverBalanceBeforeVerification)
-    ).to.be.eq(true);
+    expect(proverBalanceAfterVerification.gt(proverBalanceBeforeVerification))
+        .to.be.true;
 
     const newProofReward = await taikoL1.getProofReward(
         block.proposedAt,

@@ -35,7 +35,7 @@ describe("LibMerkleTrie", function () {
                     t.proof.proof,
                     t.root.root
                 );
-                expect(isIncluded).to.be.eq(true);
+                expect(isIncluded).to.be.true;
             }
         });
     });

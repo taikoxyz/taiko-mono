@@ -189,7 +189,7 @@ describe("Bridge", function () {
     //             owner.address,
     //             hash
     //         );
-    //         expect(isSignalSent).to.be.eq(true);
+    //         expect(isSignalSent).to.be.true;
     //     });
     // });
 
@@ -203,7 +203,7 @@ describe("Bridge", function () {
             const enabled = await l1Bridge.isDestChainEnabled(
                 enabledDestChainId
             );
-            expect(enabled).to.be.eq(true);
+            expect(enabled).to.be.true;
         });
     });
 

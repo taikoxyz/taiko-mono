@@ -107,7 +107,7 @@ describe("integration:TaikoL1", function () {
                 commit.hash
             );
 
-            expect(isCommitValid).to.be.eq(true);
+            expect(isCommitValid).to.be.true;
         });
     });
 
