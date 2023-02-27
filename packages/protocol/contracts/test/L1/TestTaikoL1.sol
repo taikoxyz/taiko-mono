@@ -44,7 +44,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 4 seconds;
-        config.bootstrapDiscountHalvingPeriod = 180 days;
+        config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
