@@ -17,19 +17,13 @@ import {
 } from "../utils/errors";
 import Evidence from "../utils/evidence";
 import { initIntegrationFixture } from "../utils/fixture";
-import halt from "../utils/halt";
-import { onNewL2Block } from "../utils/onNewL2Block";
 import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { getBlockHeader } from "../utils/rpc";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
-import {
-    commitProposeProveAndVerify,
-    sleepUntilBlockIsVerifiable,
-    verifyBlocks,
-} from "../utils/verify";
+import { commitProposeProveAndVerify, verifyBlocks } from "../utils/verify";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -90,7 +84,7 @@ describe("integration:TaikoL1", function () {
                 commit.hash
             );
 
-            expect(isCommitValid).to.be.eq(false);
+            expect(isCommitValid).to.be.false;
         });
 
         it("should be valid if it has been committed", async function () {
@@ -113,7 +107,7 @@ describe("integration:TaikoL1", function () {
                 commit.hash
             );
 
-            expect(isCommitValid).to.be.eq(true);
+            expect(isCommitValid).to.be.true;
         });
     });
 
@@ -180,7 +174,7 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice.blockHash).to.be.eq(block.hash);
-            expect(forkChoice.provers[0]).to.be.eq(await l1Signer.getAddress());
+            expect(forkChoice.prover).to.be.eq(await l1Signer.getAddress());
         });
 
         it("returns empty after a block is verified", async function () {
@@ -206,13 +200,10 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice).not.to.be.undefined;
-            expect(forkChoice.provers.length).to.be.eq(1);
-
-            await sleepUntilBlockIsVerifiable(
-                taikoL1,
-                proposedEvent.args.id.toNumber(),
-                0
+            expect(forkChoice.prover).to.be.not.eq(
+                ethers.constants.AddressZero
             );
+
             const verifiedEvent = await verifyBlocks(taikoL1, 1);
             expect(verifiedEvent).not.to.be.undefined;
 
@@ -220,7 +211,7 @@ describe("integration:TaikoL1", function () {
                 proposedEvent.args.id.toNumber(),
                 block.parentHash
             );
-            expect(forkChoice.provers.length).to.be.eq(0);
+            expect(forkChoice.prover).to.be.eq(ethers.constants.AddressZero);
         });
     });
 
@@ -409,13 +400,13 @@ describe("integration:TaikoL1", function () {
                     )
                 ).wait(),
                 l1Provider,
-                "L1_TOO_MANY()"
+                "L1_TOO_MANY_BLOCKS()"
             );
         });
     });
 
     describe("getLatestSyncedHeader", function () {
-        it("iterates through blockHashHistory length and asserts getLatestsyncedHeader returns correct value", async function () {
+        it("iterates through blockHashHistory length and asserts getLatestSyncedHeader returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;
@@ -447,50 +438,7 @@ describe("integration:TaikoL1", function () {
         });
     });
 
-    describe("proposeBlock", function () {
-        it("can not propose if chain is halted", async function () {
-            await halt(taikoL1.connect(l1Signer), true);
-
-            await expect(
-                onNewL2Block(
-                    l2Provider,
-                    await l2Provider.getBlockNumber(),
-                    proposer,
-                    taikoL1,
-                    proposerSigner,
-                    taikoTokenL1
-                )
-            ).to.be.reverted;
-        });
-    });
-
-    describe("verifyBlocks", function () {
-        it("can not be called manually to verify block if chain is halted", async function () {
-            await halt(taikoL1.connect(l1Signer), true);
-            const txPromise = (
-                await taikoL1.verifyBlocks(1, { gasLimit: 100000 })
-            ).wait(1);
-            await txShouldRevertWithCustomError(
-                txPromise,
-                l1Provider,
-                "L1_HALTED()"
-            );
-        });
-    });
-
     describe("proveBlock", function () {
-        it("can not be called if chain is halted", async function () {
-            await halt(taikoL1.connect(l1Signer), true);
-            const txPromise = (
-                await taikoL1.proveBlock(1, [], { gasLimit: 1000000 })
-            ).wait(1);
-            await txShouldRevertWithCustomError(
-                txPromise,
-                l1Provider,
-                "L1_HALTED()"
-            );
-        });
-
         it("reverts when inputs is incorrect length", async function () {
             for (let i = 1; i <= 2; i++) {
                 const txPromise = (
@@ -536,8 +484,7 @@ describe("integration:TaikoL1", function () {
                     header.blockHeader,
                     await prover.getSigner().getAddress(),
                     "0x",
-                    "0x",
-                    config.zkProofsPerBlock.toNumber()
+                    "0x"
                 );
 
                 const txPromise = (
@@ -554,120 +501,6 @@ describe("integration:TaikoL1", function () {
                     txPromise,
                     l1Provider,
                     "L1_ID()"
-                );
-            }
-        });
-        it("reverts when evidence proofs length is less than 2 + zkProofsPerBlock set in the config", async function () {
-            l2Provider.on("block", blockListener(chan, genesisHeight));
-
-            const config = await taikoL1.getConfig();
-            /* eslint-disable-next-line */
-            for await (const blockNumber of chan) {
-                if (
-                    blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
-                ) {
-                    break;
-                }
-
-                const block = await l2Provider.getBlock(blockNumber);
-
-                // commit and propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.commitThenProposeBlock(
-                    block
-                );
-
-                const header = await getBlockHeader(l2Provider, blockNumber);
-                const inputs = [];
-                const evidence: Evidence = {
-                    meta: proposedEvent.args.meta as any as BlockMetadata,
-                    header: header.blockHeader,
-                    prover: await prover.getSigner().getAddress(),
-                    proofs: [], // keep proofs array empty to fail check
-                    circuits: [],
-                };
-
-                for (let i = 0; i < config.zkProofsPerBlock.toNumber(); i++) {
-                    evidence.circuits.push(1);
-                }
-
-                inputs[0] = encodeEvidence(evidence);
-                inputs[1] = "0x";
-                inputs[2] = "0x";
-
-                const txPromise = (
-                    await taikoL1.proveBlock(
-                        proposedEvent.args.meta.id.toNumber(), // id different than meta
-                        inputs,
-                        {
-                            gasLimit: 2000000,
-                        }
-                    )
-                ).wait(1);
-
-                await txShouldRevertWithCustomError(
-                    txPromise,
-                    l1Provider,
-                    "L1_PROOF_LENGTH()"
-                );
-            }
-        });
-        it("reverts when evidence circuits length is less than zkProofsPerBlock set in the config", async function () {
-            l2Provider.on("block", blockListener(chan, genesisHeight));
-
-            const config = await taikoL1.getConfig();
-            /* eslint-disable-next-line */
-            for await (const blockNumber of chan) {
-                if (
-                    blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
-                ) {
-                    break;
-                }
-
-                const block = await l2Provider.getBlock(blockNumber);
-
-                // commit and propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.commitThenProposeBlock(
-                    block
-                );
-
-                const header = await getBlockHeader(l2Provider, blockNumber);
-                const inputs = [];
-                const evidence: Evidence = {
-                    meta: proposedEvent.args.meta as any as BlockMetadata,
-                    header: header.blockHeader,
-                    prover: await prover.getSigner().getAddress(),
-                    proofs: [],
-                    circuits: [], // keep circuits array empty to fail check
-                };
-
-                for (
-                    let i = 0;
-                    i < config.zkProofsPerBlock.toNumber() + 2;
-                    i++
-                ) {
-                    evidence.proofs.push("0xff");
-                }
-
-                inputs[0] = encodeEvidence(evidence);
-                inputs[1] = "0x";
-                inputs[2] = "0x";
-
-                const txPromise = (
-                    await taikoL1.proveBlock(
-                        proposedEvent.args.meta.id.toNumber(), // id different than meta
-                        inputs,
-                        {
-                            gasLimit: 2000000,
-                        }
-                    )
-                ).wait(1);
-
-                await txShouldRevertWithCustomError(
-                    txPromise,
-                    l1Provider,
-                    "L1_CIRCUIT_LENGTH()"
                 );
             }
         });
@@ -702,15 +535,9 @@ describe("integration:TaikoL1", function () {
                     circuits: [],
                 };
 
-                for (let i = 0; i < config.zkProofsPerBlock.toNumber(); i++) {
-                    evidence.circuits.push(1);
-                }
+                evidence.circuits.push(1);
 
-                for (
-                    let i = 0;
-                    i < config.zkProofsPerBlock.toNumber() + 2;
-                    i++
-                ) {
+                for (let i = 0; i < 3; i++) {
                     evidence.proofs.push("0xff");
                 }
 

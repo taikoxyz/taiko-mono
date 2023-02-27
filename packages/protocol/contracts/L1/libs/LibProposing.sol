@@ -25,15 +25,15 @@ library LibProposing {
     event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_METADATA_FIELD();
-    error L1_EXTRA_DATA();
-    error L1_ID();
-    error L1_TOO_MANY();
-    error L1_GAS_LIMIT();
     error L1_COMMITTED();
+    error L1_EXTRA_DATA();
+    error L1_GAS_LIMIT();
+    error L1_ID();
+    error L1_INPUT_SIZE();
+    error L1_METADATA_FIELD();
     error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
-    error L1_INPUT_SIZE();
+    error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
 
     function commitBlock(
@@ -43,10 +43,6 @@ library LibProposing {
         bytes32 commitHash
     ) public {
         assert(config.commitConfirmations > 0);
-        // It's OK to allow committing block when the system is halt.
-        // By not checking the halt status, this method will be cheaper.
-        //
-        // assert(!LibUtils.isHalted(state));
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
 
@@ -73,8 +69,6 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        assert(!LibUtils.isHalted(state));
-
         if (inputs.length != 2) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -99,7 +93,7 @@ library LibProposing {
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
-            ) revert L1_TOO_MANY();
+            ) revert L1_TOO_MANY_BLOCKS();
 
             meta.id = state.nextBlockId;
             meta.l1Height = block.number - 1;
