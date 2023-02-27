@@ -29,7 +29,7 @@ describe("EtherVault", function () {
         await etherVault.connect(owner).authorize(authorized.address, true);
 
         const isAuthorized = await etherVault.isAuthorized(authorized.address);
-        expect(isAuthorized).to.be.eq(true);
+        expect(isAuthorized).to.be.true;
 
         await authorized.sendTransaction({
             to: etherVault.address,
@@ -163,14 +163,14 @@ describe("EtherVault", function () {
             let isAuthorized = await etherVault.isAuthorized(
                 notAuthorized.address
             );
-            expect(isAuthorized).to.be.eq(true);
+            expect(isAuthorized).to.be.true;
 
             await etherVault
                 .connect(owner)
                 .authorize(notAuthorized.address, false);
 
             isAuthorized = await etherVault.isAuthorized(notAuthorized.address);
-            expect(isAuthorized).to.be.eq(false);
+            expect(isAuthorized).to.be.false;
         });
     });
 });

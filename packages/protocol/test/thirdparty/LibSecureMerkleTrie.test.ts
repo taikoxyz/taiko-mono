@@ -35,7 +35,7 @@ describe("LibSecureMerkleTrie", function () {
                 t.proof.proof,
                 t.root.root
             );
-            expect(isIncluded).to.be.eq(true);
+            expect(isIncluded).to.be.true;
         });
     });
 
@@ -49,7 +49,7 @@ describe("LibSecureMerkleTrie", function () {
                 t.root.root
             );
 
-            expect(isIncluded[0]).to.be.eq(true);
+            expect(isIncluded[0]).to.be.true;
             expect(isIncluded[1]).to.be.eq(
                 ethers.utils.hexlify(defaultSecureMerkleTrie.nodes[0].value)
             );
@@ -67,7 +67,7 @@ describe("LibSecureMerkleTrie", function () {
                 t.root.root
             );
 
-            expect(isIncluded[0]).to.be.eq(false);
+            expect(isIncluded[0]).to.be.false;
             expect(isIncluded[1]).to.be.eq("0x");
         });
     });

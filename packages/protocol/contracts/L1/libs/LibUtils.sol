@@ -16,31 +16,20 @@ import {TaikoData} from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    uint64 public constant MASK_HALT = 1 << 0;
-
     bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
 
-    error L1_HALT_CONDITION();
     error L1_BLOCK_NUMBER();
 
     struct StateVariables {
+        uint256 feeBase;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 statusBits;
-        uint256 feeBase;
         uint64 nextBlockId;
         uint64 lastProposedAt;
         uint64 avgBlockTime;
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;
         uint64 avgProofTime;
-    }
-    event Halted(bool halted);
-
-    function halt(TaikoData.State storage state, bool toHalt) internal {
-        if (isHalted(state) == toHalt) revert L1_HALT_CONDITION();
-        setBit(state, MASK_HALT, toHalt);
-        emit Halted(toHalt);
     }
 
     function getProposedBlock(
@@ -69,10 +58,9 @@ library LibUtils {
     ) internal view returns (StateVariables memory) {
         return
             StateVariables({
+                feeBase: state.feeBase,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
-                statusBits: state.statusBits,
-                feeBase: state.feeBase,
                 nextBlockId: state.nextBlockId,
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
@@ -80,12 +68,6 @@ library LibUtils {
                 latestVerifiedId: state.latestVerifiedId,
                 avgProofTime: state.avgProofTime
             });
-    }
-
-    function isHalted(
-        TaikoData.State storage state
-    ) internal view returns (bool) {
-        return isBitOne(state, MASK_HALT);
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
@@ -150,28 +132,6 @@ library LibUtils {
         return (feeBase * gamma) / 1024;
     }
 
-    function getUncleProofDelay(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 blockId
-    ) internal view returns (uint64) {
-        if (blockId <= 2 * config.maxNumBlocks) {
-            return config.initialUncleDelay;
-        } else {
-            return state.avgProofTime;
-        }
-    }
-
-    // Returns a deterministic deadline for uncle proof submission.
-    function getUncleProofDeadline(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.ForkChoice storage fc,
-        uint256 blockId
-    ) internal view returns (uint64) {
-        return fc.provenAt + getUncleProofDelay(state, config, blockId);
-    }
-
     function hashMetadata(
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32) {
@@ -188,22 +148,5 @@ library LibUtils {
         }
         uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
         return _ma > 0 ? _ma : maValue;
-    }
-
-    function setBit(
-        TaikoData.State storage state,
-        uint64 mask,
-        bool one
-    ) private {
-        state.statusBits = one
-            ? state.statusBits | mask
-            : state.statusBits & ~mask;
-    }
-
-    function isBitOne(
-        TaikoData.State storage state,
-        uint64 mask
-    ) private view returns (bool) {
-        return state.statusBits & mask != 0;
     }
 }

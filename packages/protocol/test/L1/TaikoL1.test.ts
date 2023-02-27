@@ -36,40 +36,11 @@ describe("TaikoL1", function () {
         });
     });
 
-    describe("halt()", async function () {
-        it("should revert called by nonOwner", async function () {
-            const initiallyHalted = await taikoL1.isHalted();
-            expect(initiallyHalted).to.be.eq(false);
-            const signers = await ethers.getSigners();
-            await expect(
-                taikoL1.connect(signers[1]).halt(true)
-            ).to.be.revertedWith("Ownable: caller is not the owner");
-
-            const isHalted = await taikoL1.isHalted();
-            expect(isHalted).to.be.eq(false);
-        });
-
-        it("should not revert when called by owner", async function () {
-            const initiallyHalted = await taikoL1.isHalted();
-            expect(initiallyHalted).to.be.eq(false);
-            await taikoL1.halt(true);
-            const isHalted = await taikoL1.isHalted();
-            expect(isHalted).to.be.eq(true);
-        });
-    });
-
     describe("proposeBlock()", async function () {
         it("should revert when size of inputs is les than 2", async function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
             ).to.be.revertedWith("L1_INPUT_SIZE()");
-        });
-
-        it("should revert when halted", async function () {
-            await taikoL1.halt(true);
-            await expect(
-                taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("0x1");
         });
     });
 
@@ -78,33 +49,6 @@ describe("TaikoL1", function () {
             await expect(
                 taikoL1.proposeBlock([randomBytes32()])
             ).to.be.revertedWith("L1_INPUT_SIZE()");
-        });
-
-        it("should revert when halted", async function () {
-            await taikoL1.halt(true);
-            await expect(
-                taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("0x1");
-        });
-    });
-
-    describe("getDelayForBlockId()", async function () {
-        it("should return  initial uncle delay for block id <= 2 * K_MAX_NUM_BLOCKS", async function () {
-            const constants = await taikoL1.getConfig();
-            const maxNumBlocks = constants[1];
-            const delay = await taikoL1.getUncleProofDelay(maxNumBlocks.mul(2));
-            const initialUncleDelay = 1;
-            expect(delay).to.be.eq(initialUncleDelay);
-        });
-
-        it("should return avg proof time for block id > 2 * K_MAX_NUM_BLOCKS", async function () {
-            const constants = await taikoL1.getConfig();
-            const maxNumBlocks = constants[1];
-            const delay = await taikoL1.getUncleProofDelay(
-                maxNumBlocks.mul(2).add(1)
-            );
-            const avgProofTime = 0; // no proofs have been generated
-            expect(delay).to.be.eq(avgProofTime);
         });
     });
 });
