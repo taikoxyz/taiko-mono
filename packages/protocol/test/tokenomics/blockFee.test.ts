@@ -117,7 +117,11 @@ describe("tokenomics: blockFee", function () {
                 console.log("lastBlockFee", lastBlockFee);
                 console.log("newBlockFee", newBlockFee);
 
+                // TODO(jeff): it fails here
                 expect(newBlockFee).to.be.gt(lastBlockFee);
+
+                console.log("lastProofReward", lastProofReward);
+                console.log("newProofReward", newProofReward);
                 expect(newProofReward).to.be.gt(lastProofReward);
 
                 lastBlockFee = newBlockFee;
