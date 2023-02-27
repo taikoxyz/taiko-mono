@@ -211,24 +211,26 @@ export async function deployContracts(hre: any) {
     );
 
     // PlonkVerifier
-    const PlonkVerifier = await deployPlonkVerifier(hre);
+    const PlonkVerifiers = await deployPlonkVerifiers(hre);
 
     // Used by ProofVerifier
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            // string(abi.encodePacked("plonk_verifier_", i))
-            `${chainId}.${Buffer.from(
-                ethers.utils.arrayify(
-                    ethers.utils.solidityPack(
-                        ["string", "uint256", "string", "uint16"],
-                        ["plonk_verifier_", 0, "_", 0]
+    for (let i = 0; i < PlonkVerifiers.length; i++) {
+        await utils.waitTx(
+            hre,
+            await AddressManager.setAddress(
+                // string(abi.encodePacked("plonk_verifier_", i))
+                `${chainId}.${Buffer.from(
+                    ethers.utils.arrayify(
+                        ethers.utils.solidityPack(
+                            ["string", "uint256", "string", "uint16"],
+                            ["plonk_verifier_", 0, "_", i]
+                        )
                     )
-                )
-            ).toString()}`,
-            PlonkVerifier.address
-        )
-    );
+                ).toString()}`,
+                PlonkVerifiers[i].address
+            )
+        );
+    }
 
     if (ethers.utils.isAddress(oracleProver)) {
         await utils.waitTx(
@@ -326,12 +328,28 @@ async function deploySignalSerive(
     return SignalService;
 }
 
-async function deployPlonkVerifier(hre: any): Promise<any> {
-    const byteCode = utils.compileYulContract(
-        "../contracts/libs/yul/PlonkVerifier.yulp"
+async function deployPlonkVerifiers(hre: any): Promise<any> {
+    const PlonkVerifier10TxsByteCode = utils.compileYulContract(
+        "../contracts/libs/yul/PlonkVerifier_10_txs.yulp"
+    );
+    const PlonkVerifier80TxsByteCode = utils.compileYulContract(
+        "../contracts/libs/yul/PlonkVerifier_80_txs.yulp"
     );
 
-    return {
-        address: await utils.deployBytecode(hre, byteCode, "PlonkVerifier"),
-    };
+    return [
+        {
+            address: await utils.deployBytecode(
+                hre,
+                PlonkVerifier10TxsByteCode,
+                "PlonkVerifier_10_txs"
+            ),
+        },
+        {
+            address: await utils.deployBytecode(
+                hre,
+                PlonkVerifier80TxsByteCode,
+                "PlonkVerifier_80_txs"
+            ),
+        },
+    ];
 }

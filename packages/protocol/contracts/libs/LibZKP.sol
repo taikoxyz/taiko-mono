@@ -16,9 +16,14 @@ library LibZKP {
         bytes calldata zkproof,
         bytes32 instance
     ) internal view returns (bool verified) {
-        // TODO(david):public input is assembled in client software
-        // for testing purposes right now, move this part of logic
-        // here in this contract.
-        (verified, ) = plonkVerifier.staticcall(zkproof);
+        (verified, ) = plonkVerifier.staticcall(
+            bytes.concat(
+                bytes16(0),
+                bytes16(instance), // left 16 bytes of the given instance
+                bytes16(0),
+                bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                zkproof
+            )
+        );
     }
 }
