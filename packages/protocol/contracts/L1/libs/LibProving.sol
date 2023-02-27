@@ -273,14 +273,6 @@ library LibProving {
 
         if (!skipZKPVerification) {
             for (uint256 i; i < config.zkProofsPerBlock; ++i) {
-                bytes32 instance = keccak256(
-                    abi.encode(
-                        blockHash,
-                        evidence.prover,
-                        evidence.meta.txListHash
-                    )
-                );
-
                 if (
                     !proofVerifier.verifyZKP({
                         verifierId: string(
@@ -292,7 +284,7 @@ library LibProving {
                             )
                         ),
                         zkproof: evidence.proofs[i],
-                        instance: instance
+                        instance: _getInstance(evidence)
                     })
                 ) revert L1_ZKP();
             }
@@ -473,5 +465,20 @@ library LibProving {
             keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
         ) revert L1_META_MISMATCH();
+    }
+
+    function _getInstance(
+        Evidence memory evidence
+    ) internal pure returns (bytes32) {
+        bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
+            evidence.header,
+            2
+        );
+
+        uint256 len = list.length;
+        list[len - 2] = LibRLPWriter.writeAddress(evidence.prover);
+        list[len - 1] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+
+        return keccak256(LibRLPWriter.writeList(list));
     }
 }
