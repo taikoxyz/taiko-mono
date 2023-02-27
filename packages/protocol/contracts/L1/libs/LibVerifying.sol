@@ -180,6 +180,8 @@ library LibVerifying {
                 uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
                 if (refund > 0) {
                     if (state.balances[target.proposer] == 0) {
+                        // Reduce refund to 1 wei as a penalty if the proposer
+                        // has 0 TKO outstanding balance.
                         state.balances[target.proposer] = 1;
                     } else {
                         state.balances[target.proposer] += refund;
