@@ -87,7 +87,11 @@ describe("tokenomics: proofReward", function () {
 
             expect(balanceAfter).to.be.eq(balanceBefore);
 
-            await taikoL1.connect(prover.getSigner()).withdrawBalance();
+            const tx = await taikoL1
+                .connect(prover.getSigner())
+                .withdrawBalance();
+            await tx.wait();
+
             balanceAfter = await taikoTokenL1.balanceOf(
                 await prover.getSigner().address
             );
@@ -172,7 +176,11 @@ describe("tokenomics: proofReward", function () {
             );
             expect(proverBalanceAfter).to.be.eq(proverBalanceBefore);
 
-            await taikoL1.connect(prover.getSigner()).withdrawBalance();
+            const tx = await taikoL1
+                .connect(prover.getSigner())
+                .withdrawBalance();
+            await tx.wait();
+
             proverBalanceAfter = await taikoTokenL1.balanceOf(
                 await prover.getSigner().getAddress()
             );
