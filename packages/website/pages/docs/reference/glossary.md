@@ -15,7 +15,7 @@ A [rollup](#rollup) that supports only a certain type of application or function
 
 ## Arithmetic circuit
 
-The computation model of zk[SNARKs](#SNARK).
+The computation model of ZK-[SNARKs](#SNARK).
 
 ## Blobs
 
@@ -101,7 +101,7 @@ The facility for any user of a [rollup](#rollup) to exit the system with their a
 
 ## Finality
 
-The guarantee that a set of transactions before a given time will not change and can't be reverted. When finality is reached differs meaningfully between ZK (validity) and optimistic rollups.
+The guarantee that a set of [transactions](#Transaction) before a given time will not change and can't be reverted. When finality is reached differs meaningfully between ZK ([validity](#Validity-proof)) and [optimistic rollups](#optimistic-rollup).
 
 ## Fast Fourier transform (FFT)
 
