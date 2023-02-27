@@ -189,6 +189,10 @@ contract TaikoL1 is
         LibVerifying.withdrawReward(state, AddressResolver(this));
     }
 
+    function getRewardBalance(address addr) public view returns (uint256) {
+        return state.balances[addr];
+    }
+
     function getBlockFee() public view returns (uint256) {
         (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
             state,
