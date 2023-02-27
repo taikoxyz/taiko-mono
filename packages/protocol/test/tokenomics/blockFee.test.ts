@@ -73,7 +73,7 @@ describe("tokenomics: blockFee", function () {
             "no proofs have been submitted",
         async function () {
             // get the initial tkoBalance, which should decrease every block proposal
-            let lastProposerTkoBalance = await taikoTokenL1.balanceOf(
+            let lastProposerBalance = await taikoTokenL1.balanceOf(
                 await proposerSigner.getAddress()
             );
 
@@ -82,6 +82,7 @@ describe("tokenomics: blockFee", function () {
             // we want to wait for enough blocks until the blockFee is no longer 0, then run our
             // tests.
             let lastBlockFee = await taikoL1.getBlockFee();
+
             while (lastBlockFee.eq(0)) {
                 await sleep(500);
                 lastBlockFee = await taikoL1.getBlockFee();
@@ -91,14 +92,14 @@ describe("tokenomics: blockFee", function () {
 
             l2Provider.on("block", blockListener(chan, genesisHeight));
             /* eslint-disable-next-line */
-        for await (const blockNumber of chan) {
+            for await (const blockNumber of chan) {
                 if (
                     blockNumber >
                     genesisHeight + (config.maxNumBlocks.toNumber() - 1)
                 ) {
                     break;
                 }
-                const { newProposerTkoBalance, newBlockFee, newProofReward } =
+                const { newProposerBalance, newBlockFee, newProofReward } =
                     await onNewL2Block(
                         l2Provider,
                         blockNumber,
@@ -108,13 +109,20 @@ describe("tokenomics: blockFee", function () {
                         taikoTokenL1
                     );
 
-                expect(newProposerTkoBalance).to.be.lt(lastProposerTkoBalance);
+                // console.log("lastProposerBalance",  lastProposerBalance);
+                // console.log("newProposerBalance",  newProposerBalance);
+
+                expect(newProposerBalance).to.be.lt(lastProposerBalance);
+
+                // console.log("lastBlockFee",  lastBlockFee);
+                // console.log("newBlockFee",  newBlockFee);
+
                 expect(newBlockFee).to.be.gt(lastBlockFee);
                 expect(newProofReward).to.be.gt(lastProofReward);
 
                 lastBlockFee = newBlockFee;
                 lastProofReward = newProofReward;
-                lastProposerTkoBalance = newProposerTkoBalance;
+                lastProposerBalance = newProposerBalance;
             }
         }
     );

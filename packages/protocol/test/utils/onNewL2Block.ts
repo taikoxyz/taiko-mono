@@ -17,7 +17,7 @@ async function onNewL2Block(
     taikoTokenL1: TaikoToken
 ): Promise<{
     proposedEvent: BlockProposedEvent;
-    newProposerTkoBalance: BigNumber;
+    newProposerBalance: BigNumber;
     newBlockFee: BigNumber;
     newProofReward: BigNumber;
 }> {
@@ -32,7 +32,7 @@ async function onNewL2Block(
         meta.timestamp
     );
 
-    const newProposerTkoBalance = enableTokenomics
+    const newProposerBalance = enableTokenomics
         ? await taikoTokenL1.balanceOf(await proposerSigner.getAddress())
         : BigNumber.from(0);
 
@@ -42,7 +42,7 @@ async function onNewL2Block(
 
     return {
         proposedEvent,
-        newProposerTkoBalance,
+        newProposerBalance,
         newBlockFee,
         newProofReward,
     };
