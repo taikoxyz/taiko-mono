@@ -174,7 +174,7 @@ describe("integrationbridge:Bridge", function () {
                 l2Bridge
                     .connect(l2Signer)
                     .processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+            ).to.be.revertedWith("B_FORBIDDEN()");
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {
@@ -196,7 +196,7 @@ describe("integrationbridge:Bridge", function () {
 
             await expect(
                 l2Bridge.processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
 
         it("should throw if messageStatus of message is != NEW", async function () {
@@ -212,7 +212,7 @@ describe("integrationbridge:Bridge", function () {
             // recalling this process should be prevented as it's status is no longer NEW
             await expect(
                 l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:status");
+            ).to.be.revertedWith("B_STATUS_MISMTACH()");
         });
 
         it("should throw if message signalproof is not valid", async function () {
@@ -233,7 +233,7 @@ describe("integrationbridge:Bridge", function () {
 
             await expect(
                 l2Bridge.processMessage(m, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+            ).to.be.revertedWith("B_SIGNAL_NOT_RECEIVED()");
         });
 
         it("should throw if message has not been received", async function () {
@@ -276,7 +276,7 @@ describe("integrationbridge:Bridge", function () {
 
             await expect(
                 l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+            ).to.be.revertedWith("B_SIGNAL_NOT_RECEIVED");
         });
 
         it("processes a message when the signal has been verified from the sending chain", async () => {
@@ -445,7 +445,7 @@ describe("integrationbridge:Bridge", function () {
                     enabledDestChainId,
                     ethers.constants.HashZero
                 )
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
 
         it("should revert if msgHash == 0", async function () {
@@ -455,7 +455,7 @@ describe("integrationbridge:Bridge", function () {
                     srcChainId,
                     ethers.constants.HashZero
                 )
-            ).to.be.revertedWith("B:msgHash");
+            ).to.be.revertedWith("B_MSG_HASH_NULL()");
         });
 
         it("should return false if headerHash hasn't been synced", async function () {

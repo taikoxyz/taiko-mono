@@ -271,7 +271,7 @@ action("Generate Genesis", function () {
                     },
                     ethers.utils.randomBytes(1024)
                 )
-            ).to.be.revertedWith("B:forbidden");
+            ).to.be.revertedWith("B_FORBIDDEN");
         });
 
         it("TokenVault", async function () {
