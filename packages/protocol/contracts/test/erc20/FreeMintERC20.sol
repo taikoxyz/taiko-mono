@@ -14,6 +14,6 @@ contract FreeMintERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
-        _mint(to, 5);
+        _mint(to, 5 ** decimals());
     }
 }

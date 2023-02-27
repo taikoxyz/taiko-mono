@@ -8,14 +8,14 @@ pragma solidity ^0.8.18;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// An ERC2 token for testing the Taiko Bridge on testnets.
+// An ERC20 token for testing the Taiko Bridge on testnets.
 // This token has 50% of failure on transfers so we can
 // test the bridge's error handling.
-contract BullToken is ERC20 {
+contract MayFailFreeMintERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
-        _mint(to, 5);
+        _mint(to, 5 ** decimals());
     }
 
     function transfer(

@@ -132,6 +132,20 @@ export async function deployContracts(hre: any) {
         )
     );
 
+    // HorseToken
+    const HorseToken = await utils.deployContract(hre, "FreeMintERC20", {}, [
+        "Horse Token",
+        "HORSE",
+    ]);
+
+    // BullToken
+    const BullToken = await utils.deployContract(
+        hre,
+        "MayFailFreeMintERC20",
+        {},
+        ["Bull Token", "BLL"]
+    );
+
     // TaikoL1
     const TaikoL1 = await utils.deployContract(
         hre,
@@ -242,10 +256,6 @@ export async function deployContracts(hre: any) {
         );
     }
 
-    // BullToken
-    // TODO(david): remove this deployment after we finish bridge testing in devnet.
-    const BullToken = await utils.deployContract(hre, "BullToken");
-
     // save deployments
     const deployments = {
         network,
@@ -259,7 +269,8 @@ export async function deployContracts(hre: any) {
             { Bridge: Bridge.address },
             { SignalService: SignalService.address },
             { TokenVault: TokenVault.address },
-            { BullToken: BullToken.address }
+            { BullToken: BullToken.address },
+            { HorseToken: HorseToken.address }
         ),
     };
 
