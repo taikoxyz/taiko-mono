@@ -11,7 +11,7 @@ import Prover from "../utils/prover";
 import { createAndSeedWallets, seedTko } from "../utils/seed";
 import { commitProposeProveAndVerify } from "../utils/verify";
 
-describe("tokenomic----s: proofReward", function () {
+describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
     let l2Provider: ethers.providers.JsonRpcProvider;
     let l1Signer: any;
