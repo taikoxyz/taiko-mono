@@ -185,8 +185,8 @@ contract TaikoL1 is
         });
     }
 
-    function withdrawReward() external nonReentrant {
-        LibVerifying.withdrawReward(state, AddressResolver(this));
+    function withdrawBalance() external nonReentrant {
+        LibVerifying.withdrawBalance(state, AddressResolver(this));
     }
 
     function getRewardBalance(address addr) public view returns (uint256) {

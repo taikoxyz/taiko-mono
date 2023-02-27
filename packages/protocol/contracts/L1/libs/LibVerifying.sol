@@ -108,7 +108,7 @@ library LibVerifying {
         }
     }
 
-    function withdrawReward(
+    function withdrawBalance(
         TaikoData.State storage state,
         AddressResolver resolver
     ) public {
