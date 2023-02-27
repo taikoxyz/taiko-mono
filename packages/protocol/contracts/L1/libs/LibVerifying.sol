@@ -48,7 +48,6 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
         uint256 maxBlocks
     ) public {
         uint64 latestL2Height = state.latestVerifiedHeight;
@@ -70,14 +69,12 @@ library LibVerifying {
                 i
             );
 
-            // Uncle proof can not take more than 2x time the first proof did.
-            if (fc.blockHash == 0 || fc.prover == address(0)) {
+            if (fc.prover == address(0)) {
                 break;
             } else {
                 (latestL2Height, latestL2Hash) = _verifyBlock({
                     state: state,
                     config: config,
-                    resolver: resolver,
                     fc: fc,
                     target: target,
                     latestL2Height: latestL2Height,
@@ -111,6 +108,20 @@ library LibVerifying {
         }
     }
 
+    function withdrawReward(
+        TaikoData.State storage state,
+        AddressResolver resolver
+    ) public {
+        uint256 balance = state.balances[msg.sender];
+        if (balance == 0) return;
+
+        state.balances[msg.sender] = 0;
+        TaikoToken(resolver.resolve("tko_token", false)).mint(
+            msg.sender,
+            balance
+        );
+    }
+
     function getProofReward(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -137,7 +148,6 @@ library LibVerifying {
     function _verifyBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        AddressResolver resolver,
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
         uint64 latestL2Height,
@@ -155,33 +165,18 @@ library LibVerifying {
                     proposedAt: target.proposedAt
                 });
 
-                TaikoToken taikoToken = TaikoToken(
-                    resolver.resolve("tko_token", false)
-                );
-
                 // reward the prover
-                if (reward != 0) {
-                    uint256 _reward = reward;
-                    if (taikoToken.balanceOf(fc.prover) == 0) {
-                        // Reduce reward to 1 wei as a penalty if the prover
-                        // has 0 TKO balance. This allows the next prover reward
-                        // to be fully paid.
-                        _reward = uint256(1);
-                    }
-                    taikoToken.mint(fc.prover, _reward);
+                if (state.balances[fc.prover] == 0) {
+                    // Reduce reward to 1 wei as a penalty if the prover
+                    // has 0 TKO outstanding balance.
+                    state.balances[fc.prover] = 1;
+                } else {
+                    state.balances[fc.prover] += reward;
                 }
 
-                {
-                    // refund proposer deposit
-                    uint256 refund = (target.deposit * (10000 - tRelBp)) /
-                        10000;
-                    if (
-                        refund > 0 && taikoToken.balanceOf(target.proposer) > 0
-                    ) {
-                        // Do not refund proposer with 0 TKO balance.
-                        taikoToken.mint(target.proposer, refund);
-                    }
-                }
+                // refund proposer deposit
+                uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
+                state.balances[target.proposer] += refund;
             }
             // Update feeBase and avgProofTime
             state.feeBase = LibUtils.movingAverage({

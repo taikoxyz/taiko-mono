@@ -23,9 +23,9 @@ library LibProving {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    bool constant VALIDATE_ANCHOR_TX_SIGNATURE = true;
-    bool constant CHECK_METADATA = true;
-    bool constant VALIDATE_HEADER_FOR_METADATA = true;
+    bool private constant FLAG_VALIDATE_ANCHOR_TX_SIGNATURE = true;
+    bool private constant FLAG_CHECK_METADATA = true;
+    bool private constant FLAG_VALIDATE_HEADER_FOR_METADATA = true;
 
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
@@ -172,7 +172,7 @@ library LibProving {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        if (CHECK_METADATA) {
+        if (FLAG_CHECK_METADATA) {
             if (
                 target.id <= state.latestVerifiedId ||
                 target.id >= state.nextBlockId
@@ -184,7 +184,7 @@ library LibProving {
             ) revert L1_META_MISMATCH();
         }
 
-        if (VALIDATE_HEADER_FOR_METADATA) {
+        if (FLAG_VALIDATE_HEADER_FOR_METADATA) {
             if (
                 evidence.header.parentHash == 0 ||
                 evidence.header.beneficiary != evidence.meta.beneficiary ||
@@ -274,7 +274,7 @@ library LibProving {
         if (_tx.gasLimit != config.anchorTxGasLimit)
             revert L1_ANCHOR_GAS_LIMIT();
 
-        if (VALIDATE_ANCHOR_TX_SIGNATURE) {
+        if (FLAG_VALIDATE_ANCHOR_TX_SIGNATURE) {
             // Check anchor tx's signature is valid and deterministic
             if (
                 _tx.r != LibAnchorSignature.GX &&

@@ -100,7 +100,6 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx
         });
     }
@@ -135,7 +134,6 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx
         });
     }
@@ -170,7 +168,6 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
             maxBlocks: config.maxVerificationsPerTx
         });
     }
@@ -184,9 +181,12 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
-            resolver: AddressResolver(this),
             maxBlocks: maxBlocks
         });
+    }
+
+    function withdrawReward() external nonReentrant {
+        LibVerifying.withdrawReward(state, AddressResolver(this));
     }
 
     function getBlockFee() public view returns (uint256) {

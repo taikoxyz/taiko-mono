@@ -32,6 +32,10 @@ library TestLibProving {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
+    bool private constant FLAG_VALIDATE_ANCHOR_TX_SIGNATURE = false;
+    bool private constant FLAG_CHECK_METADATA = false;
+    bool private constant FLAG_VALIDATE_HEADER_FOR_METADATA = false;
+
     bytes32 public constant INVALIDATE_BLOCK_LOG_TOPIC =
         keccak256("BlockInvalidated(bytes32)");
 
@@ -177,12 +181,34 @@ library TestLibProving {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        _checkMetadata({state: state, config: config, meta: target});
-        _validateHeaderForMetadata({
-            config: config,
-            header: evidence.header,
-            meta: evidence.meta
-        });
+        if (FLAG_CHECK_METADATA) {
+            if (
+                target.id <= state.latestVerifiedId ||
+                target.id >= state.nextBlockId
+            ) revert L1_ID();
+            if (
+                state
+                    .getProposedBlock(config.maxNumBlocks, target.id)
+                    .metaHash != target.hashMetadata()
+            ) revert L1_META_MISMATCH();
+        }
+
+        if (FLAG_VALIDATE_HEADER_FOR_METADATA) {
+            if (
+                evidence.header.parentHash == 0 ||
+                evidence.header.beneficiary != evidence.meta.beneficiary ||
+                evidence.header.difficulty != 0 ||
+                evidence.header.gasLimit !=
+                evidence.meta.gasLimit + config.anchorTxGasLimit ||
+                evidence.header.gasUsed == 0 ||
+                evidence.header.timestamp != evidence.meta.timestamp ||
+                evidence.header.extraData.length !=
+                evidence.meta.extraData.length ||
+                keccak256(evidence.header.extraData) !=
+                keccak256(evidence.meta.extraData) ||
+                evidence.header.mixHash != evidence.meta.mixHash
+            ) revert L1_META_MISMATCH();
+        }
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
@@ -256,8 +282,23 @@ library TestLibProving {
             revert L1_ANCHOR_DEST();
         if (_tx.gasLimit != config.anchorTxGasLimit)
             revert L1_ANCHOR_GAS_LIMIT();
-        // Check anchor tx's signature is valid and deterministic
-        _validateAnchorTxSignature(config.chainId, _tx);
+
+        if (FLAG_VALIDATE_ANCHOR_TX_SIGNATURE) {
+            // Check anchor tx's signature is valid and deterministic
+            if (
+                _tx.r != LibAnchorSignature.GX &&
+                _tx.r != LibAnchorSignature.GX2
+            ) revert L1_ANCHOR_SIG_R();
+
+            if (_tx.r == LibAnchorSignature.GX2) {
+                (, , uint256 s) = LibAnchorSignature.signTransaction(
+                    LibTxUtils.hashUnsignedTx(config.chainId, _tx),
+                    1
+                );
+                if (s != 0) revert L1_ANCHOR_SIG_S();
+            }
+        }
+
         // Check anchor tx's calldata is valid
         if (
             !LibBytesUtils.equal(
@@ -327,23 +368,6 @@ library TestLibProving {
             log.topics[1] != target.txListHash
         ) revert L1_ANCHOR_RECEIPT_TOPICS();
     }
-
-    function _validateAnchorTxSignature(
-        uint256 chainId,
-        LibTxDecoder.Tx memory _tx
-    ) private view {}
-
-    function _checkMetadata(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta
-    ) private view {}
-
-    function _validateHeaderForMetadata(
-        TaikoData.Config memory config,
-        BlockHeader memory header,
-        TaikoData.BlockMetadata memory meta
-    ) private pure {}
 
     function _getInstance(
         TaikoData.Evidence memory evidence
