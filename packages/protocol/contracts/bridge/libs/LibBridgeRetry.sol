@@ -23,6 +23,9 @@ library LibBridgeRetry {
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
 
+    error B_DENIED();
+    error B_MSG_NON_RETRIABLE();
+
     /**
      * Retries to invoke the messageCall, the owner has already been sent Ether.
      * - This function can be called by any address, including `message.owner`.
@@ -46,15 +49,16 @@ library LibBridgeRetry {
         // If the gasLimit is not set to 0 or isLastAttempt is true, the
         // address calling this function must be message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {
-            require(msg.sender == message.owner, "B:denied");
+            if (msg.sender != message.owner) revert B_DENIED();
         }
 
         bytes32 msgHash = message.hashMessage();
-        require(
-            LibBridgeStatus.getMessageStatus(msgHash) ==
-                LibBridgeStatus.MessageStatus.RETRIABLE,
-            "B:notFound"
-        );
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash) !=
+            LibBridgeStatus.MessageStatus.RETRIABLE
+        ) {
+            revert B_MSG_NON_RETRIABLE();
+        }
 
         address ethVault = resolver.resolve("ether_vault", true);
         if (ethVault != address(0)) {

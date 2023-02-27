@@ -20,13 +20,19 @@ contract SignalService is ISignalService, EssentialContract {
         bytes proof;
     }
 
+    error B_ZERO_SIGNAL();
+    error B_NULL_APP_ADDR();
+    error B_WRONG_CHAIN_ID();
+
     /// @dev Initializer to be called after being deployed behind a proxy.
     function init(address _addressManager) external initializer {
         EssentialContract._init(_addressManager);
     }
 
     function sendSignal(bytes32 signal) public returns (bytes32 storageSlot) {
-        require(signal != 0, "B:signal");
+        if (signal == 0) {
+            revert B_ZERO_SIGNAL();
+        }
 
         storageSlot = getSignalSlot(msg.sender, signal);
         assembly {
@@ -38,8 +44,13 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal
     ) public view returns (bool) {
-        require(app != address(0), "B:app");
-        require(signal != 0, "B:signal");
+        if (app == address(0)) {
+            revert B_NULL_APP_ADDR();
+        }
+
+        if (signal == 0) {
+            revert B_ZERO_SIGNAL();
+        }
 
         bytes32 slot = getSignalSlot(app, signal);
         uint256 value;
@@ -55,9 +66,17 @@ contract SignalService is ISignalService, EssentialContract {
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool) {
-        require(srcChainId != block.chainid, "B:srcChainId");
-        require(app != address(0), "B:app");
-        require(signal != 0, "B:signal");
+        if (srcChainId == block.chainid) {
+            revert B_WRONG_CHAIN_ID();
+        }
+
+        if (app == address(0)) {
+            revert B_NULL_APP_ADDR();
+        }
+
+        if (signal == 0) {
+            revert B_ZERO_SIGNAL();
+        }
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.

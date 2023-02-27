@@ -16,6 +16,7 @@ import {
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {LibAddress} from "../libs/LibAddress.sol";
+import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
 
 /**
  * EtherVault is a special vault contract that:
@@ -23,7 +24,7 @@ import {LibAddress} from "../libs/LibAddress.sol";
  * - Allows the contract owner to authorize addresses.
  * - Allows authorized addresses to send/release Ether.
  */
-contract EtherVault is EssentialContract {
+contract EtherVault is EssentialContract, BridgeCustomErrors {
     using LibAddress for address;
 
     /*********************
@@ -46,7 +47,9 @@ contract EtherVault is EssentialContract {
      *********************/
 
     modifier onlyAuthorized() {
-        require(isAuthorized(msg.sender), "EV:denied");
+        if (!isAuthorized(msg.sender)) {
+            revert B_EV_NOT_AUTHORIZED();
+        }
         _;
     }
 
@@ -56,10 +59,9 @@ contract EtherVault is EssentialContract {
 
     receive() external payable {
         // EthVault's balance must == 0 OR the sender isAuthorized.
-        require(
-            address(this).balance == 0 || isAuthorized(msg.sender),
-            "EV:denied"
-        );
+        if (address(this).balance != 0 && !isAuthorized(msg.sender)) {
+            revert B_EV_NOT_AUTHORIZED();
+        }
     }
 
     function init(address addressManager) external initializer {
@@ -90,7 +92,9 @@ contract EtherVault is EssentialContract {
         address recipient,
         uint256 amount
     ) public onlyAuthorized nonReentrant {
-        require(recipient != address(0), "EV:recipient");
+        if (recipient == address(0)) {
+            revert B_EV_DO_NOT_BURN();
+        }
         recipient.sendEther(amount);
         emit EtherReleased(recipient, amount);
     }
@@ -101,10 +105,9 @@ contract EtherVault is EssentialContract {
      * @param authorized Authorized status to set.
      */
     function authorize(address addr, bool authorized) public onlyOwner {
-        require(
-            addr != address(0) && _authorizedAddrs[addr] != authorized,
-            "EV:param"
-        );
+        if (addr == address(0) || _authorizedAddrs[addr] == authorized) {
+            revert B_EV_PARAM();
+        }
         _authorizedAddrs[addr] = authorized;
         emit Authorized(addr, authorized);
     }

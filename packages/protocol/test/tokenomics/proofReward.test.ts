@@ -5,15 +5,15 @@ import { TaikoL1 } from "../../typechain";
 import { TestTaikoToken } from "../../typechain/TestTaikoToken";
 import { pickRandomElement } from "../utils/array";
 import blockListener from "../utils/blockListener";
-import { BlockMetadata } from "../utils/block_metadata";
+// import { BlockMetadata } from "../utils/block_metadata";
 import { initIntegrationFixture } from "../utils/fixture";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { createAndSeedWallets, seedTko } from "../utils/seed";
 import {
     commitProposeProveAndVerify,
-    sleepUntilBlockIsVerifiable,
-    verifyBlocks,
+    // sleepUntilBlockIsVerifiable,
+    // verifyBlocks,
 } from "../utils/verify";
 
 describe("tokenomics: proofReward", function () {

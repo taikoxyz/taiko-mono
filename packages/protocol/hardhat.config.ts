@@ -29,7 +29,10 @@ const config: HardhatUserConfig = {
     },
     gasReporter: {
         currency: "USD",
-        enabled: process.env.REPORT_GAS === "true",
+        enabled: true,
+        gasPriceApi:
+            "https://api.etherscan.io/api?module=proxy&action=eth_gasPrice",
+        token: "ETH",
     },
     mocha: {
         timeout: 300000,
