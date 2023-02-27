@@ -5,11 +5,11 @@
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
 // This file is an exact copy of LibProving.sol
-// except the implementation of the following methods are empty:
+// except the implementation of the following flags are false:
 
-// _validateAnchorTxSignature
-// _checkMetadata
-// _validateHeaderForMetadata
+// FLAG_VALIDATE_ANCHOR_TX_SIGNATURE
+// FLAG_CHECK_METADATA
+// FLAG_VALIDATE_HEADER_FOR_METADATA
 
 // @dev we need to update this when we update LibProving.sol
 
