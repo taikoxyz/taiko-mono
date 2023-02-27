@@ -20,8 +20,8 @@ task("deploy_L1")
     )
     .addOptionalParam("l2ChainId", "L2 chain id", config.K_CHAIN_ID, types.int)
     .addOptionalParam(
-        "bridgeFounderPrivateKey",
-        "Private key of the L1 bridge founder",
+        "bridgeFunderPrivateKey",
+        "Private key of the L1 bridge funder",
         "",
         types.string
     )
@@ -69,7 +69,7 @@ export async function deployContracts(hre: any) {
     const l2GenesisBlockHash = hre.args.l2GenesisBlockHash;
     const taikoL2Address = hre.args.taikoL2;
     const l2ChainId = hre.args.l2ChainId;
-    const bridgeFounderPrivateKey = hre.args.bridgeFounderPrivateKey;
+    const bridgeFunderPrivateKey = hre.args.bridgeFunderPrivateKey;
     const bridgeFund = hre.args.bridgeFund;
     const oracleProver = hre.args.oracleProver;
 
@@ -80,7 +80,7 @@ export async function deployContracts(hre: any) {
     log.debug(`l2GenesisBlockHash: ${l2GenesisBlockHash}`);
     log.debug(`taikoL2Address: ${taikoL2Address}`);
     log.debug(`l2ChainId: ${l2ChainId}`);
-    log.debug(`bridgeFounderPrivateKey: ${bridgeFounderPrivateKey}`);
+    log.debug(`bridgeFunderPrivateKey: ${bridgeFunderPrivateKey}`);
     log.debug(`bridgeFund: ${bridgeFund}`);
     log.debug(`oracleProver: ${oracleProver}`);
     log.debug(`confirmations: ${hre.args.confirmations}`);
@@ -175,17 +175,17 @@ export async function deployContracts(hre: any) {
 
     // Fund L1 bridge, which is necessary when there is a L2 faucet
     if (
-        bridgeFounderPrivateKey.length &&
+        bridgeFunderPrivateKey.length &&
         hre.ethers.utils.isHexString(bridgeFund)
     ) {
-        const founder = new hre.ethers.Wallet(
-            bridgeFounderPrivateKey,
+        const funder = new hre.ethers.Wallet(
+            bridgeFunderPrivateKey,
             hre.ethers.provider
         );
 
         await utils.waitTx(
             hre,
-            await founder.sendTransaction({
+            await funder.sendTransaction({
                 to: Bridge.address,
                 value: hre.ethers.BigNumber.from(bridgeFund),
             })
