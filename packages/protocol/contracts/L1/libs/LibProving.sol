@@ -58,7 +58,7 @@ library LibProving {
 
     error L1_ID();
     error L1_PROVER();
-    error L1_TOO_LATE();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CONFLICT_PROOF();
@@ -95,11 +95,15 @@ library LibProving {
     ) public {
         if (LibUtils.isHalted(state)) revert L1_HALTED();
 
-        // if claim auction window is still going on, dont allow proof.
+        // if claim auction window is still going on, or the claim auction delay hasnt passed with a valid vid,
+        // dont allow proof.
         if (
             block.timestamp -
                 state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
-            config.claimAuctionWindowInSeconds
+            config.claimAuctionWindowInSeconds ||
+            (state.claims[blockId].claimedAt > 0 &&
+                (block.timestamp - state.claims[blockId].claimedAt <
+                    config.claimAuctionDelayInSeconds))
         ) {
             revert L1_TOO_EARLY();
         }
@@ -116,7 +120,6 @@ library LibProving {
             config.baseClaimHoldTimeInSeconds + state.avgProofTime
         ) {
             // block must be claimed by you.
-            // TODO: move this later and use evidence.prover?
             if (state.claims[blockId].claimer != evidence.prover) {
                 revert L1_BLOCK_NOT_CLAIMED();
             }

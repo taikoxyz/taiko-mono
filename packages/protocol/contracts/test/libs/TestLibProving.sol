@@ -58,7 +58,7 @@ library TestLibProving {
 
     error L1_ID();
     error L1_PROVER();
-    error L1_TOO_LATE();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
     error L1_INPUT_SIZE();
     error L1_PROOF_LENGTH();
     error L1_CONFLICT_PROOF();
@@ -98,15 +98,17 @@ library TestLibProving {
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
 
-        // if claim auction window is still going on, dont allow proof.
+        // if claim auction window is still going on, or theres a valid bid but the delay hasnt passed, dont allow proof.
         if (
             block.timestamp -
                 state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
-            config.claimAuctionWindowInSeconds
+            config.claimAuctionWindowInSeconds ||
+            (state.claims[blockId].claimedAt > 0 &&
+                (block.timestamp - state.claims[blockId].claimedAt <
+                    config.claimAuctionDelayInSeconds))
         ) {
             revert L1_TOO_EARLY();
         }
-
         Evidence memory evidence = abi.decode(inputs[0], (Evidence));
 
         // Check evidence

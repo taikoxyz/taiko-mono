@@ -532,7 +532,7 @@ describe("integration:TaikoL1", function () {
                     })
                 ).wait(),
                 l1Provider,
-                "L1_TOO_LATE()"
+                "L1_CLAIM_AUCTION_WINDOW_PASSED()"
             );
         });
 
@@ -555,10 +555,44 @@ describe("integration:TaikoL1", function () {
             ).not.to.be.reverted;
         });
 
+        it("successfully claims, another user can NOT prove block", async function () {
+            const { proposedEvent, block } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            await expect(
+                taikoL1.claimBlock(proposedEvent.args.id, {
+                    gasLimit: 500000,
+                    value: config.baseClaimDepositInWei.add(
+                        config.minimumClaimBidIncreaseInWei
+                    ),
+                })
+            ).not.to.be.reverted;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
+
+            // l1Signer is claimer, so prover should not be able to prove
+
+            await expect(
+                prover.prove(
+                    proposedEvent.args.id.toNumber(),
+                    block.number,
+                    proposedEvent.args.meta as any as BlockMetadata
+                )
+            ).to.be.reverted;
+        });
+
         it(`successfully claims, 
         then another user bids higher and takes over the claim,
          winning by minimumClaimBigIncreaseInWei,
-          and original bidder receives refund of deposit`, async function () {
+          and original bidder receives refund of deposit.`, async function () {
             const { proposedEvent } = await commitAndProposeLatestBlock(
                 taikoL1,
                 l1Signer,

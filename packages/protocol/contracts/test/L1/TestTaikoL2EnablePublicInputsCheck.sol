@@ -52,9 +52,10 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.enablePublicInputsCheck = true;
         config.enableAnchorValidation = true;
         config.enableOracleProver = false;
-        config.claimAuctionWindowInSeconds = 1 minutes;
+        config.claimAuctionWindowInSeconds = 15 seconds;
         config.baseClaimHoldTimeInSeconds = 30 minutes;
         config.baseClaimDepositInWei = 1 ether;
         config.minimumClaimBidIncreaseInWei = 1 wei;
+        config.claimAuctionDelayInSeconds = 5 seconds;
     }
 }

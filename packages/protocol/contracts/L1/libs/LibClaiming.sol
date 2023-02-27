@@ -28,10 +28,11 @@ library LibClaiming {
     );
 
     error L1_ID();
-    error L1_TOO_LATE();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
     error L1_HALTED();
     error L1_ALREADY_CLAIMED();
     error L1_INVALID_CLAIM_DEPOSIT();
+    error L1_CLAIM_AUCTION_DELAY_PASSED();
 
     // claimBlock lets a prover claim a block for only themselves to prove,
     // for a limited amount of time.
@@ -53,14 +54,24 @@ library LibClaiming {
             revert L1_ID();
         }
 
-        // if claimauctionwindow is set, we need to make sure this bid
-        // is within it.
+        TaikoData.Claim memory currentClaim = state.claims[blockId];
+
+        if (
+            currentClaim.claimer != address(0) &&
+            (block.timestamp - currentClaim.claimedAt >
+                config.claimAuctionDelayInSeconds)
+        ) {
+            revert L1_CLAIM_AUCTION_DELAY_PASSED();
+        }
+
+        // we need to make sure this bid
+        // is within it claimAuctionWindowInSeconds.
         if (
             block.timestamp -
                 state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt >
             config.claimAuctionWindowInSeconds
         ) {
-            revert L1_TOO_LATE();
+            revert L1_CLAIM_AUCTION_WINDOW_PASSED();
         }
 
         // if user has claimed and not proven a block before, we multiply
@@ -78,7 +89,6 @@ library LibClaiming {
             revert L1_INVALID_CLAIM_DEPOSIT();
         }
 
-        TaikoData.Claim memory currentClaim = state.claims[blockId];
         // if there is an existing claimer, we need to see if msg.value sent is higher than the previous deposit.
         if (currentClaim.claimer != address(0)) {
             if (

@@ -43,7 +43,7 @@ abstract contract TaikoCustomErrors {
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_SOLO_PROPOSER();
-    error L1_TOO_LATE();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
     error L1_TOO_MANY();
     error L1_TOO_MANY_PROVERS();
     error L1_TX_LIST();
@@ -51,7 +51,7 @@ abstract contract TaikoCustomErrors {
     error L1_ALREADY_CLAIMED();
     error L1_INVALID_CLAIM_DEPOSIT();
     error L1_BLOCK_NOT_CLAIMED();
-    error L1_CLAIMED_TOO_RECENTLY();
     error L1_ALREADY_PROVEN();
     error L1_TOO_EARLY();
+    error L1_CLAIM_AUCTION_DELAY_PASSED();
 }
