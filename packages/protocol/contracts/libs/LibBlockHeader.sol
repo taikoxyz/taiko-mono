@@ -34,13 +34,22 @@ library LibBlockHeader {
     function hashBlockHeader(
         BlockHeader memory header
     ) internal pure returns (bytes32) {
-        bytes[] memory list;
+        bytes memory rlpHeader = LibRLPWriter.writeList(
+            getBlockHeaderRLPItemsList(header, 0)
+        );
+        return keccak256(rlpHeader);
+    }
+
+    function getBlockHeaderRLPItemsList(
+        BlockHeader memory header,
+        uint256 extraCapacity
+    ) internal pure returns (bytes[] memory list) {
         if (header.baseFeePerGas == 0) {
             // non-EIP11559 transaction
-            list = new bytes[](15);
+            list = new bytes[](15 + extraCapacity);
         } else {
             // EIP1159 transaction
-            list = new bytes[](16);
+            list = new bytes[](16 + extraCapacity);
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
@@ -63,9 +72,6 @@ library LibBlockHeader {
             // non-EIP11559 transaction
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
         }
-
-        bytes memory rlpHeader = LibRLPWriter.writeList(list);
-        return keccak256(rlpHeader);
     }
 
     function isPartiallyValidForTaiko(
