@@ -50,7 +50,7 @@ describe("LibMerkleTrie", function () {
                 t.root.root
             );
 
-            expect(isIncluded[0]).to.be.eq(true);
+            expect(isIncluded[0]).to.be.true;
             expect(isIncluded[1]).to.be.eq(
                 ethers.utils.hexlify(defaultMerkleTrie.nodes[0].value)
             );

@@ -35,28 +35,26 @@ async function verifyBlockAndAssert(
 ): Promise<{ newProofReward: BigNumber }> {
     const prover = block.forkChoice.provers[0];
 
-    const proverTkoBalanceBeforeVerification = await taikoTokenL1.balanceOf(
+    const proverBalanceBeforeVerification = await taikoTokenL1.balanceOf(
         prover
     );
 
-    const proposerTkoBalanceBeforeVerification = await taikoTokenL1.balanceOf(
+    const proposerBalanceBeforeVerification = await taikoTokenL1.balanceOf(
         block.proposer
     );
 
-    expect(proposerTkoBalanceBeforeVerification.gt(0)).to.be.eq(true);
+    expect(proposerBalanceBeforeVerification.gt(0)).to.be.eq(true);
     const verifiedEvent = await verifyBlocks(taikoL1, 1);
     expect(verifiedEvent).to.be.not.undefined;
 
     expect(verifiedEvent.args.blockHash).to.be.eq(block.blockHash);
     expect(verifiedEvent.args.id.eq(block.id)).to.be.eq(true);
 
-    const proverTkoBalanceAfterVerification = await taikoTokenL1.balanceOf(
-        prover
-    );
+    const proverBalanceAfterVerification = await taikoTokenL1.balanceOf(prover);
 
     // prover should have increased in balance as he received the proof reward.
     expect(
-        proverTkoBalanceAfterVerification.gt(proverTkoBalanceBeforeVerification)
+        proverBalanceAfterVerification.gt(proverBalanceBeforeVerification)
     ).to.be.eq(true);
 
     const newProofReward = await taikoL1.getProofReward(

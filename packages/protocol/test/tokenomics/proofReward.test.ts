@@ -48,44 +48,6 @@ describe("tokenomics: proofReward", function () {
         chan.close();
     });
 
-    it(`proofReward is 1 wei if the prover does not hold any taikoTokens on L1`, async function () {
-        let proposed: boolean = false;
-        l2Provider.on("block", function () {
-            if (proposed) {
-                chan.close();
-                l2Provider.off("block");
-                return;
-            }
-            proposed = true;
-
-            chan.send(genesisHeight + 1);
-        });
-
-        /* eslint-disable-next-line */
-        for await (const blockNumber of chan) {
-            const proverTkoBalanceBeforeVerification =
-                await taikoTokenL1.balanceOf(await prover.getSigner().address);
-
-            await commitProposeProveAndVerify(
-                taikoL1,
-                l2Provider,
-                blockNumber,
-                proposer,
-                taikoTokenL1,
-                prover
-            );
-
-            const proverTkoBalanceAfterVerification =
-                await taikoTokenL1.balanceOf(await prover.getSigner().address);
-
-            // prover should have given 1 TKO token, since they
-            // held no TKO balance.
-            expect(proverTkoBalanceAfterVerification.sub(1)).to.be.eq(
-                proverTkoBalanceBeforeVerification
-            );
-        }
-    });
-
     it(`single prover, single proposer.
     propose blocks, wait til maxNumBlocks is filled.
     proverReward should decline should increase as blocks are proved then verified.
@@ -106,8 +68,9 @@ describe("tokenomics: proofReward", function () {
             ) {
                 break;
             }
-            const proverTkoBalanceBeforeVerification =
-                await taikoTokenL1.balanceOf(await prover.getSigner().address);
+            const balanceBefore = await taikoTokenL1.balanceOf(
+                await prover.getSigner().address
+            );
 
             await commitProposeProveAndVerify(
                 taikoL1,
@@ -118,14 +81,18 @@ describe("tokenomics: proofReward", function () {
                 prover
             );
 
-            const proverTkoBalanceAfterVerification =
-                await taikoTokenL1.balanceOf(await prover.getSigner().address);
+            let balanceAfter = await taikoTokenL1.balanceOf(
+                await prover.getSigner().address
+            );
 
-            expect(
-                proverTkoBalanceAfterVerification.gt(
-                    proverTkoBalanceBeforeVerification
-                )
-            ).to.be.eq(true);
+            expect(balanceAfter).to.be.eq(balanceBefore);
+
+            await taikoL1.connect(prover.getSigner()).withdrawBalance();
+            balanceAfter = await taikoTokenL1.balanceOf(
+                await prover.getSigner().address
+            );
+
+            expect(balanceAfter).to.be.gt(balanceBefore);
         }
     });
 
@@ -177,11 +144,11 @@ describe("tokenomics: proofReward", function () {
             }
             const prover = pickRandomElement<Prover>(provers);
             const proposer = pickRandomElement<Proposer>(proposers);
-            const proverTkoBalanceBefore = await taikoTokenL1.balanceOf(
+            const proverBalanceBefore = await taikoTokenL1.balanceOf(
                 await prover.getSigner().getAddress()
             );
 
-            const proposerTkoBalanceBefore = await taikoTokenL1.balanceOf(
+            const proposerBalanceBefore = await taikoTokenL1.balanceOf(
                 await proposer.getSigner().getAddress()
             );
 
@@ -194,19 +161,22 @@ describe("tokenomics: proofReward", function () {
                 prover
             );
 
-            const proverTkoBalanceAfter = await taikoTokenL1.balanceOf(
-                await prover.getSigner().getAddress()
-            );
-
-            const proposerTkoBalanceAfter = await taikoTokenL1.balanceOf(
+            const proposerBalanceAfter = await taikoTokenL1.balanceOf(
                 await proposer.getSigner().getAddress()
             );
 
-            expect(proposerTkoBalanceAfter.lt(proposerTkoBalanceBefore));
+            expect(proposerBalanceAfter).to.be.lt(proposerBalanceBefore);
 
-            expect(proverTkoBalanceAfter.gt(proverTkoBalanceBefore)).to.be.eq(
-                true
+            let proverBalanceAfter = await taikoTokenL1.balanceOf(
+                await prover.getSigner().getAddress()
             );
+            expect(proverBalanceAfter).to.be.eq(proverBalanceBefore);
+
+            await taikoL1.connect(prover.getSigner()).withdrawBalance();
+            proverBalanceAfter = await taikoTokenL1.balanceOf(
+                await prover.getSigner().getAddress()
+            );
+            expect(proverBalanceAfter).to.be.gt(proverBalanceBefore);
         }
     });
 });
