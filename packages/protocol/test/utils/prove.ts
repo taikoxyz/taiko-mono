@@ -11,8 +11,7 @@ const buildProveBlockInputs = (
     header: BlockHeader,
     prover: string,
     anchorTx: Uint8Array | string,
-    anchorReceipt: Uint8Array | string,
-    zkProofsPerBlock: number
+    anchorReceipt: Uint8Array | string
 ) => {
     const inputs = [];
     const evidence: Evidence = {
@@ -26,11 +25,11 @@ const buildProveBlockInputs = (
     // we have mkp + zkp returnign true in testing, so can just push 0xff
     // instead of actually making proofs for anchor tx, anchor receipt, and
     // zkp
-    for (let i = 0; i < zkProofsPerBlock + 2; i++) {
+    for (let i = 0; i < 3; i++) {
         evidence.proofs.push("0xff");
     }
 
-    for (let i = 0; i < zkProofsPerBlock; i++) {
+    for (let i = 0; i < 1; i++) {
         evidence.circuits.push(1);
     }
 
@@ -48,15 +47,13 @@ const proveBlock = async (
     blockNumber: number,
     meta: BlockMetadata
 ): Promise<BlockProvenEvent> => {
-    const config = await taikoL1.getConfig();
     const header = await getBlockHeader(l2Provider, blockNumber);
     const inputs = buildProveBlockInputs(
         meta,
         header.blockHeader,
         proverAddress,
         "0x",
-        "0x",
-        config.zkProofsPerBlock.toNumber()
+        "0x"
     );
     const tx = await taikoL1.proveBlock(blockId, inputs, { gasLimit: 1000000 });
     const receipt = await tx.wait(1);
