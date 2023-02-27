@@ -166,17 +166,25 @@ library LibVerifying {
                 });
 
                 // reward the prover
-                if (state.balances[fc.prover] == 0) {
-                    // Reduce reward to 1 wei as a penalty if the prover
-                    // has 0 TKO outstanding balance.
-                    state.balances[fc.prover] = 1;
-                } else {
-                    state.balances[fc.prover] += reward;
+                if (reward > 0) {
+                    if (state.balances[fc.prover] == 0) {
+                        // Reduce reward to 1 wei as a penalty if the prover
+                        // has 0 TKO outstanding balance.
+                        state.balances[fc.prover] = 1;
+                    } else {
+                        state.balances[fc.prover] += reward;
+                    }
                 }
 
                 // refund proposer deposit
                 uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-                state.balances[target.proposer] += refund;
+                if (refund > 0) {
+                    if (state.balances[target.proposer] == 0) {
+                        state.balances[target.proposer] = 1;
+                    } else {
+                        state.balances[target.proposer] += refund;
+                    }
+                }
             }
             // Update feeBase and avgProofTime
             state.feeBase = LibUtils.movingAverage({
