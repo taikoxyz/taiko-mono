@@ -27,7 +27,7 @@ library LibBridgeProcess {
     using LibBridgeData for LibBridgeData.State;
 
     error B_FORBIDDEN();
-    error B_CHAIN_ID_MISMATCH();
+    error B_WRONG_CHAIN_ID();
     error B_STATUS_MISMTACH();
     error B_SIGNAL_NOT_RECEIVED();
 
@@ -55,7 +55,7 @@ library LibBridgeProcess {
         }
 
         if (message.destChainId != block.chainid) {
-            revert B_CHAIN_ID_MISMATCH();
+            revert B_WRONG_CHAIN_ID();
         }
 
         // The message status must be "NEW"; "RETRIABLE" is handled in

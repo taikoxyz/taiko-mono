@@ -128,7 +128,7 @@ describe("LibBridgeProcess", async function () {
             };
             await expect(
                 libProcess.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B_CHAIN_ID_MISMATCH()");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
 
         it("should throw if message's status is not NEW", async function () {

@@ -16,7 +16,7 @@ library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
     error B_OWNER_IS_NULL();
-    error B_CHAIN_ID_MISMATCH();
+    error B_WRONG_CHAIN_ID();
     error B_ETHER_RELEASED_ALREADY();
     error B_MSG_NOT_FAILED();
     error B_FAILED_TRANSFER();
@@ -39,7 +39,7 @@ library LibBridgeRelease {
         }
 
         if (message.srcChainId != block.chainid) {
-            revert B_CHAIN_ID_MISMATCH();
+            revert B_WRONG_CHAIN_ID();
         }
 
         bytes32 msgHash = message.hashMessage();

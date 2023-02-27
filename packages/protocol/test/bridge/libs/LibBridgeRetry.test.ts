@@ -120,7 +120,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("B_SENDER_IS_NOT_OWNER()");
+            ).to.be.revertedWith("B_DENIED()");
         });
 
         it("should throw if lastAttempt == true && msg.sender != message.owner", async function () {
@@ -142,7 +142,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, true)
-            ).to.be.revertedWith("B_SENDER_IS_NOT_OWNER()");
+            ).to.be.revertedWith("B_DENIED()");
         });
 
         it("should throw if message status is not RETRIABLE", async function () {

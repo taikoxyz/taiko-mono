@@ -297,7 +297,7 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B_CHAIN_ID_MISMATCH()");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
     });
 });
