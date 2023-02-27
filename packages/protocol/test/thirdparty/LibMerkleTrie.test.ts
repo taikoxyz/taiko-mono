@@ -67,7 +67,7 @@ describe("LibMerkleTrie", function () {
                 t.root.root
             );
 
-            expect(isIncluded[0]).to.be.eq(false);
+            expect(isIncluded[0]).to.be.false;
             expect(isIncluded[1]).to.be.eq("0x");
         });
     });

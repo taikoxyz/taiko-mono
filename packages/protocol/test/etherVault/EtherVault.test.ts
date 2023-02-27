@@ -170,7 +170,7 @@ describe("EtherVault", function () {
                 .authorize(notAuthorized.address, false);
 
             isAuthorized = await etherVault.isAuthorized(notAuthorized.address);
-            expect(isAuthorized).to.be.eq(false);
+            expect(isAuthorized).to.be.false;
         });
     });
 });

@@ -317,7 +317,7 @@ describe("integrationbridge:Bridge", function () {
         it("should return false, since no message was sent", async function () {
             const msgHash = await l1Bridge.hashMessage(m);
 
-            expect(await l1Bridge.isMessageSent(msgHash)).to.be.eq(false);
+            expect(await l1Bridge.isMessageSent(msgHash)).to.be.false;
         });
 
         it("should return true if message was sent properly", async function () {
@@ -523,7 +523,7 @@ describe("integrationbridge:Bridge", function () {
 
             expect(
                 await l2Bridge.isMessageFailed(msgHash, srcChainId, signalProof)
-            ).to.be.eq(false);
+            ).to.be.false;
         });
 
         it("should return true if message has been sent, processed, retried and failed", async function () {

@@ -196,7 +196,7 @@ describe("Bridge", function () {
     describe("isDestChainEnabled()", function () {
         it("is disabled for unabled chainIds", async () => {
             const enabled = await l1Bridge.isDestChainEnabled(68);
-            expect(enabled).to.be.eq(false);
+            expect(enabled).to.be.false;
         });
 
         it("is enabled for enabled chainId", async () => {

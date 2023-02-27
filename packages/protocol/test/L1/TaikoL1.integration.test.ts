@@ -84,7 +84,7 @@ describe("integration:TaikoL1", function () {
                 commit.hash
             );
 
-            expect(isCommitValid).to.be.eq(false);
+            expect(isCommitValid).to.be.false;
         });
 
         it("should be valid if it has been committed", async function () {
