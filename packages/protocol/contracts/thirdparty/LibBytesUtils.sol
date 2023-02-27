@@ -140,44 +140,13 @@ library LibBytesUtils {
     function toNibbles(
         bytes memory _bytes
     ) internal pure returns (bytes memory) {
-        // Calculate the length of the output nibbles array as twice the length of the input bytes array
-        uint256 nibblesLen = _bytes.length * 2;
+        bytes memory nibbles = new bytes(_bytes.length * 2);
 
-        // Create a new bytes array of length nibblesLen
-        bytes memory nibbles = new bytes(nibblesLen);
-
-        assembly {
-            // ptr to start of input bytes array
-            let src := add(_bytes, 32)
-
-            // ptr to start of output nibbles array
-            let dst := add(nibbles, 32)
-
-            // calc end ptr of output nibbles array
-            let end := add(dst, nibblesLen)
-
-            // loop over each byte in input
-            for {
-
-            } lt(dst, end) {
-                dst := add(dst, 1)
-            } {
-                // val of current byte
-                let byteVal := byte(sub(dst, add(nibbles, 32)), mload(src))
-
-                // shift top tip of byute to right by 4 bits and store it in output
-                mstore8(dst, shr(4, byteVal))
-
-                // incr dest ptr to point to next nibble
-                dst := add(dst, 1)
-
-                // store bottom nibble of byte in output
-                mstore8(dst, and(byteVal, 0x0f))
-
-                // incr src ptr to point to next byte
-                src := add(src, 1)
-            }
+        for (uint256 i; i < _bytes.length; ++i) {
+            nibbles[i * 2] = _bytes[i] >> 4;
+            nibbles[i * 2 + 1] = bytes1(uint8(_bytes[i]) % 16);
         }
+
         return nibbles;
     }
 
