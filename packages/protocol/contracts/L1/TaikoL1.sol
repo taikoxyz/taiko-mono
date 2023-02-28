@@ -225,7 +225,7 @@ contract TaikoL1 is
         eth = 0;
         if (
             state.claims[blockId].claimer != address(0) &&
-            !isClaimForProposedBlockStillValid(blockId)
+            isClaimForProposedBlockStillValid(blockId)
         ) {
             eth = state.claims[blockId].deposit;
         }
