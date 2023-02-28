@@ -1,5 +1,5 @@
 {
-  "name": "@taiko/bridge-ui",
+  "name": "@taiko/starter-dapp",
   "version": "0.1.2",
   "private": true,
   "type": "module",
