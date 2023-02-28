@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.18;
 
+import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {LibMath} from "../../libs/LibMath.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibUtils {

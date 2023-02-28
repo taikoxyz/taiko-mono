@@ -16,13 +16,6 @@ interface IProofVerifier {
         bytes calldata zkproof,
         bytes32 instance
     ) external view returns (bool verified);
-
-    function verifyMKP(
-        bytes memory key,
-        bytes memory value,
-        bytes memory proof,
-        bytes32 root
-    ) external pure returns (bool verified);
 }
 
 contract ProofVerifier is IProofVerifier, EssentialContract {
@@ -40,21 +33,6 @@ contract ProofVerifier is IProofVerifier, EssentialContract {
                 plonkVerifier: resolve(verifierId, false),
                 zkproof: zkproof,
                 instance: instance
-            });
-    }
-
-    function verifyMKP(
-        bytes memory key,
-        bytes memory value,
-        bytes memory proof,
-        bytes32 root
-    ) external pure returns (bool) {
-        return
-            LibMerkleTrie.verifyInclusionProof({
-                _key: key,
-                _value: value,
-                _proof: proof,
-                _root: root
             });
     }
 }

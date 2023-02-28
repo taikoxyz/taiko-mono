@@ -39,6 +39,8 @@ library TaikoData {
         uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
+        bool skipCheckingMetadata;
+        bool skipValidatingHeaderForMetadata;
     }
 
     struct BlockMetadata {

@@ -6,14 +6,9 @@
 
 pragma solidity ^0.8.18;
 
-import {IProofVerifier} from "../ProofVerifier.sol";
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAnchorSignature} from "../../libs/LibAnchorSignature.sol";
-import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibReceiptDecoder} from "../../libs/LibReceiptDecoder.sol";
-import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
-import {LibTxUtils} from "../../libs/LibTxUtils.sol";
-import {LibBytesUtils} from "../../thirdparty/LibBytesUtils.sol";
+import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
+import {IProofVerifier} from "../ProofVerifier.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -22,9 +17,6 @@ library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
-
-    bool private constant FLAG_CHECK_METADATA = true;
-    bool private constant FLAG_VALIDATE_HEADER_FOR_METADATA = true;
 
     event BlockProven(
         uint256 indexed id,
@@ -61,30 +53,13 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-
         if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
-
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
-        // if (config.enableAnchorValidation) {
-        //     _proveAnchorForValidBlock({
-        //         config: config,
-        //         resolver: resolver,
-        //         proofVerifier: proofVerifier,
-        //         evidence: evidence,
-        //         anchorTx: inputs[1],
-        //         anchorReceipt: inputs[2]
-        //     });
-        // }
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
-            proofVerifier: proofVerifier,
             evidence: evidence,
             target: evidence.meta,
             blockHashOverride: 0
@@ -104,38 +79,18 @@ library LibProving {
             inputs[0],
             (TaikoData.Evidence)
         );
-        TaikoData.BlockMetadata memory target = abi.decode(
-            inputs[1],
-            (TaikoData.BlockMetadata)
-        );
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
         if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
-
-        IProofVerifier proofVerifier = IProofVerifier(
-            resolver.resolve("proof_verifier", false)
-        );
-
-        // if (config.enableAnchorValidation) {
-        //     _proveAnchorForInvalidBlock({
-        //         config: config,
-        //         resolver: resolver,
-        //         target: target,
-        //         proofVerifier: proofVerifier,
-        //         evidence: evidence,
-        //         invalidateBlockReceipt: inputs[2]
-        //     });
-        // }
 
         // ZK-prove block and mark block proven as invalid.
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
-            proofVerifier: proofVerifier,
             evidence: evidence,
-            target: target,
+            target: abi.decode(inputs[1], (TaikoData.BlockMetadata)),
             blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
         });
     }
@@ -144,7 +99,6 @@ library LibProving {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        IProofVerifier proofVerifier,
         TaikoData.Evidence memory evidence,
         TaikoData.BlockMetadata memory target,
         bytes32 blockHashOverride
@@ -152,7 +106,7 @@ library LibProving {
         if (evidence.meta.id != target.id) revert L1_ID();
         if (evidence.prover == address(0)) revert L1_PROVER();
 
-        if (FLAG_CHECK_METADATA) {
+        if (!config.skipCheckingMetadata) {
             if (
                 target.id <= state.latestVerifiedId ||
                 target.id >= state.nextBlockId
@@ -164,7 +118,7 @@ library LibProving {
             ) revert L1_META_MISMATCH();
         }
 
-        if (FLAG_VALIDATE_HEADER_FOR_METADATA) {
+        if (!config.skipValidatingHeaderForMetadata) {
             if (
                 evidence.header.parentHash == 0 ||
                 evidence.header.beneficiary != evidence.meta.beneficiary ||
@@ -216,6 +170,9 @@ library LibProving {
         if (oracleProving) {
             // do not verify zkp
         } else {
+            IProofVerifier proofVerifier = IProofVerifier(
+                resolver.resolve("proof_verifier", false)
+            );
             bool verified = proofVerifier.verifyZKP({
                 verifierId: string(
                     abi.encodePacked("plonk_verifier_", evidence.circuitId)

@@ -6,14 +6,14 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 /**
  * LibVerifying.

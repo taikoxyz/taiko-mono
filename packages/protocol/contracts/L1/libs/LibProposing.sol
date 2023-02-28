@@ -6,15 +6,14 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
+import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
     using LibTxDecoder for bytes;
@@ -74,11 +73,21 @@ library LibProposing {
             inputs[0],
             (TaikoData.BlockMetadata)
         );
-        _verifyBlockCommit({
-            state: state,
-            commitConfirmations: config.commitConfirmations,
-            meta: meta
-        });
+
+        if (config.commitConfirmations > 0) {
+            bytes32 commitHash = keccak256(
+                abi.encodePacked(meta.beneficiary, meta.txListHash)
+            );
+            bool valid = isCommitValid({
+                state: state,
+                commitConfirmations: config.commitConfirmations,
+                commitSlot: meta.commitSlot,
+                commitHeight: meta.commitHeight,
+                commitHash: commitHash
+            });
+
+            if (!valid) revert L1_NOT_COMMITTED();
+        }
 
         {
             if (
@@ -142,17 +151,14 @@ library LibProposing {
             });
         }
 
-        _saveProposedBlock(
-            state,
-            config.maxNumBlocks,
-            state.nextBlockId,
-            TaikoData.ProposedBlock({
-                metaHash: meta.hashMetadata(),
-                deposit: deposit,
-                proposer: msg.sender,
-                proposedAt: meta.timestamp
-            })
-        );
+        state.proposedBlocks[
+            state.nextBlockId % config.maxNumBlocks
+        ] = TaikoData.ProposedBlock({
+            metaHash: meta.hashMetadata(),
+            deposit: deposit,
+            proposer: msg.sender,
+            proposedAt: meta.timestamp
+        });
 
         state.avgBlockTime = LibUtils
             .movingAverage({
@@ -195,7 +201,7 @@ library LibProposing {
         uint256 commitSlot,
         uint256 commitHeight,
         bytes32 commitHash
-    ) public view returns (bool) {
+    ) internal view returns (bool) {
         assert(commitConfirmations > 0);
         bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
         return
@@ -212,46 +218,6 @@ library LibProposing {
             revert L1_ID();
         }
         return state.getProposedBlock(maxNumBlocks, id);
-    }
-
-    function _saveProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id,
-        TaikoData.ProposedBlock memory blk
-    ) private {
-        state.proposedBlocks[id % maxNumBlocks] = blk;
-    }
-
-    function _verifyBlockCommit(
-        TaikoData.State storage state,
-        uint256 commitConfirmations,
-        TaikoData.BlockMetadata memory meta
-    ) private view {
-        if (commitConfirmations == 0) {
-            return;
-        }
-        bytes32 commitHash = _calculateCommitHash(
-            meta.beneficiary,
-            meta.txListHash
-        );
-
-        if (
-            !isCommitValid({
-                state: state,
-                commitConfirmations: commitConfirmations,
-                commitSlot: meta.commitSlot,
-                commitHeight: meta.commitHeight,
-                commitHash: commitHash
-            })
-        ) revert L1_NOT_COMMITTED();
-    }
-
-    function _calculateCommitHash(
-        address beneficiary,
-        bytes32 txListHash
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(beneficiary, txListHash));
     }
 
     function _aggregateCommitHash(

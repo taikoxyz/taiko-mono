@@ -48,21 +48,14 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
+        config.skipCheckingMetadata = true;
+        config.skipValidatingHeaderForMetadata = true;
     }
 
     function verifyZKP(
         string memory /*verifierId*/,
         bytes calldata /*zkproof*/,
         bytes32 /*instance*/
-    ) public pure override returns (bool) {
-        return true;
-    }
-
-    function verifyMKP(
-        bytes memory /*key*/,
-        bytes memory /*value*/,
-        bytes memory /*proof*/,
-        bytes32 /*root*/
     ) public pure override returns (bool) {
         return true;
     }

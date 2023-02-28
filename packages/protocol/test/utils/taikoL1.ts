@@ -10,25 +10,12 @@ async function deployTaikoL1(
     enableTokenomics: boolean,
     feeBase?: BigNumber
 ): Promise<TaikoL1> {
-    const libReceiptDecoder = await (
-        await ethers.getContractFactory("LibReceiptDecoder")
-    ).deploy();
-
-    const libTxDecoder = await (
-        await ethers.getContractFactory("LibTxDecoder")
-    ).deploy();
-
     const libProposing = await (
         await ethers.getContractFactory("LibProposing")
     ).deploy();
 
-    const testLibProving = await (
-        await ethers.getContractFactory("TestLibProving", {
-            libraries: {
-                LibReceiptDecoder: libReceiptDecoder.address,
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
+    const libProving = await (
+        await ethers.getContractFactory("LibProving")
     ).deploy();
 
     const libVerifying = await (
@@ -42,7 +29,7 @@ async function deployTaikoL1(
                 libraries: {
                     LibVerifying: libVerifying.address,
                     LibProposing: libProposing.address,
-                    LibProving: testLibProving.address,
+                    libProving: libProving.address,
                 },
             }
         )
