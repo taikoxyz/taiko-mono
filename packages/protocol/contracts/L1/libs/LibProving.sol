@@ -175,7 +175,9 @@ library LibProving {
                 true
             );
 
-            if (verifier != address(0)) {
+            if (verifier == address(0)) {
+                // skip ZKP verification
+            } else {
                 (bool verified, ) = verifier.staticcall(
                     bytes.concat(
                         bytes16(0),
