@@ -27,9 +27,9 @@ library LibBridgeProcess {
     using LibBridgeData for LibBridgeData.State;
 
     error B_FORBIDDEN();
-    error B_WRONG_CHAIN_ID();
     error B_STATUS_MISMTACH();
     error B_SIGNAL_NOT_RECEIVED();
+    error B_WRONG_CHAIN_ID();
 
     /**
      * Process the bridge message on the destination chain. It can be called by
