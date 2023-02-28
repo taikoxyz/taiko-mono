@@ -40,6 +40,7 @@ library TaikoData {
         bool enablePublicInputsCheck;
         bool skipCheckingMetadata;
         bool skipValidatingHeaderForMetadata;
+        bool skipZKPVerification;
     }
 
     struct BlockMetadata {

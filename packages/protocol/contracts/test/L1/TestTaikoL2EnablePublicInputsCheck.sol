@@ -50,5 +50,6 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.enablePublicInputsCheck = true;
         config.skipCheckingMetadata = false;
         config.skipValidatingHeaderForMetadata = false;
+        config.skipZKPVerification = false;
     }
 }

@@ -48,5 +48,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.enablePublicInputsCheck = false;
         config.skipCheckingMetadata = false;
         config.skipValidatingHeaderForMetadata = false;
+        config.skipZKPVerification = true;
     }
 }
