@@ -3,8 +3,10 @@ import { SimpleChannel } from "channel-ts";
 import { BigNumber, ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
 import { TaikoL1, TestTaikoToken } from "../../typechain";
+import { BidRefundedEvent } from "../../typechain/LibClaiming";
 import blockListener from "../utils/blockListener";
 import { BlockMetadata } from "../utils/block_metadata";
+import { claimBlock, waitForClaimToBeProvable } from "../utils/claim";
 import {
     commitAndProposeLatestBlock,
     commitBlock,
@@ -23,6 +25,7 @@ import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { getBlockHeader } from "../utils/rpc";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
+import sleep from "../utils/sleep";
 import {
     commitProposeClaimProveAndVerify,
     verifyBlocks,
@@ -161,6 +164,19 @@ describe("integration:TaikoL1", function () {
                 0
             );
 
+            const { claimBlockBidEvent } = await claimBlock(
+                taikoL1.connect(l1Signer),
+                proposedEvent.args.id.toNumber(),
+                config.baseClaimDepositInWei.add("1")
+            );
+
+            expect(claimBlockBidEvent).not.to.be.undefined;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
+
             expect(proposedEvent).not.to.be.undefined;
             const proveEvent = await proveBlock(
                 taikoL1,
@@ -191,6 +207,18 @@ describe("integration:TaikoL1", function () {
             const { proposedEvent } = await proposer.commitThenProposeBlock(
                 block
             );
+            const { claimBlockBidEvent } = await claimBlock(
+                taikoL1.connect(prover.getSigner()),
+                proposedEvent.args.id.toNumber(),
+                config.baseClaimDepositInWei.add("1")
+            );
+
+            expect(claimBlockBidEvent).not.to.be.undefined;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
 
             await prover.prove(
                 proposedEvent.args.id.toNumber(),
@@ -215,6 +243,187 @@ describe("integration:TaikoL1", function () {
                 block.parentHash
             );
             expect(forkChoice.prover).to.be.eq(ethers.constants.AddressZero);
+        });
+    });
+
+    describe("claimBlock", function () {
+        it("reverts if block isnt actually proposed", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            await txShouldRevertWithCustomError(
+                // add 1 to the id to make it not actually proposed
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id.add(1), {
+                        gasLimit: 500000,
+                        value: config.baseClaimDepositInWei.add(
+                            config.minimumClaimBidIncreaseInWei
+                        ),
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_ID()"
+            );
+        });
+        it("reverts if the value is less than the necessary claim deposit", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+
+            expect(proposedEvent).not.to.be.undefined;
+
+            await txShouldRevertWithCustomError(
+                // add 1 to the id to make it not actually proposed
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id.toNumber(), {
+                        gasLimit: 500000,
+                        value: 1,
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_INVALID_CLAIM_DEPOSIT()"
+            );
+        });
+
+        it("reverts if claim auction window passes", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            await sleep(
+                config.claimAuctionWindowInSeconds.toNumber() * 1000 * 2
+            );
+
+            await txShouldRevertWithCustomError(
+                (
+                    await taikoL1.claimBlock(proposedEvent.args.id, {
+                        gasLimit: 500000,
+                        value: config.baseClaimDepositInWei.add(
+                            config.minimumClaimBidIncreaseInWei
+                        ),
+                    })
+                ).wait(),
+                l1Provider,
+                "L1_CLAIM_AUCTION_WINDOW_PASSED()"
+            );
+        });
+
+        it("successfully claims", async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            await expect(
+                taikoL1.claimBlock(proposedEvent.args.id, {
+                    gasLimit: 500000,
+                    value: config.baseClaimDepositInWei.add(
+                        config.minimumClaimBidIncreaseInWei
+                    ),
+                })
+            ).not.to.be.reverted;
+        });
+
+        it("successfully claims, another user can NOT prove block", async function () {
+            const { proposedEvent, block } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            await expect(
+                taikoL1.claimBlock(proposedEvent.args.id, {
+                    gasLimit: 500000,
+                    value: config.baseClaimDepositInWei.add(
+                        config.minimumClaimBidIncreaseInWei
+                    ),
+                })
+            ).not.to.be.reverted;
+
+            await waitForClaimToBeProvable(
+                taikoL1,
+                proposedEvent.args.id.toNumber()
+            );
+
+            // l1Signer is claimer, so prover should not be able to prove
+
+            await expect(
+                prover.prove(
+                    proposedEvent.args.id.toNumber(),
+                    block.number,
+                    proposedEvent.args.meta as any as BlockMetadata
+                )
+            ).to.be.reverted;
+        });
+
+        it(`successfully claims, 
+        then another user bids higher and takes over the claim,
+         winning by minimumClaimBigIncreaseInWei,
+          and original bidder receives refund of deposit.`, async function () {
+            const { proposedEvent } = await commitAndProposeLatestBlock(
+                taikoL1,
+                l1Signer,
+                l2Provider,
+                0
+            );
+            expect(proposedEvent).not.to.be.undefined;
+
+            const initialBid = config.baseClaimDepositInWei.add(
+                config.minimumClaimBidIncreaseInWei
+            );
+            await taikoL1.claimBlock(proposedEvent.args.id, {
+                gasLimit: 500000,
+                value: initialBid,
+            });
+            let claim = await taikoL1.claimForProposedBlock(
+                proposedEvent.args.id
+            );
+
+            expect(claim.claimer).to.be.eq(await l1Signer.getAddress());
+
+            expect(claim.deposit).to.be.eq(initialBid);
+
+            const secondClaim = await taikoL1
+                .connect(prover.getSigner())
+                .claimBlock(proposedEvent.args.id, {
+                    gasLimit: 500000,
+                    value: initialBid.add(config.minimumClaimBidIncreaseInWei),
+                });
+
+            const secondClaimReceipt = await secondClaim.wait(1);
+            const refundEvent: BidRefundedEvent = (
+                secondClaimReceipt.events! as any[]
+            ).find((e) => e.event === "BidRefunded");
+
+            expect(refundEvent).not.to.be.undefined;
+
+            expect(refundEvent.args.refund).to.be.eq(initialBid);
+
+            claim = await taikoL1.claimForProposedBlock(proposedEvent.args.id);
+
+            expect(claim.claimer).to.be.eq(
+                await prover.getSigner().getAddress()
+            );
+            expect(claim.deposit).to.be.eq(
+                initialBid.add(config.minimumClaimBidIncreaseInWei)
+            );
         });
     });
 
@@ -481,6 +690,18 @@ describe("integration:TaikoL1", function () {
                     block
                 );
 
+                const { claimBlockBidEvent } = await claimBlock(
+                    taikoL1.connect(prover.getSigner()),
+                    proposedEvent.args.id.toNumber(),
+                    config.baseClaimDepositInWei.add("1")
+                );
+                expect(claimBlockBidEvent).not.to.be.undefined;
+
+                await waitForClaimToBeProvable(
+                    taikoL1,
+                    proposedEvent.args.id.toNumber()
+                );
+
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = buildProveBlockInputs(
                     proposedEvent.args.meta as any as BlockMetadata,
@@ -547,6 +768,18 @@ describe("integration:TaikoL1", function () {
                 inputs[0] = encodeEvidence(evidence);
                 inputs[1] = "0x";
                 inputs[2] = "0x";
+
+                const { claimBlockBidEvent } = await claimBlock(
+                    taikoL1.connect(prover.getSigner()),
+                    proposedEvent.args.id.toNumber(),
+                    config.baseClaimDepositInWei.add("1")
+                );
+                expect(claimBlockBidEvent).not.to.be.undefined;
+
+                await waitForClaimToBeProvable(
+                    taikoL1,
+                    proposedEvent.args.id.toNumber()
+                );
 
                 const txPromise = (
                     await taikoL1.proveBlock(
