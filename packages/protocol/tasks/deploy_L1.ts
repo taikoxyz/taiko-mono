@@ -239,7 +239,7 @@ export async function deployContracts(hre: any) {
                 `${chainId}.${Buffer.from(
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
-                            ["string", "uint256", "string", "uint16"],
+                            ["string", "uint16"],
                             ["plonk_verifier_", i]
                         )
                     )
