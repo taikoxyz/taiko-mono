@@ -23,7 +23,10 @@ import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { getBlockHeader } from "../utils/rpc";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
-import { commitProposeProveAndVerify, verifyBlocks } from "../utils/verify";
+import {
+    commitProposeClaimProveAndVerify,
+    verifyBlocks,
+} from "../utils/verify";
 
 describe("integration:TaikoL1", function () {
     let taikoL1: TaikoL1;
@@ -420,7 +423,7 @@ describe("integration:TaikoL1", function () {
                     return;
                 }
 
-                const { verifyEvent } = await commitProposeProveAndVerify(
+                const { verifyEvent } = await commitProposeClaimProveAndVerify(
                     taikoL1,
                     l2Provider,
                     blockNumber,

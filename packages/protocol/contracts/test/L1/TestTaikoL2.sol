@@ -49,5 +49,11 @@ contract TestTaikoL2 is TaikoL2 {
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableAnchorValidation = false;
+
+        config.claimAuctionWindowInSeconds = 15 seconds;
+        config.baseClaimHoldTimeInSeconds = 30 minutes;
+        config.baseClaimDepositInWei = 0.000000001 ether;
+        config.minimumClaimBidIncreaseInWei = 1 wei;
+        config.claimAuctionDelayInSeconds = 5 seconds;
     }
 }

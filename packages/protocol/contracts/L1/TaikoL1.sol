@@ -18,6 +18,7 @@ import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
 import {AddressResolver} from "../common/AddressResolver.sol";
+import {LibClaiming} from "./libs/LibClaiming.sol";
 
 contract TaikoL1 is
     EssentialContract,
@@ -101,6 +102,14 @@ contract TaikoL1 is
             state: state,
             config: config,
             maxBlocks: config.maxVerificationsPerTx
+        });
+    }
+
+    function claimBlock(uint256 blockId) external payable nonReentrant {
+        LibClaiming.claimBlock({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
         });
     }
 
@@ -203,14 +212,23 @@ contract TaikoL1 is
 
     function getProofReward(
         uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 reward) {
-        (, reward, ) = LibVerifying.getProofReward({
+        uint64 proposedAt,
+        uint256 blockId
+    ) public view returns (uint256 eth, uint256 token) {
+        (, token, ) = LibVerifying.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
             proposedAt: proposedAt
         });
+
+        eth = 0;
+        if (
+            state.claims[blockId].claimer != address(0) &&
+            !isClaimForProposedBlockStillValid(blockId)
+        ) {
+            eth = state.claims[blockId].deposit;
+        }
     }
 
     function isCommitValid(
@@ -273,5 +291,42 @@ contract TaikoL1 is
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return LibSharedConfig.getConfig();
+    }
+
+    function claimForProposedBlock(
+        uint256 blockId
+    ) public view returns (TaikoData.Claim memory claim) {
+        return state.claims[blockId];
+    }
+
+    // TODO: remove this and the isClaimedBlockProvable for a
+    // ClaimedBlockStatus enum instead, determining whether
+    // a claimed block is Unclaimed, in the ClaimingWindow,
+    // Claimed and waiting for proof, or Claimed but claim is no longer valid
+    // and anyone can prove
+    function isClaimForProposedBlockStillValid(
+        uint256 blockId
+    ) public view returns (bool) {
+        if (state.claims[blockId].claimer == address(0)) return false;
+        return
+            block.timestamp - state.claims[blockId].claimedAt <
+            getConfig().baseClaimHoldTimeInSeconds;
+    }
+
+    function isClaimedBlockProvable(
+        uint256 blockId
+    ) public view returns (bool) {
+        if (state.claims[blockId].claimer == address(0)) return false;
+        if (
+            block.timestamp -
+                state
+                    .proposedBlocks[blockId % getConfig().maxNumBlocks]
+                    .proposedAt >
+            getConfig().claimAuctionWindowInSeconds
+        ) {
+            return true;
+        }
+
+        return false;
     }
 }

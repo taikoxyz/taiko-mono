@@ -73,6 +73,9 @@ library TestLibProving {
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_ZKP();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
+    error L1_TOO_EARLY();
+    error L1_BLOCK_NOT_CLAIMED();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -83,6 +86,19 @@ library TestLibProving {
     ) public {
         // Check and decode inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
+
+        // if claim auction window is still going on, or theres a valid bid but the delay hasnt passed, dont allow proof.
+        if (
+            block.timestamp -
+                state.proposedBlocks[blockId % config.maxNumBlocks].proposedAt <
+            config.claimAuctionWindowInSeconds ||
+            (state.claims[blockId].claimedAt > 0 &&
+                (block.timestamp - state.claims[blockId].claimedAt <
+                    config.claimAuctionDelayInSeconds))
+        ) {
+            revert L1_TOO_EARLY();
+        }
+
         TaikoData.Evidence memory evidence = abi.decode(
             inputs[0],
             (TaikoData.Evidence)
@@ -90,6 +106,18 @@ library TestLibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
+
+        // if claim is still valid
+        if (
+            block.timestamp - state.claims[blockId].claimedAt <
+            config.baseClaimHoldTimeInSeconds + state.avgProofTime
+        ) {
+            // block must be claimed by you.
+            // TODO: move this later and use evidence.prover?
+            if (state.claims[blockId].claimer != evidence.prover) {
+                revert L1_BLOCK_NOT_CLAIMED();
+            }
+        }
 
         if (evidence.proofs.length != 3) revert L1_PROOF_LENGTH();
 

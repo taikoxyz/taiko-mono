@@ -14,6 +14,7 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 
 /**
  * LibVerifying.
@@ -21,6 +22,7 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
+    using LibAddress for address;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
@@ -78,7 +80,8 @@ library LibVerifying {
                     fc: fc,
                     target: target,
                     latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
+                    latestL2Hash: latestL2Hash,
+                    blockId: i
                 });
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
@@ -87,6 +90,10 @@ library LibVerifying {
                 fc.blockHash = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
+                TaikoData.Claim storage claim = state.claims[i];
+                claim.deposit = 0;
+                claim.claimedAt = 0;
+                claim.claimer = address(0);
             }
         }
 
@@ -151,7 +158,8 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
         uint64 latestL2Height,
-        bytes32 latestL2Hash
+        bytes32 latestL2Hash,
+        uint256 blockId
     ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
@@ -186,6 +194,16 @@ library LibVerifying {
                     } else {
                         state.balances[target.proposer] += refund;
                     }
+                }
+
+                TaikoData.Claim storage claim = state.claims[blockId];
+
+                if (fc.prover != claim.claimer) {
+                    fc.prover.sendEther(claim.deposit / 2);
+                    payable(0).transfer(claim.deposit / 2);
+                    state.timesProofNotDeliveredForClaim[claim.claimer] += 1;
+                } else {
+                    claim.claimer.sendEther(claim.deposit);
                 }
             }
             // Update feeBase and avgProofTime

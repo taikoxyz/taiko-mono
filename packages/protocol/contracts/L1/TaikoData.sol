@@ -39,6 +39,11 @@ library TaikoData {
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;
+        uint64 baseClaimHoldTimeInSeconds; // how long a claim is valid before anyone can submit a proof, and the deposit is forfeited. this number is added to state.avgProofTime
+        uint256 baseClaimDepositInWei; // the minimum deposit required to claim a name, starting price.
+        uint256 minimumClaimBidIncreaseInWei; // previousBid + minimumClaimBidIncreaseInWei = minimumBid
+        uint64 claimAuctionWindowInSeconds; // how long is the total auction window before the previous bid (if it exists) wins?
+        uint64 claimAuctionDelayInSeconds; // how long after the most recent bid is another bid allowed to happen before the previous bid wins, regardless of the totalAuctionWindow
     }
 
     struct BlockMetadata {
@@ -78,6 +83,12 @@ library TaikoData {
         uint64 provenAt;
     }
 
+    struct Claim {
+        uint256 claimedAt;
+        address claimer;
+        uint256 deposit;
+    }
+
     // This struct takes 9 slots.
     struct State {
         // some blocks' hashes won't be persisted,
@@ -90,6 +101,9 @@ library TaikoData {
         mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // solhint-disable-next-line max-line-length
         mapping(address prover => uint256 outstandingReward) balances;
+        mapping(uint256 blockId => Claim claim) claims;
+        mapping(address claimer => uint256 numNotDelivered) timesProofNotDeliveredForClaim;
+        mapping(address claimer => uint256 blockId) lastBlockIdClaimed;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
@@ -110,6 +124,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[42] __gap;
+        uint256[39] __gap;
     }
 }

@@ -44,4 +44,10 @@ abstract contract TaikoCustomErrors {
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
     error L1_ZKP();
+    error L1_ALREADY_CLAIMED();
+    error L1_INVALID_CLAIM_DEPOSIT();
+    error L1_BLOCK_NOT_CLAIMED();
+    error L1_TOO_EARLY();
+    error L1_CLAIM_AUCTION_DELAY_PASSED();
+    error L1_CLAIM_AUCTION_WINDOW_PASSED();
 }

@@ -23,4 +23,18 @@ abstract contract TaikoEvents {
         address prover,
         uint64 provenAt
     );
+
+    event ClaimBlockBid(
+        uint256 indexed id,
+        address claimer,
+        uint256 claimedAt,
+        uint256 deposit
+    );
+
+    event BidRefunded(
+        uint256 indexed id,
+        address claimer,
+        uint256 refundedAt,
+        uint256 refund
+    );
 }
