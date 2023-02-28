@@ -62,7 +62,7 @@ library LibProving {
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
 
-        if (evidence.proof.length > 0) revert L1_PROOF_LENGTH();
+        if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
@@ -111,7 +111,7 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.proof.length > 0) revert L1_PROOF_LENGTH();
+        if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
 
         IProofVerifier proofVerifier = IProofVerifier(
             resolver.resolve("proof_verifier", false)
