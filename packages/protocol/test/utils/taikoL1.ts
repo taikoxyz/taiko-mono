@@ -29,7 +29,7 @@ async function deployTaikoL1(
                 libraries: {
                     LibVerifying: libVerifying.address,
                     LibProposing: libProposing.address,
-                    libProving: libProving.address,
+                    LibProving: libProving.address,
                 },
             }
         )
