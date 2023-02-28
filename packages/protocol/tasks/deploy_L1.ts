@@ -240,7 +240,7 @@ export async function deployContracts(hre: any) {
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
                             ["string", "uint256", "string", "uint16"],
-                            ["plonk_verifier_", 0, "_", i]
+                            ["plonk_verifier_", i]
                         )
                     )
                 ).toString()}`,
