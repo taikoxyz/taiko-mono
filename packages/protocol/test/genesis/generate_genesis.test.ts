@@ -252,8 +252,8 @@ action("Generate Genesis", function () {
 
             expect(owner).to.be.equal(testConfig.contractOwner);
 
-            await expect(
-                Bridge.processMessage(
+            const txPromise = (
+                await Bridge.processMessage(
                     {
                         id: 0,
                         sender: ethers.Wallet.createRandom().address,
@@ -269,9 +269,18 @@ action("Generate Genesis", function () {
                         data: ethers.utils.randomBytes(1024),
                         memo: "",
                     },
-                    ethers.utils.randomBytes(1024)
+                    ethers.utils.randomBytes(1024),
+                    {
+                        gasLimit: 5000000,
+                    }
                 )
-            ).to.be.revertedWith("B:forbidden");
+            ).wait(1);
+
+            await txShouldRevertWithCustomError(
+                txPromise,
+                provider,
+                "B_FORBIDDEN()"
+            );
         });
 
         it("TokenVault", async function () {

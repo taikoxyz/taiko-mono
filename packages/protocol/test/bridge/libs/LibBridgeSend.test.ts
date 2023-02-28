@@ -82,7 +82,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:owner"
+                "B_OWNER_IS_NULL()"
             );
         });
 
@@ -104,7 +104,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -128,7 +128,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -150,7 +150,7 @@ describe("LibBridgeSend", function () {
             };
 
             await expect(libSend.sendMessage(message)).to.be.revertedWith(
-                "B:value"
+                "B_INCORRECT_VALUE()"
             );
         });
 
