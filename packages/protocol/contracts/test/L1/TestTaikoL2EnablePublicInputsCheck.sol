@@ -46,7 +46,6 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 60 minutes;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
-        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
         config.enableAnchorValidation = true;
