@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import {IProofVerifier} from "../../L1/ProofVerifier.sol";
 import {TaikoL1} from "../../L1/TaikoL1.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
-contract TestTaikoL1 is TaikoL1, IProofVerifier {
+contract TestTaikoL1 is TaikoL1 {
     function getConfig()
         public
         pure
@@ -50,13 +49,5 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.enablePublicInputsCheck = false;
         config.skipCheckingMetadata = false;
         config.skipValidatingHeaderForMetadata = false;
-    }
-
-    function verifyZKP(
-        string memory /*verifierId*/,
-        bytes calldata /*zkproof*/,
-        bytes32 /*instance*/
-    ) public pure override returns (bool) {
-        return true;
     }
 }

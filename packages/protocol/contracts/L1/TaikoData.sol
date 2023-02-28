@@ -61,8 +61,8 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes proof;
-        uint16 circuitId;
+        bytes zkproof;
+        uint256 circuitId;
     }
 
     // 3 slots

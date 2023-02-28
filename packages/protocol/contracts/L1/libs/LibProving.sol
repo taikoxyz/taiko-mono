@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
-import {IProofVerifier} from "../ProofVerifier.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -53,7 +52,7 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
+        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
@@ -82,7 +81,7 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.proof.length == 0) revert L1_PROOF_LENGTH();
+        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
 
         // ZK-prove block and mark block proven as invalid.
         _proveBlock({
@@ -170,16 +169,21 @@ library LibProving {
         if (oracleProving) {
             // do not verify zkp
         } else {
-            IProofVerifier proofVerifier = IProofVerifier(
-                resolver.resolve("proof_verifier", false)
+            bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
+            address verifier = resolver.resolve(
+                string(abi.encodePacked(evidence.circuitId)),
+                false
             );
-            bool verified = proofVerifier.verifyZKP({
-                verifierId: string(
-                    abi.encodePacked("plonk_verifier_", evidence.circuitId)
-                ),
-                zkproof: evidence.proof,
-                instance: _getInstance(evidence)
-            });
+
+            (bool verified, ) = verifier.staticcall(
+                bytes.concat(
+                    bytes16(0),
+                    bytes16(instance), // left 16 bytes of the given instance
+                    bytes16(0),
+                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                    evidence.zkproof
+                )
+            );
             if (!verified) revert L1_ZKP();
         }
 
@@ -193,14 +197,21 @@ library LibProving {
     }
 
     function _getInstance(
-        TaikoData.Evidence memory evidence
+        TaikoData.Evidence memory evidence,
+        bool provingValidBlock
     ) internal pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            2
+            4
         );
 
         uint256 len = list.length;
+        if (provingValidBlock) {
+            list[len - 4] = LibRLPWriter.writeHash(
+                bytes32(evidence.meta.l1Height)
+            );
+            list[len - 3] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        }
         list[len - 2] = LibRLPWriter.writeAddress(evidence.prover);
         list[len - 1] = LibRLPWriter.writeHash(evidence.meta.txListHash);
 
