@@ -1,7 +1,6 @@
 <p align="center">
   <img src="./packages/branding/Logo/SVG/Taiko_Logo_Fluo.svg" width="80" alt="Logo for Taiko" />
 </p>
-
 <h1 align="center">
   TAIKO
 </h1>
