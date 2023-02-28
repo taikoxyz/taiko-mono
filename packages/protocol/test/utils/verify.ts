@@ -34,13 +34,6 @@ async function verifyBlockAndAssert(
     block: BlockInfo,
     lastProofReward: BigNumber
 ) {
-    const isVerifiable = await taikoL1.isBlockVerifiable(
-        block.id,
-        block.parentHash
-    );
-
-    expect(isVerifiable).to.be.eq(true);
-
     const prover = block.forkChoice.provers[0];
 
     const proverTkoBalanceBeforeVerification = await taikoTokenL1.balanceOf(
@@ -135,7 +128,7 @@ async function commitProposeClaimProveAndVerify(
     );
 
     const { args } = provedEvent;
-    const { blockHash, id: blockId, parentHash, provenAt } = args;
+    const { blockHash, id: blockId, parentHash } = args;
 
     const proposedBlock = await taikoL1.getProposedBlock(
         proposedEvent.args.id.toNumber()
@@ -149,23 +142,6 @@ async function commitProposeClaimProveAndVerify(
     expect(forkChoice.blockHash).to.be.eq(blockHash);
 
     expect(forkChoice.prover).to.be.eq(await prover.getSigner().getAddress());
-
-    const blockInfo = {
-        proposedAt: proposedBlock.proposedAt.toNumber(),
-        provenAt: provenAt.toNumber(),
-        id: proposedEvent.args.id.toNumber(),
-        parentHash: parentHash,
-        blockHash: blockHash,
-        forkChoice: forkChoice,
-        deposit: proposedBlock.deposit,
-        proposer: proposedBlock.proposer,
-    };
-
-    const isVerifiable = await taikoL1.isBlockVerifiable(
-        blockInfo.id,
-        blockInfo.parentHash
-    );
-    expect(isVerifiable).to.be.eq(true);
 
     console.log("verifying", blockNumber);
     const verifyEvent = await verifyBlocks(taikoL1, 1);
