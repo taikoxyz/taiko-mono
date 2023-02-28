@@ -166,9 +166,7 @@ library LibProving {
             fc.provenAt = uint64(block.timestamp);
         }
 
-        if (oracleProving) {
-            // do not verify zkp
-        } else if (!config.skipZKPVerification) {
+        if (!oracleProving && !config.skipZKPVerification) {
             bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
             address verifier = resolver.resolve(
                 string(abi.encodePacked("verifier_", evidence.circuitId)),
