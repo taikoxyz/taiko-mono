@@ -207,6 +207,7 @@ library LibProving {
 
         uint256 len = list.length;
         if (provingValidBlock) {
+            // Only zk-proof anchor tx for valid blocks
             list[len - 4] = LibRLPWriter.writeHash(
                 bytes32(evidence.meta.l1Height)
             );
