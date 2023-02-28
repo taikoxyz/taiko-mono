@@ -10,7 +10,7 @@ the methods needed to access the block hashes of the other chain.
 ### HeaderSynced
 
 ```solidity
-event HeaderSynced(uint256 height, uint256 srcHeight, bytes32 srcHash)
+event HeaderSynced(uint256 srcHeight, bytes32 srcHash)
 ```
 
 ### getSyncedHeader

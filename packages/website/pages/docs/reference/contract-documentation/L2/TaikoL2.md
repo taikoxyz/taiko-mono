@@ -4,12 +4,6 @@ title: TaikoL2
 
 ## TaikoL2
 
-### publicInputHash
-
-```solidity
-bytes32 publicInputHash
-```
-
 ### latestSyncedL1Height
 
 ```solidity
@@ -20,6 +14,30 @@ uint256 latestSyncedL1Height
 
 ```solidity
 event BlockInvalidated(bytes32 txListHash)
+```
+
+### L2_INVALID_SENDER
+
+```solidity
+error L2_INVALID_SENDER()
+```
+
+### L2_INVALID_CHAIN_ID
+
+```solidity
+error L2_INVALID_CHAIN_ID()
+```
+
+### L2_INVALID_GAS_PRICE
+
+```solidity
+error L2_INVALID_GAS_PRICE()
+```
+
+### L2_PUBLIC_INPUT_HASH_MISMATCH
+
+```solidity
+error L2_PUBLIC_INPUT_HASH_MISMATCH()
 ```
 
 ### constructor
