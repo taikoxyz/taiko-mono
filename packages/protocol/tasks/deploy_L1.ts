@@ -38,6 +38,12 @@ task("deploy_L1")
         types.string
     )
     .addOptionalParam(
+        "soloProposer",
+        "Address of the solo proposer",
+        "",
+        types.string
+    )
+    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.K_DEPLOY_CONFIRMATIONS,
@@ -72,6 +78,7 @@ export async function deployContracts(hre: any) {
     const bridgeFunderPrivateKey = hre.args.bridgeFunderPrivateKey;
     const bridgeFund = hre.args.bridgeFund;
     const oracleProver = hre.args.oracleProver;
+    const soloProposer = hre.args.soloProposer;
 
     log.debug(`network: ${network}`);
     log.debug(`chainId: ${chainId}`);
@@ -83,6 +90,7 @@ export async function deployContracts(hre: any) {
     log.debug(`bridgeFunderPrivateKey: ${bridgeFunderPrivateKey}`);
     log.debug(`bridgeFund: ${bridgeFund}`);
     log.debug(`oracleProver: ${oracleProver}`);
+    log.debug(`soloProposer: ${soloProposer}`);
     log.debug(`confirmations: ${hre.args.confirmations}`);
     log.debug();
 
@@ -255,6 +263,16 @@ export async function deployContracts(hre: any) {
             await AddressManager.setAddress(
                 `${chainId}.oracle_prover`,
                 oracleProver
+            )
+        );
+    }
+
+    if (ethers.utils.isAddress(soloProposer)) {
+        await utils.waitTx(
+            hre,
+            await AddressManager.setAddress(
+                `${chainId}.solo_proposer`,
+                soloProposer
             )
         );
     }

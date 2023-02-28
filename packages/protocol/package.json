@@ -20,7 +20,7 @@
     "test:integration": "TEST_TYPE=integration ./test/test_integration.sh",
     "test:tokenomics": "TEST_TYPE=tokenomics ./test/test_integration.sh",
     "test:all": "pnpm run test && pnpm run test:integration && pnpm run test:tokenomics && pnpm run test:genesis",
-    "deploy:hardhat": "./scripts/download_solc.sh && LOG_LEVEL=debug pnpm hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --bridge-funder-private-key ddbf12f72c946bb1e6de5eaf580c51db51828ba198d9b0dba9c7d48ec748dc04 --bridge-fund 0xff --oracle-prover 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --confirmations 1",
+    "deploy:hardhat": "./scripts/download_solc.sh && LOG_LEVEL=debug pnpm hardhat deploy_L1 --network hardhat --dao-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --team-vault 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --l2-genesis-block-hash 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 --bridge-funder-private-key ddbf12f72c946bb1e6de5eaf580c51db51828ba198d9b0dba9c7d48ec748dc04 --bridge-fund 0xff --oracle-prover 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --solo-proposer 0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39 --confirmations 1",
     "lint-staged": "lint-staged --allow-empty",
     "sizer": "pnpm hardhat size-contracts"
   },
