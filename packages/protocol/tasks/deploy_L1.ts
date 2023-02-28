@@ -213,7 +213,10 @@ export async function deployContracts(hre: any) {
     }
 
     // SignalService
-    const SignalService = await deploySignalSerive(hre, AddressManager.address);
+    const SignalService = await deploySignalService(
+        hre,
+        AddressManager.address
+    );
 
     // Used by Bridge
     await utils.waitTx(
@@ -331,7 +334,7 @@ async function deployTokenVault(
     return TokenVault;
 }
 
-async function deploySignalSerive(
+async function deploySignalService(
     hre: any,
     addressManager: string
 ): Promise<any> {
