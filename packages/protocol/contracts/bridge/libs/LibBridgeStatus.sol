@@ -28,6 +28,9 @@ library LibBridgeStatus {
         address transactor
     );
 
+    error B_WRONG_CHAIN_ID();
+    error B_MSG_HASH_NULL();
+
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,
      *      does nothing.
@@ -65,8 +68,12 @@ library LibBridgeStatus {
         uint256 destChainId,
         bytes calldata proof
     ) internal view returns (bool) {
-        require(destChainId != block.chainid, "B:destChainId");
-        require(msgHash != 0, "B:msgHash");
+        if (destChainId == block.chainid) {
+            revert B_WRONG_CHAIN_ID();
+        }
+        if (msgHash == 0x0) {
+            revert B_MSG_HASH_NULL();
+        }
 
         LibBridgeData.StatusProof memory sp = abi.decode(
             proof,

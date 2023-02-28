@@ -15,6 +15,12 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
+    error B_OWNER_IS_NULL();
+    error B_WRONG_CHAIN_ID();
+    error B_ETHER_RELEASED_ALREADY();
+    error B_MSG_NOT_FAILED();
+    error B_FAILED_TRANSFER();
+
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 
     /**
@@ -28,20 +34,30 @@ library LibBridgeRelease {
         IBridge.Message calldata message,
         bytes calldata proof
     ) internal {
-        require(message.owner != address(0), "B:owner");
-        require(message.srcChainId == block.chainid, "B:srcChainId");
+        if (message.owner == address(0)) {
+            revert B_OWNER_IS_NULL();
+        }
+
+        if (message.srcChainId != block.chainid) {
+            revert B_WRONG_CHAIN_ID();
+        }
 
         bytes32 msgHash = message.hashMessage();
-        require(state.etherReleased[msgHash] == false, "B:etherReleased");
-        require(
-            LibBridgeStatus.isMessageFailed(
+
+        if (state.etherReleased[msgHash] == true) {
+            revert B_ETHER_RELEASED_ALREADY();
+        }
+
+        if (
+            !LibBridgeStatus.isMessageFailed(
                 resolver,
                 msgHash,
                 message.destChainId,
                 proof
-            ),
-            "B:notFailed"
-        );
+            )
+        ) {
+            revert B_MSG_NOT_FAILED();
+        }
 
         state.etherReleased[msgHash] = true;
 
@@ -58,7 +74,9 @@ library LibBridgeRelease {
             } else {
                 // if on Ethereum
                 (bool success, ) = message.owner.call{value: releaseAmount}("");
-                require(success, "B:transfer");
+                if (!success) {
+                    revert B_FAILED_TRANSFER();
+                }
             }
         }
         emit EtherReleased(msgHash, message.owner, releaseAmount);

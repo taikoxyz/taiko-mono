@@ -112,7 +112,7 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.revertedWith("B:srcChainId");
+        ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
     });
 
     it("should revert if app == AddressZero", async function () {
@@ -151,7 +151,7 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.revertedWith("B:app");
+        ).to.be.revertedWith("B_NULL_APP_ADDR()");
     });
 
     it("should revert if signal == HashZero", async function () {
@@ -190,7 +190,7 @@ describe("integration:SignalService", function () {
                 ethers.constants.HashZero,
                 signalProof
             )
-        ).to.be.revertedWith("B:signal");
+        ).to.be.revertedWith("B_ZERO_SIGNAL()");
     });
 
     it("should pass and return true", async function () {
@@ -247,6 +247,6 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.eq(true);
+        ).to.be.true;
     });
 });

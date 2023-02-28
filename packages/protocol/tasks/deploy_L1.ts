@@ -38,6 +38,12 @@ task("deploy_L1")
         types.string
     )
     .addOptionalParam(
+        "soloProposer",
+        "Address of the solo proposer",
+        "",
+        types.string
+    )
+    .addOptionalParam(
         "confirmations",
         "Number of confirmations to wait for deploy transaction.",
         config.K_DEPLOY_CONFIRMATIONS,
@@ -72,6 +78,7 @@ export async function deployContracts(hre: any) {
     const bridgeFunderPrivateKey = hre.args.bridgeFunderPrivateKey;
     const bridgeFund = hre.args.bridgeFund;
     const oracleProver = hre.args.oracleProver;
+    const soloProposer = hre.args.soloProposer;
 
     log.debug(`network: ${network}`);
     log.debug(`chainId: ${chainId}`);
@@ -83,6 +90,7 @@ export async function deployContracts(hre: any) {
     log.debug(`bridgeFunderPrivateKey: ${bridgeFunderPrivateKey}`);
     log.debug(`bridgeFund: ${bridgeFund}`);
     log.debug(`oracleProver: ${oracleProver}`);
+    log.debug(`soloProposer: ${soloProposer}`);
     log.debug(`confirmations: ${hre.args.confirmations}`);
     log.debug();
 
@@ -130,6 +138,20 @@ export async function deployContracts(hre: any) {
             `${chainId}.tko_token`,
             TaikoToken.address
         )
+    );
+
+    // HorseToken
+    const HorseToken = await utils.deployContract(hre, "FreeMintERC20", {}, [
+        "Horse Token",
+        "HORSE",
+    ]);
+
+    // BullToken
+    const BullToken = await utils.deployContract(
+        hre,
+        "MayFailFreeMintERC20",
+        {},
+        ["Bull Token", "BLL"]
     );
 
     // TaikoL1
@@ -199,7 +221,10 @@ export async function deployContracts(hre: any) {
     }
 
     // SignalService
-    const SignalService = await deploySignalSerive(hre, AddressManager.address);
+    const SignalService = await deploySignalService(
+        hre,
+        AddressManager.address
+    );
 
     // Used by Bridge
     await utils.waitTx(
@@ -222,8 +247,8 @@ export async function deployContracts(hre: any) {
                 `${chainId}.${Buffer.from(
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
-                            ["string", "uint256", "string", "uint16"],
-                            ["plonk_verifier_", 0, "_", i]
+                            ["string", "uint16"],
+                            ["plonk_verifier_", i]
                         )
                     )
                 ).toString()}`,
@@ -242,9 +267,15 @@ export async function deployContracts(hre: any) {
         );
     }
 
-    // BullToken
-    // TODO(david): remove this deployment after we finish bridge testing in devnet.
-    const BullToken = await utils.deployContract(hre, "BullToken");
+    if (ethers.utils.isAddress(soloProposer)) {
+        await utils.waitTx(
+            hre,
+            await AddressManager.setAddress(
+                `${chainId}.solo_proposer`,
+                soloProposer
+            )
+        );
+    }
 
     // save deployments
     const deployments = {
@@ -259,7 +290,8 @@ export async function deployContracts(hre: any) {
             { Bridge: Bridge.address },
             { SignalService: SignalService.address },
             { TokenVault: TokenVault.address },
-            { BullToken: BullToken.address }
+            { BullToken: BullToken.address },
+            { HorseToken: HorseToken.address }
         ),
     };
 
@@ -320,7 +352,7 @@ async function deployTokenVault(
     return TokenVault;
 }
 
-async function deploySignalSerive(
+async function deploySignalService(
     hre: any,
     addressManager: string
 ): Promise<any> {

@@ -5,11 +5,11 @@
   "faqs": {
     "title": "FAQs"
   },
-  "get-help": {
-    "title": "Get help"
-  },
   "presentations": {
     "title": "Presentations"
+  },
+  "rollup-glossary": {
+    "title": "Rollup glossary"
   },
   "whitepaper": {
     "title": "Whitepaper"

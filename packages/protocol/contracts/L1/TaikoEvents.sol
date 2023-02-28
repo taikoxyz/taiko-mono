@@ -20,10 +20,7 @@ abstract contract TaikoEvents {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
-        uint64 timestamp,
-        uint64 provenAt,
-        address prover
+        address prover,
+        uint64 provenAt
     );
-
-    event Halted(bool halted);
 }

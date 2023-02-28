@@ -61,7 +61,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:owner"
+                "B_OWNER_IS_NULL()"
             );
         });
 
@@ -84,7 +84,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -106,7 +106,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -128,7 +128,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:value"
+                "B_INCORRECT_VALUE()"
             );
         });
 
@@ -189,21 +189,21 @@ describe("Bridge", function () {
     //             owner.address,
     //             hash
     //         );
-    //         expect(isSignalSent).to.be.eq(true);
+    //         expect(isSignalSent).to.be.true;
     //     });
     // });
 
     describe("isDestChainEnabled()", function () {
         it("is disabled for unabled chainIds", async () => {
             const enabled = await l1Bridge.isDestChainEnabled(68);
-            expect(enabled).to.be.eq(false);
+            expect(enabled).to.be.false;
         });
 
         it("is enabled for enabled chainId", async () => {
             const enabled = await l1Bridge.isDestChainEnabled(
                 enabledDestChainId
             );
-            expect(enabled).to.be.eq(true);
+            expect(enabled).to.be.true;
         });
     });
 
@@ -275,7 +275,7 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+            ).to.be.revertedWith("B_FORBIDDEN()");
         });
 
         it("throws message.destChainId is not block.chainId", async () => {
@@ -297,7 +297,7 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
     });
 });

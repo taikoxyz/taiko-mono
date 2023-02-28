@@ -26,6 +26,11 @@ library LibBridgeProcess {
     using LibBridgeData for IBridge.Message;
     using LibBridgeData for LibBridgeData.State;
 
+    error B_FORBIDDEN();
+    error B_STATUS_MISMTACH();
+    error B_SIGNAL_NOT_RECEIVED();
+    error B_WRONG_CHAIN_ID();
+
     /**
      * Process the bridge message on the destination chain. It can be called by
      * any address, including `message.owner`. It starts by hashing the message,
@@ -45,20 +50,23 @@ library LibBridgeProcess {
         bytes calldata proof
     ) external {
         // If the gas limit is set to zero, only the owner can process the message.
-        if (message.gasLimit == 0) {
-            require(msg.sender == message.owner, "B:forbidden");
+        if (message.gasLimit == 0 && msg.sender != message.owner) {
+            revert B_FORBIDDEN();
         }
 
-        require(message.destChainId == block.chainid, "B:destChainId");
+        if (message.destChainId != block.chainid) {
+            revert B_WRONG_CHAIN_ID();
+        }
 
         // The message status must be "NEW"; "RETRIABLE" is handled in
         // LibBridgeRetry.sol.
         bytes32 msgHash = message.hashMessage();
-        require(
-            LibBridgeStatus.getMessageStatus(msgHash) ==
-                LibBridgeStatus.MessageStatus.NEW,
-            "B:status"
-        );
+        if (
+            LibBridgeStatus.getMessageStatus(msgHash) !=
+            LibBridgeStatus.MessageStatus.NEW
+        ) {
+            revert B_STATUS_MISMTACH();
+        }
         // Message must have been "received" on the destChain (current chain)
         address srcBridge = resolver.resolve(
             message.srcChainId,
@@ -66,16 +74,17 @@ library LibBridgeProcess {
             false
         );
 
-        require(
-            ISignalService(resolver.resolve("signal_service", false))
+        if (
+            !ISignalService(resolver.resolve("signal_service", false))
                 .isSignalReceived({
                     srcChainId: message.srcChainId,
                     app: srcBridge,
                     signal: msgHash,
                     proof: proof
-                }),
-            "B:notReceived"
-        );
+                })
+        ) {
+            revert B_SIGNAL_NOT_RECEIVED();
+        }
 
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.

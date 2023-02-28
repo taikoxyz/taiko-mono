@@ -18,10 +18,16 @@ event Mint(address account, uint256 amount)
 event Burn(address account, uint256 amount)
 ```
 
+### TKO_INVALID_ADDR
+
+```solidity
+error TKO_INVALID_ADDR()
+```
+
 ### init
 
 ```solidity
-function init(address _addressManager) external
+function init(string _name, string _symbol, address _addressManager) external
 ```
 
 _Initializer to be called after being deployed behind a proxy.

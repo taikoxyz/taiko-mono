@@ -16,12 +16,14 @@ import {
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
+import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
 
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,
     IERC20MetadataUpgradeable,
-    ERC20Upgradeable
+    ERC20Upgradeable,
+    BridgeCustomErrors
 {
     address public srcToken;
     uint256 public srcChainId;
@@ -41,14 +43,15 @@ contract BridgedERC20 is
         string memory _symbol,
         string memory _name
     ) external initializer {
-        require(
-            _srcToken != address(0) &&
-                _srcChainId != 0 &&
-                _srcChainId != block.chainid &&
-                bytes(_symbol).length > 0 &&
-                bytes(_name).length > 0,
-            "BE:params"
-        );
+        if (
+            _srcToken == address(0) ||
+            _srcChainId == 0 ||
+            _srcChainId == block.chainid ||
+            bytes(_symbol).length == 0 ||
+            bytes(_name).length == 0
+        ) {
+            revert B_INIT_PARAM_ERROR();
+        }
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
@@ -83,7 +86,9 @@ contract BridgedERC20 is
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "BE:to");
+        if (to == address(this)) {
+            revert B_ERC20_CANNOT_RECEIVE();
+        }
         return ERC20Upgradeable.transfer(to, amount);
     }
 
@@ -95,7 +100,9 @@ contract BridgedERC20 is
         address to,
         uint256 amount
     ) public override(ERC20Upgradeable, IERC20Upgradeable) returns (bool) {
-        require(to != address(this), "BE:to");
+        if (to == address(this)) {
+            revert B_ERC20_CANNOT_RECEIVE();
+        }
         return ERC20Upgradeable.transferFrom(from, to, amount);
     }
 
