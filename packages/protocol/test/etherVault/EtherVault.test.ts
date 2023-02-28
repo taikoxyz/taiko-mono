@@ -52,7 +52,7 @@ describe("EtherVault", function () {
                     to: etherVault.address,
                     value: ethers.utils.parseEther("1.0"),
                 })
-            ).to.be.revertedWith("EV:denied");
+            ).to.be.revertedWith("B_EV_NOT_AUTHORIZED()");
         });
 
         it("receives if authorized and balance > 0", async () => {
@@ -88,7 +88,7 @@ describe("EtherVault", function () {
         it("throws if not authorized", async () => {
             await expect(
                 etherVault.connect(notAuthorized)["releaseEther(uint256)"](1)
-            ).to.be.revertedWith("EV:denied");
+            ).to.be.revertedWith("B_EV_NOT_AUTHORIZED()");
         });
 
         it("sends ether to caller", async () => {
@@ -138,13 +138,13 @@ describe("EtherVault", function () {
                 etherVault
                     .connect(owner)
                     .authorize(ethers.constants.AddressZero, true)
-            ).to.be.revertedWith("EV:param");
+            ).to.be.revertedWith("B_EV_PARAM()");
         });
 
         it("throws when authorized state is the same as input", async () => {
             await expect(
                 etherVault.connect(owner).authorize(authorized.address, true)
-            ).to.be.revertedWith("EV:param");
+            ).to.be.revertedWith("B_EV_PARAM()");
         });
 
         it("emits Authorized event upon success", async () => {
