@@ -172,23 +172,19 @@ library LibProving {
             bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
             address verifier = resolver.resolve(
                 string(abi.encodePacked("verifier_", evidence.circuitId)),
-                true
+                false
             );
 
-            if (verifier == address(0)) {
-                // skip ZKP verification
-            } else {
-                (bool verified, ) = verifier.staticcall(
-                    bytes.concat(
-                        bytes16(0),
-                        bytes16(instance), // left 16 bytes of the given instance
-                        bytes16(0),
-                        bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                        evidence.zkproof
-                    )
-                );
-                if (!verified) revert L1_ZKP();
-            }
+            (bool verified, ) = verifier.staticcall(
+                bytes.concat(
+                    bytes16(0),
+                    bytes16(instance), // left 16 bytes of the given instance
+                    bytes16(0),
+                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                    evidence.zkproof
+                )
+            );
+            if (!verified) revert L1_ZKP();
         }
 
         emit BlockProven({
