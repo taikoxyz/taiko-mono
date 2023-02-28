@@ -189,21 +189,21 @@ describe("Bridge", function () {
     //             owner.address,
     //             hash
     //         );
-    //         expect(isSignalSent).to.be.eq(true);
+    //         expect(isSignalSent).to.be.true;
     //     });
     // });
 
     describe("isDestChainEnabled()", function () {
         it("is disabled for unabled chainIds", async () => {
             const enabled = await l1Bridge.isDestChainEnabled(68);
-            expect(enabled).to.be.eq(false);
+            expect(enabled).to.be.false;
         });
 
         it("is enabled for enabled chainId", async () => {
             const enabled = await l1Bridge.isDestChainEnabled(
                 enabledDestChainId
             );
-            expect(enabled).to.be.eq(true);
+            expect(enabled).to.be.true;
         });
     });
 

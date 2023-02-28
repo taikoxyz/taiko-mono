@@ -19,9 +19,7 @@ Extra slots (e.g, 50 means 50% more slots): 100
 ---------
 min num slots: 30
 ---------
-initialUncleDelay: 10 minutes
 maxNumBlocks: 61
-zkProofsPerBlock: 1
 slotSmoothingFactor: 16789
 */
 
@@ -33,10 +31,8 @@ library LibSharedConfig {
                 chainId: 167,
                 maxNumBlocks: 61, // owner:daniel
                 blockHashHistory: 40, // owner:daniel
-                zkProofsPerBlock: 1, // owner:daniel
                 maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost.
                 commitConfirmations: 0, // owner:daniel
-                maxProofsPerForkChoice: 3, // owner:daniel
                 blockMaxGasLimit: 6000000, // owner:david. Set it to 6M, since its the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79, //  owner:david. Set it to 79  (+1 TaikoL2.anchor transaction = 80), and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxBytesPerTxList: 120000, // owner:david. Set it to 120KB, since 128KB is the upper size limit of a geth transaction, so using 120KB for the proposed transactions list calldata, 8K for the remaining tx fields.
@@ -55,12 +51,9 @@ library LibSharedConfig {
                 blockTimeCap: 60 seconds, // owner:daniel
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
-                initialUncleDelay: 10 minutes,
-                proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
-                enableAnchorValidation: true,
-                enableOracleProver: true
+                enableAnchorValidation: true
             });
     }
 }
