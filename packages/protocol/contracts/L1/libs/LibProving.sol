@@ -32,6 +32,7 @@ library LibProving {
     error L1_INPUT_SIZE();
     error L1_META_MISMATCH();
     error L1_NOT_ORACLE_PROVER();
+    error L1_NO_ZK_VERIFIER();
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_ZKP();
@@ -172,9 +173,10 @@ library LibProving {
             bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
             address verifier = resolver.resolve(
                 string(abi.encodePacked("verifier_", evidence.circuitId)),
-                false
+                true
             );
             if (!config.skipZKPVerification) {
+                if (verifier == address(0)) revert L1_NO_ZK_VERIFIER();
                 (bool verified, ) = verifier.staticcall(
                     bytes.concat(
                         bytes16(0),

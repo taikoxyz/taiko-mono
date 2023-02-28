@@ -25,6 +25,7 @@ abstract contract TaikoCustomErrors {
     error L1_META_MISMATCH();
     error L1_NOT_COMMITTED();
     error L1_NOT_ORACLE_PROVER();
+    error L1_NO_ZK_VERIFIER();
     error L1_PROOF_LENGTH();
     error L1_PROVER();
     error L1_SOLO_PROPOSER();
