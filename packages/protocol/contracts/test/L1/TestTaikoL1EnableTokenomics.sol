@@ -44,7 +44,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 5 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
-        config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.skipCheckingMetadata = true;

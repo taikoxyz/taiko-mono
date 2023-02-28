@@ -36,7 +36,6 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
-        uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool skipCheckingMetadata;

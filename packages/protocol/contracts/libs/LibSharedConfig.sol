@@ -51,7 +51,6 @@ library LibSharedConfig {
                 blockTimeCap: 60 seconds, // owner:daniel
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
-                proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
                 skipCheckingMetadata: false,

@@ -14,20 +14,7 @@ if __name__ == "__main__":
         print("error: Slot availability multiplier must be greater than 5")
         exit(1)
 
-    print("Number of ZKPs required per block before verificaiton", end=": ")
-    zk_proofs_per_block = int(input())
-
-    if zk_proofs_per_block < 1 or zk_proofs_per_block > 5:
-        print("error: Number of ZKPs must be between 1 and 5")
-        exit(1)
-
-    if zk_proofs_per_block == 1:
-        min_num_slots = math.ceil(1.0 * proof_time / block_time)
-        initial_uncle_delay = proof_time
-    else:
-        print("Inital uncle proof delay (minutes)", end=": ")
-        initial_uncle_delay = int(input()) * 60
-        min_num_slots = math.ceil(1.0 * (proof_time + initial_uncle_delay) / block_time)
+    min_num_slots = math.ceil(1.0 * proof_time / block_time)
 
     print("Extra slots (e.g, 50 means 50% more slots)", end=": ")
     extra_slots = int(input())
@@ -51,7 +38,5 @@ if __name__ == "__main__":
     # print(1.0*(f+n*1000)*(f+n*1000-1000)/((f+1000)*f))
 
     print("---------")
-    print("initialUncleDelay:", int(initial_uncle_delay / 60), "minutes")
     print("maxNumBlocks:", max_num_slots)
-    print("zkProofsPerBlock:", zk_proofs_per_block)
     print("slotSmoothingFactor:", fee_smoothing_factor)
