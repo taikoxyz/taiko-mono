@@ -20,7 +20,7 @@ struct Config {
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 anchorTxGasLimit;
-  uint256 feePremiumLamda;
+  uint256 slotSmoothingFactor;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
@@ -33,6 +33,7 @@ struct Config {
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 initialUncleDelay;
+  uint64 proverRewardRandomizedPercentage;
   bool enableTokenomics;
   bool enablePublicInputsCheck;
   bool enableAnchorValidation;

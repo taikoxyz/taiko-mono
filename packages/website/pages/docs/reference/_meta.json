@@ -5,9 +5,6 @@
   "contract-addresses": {
     "title": "Contract addresses"
   },
-  "glossary": {
-    "title": "Rollup Glossary"
-  },
   "rpc-configuration": {
     "title": "RPC configuration"
   }

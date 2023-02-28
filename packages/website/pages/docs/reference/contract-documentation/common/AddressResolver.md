@@ -13,6 +13,18 @@ it uses an AddressManager to manage the name-to-address mapping.
 contract IAddressManager _addressManager
 ```
 
+### RESOLVER_DENIED
+
+```solidity
+error RESOLVER_DENIED()
+```
+
+### RESOLVER_INVALID_ADDR
+
+```solidity
+error RESOLVER_INVALID_ADDR()
+```
+
 ### onlyFromNamed
 
 ```solidity
