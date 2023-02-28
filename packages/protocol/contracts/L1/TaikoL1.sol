@@ -100,9 +100,7 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx,
-            checkHalt: false
+            maxBlocks: config.maxVerificationsPerTx
         });
     }
 
@@ -136,9 +134,7 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx,
-            checkHalt: false
+            maxBlocks: config.maxVerificationsPerTx
         });
     }
 
@@ -172,9 +168,7 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: config,
-            resolver: AddressResolver(this),
-            maxBlocks: config.maxVerificationsPerTx,
-            checkHalt: false
+            maxBlocks: config.maxVerificationsPerTx
         });
     }
 
@@ -187,18 +181,16 @@ contract TaikoL1 is
         LibVerifying.verifyBlocks({
             state: state,
             config: getConfig(),
-            resolver: AddressResolver(this),
-            maxBlocks: maxBlocks,
-            checkHalt: true
+            maxBlocks: maxBlocks
         });
     }
 
-    /**
-     * Halt or resume the chain.
-     * @param toHalt True to halt, false to resume.
-     */
-    function halt(bool toHalt) public onlyOwner {
-        LibUtils.halt(state, toHalt);
+    function withdrawBalance() external nonReentrant {
+        LibVerifying.withdrawBalance(state, AddressResolver(this));
+    }
+
+    function getRewardBalance(address addr) public view returns (uint256) {
+        return state.balances[addr];
     }
 
     function getBlockFee() public view returns (uint256) {
@@ -219,14 +211,6 @@ contract TaikoL1 is
             provenAt: provenAt,
             proposedAt: proposedAt
         });
-    }
-
-    /**
-     * Check if the L1 is halted.
-     * @return True if halted, false otherwise.
-     */
-    function isHalted() public view returns (bool) {
-        return LibUtils.isHalted(state);
     }
 
     function isCommitValid(
@@ -285,29 +269,6 @@ contract TaikoL1 is
         bytes32 parentHash
     ) public view returns (TaikoData.ForkChoice memory) {
         return state.forkChoices[id][parentHash];
-    }
-
-    function getUncleProofDelay(uint256 blockId) public view returns (uint64) {
-        return LibUtils.getUncleProofDelay(state, getConfig(), blockId);
-    }
-
-    function getProverRewardBips(
-        uint256 numProvers
-    ) public view returns (uint256[] memory) {
-        return LibVerifying.getProverRewardBips(getConfig(), numProvers);
-    }
-
-    function isBlockVerifiable(
-        uint256 blockId,
-        bytes32 parentHash
-    ) public view returns (bool) {
-        return
-            LibVerifying.isVerifiable({
-                state: state,
-                config: getConfig(),
-                fc: state.forkChoices[blockId][parentHash],
-                blockId: blockId
-            });
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

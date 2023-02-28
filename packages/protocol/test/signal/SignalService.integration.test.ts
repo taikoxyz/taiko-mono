@@ -247,6 +247,6 @@ describe("integration:SignalService", function () {
                 signal,
                 signalProof
             )
-        ).to.be.eq(true);
+        ).to.be.true;
     });
 });

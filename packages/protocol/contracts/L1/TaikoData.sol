@@ -6,6 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {BlockHeader} from "../libs/LibBlockHeader.sol";
+
 library TaikoData {
     struct Config {
         uint256 chainId;
@@ -14,10 +16,8 @@ library TaikoData {
         uint256 blockHashHistory;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
-        uint256 zkProofsPerBlock;
         uint256 maxVerificationsPerTx;
         uint256 commitConfirmations;
-        uint256 maxProofsPerForkChoice;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
@@ -36,12 +36,9 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
-        uint64 initialUncleDelay;
-        uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;
-        bool enableOracleProver;
     }
 
     struct BlockMetadata {
@@ -58,6 +55,14 @@ library TaikoData {
         uint64 commitSlot;
     }
 
+    struct Evidence {
+        TaikoData.BlockMetadata meta;
+        BlockHeader header;
+        address prover;
+        bytes[] proofs;
+        uint16 circuitId;
+    }
+
     // 3 slots
     struct ProposedBlock {
         bytes32 metaHash;
@@ -69,8 +74,8 @@ library TaikoData {
     // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
+        address prover;
         uint64 provenAt;
-        address[] provers;
     }
 
     // This struct takes 9 slots.
@@ -83,11 +88,13 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
+        // solhint-disable-next-line max-line-length
+        mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 __reservedA1;
-        uint64 statusBits; // rarely change
+        uint64 __reservedA2;
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
         // Changed when a block is proposed

@@ -61,57 +61,72 @@ describe("tokenomics: blockFee", function () {
         for (let i = 0; i < iterations; i++) {
             await sleep(period);
             const blockFee = await taikoL1.getBlockFee();
-            expect(blockFee.gt(lastBlockFee)).to.be.eq(true);
+            expect(blockFee).to.be.gt(lastBlockFee);
             lastBlockFee = blockFee;
         }
     });
 
-    it("proposes blocks on interval, blockFee should increase, proposer's balance for TKOToken should decrease as it pays proposer fee, proofReward should increase since more slots are used and no proofs have been submitted", async function () {
-        // get the initial tkoBalance, which should decrease every block proposal
-        let lastProposerTkoBalance = await taikoTokenL1.balanceOf(
-            await proposerSigner.getAddress()
-        );
-
-        // do the same for the blockFee, which should increase every block proposal
-        // with proofs not being submitted.
-        // we want to wait for enough blocks until the blockFee is no longer 0, then run our
-        // tests.
-        let lastBlockFee = await taikoL1.getBlockFee();
-        while (lastBlockFee.eq(0)) {
-            await sleep(500);
-            lastBlockFee = await taikoL1.getBlockFee();
-        }
-
-        let lastProofReward = BigNumber.from(0);
-
-        l2Provider.on("block", blockListener(chan, genesisHeight));
-        /* eslint-disable-next-line */
-        for await (const blockNumber of chan) {
-            if (
-                blockNumber >
-                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
-            ) {
-                break;
-            }
-            const { newProposerTkoBalance, newBlockFee, newProofReward } =
-                await onNewL2Block(
-                    l2Provider,
-                    blockNumber,
-                    proposer,
-                    taikoL1,
-                    proposerSigner,
-                    taikoTokenL1
-                );
-
-            expect(newProposerTkoBalance.lt(lastProposerTkoBalance)).to.be.eq(
-                true
+    it(
+        "proposes blocks on interval, blockFee should increase, " +
+            "proposer's balance for TkoToken should decrease as it pays proposer fee, " +
+            "proofReward should increase since more slots are used and " +
+            "no proofs have been submitted",
+        async function () {
+            // get the initial tkoBalance, which should decrease every block proposal
+            let lastProposerBalance = await taikoTokenL1.balanceOf(
+                await proposerSigner.getAddress()
             );
-            expect(newBlockFee.gt(lastBlockFee)).to.be.eq(true);
-            expect(newProofReward.gt(lastProofReward)).to.be.eq(true);
 
-            lastBlockFee = newBlockFee;
-            lastProofReward = newProofReward;
-            lastProposerTkoBalance = newProposerTkoBalance;
+            // do the same for the blockFee, which should increase every block proposal
+            // with proofs not being submitted.
+            // we want to wait for enough blocks until the blockFee is no longer 0, then run our
+            // tests.
+            let lastBlockFee = await taikoL1.getBlockFee();
+
+            while (lastBlockFee.eq(0)) {
+                await sleep(500);
+                lastBlockFee = await taikoL1.getBlockFee();
+            }
+
+            let lastProofReward = BigNumber.from(0);
+
+            l2Provider.on("block", blockListener(chan, genesisHeight));
+            /* eslint-disable-next-line */
+            for await (const blockNumber of chan) {
+                if (
+                    blockNumber >
+                    genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+                ) {
+                    break;
+                }
+                const { newProposerBalance, newBlockFee, newProofReward } =
+                    await onNewL2Block(
+                        l2Provider,
+                        blockNumber,
+                        proposer,
+                        taikoL1,
+                        proposerSigner,
+                        taikoTokenL1
+                    );
+
+                console.log("lastProposerBalance", lastProposerBalance);
+                console.log("newProposerBalance", newProposerBalance);
+
+                expect(newProposerBalance).to.be.lt(lastProposerBalance);
+
+                console.log("lastBlockFee", lastBlockFee);
+                console.log("newBlockFee", newBlockFee);
+
+                expect(newBlockFee).to.be.gt(lastBlockFee);
+
+                console.log("lastProofReward", lastProofReward);
+                console.log("newProofReward", newProofReward);
+                expect(newProofReward).to.be.gt(lastProofReward);
+
+                lastBlockFee = newBlockFee;
+                lastProofReward = newProofReward;
+                lastProposerBalance = newProposerBalance;
+            }
         }
-    });
+    );
 });
