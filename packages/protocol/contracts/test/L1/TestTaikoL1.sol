@@ -24,10 +24,10 @@ contract TestTaikoL1 is TaikoL1 {
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0;
         config.commitConfirmations = 1;
-        config.blockMaxGasLimit = 30000000; // TODO
-        config.maxTransactionsPerBlock = 20; // TODO
-        config.maxBytesPerTxList = 10240; // TODO
-        config.minTxGasLimit = 21000; // TODO
+        config.blockMaxGasLimit = 30000000;
+        config.maxTransactionsPerBlock = 20;
+        config.maxBytesPerTxList = 10240;
+        config.minTxGasLimit = 21000;
         config.anchorTxGasLimit = 250000;
         config.slotSmoothingFactor = 590000;
         config.rewardBurnBips = 100; // 100 basis points or 1%

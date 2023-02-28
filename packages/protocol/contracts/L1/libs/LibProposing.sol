@@ -63,7 +63,6 @@ library LibProposing {
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
 
-        // TODO(daniel): remove this special address.
         address soloProposer = resolver.resolve("solo_proposer", true);
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
