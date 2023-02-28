@@ -10,19 +10,6 @@ abstract contract TaikoCustomErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_0_FEE_BASE();
     error L1_ALREADY_PROVEN();
-    error L1_ANCHOR_CALLDATA();
-    error L1_ANCHOR_DEST();
-    error L1_ANCHOR_GAS_LIMIT();
-    error L1_ANCHOR_RECEIPT_ADDR();
-    error L1_ANCHOR_RECEIPT_DATA();
-    error L1_ANCHOR_RECEIPT_LOGS();
-    error L1_ANCHOR_RECEIPT_PROOF();
-    error L1_ANCHOR_RECEIPT_STATUS();
-    error L1_ANCHOR_RECEIPT_TOPICS();
-    error L1_ANCHOR_SIG_R();
-    error L1_ANCHOR_SIG_S();
-    error L1_ANCHOR_TX_PROOF();
-    error L1_ANCHOR_TYPE();
     error L1_BLOCK_NUMBER();
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_COMMITTED();

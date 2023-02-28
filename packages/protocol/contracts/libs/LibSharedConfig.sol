@@ -53,8 +53,7 @@ library LibSharedConfig {
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 proverRewardRandomizedPercentage: 20, // owner: daniel
                 enableTokenomics: true,
-                enablePublicInputsCheck: true,
-                enableAnchorValidation: true
+                enablePublicInputsCheck: true
             });
     }
 }

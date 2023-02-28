@@ -39,7 +39,6 @@ library TaikoData {
         uint64 proverRewardRandomizedPercentage;
         bool enableTokenomics;
         bool enablePublicInputsCheck;
-        bool enableAnchorValidation;
     }
 
     struct BlockMetadata {
@@ -60,7 +59,7 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes[] proofs;
+        bytes proof;
         uint16 circuitId;
     }
 

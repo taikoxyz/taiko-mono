@@ -49,6 +49,5 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
-        config.enableAnchorValidation = true;
     }
 }

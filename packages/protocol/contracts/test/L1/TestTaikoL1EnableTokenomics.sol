@@ -48,7 +48,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1, IProofVerifier {
         config.proverRewardRandomizedPercentage = 0;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
-        config.enableAnchorValidation = false;
     }
 
     function verifyZKP(
