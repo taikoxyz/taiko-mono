@@ -121,10 +121,10 @@ describe("tokenomics: blockFee", function () {
 
                 console.log("lastProofReward", lastProofReward);
                 console.log("newProofReward", newProofReward);
-                expect(newProofReward).to.be.gt(lastProofReward);
+                expect(newProofReward.token.gt(lastProofReward)).to.be.eq(true);
 
                 lastBlockFee = newBlockFee;
-                lastProofReward = newProofReward;
+                lastProofReward = newProofReward.token;
                 lastProposerBalance = newProposerBalance;
             }
         }
