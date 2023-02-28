@@ -440,22 +440,20 @@ describe("integration:TaikoL1", function () {
 
     describe("proveBlock", function () {
         it("reverts when inputs is incorrect length", async function () {
-            for (let i = 1; i <= 2; i++) {
-                const txPromise = (
-                    await taikoL1.proveBlock(
-                        1,
-                        new Array(i).fill(ethers.constants.HashZero),
-                        {
-                            gasLimit: 1000000,
-                        }
-                    )
-                ).wait(1);
-                await txShouldRevertWithCustomError(
-                    txPromise,
-                    l1Provider,
-                    "L1_INPUT_SIZE()"
-                );
-            }
+            const txPromise = (
+                await taikoL1.proveBlock(
+                    1,
+                    new Array(2).fill(ethers.constants.HashZero), // 1 is the right size
+                    {
+                        gasLimit: 1000000,
+                    }
+                )
+            ).wait(1);
+            await txShouldRevertWithCustomError(
+                txPromise,
+                l1Provider,
+                "L1_INPUT_SIZE()"
+            );
         });
 
         it("reverts when evidence meta id is not the same as the blockId", async function () {
@@ -482,9 +480,9 @@ describe("integration:TaikoL1", function () {
                 const inputs = buildProveBlockInputs(
                     proposedEvent.args.meta as any as BlockMetadata,
                     header.blockHeader,
-                    await prover.getSigner().getAddress(),
-                    "0x",
-                    "0x"
+                    await prover.getSigner().getAddress()
+                    // "0x",
+                    // "0x"
                 );
 
                 const txPromise = (
@@ -542,8 +540,8 @@ describe("integration:TaikoL1", function () {
                 }
 
                 inputs[0] = encodeEvidence(evidence);
-                inputs[1] = "0x";
-                inputs[2] = "0x";
+                // inputs[1] = "0x";
+                // inputs[2] = "0x";
 
                 const txPromise = (
                     await taikoL1.proveBlock(

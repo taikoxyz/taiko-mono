@@ -113,10 +113,6 @@ contract TaikoL1 is
      * @param inputs A list of data input:
      *        - inputs[0] is an abi-encoded object with various information
      *          regarding  the block to be proven and the actual proofs.
-     *        - inputs[1] is the actual anchor transaction in this L2 block.
-     *          Note that the anchor transaction is always the first transaction
-     *          in the block.
-     *        - inputs[2] is the receipt of the anchor transaction.
      */
 
     function proveBlock(
@@ -148,9 +144,6 @@ contract TaikoL1 is
      *        - inputs[0] An Evidence object with various information regarding
      *          the block to be proven and the actual proofs.
      *        - inputs[1] The target block to be proven invalid.
-     *        - inputs[2] The receipt for the `invalidBlock` transaction
-     *          on L2. Note that the `invalidBlock` transaction is supposed to
-     *          be the only transaction in the L2 block.
      */
     function proveBlockInvalid(
         uint256 blockId,
