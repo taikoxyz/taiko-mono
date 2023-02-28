@@ -171,7 +171,7 @@ library LibProving {
         } else {
             bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
             address verifier = resolver.resolve(
-                string(abi.encodePacked(evidence.circuitId)),
+                string(abi.encodePacked("verifier_", evidence.circuitId)),
                 false
             );
 
