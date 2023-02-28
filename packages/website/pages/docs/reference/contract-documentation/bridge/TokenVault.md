@@ -86,6 +86,66 @@ event ERC20Released(bytes32 msgHash, address from, address token, uint256 amount
 event ERC20Received(bytes32 msgHash, address from, address to, uint256 srcChainId, address token, uint256 amount)
 ```
 
+### TOKENVAULT_INVALID_TO
+
+```solidity
+error TOKENVAULT_INVALID_TO()
+```
+
+### TOKENVAULT_INVALID_VALUE
+
+```solidity
+error TOKENVAULT_INVALID_VALUE()
+```
+
+### TOKENVAULT_INVALID_CALL_VALUE
+
+```solidity
+error TOKENVAULT_INVALID_CALL_VALUE()
+```
+
+### TOKENVAULT_INVALID_TOKEN
+
+```solidity
+error TOKENVAULT_INVALID_TOKEN()
+```
+
+### TOKENVAULT_INVALID_AMOUNT
+
+```solidity
+error TOKENVAULT_INVALID_AMOUNT()
+```
+
+### TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND
+
+```solidity
+error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND()
+```
+
+### TOKENVAULT_INVALID_OWNER
+
+```solidity
+error TOKENVAULT_INVALID_OWNER()
+```
+
+### TOKENVAULT_INVALID_SRC_CHAIN_ID
+
+```solidity
+error TOKENVAULT_INVALID_SRC_CHAIN_ID()
+```
+
+### TOKENVAULT_MESSAGE_NOT_FAILED
+
+```solidity
+error TOKENVAULT_MESSAGE_NOT_FAILED()
+```
+
+### TOKENVAULT_INVALID_SENDER
+
+```solidity
+error TOKENVAULT_INVALID_SENDER()
+```
+
 ### init
 
 ```solidity
@@ -103,14 +163,14 @@ message along to the Bridge.
 
 #### Parameters
 
-| Name          | Type    | Description                  |
-| ------------- | ------- | ---------------------------- |
-| destChainId   | uint256 | @custom:see IBridge.Message. |
-| to            | address | @custom:see IBridge.Message. |
-| gasLimit      | uint256 | @custom:see IBridge.Message. |
-| processingFee | uint256 | @custom:see IBridge.Message  |
-| refundAddress | address | @custom:see IBridge.Message  |
-| memo          | string  | @custom:see IBridge.Message  |
+| Name          | Type    | Description                 |
+| ------------- | ------- | --------------------------- |
+| destChainId   | uint256 | @custom:see IBridge.Message |
+| to            | address | @custom:see IBridge.Message |
+| gasLimit      | uint256 | @custom:see IBridge.Message |
+| processingFee | uint256 | @custom:see IBridge.Message |
+| refundAddress | address | @custom:see IBridge.Message |
+| memo          | string  | @custom:see IBridge.Message |
 
 ### sendERC20
 
@@ -124,16 +184,16 @@ by invoking the message call.
 
 #### Parameters
 
-| Name          | Type    | Description                                                                                                  |
-| ------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| destChainId   | uint256 | The destination chain ID where the `to` address lives.                                                       |
-| to            | address | The destination address.                                                                                     |
-| token         | address | The address of the token to be sent.                                                                         |
-| amount        | uint256 | The amount of token to be transferred.                                                                       |
-| gasLimit      | uint256 | @custom:see Bridge                                                                                           |
-| processingFee | uint256 | @custom:see Bridge                                                                                           |
-| refundAddress | address | The fee refund address. If this address is address(0), extra fees will be refunded back to the `to` address. |
-| memo          | string  |                                                                                                              |
+| Name          | Type    | Description                            |
+| ------------- | ------- | -------------------------------------- |
+| destChainId   | uint256 | @custom:see IBridge.Message            |
+| to            | address | @custom:see IBridge.Message            |
+| token         | address | The address of the token to be sent.   |
+| amount        | uint256 | The amount of token to be transferred. |
+| gasLimit      | uint256 | @custom:see IBridge.Message            |
+| processingFee | uint256 | @custom:see IBridge.Message            |
+| refundAddress | address | @custom:see IBridge.Message            |
+| memo          | string  | @custom:see IBridge.Message            |
 
 ### releaseERC20
 
@@ -158,7 +218,8 @@ function receiveERC20(struct TokenVault.CanonicalERC20 canonicalToken, address f
 ```
 
 _This function can only be called by the bridge contract while
-invoking a message call._
+invoking a message call. See sendERC20, which sets the data to invoke
+this function._
 
 #### Parameters
 

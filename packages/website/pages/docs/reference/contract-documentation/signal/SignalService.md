@@ -13,6 +13,24 @@ struct SignalProof {
 }
 ```
 
+### B_ZERO_SIGNAL
+
+```solidity
+error B_ZERO_SIGNAL()
+```
+
+### B_NULL_APP_ADDR
+
+```solidity
+error B_NULL_APP_ADDR()
+```
+
+### B_WRONG_CHAIN_ID
+
+```solidity
+error B_WRONG_CHAIN_ID()
+```
+
 ### init
 
 ```solidity
