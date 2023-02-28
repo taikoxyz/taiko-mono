@@ -48,5 +48,7 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
+        config.skipCheckingMetadata = false;
+        config.skipValidatingHeaderForMetadata = false;
     }
 }

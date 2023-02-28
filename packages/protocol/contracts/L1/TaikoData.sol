@@ -61,7 +61,7 @@ library TaikoData {
         BlockHeader header;
         address prover;
         bytes zkproof;
-        uint256 circuitId;
+        uint16 circuitId;
     }
 
     // 3 slots
