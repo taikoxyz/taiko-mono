@@ -83,11 +83,12 @@ describe("tokenomics: proofReward", function () {
 
             const proofReward = await taikoL1.getProofReward(
                 provedEvent.args.provenAt,
-                proposedBlock.proposedAt
+                proposedBlock.proposedAt,
+                provedEvent.args.id.toNumber()
             );
 
             // proof reward can be 0. make sure there is a proof reward first
-            if (proofReward.gt(0)) {
+            if (proofReward.token.gt(0)) {
                 const rewardBalance = await taikoL1.getRewardBalance(
                     await prover.getSigner().getAddress()
                 );
