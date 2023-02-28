@@ -79,9 +79,23 @@ library LibProposing {
             commitConfirmations: config.commitConfirmations,
             meta: meta
         });
-        _validateMetadata(config, meta);
 
         {
+            if (
+                meta.id != 0 ||
+                meta.l1Height != 0 ||
+                meta.l1Hash != 0 ||
+                meta.mixHash != 0 ||
+                meta.timestamp != 0 ||
+                meta.beneficiary == address(0) ||
+                meta.txListHash == 0
+            ) revert L1_METADATA_FIELD();
+
+            if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
+            if (meta.extraData.length > 32) {
+                revert L1_EXTRA_DATA();
+            }
+
             bytes calldata txList = inputs[1];
             // perform validation and populate some fields
             if (
@@ -231,26 +245,6 @@ library LibProposing {
                 commitHash: commitHash
             })
         ) revert L1_NOT_COMMITTED();
-    }
-
-    function _validateMetadata(
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta
-    ) private pure {
-        if (
-            meta.id != 0 ||
-            meta.l1Height != 0 ||
-            meta.l1Hash != 0 ||
-            meta.mixHash != 0 ||
-            meta.timestamp != 0 ||
-            meta.beneficiary == address(0) ||
-            meta.txListHash == 0
-        ) revert L1_METADATA_FIELD();
-
-        if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
-        if (meta.extraData.length > 32) {
-            revert L1_EXTRA_DATA();
-        }
     }
 
     function _calculateCommitHash(
