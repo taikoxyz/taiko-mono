@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.3.0...status-page-v0.4.0) (2023-03-01)
+
+
+### Features
+
+* **status-page:** remove is halted ([#13231](https://github.com/taikoxyz/taiko-mono/issues/13231)) ([d3d1c39](https://github.com/taikoxyz/taiko-mono/commit/d3d1c3952a2f459363e40e9052ea76422845c81e))
+
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/status-page-v0.2.0...status-page-v0.3.0) (2023-02-15)
 
 
