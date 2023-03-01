@@ -10,6 +10,10 @@ var (
 		Name: "events_processed_ops_total",
 		Help: "The total number of processed events",
 	})
+	BlocksProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "blocks_processed_ops_total",
+		Help: "The total number of processed blocks",
+	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
 		Help: "The total number of processed events that ended up in Retriable status",
