@@ -128,18 +128,18 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.isProfitable")
-	}
+	// profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "p.isProfitable")
+	// }
 
-	if bool(p.profitableOnly) && !profitable {
-		return nil, relayer.ErrUnprofitable
-	}
+	// if bool(p.profitableOnly) && !profitable {
+	// 	return nil, relayer.ErrUnprofitable
+	// }
 
-	if gas != 0 {
-		auth.GasLimit = gas
-	}
+	// if gas != 0 {
+	auth.GasLimit = 2500000
+	// }
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
