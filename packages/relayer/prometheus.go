@@ -23,7 +23,7 @@ var (
 		Help: "The total number of processed events that ended up in Done status",
 	})
 	ErrorEvents = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "events_processed_done_error_ops_total",
+		Name: "events_processed_error_ops_total",
 		Help: "The total number of processed events that failed due to an error",
 	})
 )
