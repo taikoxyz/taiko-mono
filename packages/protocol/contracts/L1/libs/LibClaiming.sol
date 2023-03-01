@@ -75,10 +75,10 @@ library LibClaiming {
         // if user has claimed and not proven a block before, we multiply
         // requiredDeposit by the number of times they have falsely claimed.
         uint256 baseDepositRequired = config.baseClaimDepositInWei;
-        if (state.timesProofNotDeliveredForClaim[tx.origin] > 0) {
+        if (state.timesProofNotDeliveredForClaim[msg.sender] > 0) {
             baseDepositRequired =
                 config.baseClaimDepositInWei *
-                (state.timesProofNotDeliveredForClaim[tx.origin] + 1);
+                (state.timesProofNotDeliveredForClaim[msg.sender] + 1);
         }
 
         // if user hasnt sent enough to meet their personal base deposit amount
