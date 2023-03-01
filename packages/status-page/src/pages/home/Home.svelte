@@ -5,7 +5,6 @@
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
   import { getPendingTransactions } from "../../utils/getPendingTransactions";
   import { getBlockFee } from "../../utils/getBlockFee";
-  import { getIsHalted } from "../../utils/getIsHalted";
   import { getAvailableSlots } from "../../utils/getAvailableSlots";
   import { getPendingBlocks } from "../../utils/getPendingBlocks";
   import { getLastVerifiedBlockId } from "../../utils/getLastVerifiedBlockId";
@@ -87,19 +86,6 @@
       },
       tooltip:
         "The current transactions in the mempool where the transaction nonce is not in sequence. They are currently non-processable.",
-    },
-    {
-      statusFunc: getIsHalted,
-      watchStatusFunc: null,
-      provider: l1Provider,
-      contractAddress: l1TaikoAddress,
-      header: "Is Halted",
-      intervalInMs: 0,
-      colorFunc: (value: Status) => {
-        if (value.toString() === "true") return "red";
-        return "green";
-      },
-      tooltip: "Whether the Taiko smart contract on Layer 1 has been halted.",
     },
     {
       statusFunc: getAvailableSlots,
