@@ -36,35 +36,6 @@ library LibProving {
     error L1_PROVER();
     error L1_ZKP();
 
-    function proveBlockInvalid(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint256 blockId,
-        bytes[] calldata inputs
-    ) internal {
-        // Check and decode inputs
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
-        TaikoData.Evidence memory evidence = abi.decode(
-            inputs[0],
-            (TaikoData.Evidence)
-        );
-
-        // Check evidence
-        if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
-
-        // ZK-prove block and mark block proven as invalid.
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            evidence: evidence,
-            target: abi.decode(inputs[1], (TaikoData.BlockMetadata)),
-            blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
-        });
-    }
-
     function proveBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
@@ -94,7 +65,34 @@ library LibProving {
         });
     }
 
+    function proveBlockInvalid(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        uint256 blockId,
+        bytes[] calldata inputs
+    ) internal {
+        // Check and decode inputs
+        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        TaikoData.Evidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.Evidence)
+        );
 
+        // Check evidence
+        if (evidence.meta.id != blockId) revert L1_ID();
+        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
+
+        // ZK-prove block and mark block proven as invalid.
+        _proveBlock({
+            state: state,
+            config: config,
+            resolver: resolver,
+            evidence: evidence,
+            target: abi.decode(inputs[1], (TaikoData.BlockMetadata)),
+            blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
+        });
+    }
 
     function _proveBlock(
         TaikoData.State storage state,
