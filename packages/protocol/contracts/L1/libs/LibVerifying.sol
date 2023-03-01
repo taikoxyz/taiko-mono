@@ -201,7 +201,6 @@ library LibVerifying {
                 if (fc.prover != claim.claimer) {
                     fc.prover.sendEther(claim.deposit / 2);
                     payable(0).transfer(claim.deposit / 2);
-                    state.timesProofNotDeliveredForClaim[claim.claimer] += 1;
                 } else {
                     claim.claimer.sendEther(claim.deposit);
                 }

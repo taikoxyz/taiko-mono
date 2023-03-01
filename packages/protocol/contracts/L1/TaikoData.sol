@@ -102,7 +102,6 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(address prover => uint256 outstandingReward) balances;
         mapping(uint256 blockId => Claim claim) claims;
-        mapping(address claimer => uint256 numNotDelivered) timesProofNotDeliveredForClaim;
         mapping(address claimer => uint256 blockId) lastBlockIdClaimed;
         // Never or rarely changed
         uint64 genesisHeight;

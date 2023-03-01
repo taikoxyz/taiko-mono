@@ -72,18 +72,9 @@ library LibClaiming {
             revert L1_CLAIM_AUCTION_WINDOW_PASSED();
         }
 
-        // if user has claimed and not proven a block before, we multiply
-        // requiredDeposit by the number of times they have falsely claimed.
-        uint256 baseDepositRequired = config.baseClaimDepositInWei;
-        if (state.timesProofNotDeliveredForClaim[msg.sender] > 0) {
-            baseDepositRequired =
-                config.baseClaimDepositInWei *
-                (state.timesProofNotDeliveredForClaim[msg.sender] + 1);
-        }
-
         // if user hasnt sent enough to meet their personal base deposit amount
         // we dont allow them to claim.
-        if (msg.value < baseDepositRequired) {
+        if (msg.value < config.baseClaimDepositInWei) {
             revert L1_INVALID_CLAIM_DEPOSIT();
         }
 
