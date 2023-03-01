@@ -40,7 +40,7 @@ library LibProposing {
         TaikoData.Config memory config,
         uint64 commitSlot,
         bytes32 commitHash
-    ) public {
+    ) internal {
         assert(config.commitConfirmations > 0);
 
         bytes32 hash = _aggregateCommitHash(block.number, commitHash);
@@ -58,7 +58,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public {
+    ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -175,7 +175,7 @@ library LibProposing {
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
-    ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
+    ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
         (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,

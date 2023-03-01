@@ -31,7 +31,7 @@ library LibVerifying {
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
-    ) public {
+    ) internal {
         if (feeBase == 0) revert L1_0_FEE_BASE();
 
         state.genesisHeight = uint64(block.number);
@@ -49,7 +49,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 maxBlocks
-    ) public {
+    ) internal {
         uint64 latestL2Height = state.latestVerifiedHeight;
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
@@ -111,7 +111,7 @@ library LibVerifying {
     function withdrawBalance(
         TaikoData.State storage state,
         AddressResolver resolver
-    ) public {
+    ) internal {
         uint256 balance = state.balances[msg.sender];
         if (balance <= 1) return;
 
@@ -127,7 +127,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint64 provenAt,
         uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
+    ) internal view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
         (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
