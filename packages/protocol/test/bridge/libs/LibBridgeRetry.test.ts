@@ -120,7 +120,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("B:denied");
+            ).to.be.revertedWith("B_DENIED()");
         });
 
         it("should throw if lastAttempt == true && msg.sender != message.owner", async function () {
@@ -142,7 +142,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, true)
-            ).to.be.revertedWith("B:denied");
+            ).to.be.revertedWith("B_DENIED()");
         });
 
         it("should throw if message status is not RETRIABLE", async function () {
@@ -164,7 +164,7 @@ describe("LibBridgeRetry", function () {
 
             await expect(
                 libRetry.retryMessage(message, false)
-            ).to.be.revertedWith("B:notFound");
+            ).to.be.revertedWith("B_MSG_NON_RETRIABLE()");
         });
 
         it("if etherVault resolves to address(0), retry should fail and messageStatus should not change if not lastAttempt since no ether received", async function () {

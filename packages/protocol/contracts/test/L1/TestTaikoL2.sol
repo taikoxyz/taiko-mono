@@ -45,8 +45,7 @@ contract TestTaikoL2 is TaikoL2 {
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds;
         config.proofTimeCap = 60 minutes;
-        config.bootstrapDiscountHalvingPeriod = 180 days;
-        config.proverRewardRandomizedPercentage = 0;
+        config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;
         config.enableAnchorValidation = false;

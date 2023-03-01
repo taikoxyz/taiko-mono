@@ -2,10 +2,11 @@
 
 Taiko is a fully decentralized, Ethereum-equivalent ZK-Rollup. This is also referred to as a [Type 1 ZK-EVM](https://mirror.xyz/labs.taiko.eth/w7NSKDeKfJoEy0p89I9feixKfdK-20JgWF9HZzxfeBo).
 
-And welcome to the official Taiko documentation! This is your one-stop shop for all things Taiko. You will finds:
+And welcome to the official Taiko documentation! This is your one-stop shop for all things Taiko:
 
-- **Learn**: Learn about how Taiko works
-- **Guides**: Easy to follow guides to build on and use Taiko
+- **Concepts**: Concepts about how Taiko works
+- **Guides**: Easy to follow guides to use Taiko
+- **Tutorials**: Easy to follow tutorials to build on Taiko
 - **Reference**: Quick reference documentation about the network (e.g., contract addresses, protocol configurations)
 - **Resources**: Additional resources for your knowledge
 

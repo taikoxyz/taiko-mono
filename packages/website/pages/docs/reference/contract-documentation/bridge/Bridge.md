@@ -12,7 +12,7 @@ _The code hash for the same address on L1 and L2 may be different._
 ### MessageStatusChanged
 
 ```solidity
-event MessageStatusChanged(bytes32 msgHash, enum LibBridgeStatus.MessageStatus status)
+event MessageStatusChanged(bytes32 msgHash, enum LibBridgeStatus.MessageStatus status, address transactor)
 ```
 
 ### DestChainEnabled
@@ -104,10 +104,16 @@ function context() public view returns (struct IBridge.Context)
 
 Returns the bridge state context.
 
+### isEtherReleased
+
+```solidity
+function isEtherReleased(bytes32 msgHash) public view returns (bool)
+```
+
 ### isDestChainEnabled
 
 ```solidity
-function isDestChainEnabled(uint256 _chainId) public view returns (bool)
+function isDestChainEnabled(uint256 _chainId) public view returns (bool enabled)
 ```
 
 ### hashMessage

@@ -2,6 +2,7 @@ import { BigNumber, ethers } from "ethers";
 import { TaikoL1, TaikoToken } from "../../typechain";
 import { BlockProposedEvent } from "../../typechain/LibProposing";
 import Proposer from "./proposer";
+import sleep from "./sleep";
 
 // onNewL2Block should be called from a tokenomics test case when a new block
 // is generated from the l2Provider.
@@ -21,6 +22,8 @@ async function onNewL2Block(
     newBlockFee: BigNumber;
     newProofReward: BigNumber;
 }> {
+    const config = await taikoL1.getConfig();
+
     const block = await l2Provider.getBlock(blockNumber);
     const { proposedEvent } = await proposer.commitThenProposeBlock(block);
     const { id, meta } = proposedEvent.args;
@@ -36,6 +39,7 @@ async function onNewL2Block(
         ? await taikoTokenL1.balanceOf(await proposerSigner.getAddress())
         : BigNumber.from(0);
 
+    await sleep(1000 * config.bootstrapDiscountHalvingPeriod.toNumber());
     const newBlockFee = await taikoL1.getBlockFee();
 
     console.log("-------------------proposed----------", id);

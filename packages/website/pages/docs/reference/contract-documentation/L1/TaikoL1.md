@@ -10,6 +10,12 @@ title: TaikoL1
 struct TaikoData.State state
 ```
 
+### onlyFromEOA
+
+```solidity
+modifier onlyFromEOA()
+```
+
 ### init
 
 ```solidity
@@ -160,7 +166,7 @@ function getLatestSyncedHeader() public view returns (bytes32)
 ### getStateVariables
 
 ```solidity
-function getStateVariables() public view returns (uint64, uint64, uint64, uint256, uint64, uint64, uint64, uint64, uint64, uint64)
+function getStateVariables() public view returns (struct LibUtils.StateVariables)
 ```
 
 ### signWithGoldenTouch
@@ -181,14 +187,20 @@ function getForkChoice(uint256 id, bytes32 parentHash) public view returns (stru
 function getUncleProofDelay(uint256 blockId) public view returns (uint64)
 ```
 
-### getConfig
+### getProverRewardBips
 
 ```solidity
-function getConfig() public pure virtual returns (struct TaikoData.Config)
+function getProverRewardBips(uint256 numProvers) public view returns (uint256[])
 ```
 
 ### isBlockVerifiable
 
 ```solidity
 function isBlockVerifiable(uint256 blockId, bytes32 parentHash) public view returns (bool)
+```
+
+### getConfig
+
+```solidity
+function getConfig() public pure virtual returns (struct TaikoData.Config)
 ```

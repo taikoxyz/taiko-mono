@@ -2,10 +2,10 @@
   "index": {
     "title": "Introduction 👋"
   },
-  "learn": {
-    "title": "Learn"
+  "concepts": {
+    "title": "Concepts"
   },
-  "testnet-guide": {
+  "guides": {
     "title": "Guides"
   },
   "tutorials": {
