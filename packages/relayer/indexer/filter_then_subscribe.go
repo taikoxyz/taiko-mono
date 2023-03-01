@@ -88,6 +88,7 @@ func (svc *Service) FilterThenSubscribe(
 			group.Go(func() error {
 				err := svc.handleEvent(groupCtx, chainID, event)
 				if err != nil {
+					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
 					log.Error(err.Error())
 				}
