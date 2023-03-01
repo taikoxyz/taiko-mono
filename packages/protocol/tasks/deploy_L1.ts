@@ -157,8 +157,8 @@ export async function deployContracts(hre: any) {
     // TaikoL1
     const TaikoL1 = await utils.deployContract(
         hre,
-        "TaikoL1",
-        await deployBaseLibs(hre)
+        "TaikoL1"
+        // await deployBaseLibs(hre)
     );
 
     const feeBase = hre.ethers.BigNumber.from(10).pow(18);
@@ -300,27 +300,27 @@ export async function deployContracts(hre: any) {
     return deployments;
 }
 
-async function deployBaseLibs(hre: any) {
-    const libReceiptDecoder = await utils.deployContract(
-        hre,
-        "LibReceiptDecoder"
-    );
-    const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
+// async function deployBaseLibs(hre: any) {
+//     const libReceiptDecoder = await utils.deployContract(
+//         hre,
+//         "LibReceiptDecoder"
+//     );
+//     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
 
-    const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
-    const libProposing = await utils.deployContract(hre, "LibProposing", {});
+//     const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
+//     const libProposing = await utils.deployContract(hre, "LibProposing", {});
 
-    const libProving = await utils.deployContract(hre, "LibProving", {
-        LibReceiptDecoder: libReceiptDecoder.address,
-        LibTxDecoder: libTxDecoder.address,
-    });
+//     const libProving = await utils.deployContract(hre, "LibProving", {
+//         LibReceiptDecoder: libReceiptDecoder.address,
+//         LibTxDecoder: libTxDecoder.address,
+//     });
 
-    return {
-        LibVerifying: libVerifying.address,
-        LibProposing: libProposing.address,
-        LibProving: libProving.address,
-    };
-}
+//     return {
+//         LibVerifying: libVerifying.address,
+//         LibProposing: libProposing.address,
+//         LibProving: libProving.address,
+//     };
+// }
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
     const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
