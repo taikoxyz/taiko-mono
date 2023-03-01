@@ -222,7 +222,6 @@ contract TaikoL1 is
             proposedAt: proposedAt
         });
 
-        eth = 0;
         if (
             state.claims[blockId].claimer != address(0) &&
             !isClaimForProposedBlockStillValid(blockId)
