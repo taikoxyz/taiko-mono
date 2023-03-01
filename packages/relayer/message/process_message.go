@@ -84,6 +84,8 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
 
+	relayer.EventsProcessed.Inc()
+
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
 	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
@@ -99,6 +101,12 @@ func (p *Processor) ProcessMessage(
 	}
 
 	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
+
+	if messageStatus == uint8(relayer.EventStatusRetriable) {
+		relayer.RetriableEvents.Inc()
+	} else if messageStatus == uint8(relayer.EventStatusDone) {
+		relayer.DoneEvents.Inc()
+	}
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {

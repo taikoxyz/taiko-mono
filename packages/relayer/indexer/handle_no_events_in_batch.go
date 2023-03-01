@@ -32,6 +32,8 @@ func (svc *Service) handleNoEventsInBatch(
 		return errors.Wrap(err, "svc.blockRepo.Save")
 	}
 
+	relayer.BlocksProcessed.Inc()
+
 	svc.processingBlockHeight = uint64(blockNumber)
 
 	return nil

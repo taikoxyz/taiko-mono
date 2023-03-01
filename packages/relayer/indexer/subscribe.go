@@ -56,6 +56,8 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 					if err != nil {
 						log.Errorf("svc.subscribe, svc.blockRepo.Save: %v", err)
 					}
+
+					relayer.BlocksProcessed.Inc()
 				}
 			}()
 		}
