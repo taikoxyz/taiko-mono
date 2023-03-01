@@ -104,6 +104,6 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(app, signal));
+        return keccak256(bytes.concat(bytes32(uint256(uint160(app))), signal));
     }
 }

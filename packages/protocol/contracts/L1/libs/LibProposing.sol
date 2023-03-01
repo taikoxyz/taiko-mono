@@ -75,7 +75,10 @@ library LibProposing {
 
         if (config.commitConfirmations > 0) {
             bytes32 commitHash = keccak256(
-                abi.encodePacked(meta.beneficiary, meta.txListHash)
+                bytes.concat(
+                    bytes32(uint256(uint160(meta.beneficiary))),
+                    meta.txListHash
+                )
             );
             bool valid = isCommitValid({
                 state: state,
@@ -127,7 +130,10 @@ library LibProposing {
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
             meta.mixHash = keccak256(
-                abi.encodePacked(block.prevrandao, state.nextBlockId)
+                bytes.concat(
+                    bytes32(block.prevrandao),
+                    bytes32(uint256(state.nextBlockId))
+                )
             );
         }
 
@@ -223,6 +229,6 @@ library LibProposing {
         uint256 commitHeight,
         bytes32 commitHash
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(commitHash, commitHeight));
+        return keccak256(bytes.concat(commitHash, bytes32(commitHeight)));
     }
 }

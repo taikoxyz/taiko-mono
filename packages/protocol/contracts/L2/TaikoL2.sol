@@ -218,6 +218,11 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
         uint256 baseFee,
         bytes32[255] memory ancestors
     ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
+        bytes memory extra = bytes.concat(
+            bytes32(chainId),
+            bytes32(number),
+            bytes32(baseFee)
+        );
+        return keccak256(abi.encodePacked(extra, ancestors));
     }
 }

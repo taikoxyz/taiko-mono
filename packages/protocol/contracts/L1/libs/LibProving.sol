@@ -10,6 +10,7 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -169,7 +170,10 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
             address verifier = resolver.resolve(
-                string(abi.encodePacked("verifier_", evidence.circuitId)),
+                string.concat(
+                    "verifier_",
+                    Strings.toString(evidence.circuitId)
+                ),
                 false
             );
             (bool verified, ) = verifier.staticcall(
