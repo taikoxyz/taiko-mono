@@ -174,11 +174,17 @@ class RelayerAPIService implements RelayerAPI {
     return bridgeTxs;
   }
 
-  async GetBlockInfo(): Promise<Map<string, RelayerBlockInfo>> {
+  async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
     const requestURL = `${import.meta.env.VITE_RELAYER_URL}blockInfo`;
     const { data } = await axios.get(requestURL);
+    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
+    if(data?.data.length > 0) {
+      data.data.forEach((blockInfoByChain => {
+        blockInfoMap.set(blockInfoByChain.chainID, blockInfoByChain);
+      }));
+    }
 
-    return data;
+    return blockInfoMap;
   }
 
 }

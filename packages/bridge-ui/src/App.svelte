@@ -55,7 +55,7 @@
   import { userTokens, tokenService } from "./store/userToken";
   import RelayerAPIService from "./relayer-api/service";
   import type { RelayerAPI } from "./domain/relayerApi";
-  import { relayerApi } from "./store/relayerApi";
+  import { relayerApi, relayerBlockInfoMap } from "./store/relayerApi";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -153,15 +153,25 @@
         userAddress
       );
 
+      const blockInfoMap = await $relayerApi.GetBlockInfo();
+      relayerBlockInfoMap.set(blockInfoMap)
+
       const txs = await $transactioner.GetAllByAddress(
         userAddress,
       );
 
-      const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
-        return [tx.hash, tx];
-      }))
+      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
+      //   return [tx.hash, tx];
+      // }))
 
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => !hashToApiTxsMap.has(tx.hash));
+      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+        const blockInfo = blockInfoMap.get(tx.fromChainId);
+        if(blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
+          return false;
+        }
+        return true;
+      });
+
       $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);

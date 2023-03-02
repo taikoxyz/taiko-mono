@@ -6,7 +6,7 @@ export interface RelayerAPI {
     chainID?: number
   ): Promise<BridgeTransaction[]>;
 
-  GetBlockInfo(): Promise<Map<string, RelayerBlockInfo>>;
+  GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>>;
 }
 
 export type RelayerBlockInfo = {
