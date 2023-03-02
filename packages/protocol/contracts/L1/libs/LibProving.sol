@@ -27,7 +27,6 @@ library LibProving {
     error L1_CANNOT_BE_FIRST_PROVER();
     error L1_CONFLICT_PROOF();
     error L1_ID();
-    error L1_INPUT_SIZE();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
     error L1_TX_LIST_PROOF();
@@ -39,34 +38,29 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes[] calldata inputs
+        bytes calldata evidenceBytes
     ) internal {
-        // Check and decode inputs
-        if (inputs.length != 1) revert L1_INPUT_SIZE();
         TaikoData.ValidBlockEvidence memory evidence = abi.decode(
-            inputs[0],
+            evidenceBytes,
             (TaikoData.ValidBlockEvidence)
         );
 
         TaikoData.BlockMetadata memory meta = evidence.meta;
-        BlockHeader memory header = evidence.header;
-
         _checkMetadata(state, config, meta, blockId);
 
-        if (!config.skipValidatingEvidence) {
-            if (
-                evidence.prover == address(0) ||
-                header.parentHash == 0 ||
-                header.beneficiary != meta.beneficiary ||
-                header.difficulty != 0 ||
-                header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-                header.gasUsed == 0 ||
-                header.timestamp != meta.timestamp ||
-                header.extraData.length != meta.extraData.length ||
-                keccak256(header.extraData) != keccak256(meta.extraData) ||
-                header.mixHash != meta.mixHash
-            ) revert L1_INVALID_EVIDENCE();
-        }
+        BlockHeader memory header = evidence.header;
+        if (
+            evidence.prover == address(0) ||
+            header.parentHash == 0 ||
+            header.beneficiary != meta.beneficiary ||
+            header.difficulty != 0 ||
+            header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
+            header.gasUsed == 0 ||
+            header.timestamp != meta.timestamp ||
+            header.extraData.length != meta.extraData.length ||
+            keccak256(header.extraData) != keccak256(meta.extraData) ||
+            header.mixHash != meta.mixHash
+        ) revert L1_INVALID_EVIDENCE();
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
         // but a special prover can skip ZKP verification if the ZKP is empty.
@@ -100,7 +94,7 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             bool verified = _verifyZKProof(
                 resolver,
-                evidence.blockProof,
+                evidence.zkproof,
                 _getInstance(evidence)
             );
             if (!verified) revert L1_ZKP();
@@ -118,13 +112,10 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes[] calldata inputs
+        bytes calldata evidenceBytes
     ) internal {
-        // Check inputs
-        if (inputs.length != 1) revert L1_INPUT_SIZE();
-
         TaikoData.InvalidBlockEvidence memory evidence = abi.decode(
-            inputs[0],
+            evidenceBytes,
             (TaikoData.InvalidBlockEvidence)
         );
 
@@ -132,13 +123,13 @@ library LibProving {
         _checkMetadata(state, config, meta, blockId);
 
         if (
-            LibUtils.hashZKProof(abi.encode(evidence.txListProof)) !=
+            LibUtils.hashZKProof(abi.encode(evidence.zkproof)) !=
             meta.txListProofHash
         ) revert L1_TX_LIST_PROOF();
 
         bool verified = _verifyZKProof(
             resolver,
-            evidence.txListProof,
+            evidence.zkproof,
             meta.txListHash
         );
         if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
@@ -165,8 +156,6 @@ library LibProving {
         uint256 blockId
     ) private view {
         if (meta.id != blockId) revert L1_ID();
-
-        if (config.skipCheckingMetadata) return;
 
         if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
             revert L1_ID();

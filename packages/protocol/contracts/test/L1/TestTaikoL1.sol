@@ -44,9 +44,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = false;
-        config.enablePublicInputsCheck = false;
-        config.skipCheckingMetadata = false;
-        config.skipValidatingEvidence = false;
         config.skipZKPVerification = true;
     }
 }

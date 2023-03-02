@@ -91,14 +91,12 @@ contract TaikoL1 is
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param inputs A list of data input:
-     *        - inputs[0] is an abi-encoded object with various information
-     *          regarding  the block to be proven and the actual proofs.
+     * @param evidenceBytes An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
         uint256 blockId,
-        bytes[] calldata inputs
+        bytes calldata evidenceBytes
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
@@ -106,7 +104,7 @@ contract TaikoL1 is
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            inputs: inputs
+            evidenceBytes: evidenceBytes
         });
         LibVerifying.verifyBlocks({
             state: state,
@@ -121,14 +119,11 @@ contract TaikoL1 is
      *
      * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
-     * @param inputs A list of data input:
-     *        - inputs[0] An Evidence object with various information regarding
-     *          the block to be proven and the actual proofs.
-     *        - inputs[1] The target block to be proven invalid.
+     * @param evidenceBytes evidenceBytes An abi-encoded TaikoData.InvalidBlockEvidence object.
      */
     function proveBlockInvalid(
         uint256 blockId,
-        bytes[] calldata inputs
+        bytes calldata evidenceBytes
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
 
@@ -137,7 +132,7 @@ contract TaikoL1 is
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            inputs: inputs
+            evidenceBytes: evidenceBytes
         });
         LibVerifying.verifyBlocks({
             state: state,

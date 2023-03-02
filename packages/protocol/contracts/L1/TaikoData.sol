@@ -36,9 +36,6 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         bool enableTokenomics;
-        bool enablePublicInputsCheck;
-        bool skipCheckingMetadata;
-        bool skipValidatingEvidence;
         bool skipZKPVerification;
     }
 
@@ -62,15 +59,15 @@ library TaikoData {
 
     struct ValidBlockEvidence {
         TaikoData.BlockMetadata meta;
+        ZKProof zkproof; // The block proof
         BlockHeader header;
         address prover;
-        ZKProof blockProof;
     }
 
     struct InvalidBlockEvidence {
         TaikoData.BlockMetadata meta;
+        ZKProof zkproof; // The txListProof
         bytes32 parentHash;
-        ZKProof txListProof;
     }
 
     // 3 slots

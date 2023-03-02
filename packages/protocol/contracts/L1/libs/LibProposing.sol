@@ -45,7 +45,9 @@ library LibProposing {
             revert L1_SOLO_PROPOSER();
 
         if (inputs.length != 3) revert L1_INPUT_SIZE();
-        bytes calldata txListProof = inputs[2];
+        // inputs[0]: the block's metadata
+        // inputs[1]: the txList (future 4844 blob)
+        // inputs[2]: the txListProof (future 4844 blob)
 
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -53,6 +55,7 @@ library LibProposing {
         );
 
         {
+            // Validating the metadata
             if (
                 meta.id != 0 ||
                 meta.l1Height != 0 ||
@@ -66,13 +69,12 @@ library LibProposing {
                 revert L1_EXTRA_DATA();
             }
 
-            bytes calldata txList = inputs[1];
             if (
-                txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != LibUtils.hashTxList(txList)
+                inputs[1].length > config.maxBytesPerTxList ||
+                meta.txListHash != LibUtils.hashTxList(inputs[1])
             ) revert L1_TX_LIST();
 
-            if (meta.txListProofHash != LibUtils.hashZKProof(txListProof))
+            if (meta.txListProofHash != LibUtils.hashZKProof(inputs[2]))
                 revert L1_TX_LIST_PROOF();
 
             if (

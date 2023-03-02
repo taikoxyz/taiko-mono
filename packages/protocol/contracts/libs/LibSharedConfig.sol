@@ -51,9 +51,6 @@ library LibSharedConfig {
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 enableTokenomics: true,
-                enablePublicInputsCheck: true,
-                skipCheckingMetadata: false,
-                skipValidatingEvidence: false,
                 skipZKPVerification: false
             });
     }

@@ -14,7 +14,6 @@ import {
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {IHeaderSync} from "../common/IHeaderSync.sol";
 import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
 
 contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
@@ -88,10 +87,7 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * @param l1Hash The latest L1 block hash when this block was proposed.
      */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        TaikoData.Config memory config = getConfig();
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
-        }
+        _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
@@ -101,16 +97,6 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     /**********************
      * Public Functions   *
      **********************/
-
-    function getConfig()
-        public
-        view
-        virtual
-        returns (TaikoData.Config memory config)
-    {
-        config = LibSharedConfig.getConfig();
-        config.chainId = block.chainid;
-    }
 
     function getSyncedHeader(
         uint256 number
