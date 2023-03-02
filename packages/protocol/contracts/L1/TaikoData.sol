@@ -54,7 +54,7 @@ library TaikoData {
 
     struct ZKProof {
         bytes data;
-        uint16 circuitId;
+        uint256 circuitId;
     }
 
     struct ValidBlockEvidence {
