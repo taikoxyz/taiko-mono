@@ -1,28 +1,50 @@
 <script lang="ts">
-  import { transactions } from "../../store/transactions";
   import { _ } from "svelte-i18n";
-
+  import { transactions } from "../../store/transactions";
   import BridgeForm from "../../components/form/BridgeForm.svelte";
   import TaikoBanner from "../../components/TaikoBanner.svelte";
   import Transactions from "../../components/Transactions.svelte";
+
   let activeTab: string = "bridge";
-  let bridgeWidth;
-  let bridgeHeight;
+  let bridgeWidth: number;
+  let bridgeHeight: number;
+
+  $: isBridge = activeTab === 'bridge'
+  $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`
+  $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit'
+  $: styleInner = isBridge && $transactions.length > 0 ? '' : `min-height: ${bridgeHeight}px;`
+
 </script>
 
-<div class="container mx-auto {activeTab === 'bridge' ? 'max-w-fit' : 'w-fit'} text-center my-10" style="{activeTab === 'bridge' ? '' : 'min-width: '+bridgeWidth+'px;'}" bind:clientWidth={bridgeWidth} bind:clientHeight={bridgeHeight}>
-  <div class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6" style="{activeTab === 'bridge' && $transactions.length > 0 ? '' : 'min-height: '+bridgeHeight+'px;'}">
-    <div class="tabs mb-4">
-      <span
-        class="tab tab-bordered {activeTab === 'bridge' ? 'tab-active' : ''}"
-        on:click={() => (activeTab = "bridge")}>Bridge</span
+<div 
+  class="container mx-auto text-center my-10 {fitClassContainer}"
+  style={styleContainer}
+  bind:clientWidth={bridgeWidth}
+  bind:clientHeight={bridgeHeight}
+>
+  <div 
+    class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
+    style={styleInner}>
+    
+    <!-- TODO: extract this tab component into a general one? -->
+    <div role="tablist" class="tabs block mb-4">
+      <button
+        role="tab"
+        aria-selected="true"
+        class="tab tab-bordered {isBridge ? 'tab-active' : ''}"
+        on:click={() => activeTab = "bridge"}
       >
-      <span
-        class="tab tab-bordered {activeTab !== 'bridge' ? 'tab-active' : ''}"
-        on:click={() => (activeTab = "transactions")}
-        >Transactions ({$transactions.length})
-      </span>
+        Bridge
+      </button>
+      <button
+        role="tab"
+        class="tab tab-bordered {!isBridge ? 'tab-active' : ''}"
+        on:click={() => activeTab = "transactions"}
+      >
+        Transactions ({$transactions.length})
+      </button>
     </div>
+
     {#if activeTab === "bridge"}
       <TaikoBanner />
       <div class="px-4">
@@ -33,9 +55,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .tabs {
-    display: block;
-  }
-</style>
