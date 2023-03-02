@@ -16,6 +16,7 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for bytes;
+    using LibUtils for TaikoData.ZKProof;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
@@ -45,28 +46,28 @@ library LibProving {
     ) internal {
         // Check and decode inputs
         if (inputs.length != 1) revert L1_INPUT_SIZE();
-        TaikoData.Evidence memory evidence = abi.decode(
+        TaikoData.ValidBlockEvidence memory evidence = abi.decode(
             inputs[0],
-            (TaikoData.Evidence)
+            (TaikoData.ValidBlockEvidence)
         );
 
-        _checkMetadata(state, config, evidence.meta, blockId);
+        TaikoData.BlockMetadata memory meta = evidence.meta;
+        BlockHeader memory header = evidence.header;
+
+        _checkMetadata(state, config, meta, blockId);
 
         if (!config.skipValidatingEvidence) {
             if (
                 evidence.prover == address(0) ||
-                evidence.header.parentHash == 0 ||
-                evidence.header.beneficiary != evidence.meta.beneficiary ||
-                evidence.header.difficulty != 0 ||
-                evidence.header.gasLimit !=
-                evidence.meta.gasLimit + config.anchorTxGasLimit ||
-                evidence.header.gasUsed == 0 ||
-                evidence.header.timestamp != evidence.meta.timestamp ||
-                evidence.header.extraData.length !=
-                evidence.meta.extraData.length ||
-                keccak256(evidence.header.extraData) !=
-                keccak256(evidence.meta.extraData) ||
-                evidence.header.mixHash != evidence.meta.mixHash
+                header.parentHash == 0 ||
+                header.beneficiary != meta.beneficiary ||
+                header.difficulty != 0 ||
+                header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
+                header.gasUsed == 0 ||
+                header.timestamp != meta.timestamp ||
+                header.extraData.length != meta.extraData.length ||
+                keccak256(header.extraData) != keccak256(meta.extraData) ||
+                header.mixHash != meta.mixHash
             ) revert L1_INVALID_EVIDENCE();
         }
 
@@ -75,11 +76,11 @@ library LibProving {
 
         bool oracleProving;
 
-        TaikoData.ForkChoice storage fc = state.forkChoices[evidence.meta.id][
-            evidence.header.parentHash
+        TaikoData.ForkChoice storage fc = state.forkChoices[meta.id][
+            header.parentHash
         ];
 
-        bytes32 blockHash = evidence.header.hashBlockHeader();
+        bytes32 blockHash = header.hashBlockHeader();
 
         if (fc.blockHash == 0) {
             address oracleProver = resolver.resolve("oracle_prover", true);
@@ -102,15 +103,15 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             bool verified = _verifyZKProof(
                 resolver,
-                evidence.zkproof,
+                evidence.blockProof,
                 _getInstance(evidence)
             );
             if (!verified) revert L1_ZKP();
         }
 
         emit BlockProven({
-            id: evidence.meta.id,
-            parentHash: evidence.header.parentHash,
+            id: meta.id,
+            parentHash: header.parentHash,
             forkChoice: fc
         });
     }
@@ -123,38 +124,39 @@ library LibProving {
         bytes[] calldata inputs
     ) internal {
         // Check inputs
-        if (inputs.length != 3) revert L1_INPUT_SIZE();
-        bytes calldata metaBytes = inputs[0];
-        bytes calldata txListProof = inputs[1];
-        bytes32 parentHash = bytes32(inputs[2]);
+        if (inputs.length != 1) revert L1_INPUT_SIZE();
 
-        TaikoData.BlockMetadata memory meta = abi.decode(
-            metaBytes,
-            (TaikoData.BlockMetadata)
+        TaikoData.InvalidBlockEvidence memory evidence = abi.decode(
+            inputs[0],
+            (TaikoData.InvalidBlockEvidence)
         );
 
+        TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
-        if (txListProof.hashTxListProof() != meta.txListProofHash)
+        if (evidence.txListProof.hashZKProof() != meta.txListProofHash)
             revert L1_TX_LIST_PROOF();
 
-        TaikoData.ZKProof memory zkproof = abi.decode(
-            txListProof,
-            (TaikoData.ZKProof)
+        bool verified = _verifyZKProof(
+            resolver,
+            evidence.txListProof,
+            meta.txListHash
         );
-
-        bool verified = _verifyZKProof(resolver, zkproof, meta.txListHash);
         if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
 
         TaikoData.ForkChoice storage fc = state.forkChoices[meta.id][
-            parentHash
+            evidence.parentHash
         ];
 
         fc.prover = msg.sender;
         fc.provenAt = uint64(block.timestamp);
         fc.blockHash = LibUtils.BLOCK_DEADEND_HASH;
 
-        emit BlockProven({id: meta.id, parentHash: parentHash, forkChoice: fc});
+        emit BlockProven({
+            id: meta.id,
+            parentHash: evidence.parentHash,
+            forkChoice: fc
+        });
     }
 
     function _checkMetadata(
@@ -199,7 +201,7 @@ library LibProving {
     }
 
     function _getInstance(
-        TaikoData.Evidence memory evidence
+        TaikoData.ValidBlockEvidence memory evidence
     ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
