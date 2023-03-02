@@ -6,22 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
-import {AddressResolver} from "../common/AddressResolver.sol";
 import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
-import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
-import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
 
-contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
-    using LibTxDecoder for bytes;
-
+contract TaikoL2 is IHeaderSync {
     /**********************
      * State Variables    *
      **********************/
@@ -49,18 +37,15 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
-    error L2_INVALID_SENDER();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager) {
+    constructor() {
         if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
-        AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
@@ -92,62 +77,16 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * @param l1Hash The latest L1 block hash when this block was proposed.
      */
     function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        TaikoData.Config memory config = getConfig();
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
-        }
+        _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
         emit HeaderSynced(l1Height, l1Hash);
     }
 
-    /**
-     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
-     *
-     * @param txList The L2 block's txlist.
-     * @param hint A hint for this method to invalidate the txList.
-     * @param txIdx If the hint is for a specific transaction in txList,
-     *        txIdx specifies which transaction to check.
-     */
-    function invalidateBlock(
-        bytes calldata txList,
-        LibInvalidTxList.Hint hint,
-        uint256 txIdx
-    ) external {
-        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
-            revert L2_INVALID_SENDER();
-
-        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
-
-        TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.verifyTxListInvalid({
-            config: config,
-            encoded: txList,
-            hint: hint,
-            txIdx: txIdx
-        });
-
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
-        }
-
-        emit BlockInvalidated(txList.hashTxList());
-    }
-
     /**********************
      * Public Functions   *
      **********************/
-
-    function getConfig()
-        public
-        view
-        virtual
-        returns (TaikoData.Config memory config)
-    {
-        config = LibSharedConfig.getConfig();
-        config.chainId = block.chainid;
-    }
 
     function getSyncedHeader(
         uint256 number

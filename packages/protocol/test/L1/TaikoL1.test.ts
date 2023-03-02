@@ -43,12 +43,4 @@ describe("TaikoL1", function () {
             ).to.be.revertedWith("L1_INPUT_SIZE()");
         });
     });
-
-    describe("commitBlock()", async function () {
-        it("should revert when size of inputs is les than 2", async function () {
-            await expect(
-                taikoL1.proposeBlock([randomBytes32()])
-            ).to.be.revertedWith("L1_INPUT_SIZE()");
-        });
-    });
 });

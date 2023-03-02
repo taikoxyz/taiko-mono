@@ -73,17 +73,4 @@ library LibBlockHeader {
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
         }
     }
-
-    function isPartiallyValidForTaiko(
-        uint256 blockMaxGasLimit,
-        BlockHeader calldata header
-    ) internal pure returns (bool) {
-        return
-            header.parentHash != 0 &&
-            header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= blockMaxGasLimit &&
-            header.extraData.length <= 32 &&
-            header.difficulty == 0 &&
-            header.nonce == 0;
-    }
 }

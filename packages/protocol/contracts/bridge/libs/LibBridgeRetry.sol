@@ -89,9 +89,10 @@ library LibBridgeRetry {
             address refundAddress = message.refundAddress == address(0)
                 ? message.owner
                 : message.refundAddress;
-
-            refundAddress.sendEther(message.callValue);
-        } else if (ethVault != address(0)) {
+            if (message.callValue > 0) {
+                refundAddress.sendEther(message.callValue);
+            }
+        } else if (ethVault != address(0) && message.callValue > 0) {
             ethVault.sendEther(message.callValue);
         }
     }

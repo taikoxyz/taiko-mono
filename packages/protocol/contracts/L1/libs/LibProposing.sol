@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -16,42 +15,20 @@ import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
-    using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
-    using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_COMMITTED();
     error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
     error L1_METADATA_FIELD();
-    error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
-
-    function commitBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 commitSlot,
-        bytes32 commitHash
-    ) internal {
-        assert(config.commitConfirmations > 0);
-
-        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
-
-        if (state.commits[msg.sender][commitSlot] == hash)
-            revert L1_COMMITTED();
-
-        state.commits[msg.sender][commitSlot] = hash;
-
-        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
-    }
+    error L1_TX_LIST_PROOF();
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -67,39 +44,24 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
+        // inputs[0]: the block's metadata
+        // inputs[1]: the txList (future 4844 blob)
+        // inputs[2]: the txListProof (future 4844 blob)
+
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
         );
 
-        if (config.commitConfirmations > 0) {
-            bytes32 commitHash = keccak256(
-                bytes.concat(
-                    bytes32(uint256(uint160(meta.beneficiary))),
-                    meta.txListHash
-                )
-            );
-            bool valid = isCommitValid({
-                state: state,
-                commitConfirmations: config.commitConfirmations,
-                commitSlot: meta.commitSlot,
-                commitHeight: meta.commitHeight,
-                commitHash: commitHash
-            });
-
-            if (!valid) revert L1_NOT_COMMITTED();
-        }
-
         {
+            // Validating the metadata
             if (
                 meta.id != 0 ||
                 meta.l1Height != 0 ||
                 meta.l1Hash != 0 ||
-                meta.mixHash != 0 ||
                 meta.timestamp != 0 ||
-                meta.beneficiary == address(0) ||
-                meta.txListHash == 0
+                meta.beneficiary == address(0)
             ) revert L1_METADATA_FIELD();
 
             if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
@@ -107,13 +69,13 @@ library LibProposing {
                 revert L1_EXTRA_DATA();
             }
 
-            bytes calldata txList = inputs[1];
-            // perform validation and populate some fields
             if (
-                txList.length < 0 ||
-                txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != txList.hashTxList()
+                inputs[1].length > config.maxBytesPerTxList ||
+                meta.txListHash != LibUtils.hashTxList(inputs[1])
             ) revert L1_TX_LIST();
+
+            if (meta.txListProofHash != LibUtils.hashZKProof(inputs[2]))
+                revert L1_TX_LIST_PROOF();
 
             if (
                 state.nextBlockId >=
@@ -159,7 +121,7 @@ library LibProposing {
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: meta.hashMetadata(),
+            metaHash: LibUtils.hashMetadata(meta),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp
@@ -200,20 +162,6 @@ library LibProposing {
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
-    function isCommitValid(
-        TaikoData.State storage state,
-        uint256 commitConfirmations,
-        uint256 commitSlot,
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) internal view returns (bool) {
-        assert(commitConfirmations > 0);
-        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
-        return
-            state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + commitConfirmations;
-    }
-
     function getProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
@@ -223,12 +171,5 @@ library LibProposing {
             revert L1_ID();
         }
         return state.getProposedBlock(maxNumBlocks, id);
-    }
-
-    function _aggregateCommitHash(
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) private pure returns (bytes32) {
-        return keccak256(bytes.concat(commitHash, bytes32(commitHeight)));
     }
 }

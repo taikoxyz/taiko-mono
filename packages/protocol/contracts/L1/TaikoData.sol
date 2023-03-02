@@ -17,7 +17,6 @@ library TaikoData {
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 commitConfirmations;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
@@ -37,9 +36,6 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         bool enableTokenomics;
-        bool enablePublicInputsCheck;
-        bool skipCheckingMetadata;
-        bool skipValidatingHeaderForMetadata;
         bool skipZKPVerification;
     }
 
@@ -49,20 +45,29 @@ library TaikoData {
         bytes32 l1Hash;
         address beneficiary;
         bytes32 txListHash;
+        bytes32 txListProofHash;
         bytes32 mixHash;
         bytes extraData;
         uint64 gasLimit;
         uint64 timestamp;
-        uint64 commitHeight;
-        uint64 commitSlot;
     }
 
-    struct Evidence {
+    struct ZKProof {
+        bytes data;
+        uint16 circuitId;
+    }
+
+    struct ValidBlockEvidence {
         TaikoData.BlockMetadata meta;
+        ZKProof zkproof; // The block proof
         BlockHeader header;
         address prover;
-        bytes zkproof;
-        uint16 circuitId;
+    }
+
+    struct InvalidBlockEvidence {
+        TaikoData.BlockMetadata meta;
+        ZKProof zkproof; // The txListProof
+        bytes32 parentHash;
     }
 
     // 3 slots
@@ -88,8 +93,6 @@ library TaikoData {
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
-        // solhint-disable-next-line max-line-length
-        mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // solhint-disable-next-line max-line-length
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed

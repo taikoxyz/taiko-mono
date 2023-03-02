@@ -25,14 +25,14 @@ library LibVerifying {
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
-    error L1_0_FEE_BASE();
+    error L1_ZERO_FEE_BASE();
 
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
         uint256 feeBase
     ) internal {
-        if (feeBase == 0) revert L1_0_FEE_BASE();
+        if (feeBase == 0) revert L1_ZERO_FEE_BASE();
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
