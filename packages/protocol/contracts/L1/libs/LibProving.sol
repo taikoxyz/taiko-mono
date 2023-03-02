@@ -30,7 +30,7 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
     error L1_TX_LIST_PROOF();
-    error L1_ZKP();
+    error L1_BLOCK_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -61,7 +61,7 @@ library LibProving {
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
 
-        bool oracleProving = _prove({
+        bool oracleProving = _proveBlock({
             state: state,
             resolver: resolver,
             blockId: blockId,
@@ -76,7 +76,7 @@ library LibProving {
                 evidence.zkproof,
                 _getInstance(evidence)
             );
-            if (!verified) revert L1_ZKP();
+            if (!verified) revert L1_BLOCK_PROOF();
         }
     }
 
@@ -100,7 +100,7 @@ library LibProving {
             meta.txListProofHash
         ) revert L1_TX_LIST_PROOF();
 
-        bool oracleProving = _prove({
+        bool oracleProving = _proveBlock({
             state: state,
             resolver: resolver,
             blockId: blockId,
@@ -115,11 +115,11 @@ library LibProving {
                 evidence.zkproof,
                 meta.txListHash
             );
-            if (verified) revert L1_ZKP();
+            if (verified) revert L1_TX_LIST_PROOF();
         }
     }
 
-    function _prove(
+    function _proveBlock(
         TaikoData.State storage state,
         AddressResolver resolver,
         uint256 blockId,
