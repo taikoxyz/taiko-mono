@@ -143,10 +143,14 @@ library LibTxDecoder {
         }
     }
 
-    function hashTxList(
-        bytes calldata encoded
+    function hashTxList(bytes calldata txList) internal pure returns (bytes32) {
+        return keccak256(txList);
+    }
+
+    function hashTxListProof(
+        bytes calldata txListProof
     ) internal pure returns (bytes32) {
-        return keccak256(encoded);
+        return keccak256(txListProof);
     }
 
     function decodeLegacyTx(

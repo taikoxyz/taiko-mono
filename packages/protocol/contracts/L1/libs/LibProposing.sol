@@ -31,7 +31,7 @@ library LibProposing {
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
-
+    error L1_TX_LIST_PROOF();
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -47,7 +47,7 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -58,10 +58,8 @@ library LibProposing {
                 meta.id != 0 ||
                 meta.l1Height != 0 ||
                 meta.l1Hash != 0 ||
-                meta.mixHash != 0 ||
                 meta.timestamp != 0 ||
-                meta.beneficiary == address(0) ||
-                meta.txListHash == 0
+                meta.beneficiary == address(0)
             ) revert L1_METADATA_FIELD();
 
             if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
@@ -70,12 +68,16 @@ library LibProposing {
             }
 
             bytes calldata txList = inputs[1];
-            // perform validation and populate some fields
             if (
-                txList.length < 0 ||
                 txList.length > config.maxBytesPerTxList ||
                 meta.txListHash != txList.hashTxList()
             ) revert L1_TX_LIST();
+
+            bytes calldata txListProof = inputs[2];
+            if (
+                txListProof.length == 0 ||
+                meta.txListProofHash != txList.hashTxListProof()
+            ) revert L1_TX_LIST_PROOF();
 
             if (
                 state.nextBlockId >=
@@ -172,6 +174,4 @@ library LibProposing {
         }
         return state.getProposedBlock(maxNumBlocks, id);
     }
-
-
 }

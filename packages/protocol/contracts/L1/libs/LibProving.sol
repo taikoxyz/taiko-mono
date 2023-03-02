@@ -168,7 +168,7 @@ library LibProving {
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
-            bytes32 instance = _getInstance(evidence, blockHashOverride == 0);
+            bytes32 instance = _getInstance(evidence);
             address verifier = resolver.resolve(
                 string.concat(
                     "verifier_",
@@ -198,25 +198,19 @@ library LibProving {
     }
 
     function _getInstance(
-        TaikoData.Evidence memory evidence,
-        bool provingValidBlock
+        TaikoData.Evidence memory evidence
     ) internal pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            4
+            5
         );
 
-        uint256 len = list.length;
-        if (provingValidBlock) {
-            // Only zk-proof anchor tx for valid blocks
-            list[len - 4] = LibRLPWriter.writeHash(
-                bytes32(evidence.meta.l1Height)
-            );
-            list[len - 3] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
-        }
-        list[len - 2] = LibRLPWriter.writeAddress(evidence.prover);
-        list[len - 1] = LibRLPWriter.writeHash(evidence.meta.txListHash);
-
+        uint256 i = list.length;
+        list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+        list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
+        list[--i] = LibRLPWriter.writeAddress(evidence.prover);
+        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
         return keccak256(LibRLPWriter.writeList(list));
     }
 }

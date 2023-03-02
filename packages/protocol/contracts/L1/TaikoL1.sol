@@ -49,7 +49,6 @@ contract TaikoL1 is
         });
     }
 
-
     /**
      * Propose a Taiko L2 block.
      *
