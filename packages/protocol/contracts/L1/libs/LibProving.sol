@@ -58,14 +58,81 @@ library LibProving {
         if (evidence.meta.id != blockId) revert L1_ID();
         if (evidence.zkproof.data.length == 0) revert L1_PROOF_LENGTH();
 
-        // ZK-prove block and mark block proven to be valid.
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            evidence: evidence,
-            target: evidence.meta,
-            blockHashOverride: 0
+        if (evidence.prover == address(0)) revert L1_PROVER();
+
+        if (!config.skipCheckingMetadata) {
+            if (
+                evidence.meta.id <= state.latestVerifiedId ||
+                evidence.meta.id >= state.nextBlockId
+            ) revert L1_ID();
+            if (
+                state
+                    .getProposedBlock(config.maxNumBlocks, evidence.meta.id)
+                    .metaHash != evidence.meta.hashMetadata()
+            ) revert L1_META_MISMATCH();
+        }
+
+        if (!config.skipValidatingHeaderForMetadata) {
+            if (
+                evidence.header.parentHash == 0 ||
+                evidence.header.beneficiary != evidence.meta.beneficiary ||
+                evidence.header.difficulty != 0 ||
+                evidence.header.gasLimit !=
+                evidence.meta.gasLimit + config.anchorTxGasLimit ||
+                evidence.header.gasUsed == 0 ||
+                evidence.header.timestamp != evidence.meta.timestamp ||
+                evidence.header.extraData.length !=
+                evidence.meta.extraData.length ||
+                keccak256(evidence.header.extraData) !=
+                keccak256(evidence.meta.extraData) ||
+                evidence.header.mixHash != evidence.meta.mixHash
+            ) revert L1_META_MISMATCH();
+        }
+
+        // For alpha-2 testnet, the network allows any address to submit ZKP,
+        // but a special prover can skip ZKP verification if the ZKP is empty.
+
+        bool oracleProving;
+
+        TaikoData.ForkChoice storage fc = state.forkChoices[evidence.meta.id][
+            evidence.header.parentHash
+        ];
+
+        bytes32 blockHash = evidence.header.hashBlockHeader();
+
+        if (fc.blockHash == 0) {
+            address oracleProver = resolver.resolve("oracle_prover", true);
+            if (msg.sender == oracleProver) {
+                oracleProving = true;
+            } else {
+                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
+                fc.prover = evidence.prover;
+                fc.provenAt = uint64(block.timestamp);
+            }
+            fc.blockHash = blockHash;
+        } else {
+            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+
+            fc.prover = evidence.prover;
+            fc.provenAt = uint64(block.timestamp);
+        }
+
+        if (!oracleProving && !config.skipZKPVerification) {
+            bool verified = _verifyZKProof(
+                resolver,
+                evidence.zkproof,
+                _getInstance(evidence)
+            );
+            if (!verified) revert L1_ZKP();
+        }
+
+        emit BlockProven({
+            id: evidence.meta.id,
+            parentHash: evidence.header.parentHash,
+            blockHash: blockHash,
+            prover: fc.prover,
+            provenAt: fc.provenAt
         });
     }
 
@@ -126,96 +193,6 @@ library LibProving {
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
             prover: msg.sender,
             provenAt: uint64(block.timestamp)
-        });
-    }
-
-    function _proveBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        TaikoData.Evidence memory evidence,
-        TaikoData.BlockMetadata memory target,
-        bytes32 blockHashOverride
-    ) private {
-        if (evidence.meta.id != target.id) revert L1_ID();
-        if (evidence.prover == address(0)) revert L1_PROVER();
-
-        if (!config.skipCheckingMetadata) {
-            if (
-                target.id <= state.latestVerifiedId ||
-                target.id >= state.nextBlockId
-            ) revert L1_ID();
-            if (
-                state
-                    .getProposedBlock(config.maxNumBlocks, target.id)
-                    .metaHash != target.hashMetadata()
-            ) revert L1_META_MISMATCH();
-        }
-
-        if (!config.skipValidatingHeaderForMetadata) {
-            if (
-                evidence.header.parentHash == 0 ||
-                evidence.header.beneficiary != evidence.meta.beneficiary ||
-                evidence.header.difficulty != 0 ||
-                evidence.header.gasLimit !=
-                evidence.meta.gasLimit + config.anchorTxGasLimit ||
-                evidence.header.gasUsed == 0 ||
-                evidence.header.timestamp != evidence.meta.timestamp ||
-                evidence.header.extraData.length !=
-                evidence.meta.extraData.length ||
-                keccak256(evidence.header.extraData) !=
-                keccak256(evidence.meta.extraData) ||
-                evidence.header.mixHash != evidence.meta.mixHash
-            ) revert L1_META_MISMATCH();
-        }
-
-        // For alpha-2 testnet, the network allows any address to submit ZKP,
-        // but a special prover can skip ZKP verification if the ZKP is empty.
-
-        bool oracleProving;
-
-        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
-            evidence.header.parentHash
-        ];
-
-        bytes32 blockHash = evidence.header.hashBlockHeader();
-        bytes32 _blockHash = blockHashOverride == 0
-            ? blockHash
-            : blockHashOverride;
-
-        if (fc.blockHash == 0) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
-            if (msg.sender == oracleProver) {
-                oracleProving = true;
-            } else {
-                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
-                fc.prover = evidence.prover;
-                fc.provenAt = uint64(block.timestamp);
-            }
-            fc.blockHash = _blockHash;
-        } else {
-            if (fc.blockHash != _blockHash) revert L1_CONFLICT_PROOF();
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
-
-            fc.prover = evidence.prover;
-            fc.provenAt = uint64(block.timestamp);
-        }
-
-        if (!oracleProving && !config.skipZKPVerification) {
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                _getInstance(evidence)
-            );
-            if (!verified) revert L1_ZKP();
-        }
-
-        emit BlockProven({
-            id: target.id,
-            parentHash: evidence.header.parentHash,
-            blockHash: _blockHash,
-            prover: fc.prover,
-            provenAt: fc.provenAt
         });
     }
 
