@@ -15,7 +15,6 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibBlockHeader for BlockHeader;
-    using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
     event BlockProven(
@@ -173,7 +172,7 @@ library LibProving {
             revert L1_ID();
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            meta.hashMetadata()
+            LibUtils.hashMetadata(meta)
         ) revert L1_INVALID_EVIDENCE();
     }
 

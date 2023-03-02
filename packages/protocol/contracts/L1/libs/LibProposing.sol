@@ -16,7 +16,6 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
-    using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
@@ -120,7 +119,7 @@ library LibProposing {
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: meta.hashMetadata(),
+            metaHash: LibUtils.hashMetadata(meta),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp
