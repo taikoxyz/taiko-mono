@@ -15,8 +15,6 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibBlockHeader for BlockHeader;
-    using LibUtils for bytes;
-    using LibUtils for TaikoData.ZKProof;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
@@ -134,8 +132,10 @@ library LibProving {
         TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
-        if (evidence.txListProof.hashZKProof() != meta.txListProofHash)
-            revert L1_TX_LIST_PROOF();
+        if (
+            LibUtils.hashZKProof(abi.encode(evidence.txListProof)) !=
+            meta.txListProofHash
+        ) revert L1_TX_LIST_PROOF();
 
         bool verified = _verifyZKProof(
             resolver,

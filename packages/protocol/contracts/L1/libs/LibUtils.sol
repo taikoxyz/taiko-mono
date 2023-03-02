@@ -142,9 +142,9 @@ library LibUtils {
     }
 
     function hashZKProof(
-        TaikoData.ZKProof memory zkProof
+        bytes memory zkProofAbiEncoded
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(zkProof));
+        return keccak256(zkProofAbiEncoded);
     }
 
     function movingAverage(

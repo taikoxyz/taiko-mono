@@ -16,8 +16,6 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
-    using LibUtils for bytes;
-    using LibUtils for TaikoData.ZKProof;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
@@ -48,6 +46,8 @@ library LibProposing {
             revert L1_SOLO_PROPOSER();
 
         if (inputs.length != 3) revert L1_INPUT_SIZE();
+        bytes calldata txListProof = inputs[2];
+
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
@@ -70,14 +70,10 @@ library LibProposing {
             bytes calldata txList = inputs[1];
             if (
                 txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != txList.hashTxList()
+                meta.txListHash != LibUtils.hashTxList(txList)
             ) revert L1_TX_LIST();
 
-            TaikoData.ZKProof memory txListProof = abi.decode(
-                inputs[2],
-                (TaikoData.ZKProof)
-            );
-            if (meta.txListProofHash != txListProof.hashZKProof())
+            if (meta.txListProofHash != LibUtils.hashZKProof(txListProof))
                 revert L1_TX_LIST_PROOF();
 
             if (
