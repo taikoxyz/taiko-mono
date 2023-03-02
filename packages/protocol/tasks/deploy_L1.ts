@@ -98,15 +98,7 @@ export async function deployContracts(hre: any) {
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
 
-    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
-    await utils.waitTx(hre, await ProofVerifier.init(AddressManager.address));
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            `${chainId}.proof_verifier`,
-            ProofVerifier.address
-        )
-    );
+
 
     await utils.waitTx(
         hre,
@@ -247,8 +239,8 @@ export async function deployContracts(hre: any) {
                 `${chainId}.${Buffer.from(
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
-                            ["string", "uint16"],
-                            ["plonk_verifier_", i]
+                            ["string", "uint256"],
+                            ["verifier_", i]
                         )
                     )
                 ).toString()}`,
