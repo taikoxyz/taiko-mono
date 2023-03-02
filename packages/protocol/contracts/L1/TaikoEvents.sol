@@ -17,8 +17,6 @@ abstract contract TaikoEvents {
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
-        bytes32 blockHash,
-        address prover,
-        uint64 provenAt
+        TaikoData.ForkChoice forkChoice
     );
 }

@@ -22,9 +22,7 @@ library LibProving {
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
-        bytes32 blockHash,
-        address prover,
-        uint64 provenAt
+        TaikoData.ForkChoice forkChoice
     );
 
     error L1_ALREADY_PROVEN();
@@ -117,9 +115,7 @@ library LibProving {
         emit BlockProven({
             id: evidence.meta.id,
             parentHash: evidence.header.parentHash,
-            blockHash: blockHash,
-            prover: fc.prover,
-            provenAt: fc.provenAt
+            forkChoice: fc
         });
     }
 
@@ -162,13 +158,7 @@ library LibProving {
         fc.provenAt = uint64(block.timestamp);
         fc.blockHash = LibUtils.BLOCK_DEADEND_HASH;
 
-        emit BlockProven({
-            id: meta.id,
-            parentHash: parentHash,
-            blockHash: LibUtils.BLOCK_DEADEND_HASH,
-            prover: msg.sender,
-            provenAt: uint64(block.timestamp)
-        });
+        emit BlockProven({id: meta.id, parentHash: parentHash, forkChoice: fc});
     }
 
     function _checkMetadata(
@@ -194,10 +184,13 @@ library LibProving {
         TaikoData.ZKProof memory zkproof,
         bytes32 instance
     ) private view returns (bool verified) {
+        // Do not revert when circuitId is invalid.
         address verifier = resolver.resolve(
             string.concat("verifier_", Strings.toString(zkproof.circuitId)),
-            false
+            true
         );
+        if (verifier == address(0)) return false;
+
         (verified, ) = verifier.staticcall(
             bytes.concat(
                 bytes16(0),
