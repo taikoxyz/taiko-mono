@@ -85,10 +85,7 @@ abstract contract AddressResolver {
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
             // error message is more helpful for diagnosis.
-            require(
-                addr != address(0),
-                string(string.concat("AR:zeroAddr:", key))
-            );
+            require(addr != address(0), string.concat("AR:zeroAddr:", key));
         }
     }
 }
