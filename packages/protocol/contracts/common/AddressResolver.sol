@@ -78,11 +78,8 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        string memory key = string.concat(
-            string(bytes.concat(bytes32(chainId))),
-            ".",
-            name
-        );
+        string memory chainIdStr = string(bytes.concat(bytes32(chainId)));
+        string memory key = string.concat(chainIdStr, ".", name);
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based

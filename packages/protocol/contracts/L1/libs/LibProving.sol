@@ -172,11 +172,11 @@ library LibProving {
         bytes32 instance
     ) private view returns (bool verified) {
         // Do not revert when circuitId is invalid.
+        string memory circuitIdStr = string(
+            bytes.concat(bytes32(uint256(zkproof.circuitId)))
+        );
         address verifier = resolver.resolve(
-            string.concat(
-                "verifier_",
-                string(bytes.concat(bytes32(uint256(zkproof.circuitId))))
-            ),
+            string.concat("verifier_", circuitIdStr),
             true
         );
         if (verifier == address(0)) return false;
