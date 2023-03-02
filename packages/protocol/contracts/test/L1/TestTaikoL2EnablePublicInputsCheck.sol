@@ -48,7 +48,7 @@ contract TestTaikoL2EnablePublicInputsCheck is TaikoL2 {
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = true;
         config.skipCheckingMetadata = false;
-        config.skipValidatingHeaderForMetadata = false;
+        config.skipValidatingEvidence = false;
         config.skipZKPVerification = false;
     }
 }

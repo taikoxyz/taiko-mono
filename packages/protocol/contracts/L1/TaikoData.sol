@@ -38,7 +38,7 @@ library TaikoData {
         bool enableTokenomics;
         bool enablePublicInputsCheck;
         bool skipCheckingMetadata;
-        bool skipValidatingHeaderForMetadata;
+        bool skipValidatingEvidence;
         bool skipZKPVerification;
     }
 

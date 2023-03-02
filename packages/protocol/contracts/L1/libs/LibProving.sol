@@ -30,10 +30,8 @@ library LibProving {
     error L1_CONFLICT_PROOF();
     error L1_ID();
     error L1_INPUT_SIZE();
-    error L1_META_MISMATCH();
+    error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
-    error L1_PROOF_LENGTH();
-    error L1_PROVER();
     error L1_TX_LIST_PROOF();
     error L1_TX_LIST_PROOF_VERIFIED();
     error L1_ZKP();
@@ -54,11 +52,9 @@ library LibProving {
 
         _checkMetadata(state, config, evidence.meta, blockId);
 
-        if (evidence.prover == address(0)) revert L1_PROVER();
-        if (evidence.zkproof.data.length == 0) revert L1_PROOF_LENGTH();
-
-        if (!config.skipValidatingHeaderForMetadata) {
+        if (!config.skipValidatingEvidence) {
             if (
+                evidence.prover == address(0) ||
                 evidence.header.parentHash == 0 ||
                 evidence.header.beneficiary != evidence.meta.beneficiary ||
                 evidence.header.difficulty != 0 ||
@@ -71,7 +67,7 @@ library LibProving {
                 keccak256(evidence.header.extraData) !=
                 keccak256(evidence.meta.extraData) ||
                 evidence.header.mixHash != evidence.meta.mixHash
-            ) revert L1_META_MISMATCH();
+            ) revert L1_INVALID_EVIDENCE();
         }
 
         // For alpha-2 testnet, the network allows any address to submit ZKP,
@@ -176,7 +172,7 @@ library LibProving {
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             meta.hashMetadata()
-        ) revert L1_META_MISMATCH();
+        ) revert L1_INVALID_EVIDENCE();
     }
 
     function _verifyZKProof(
@@ -213,9 +209,9 @@ library LibProving {
         uint256 i = list.length;
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
-        list[--i] = LibRLPWriter.writeAddress(evidence.prover);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
         list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
+        list[--i] = LibRLPWriter.writeAddress(evidence.prover);
         return keccak256(LibRLPWriter.writeList(list));
     }
 }

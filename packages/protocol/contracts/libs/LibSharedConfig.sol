@@ -53,7 +53,7 @@ library LibSharedConfig {
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
                 skipCheckingMetadata: false,
-                skipValidatingHeaderForMetadata: false,
+                skipValidatingEvidence: false,
                 skipZKPVerification: false
             });
     }
