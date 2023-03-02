@@ -10,6 +10,7 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -173,10 +174,7 @@ library LibProving {
     ) private view returns (bool verified) {
         // Do not revert when circuitId is invalid.
         address verifier = resolver.resolve(
-            string.concat(
-                "verifier_",
-                string(bytes.concat(bytes32(uint256(zkproof.circuitId))))
-            ),
+            string.concat("verifier_", Strings.toString(zkproof.circuitId)),
             true
         );
         if (verifier == address(0)) return false;
