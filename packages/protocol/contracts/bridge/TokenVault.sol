@@ -19,7 +19,6 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -406,7 +405,7 @@ contract TokenVault is EssentialContract {
             _name: string.concat(
                 canonicalToken.name,
                 unicode"(bridged🌈",
-                Strings.toString(canonicalToken.chainId),
+                string(bytes.concat(bytes32(canonicalToken.chainId))),
                 ")"
             )
         });
