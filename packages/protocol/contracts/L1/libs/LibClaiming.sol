@@ -88,13 +88,19 @@ library LibClaiming {
             } else {
                 // otherwise we have a new high bid, and can refund the previous claimer
                 // refund the previous claimer
-                currentClaim.claimer.sendEther(currentClaim.deposit);
-                emit BidRefunded(
-                    blockId,
-                    currentClaim.claimer,
-                    block.timestamp,
-                    currentClaim.deposit
-                );
+                // allow to fail, because receiver could have malicious receive() method
+                // which wont allow them to be outbid
+                (bool success, ) = payable(currentClaim.claimer).call{
+                    value: currentClaim.deposit
+                }("");
+                if (success) {
+                    emit BidRefunded(
+                        blockId,
+                        currentClaim.claimer,
+                        block.timestamp,
+                        currentClaim.deposit
+                    );
+                }
             }
         }
 
