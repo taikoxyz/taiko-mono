@@ -27,6 +27,5 @@ abstract contract TaikoCustomErrors {
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
     error L1_TX_LIST_PROOF();
-    error L1_TX_LIST_PROOF_VERIFIED();
     error L1_ZKP();
 }

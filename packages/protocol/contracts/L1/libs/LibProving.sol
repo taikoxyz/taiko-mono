@@ -30,8 +30,43 @@ library LibProving {
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
     error L1_TX_LIST_PROOF();
-    error L1_TX_LIST_PROOF_VERIFIED();
     error L1_ZKP();
+
+    function handleOracleProving(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        uint256 blockId,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        address prover
+    ) private returns (bool oracleProving) {
+        // For alpha-2 testnet, the network allows any address to submit ZKP,
+        // but a special prover can skip ZKP verification if the ZKP is empty.
+
+        TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
+            parentHash
+        ];
+
+        if (fc.blockHash == 0) {
+            address oracleProver = resolver.resolve("oracle_prover", true);
+            if (msg.sender == oracleProver) {
+                oracleProving = true;
+            } else {
+                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
+                fc.prover = prover;
+                fc.provenAt = uint64(block.timestamp);
+            }
+            fc.blockHash = blockHash;
+        } else {
+            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+
+            fc.prover = prover;
+            fc.provenAt = uint64(block.timestamp);
+        }
+
+        emit BlockProven({id: blockId, parentHash: parentHash, forkChoice: fc});
+    }
 
     function proveBlock(
         TaikoData.State storage state,
@@ -62,49 +97,22 @@ library LibProving {
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
 
-        // For alpha-2 testnet, the network allows any address to submit ZKP,
-        // but a special prover can skip ZKP verification if the ZKP is empty.
+        bool oracleProving = handleOracleProving(
+            state,
+            resolver,
+            blockId,
+            header.parentHash,
+            header.hashBlockHeader(),
+            evidence.prover
+        );
+        if (oracleProving || config.skipZKPVerification) return;
 
-        bool oracleProving;
-
-        TaikoData.ForkChoice storage fc = state.forkChoices[meta.id][
-            header.parentHash
-        ];
-
-        bytes32 blockHash = header.hashBlockHeader();
-
-        if (fc.blockHash == 0) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
-            if (msg.sender == oracleProver) {
-                oracleProving = true;
-            } else {
-                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
-                fc.prover = evidence.prover;
-                fc.provenAt = uint64(block.timestamp);
-            }
-            fc.blockHash = blockHash;
-        } else {
-            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
-
-            fc.prover = evidence.prover;
-            fc.provenAt = uint64(block.timestamp);
-        }
-
-        if (!oracleProving && !config.skipZKPVerification) {
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                _getInstance(evidence)
-            );
-            if (!verified) revert L1_ZKP();
-        }
-
-        emit BlockProven({
-            id: meta.id,
-            parentHash: header.parentHash,
-            forkChoice: fc
-        });
+        bool verified = _verifyZKProof(
+            resolver,
+            evidence.zkproof,
+            _getInstance(evidence)
+        );
+        if (!verified) revert L1_ZKP();
     }
 
     function proveBlockInvalid(
@@ -127,26 +135,22 @@ library LibProving {
             meta.txListProofHash
         ) revert L1_TX_LIST_PROOF();
 
+        bool oracleProving = handleOracleProving(
+            state,
+            resolver,
+            blockId,
+            evidence.parentHash,
+            LibUtils.BLOCK_DEADEND_HASH,
+            msg.sender
+        );
+        if (oracleProving || config.skipZKPVerification) return;
+
         bool verified = _verifyZKProof(
             resolver,
             evidence.zkproof,
             meta.txListHash
         );
-        if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
-
-        TaikoData.ForkChoice storage fc = state.forkChoices[meta.id][
-            evidence.parentHash
-        ];
-
-        fc.prover = msg.sender;
-        fc.provenAt = uint64(block.timestamp);
-        fc.blockHash = LibUtils.BLOCK_DEADEND_HASH;
-
-        emit BlockProven({
-            id: meta.id,
-            parentHash: evidence.parentHash,
-            forkChoice: fc
-        });
+        if (verified) revert L1_ZKP();
     }
 
     function _checkMetadata(
