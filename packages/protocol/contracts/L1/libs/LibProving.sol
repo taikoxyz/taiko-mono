@@ -54,23 +54,10 @@ library LibProving {
             (TaikoData.Evidence)
         );
 
-        // Check evidence
-        if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.zkproof.data.length == 0) revert L1_PROOF_LENGTH();
+        _checkMetadata(state, config, evidence.meta, blockId);
 
         if (evidence.prover == address(0)) revert L1_PROVER();
-
-        if (!config.skipCheckingMetadata) {
-            if (
-                evidence.meta.id <= state.latestVerifiedId ||
-                evidence.meta.id >= state.nextBlockId
-            ) revert L1_ID();
-            if (
-                state
-                    .getProposedBlock(config.maxNumBlocks, evidence.meta.id)
-                    .metaHash != evidence.meta.hashMetadata()
-            ) revert L1_META_MISMATCH();
-        }
+        if (evidence.zkproof.data.length == 0) revert L1_PROOF_LENGTH();
 
         if (!config.skipValidatingHeaderForMetadata) {
             if (
@@ -143,43 +130,31 @@ library LibProving {
         uint256 blockId,
         bytes[] calldata inputs
     ) internal {
-        // Check and decode inputs
+        // Check inputs
         if (inputs.length != 3) revert L1_INPUT_SIZE();
-
-        bytes calldata targetBlock = inputs[0];
+        bytes calldata metaBytes = inputs[0];
         bytes calldata txListProof = inputs[1];
         bytes32 parentHash = bytes32(inputs[2]);
 
-        TaikoData.BlockMetadata memory target = abi.decode(
-            targetBlock,
+        TaikoData.BlockMetadata memory meta = abi.decode(
+            metaBytes,
             (TaikoData.BlockMetadata)
         );
-        if (target.id != blockId) revert L1_ID();
 
-        // TODO(extract an function)
-        if (!config.skipCheckingMetadata) {
-            if (
-                target.id <= state.latestVerifiedId ||
-                target.id >= state.nextBlockId
-            ) revert L1_ID();
-            if (
-                state
-                    .getProposedBlock(config.maxNumBlocks, target.id)
-                    .metaHash != target.hashMetadata()
-            ) revert L1_META_MISMATCH();
-        }
+        _checkMetadata(state, config, meta, blockId);
 
-        if (txListProof.hashTxListProof() != target.txListProofHash)
+        if (txListProof.hashTxListProof() != meta.txListProofHash)
             revert L1_TX_LIST_PROOF();
+
         TaikoData.ZKProof memory zkproof = abi.decode(
             txListProof,
             (TaikoData.ZKProof)
         );
 
-        bool verified = _verifyZKProof(resolver, zkproof, target.txListHash);
+        bool verified = _verifyZKProof(resolver, zkproof, meta.txListHash);
         if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
 
-        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
+        TaikoData.ForkChoice storage fc = state.forkChoices[meta.id][
             parentHash
         ];
 
@@ -188,12 +163,30 @@ library LibProving {
         fc.blockHash = LibUtils.BLOCK_DEADEND_HASH;
 
         emit BlockProven({
-            id: target.id,
+            id: meta.id,
             parentHash: parentHash,
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
             prover: msg.sender,
             provenAt: uint64(block.timestamp)
         });
+    }
+
+    function _checkMetadata(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        TaikoData.BlockMetadata memory meta,
+        uint256 blockId
+    ) private view {
+        if (meta.id != blockId) revert L1_ID();
+
+        if (config.skipCheckingMetadata) return;
+
+        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
+            revert L1_ID();
+        if (
+            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
+            meta.hashMetadata()
+        ) revert L1_META_MISMATCH();
     }
 
     function _verifyZKProof(
