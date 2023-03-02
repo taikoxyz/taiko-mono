@@ -12,8 +12,8 @@
     <tr>
       <td>Tx Hash</td>
       <td class="text-right">
-        <a class="link flex items-center justify-end" target="_blank" rel="noreferrer" href={`${chains[transaction.fromChainId].explorerUrl}/tx/${transaction.ethersTx.hash}`}>
-          <span class="mr-2">{truncateString(transaction.ethersTx.hash)}</span>
+        <a class="link flex items-center justify-end" target="_blank" rel="noreferrer" href={`${chains[transaction.fromChainId].explorerUrl}/tx/${transaction.hash}`}>
+          <span class="mr-2">{truncateString(transaction.hash)}</span>
           <ArrowTopRightOnSquare />
         </a>
       </td>
