@@ -77,17 +77,14 @@ library LibBridgeProcess {
             "B:notReceived"
         );
 
+        uint256 allValue = message.depositValue +
+            message.callValue +
+            message.processingFee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (
-            ethVault != address(0) &&
-            (message.depositValue + message.callValue + message.processingFee >
-                0)
-        ) {
-            EtherVault(payable(ethVault)).releaseEther(
-                message.depositValue + message.callValue + message.processingFee
-            );
+        if (ethVault != address(0) && (allValue > 0)) {
+            EtherVault(payable(ethVault)).releaseEther(allValue);
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
@@ -111,25 +108,25 @@ library LibBridgeProcess {
                 ? gasleft()
                 : message.gasLimit;
 
-            bool success = true;
-
             if (message.data.length != 0) {
                 // this will call receiveERC20 on the tokenVault, sending the tokens to the user
-                success = LibBridgeInvoke.invokeMessageCall({
+                bool success = LibBridgeInvoke.invokeMessageCall({
                     state: state,
                     message: message,
                     msgHash: msgHash,
                     gasLimit: gasLimit
                 });
-            }
 
-            if (success) {
-                status = LibBridgeStatus.MessageStatus.DONE;
-            } else {
-                status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                if (ethVault != address(0)) {
-                    ethVault.sendEther(message.callValue);
+                if (success) {
+                    status = LibBridgeStatus.MessageStatus.DONE;
+                } else {
+                    status = LibBridgeStatus.MessageStatus.RETRIABLE;
+                    if (ethVault != address(0)) {
+                        ethVault.sendEther(message.callValue);
+                    }
                 }
+            } else {
+                status = LibBridgeStatus.MessageStatus.DONE;
             }
         }
 

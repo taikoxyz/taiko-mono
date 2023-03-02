@@ -65,20 +65,20 @@ contract AddressManager is OwnableUpgradeable {
 
     /**
      * Changes the address associated with a particular name.
-     * @param _name String name to associate an address with.
+     * @param name String name to associate an address with.
      * @param newAddress Address to associate with the name.
      */
     function setAddress(
-        string memory _name,
+        string memory name,
         address newAddress
     ) external onlyOwner {
         bytes32 nameHash;
         assembly {
-            nameHash := keccak256(add(_name, 32), mload(_name))
+            nameHash := keccak256(add(name, 32), mload(name))
         }
         address oldAddress = addresses[nameHash];
         addresses[nameHash] = newAddress;
-        emit AddressSet(_name, newAddress, oldAddress);
+        emit AddressSet(name, newAddress, oldAddress);
     }
 
     /********************
@@ -87,13 +87,13 @@ contract AddressManager is OwnableUpgradeable {
 
     /**
      * Retrieves the address associated with a given name.
-     * @param _name Name to retrieve an address for.
+     * @param name Name to retrieve an address for.
      * @return Address associated with the given name.
      */
-    function getAddress(string memory _name) external view returns (address) {
+    function getAddress(string memory name) external view returns (address) {
         bytes32 nameHash;
         assembly {
-            nameHash := keccak256(add(_name, 32), mload(_name))
+            nameHash := keccak256(add(name, 32), mload(name))
         }
         return addresses[nameHash];
     }

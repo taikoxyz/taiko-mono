@@ -90,7 +90,7 @@ library LibVerifying {
             }
 
             unchecked {
-                i++;
+                ++i;
             }
         }
 
