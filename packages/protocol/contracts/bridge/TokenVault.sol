@@ -396,9 +396,6 @@ contract TokenVault is EssentialContract {
             type(BridgedERC20).creationCode
         );
 
-        string memory chainIdStr = string(
-            bytes.concat(bytes32(canonicalToken.chainId))
-        );
         BridgedERC20(payable(bridgedToken)).init({
             _addressManager: address(_addressManager),
             _srcToken: canonicalToken.addr,
@@ -408,7 +405,7 @@ contract TokenVault is EssentialContract {
             _name: string.concat(
                 canonicalToken.name,
                 unicode"(bridged🌈",
-                chainIdStr,
+                string(bytes.concat(bytes32(canonicalToken.chainId))),
                 ")"
             )
         });
