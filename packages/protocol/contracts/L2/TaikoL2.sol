@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-
 import {IHeaderSync} from "../common/IHeaderSync.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
 
-contract TaikoL2 is  IHeaderSync {
+contract TaikoL2 is IHeaderSync {
     /**********************
      * State Variables    *
      **********************/
