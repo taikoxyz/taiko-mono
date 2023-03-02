@@ -269,8 +269,6 @@ async function generateContractConfigs(
                 addressMap
             ),
             variables: {
-                // AddressResolver
-                _addressManager: addressMap.AddressManager,
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 _publicInputHash: `${ethers.utils.solidityKeccak256(
