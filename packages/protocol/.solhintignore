@@ -6,5 +6,5 @@ contracts/libs/Lib1559Math.sol
 contracts/libs/LibAddress.sol
 contracts/libs/LibMath.sol
 contracts/libs/LibUint512Math.sol
-contracts/libs/LibSharedConfig.sol
+contracts/libs/TaikoL1Config.sol
 **/contracts/thirdparty/**/*.sol

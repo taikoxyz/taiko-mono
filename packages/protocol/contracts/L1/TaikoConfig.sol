@@ -23,7 +23,7 @@ maxNumBlocks: 61
 slotSmoothingFactor: 16789
 */
 
-library LibSharedConfig {
+library TaikoConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return
