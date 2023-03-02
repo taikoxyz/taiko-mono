@@ -109,8 +109,7 @@ library LibProving {
             (TaikoData.ZKProof)
         );
 
-        bool verified;
-
+        bool verified = _verifyZKProof(resolver, zkproof, target.txListHash);
         if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
 
         TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
@@ -203,22 +202,10 @@ library LibProving {
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
-            bytes32 instance = _getInstance(evidence);
-            address verifier = resolver.resolve(
-                string.concat(
-                    "verifier_",
-                    Strings.toString(evidence.zkproof.circuitId)
-                ),
-                false
-            );
-            (bool verified, ) = verifier.staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    evidence.zkproof.data
-                )
+            bool verified = _verifyZKProof(
+                resolver,
+                evidence.zkproof,
+                _getInstance(evidence)
             );
             if (!verified) revert L1_ZKP();
         }
@@ -232,9 +219,29 @@ library LibProving {
         });
     }
 
+    function _verifyZKProof(
+        AddressResolver resolver,
+        TaikoData.ZKProof memory zkproof,
+        bytes32 instance
+    ) private view returns (bool verified) {
+        address verifier = resolver.resolve(
+            string.concat("verifier_", Strings.toString(zkproof.circuitId)),
+            false
+        );
+        (verified, ) = verifier.staticcall(
+            bytes.concat(
+                bytes16(0),
+                bytes16(instance), // left 16 bytes of the given instance
+                bytes16(0),
+                bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                zkproof.data
+            )
+        );
+    }
+
     function _getInstance(
         TaikoData.Evidence memory evidence
-    ) internal pure returns (bytes32) {
+    ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
             5
