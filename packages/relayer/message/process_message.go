@@ -84,6 +84,8 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
 
+	relayer.EventsProcessed.Inc()
+
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
 	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
@@ -99,6 +101,12 @@ func (p *Processor) ProcessMessage(
 	}
 
 	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
+
+	if messageStatus == uint8(relayer.EventStatusRetriable) {
+		relayer.RetriableEvents.Inc()
+	} else if messageStatus == uint8(relayer.EventStatusDone) {
+		relayer.DoneEvents.Inc()
+	}
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {
@@ -128,18 +136,18 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
-	if err != nil {
-		return nil, errors.Wrap(err, "p.isProfitable")
-	}
+	// profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "p.isProfitable")
+	// }
 
-	if bool(p.profitableOnly) && !profitable {
-		return nil, relayer.ErrUnprofitable
-	}
+	// if bool(p.profitableOnly) && !profitable {
+	// 	return nil, relayer.ErrUnprofitable
+	// }
 
-	if gas != 0 {
-		auth.GasLimit = gas
-	}
+	// if gas != 0 {
+	auth.GasLimit = 2500000
+	// }
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
