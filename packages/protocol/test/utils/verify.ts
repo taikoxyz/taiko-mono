@@ -82,7 +82,7 @@ async function verifyBlockAndAssert(
     return { newProofReward };
 }
 
-async function commitProposeProveAndVerify(
+async function proposeProveAndVerify(
     taikoL1: TaikoL1,
     l2Provider: ethersLib.providers.JsonRpcProvider,
     blockNumber: number,
@@ -132,4 +132,4 @@ async function commitProposeProveAndVerify(
     return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
 }
 
-export { verifyBlocks, verifyBlockAndAssert, commitProposeProveAndVerify };
+export { verifyBlocks, verifyBlockAndAssert, proposeProveAndVerify };

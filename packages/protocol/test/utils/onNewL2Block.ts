@@ -6,7 +6,7 @@ import sleep from "./sleep";
 
 // onNewL2Block should be called from a tokenomics test case when a new block
 // is generated from the l2Provider.
-// It will commit then propose the block to the TaikoL1 contract,
+// It will propose the block to the TaikoL1 contract,
 // and then return the latest fee information and the proposal event,
 // which can then be asserted on depending on your test case.
 async function onNewL2Block(
@@ -25,7 +25,7 @@ async function onNewL2Block(
     const config = await taikoL1.getConfig();
 
     const block = await l2Provider.getBlock(blockNumber);
-    const { proposedEvent } = await proposer.commitThenProposeBlock(block);
+    const { proposedEvent } = await proposer.proposeBlock(block);
     const { id, meta } = proposedEvent.args;
 
     const { enableTokenomics } = await taikoL1.getConfig();

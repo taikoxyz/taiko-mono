@@ -23,7 +23,6 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0; // dont verify blocks automatically
-        config.commitConfirmations = 1;
         config.blockMaxGasLimit = 30000000;
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 10240;

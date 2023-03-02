@@ -21,37 +21,17 @@ library LibProposing {
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_COMMITTED();
     error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
     error L1_METADATA_FIELD();
-    error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
 
-    function commitBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 commitSlot,
-        bytes32 commitHash
-    ) internal {
-        assert(config.commitConfirmations > 0);
-
-        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
-
-        if (state.commits[msg.sender][commitSlot] == hash)
-            revert L1_COMMITTED();
-
-        state.commits[msg.sender][commitSlot] = hash;
-
-        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
-    }
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -72,24 +52,6 @@ library LibProposing {
             inputs[0],
             (TaikoData.BlockMetadata)
         );
-
-        if (config.commitConfirmations > 0) {
-            bytes32 commitHash = keccak256(
-                bytes.concat(
-                    bytes32(uint256(uint160(meta.beneficiary))),
-                    meta.txListHash
-                )
-            );
-            bool valid = isCommitValid({
-                state: state,
-                commitConfirmations: config.commitConfirmations,
-                commitSlot: meta.commitSlot,
-                commitHeight: meta.commitHeight,
-                commitHash: commitHash
-            });
-
-            if (!valid) revert L1_NOT_COMMITTED();
-        }
 
         {
             if (
@@ -200,20 +162,6 @@ library LibProposing {
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
-    function isCommitValid(
-        TaikoData.State storage state,
-        uint256 commitConfirmations,
-        uint256 commitSlot,
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) internal view returns (bool) {
-        assert(commitConfirmations > 0);
-        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
-        return
-            state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + commitConfirmations;
-    }
-
     function getProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
@@ -225,10 +173,5 @@ library LibProposing {
         return state.getProposedBlock(maxNumBlocks, id);
     }
 
-    function _aggregateCommitHash(
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) private pure returns (bytes32) {
-        return keccak256(bytes.concat(commitHash, bytes32(commitHeight)));
-    }
+
 }

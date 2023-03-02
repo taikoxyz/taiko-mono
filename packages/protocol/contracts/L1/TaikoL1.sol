@@ -49,24 +49,6 @@ contract TaikoL1 is
         });
     }
 
-    /**
-     * Write a _commit hash_ so a few blocks later a L2 block can be proposed
-     * such that `calculateCommitHash(meta.beneficiary, meta.txListHash)` equals
-     * to this commit hash.
-     *
-     * @param commitSlot A slot to save this commit. Slot 0 will always be reset
-     *                   to zero for refund.
-     * @param commitHash Calculated with:
-     *                  `calculateCommitHash(beneficiary, txListHash)`.
-     */
-    function commitBlock(uint64 commitSlot, bytes32 commitHash) external {
-        LibProposing.commitBlock({
-            state: state,
-            config: getConfig(),
-            commitSlot: commitSlot,
-            commitHash: commitHash
-        });
-    }
 
     /**
      * Propose a Taiko L2 block.
@@ -204,21 +186,6 @@ contract TaikoL1 is
             provenAt: provenAt,
             proposedAt: proposedAt
         });
-    }
-
-    function isCommitValid(
-        uint256 commitSlot,
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) public view returns (bool) {
-        return
-            LibProposing.isCommitValid(
-                state,
-                getConfig().commitConfirmations,
-                commitSlot,
-                commitHeight,
-                commitHash
-            );
     }
 
     function getProposedBlock(

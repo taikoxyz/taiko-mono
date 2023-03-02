@@ -17,7 +17,6 @@ library TaikoData {
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 commitConfirmations;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
@@ -53,8 +52,6 @@ library TaikoData {
         bytes extraData;
         uint64 gasLimit;
         uint64 timestamp;
-        uint64 commitHeight;
-        uint64 commitSlot;
     }
 
     struct Evidence {
@@ -88,8 +85,6 @@ library TaikoData {
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
-        // solhint-disable-next-line max-line-length
-        mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
         // solhint-disable-next-line max-line-length
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed

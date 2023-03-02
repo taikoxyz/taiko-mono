@@ -10,8 +10,6 @@ type BlockMetadata = {
     extraData: string;
     gasLimit: BigNumberish;
     timestamp: number;
-    commitSlot: number;
-    commitHeight: number;
 };
 
 type ForkChoice = {
