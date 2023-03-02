@@ -55,12 +55,16 @@ library TaikoData {
         uint64 timestamp;
     }
 
+    struct ZKProof {
+        bytes data;
+        uint16 circuitId;
+    }
+
     struct Evidence {
         TaikoData.BlockMetadata meta;
         BlockHeader header;
         address prover;
-        bytes zkproof;
-        uint16 circuitId;
+        ZKProof zkproof;
     }
 
     // 3 slots

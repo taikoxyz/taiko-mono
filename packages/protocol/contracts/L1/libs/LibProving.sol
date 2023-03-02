@@ -15,6 +15,7 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
     using LibBlockHeader for BlockHeader;
+    using LibUtils for bytes;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
@@ -35,6 +36,8 @@ library LibProving {
     error L1_NOT_ORACLE_PROVER();
     error L1_PROOF_LENGTH();
     error L1_PROVER();
+    error L1_TX_LIST_PROOF();
+    error L1_TX_LIST_PROOF_VERIFIED();
     error L1_ZKP();
 
     function proveBlock(
@@ -53,7 +56,7 @@ library LibProving {
 
         // Check evidence
         if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
+        if (evidence.zkproof.data.length == 0) revert L1_PROOF_LENGTH();
 
         // ZK-prove block and mark block proven to be valid.
         _proveBlock({
@@ -74,24 +77,56 @@ library LibProving {
         bytes[] calldata inputs
     ) internal {
         // Check and decode inputs
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
-        TaikoData.Evidence memory evidence = abi.decode(
-            inputs[0],
-            (TaikoData.Evidence)
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
+
+        bytes calldata targetBlock = inputs[0];
+        bytes calldata txListProof = inputs[1];
+        bytes32 parentHash = bytes32(inputs[2]);
+
+        TaikoData.BlockMetadata memory target = abi.decode(
+            targetBlock,
+            (TaikoData.BlockMetadata)
+        );
+        if (target.id != blockId) revert L1_ID();
+
+        // TODO(extract an function)
+        if (!config.skipCheckingMetadata) {
+            if (
+                target.id <= state.latestVerifiedId ||
+                target.id >= state.nextBlockId
+            ) revert L1_ID();
+            if (
+                state
+                    .getProposedBlock(config.maxNumBlocks, target.id)
+                    .metaHash != target.hashMetadata()
+            ) revert L1_META_MISMATCH();
+        }
+
+        if (txListProof.hashTxListProof() != target.txListProofHash)
+            revert L1_TX_LIST_PROOF();
+        TaikoData.ZKProof memory zkproof = abi.decode(
+            txListProof,
+            (TaikoData.ZKProof)
         );
 
-        // Check evidence
-        if (evidence.meta.id != blockId) revert L1_ID();
-        if (evidence.zkproof.length == 0) revert L1_PROOF_LENGTH();
+        bool verified;
 
-        // ZK-prove block and mark block proven as invalid.
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            evidence: evidence,
-            target: abi.decode(inputs[1], (TaikoData.BlockMetadata)),
-            blockHashOverride: LibUtils.BLOCK_DEADEND_HASH
+        if (verified) revert L1_TX_LIST_PROOF_VERIFIED();
+
+        TaikoData.ForkChoice storage fc = state.forkChoices[target.id][
+            parentHash
+        ];
+
+        fc.prover = msg.sender;
+        fc.provenAt = uint64(block.timestamp);
+        fc.blockHash = LibUtils.BLOCK_DEADEND_HASH;
+
+        emit BlockProven({
+            id: target.id,
+            parentHash: parentHash,
+            blockHash: LibUtils.BLOCK_DEADEND_HASH,
+            prover: msg.sender,
+            provenAt: uint64(block.timestamp)
         });
     }
 
@@ -172,7 +207,7 @@ library LibProving {
             address verifier = resolver.resolve(
                 string.concat(
                     "verifier_",
-                    Strings.toString(evidence.circuitId)
+                    Strings.toString(evidence.zkproof.circuitId)
                 ),
                 false
             );
@@ -182,7 +217,7 @@ library LibProving {
                     bytes16(instance), // left 16 bytes of the given instance
                     bytes16(0),
                     bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    evidence.zkproof
+                    evidence.zkproof.data
                 )
             );
             if (!verified) revert L1_ZKP();

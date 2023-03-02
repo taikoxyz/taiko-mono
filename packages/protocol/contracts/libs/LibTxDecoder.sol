@@ -143,16 +143,6 @@ library LibTxDecoder {
         }
     }
 
-    function hashTxList(bytes calldata txList) internal pure returns (bytes32) {
-        return keccak256(txList);
-    }
-
-    function hashTxListProof(
-        bytes calldata txListProof
-    ) internal pure returns (bytes32) {
-        return keccak256(txListProof);
-    }
-
     function decodeLegacyTx(
         uint256 chainId,
         LibRLPReader.RLPItem[] memory body

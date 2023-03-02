@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -16,8 +15,8 @@ import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
-    using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
+    using LibUtils for bytes;
     using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
@@ -76,7 +75,7 @@ library LibProposing {
             bytes calldata txListProof = inputs[2];
             if (
                 txListProof.length == 0 ||
-                meta.txListProofHash != txList.hashTxListProof()
+                meta.txListProofHash != txListProof.hashTxListProof()
             ) revert L1_TX_LIST_PROOF();
 
             if (
