@@ -11,7 +11,6 @@ abstract contract TaikoCustomErrors {
     error L1_ZERO_FEE_BASE();
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_NUMBER();
-    error L1_CANNOT_BE_FIRST_PROVER();
     error L1_CONFLICT_PROOF();
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
@@ -27,5 +26,5 @@ abstract contract TaikoCustomErrors {
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST();
     error L1_TX_LIST_PROOF();
-    error L1_ZKP();
+    error L1_BLOCK_PROOF();
 }

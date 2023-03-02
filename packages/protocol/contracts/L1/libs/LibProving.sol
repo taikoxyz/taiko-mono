@@ -24,7 +24,6 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_CANNOT_BE_FIRST_PROVER();
     error L1_CONFLICT_PROOF();
     error L1_ID();
     error L1_INVALID_EVIDENCE();
