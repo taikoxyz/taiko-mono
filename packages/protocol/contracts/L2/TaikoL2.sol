@@ -6,17 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import {AddressResolver} from "../common/AddressResolver.sol";
 import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
 import {TaikoData} from "../L1/TaikoData.sol";
 
-contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
+contract TaikoL2 is  IHeaderSync {
     /**********************
      * State Variables    *
      **********************/
@@ -44,18 +38,15 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
-    error L2_INVALID_SENDER();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager) {
+    constructor() {
         if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
-        AddressResolver._init(_addressManager);
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;

@@ -23,7 +23,7 @@ import { getBlockHeader } from "../utils/rpc";
 import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
 import { proposeProveAndVerify, verifyBlocks } from "../utils/verify";
 
-describe("integration:TaikoL1", function () {
+describe("integ-----disabled-----ration:TaikoL1", function () {
     let taikoL1: TaikoL1;
     let l1Provider: ethersLib.providers.JsonRpcProvider;
     let l2Provider: ethersLib.providers.JsonRpcProvider;

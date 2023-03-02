@@ -300,28 +300,6 @@ export async function deployContracts(hre: any) {
     return deployments;
 }
 
-// async function deployBaseLibs(hre: any) {
-//     const libReceiptDecoder = await utils.deployContract(
-//         hre,
-//         "LibReceiptDecoder"
-//     );
-//     const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
-
-//     const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
-//     const libProposing = await utils.deployContract(hre, "LibProposing", {});
-
-//     const libProving = await utils.deployContract(hre, "LibProving", {
-//         LibReceiptDecoder: libReceiptDecoder.address,
-//         LibTxDecoder: libTxDecoder.address,
-//     });
-
-//     return {
-//         LibVerifying: libVerifying.address,
-//         LibProposing: libProposing.address,
-//         LibProving: libProving.address,
-//     };
-// }
-
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
     const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
     const libBridgeRetry = await utils.deployContract(hre, "LibBridgeRetry");
