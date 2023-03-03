@@ -21,7 +21,8 @@ contract FreeMintERC20 is ERC20 {
         if (minters[msg.sender]) {
             revert HasMinted();
         }
+
         minters[msg.sender] = true;
-        _mint(to, 5 * (10 ** decimals()));
+        _mint(to, 50 * (10 ** decimals()));
     }
 }
