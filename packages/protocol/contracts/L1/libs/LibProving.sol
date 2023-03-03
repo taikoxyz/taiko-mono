@@ -69,14 +69,14 @@ library LibProving {
             prover: evidence.prover
         });
 
-        if (!oracleProving && !config.skipZKPVerification) {
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                _getInstance(evidence)
-            );
-            if (!verified) revert L1_BLOCK_PROOF();
-        }
+        if (oracleProving || config.skipZKPVerification) return;
+
+        bool verified = _verifyZKProof(
+            resolver,
+            evidence.zkproof,
+            _getInstance(evidence)
+        );
+        if (!verified) revert L1_BLOCK_PROOF();
     }
 
     function proveBlockInvalid(
@@ -108,14 +108,14 @@ library LibProving {
             prover: msg.sender
         });
 
-        if (!oracleProving && !config.skipZKPVerification) {
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                meta.txListHash
-            );
-            if (verified) revert L1_TX_LIST_PROOF();
-        }
+        if (oracleProving || config.skipZKPVerification) return;
+
+        bool verified = _verifyZKProof(
+            resolver,
+            evidence.zkproof,
+            meta.txListHash
+        );
+        if (verified) revert L1_TX_LIST_PROOF();
     }
 
     function _proveBlock(
