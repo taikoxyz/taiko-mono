@@ -59,7 +59,7 @@ library LibVerifying {
         for (
             uint256 i = state.latestVerifiedId + 1;
             i < state.nextBlockId && processed < maxBlocks;
-            i++
+            ++i
         ) {
             TaikoData.ForkChoice storage fc = state.forkChoices[i][
                 latestL2Hash
@@ -84,6 +84,9 @@ library LibVerifying {
                 emit BlockVerified(i, fc.blockHash);
 
                 // clean up the fork choice
+                // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
+                // may still reduce the gas cost if the block is proven and
+                // fianlized in the same L1 transaction.
                 fc.blockHash = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
