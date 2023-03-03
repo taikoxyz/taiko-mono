@@ -199,7 +199,10 @@ contract TaikoL1 is
     function getSyncedSignalStorageRoot(
         uint256 number
     ) public view override returns (bytes32) {
-        return state.getL2SyncData(number, getConfig().blockHashHistory).sssr;
+        return
+            state
+                .getL2SyncData(number, getConfig().blockHashHistory)
+                .signalStorageRoot;
     }
 
     function getStateVariables()

@@ -66,7 +66,10 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: header.parentHash,
-            syncData: SyncData(header.hashBlockHeader(), evidence.sssr),
+            syncData: SyncData(
+                header.hashBlockHeader(),
+                evidence.signalStorageRoot
+            ),
             prover: evidence.prover
         });
 
@@ -149,7 +152,7 @@ library LibProving {
         } else {
             if (
                 fc.syncData.blockHash != syncData.blockHash ||
-                fc.syncData.sssr != syncData.sssr
+                fc.syncData.signalStorageRoot != syncData.signalStorageRoot
             ) revert L1_CONFLICT_PROOF();
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
@@ -217,7 +220,7 @@ library LibProving {
         list[--i] = LibRLPWriter.writeHash(
             bytes32(uint256(uint160(l2SignalServiceAddress)))
         );
-        list[--i] = LibRLPWriter.writeHash(evidence.sssr);
+        list[--i] = LibRLPWriter.writeHash(evidence.signalStorageRoot);
         // All L1 related inputs:
 
         list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));

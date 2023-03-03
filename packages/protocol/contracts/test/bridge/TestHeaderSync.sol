@@ -24,6 +24,6 @@ contract TestHeaderSync is IHeaderSync {
     function getSyncedSignalStorageRoot(
         uint256
     ) external view returns (bytes32) {
-        return syncData.sssr;
+        return syncData.signalStorageRoot;
     }
 }

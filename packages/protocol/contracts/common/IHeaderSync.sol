@@ -13,7 +13,7 @@ pragma solidity ^0.8.18;
 
 struct SyncData {
     bytes32 blockHash;
-    bytes32 sssr;
+    bytes32 signalStorageRoot;
 }
 
 interface IHeaderSync {

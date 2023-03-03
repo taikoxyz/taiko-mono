@@ -89,7 +89,7 @@ library LibVerifying {
                 // may still reduce the gas cost if the block is proven and
                 // fianlized in the same L1 transaction.
                 fc.syncData.blockHash = 0;
-                fc.syncData.sssr = 0;
+                fc.syncData.signalStorageRoot = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
             }
