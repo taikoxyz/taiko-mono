@@ -13,24 +13,24 @@ import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
 
 class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
-  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>) {
+  private readonly baseUrl: string;
+  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>, baseUrl: string) {
     this.providerMap = providerMap;
+    this.baseUrl = baseUrl;
   }
 
   async GetAllByAddress(address: string, chainID?: number): Promise<BridgeTransaction[]> {
     if(!address) {
      throw new Error("Address need to passed to fetch transactions");
     }
-    let params = `address=${address}`;
-
-    if(chainID) {
-      params += `&chainID=${chainID}`;
+    const params = {
+      address,
+      chainID,
     }
 
+    const requestURL = `${this.baseUrl}events`;
     
-    const requestURL = `${import.meta.env.VITE_RELAYER_URL}events?${params}`;
-    
-    const { data } = await axios.get(requestURL);
+    const { data } = await axios.get(requestURL, { params });
 
     if(data.length === 0) {
       return [];
@@ -175,7 +175,7 @@ class RelayerAPIService implements RelayerAPI {
   }
 
   async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
-    const requestURL = `${import.meta.env.VITE_RELAYER_URL}blockInfo`;
+    const requestURL = `${this.baseUrl}blockInfo`;
     const { data } = await axios.get(requestURL);
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
     if(data?.data.length > 0) {

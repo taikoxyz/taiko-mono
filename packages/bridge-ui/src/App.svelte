@@ -134,7 +134,7 @@
     providerMap
   );
 
-  const relayerApiService: RelayerAPI = new RelayerAPIService(providerMap);
+  const relayerApiService: RelayerAPI = new RelayerAPIService(providerMap, import.meta.env.VITE_RELAYER_URL);
 
   const tokenStore: TokenService = new CustomTokenService(
     window.localStorage,
