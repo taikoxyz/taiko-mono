@@ -55,7 +55,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         EssentialContract._init(_addressManager);
         l1ChainId = _l1ChainId;
 
-        if (block.chainid == 0 && block.chainid == _l1ChainId) {
+        if (block.chainid == 0 || block.chainid == _l1ChainId) {
             revert L2_INVALID_CHAIN_ID();
         }
 
