@@ -25,16 +25,17 @@
 
   async function isBtnDisabled(signer: Signer) {
     if (!signer) return;
+
     const balance = await signer.getBalance();
+    const address = await signer.getAddress();
+
     const contract = new ethers.Contract(
       $token.addresses[0].address,
       MintableERC20,
       signer
     );
 
-    const gas = await contract.estimateGas.mint(
-      ethers.utils.parseEther("1000")
-    );
+    const gas = await contract.estimateGas.mint(address);
     const gasPrice = await signer.getGasPrice();
     const estimatedGas = BigNumber.from(gas).mul(gasPrice);
     if (balance.lt(estimatedGas)) {
@@ -60,7 +61,9 @@
         $signer
       );
 
-      const tx = await contract.mint(ethers.utils.parseEther("1000"));
+      const address = await $signer.getAddress();
+      const tx = await contract.mint(address);
+
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
