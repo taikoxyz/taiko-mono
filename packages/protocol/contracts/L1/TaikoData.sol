@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {BlockHeader} from "../libs/LibBlockHeader.sol";
+import {SyncData} from "../common/IHeaderSync.sol";
 
 library TaikoData {
     struct Config {
@@ -81,8 +82,7 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        bytes32 blockHash;
-        bytes32 sssr;
+        SyncData syncData;
         address prover;
         uint64 provenAt;
     }
@@ -93,8 +93,7 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
-        mapping(uint256 blockNumber => bytes32 storageRoot) l2Sssrs;
+        mapping(uint256 blockNumber => SyncData) l2SyncData;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;
@@ -116,6 +115,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[41] __gap;
+        uint256[42] __gap;
     }
 }

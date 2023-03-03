@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {IHeaderSync, SyncData} from "../common/IHeaderSync.sol";
 
 contract TaikoL2 is EssentialContract, IHeaderSync {
     /**********************
@@ -18,13 +18,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    // Mapping from L1 block numbers to their block hashes.
-    // Note that only hashes of L1 blocks where at least one L2
-    // block has been proposed will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
-
-    // Known L1 SignalService storage roots.
-    mapping(uint256 blockNumber => bytes32 storageRoot) private _l1Sssrs;
+    mapping(uint256 blockNumber => SyncData) private _l1SyncData;
 
     uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
@@ -33,7 +27,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
-    uint256[44] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -93,15 +87,15 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
-        _l1Hashes[l1Height] = l1Hash;
-        _l1Sssrs[l1Height] = l1Sssr;
+        SyncData memory syncData = SyncData(l1Hash, l1Sssr);
+        _l1SyncData[l1Height] = syncData;
 
         // A circuit will verify the integratity among:
         // l1Hash, l1Sssr, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
 
-        emit HeaderSynced(l1Height, l1Hash, l1Sssr);
+        emit HeaderSynced(l1Height, syncData);
     }
 
     /**********************
@@ -111,11 +105,15 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     function getSyncedBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
-        return _l1Hashes[number];
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1SyncData[_number].blockHash;
     }
 
-    function getLatestSyncedBlockHash() public view override returns (bytes32) {
-        return _l1Hashes[latestSyncedL1Height];
+    function getSyncedSignalStorageRoot(
+        uint256 number
+    ) public view override returns (bytes32) {
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1SyncData[_number].sssr;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {

@@ -10,14 +10,18 @@ pragma solidity ^0.8.18;
  * Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes
  * the methods needed to access the block hashes of the other chain.
  */
+
+struct SyncData {
+    bytes32 blockHash;
+    bytes32 sssr;
+}
+
 interface IHeaderSync {
-    event HeaderSynced(
-        uint256 indexed srcHeight,
-        bytes32 srcBlockHash,
-        bytes32 srcSssr
-    );
+    event HeaderSynced(uint256 indexed srcHeight, SyncData srcSyncData);
 
     function getSyncedBlockHash(uint256 number) external view returns (bytes32);
 
-    function getLatestSyncedBlockHash() external view returns (bytes32);
+    function getSyncedSignalStorageRoot(
+        uint256 number
+    ) external view returns (bytes32);
 }

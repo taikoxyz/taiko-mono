@@ -11,6 +11,7 @@ import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {SyncData} from "../../common/IHeaderSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -65,8 +66,7 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: header.parentHash,
-            blockHash: header.hashBlockHeader(),
-            sssr: evidence.sssr,
+            syncData: SyncData(header.hashBlockHeader(), evidence.sssr),
             prover: evidence.prover
         });
 
@@ -110,8 +110,7 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: evidence.parentHash,
-            blockHash: LibUtils.BLOCK_DEADEND_HASH,
-            sssr: 0,
+            syncData: SyncData(LibUtils.BLOCK_DEADEND_HASH, 0),
             prover: msg.sender
         });
 
@@ -130,15 +129,14 @@ library LibProving {
         AddressResolver resolver,
         uint256 blockId,
         bytes32 parentHash,
-        bytes32 blockHash,
-        bytes32 sssr,
+        SyncData memory syncData,
         address prover
     ) private returns (bool oracleProving) {
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
         ];
 
-        if (fc.blockHash == 0) {
+        if (fc.syncData.blockHash == 0) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (msg.sender == oracleProver) {
                 oracleProving = true;
@@ -147,11 +145,13 @@ library LibProving {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
-            fc.blockHash = blockHash;
-            fc.sssr = sssr;
+            fc.syncData = syncData;
         } else {
-            if (fc.blockHash != blockHash || fc.sssr != sssr)
-                revert L1_CONFLICT_PROOF();
+            if (
+                fc.syncData.blockHash != syncData.blockHash ||
+                fc.syncData.sssr != syncData.sssr
+            ) revert L1_CONFLICT_PROOF();
+
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
             fc.prover = prover;

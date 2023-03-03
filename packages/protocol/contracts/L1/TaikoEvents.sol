@@ -7,10 +7,11 @@
 pragma solidity ^0.8.18;
 
 import {TaikoData} from "./TaikoData.sol";
+import {SyncData} from "../common/IHeaderSync.sol";
 
 abstract contract TaikoEvents {
     // The following events must match the definitions in other V1 libraries.
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(uint256 indexed id, SyncData syncData);
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 

@@ -192,15 +192,14 @@ contract TaikoL1 is
     function getSyncedBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
-        return state.getL2BlockHash(number, getConfig().blockHashHistory);
+        return
+            state.getL2SyncData(number, getConfig().blockHashHistory).blockHash;
     }
 
-    function getLatestSyncedBlockHash() public view override returns (bytes32) {
-        return
-            state.getL2BlockHash(
-                state.latestVerifiedHeight,
-                getConfig().blockHashHistory
-            );
+    function getSyncedSignalStorageRoot(
+        uint256 number
+    ) public view override returns (bytes32) {
+        return state.getL2SyncData(number, getConfig().blockHashHistory).sssr;
     }
 
     function getStateVariables()

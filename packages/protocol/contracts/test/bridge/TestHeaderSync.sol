@@ -6,22 +6,24 @@
 
 pragma solidity ^0.8.18;
 
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {IHeaderSync, SyncData} from "../../common/IHeaderSync.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
 contract TestHeaderSync is IHeaderSync {
-    bytes32 public blockHash;
+    SyncData public syncData;
 
-    function setSyncedHeader(bytes32 _blockHash) external {
-        blockHash = _blockHash;
+    function setSyncedHeader(SyncData calldata _syncData) external {
+        syncData = _syncData;
     }
 
     function getSyncedBlockHash(uint256) external view returns (bytes32) {
-        return blockHash;
+        return syncData.blockHash;
     }
 
-    function getLatestSyncedBlockHash() external view returns (bytes32) {
-        return blockHash;
+    function getSyncedSignalStorageRoot(
+        uint256
+    ) external view returns (bytes32) {
+        return syncData.sssr;
     }
 }
