@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {IHeaderSync} from "../../common/IHeaderSync.sol";
+import {ISnippetSync} from "../../common/ISnippetSync.sol";
 import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
@@ -79,8 +79,9 @@ library LibBridgeStatus {
             proof,
             (LibBridgeData.StatusProof)
         );
-        bytes32 syncedHeaderHash = IHeaderSync(resolver.resolve("taiko", false))
-            .getSyncedBlockHash(sp.header.height);
+        bytes32 syncedHeaderHash = ISnippetSync(
+            resolver.resolve("taiko", false)
+        ).getSyncedBlockHash(sp.header.height);
 
         if (
             syncedHeaderHash == 0 ||

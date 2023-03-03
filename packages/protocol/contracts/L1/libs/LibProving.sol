@@ -11,7 +11,7 @@ import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {SyncData} from "../../common/IHeaderSync.sol";
+import {Snippet} from "../../common/ISnippetSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -66,7 +66,7 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: header.parentHash,
-            syncData: SyncData(
+            snippet: Snippet(
                 header.hashBlockHeader(),
                 evidence.signalStorageRoot
             ),
@@ -113,7 +113,7 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: evidence.parentHash,
-            syncData: SyncData(LibUtils.BLOCK_DEADEND_HASH, 0),
+            snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
             prover: msg.sender
         });
 
@@ -132,14 +132,14 @@ library LibProving {
         AddressResolver resolver,
         uint256 blockId,
         bytes32 parentHash,
-        SyncData memory syncData,
+        Snippet memory snippet,
         address prover
     ) private returns (bool oracleProving) {
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
         ];
 
-        if (fc.syncData.blockHash == 0) {
+        if (fc.snippet.blockHash == 0) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (msg.sender == oracleProver) {
                 oracleProving = true;
@@ -148,11 +148,11 @@ library LibProving {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
-            fc.syncData = syncData;
+            fc.snippet = snippet;
         } else {
             if (
-                fc.syncData.blockHash != syncData.blockHash ||
-                fc.syncData.signalStorageRoot != syncData.signalStorageRoot
+                fc.snippet.blockHash != snippet.blockHash ||
+                fc.snippet.signalStorageRoot != snippet.signalStorageRoot
             ) revert L1_CONFLICT_PROOF();
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();

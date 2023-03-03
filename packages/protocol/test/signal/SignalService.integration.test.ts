@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { TestHeaderSync } from "../../typechain";
+import { TestSnippetSync } from "../../typechain";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 import { getBlockHeader } from "../utils/rpc";
@@ -54,8 +54,8 @@ describe("integration:SignalService", function () {
             l1SignalService.address
         );
 
-        const headerSync: TestHeaderSync = await (
-            await ethers.getContractFactory("TestHeaderSync")
+        const headerSync: TestSnippetSync = await (
+            await ethers.getContractFactory("TestSnippetSync")
         )
             .connect(l2Signer)
             .deploy();

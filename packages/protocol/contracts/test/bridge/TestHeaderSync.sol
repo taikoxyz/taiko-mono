@@ -6,24 +6,24 @@
 
 pragma solidity ^0.8.18;
 
-import {IHeaderSync, SyncData} from "../../common/IHeaderSync.sol";
+import {ISnippetSync, Snippet} from "../../common/ISnippetSync.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
-contract TestHeaderSync is IHeaderSync {
-    SyncData public syncData;
+contract TestSnippetSync is ISnippetSync {
+    Snippet public snippet;
 
-    function setSyncedHeader(SyncData calldata _syncData) external {
-        syncData = _syncData;
+    function setSyncedHeader(Snippet calldata _snippet) external {
+        snippet = _snippet;
     }
 
     function getSyncedBlockHash(uint256) external view returns (bytes32) {
-        return syncData.blockHash;
+        return snippet.blockHash;
     }
 
     function getSyncedSignalStorageRoot(
         uint256
     ) external view returns (bytes32) {
-        return syncData.signalStorageRoot;
+        return snippet.signalStorageRoot;
     }
 }

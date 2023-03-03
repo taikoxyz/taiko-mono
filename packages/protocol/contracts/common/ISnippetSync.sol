@@ -11,13 +11,13 @@ pragma solidity ^0.8.18;
  * the methods needed to access the block hashes of the other chain.
  */
 
-struct SyncData {
+struct Snippet {
     bytes32 blockHash;
     bytes32 signalStorageRoot;
 }
 
-interface IHeaderSync {
-    event HeaderSynced(uint256 indexed srcHeight, SyncData srcSyncData);
+interface ISnippetSync {
+    event SnippetSynced(uint256 indexed srcHeight, Snippet srcSnippet);
 
     function getSyncedBlockHash(uint256 number) external view returns (bytes32);
 

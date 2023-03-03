@@ -7,9 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IHeaderSync, SyncData} from "../common/IHeaderSync.sol";
+import {ISnippetSync, Snippet} from "../common/ISnippetSync.sol";
 
-contract TaikoL2 is EssentialContract, IHeaderSync {
+contract TaikoL2 is EssentialContract, ISnippetSync {
     /**********************
      * State Variables    *
      **********************/
@@ -18,7 +18,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    mapping(uint256 blockNumber => SyncData) private _l1SyncData;
+    mapping(uint256 blockNumber => Snippet) private _l1Snippet;
 
     uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
@@ -91,15 +91,15 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
-        SyncData memory syncData = SyncData(l1Hash, l1SignalStorageRoot);
-        _l1SyncData[l1Height] = syncData;
+        Snippet memory snippet = Snippet(l1Hash, l1SignalStorageRoot);
+        _l1Snippet[l1Height] = snippet;
 
         // A circuit will verify the integratity among:
         // l1Hash, l1SignalStorageRoot, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
 
-        emit HeaderSynced(l1Height, syncData);
+        emit SnippetSynced(l1Height, snippet);
     }
 
     /**********************
@@ -110,14 +110,14 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1SyncData[_number].blockHash;
+        return _l1Snippet[_number].blockHash;
     }
 
     function getSyncedSignalStorageRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1SyncData[_number].signalStorageRoot;
+        return _l1Snippet[_number].signalStorageRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
