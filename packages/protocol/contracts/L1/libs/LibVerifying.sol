@@ -184,9 +184,9 @@ library LibVerifying {
                     (bool success, ) = payable(fc.prover).call{
                         value: claim.deposit / 2
                     }("");
-                    // burn half
+                    // burn half, or entire one if .call reverted
                     address(0).sendEther(
-                        success ? claim.deposit : claim.deposit / 2
+                        success ? claim.deposit / 2 : claim.deposit
                     );
                 } else {
                     // TODO: i think if we change to TKOToken transfer we can just add
