@@ -58,24 +58,31 @@ export const TKO: Token = {
   logoComponent: Tko,
 };
 
-export const TEST_ERC20: Token = {
-  name: import.meta.env ? import.meta.env.VITE_TEST_ERC20_NAME_MAINNET : "Bull Token",
-  addresses: [
-    {
-      chainId: CHAIN_MAINNET.id,
-      address: import.meta.env
-        ? import.meta.env.VITE_TEST_ERC20_ADDRESS_MAINNET
-        : "0x1B5Ccd66cc2408A0084047720167F6234Dc5498A",
-    },
-    {
-      chainId: CHAIN_TKO.id,
-      address: "0x00",
-    },
-  ],
-  decimals: 18,
-  symbol: import.meta.env ? import.meta.env.VITE_TEST_ERC20_SYMBOL_MAINNET : "BULL",
-  logoComponent: Horse,
-};
+export let TEST_ERC20: Token[] = (() => {
+  try {
+    return JSON
+      .parse(import.meta.env.VITE_TEST_ERC20)
+      .map(({ name, address, symbol }) => ({
+        name,
+        addresses: [
+          {
+            chainId: CHAIN_MAINNET.id,
+            address,
+          },
+          {
+            chainId: CHAIN_TKO.id,
+            address: "0x00",
+          },
+        ],
+        decimals: 18,
+        symbol,
+        logoComponent: Horse,
+      }))
+  } catch (e) {
+    // TODO: Default item?
+    return []
+  }
+})()
 
 export interface TokenService {
   StoreToken(
@@ -86,4 +93,4 @@ export interface TokenService {
   RemoveToken(token: Token, address: string): Token[],
 }
 
-export const tokens = [ETH, TEST_ERC20];
+export const tokens = [ETH, ...TEST_ERC20];

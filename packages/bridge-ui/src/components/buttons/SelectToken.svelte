@@ -94,8 +94,8 @@
 </script>
 
 <div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
-  <label
-    tabindex="0"
+  <button
+    id="tokensDropdown"
     class="flex items-center justify-center hover:cursor-pointer"
   >
     {#if $token.logoComponent}
@@ -105,10 +105,10 @@
     {/if}
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevronDown size='20' />
-  </label>
+  </button>
   <ul
-    tabindex="0"
     class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2"
+    aria-labelledby="tokensDropdown"
   >
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5 px-4 py-4 rounded-none">
