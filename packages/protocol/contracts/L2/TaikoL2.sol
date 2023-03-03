@@ -23,6 +23,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // block has been proposed will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
 
+    // Known L1 SignalService storage roots.
     mapping(uint256 blockNumber => bytes32 storageRoot) private _l1Sssrs;
 
     uint256 public l1ChainId;
@@ -32,7 +33,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
-    uint256[46] private __gap;
+    uint256[44] private __gap;
 
     /**********************
      * Events and Errors  *

@@ -89,14 +89,12 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        // some blocks' hashes won't be persisted,
-        // only the latest one if verified in a batch
-        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
-        mapping(uint256 blockNumber => bytes32 storageRoot) l2SignalServiceStorageRoots;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
+        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
+        mapping(uint256 blockNumber => bytes32 storageRoot) l2SignalServiceStorageRoots;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;
@@ -118,6 +116,6 @@ library TaikoData {
         uint64 avgProofTime;
         uint64 __reservedC1;
         // Reserved
-        uint256[42] __gap;
+        uint256[41] __gap;
     }
 }
