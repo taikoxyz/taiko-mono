@@ -106,6 +106,7 @@ library LibVerifying {
                 state.l2Hashes[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
+
                 emit HeaderSynced(latestL2Height, latestL2Hash);
             }
         }
