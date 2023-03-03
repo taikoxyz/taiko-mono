@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {BlockHeader} from "../libs/LibBlockHeader.sol";
-import {Snippet} from "../common/ISnippetSync.sol";
+import {Snippet} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct Config {

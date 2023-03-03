@@ -5,7 +5,7 @@ import {
     Bridge,
     SignalService,
     EtherVault,
-    TestSnippetSync,
+    TestXchainSync,
     LibTrieProof,
 } from "../../typechain";
 import { MessageStatusChangedEvent } from "../../typechain/LibBridgeStatus";
@@ -108,7 +108,7 @@ async function processMessage(
     l2Bridge: Bridge,
     signal: string,
     provider: ethers.providers.JsonRpcProvider,
-    headerSync: TestSnippetSync,
+    headerSync: TestXchainSync,
     message: Message
 ): Promise<{
     tx: ethers.ContractTransaction;
@@ -143,7 +143,7 @@ async function processMessage(
 
 async function sendAndProcessMessage(
     provider: ethers.providers.JsonRpcProvider,
-    headerSync: TestSnippetSync,
+    headerSync: TestXchainSync,
     m: Message,
     l1SignalService: SignalService,
     l1Bridge: Bridge,

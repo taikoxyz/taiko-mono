@@ -10,7 +10,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {Snippet} from "../../common/ISnippetSync.sol";
+import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibUtils {

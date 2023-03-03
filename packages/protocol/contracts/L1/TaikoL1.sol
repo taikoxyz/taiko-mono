@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {ISnippetSync} from "../common/ISnippetSync.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
 import {TaikoConfig} from "./TaikoConfig.sol";
 import {TaikoData} from "./TaikoData.sol";
@@ -21,7 +21,7 @@ import {AddressResolver} from "../common/AddressResolver.sol";
 
 contract TaikoL1 is
     EssentialContract,
-    ISnippetSync,
+    IXchainSync,
     TaikoEvents,
     TaikoCustomErrors
 {

@@ -7,9 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {ISnippetSync, Snippet} from "../common/ISnippetSync.sol";
+import {IXchainSync, Snippet} from "../common/IXchainSync.sol";
 
-contract TaikoL2 is EssentialContract, ISnippetSync {
+contract TaikoL2 is EssentialContract, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
@@ -99,7 +99,7 @@ contract TaikoL2 is EssentialContract, ISnippetSync {
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
 
-        emit SnippetSynced(l1Height, snippet);
+        emit XchainSynced(l1Height, snippet);
     }
 
     /**********************

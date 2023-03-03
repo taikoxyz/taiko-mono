@@ -14,14 +14,14 @@ import {
 
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
-import {Snippet} from "../../common/ISnippetSync.sol";
+import {Snippet} from "../../common/IXchainSync.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
     event BlockVerified(uint256 indexed id, Snippet snippet);
-    event SnippetSynced(uint256 indexed srcHeight, Snippet snippet);
+    event XchainSynced(uint256 indexed srcHeight, Snippet snippet);
 
     error L1_ZERO_FEE_BASE();
 
@@ -42,7 +42,7 @@ library LibVerifying {
         state.l2Snippets[0] = snippet;
 
         emit BlockVerified(0, snippet);
-        emit SnippetSynced(0, snippet);
+        emit XchainSynced(0, snippet);
     }
 
     function verifyBlocks(
@@ -109,7 +109,7 @@ library LibVerifying {
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Snippet;
 
-                emit SnippetSynced(latestL2Height, latestL2Snippet);
+                emit XchainSynced(latestL2Height, latestL2Snippet);
             }
         }
     }

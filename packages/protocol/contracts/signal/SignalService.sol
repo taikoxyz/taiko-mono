@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {ISnippetSync} from "../common/ISnippetSync.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibBlockHeader, BlockHeader} from "../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../libs/LibTrieProof.sol";
 import {ISignalService} from "./ISignalService.sol";
@@ -80,7 +80,7 @@ contract SignalService is ISignalService, EssentialContract {
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedHeaderHash = ISnippetSync(resolve("taiko", false))
+        bytes32 syncedHeaderHash = IXchainSync(resolve("taiko", false))
             .getSyncedBlockHash(sp.header.height);
 
         return

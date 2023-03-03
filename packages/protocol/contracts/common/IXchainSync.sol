@@ -16,8 +16,8 @@ struct Snippet {
     bytes32 signalStorageRoot;
 }
 
-interface ISnippetSync {
-    event SnippetSynced(uint256 indexed srcHeight, Snippet srcSnippet);
+interface IXchainSync {
+    event XchainSynced(uint256 indexed srcHeight, Snippet srcSnippet);
 
     function getSyncedBlockHash(uint256 number) external view returns (bytes32);
 
