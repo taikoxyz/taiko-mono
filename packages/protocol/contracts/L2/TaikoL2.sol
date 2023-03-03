@@ -96,8 +96,10 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         _l1Hashes[l1Height] = l1Hash;
         _l1Sssrs[l1Height] = l1Sssr;
 
-        // A circuit will verify the integratity of:
-        // l1Hash, l1Sssr, and l1SignalService
+        // A circuit will verify the integratity among:
+        // l1Hash, l1Sssr, and l1SignalServiceAddress
+        // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
+        // instance.
 
         emit HeaderSynced(l1Height, l1Hash, l1Sssr);
     }
