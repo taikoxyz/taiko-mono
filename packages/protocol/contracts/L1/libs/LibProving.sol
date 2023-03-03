@@ -73,6 +73,7 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             bytes32 instance = _getInstance(
                 evidence,
+                resolver.resolve("signal_service", false),
                 resolver.resolve(config.chainId, "signal_service", false)
             );
             bool verified = _verifyZKProof(
@@ -203,16 +204,20 @@ library LibProving {
 
     function _getInstance(
         TaikoData.ValidBlockEvidence memory evidence,
+        address l1SignalServiceAddress,
         address l2SignalServiceAddress
     ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            6
+            8
         );
 
         uint256 i = list.length;
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
+        list[--i] = LibRLPWriter.writeHash(
+            bytes32(uint256(uint160(l1SignalServiceAddress)))
+        );
         list[--i] = LibRLPWriter.writeHash(
             bytes32(uint256(uint160(l2SignalServiceAddress)))
         );

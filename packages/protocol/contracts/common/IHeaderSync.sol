@@ -11,7 +11,11 @@ pragma solidity ^0.8.18;
  * the methods needed to access the block hashes of the other chain.
  */
 interface IHeaderSync {
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
+    event HeaderSynced(
+        uint256 indexed srcHeight,
+        bytes32 srcHash,
+        bytes32 sssr
+    );
 
     function getSyncedHeader(uint256 number) external view returns (bytes32);
 

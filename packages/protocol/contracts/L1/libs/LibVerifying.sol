@@ -20,7 +20,11 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
+    event HeaderSynced(
+        uint256 indexed srcHeight,
+        bytes32 srcHash,
+        bytes32 sssr
+    );
 
     error L1_ZERO_FEE_BASE();
 
@@ -39,7 +43,7 @@ library LibVerifying {
         state.l2Hashes[0] = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(0, genesisBlockHash);
+        emit HeaderSynced(0, genesisBlockHash, 0);
     }
 
     function verifyBlocks(
@@ -51,7 +55,7 @@ library LibVerifying {
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
         ];
-        bytes32 latestL2Sssr = state.l2SignalServiceStorageRoots[
+        bytes32 latestL2Sssr = state.l2Sssrs[
             latestL2Height % config.blockHashHistory
         ];
         uint64 processed;
@@ -109,11 +113,11 @@ library LibVerifying {
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
 
-                state.l2SignalServiceStorageRoots[
+                state.l2Sssrs[
                     latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
+                ] = latestL2Sssr;
 
-                emit HeaderSynced(latestL2Height, latestL2Hash);
+                emit HeaderSynced(latestL2Height, latestL2Hash, latestL2Sssr);
             }
         }
     }

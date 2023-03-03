@@ -107,7 +107,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
         // l1SssrProof
         _l1Sssrs[l1Height] = l1Sssr;
 
-        emit HeaderSynced(l1Height, l1Hash);
+        emit HeaderSynced(l1Height, l1Hash, l1Sssr);
     }
 
     /**********************

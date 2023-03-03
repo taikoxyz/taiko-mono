@@ -94,7 +94,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
-        mapping(uint256 blockNumber => bytes32 storageRoot) l2SignalServiceStorageRoots;
+        mapping(uint256 blockNumber => bytes32 storageRoot) l2Sssrs;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;
