@@ -1,6 +1,5 @@
 <script lang="ts">
   import { BigNumber, ethers, logger, Signer } from "ethers";
-  import { TEST_ERC20 } from "../../domain/token";
   import { pendingTransactions } from "../../store/transactions";
   import { signer } from "../../store/signer";
   import { errorToast, successToast } from "../../utils/toast";
@@ -28,7 +27,7 @@
     if (!signer) return;
     const balance = await signer.getBalance();
     const contract = new ethers.Contract(
-      TEST_ERC20.addresses[0].address,
+      $token.addresses[0].address,
       MintableERC20,
       signer
     );
@@ -47,7 +46,7 @@
 
   async function mint() {
     try {
-      if ($fromChain.id !== TEST_ERC20.addresses[0].chainId) {
+      if ($fromChain.id !== $token.addresses[0].chainId) {
         await switchNetwork({
           chainId: CHAIN_MAINNET.id,
         });
@@ -56,7 +55,7 @@
         signer.set(wagmiSigner);
       }
       const contract = new ethers.Contract(
-        TEST_ERC20.addresses[0].address,
+        $token.addresses[0].address,
         MintableERC20,
         $signer
       );

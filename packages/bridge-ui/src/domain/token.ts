@@ -3,6 +3,7 @@ import type { ComponentType } from "svelte";
 import Tko from "../components/icons/TKO.svelte";
 import { CHAIN_MAINNET, CHAIN_TKO } from "./chain";
 import Horse from "../components/icons/Horse.svelte";
+import Bull from "../components/icons/Bull.svelte";
 
 type Address = {
   chainId: number;
@@ -76,7 +77,7 @@ export let TEST_ERC20: Token[] = (() => {
         ],
         decimals: 18,
         symbol,
-        logoComponent: Horse,
+        logoComponent: symbol === 'HORSE' ? Horse : Bull,
       }))
   } catch (e) {
     // TODO: Default item?
