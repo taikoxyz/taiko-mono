@@ -76,7 +76,7 @@ function getDateTime(timestamp: string): string {
 
 export default function BlogSection(): JSX.Element {
   const [posts, setPosts] = useState<Post[]>([]);
-  useEffect(() => {
+  if (posts.length < 3) {
     fetch("/api/getPosts")
       .then((response) => response.json())
       .then((json) => {
@@ -84,7 +84,7 @@ export default function BlogSection(): JSX.Element {
         json = json.slice(0, 3);
         setPosts(json);
       });
-  },[]);
+  }
 
   return (
     <div className="relative bg-neutral-50 px-4 pt-16 pb-20 sm:px-6 lg:px-8 lg:pt-24 lg:pb-28 dark:bg-neutral-800">
