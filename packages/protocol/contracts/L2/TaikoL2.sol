@@ -6,10 +6,10 @@
 
 pragma solidity ^0.8.18;
 
+import {EssentialContract} from "../common/EssentialContract.sol";
 import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {TaikoData} from "../L1/TaikoData.sol";
 
-contract TaikoL2 is IHeaderSync {
+contract TaikoL2 is EssentialContract, IHeaderSync {
     /**********************
      * State Variables    *
      **********************/
@@ -23,6 +23,10 @@ contract TaikoL2 is IHeaderSync {
     // block has been proposed will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
 
+    mapping(uint256 blockNumber => bytes32 storageRoot)
+        private _l1SignalServiceStorageRoots;
+
+    uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
 
@@ -44,8 +48,16 @@ contract TaikoL2 is IHeaderSync {
      * Constructor         *
      **********************/
 
-    constructor() {
-        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
+    function init(
+        address _addressManager,
+        uint256 _l1ChainId
+    ) external initializer {
+        EssentialContract._init(_addressManager);
+        l1ChainId = _l1ChainId;
+
+        if (block.chainid == 0 && block.chainid == _l1ChainId) {
+            revert L2_INVALID_CHAIN_ID();
+        }
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
@@ -75,12 +87,27 @@ contract TaikoL2 is IHeaderSync {
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
+     * @param l1SignalServiceStorageRoot The latest value of the L1 signal service
+     *        storage root.
+     * @param l1SignalServiceStorageRootProof Merkel proof for l1SignalServiceStorageRoot.
      */
-    function anchor(uint256 l1Height, bytes32 l1Hash) external {
+    function anchor(
+        uint256 l1Height,
+        bytes32 l1Hash,
+        bytes32 l1SignalServiceStorageRoot,
+        bytes calldata l1SignalServiceStorageRootProof
+    ) external {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
+
+        address l1SignalService = resolve(l1ChainId, "signal_service", false);
+        // TODO(daniel): perform merkle verification to check the consistency among:
+        // l1Hash, l1SignalService, and l1SignalServiceStorageRoot using
+        // l1SignalServiceStorageRootProof
+        _l1SignalServiceStorageRoots[l1Height] = l1SignalServiceStorageRoot;
+
         emit HeaderSynced(l1Height, l1Hash);
     }
 
