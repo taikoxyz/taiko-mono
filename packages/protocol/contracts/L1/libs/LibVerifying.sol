@@ -22,7 +22,7 @@ library LibVerifying {
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event HeaderSynced(
         uint256 indexed srcHeight,
-        bytes32 srcHash,
+        bytes32 srcBlockHash,
         bytes32 srcSssr
     );
 

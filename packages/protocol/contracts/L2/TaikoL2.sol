@@ -108,13 +108,13 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
      * Public Functions   *
      **********************/
 
-    function getSyncedHeader(
+    function getSyncedBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
         return _l1Hashes[number];
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
+    function getLatestSyncedBlockHash() public view override returns (bytes32) {
         return _l1Hashes[latestSyncedL1Height];
     }
 

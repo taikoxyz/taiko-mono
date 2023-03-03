@@ -13,11 +13,11 @@ pragma solidity ^0.8.18;
 interface IHeaderSync {
     event HeaderSynced(
         uint256 indexed srcHeight,
-        bytes32 srcHash,
+        bytes32 srcBlockHash,
         bytes32 srcSssr
     );
 
-    function getSyncedHeader(uint256 number) external view returns (bytes32);
+    function getSyncedBlockHash(uint256 number) external view returns (bytes32);
 
-    function getLatestSyncedHeader() external view returns (bytes32);
+    function getLatestSyncedBlockHash() external view returns (bytes32);
 }
