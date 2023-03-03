@@ -16,22 +16,22 @@ describe("TaikoL1", function () {
         taikoL1 = await deployTaikoL1(addressManager, genesisHash, false);
     });
 
-    describe("getLatestSyncedHeader()", async function () {
+    describe("getSyncedBlockHash(0)", async function () {
         it("should be genesisHash because no headers have been synced", async function () {
-            const hash = await taikoL1.getLatestSyncedHeader();
+            const hash = await taikoL1.getSyncedBlockHash(0);
             expect(hash).to.be.eq(genesisHash);
         });
     });
 
-    describe("getSyncedHeader()", async function () {
+    describe("getSyncedBlockHash()", async function () {
         it("should revert because header number has not been synced", async function () {
-            await expect(taikoL1.getSyncedHeader(1)).to.be.revertedWith(
+            await expect(taikoL1.getSyncedBlockHash(1)).to.be.revertedWith(
                 "L1_BLOCK_NUMBER()"
             );
         });
 
         it("should return appropraite hash for header", async function () {
-            const hash = await taikoL1.getSyncedHeader(0);
+            const hash = await taikoL1.getSyncedBlockHash(0);
             expect(hash).to.be.eq(genesisHash);
         });
     });
