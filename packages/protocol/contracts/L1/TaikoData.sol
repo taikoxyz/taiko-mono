@@ -61,6 +61,7 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The block proof
         BlockHeader header;
+        bytes32 signalServiceStorageRoot;
         address prover;
     }
 
@@ -81,6 +82,7 @@ library TaikoData {
     // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
+        bytes32 signalServiceStorageRoot;
         address prover;
         uint64 provenAt;
     }
@@ -90,6 +92,7 @@ library TaikoData {
         // some blocks' hashes won't be persisted,
         // only the latest one if verified in a batch
         mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
+        mapping(uint256 blockNumber => bytes32 storageRoot) l2SignalServiceStorageRoots;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;

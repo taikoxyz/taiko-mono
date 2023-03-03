@@ -23,8 +23,7 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
     // block has been proposed will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
 
-    mapping(uint256 blockNumber => bytes32 storageRoot)
-        private _l1SignalServiceStorageRoots;
+    mapping(uint256 blockNumber => bytes32 storageRoot) private _l1Sssrs;
 
     uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
@@ -87,15 +86,14 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
-     * @param l1SignalServiceStorageRoot The latest value of the L1 signal service
-     *        storage root.
-     * @param l1SignalServiceStorageRootProof Merkel proof for l1SignalServiceStorageRoot.
+     * @param l1Sssr The latest value of the L1 "signal service storage root".
+     * @param l1SssrProof Merkel proof for l1Sssr.
      */
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
-        bytes32 l1SignalServiceStorageRoot,
-        bytes calldata l1SignalServiceStorageRootProof
+        bytes32 l1Sssr,
+        bytes calldata l1SssrProof
     ) external {
         _checkPublicInputs();
 
@@ -104,9 +102,9 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
 
         address l1SignalService = resolve(l1ChainId, "signal_service", false);
         // TODO(daniel): perform merkle verification to check the consistency among:
-        // l1Hash, l1SignalService, and l1SignalServiceStorageRoot using
-        // l1SignalServiceStorageRootProof
-        _l1SignalServiceStorageRoots[l1Height] = l1SignalServiceStorageRoot;
+        // l1Hash, l1SignalService, and l1Sssr using
+        // l1SssrProof
+        _l1Sssrs[l1Height] = l1Sssr;
 
         emit HeaderSynced(l1Height, l1Hash);
     }

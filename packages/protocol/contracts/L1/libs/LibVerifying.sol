@@ -15,9 +15,6 @@ import {
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
-/**
- * LibVerifying.
- */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
@@ -54,6 +51,9 @@ library LibVerifying {
         bytes32 latestL2Hash = state.l2Hashes[
             latestL2Height % config.blockHashHistory
         ];
+        bytes32 latestL2Sssr = state.l2SignalServiceStorageRoots[
+            latestL2Height % config.blockHashHistory
+        ];
         uint64 processed;
 
         for (
@@ -72,13 +72,14 @@ library LibVerifying {
             if (fc.prover == address(0)) {
                 break;
             } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock({
+                (latestL2Height, latestL2Hash, latestL2Sssr) = _verifyBlock({
                     state: state,
                     config: config,
                     fc: fc,
                     target: target,
                     latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
+                    latestL2Hash: latestL2Hash,
+                    latestL2Sssr: latestL2Sssr
                 });
                 processed += 1;
                 emit BlockVerified(i, fc.blockHash);
@@ -88,6 +89,7 @@ library LibVerifying {
                 // may still reduce the gas cost if the block is proven and
                 // fianlized in the same L1 transaction.
                 fc.blockHash = 0;
+                fc.signalServiceStorageRoot = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
             }
@@ -104,6 +106,10 @@ library LibVerifying {
                 // verified hash is the only one needed checking the existence
                 // of a cross-chain message with a merkle proof.
                 state.l2Hashes[
+                    latestL2Height % config.blockHashHistory
+                ] = latestL2Hash;
+
+                state.l2SignalServiceStorageRoots[
                     latestL2Height % config.blockHashHistory
                 ] = latestL2Hash;
 
@@ -159,8 +165,16 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
         uint64 latestL2Height,
-        bytes32 latestL2Hash
-    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
+        bytes32 latestL2Hash,
+        bytes32 latestL2Sssr
+    )
+        private
+        returns (
+            uint64 _latestL2Height,
+            bytes32 _latestL2Hash,
+            bytes32 _latestL2Sssr
+        )
+    {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
@@ -218,9 +232,11 @@ library LibVerifying {
         if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
             _latestL2Height = latestL2Height + 1;
             _latestL2Hash = fc.blockHash;
+            _latestL2Sssr = fc.signalServiceStorageRoot;
         } else {
             _latestL2Height = latestL2Height;
             _latestL2Hash = latestL2Hash;
+            _latestL2Sssr = latestL2Sssr;
         }
     }
 }

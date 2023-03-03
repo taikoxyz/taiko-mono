@@ -66,14 +66,19 @@ library LibProving {
             blockId: blockId,
             parentHash: header.parentHash,
             blockHash: header.hashBlockHeader(),
+            signalServiceStorageRoot: evidence.signalServiceStorageRoot,
             prover: evidence.prover
         });
 
         if (!oracleProving && !config.skipZKPVerification) {
+            bytes32 instance = _getInstance(
+                evidence,
+                resolver.resolve(config.chainId, "signal_service", false)
+            );
             bool verified = _verifyZKProof(
                 resolver,
                 evidence.zkproof,
-                _getInstance(evidence)
+                instance
             );
             if (!verified) revert L1_BLOCK_PROOF();
         }
@@ -105,6 +110,7 @@ library LibProving {
             blockId: blockId,
             parentHash: evidence.parentHash,
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
+            signalServiceStorageRoot: 0,
             prover: msg.sender
         });
 
@@ -124,6 +130,7 @@ library LibProving {
         uint256 blockId,
         bytes32 parentHash,
         bytes32 blockHash,
+        bytes32 signalServiceStorageRoot,
         address prover
     ) private returns (bool oracleProving) {
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
@@ -140,8 +147,12 @@ library LibProving {
                 fc.provenAt = uint64(block.timestamp);
             }
             fc.blockHash = blockHash;
+            fc.signalServiceStorageRoot = signalServiceStorageRoot;
         } else {
-            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
+            if (
+                fc.blockHash != blockHash ||
+                fc.signalServiceStorageRoot != signalServiceStorageRoot
+            ) revert L1_CONFLICT_PROOF();
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
             fc.prover = prover;
@@ -191,16 +202,21 @@ library LibProving {
     }
 
     function _getInstance(
-        TaikoData.ValidBlockEvidence memory evidence
+        TaikoData.ValidBlockEvidence memory evidence,
+        address l2SignalServiceAddress
     ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            5
+            6
         );
 
         uint256 i = list.length;
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
+        list[--i] = LibRLPWriter.writeHash(
+            bytes32(uint256(uint160(l2SignalServiceAddress)))
+        );
+        list[--i] = LibRLPWriter.writeHash(evidence.signalServiceStorageRoot);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
         list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
         list[--i] = LibRLPWriter.writeAddress(evidence.prover);
