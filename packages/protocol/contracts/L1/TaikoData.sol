@@ -61,7 +61,7 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The block proof
         BlockHeader header;
-        bytes32 signalServiceStorageRoot;
+        bytes32 sssr;
         address prover;
     }
 
@@ -82,7 +82,7 @@ library TaikoData {
     // 3 + n slots
     struct ForkChoice {
         bytes32 blockHash;
-        bytes32 signalServiceStorageRoot;
+        bytes32 sssr;
         address prover;
         uint64 provenAt;
     }

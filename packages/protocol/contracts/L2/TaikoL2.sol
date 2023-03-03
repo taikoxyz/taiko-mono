@@ -88,24 +88,16 @@ contract TaikoL2 is EssentialContract, IHeaderSync {
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1Sssr The latest value of the L1 "signal service storage root".
-     * @param l1SssrProof Merkel proof for l1Sssr.
      */
-    function anchor(
-        uint256 l1Height,
-        bytes32 l1Hash,
-        bytes32 l1Sssr,
-        bytes calldata l1SssrProof
-    ) external {
+    function anchor(uint256 l1Height, bytes32 l1Hash, bytes32 l1Sssr) external {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
         _l1Hashes[l1Height] = l1Hash;
-
-        address l1SignalService = resolve(l1ChainId, "signal_service", false);
-        // TODO(daniel): perform merkle verification to check the consistency among:
-        // l1Hash, l1SignalService, and l1Sssr using
-        // l1SssrProof
         _l1Sssrs[l1Height] = l1Sssr;
+
+        // A circuit will verify the integratity of:
+        // l1Hash, l1Sssr, and l1SignalService
 
         emit HeaderSynced(l1Height, l1Hash, l1Sssr);
     }

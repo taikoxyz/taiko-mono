@@ -93,7 +93,7 @@ library LibVerifying {
                 // may still reduce the gas cost if the block is proven and
                 // fianlized in the same L1 transaction.
                 fc.blockHash = 0;
-                fc.signalServiceStorageRoot = 0;
+                fc.sssr = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
             }
@@ -236,7 +236,7 @@ library LibVerifying {
         if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
             _latestL2Height = latestL2Height + 1;
             _latestL2Hash = fc.blockHash;
-            _latestL2Sssr = fc.signalServiceStorageRoot;
+            _latestL2Sssr = fc.sssr;
         } else {
             _latestL2Height = latestL2Height;
             _latestL2Hash = latestL2Hash;

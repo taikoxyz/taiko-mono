@@ -66,7 +66,7 @@ library LibProving {
             blockId: blockId,
             parentHash: header.parentHash,
             blockHash: header.hashBlockHeader(),
-            signalServiceStorageRoot: evidence.signalServiceStorageRoot,
+            sssr: evidence.sssr,
             prover: evidence.prover
         });
 
@@ -111,7 +111,7 @@ library LibProving {
             blockId: blockId,
             parentHash: evidence.parentHash,
             blockHash: LibUtils.BLOCK_DEADEND_HASH,
-            signalServiceStorageRoot: 0,
+            sssr: 0,
             prover: msg.sender
         });
 
@@ -131,7 +131,7 @@ library LibProving {
         uint256 blockId,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalServiceStorageRoot,
+        bytes32 sssr,
         address prover
     ) private returns (bool oracleProving) {
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
@@ -148,12 +148,10 @@ library LibProving {
                 fc.provenAt = uint64(block.timestamp);
             }
             fc.blockHash = blockHash;
-            fc.signalServiceStorageRoot = signalServiceStorageRoot;
+            fc.sssr = sssr;
         } else {
-            if (
-                fc.blockHash != blockHash ||
-                fc.signalServiceStorageRoot != signalServiceStorageRoot
-            ) revert L1_CONFLICT_PROOF();
+            if (fc.blockHash != blockHash || fc.sssr != sssr)
+                revert L1_CONFLICT_PROOF();
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
             fc.prover = prover;
@@ -213,18 +211,24 @@ library LibProving {
         );
 
         uint256 i = list.length;
+        // All L2 related inputs
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
         list[--i] = LibRLPWriter.writeHash(
-            bytes32(uint256(uint160(l1SignalServiceAddress)))
-        );
-        list[--i] = LibRLPWriter.writeHash(
             bytes32(uint256(uint160(l2SignalServiceAddress)))
         );
-        list[--i] = LibRLPWriter.writeHash(evidence.signalServiceStorageRoot);
-        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        list[--i] = LibRLPWriter.writeHash(evidence.sssr);
+        // All L1 related inputs:
+
         list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
+        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        list[--i] = LibRLPWriter.writeHash(
+            bytes32(uint256(uint160(l1SignalServiceAddress)))
+        );
+
+        // Other inputs
         list[--i] = LibRLPWriter.writeAddress(evidence.prover);
+
         return keccak256(LibRLPWriter.writeList(list));
     }
 }
