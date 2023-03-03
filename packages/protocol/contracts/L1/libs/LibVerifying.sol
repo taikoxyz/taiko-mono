@@ -173,6 +173,34 @@ library LibVerifying {
                     proposedAt: target.proposedAt
                 });
 
+                TaikoData.Claim storage claim = state.claims[blockId];
+
+                // refund claimer deposit
+                if (fc.prover != claim.claimer) {
+                    // allow to fail in case they have bad receive() method to prevent
+                    // block from being verified.
+                    // TODO: i think if we change to TKOToken transfer we can just add
+                    // this to the reward and save gas.
+                    (bool success, ) = payable(fc.prover).call{
+                        value: claim.deposit / 2
+                    }("");
+                    // burn half
+                    address(0).sendEther(
+                        success ? claim.deposit : claim.deposit / 2
+                    );
+                } else {
+                    // TODO: i think if we change to TKOToken transfer we can just add
+                    // this to the reward and save gas
+                    (bool success, ) = payable(fc.prover).call{
+                        value: claim.deposit
+                    }("");
+                    if (!success) {
+                        address(0).sendEther(claim.deposit);
+                    }
+                }
+
+                // TODO: the current idea nullifies the reward to 1 wei if you have
+                // 0 TKO. this would also nullify the deposit.
                 // reward the prover
                 if (reward > 0) {
                     if (state.balances[fc.prover] == 0) {
@@ -194,15 +222,6 @@ library LibVerifying {
                     } else {
                         state.balances[target.proposer] += refund;
                     }
-                }
-
-                TaikoData.Claim storage claim = state.claims[blockId];
-
-                if (fc.prover != claim.claimer) {
-                    fc.prover.sendEther(claim.deposit / 2);
-                    payable(0).transfer(claim.deposit / 2);
-                } else {
-                    claim.claimer.sendEther(claim.deposit);
                 }
             }
             // Update feeBase and avgProofTime
