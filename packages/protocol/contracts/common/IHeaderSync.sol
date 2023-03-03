@@ -14,7 +14,7 @@ interface IHeaderSync {
     event HeaderSynced(
         uint256 indexed srcHeight,
         bytes32 srcHash,
-        bytes32 sssr
+        bytes32 srcSssr
     );
 
     function getSyncedHeader(uint256 number) external view returns (bytes32);

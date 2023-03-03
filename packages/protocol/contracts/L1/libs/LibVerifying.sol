@@ -23,7 +23,7 @@ library LibVerifying {
     event HeaderSynced(
         uint256 indexed srcHeight,
         bytes32 srcHash,
-        bytes32 sssr
+        bytes32 srcSssr
     );
 
     error L1_ZERO_FEE_BASE();
