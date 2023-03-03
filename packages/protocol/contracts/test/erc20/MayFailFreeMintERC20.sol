@@ -24,7 +24,7 @@ contract MayFailFreeMintERC20 is ERC20 {
         }
 
         minters[msg.sender] = true;
-        _mint(to, 5 * (10 ** decimals()));
+        _mint(to, 50 * (10 ** decimals()));
     }
 
     function transfer(
