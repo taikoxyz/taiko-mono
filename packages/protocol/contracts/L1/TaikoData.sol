@@ -62,7 +62,7 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The block proof
         BlockHeader header;
-        bytes32 signalStorageRoot;
+        bytes32 signalRoot;
         address prover;
     }
 

@@ -81,21 +81,21 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
-     * @param l1SignalStorageRoot The latest value of the L1 "signal service storage root".
+     * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
-        bytes32 l1SignalStorageRoot
+        bytes32 l1SignalRoot
     ) external {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
-        Snippet memory snippet = Snippet(l1Hash, l1SignalStorageRoot);
+        Snippet memory snippet = Snippet(l1Hash, l1SignalRoot);
         _l1Snippet[l1Height] = snippet;
 
         // A circuit will verify the integratity among:
-        // l1Hash, l1SignalStorageRoot, and l1SignalServiceAddress
+        // l1Hash, l1SignalRoot, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
 
@@ -113,11 +113,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         return _l1Snippet[_number].blockHash;
     }
 
-    function getSyncedSignalStorageRoot(
+    function getSyncedSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1Snippet[_number].signalStorageRoot;
+        return _l1Snippet[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {

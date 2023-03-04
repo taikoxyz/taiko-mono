@@ -21,9 +21,7 @@ contract TestXchainSync is IXchainSync {
         return snippet.blockHash;
     }
 
-    function getSyncedSignalStorageRoot(
-        uint256
-    ) external view returns (bytes32) {
-        return snippet.signalStorageRoot;
+    function getSyncedSignalRoot(uint256) external view returns (bytes32) {
+        return snippet.signalRoot;
     }
 }

@@ -13,7 +13,7 @@ pragma solidity ^0.8.18;
 
 struct Snippet {
     bytes32 blockHash;
-    bytes32 signalStorageRoot;
+    bytes32 signalRoot;
 }
 
 interface IXchainSync {
@@ -21,7 +21,7 @@ interface IXchainSync {
 
     function getSyncedBlockHash(uint256 number) external view returns (bytes32);
 
-    function getSyncedSignalStorageRoot(
+    function getSyncedSignalRoot(
         uint256 number
     ) external view returns (bytes32);
 }
