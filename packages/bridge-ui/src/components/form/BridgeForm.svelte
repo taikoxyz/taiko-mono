@@ -177,6 +177,7 @@
 
       return balanceAvailableForTx.gte(requiredGas);
     } catch (e) {
+      console.log(e);
       return false;
     }
   }

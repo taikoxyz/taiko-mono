@@ -65,6 +65,8 @@ export let TEST_ERC20: Token[] = (() => {
       .parse(import.meta.env.VITE_TEST_ERC20)
       .map(({ name, address, symbol }) => ({
         name,
+        symbol,
+
         addresses: [
           {
             chainId: CHAIN_MAINNET.id,
@@ -76,14 +78,15 @@ export let TEST_ERC20: Token[] = (() => {
           },
         ],
         decimals: 18,
-        symbol,
+
+        // TODO: how about multiple tokens?
         logoComponent: symbol === 'HORSE' ? Horse : Bull,
       }))
   } catch (e) {
-    // TODO: Default item?
+    // TODO: can we have a default token?
     return []
   }
-})()
+})();
 
 export interface TokenService {
   StoreToken(

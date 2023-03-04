@@ -10,7 +10,7 @@ import { chainIdToTokenVaultAddress } from "../store/bridge";
 import { get } from "svelte/store";
 import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import { ProcessingFeeMethod } from "../domain/fee";
-import { ETH, TEST_ERC20 } from "../domain/token";
+import { ETH, type Token } from "../domain/token";
 import { signer } from "../store/signer";
 import {
   erc20DeployedGasLimit,
@@ -18,6 +18,7 @@ import {
   ethGasLimit,
   recommendProcessingFee,
 } from "./recommendProcessingFee";
+import type { ComponentType } from "svelte";
 
 jest.mock("svelte/store", () => ({
   ...(jest.requireActual("svelte/store") as object),
@@ -49,7 +50,25 @@ const mockProvider = {
   },
 };
 
-const mockSigner = {};
+const mockSigner = {} as Signer;
+
+const mockToken: Token = {
+  name: 'Mocked Token',
+  symbol: 'MT',
+
+  addresses: [
+    {
+      chainId: 31336,
+      address: '0x3435A6180fBB1BAEc87bDC49915282BfBC328C70',
+    },
+    {
+      chainId: 167001,
+      address: '0x00',
+    },
+  ],
+  decimals: 18,
+  logoComponent: {} as ComponentType,
+};
 
 describe("recommendProcessingFee()", () => {
   beforeEach(() => {
@@ -150,8 +169,8 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      mockToken,
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
@@ -179,8 +198,8 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      mockToken,
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
