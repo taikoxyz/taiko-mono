@@ -69,6 +69,8 @@ describe("integration:TaikoL1", function () {
             proposerSigner
         );
 
+        prover = new Prover(taikoL1, l2Provider, proverSigner);
+
         await taikoTokenL1.mintAnyone(
             await l1Signer.getAddress(),
             BigNumber.from("1000000000000000000")
@@ -86,8 +88,6 @@ describe("integration:TaikoL1", function () {
         await taikoTokenL1
             .connect(prover.getSigner())
             .approve(taikoL1.address, BigNumber.from("1000000000000000000"));
-
-        prover = new Prover(taikoL1, l2Provider, proverSigner);
     });
 
     afterEach(() => {

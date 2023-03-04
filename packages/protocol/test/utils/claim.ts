@@ -1,6 +1,6 @@
 import { BigNumber } from "ethers";
 import { TaikoL1 } from "../../typechain";
-import { ClaimBlockBidEvent } from "../../typechain/LibProving";
+import { ClaimBlockBidEvent } from "../../typechain/LibClaiming";
 import sleep from "./sleep";
 
 const claimBlock = async (
@@ -8,8 +8,7 @@ const claimBlock = async (
     blockId: number,
     bid: BigNumber
 ) => {
-    const tx = await taikoL1.claimBlock(blockId, {
-        value: bid,
+    const tx = await taikoL1.claimBlock(blockId, bid, {
         gasLimit: 1000000,
     });
     const receipt = await tx.wait(1);

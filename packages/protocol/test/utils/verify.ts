@@ -108,12 +108,10 @@ async function commitProposeClaimProveAndVerify(
 
     console.log("claiming", blockNumber);
 
-    const config = await taikoL1.getConfig();
-
     const { claimBlockBidEvent } = await claimBlock(
         taikoL1.connect(await prover.getSigner()),
         proposedEvent.args.id.toNumber(),
-        config.baseClaimDepositInWei.add("1")
+        await taikoL1.minRequiredBidForClaim(proposedEvent.args.id.toNumber())
     );
     expect(claimBlockBidEvent).not.to.be.undefined;
 
