@@ -44,7 +44,7 @@ library LibUtils {
         TaikoData.State storage state,
         uint256 number,
         uint256 blockHashHistory
-    ) internal view returns (Snippet memory) {
+    ) internal view returns (Snippet storage) {
         uint256 _number = number;
         if (_number == 0) {
             _number = state.latestVerifiedHeight;
