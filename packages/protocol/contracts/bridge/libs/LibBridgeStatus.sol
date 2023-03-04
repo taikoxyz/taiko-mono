@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {IXchainSync} from "../../common/IXchainSync.sol";
-import {LibBlockHeader, BlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
+import {LibTrieProof} from "../../libs/LibTrieProof.sol";
 
 library LibBridgeStatus {
     using LibBlockHeader for BlockHeader;

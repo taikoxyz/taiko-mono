@@ -6,25 +6,20 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {TaikoConfig} from "./TaikoConfig.sol";
-import {TaikoData} from "./TaikoData.sol";
-import {TaikoEvents} from "./TaikoEvents.sol";
-import {TaikoCustomErrors} from "./TaikoCustomErrors.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
-import {AddressResolver} from "../common/AddressResolver.sol";
+import {TaikoConfig} from "./TaikoConfig.sol";
+import {TaikoErrors} from "./TaikoErrors.sol";
+import {TaikoData} from "./TaikoData.sol";
+import {TaikoEvents} from "./TaikoEvents.sol";
 
-contract TaikoL1 is
-    EssentialContract,
-    IXchainSync,
-    TaikoEvents,
-    TaikoCustomErrors
-{
+contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     using LibUtils for TaikoData.State;
 
     TaikoData.State public state;

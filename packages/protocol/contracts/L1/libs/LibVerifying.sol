@@ -11,10 +11,9 @@ import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
+import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
-import {Snippet} from "../../common/IXchainSync.sol";
 
 library LibVerifying {
     using SafeCastUpgradeable for uint256;

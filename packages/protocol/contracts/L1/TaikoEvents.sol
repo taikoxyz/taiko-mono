@@ -6,12 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-import {TaikoData} from "./TaikoData.sol";
 import {Snippet} from "../common/IXchainSync.sol";
+import {TaikoData} from "./TaikoData.sol";
 
 abstract contract TaikoEvents {
     // The following events must match the definitions in other V1 libraries.
-    event BlockVerified(uint256 indexed id, Snippet snippet);
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
@@ -20,4 +19,6 @@ abstract contract TaikoEvents {
         bytes32 parentHash,
         TaikoData.ForkChoice forkChoice
     );
+
+    event BlockVerified(uint256 indexed id, Snippet snippet);
 }

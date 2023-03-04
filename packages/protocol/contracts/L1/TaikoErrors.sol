@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract TaikoCustomErrors {
+abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
-    error L1_ZERO_FEE_BASE();
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_NUMBER();
+    error L1_BLOCK_PROOF();
     error L1_CONFLICT_PROOF();
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
@@ -24,7 +24,7 @@ abstract contract TaikoCustomErrors {
     error L1_NOT_ORACLE_PROVER();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST();
     error L1_TX_LIST_PROOF();
-    error L1_BLOCK_PROOF();
+    error L1_TX_LIST();
+    error L1_ZERO_FEE_BASE();
 }

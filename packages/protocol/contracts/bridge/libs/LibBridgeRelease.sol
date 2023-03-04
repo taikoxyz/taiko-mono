@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {EtherVault} from "../EtherVault.sol";
+import {IBridge} from "../IBridge.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
-import {IBridge} from "../IBridge.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
 
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;

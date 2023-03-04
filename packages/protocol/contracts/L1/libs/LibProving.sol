@@ -10,8 +10,8 @@ import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Snippet} from "../../common/IXchainSync.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
