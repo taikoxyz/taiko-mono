@@ -15,11 +15,11 @@ import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
+    error B_ETHER_RELEASED_ALREADY();
+    error B_FAILED_TRANSFER();
+    error B_MSG_NOT_FAILED();
     error B_OWNER_IS_NULL();
     error B_WRONG_CHAIN_ID();
-    error B_ETHER_RELEASED_ALREADY();
-    error B_MSG_NOT_FAILED();
-    error B_FAILED_TRANSFER();
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 

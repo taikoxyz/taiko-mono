@@ -28,8 +28,8 @@ library LibBridgeStatus {
         address transactor
     );
 
-    error B_WRONG_CHAIN_ID();
     error B_MSG_HASH_NULL();
+    error B_WRONG_CHAIN_ID();
 
     /**
      * @dev If messageStatus is same as in the messageStatus mapping,

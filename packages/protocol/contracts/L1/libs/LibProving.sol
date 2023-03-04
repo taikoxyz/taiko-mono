@@ -25,12 +25,12 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
+    error L1_BLOCK_PROOF();
     error L1_CONFLICT_PROOF();
     error L1_ID();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
     error L1_TX_LIST_PROOF();
-    error L1_BLOCK_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,

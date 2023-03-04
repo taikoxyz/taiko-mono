@@ -21,10 +21,10 @@ library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
+    error B_INCORRECT_VALUE();
     error B_OWNER_IS_NULL();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
-    error B_INCORRECT_VALUE();
 
     /**
      * Send a message to the Bridge with the details of the request. The Bridge
