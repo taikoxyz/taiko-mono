@@ -117,25 +117,21 @@ library LibBridgeProcess {
                 ? gasleft()
                 : message.gasLimit;
 
-            if (message.data.length != 0) {
-                // this will call receiveERC20 on the tokenVault, sending the tokens to the user
-                bool success = LibBridgeInvoke.invokeMessageCall({
-                    state: state,
-                    message: message,
-                    msgHash: msgHash,
-                    gasLimit: gasLimit
-                });
+            // this will call receiveERC20 on the tokenVault, sending the tokens to the user
+            bool success = LibBridgeInvoke.invokeMessageCall({
+                state: state,
+                message: message,
+                msgHash: msgHash,
+                gasLimit: gasLimit
+            });
 
-                if (success) {
-                    status = LibBridgeStatus.MessageStatus.DONE;
-                } else {
-                    status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                    if (ethVault != address(0)) {
-                        ethVault.sendEther(message.callValue);
-                    }
-                }
-            } else {
+            if (success) {
                 status = LibBridgeStatus.MessageStatus.DONE;
+            } else {
+                status = LibBridgeStatus.MessageStatus.RETRIABLE;
+                if (ethVault != address(0)) {
+                    ethVault.sendEther(message.callValue);
+                }
             }
         }
 
