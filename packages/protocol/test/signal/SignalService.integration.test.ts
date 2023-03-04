@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { TestHeaderSync } from "../../typechain";
+import { TestXchainSync } from "../../typechain";
 import { deploySignalService, getSignalProof } from "../utils/signal";
 import deployAddressManager from "../utils/addressManager";
 import { getBlockHeader } from "../utils/rpc";
@@ -54,15 +54,15 @@ describe("integration:SignalService", function () {
             l1SignalService.address
         );
 
-        const headerSync: TestHeaderSync = await (
-            await ethers.getContractFactory("TestHeaderSync")
+        const xchainSync: TestXchainSync = await (
+            await ethers.getContractFactory("TestXchainSync")
         )
             .connect(l2Signer)
             .deploy();
 
         await l2AddressManager.setAddress(
             `${enabledDestChainId}.taiko`,
-            headerSync.address
+            xchainSync.address
         );
 
         return {
@@ -72,7 +72,7 @@ describe("integration:SignalService", function () {
             l2SignalService,
             srcChainId,
             enabledDestChainId,
-            headerSync,
+            xchainSync,
         };
     }
 
@@ -83,7 +83,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             enabledDestChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -95,7 +95,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -122,7 +122,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -134,7 +134,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -161,7 +161,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -173,7 +173,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -200,7 +200,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -230,7 +230,7 @@ describe("integration:SignalService", function () {
             )
         ).to.be.equal(false);
 
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,

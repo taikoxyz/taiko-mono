@@ -8,7 +8,7 @@ import { initIntegrationFixture } from "../utils/fixture";
 import Proposer from "../utils/proposer";
 import Prover from "../utils/prover";
 import { seedTko } from "../utils/seed";
-import { commitProposeProveAndVerify } from "../utils/verify";
+import { proposeProveAndVerify } from "../utils/verify";
 
 describe("tokenomics: proofReward", function () {
     let taikoL1: TaikoL1;
@@ -70,7 +70,7 @@ describe("tokenomics: proofReward", function () {
             );
 
             const { provedEvent, proposedBlock, verifyEvent } =
-                await commitProposeProveAndVerify(
+                await proposeProveAndVerify(
                     taikoL1,
                     l2Provider,
                     blockNumber,

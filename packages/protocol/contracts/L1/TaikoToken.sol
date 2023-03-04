@@ -7,16 +7,15 @@
 pragma solidity ^0.8.18;
 
 import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "../thirdparty/ERC20Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IMintableERC20} from "../common/IMintableERC20.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "../thirdparty/ERC20Upgradeable.sol";
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @dev This is Taiko's governance and fee token.
 contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {

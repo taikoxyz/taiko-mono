@@ -109,10 +109,6 @@ async function generateContractConfigs(
             ARTIFACTS_PATH,
             "./bridge/libs/LibBridgeProcess.sol/LibBridgeProcess.json"
         )),
-        LibTxDecoder: require(path.join(
-            ARTIFACTS_PATH,
-            "./libs/LibTxDecoder.sol/LibTxDecoder.json"
-        )),
         // Contracts
         AddressManager: require(path.join(
             ARTIFACTS_PATH,
@@ -147,10 +143,6 @@ async function generateContractConfigs(
 
         switch (contractName) {
             case "TaikoL2":
-                if (!addressMap.LibTxDecoder) {
-                    throw new Error("LibTxDecoder not initialized");
-                }
-
                 bytecode = linkContractLibs(
                     contractArtifacts.TaikoL2,
                     addressMap
@@ -235,11 +227,6 @@ async function generateContractConfigs(
             ),
             variables: {},
         },
-        LibTxDecoder: {
-            address: addressMap.LibTxDecoder,
-            deployedBytecode: contractArtifacts.LibTxDecoder.deployedBytecode,
-            variables: {},
-        },
         AddressManager: {
             address: addressMap.AddressManager,
             deployedBytecode: contractArtifacts.AddressManager.deployedBytecode,
@@ -282,10 +269,6 @@ async function generateContractConfigs(
                 addressMap
             ),
             variables: {
-                // ReentrancyGuardUpgradeable
-                _status: 1, // _NOT_ENTERED
-                // AddressResolver
-                _addressManager: addressMap.AddressManager,
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 _publicInputHash: `${ethers.utils.solidityKeccak256(

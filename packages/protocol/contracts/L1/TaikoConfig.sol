@@ -23,7 +23,7 @@ maxNumBlocks: 61
 slotSmoothingFactor: 16789
 */
 
-library LibSharedConfig {
+library TaikoConfig {
     /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return
@@ -32,7 +32,6 @@ library LibSharedConfig {
                 maxNumBlocks: 2048, // owner:daniel
                 blockHashHistory: 40, // owner:daniel
                 maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost.
-                commitConfirmations: 0, // owner:daniel
                 blockMaxGasLimit: 6000000, // owner:david. Set it to 6M, since its the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79, //  owner:david. Set it to 79  (+1 TaikoL2.anchor transaction = 80), and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxBytesPerTxList: 120000, // owner:david. Set it to 120KB, since 128KB is the upper size limit of a geth transaction, so using 120KB for the proposed transactions list calldata, 8K for the remaining tx fields.
@@ -52,8 +51,7 @@ library LibSharedConfig {
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 enableTokenomics: true,
-                enablePublicInputsCheck: true,
-                enableAnchorValidation: true
+                skipZKPVerification: false
             });
     }
 }

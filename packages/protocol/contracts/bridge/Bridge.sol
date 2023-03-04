@@ -30,7 +30,6 @@ contract Bridge is EssentialContract, IBridge, BridgeCustomErrors {
      *********************/
 
     LibBridgeData.State private _state; // 50 slots reserved
-    uint256[50] private __gap;
 
     /*********************
      * Events            *

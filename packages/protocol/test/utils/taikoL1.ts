@@ -10,41 +10,28 @@ async function deployTaikoL1(
     enableTokenomics: boolean,
     feeBase?: BigNumber
 ): Promise<TaikoL1> {
-    const libReceiptDecoder = await (
-        await ethers.getContractFactory("LibReceiptDecoder")
-    ).deploy();
+    // const libProposing = await (
+    //     await ethers.getContractFactory("LibProposing")
+    // ).deploy();
 
-    const libTxDecoder = await (
-        await ethers.getContractFactory("LibTxDecoder")
-    ).deploy();
+    // const libProving = await (
+    //     await ethers.getContractFactory("LibProving")
+    // ).deploy();
 
-    const libProposing = await (
-        await ethers.getContractFactory("LibProposing")
-    ).deploy();
-
-    const testLibProving = await (
-        await ethers.getContractFactory("TestLibProving", {
-            libraries: {
-                LibReceiptDecoder: libReceiptDecoder.address,
-                LibTxDecoder: libTxDecoder.address,
-            },
-        })
-    ).deploy();
-
-    const libVerifying = await (
-        await ethers.getContractFactory("LibVerifying")
-    ).deploy();
+    // const libVerifying = await (
+    //     await ethers.getContractFactory("LibVerifying")
+    // ).deploy();
 
     const taikoL1 = await (
         await ethers.getContractFactory(
-            enableTokenomics ? "TestTaikoL1EnableTokenomics" : "TestTaikoL1",
-            {
-                libraries: {
-                    LibVerifying: libVerifying.address,
-                    LibProposing: libProposing.address,
-                    LibProving: testLibProving.address,
-                },
-            }
+            enableTokenomics ? "TestTaikoL1EnableTokenomics" : "TestTaikoL1"
+            // {
+            //     libraries: {
+            //         LibVerifying: libVerifying.address,
+            //         LibProposing: libProposing.address,
+            //         LibProving: libProving.address,
+            //     },
+            // }
         )
     ).deploy();
 
