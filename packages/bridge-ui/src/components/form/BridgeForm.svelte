@@ -260,7 +260,8 @@
         toChainId: $toChain.id,
         symbol: $token.symbol,
         amountInWei: amountInWei,
-        ethersTx: tx,
+        from: tx.from,
+        hash: tx.hash,
         status: MessageStatus.New,
       };
       if (!transactions) {

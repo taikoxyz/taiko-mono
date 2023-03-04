@@ -2,7 +2,8 @@ import type { BigNumber, ethers } from "ethers";
 import type { Message, MessageStatus } from "./message";
 
 export type BridgeTransaction = {
-  ethersTx: ethers.Transaction;
+  hash: string;
+  from: string;
   receipt?: ethers.providers.TransactionReceipt;
   status: MessageStatus;
   msgHash?: string;
@@ -18,4 +19,9 @@ export interface Transactioner {
     address: string,
     chainID?: number
   ): Promise<BridgeTransaction[]>;
+
+  UpdateStorageByAddress(
+    address: string,
+    txs: BridgeTransaction[]
+  ): void;
 }
