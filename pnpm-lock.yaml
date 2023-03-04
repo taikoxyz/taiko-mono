@@ -44,7 +44,6 @@ importers:
       postcss-cli: ^7.1.2
       postcss-loader: ^6.2.0
       prettier: 2.7.1
-      prettier-plugin-svelte: ^2.9.0
       rollup-plugin-node-builtins: ^2.0.0
       rollup-plugin-polyfill-node: ^0.10.2
       svelte: ^3.53.1
@@ -99,7 +98,6 @@ importers:
       postcss-cli: 7.1.2
       postcss-loader: 6.2.1_postcss@8.4.19
       prettier: 2.7.1
-      prettier-plugin-svelte: 2.9.0_nryolsexf6k3znhuh4uzpugsem
       rollup-plugin-node-builtins: 2.1.2
       rollup-plugin-polyfill-node: 0.10.2
       svelte: 3.53.1
@@ -16978,16 +16976,6 @@ packages:
       prettier: 2.8.0
       semver: 7.3.8
       solidity-comments-extractor: 0.0.7
-    dev: true
-
-  /prettier-plugin-svelte/2.9.0_nryolsexf6k3znhuh4uzpugsem:
-    resolution: {integrity: sha512-3doBi5NO4IVgaNPtwewvrgPpqAcvNv0NwJNflr76PIGgi9nf1oguQV1Hpdm9TI2ALIQVn/9iIwLpBO5UcD2Jiw==}
-    peerDependencies:
-      prettier: ^1.16.4 || ^2.0.0
-      svelte: ^3.2.0
-    dependencies:
-      prettier: 2.7.1
-      svelte: 3.53.1
     dev: true
 
   /prettier/2.7.1:

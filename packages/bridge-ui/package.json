@@ -39,7 +39,6 @@
     "postcss-cli": "^7.1.2",
     "postcss-loader": "^6.2.0",
     "prettier": "2.7.1",
-    "prettier-plugin-svelte": "^2.9.0",
     "rollup-plugin-node-builtins": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.10.2",
     "svelte": "^3.53.1",
