@@ -59,6 +59,7 @@ describe("integration:TaikoL1", function () {
             config,
             taikoTokenL1,
         } = await initIntegrationFixture(false, false));
+
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
@@ -67,6 +68,24 @@ describe("integration:TaikoL1", function () {
             0,
             proposerSigner
         );
+
+        await taikoTokenL1.mintAnyone(
+            await l1Signer.getAddress(),
+            BigNumber.from("1000000000000000000")
+        );
+
+        await taikoTokenL1
+            .connect(l1Signer)
+            .approve(taikoL1.address, BigNumber.from("1000000000000000000"));
+
+        await taikoTokenL1.mintAnyone(
+            await prover.getSigner().getAddress(),
+            BigNumber.from("1000000000000000000")
+        );
+
+        await taikoTokenL1
+            .connect(prover.getSigner())
+            .approve(taikoL1.address, BigNumber.from("1000000000000000000"));
 
         prover = new Prover(taikoL1, l2Provider, proverSigner);
     });
@@ -165,7 +184,9 @@ describe("integration:TaikoL1", function () {
             const { claimBlockBidEvent } = await claimBlock(
                 taikoL1.connect(l1Signer),
                 proposedEvent.args.id.toNumber(),
-                config.baseClaimDepositInWei.add("1")
+                await taikoL1.minRequiredBidForClaim(
+                    proposedEvent.args.id.toNumber()
+                )
             );
 
             expect(claimBlockBidEvent).not.to.be.undefined;
@@ -208,7 +229,9 @@ describe("integration:TaikoL1", function () {
             const { claimBlockBidEvent } = await claimBlock(
                 taikoL1.connect(prover.getSigner()),
                 proposedEvent.args.id.toNumber(),
-                config.baseClaimDepositInWei.add("1")
+                await taikoL1.minRequiredBidForClaim(
+                    proposedEvent.args.id.toNumber()
+                )
             );
 
             expect(claimBlockBidEvent).not.to.be.undefined;
@@ -257,12 +280,15 @@ describe("integration:TaikoL1", function () {
             await txShouldRevertWithCustomError(
                 // add 1 to the id to make it not actually proposed
                 (
-                    await taikoL1.claimBlock(proposedEvent.args.id.add(1), {
-                        gasLimit: 500000,
-                        value: config.baseClaimDepositInWei.add(
-                            config.minimumClaimBidIncreaseInWei
+                    await taikoL1.claimBlock(
+                        proposedEvent.args.id.add(1),
+                        await taikoL1.minRequiredBidForClaim(
+                            proposedEvent.args.id.toNumber()
                         ),
-                    })
+                        {
+                            gasLimit: 500000,
+                        }
+                    )
                 ).wait(),
                 l1Provider,
                 "L1_ID()"
@@ -281,10 +307,13 @@ describe("integration:TaikoL1", function () {
             await txShouldRevertWithCustomError(
                 // add 1 to the id to make it not actually proposed
                 (
-                    await taikoL1.claimBlock(proposedEvent.args.id.toNumber(), {
-                        gasLimit: 500000,
-                        value: 1,
-                    })
+                    await taikoL1.claimBlock(
+                        proposedEvent.args.id.toNumber(),
+                        1,
+                        {
+                            gasLimit: 500000,
+                        }
+                    )
                 ).wait(),
                 l1Provider,
                 "L1_INVALID_CLAIM_DEPOSIT()"
@@ -306,12 +335,15 @@ describe("integration:TaikoL1", function () {
 
             await txShouldRevertWithCustomError(
                 (
-                    await taikoL1.claimBlock(proposedEvent.args.id, {
-                        gasLimit: 500000,
-                        value: config.baseClaimDepositInWei.add(
-                            config.minimumClaimBidIncreaseInWei
+                    await taikoL1.claimBlock(
+                        proposedEvent.args.id,
+                        await taikoL1.minRequiredBidForClaim(
+                            proposedEvent.args.id.toNumber()
                         ),
-                    })
+                        {
+                            gasLimit: 500000,
+                        }
+                    )
                 ).wait(),
                 l1Provider,
                 "L1_CLAIM_AUCTION_WINDOW_PASSED()"
@@ -328,12 +360,15 @@ describe("integration:TaikoL1", function () {
             expect(proposedEvent).not.to.be.undefined;
 
             await expect(
-                taikoL1.claimBlock(proposedEvent.args.id, {
-                    gasLimit: 500000,
-                    value: config.baseClaimDepositInWei.add(
-                        config.minimumClaimBidIncreaseInWei
+                taikoL1.claimBlock(
+                    proposedEvent.args.id,
+                    await taikoL1.minRequiredBidForClaim(
+                        proposedEvent.args.id.toNumber()
                     ),
-                })
+                    {
+                        gasLimit: 500000,
+                    }
+                )
             ).not.to.be.reverted;
         });
 
@@ -347,12 +382,15 @@ describe("integration:TaikoL1", function () {
             expect(proposedEvent).not.to.be.undefined;
 
             await expect(
-                taikoL1.claimBlock(proposedEvent.args.id, {
-                    gasLimit: 500000,
-                    value: config.baseClaimDepositInWei.add(
-                        config.minimumClaimBidIncreaseInWei
+                taikoL1.claimBlock(
+                    proposedEvent.args.id,
+                    await taikoL1.minRequiredBidForClaim(
+                        proposedEvent.args.id.toNumber()
                     ),
-                })
+                    {
+                        gasLimit: 500000,
+                    }
+                )
             ).not.to.be.reverted;
 
             await waitForClaimToBeProvable(
@@ -383,12 +421,12 @@ describe("integration:TaikoL1", function () {
             );
             expect(proposedEvent).not.to.be.undefined;
 
-            const initialBid = config.baseClaimDepositInWei.add(
-                config.minimumClaimBidIncreaseInWei
+            const initialBid = await taikoL1.minRequiredBidForClaim(
+                proposedEvent.args.id.toNumber()
             );
-            await taikoL1.claimBlock(proposedEvent.args.id, {
+
+            await taikoL1.claimBlock(proposedEvent.args.id, initialBid, {
                 gasLimit: 500000,
-                value: initialBid,
             });
             let claim = await taikoL1.claimForProposedBlock(
                 proposedEvent.args.id
@@ -398,11 +436,13 @@ describe("integration:TaikoL1", function () {
 
             expect(claim.deposit).to.be.eq(initialBid);
 
+            const secondBidAmt = await taikoL1.minRequiredBidForClaim(
+                proposedEvent.args.id.toNumber()
+            );
             const secondClaim = await taikoL1
                 .connect(prover.getSigner())
-                .claimBlock(proposedEvent.args.id, {
+                .claimBlock(proposedEvent.args.id, secondBidAmt, {
                     gasLimit: 500000,
-                    value: initialBid.add(config.minimumClaimBidIncreaseInWei),
                 });
 
             const secondClaimReceipt = await secondClaim.wait(1);
@@ -419,9 +459,7 @@ describe("integration:TaikoL1", function () {
             expect(claim.claimer).to.be.eq(
                 await prover.getSigner().getAddress()
             );
-            expect(claim.deposit).to.be.eq(
-                initialBid.add(config.minimumClaimBidIncreaseInWei)
-            );
+            expect(claim.deposit).to.be.eq(secondBidAmt);
         });
     });
 
@@ -691,7 +729,7 @@ describe("integration:TaikoL1", function () {
                 const { claimBlockBidEvent } = await claimBlock(
                     taikoL1.connect(prover.getSigner()),
                     proposedEvent.args.id.toNumber(),
-                    config.baseClaimDepositInWei.add("1")
+                    await taikoL1.minRequiredBidForClaim(proposedEvent.args.id)
                 );
                 expect(claimBlockBidEvent).not.to.be.undefined;
 

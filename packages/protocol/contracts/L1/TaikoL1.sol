@@ -100,16 +100,22 @@ contract TaikoL1 is
         });
         LibVerifying.verifyBlocks({
             state: state,
+            resolver: AddressResolver(this),
             config: config,
             maxBlocks: config.maxVerificationsPerTx
         });
     }
 
-    function claimBlock(uint256 blockId) external payable nonReentrant {
+    function claimBlock(
+        uint256 blockId,
+        uint256 bid
+    ) external payable nonReentrant {
         LibClaiming.claimBlock({
             state: state,
+            resolver: AddressResolver(this),
             config: getConfig(),
-            blockId: blockId
+            blockId: blockId,
+            bid: bid
         });
     }
 
@@ -142,6 +148,7 @@ contract TaikoL1 is
         });
         LibVerifying.verifyBlocks({
             state: state,
+            resolver: AddressResolver(this),
             config: config,
             maxBlocks: config.maxVerificationsPerTx
         });
@@ -176,6 +183,7 @@ contract TaikoL1 is
         });
         LibVerifying.verifyBlocks({
             state: state,
+            resolver: AddressResolver(this),
             config: config,
             maxBlocks: config.maxVerificationsPerTx
         });
@@ -189,6 +197,7 @@ contract TaikoL1 is
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
+            resolver: AddressResolver(this),
             config: getConfig(),
             maxBlocks: maxBlocks
         });
@@ -327,5 +336,13 @@ contract TaikoL1 is
         }
 
         return false;
+    }
+
+    function minRequiredBidForClaim(
+        uint256 blockId
+    ) public view returns (uint256) {
+        if (state.claims[blockId].claimer == address(0))
+            return state.feeBase * 4;
+        return LibClaiming.minRequiredBidForClaim(state, blockId);
     }
 }

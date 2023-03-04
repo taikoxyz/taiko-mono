@@ -40,8 +40,6 @@ library TaikoData {
         bool enablePublicInputsCheck;
         bool enableAnchorValidation;
         uint64 baseClaimHoldTimeInSeconds; // how long a claim is valid before anyone can submit a proof, and the deposit is forfeited. this number is added to state.avgProofTime
-        uint256 baseClaimDepositInWei; // the minimum deposit required to claim a name, starting price.
-        uint256 minimumClaimBidIncreaseInWei; // previousBid + minimumClaimBidIncreaseInWei = minimumBid
         uint64 claimAuctionWindowInSeconds; // how long is the total auction window before the previous bid (if it exists) wins?
         uint64 claimAuctionDelayInSeconds; // how long after the most recent bid is another bid allowed to happen before the previous bid wins, regardless of the totalAuctionWindow
     }

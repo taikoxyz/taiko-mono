@@ -56,8 +56,6 @@ library LibSharedConfig {
                 enableAnchorValidation: true,
                 claimAuctionWindowInSeconds: 5 minutes, // owner: jeff
                 baseClaimHoldTimeInSeconds: 5 minutes, // owner: jeff
-                baseClaimDepositInWei: 0.1 ether, // owner: jeff
-                minimumClaimBidIncreaseInWei: 0.01 ether, // owner: jeff
                 claimAuctionDelayInSeconds: 1 minutes // owner: jeff
             });
     }

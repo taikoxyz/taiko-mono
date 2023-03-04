@@ -49,8 +49,6 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.enablePublicInputsCheck = false;
         config.claimAuctionWindowInSeconds = 15 seconds;
         config.baseClaimHoldTimeInSeconds = 30 minutes;
-        config.baseClaimDepositInWei = 0.000000001 ether;
-        config.minimumClaimBidIncreaseInWei = 1 wei;
         config.claimAuctionDelayInSeconds = 5 seconds;
     }
 

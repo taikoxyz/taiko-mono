@@ -9,6 +9,8 @@ pragma solidity ^0.8.18;
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibClaiming {
     using LibAddress for address;
@@ -42,8 +44,10 @@ library LibClaiming {
     // after which anyone can prove.
     function claimBlock(
         TaikoData.State storage state,
+        AddressResolver resolver,
         TaikoData.Config memory config,
-        uint256 blockId
+        uint256 blockId,
+        uint256 bid
     ) internal {
         if (
             state.proposedBlocks[blockId % config.maxNumBlocks].proposer ==
@@ -72,45 +76,72 @@ library LibClaiming {
             revert L1_CLAIM_AUCTION_WINDOW_PASSED();
         }
 
+        uint256 baseFee = claimBaseFee(state);
         // if user hasnt sent enough to meet their personal base deposit amount
         // we dont allow them to claim.
-        if (msg.value < config.baseClaimDepositInWei) {
+        if (bid < baseFee) {
             revert L1_INVALID_CLAIM_DEPOSIT();
         }
+
+        TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
 
         // if there is an existing claimer, we need to see if msg.value sent is higher than the previous deposit.
         if (currentClaim.claimer != address(0)) {
             if (
-                msg.value <
-                currentClaim.deposit + config.minimumClaimBidIncreaseInWei
+                bid < minRequiredBidForClaim(state, blockId) // bid should be at minimum 10% higher than previous
             ) {
                 revert L1_INVALID_CLAIM_DEPOSIT();
             } else {
                 // otherwise we have a new high bid, and can refund the previous claimer
                 // refund the previous claimer
-                // allow to fail, because receiver could have malicious receive() method
-                // which wont allow them to be outbid
-                (bool success, ) = payable(currentClaim.claimer).call{
-                    value: currentClaim.deposit
-                }("");
-                if (success) {
-                    emit BidRefunded(
-                        blockId,
+                try
+                    tkoToken.transfer(
                         currentClaim.claimer,
-                        block.timestamp,
                         currentClaim.deposit
-                    );
+                    )
+                {} catch {
+                    // allow to fail in case they have a bad onTokenReceived
+                    // so they cant be outbid
                 }
+                emit BidRefunded(
+                    blockId,
+                    currentClaim.claimer,
+                    block.timestamp,
+                    currentClaim.deposit
+                );
+            }
+        } else {
+            try tkoToken.transferFrom(msg.sender, address(this), bid) {} catch {
+                // allow to fail in case they have a bad onTokenReceived
+                // so they cant be outbid
             }
         }
 
         // then we can update the claim for the blockID to the new claimer
         state.claims[blockId] = TaikoData.Claim({
-            claimer: tx.origin,
+            claimer: msg.sender,
             claimedAt: block.timestamp,
-            deposit: msg.value
+            deposit: bid
         });
 
-        emit ClaimBlockBid(blockId, tx.origin, block.timestamp, msg.value);
+        emit ClaimBlockBid(blockId, msg.sender, block.timestamp, msg.value);
+    }
+
+    function claimBaseFee(
+        TaikoData.State storage state
+    ) internal view returns (uint256) {
+        return state.feeBase * 4; // 4x base proving fee costs
+    }
+
+    function minRequiredBidForClaim(
+        TaikoData.State storage state,
+        uint256 blockId
+    ) internal view returns (uint256) {
+        TaikoData.Claim memory claim = state.claims[blockId];
+        if (claim.claimer == address(0)) {
+            return claimBaseFee(state);
+        }
+
+        return claim.deposit + ((claim.deposit * 1000) / 10000);
     }
 }

@@ -50,6 +50,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint256 maxBlocks
     ) public {
         uint64 latestL2Height = state.latestVerifiedHeight;
@@ -78,6 +79,7 @@ library LibVerifying {
                     state: state,
                     config: config,
                     fc: fc,
+                    resolver: resolver,
                     target: target,
                     latestL2Height: latestL2Height,
                     latestL2Hash: latestL2Hash,
@@ -157,6 +159,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
+        AddressResolver resolver,
         uint64 latestL2Height,
         bytes32 latestL2Hash,
         uint256 blockId
@@ -177,30 +180,19 @@ library LibVerifying {
 
                 // refund claimer deposit
                 if (fc.prover != claim.claimer) {
-                    // allow to fail in case they have bad receive() method to prevent
-                    // block from being verified.
-                    // TODO: i think if we change to TKOToken transfer we can just add
-                    // this to the reward and save gas.
-                    (bool success, ) = payable(fc.prover).call{
-                        value: claim.deposit / 2
-                    }("");
+                    reward += claim.deposit / 2;
                     // burn half, or entire one if .call reverted
-                    address(0).sendEther(
-                        success ? claim.deposit / 2 : claim.deposit
+                    TaikoToken(resolver.resolve("tko_token", false)).transfer(
+                        address(0),
+                        claim.deposit / 2
                     );
                 } else {
-                    // TODO: i think if we change to TKOToken transfer we can just add
-                    // this to the reward and save gas
-                    (bool success, ) = payable(fc.prover).call{
-                        value: claim.deposit
-                    }("");
-                    if (!success) {
-                        address(0).sendEther(claim.deposit);
-                    }
+                    reward += claim.deposit;
                 }
 
                 // TODO: the current idea nullifies the reward to 1 wei if you have
-                // 0 TKO. this would also nullify the deposit.
+                // 0 TKO. this would also nullify the deposit for claiming rn.
+                // so we should probably change this, or burn the deposit?
                 // reward the prover
                 if (reward > 0) {
                     if (state.balances[fc.prover] == 0) {
