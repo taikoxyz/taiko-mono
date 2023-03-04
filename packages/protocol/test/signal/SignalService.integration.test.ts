@@ -54,7 +54,7 @@ describe("integration:SignalService", function () {
             l1SignalService.address
         );
 
-        const headerSync: TestXchainSync = await (
+        const xchainSync: TestXchainSync = await (
             await ethers.getContractFactory("TestXchainSync")
         )
             .connect(l2Signer)
@@ -62,7 +62,7 @@ describe("integration:SignalService", function () {
 
         await l2AddressManager.setAddress(
             `${enabledDestChainId}.taiko`,
-            headerSync.address
+            xchainSync.address
         );
 
         return {
@@ -72,7 +72,7 @@ describe("integration:SignalService", function () {
             l2SignalService,
             srcChainId,
             enabledDestChainId,
-            headerSync,
+            xchainSync,
         };
     }
 
@@ -83,7 +83,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             enabledDestChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -95,7 +95,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -122,7 +122,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -134,7 +134,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -161,7 +161,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -173,7 +173,7 @@ describe("integration:SignalService", function () {
         const slot = await l1SignalService.getSignalSlot(app, signal);
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,
@@ -200,7 +200,7 @@ describe("integration:SignalService", function () {
             l1SignalService,
             l2SignalService,
             srcChainId,
-            headerSync,
+            xchainSync,
         } = await deployIntegrationSignalService();
 
         const signal = ethers.utils.hexlify(ethers.utils.randomBytes(32));
@@ -230,7 +230,7 @@ describe("integration:SignalService", function () {
             )
         ).to.be.equal(false);
 
-        await headerSync.setSyncedHeader(block.hash);
+        await xchainSync.setXchainBlockHeader(block.hash);
 
         const signalProof = await getSignalProof(
             l1Provider,

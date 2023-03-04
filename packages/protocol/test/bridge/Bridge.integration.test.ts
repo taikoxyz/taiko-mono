@@ -244,7 +244,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2XchainSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
             const signalProof = await getSignalProof(
                 hre.ethers.provider,
@@ -282,7 +282,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2XchainSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
             const slot = await l1SignalService.getSignalSlot(sender, msgHash);
 
@@ -396,7 +396,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2XchainSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -433,7 +433,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2XchainSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -631,7 +631,7 @@ describe("integrationbridge:Bridge", function () {
 
             const { block, blockHeader } = await getBlockHeader(l1Provider);
 
-            await l2XchainSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 

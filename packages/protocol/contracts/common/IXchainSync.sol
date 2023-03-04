@@ -19,8 +19,19 @@ struct Snippet {
 interface IXchainSync {
     event XchainSynced(uint256 indexed srcHeight, Snippet srcSnippet);
 
+    /**
+     * @notice Returns the cross-chain block hash at the given block number.
+     * @param number The block number. Use 0 for the latest block.
+     * @return The cross-chain block hash.
+     */
     function getXchainBlockHash(uint256 number) external view returns (bytes32);
 
+    /**
+     * @notice Returns the cross-chain signal service storage root at the given
+     *         block number.
+     * @param number The block number. Use 0 for the latest block.
+     * @return The cross-chain signal service storage root.
+     */
     function getXchainSignalRoot(
         uint256 number
     ) external view returns (bytes32);

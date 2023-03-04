@@ -6,22 +6,27 @@
 
 pragma solidity ^0.8.18;
 
-import {IXchainSync, Snippet} from "../../common/IXchainSync.sol";
+import {IXchainSync} from "../../common/IXchainSync.sol";
 
 // TODO(roger): remove this file. If you need extra functionality in
 // the Bridge contract, create a TestBridge.sol contract instead.
 contract TestXchainSync is IXchainSync {
-    Snippet public snippet;
+    bytes32 private _blockHash;
+    bytes32 private _signalRoot;
 
-    function setSyncedHeader(Snippet calldata _snippet) external {
-        snippet = _snippet;
+    function setXchainBlockHeader(bytes32 blockHash) external {
+        _blockHash = blockHash;
+    }
+
+    function seXchainSignalRoot(bytes32 signalRoot) external {
+        _blockHash = signalRoot;
     }
 
     function getXchainBlockHash(uint256) external view returns (bytes32) {
-        return snippet.blockHash;
+        return _blockHash;
     }
 
     function getXchainSignalRoot(uint256) external view returns (bytes32) {
-        return snippet.signalRoot;
+        return _signalRoot;
     }
 }
