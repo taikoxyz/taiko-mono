@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {ISignalService} from "./ISignalService.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibBlockHeader, BlockHeader} from "../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../libs/LibTrieProof.sol";
-import {ISignalService} from "./ISignalService.sol";
 
 contract SignalService is ISignalService, EssentialContract {
     using LibBlockHeader for BlockHeader;
