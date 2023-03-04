@@ -76,7 +76,7 @@
 </script>
 
 <Modal title={'ERC20 Faucet'} bind:isOpen>
-  You can request 5 {$token.symbol}. {$token.symbol} is only available to be minted on {mainnetName}.
+  You can request 50 {$token.symbol}. {$token.symbol} is only available to be minted on {mainnetName}.
   If you are on {taikonetName}, your network will be changed first. You must have a small amount of
   ETH in your {mainnetName} wallet to send the transaction.
   <br />
