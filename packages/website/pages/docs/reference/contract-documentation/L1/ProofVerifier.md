@@ -7,7 +7,7 @@ title: IProofVerifier
 ### verifyZKP
 
 ```solidity
-function verifyZKP(string verifierId, bytes zkproof, bytes32 blockHash, address prover, bytes32 txListHash) external view returns (bool verified)
+function verifyZKP(string verifierId, bytes zkproof, bytes32 instance) external view returns (bool verified)
 ```
 
 ### verifyMKP
@@ -31,7 +31,7 @@ function init(address addressManager) external
 ### verifyZKP
 
 ```solidity
-function verifyZKP(string verifierId, bytes zkproof, bytes32 blockHash, address prover, bytes32 txListHash) external view returns (bool)
+function verifyZKP(string verifierId, bytes zkproof, bytes32 instance) external view returns (bool)
 ```
 
 ### verifyMKP

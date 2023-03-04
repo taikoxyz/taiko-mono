@@ -10,6 +10,7 @@ import { MessageStatus } from "../domain/message";
 
 interface storage {
   getItem(key: string): string;
+  setItem(key: string, value: unknown): void;
 }
 
 class StorageService implements Transactioner {
@@ -36,7 +37,7 @@ class StorageService implements Transactioner {
 
     await Promise.all(
       (txs || []).map(async (tx) => {
-        if (tx.ethersTx.from.toLowerCase() !== address.toLowerCase()) return;
+        if (tx.from.toLowerCase() !== address.toLowerCase()) return;
         const destChainId = tx.toChainId;
         const destProvider = this.providerMap.get(destChainId);
 
@@ -48,7 +49,7 @@ class StorageService implements Transactioner {
         }
 
         const receipt = await srcProvider.getTransactionReceipt(
-          tx.ethersTx.hash
+          tx.hash
         );
 
         if (!receipt) {
@@ -125,10 +126,11 @@ class StorageService implements Transactioner {
         }
 
         const bridgeTx: BridgeTransaction = {
+          hash: tx.hash,
+          from: tx.from,
           message: event.args.message,
           receipt: receipt,
           msgHash: event.args.msgHash,
-          ethersTx: tx.ethersTx,
           status: messageStatus,
           amountInWei: amountInWei,
           symbol: symbol,
@@ -143,6 +145,10 @@ class StorageService implements Transactioner {
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
 
     return bridgeTxs;
+  }
+
+  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]) {
+      this.storage.setItem(`transactions-${address.toLowerCase()}`, JSON.stringify(txs));
   }
 }
 

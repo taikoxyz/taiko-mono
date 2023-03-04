@@ -21,6 +21,11 @@ library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
+    error B_OWNER_IS_NULL();
+    error B_WRONG_CHAIN_ID();
+    error B_WRONG_TO_ADDRESS();
+    error B_INCORRECT_VALUE();
+
     /**
      * Send a message to the Bridge with the details of the request. The Bridge
      * takes custody of the funds, unless the source chain is Taiko, in which
@@ -41,22 +46,29 @@ library LibBridgeSend {
         AddressResolver resolver,
         IBridge.Message memory message
     ) internal returns (bytes32 msgHash) {
-        require(message.owner != address(0), "B:owner");
+        if (message.owner == address(0)) {
+            revert B_OWNER_IS_NULL();
+        }
 
         (bool destChainEnabled, address destChain) = isDestChainEnabled(
             resolver,
             message.destChainId
         );
-        require(
-            destChainEnabled && message.destChainId != block.chainid,
-            "B:destChainId"
-        );
-        require(message.to != address(0) && message.to != destChain, "B:to");
+
+        if (!destChainEnabled || message.destChainId == block.chainid) {
+            revert B_WRONG_CHAIN_ID();
+        }
+        if (message.to == address(0) || message.to == destChain) {
+            revert B_WRONG_TO_ADDRESS();
+        }
 
         uint256 expectedAmount = message.depositValue +
             message.callValue +
             message.processingFee;
-        require(expectedAmount == msg.value, "B:value");
+
+        if (expectedAmount != msg.value) {
+            revert B_INCORRECT_VALUE();
+        }
 
         // If on Taiko, send the expectedAmount to the EtherVault. Otherwise,
         // store it here on the Bridge. Processing will release Ether from the

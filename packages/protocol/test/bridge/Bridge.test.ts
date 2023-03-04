@@ -61,7 +61,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:owner"
+                "B_OWNER_IS_NULL()"
             );
         });
 
@@ -84,7 +84,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -106,7 +106,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:destChainId"
+                "B_WRONG_CHAIN_ID()"
             );
         });
 
@@ -128,7 +128,7 @@ describe("Bridge", function () {
             };
 
             await expect(l1Bridge.sendMessage(message)).to.be.revertedWith(
-                "B:value"
+                "B_INCORRECT_VALUE()"
             );
         });
 
@@ -275,7 +275,7 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+            ).to.be.revertedWith("B_FORBIDDEN()");
         });
 
         it("throws message.destChainId is not block.chainId", async () => {
@@ -297,7 +297,7 @@ describe("Bridge", function () {
 
             await expect(
                 l1Bridge.processMessage(message, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
     });
 });

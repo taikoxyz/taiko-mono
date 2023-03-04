@@ -16,6 +16,7 @@ import {
     sendAndProcessMessage,
     sendMessage,
 } from "../utils/bridge";
+import { txShouldRevertWithCustomError } from "../utils/errors";
 // import { randomBytes32 } from "../utils/bytes";
 import { Message } from "../utils/message";
 import {
@@ -170,11 +171,17 @@ describe("integrationbridge:Bridge", function () {
 
             expect(msgHash).not.to.be.eq(ethers.constants.HashZero);
 
-            await expect(
-                l2Bridge
-                    .connect(l2Signer)
-                    .processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:forbidden");
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(m, ethers.constants.HashZero, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_FORBIDDEN()"
+            );
         });
 
         it("should throw if message.destChainId is not equal to current block.chainId", async function () {
@@ -194,9 +201,17 @@ describe("integrationbridge:Bridge", function () {
                 memo: "",
             };
 
-            await expect(
-                l2Bridge.processMessage(m, ethers.constants.HashZero)
-            ).to.be.revertedWith("B:destChainId");
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(m, ethers.constants.HashZero, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_WRONG_CHAIN_ID()"
+            );
         });
 
         it("should throw if messageStatus of message is != NEW", async function () {
@@ -210,9 +225,17 @@ describe("integrationbridge:Bridge", function () {
             );
 
             // recalling this process should be prevented as it's status is no longer NEW
-            await expect(
-                l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:status");
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(message, signalProof, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_STATUS_MISMATCH()"
+            );
         });
 
         it("should throw if message signalproof is not valid", async function () {
@@ -231,9 +254,17 @@ describe("integrationbridge:Bridge", function () {
                 blockHeader
             );
 
-            await expect(
-                l2Bridge.processMessage(m, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(m, signalProof, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_SIGNAL_NOT_RECEIVED()"
+            );
         });
 
         it("should throw if message has not been received", async function () {
@@ -274,9 +305,17 @@ describe("integrationbridge:Bridge", function () {
                 blockHeader
             );
 
-            await expect(
-                l2Bridge.processMessage(message, signalProof)
-            ).to.be.revertedWith("B:notReceived");
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(message, signalProof, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_SIGNAL_NOT_RECEIVED()"
+            );
         });
 
         it("processes a message when the signal has been verified from the sending chain", async () => {
@@ -309,6 +348,18 @@ describe("integrationbridge:Bridge", function () {
             // make sure it equals 1 so our proof will pass
             expect(storageValue).to.be.eq(
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
+            );
+
+            txShouldRevertWithCustomError(
+                (
+                    await l2Bridge
+                        .connect(l2Signer)
+                        .processMessage(m, ethers.constants.HashZero, {
+                            gasLimit: 1000000,
+                        })
+                ).wait(1),
+                l2Provider,
+                "B_WRONG_CHAIN_ID()"
             );
         });
     });
@@ -445,7 +496,7 @@ describe("integrationbridge:Bridge", function () {
                     enabledDestChainId,
                     ethers.constants.HashZero
                 )
-            ).to.be.revertedWith("B:destChainId");
+            ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
         });
 
         it("should revert if msgHash == 0", async function () {
@@ -455,7 +506,7 @@ describe("integrationbridge:Bridge", function () {
                     srcChainId,
                     ethers.constants.HashZero
                 )
-            ).to.be.revertedWith("B:msgHash");
+            ).to.be.revertedWith("B_MSG_HASH_NULL()");
         });
 
         it("should return false if headerHash hasn't been synced", async function () {

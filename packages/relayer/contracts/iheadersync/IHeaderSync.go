@@ -27,7 +27,7 @@ var (
 )
 
 // IHeaderSyncABI is the input ABI used to generate the binding from.
-const IHeaderSyncABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"srcHash\",\"type\":\"bytes32\"}],\"name\":\"HeaderSynced\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getLatestSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+const IHeaderSyncABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcHeight\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"srcHash\",\"type\":\"bytes32\"}],\"name\":\"HeaderSynced\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getLatestSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"number\",\"type\":\"uint256\"}],\"name\":\"getSyncedHeader\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
 // IHeaderSync is an auto generated Go binding around an Ethereum contract.
 type IHeaderSync struct {
@@ -302,48 +302,39 @@ func (it *IHeaderSyncHeaderSyncedIterator) Close() error {
 
 // IHeaderSyncHeaderSynced represents a HeaderSynced event raised by the IHeaderSync contract.
 type IHeaderSyncHeaderSynced struct {
-	Height    *big.Int
 	SrcHeight *big.Int
 	SrcHash   [32]byte
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterHeaderSynced is a free log retrieval operation binding the contract event 0x930c750845026c7bb04c0e3d9111d512b4c86981713c4944a35a10a4a7a854f3.
+// FilterHeaderSynced is a free log retrieval operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
 //
-// Solidity: event HeaderSynced(uint256 indexed height, uint256 indexed srcHeight, bytes32 srcHash)
-func (_IHeaderSync *IHeaderSyncFilterer) FilterHeaderSynced(opts *bind.FilterOpts, height []*big.Int, srcHeight []*big.Int) (*IHeaderSyncHeaderSyncedIterator, error) {
+// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
+func (_IHeaderSync *IHeaderSyncFilterer) FilterHeaderSynced(opts *bind.FilterOpts, srcHeight []*big.Int) (*IHeaderSyncHeaderSyncedIterator, error) {
 
-	var heightRule []interface{}
-	for _, heightItem := range height {
-		heightRule = append(heightRule, heightItem)
-	}
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _IHeaderSync.contract.FilterLogs(opts, "HeaderSynced", heightRule, srcHeightRule)
+	logs, sub, err := _IHeaderSync.contract.FilterLogs(opts, "HeaderSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
 	return &IHeaderSyncHeaderSyncedIterator{contract: _IHeaderSync.contract, event: "HeaderSynced", logs: logs, sub: sub}, nil
 }
 
-// WatchHeaderSynced is a free log subscription operation binding the contract event 0x930c750845026c7bb04c0e3d9111d512b4c86981713c4944a35a10a4a7a854f3.
+// WatchHeaderSynced is a free log subscription operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
 //
-// Solidity: event HeaderSynced(uint256 indexed height, uint256 indexed srcHeight, bytes32 srcHash)
-func (_IHeaderSync *IHeaderSyncFilterer) WatchHeaderSynced(opts *bind.WatchOpts, sink chan<- *IHeaderSyncHeaderSynced, height []*big.Int, srcHeight []*big.Int) (event.Subscription, error) {
+// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
+func (_IHeaderSync *IHeaderSyncFilterer) WatchHeaderSynced(opts *bind.WatchOpts, sink chan<- *IHeaderSyncHeaderSynced, srcHeight []*big.Int) (event.Subscription, error) {
 
-	var heightRule []interface{}
-	for _, heightItem := range height {
-		heightRule = append(heightRule, heightItem)
-	}
 	var srcHeightRule []interface{}
 	for _, srcHeightItem := range srcHeight {
 		srcHeightRule = append(srcHeightRule, srcHeightItem)
 	}
 
-	logs, sub, err := _IHeaderSync.contract.WatchLogs(opts, "HeaderSynced", heightRule, srcHeightRule)
+	logs, sub, err := _IHeaderSync.contract.WatchLogs(opts, "HeaderSynced", srcHeightRule)
 	if err != nil {
 		return nil, err
 	}
@@ -375,9 +366,9 @@ func (_IHeaderSync *IHeaderSyncFilterer) WatchHeaderSynced(opts *bind.WatchOpts,
 	}), nil
 }
 
-// ParseHeaderSynced is a log parse operation binding the contract event 0x930c750845026c7bb04c0e3d9111d512b4c86981713c4944a35a10a4a7a854f3.
+// ParseHeaderSynced is a log parse operation binding the contract event 0x58313b60ec6c5bfc381e52f0de3ede0faac3cdffea26f7d6bcc3d09b61018691.
 //
-// Solidity: event HeaderSynced(uint256 indexed height, uint256 indexed srcHeight, bytes32 srcHash)
+// Solidity: event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash)
 func (_IHeaderSync *IHeaderSyncFilterer) ParseHeaderSynced(log types.Log) (*IHeaderSyncHeaderSynced, error) {
 	event := new(IHeaderSyncHeaderSynced)
 	if err := _IHeaderSync.contract.UnpackLog(event, "HeaderSynced", log); err != nil {

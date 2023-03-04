@@ -13,7 +13,7 @@ event BlockVerified(uint256 id, bytes32 blockHash)
 ### BlockCommitted
 
 ```solidity
-event BlockCommitted(uint64 commitSlot, uint64 commitHeight, bytes32 commitHash)
+event BlockCommitted(uint64 commitSlot, bytes32 commitHash)
 ```
 
 ### BlockProposed

@@ -49,15 +49,8 @@ providerMap.set(
 );
 
 const mockTx: BridgeTransaction = {
-  ethersTx: {
-    chainId: CHAIN_ID_MAINNET,
-    hash: "0x123",
-    nonce: 0,
-    gasLimit: BigNumber.from(1),
-    data: "0x",
-    value: BigNumber.from(1),
-    from: "0x123",
-  },
+  hash: "0x123",
+  from: "0x123",
   status: MessageStatus.New,
   fromChainId: CHAIN_ID_MAINNET,
   toChainId: CHAIN_ID_TAIKO,
@@ -146,21 +139,8 @@ describe("storage tests", () => {
 
     expect(addresses).toEqual([
       {
-        ethersTx: {
-          chainId: CHAIN_ID_MAINNET,
-          data: "0x",
-          from: "0x123",
-          gasLimit: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-          hash: "0x123",
-          nonce: 0,
-          value: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-        },
+        from: "0x123",
+        hash: "0x123",
         fromChainId: CHAIN_ID_MAINNET,
         status: 0,
         toChainId: CHAIN_ID_TAIKO,
@@ -195,21 +175,8 @@ describe("storage tests", () => {
 
     expect(addresses).toEqual([
       {
-        ethersTx: {
-          chainId: CHAIN_ID_MAINNET,
-          data: "0x",
-          from: "0x123",
-          gasLimit: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-          hash: "0x123",
-          nonce: 0,
-          value: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-        },
+        from: "0x123",
+        hash: "0x123",
         fromChainId: CHAIN_ID_MAINNET,
         receipt: {
           blockNumber: 1,
@@ -254,21 +221,8 @@ describe("storage tests", () => {
     expect(addresses).toEqual([
       {
         amountInWei: BigNumber.from(0x64),
-        ethersTx: {
-          chainId: CHAIN_ID_MAINNET,
-          data: "0x",
-          gasLimit: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-          hash: "0x123",
-          nonce: 0,
-          value: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-          from: "0x123",
-        },
+        hash: "0x123",
+        from: "0x123",
         message: {
           owner: "0x123",
         },
@@ -285,7 +239,7 @@ describe("storage tests", () => {
   });
 
   it("gets all transactions by address, CHAIN_TKO", async () => {
-    mockTx.ethersTx.chainId = CHAIN_ID_TAIKO;
+    mockTx.toChainId = CHAIN_ID_TAIKO;
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -319,21 +273,8 @@ describe("storage tests", () => {
     expect(addresses).toEqual([
       {
         amountInWei: BigNumber.from(0x64),
-        ethersTx: {
-          chainId: CHAIN_ID_TAIKO,
-          from: "0x123",
-          data: "0x",
-          gasLimit: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-          hash: "0x123",
-          nonce: 0,
-          value: {
-            hex: "0x01",
-            type: "BigNumber",
-          },
-        },
+        from: "0x123",
+        hash: "0x123",
         message: {
           owner: "0x123",
         },

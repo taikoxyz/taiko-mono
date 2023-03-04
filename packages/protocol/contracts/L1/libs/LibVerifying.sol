@@ -117,12 +117,12 @@ library LibVerifying {
         AddressResolver resolver
     ) public {
         uint256 balance = state.balances[msg.sender];
-        if (balance == 0) return;
+        if (balance <= 1) return;
 
-        state.balances[msg.sender] = 0;
+        state.balances[msg.sender] = 1;
         TaikoToken(resolver.resolve("tko_token", false)).mint(
             msg.sender,
-            balance
+            balance - 1
         );
     }
 

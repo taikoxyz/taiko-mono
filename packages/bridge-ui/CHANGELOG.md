@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.2...bridge-ui-v0.2.0) (2023-03-01)
+
+
+### Features
+
+* **bridge-ui:** add custom ERC20 tokens support ([#13170](https://github.com/taikoxyz/taiko-mono/issues/13170)) ([227d8de](https://github.com/taikoxyz/taiko-mono/commit/227d8de30c10a2d84d0fb390b3709b32d0aee8b8))
+* **bridge-ui:** release token button ([#13203](https://github.com/taikoxyz/taiko-mono/issues/13203)) ([4052aad](https://github.com/taikoxyz/taiko-mono/commit/4052aadd01b75611be3e9b50970aeb649f2de34b))
+
+
+### Bug Fixes
+
+* **bridge-ui:** change text of button to "bridge" ([#13163](https://github.com/taikoxyz/taiko-mono/issues/13163)) ([0113490](https://github.com/taikoxyz/taiko-mono/commit/0113490f388a986a705d970ef8b4a263de882707))
+* **bridge-ui:** max button css ([#13192](https://github.com/taikoxyz/taiko-mono/issues/13192)) ([9547f94](https://github.com/taikoxyz/taiko-mono/commit/9547f9438585ded0654558ad787b35cdb033a706))
+
 ## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v0.1.1...bridge-ui-v0.1.2) (2023-02-15)
 
 

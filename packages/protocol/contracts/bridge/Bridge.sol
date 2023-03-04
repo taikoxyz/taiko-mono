@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IBridge} from "./IBridge.sol";
+import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
 import {LibBridgeData} from "./libs/LibBridgeData.sol";
 import {LibBridgeProcess} from "./libs/LibBridgeProcess.sol";
 import {LibBridgeRelease} from "./libs/LibBridgeRelease.sol";
@@ -21,7 +22,7 @@ import {LibBridgeStatus} from "./libs/LibBridgeStatus.sol";
  * which calls the library implementations. See _IBridge_ for more details.
  * @dev The code hash for the same address on L1 and L2 may be different.
  */
-contract Bridge is EssentialContract, IBridge {
+contract Bridge is EssentialContract, IBridge, BridgeCustomErrors {
     using LibBridgeData for Message;
 
     /*********************
@@ -49,12 +50,13 @@ contract Bridge is EssentialContract, IBridge {
 
     /// Allow Bridge to receive ETH from the TokenVault or EtherVault.
     receive() external payable {
-        require(
-            msg.sender == resolve("token_vault", true) ||
-                msg.sender == resolve("ether_vault", true) ||
-                msg.sender == owner(),
-            "B:receive"
-        );
+        if (
+            msg.sender != resolve("token_vault", true) &&
+            msg.sender != resolve("ether_vault", true) &&
+            msg.sender != owner()
+        ) {
+            revert B_CANNOT_RECEIVE();
+        }
     }
 
     /// @dev Initializer to be called after being deployed behind a proxy.
