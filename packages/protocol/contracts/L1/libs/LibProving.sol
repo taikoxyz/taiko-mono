@@ -11,6 +11,7 @@ import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -65,15 +66,20 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: header.parentHash,
-            blockHash: header.hashBlockHeader(),
+            snippet: Snippet(header.hashBlockHeader(), evidence.signalRoot),
             prover: evidence.prover
         });
 
         if (!oracleProving && !config.skipZKPVerification) {
+            bytes32 instance = _getInstance(
+                evidence,
+                resolver.resolve("signal_service", false),
+                resolver.resolve(config.chainId, "signal_service", false)
+            );
             bool verified = _verifyZKProof(
                 resolver,
                 evidence.zkproof,
-                _getInstance(evidence)
+                instance
             );
             if (!verified) revert L1_BLOCK_PROOF();
         }
@@ -104,7 +110,7 @@ library LibProving {
             resolver: resolver,
             blockId: blockId,
             parentHash: evidence.parentHash,
-            blockHash: LibUtils.BLOCK_DEADEND_HASH,
+            snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
             prover: msg.sender
         });
 
@@ -123,14 +129,14 @@ library LibProving {
         AddressResolver resolver,
         uint256 blockId,
         bytes32 parentHash,
-        bytes32 blockHash,
+        Snippet memory snippet,
         address prover
     ) private returns (bool oracleProving) {
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
         ];
 
-        if (fc.blockHash == 0) {
+        if (fc.snippet.blockHash == 0) {
             address oracleProver = resolver.resolve("oracle_prover", true);
             if (msg.sender == oracleProver) {
                 oracleProving = true;
@@ -139,9 +145,13 @@ library LibProving {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
-            fc.blockHash = blockHash;
+            fc.snippet = snippet;
         } else {
-            if (fc.blockHash != blockHash) revert L1_CONFLICT_PROOF();
+            if (
+                fc.snippet.blockHash != snippet.blockHash ||
+                fc.snippet.signalRoot != snippet.signalRoot
+            ) revert L1_CONFLICT_PROOF();
+
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
             fc.prover = prover;
@@ -191,19 +201,34 @@ library LibProving {
     }
 
     function _getInstance(
-        TaikoData.ValidBlockEvidence memory evidence
+        TaikoData.ValidBlockEvidence memory evidence,
+        address l1SignalServiceAddress,
+        address l2SignalServiceAddress
     ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            5
+            8
         );
 
         uint256 i = list.length;
+        // All L2 related inputs
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
-        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        list[--i] = LibRLPWriter.writeHash(
+            bytes32(uint256(uint160(l2SignalServiceAddress)))
+        );
+        list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
+        // All L1 related inputs:
+
         list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
+        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+        list[--i] = LibRLPWriter.writeHash(
+            bytes32(uint256(uint160(l1SignalServiceAddress)))
+        );
+
+        // Other inputs
         list[--i] = LibRLPWriter.writeAddress(evidence.prover);
+
         return keccak256(LibRLPWriter.writeList(list));
     }
 }

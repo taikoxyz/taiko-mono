@@ -14,16 +14,14 @@ import {
 
 import {TaikoData} from "../../L1/TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
+import {Snippet} from "../../common/IXchainSync.sol";
 
-/**
- * LibVerifying.
- */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
+    event BlockVerified(uint256 indexed id, Snippet snippet);
+    event XchainSynced(uint256 indexed srcHeight, Snippet snippet);
 
     error L1_ZERO_FEE_BASE();
 
@@ -39,10 +37,12 @@ library LibVerifying {
         state.feeBase = feeBase;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = genesisBlockHash;
 
-        emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(0, genesisBlockHash);
+        Snippet memory snippet = Snippet(genesisBlockHash, 0);
+        state.l2Snippets[0] = snippet;
+
+        emit BlockVerified(0, snippet);
+        emit XchainSynced(0, snippet);
     }
 
     function verifyBlocks(
@@ -51,9 +51,10 @@ library LibVerifying {
         uint256 maxBlocks
     ) internal {
         uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[
+        Snippet memory latestL2Snippet = state.l2Snippets[
             latestL2Height % config.blockHashHistory
         ];
+
         uint64 processed;
 
         for (
@@ -62,7 +63,7 @@ library LibVerifying {
             ++i
         ) {
             TaikoData.ForkChoice storage fc = state.forkChoices[i][
-                latestL2Hash
+                latestL2Snippet.blockHash
             ];
             TaikoData.ProposedBlock storage target = state.getProposedBlock(
                 config.maxNumBlocks,
@@ -72,22 +73,23 @@ library LibVerifying {
             if (fc.prover == address(0)) {
                 break;
             } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock({
+                (latestL2Height, latestL2Snippet) = _verifyBlock({
                     state: state,
                     config: config,
                     fc: fc,
                     target: target,
                     latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
+                    latestL2Snippet: latestL2Snippet
                 });
                 processed += 1;
-                emit BlockVerified(i, fc.blockHash);
+                emit BlockVerified(i, latestL2Snippet);
 
                 // clean up the fork choice
                 // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
                 // may still reduce the gas cost if the block is proven and
                 // fianlized in the same L1 transaction.
-                fc.blockHash = 0;
+                fc.snippet.blockHash = 0;
+                fc.snippet.signalRoot = 0;
                 fc.prover = address(0);
                 fc.provenAt = 0;
             }
@@ -103,11 +105,11 @@ library LibVerifying {
                 // verified one in a batch. This is sufficient because the last
                 // verified hash is the only one needed checking the existence
                 // of a cross-chain message with a merkle proof.
-                state.l2Hashes[
+                state.l2Snippets[
                     latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
+                ] = latestL2Snippet;
 
-                emit HeaderSynced(latestL2Height, latestL2Hash);
+                emit XchainSynced(latestL2Height, latestL2Snippet);
             }
         }
     }
@@ -159,8 +161,11 @@ library LibVerifying {
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage target,
         uint64 latestL2Height,
-        bytes32 latestL2Hash
-    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
+        Snippet memory latestL2Snippet
+    )
+        private
+        returns (uint64 _latestL2Height, Snippet memory _latestL2Snippet)
+    {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
@@ -185,7 +190,7 @@ library LibVerifying {
                 }
 
                 // refund proposer deposit
-                if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+                if (fc.snippet.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
                     uint256 refund = (target.deposit * (10000 - tRelBp)) /
                         10000;
                     if (refund > 0) {
@@ -215,12 +220,12 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+        if (fc.snippet.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
             _latestL2Height = latestL2Height + 1;
-            _latestL2Hash = fc.blockHash;
+            _latestL2Snippet = fc.snippet;
         } else {
             _latestL2Height = latestL2Height;
-            _latestL2Hash = latestL2Hash;
+            _latestL2Snippet = latestL2Snippet;
         }
     }
 }

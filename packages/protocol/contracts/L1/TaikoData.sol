@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {BlockHeader} from "../libs/LibBlockHeader.sol";
+import {Snippet} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct Config {
@@ -61,6 +62,7 @@ library TaikoData {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The block proof
         BlockHeader header;
+        bytes32 signalRoot;
         address prover;
     }
 
@@ -80,20 +82,18 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        bytes32 blockHash;
+        Snippet snippet;
         address prover;
         uint64 provenAt;
     }
 
     // This struct takes 9 slots.
     struct State {
-        // some blocks' hashes won't be persisted,
-        // only the latest one if verified in a batch
-        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
+        mapping(uint256 blockNumber => Snippet) l2Snippets;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;

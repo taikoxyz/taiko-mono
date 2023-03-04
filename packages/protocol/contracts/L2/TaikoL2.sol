@@ -6,10 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {TaikoData} from "../L1/TaikoData.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IXchainSync, Snippet} from "../common/IXchainSync.sol";
 
-contract TaikoL2 is IHeaderSync {
+contract TaikoL2 is EssentialContract, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
@@ -18,18 +18,16 @@ contract TaikoL2 is IHeaderSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    // Mapping from L1 block numbers to their block hashes.
-    // Note that only hashes of L1 blocks where at least one L2
-    // block has been proposed will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
+    mapping(uint256 blockNumber => Snippet) private _l1Snippet;
 
+    uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -44,8 +42,16 @@ contract TaikoL2 is IHeaderSync {
      * Constructor         *
      **********************/
 
-    constructor() {
-        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
+    function init(
+        address _addressManager,
+        uint256 _l1ChainId
+    ) external initializer {
+        EssentialContract._init(_addressManager);
+        l1ChainId = _l1ChainId;
+
+        if (block.chainid == 0 || block.chainid == _l1ChainId) {
+            revert L2_INVALID_CHAIN_ID();
+        }
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
@@ -75,27 +81,43 @@ contract TaikoL2 is IHeaderSync {
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
+     * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
-    function anchor(uint256 l1Height, bytes32 l1Hash) external {
+    function anchor(
+        uint256 l1Height,
+        bytes32 l1Hash,
+        bytes32 l1SignalRoot
+    ) external {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
-        _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(l1Height, l1Hash);
+        Snippet memory snippet = Snippet(l1Hash, l1SignalRoot);
+        _l1Snippet[l1Height] = snippet;
+
+        // A circuit will verify the integratity among:
+        // l1Hash, l1SignalRoot, and l1SignalServiceAddress
+        // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
+        // instance.
+
+        emit XchainSynced(l1Height, snippet);
     }
 
     /**********************
      * Public Functions   *
      **********************/
 
-    function getSyncedHeader(
+    function getSyncedBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
-        return _l1Hashes[number];
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1Snippet[_number].blockHash;
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
-        return _l1Hashes[latestSyncedL1Height];
+    function getSyncedSignalRoot(
+        uint256 number
+    ) public view override returns (bytes32) {
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1Snippet[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
