@@ -80,7 +80,7 @@ library LibBridgeStatus {
             (LibBridgeData.StatusProof)
         );
         bytes32 syncedHeaderHash = IXchainSync(resolver.resolve("taiko", false))
-            .getSyncedBlockHash(sp.header.height);
+            .getXchainBlockHash(sp.header.height);
 
         if (
             syncedHeaderHash == 0 ||

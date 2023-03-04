@@ -106,14 +106,14 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Public Functions   *
      **********************/
 
-    function getSyncedBlockHash(
+    function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
         return _l1Snippet[_number].blockHash;
     }
 
-    function getSyncedSignalRoot(
+    function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;

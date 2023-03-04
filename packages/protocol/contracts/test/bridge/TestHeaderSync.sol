@@ -17,11 +17,11 @@ contract TestXchainSync is IXchainSync {
         snippet = _snippet;
     }
 
-    function getSyncedBlockHash(uint256) external view returns (bytes32) {
+    function getXchainBlockHash(uint256) external view returns (bytes32) {
         return snippet.blockHash;
     }
 
-    function getSyncedSignalRoot(uint256) external view returns (bytes32) {
+    function getXchainSignalRoot(uint256) external view returns (bytes32) {
         return snippet.signalRoot;
     }
 }

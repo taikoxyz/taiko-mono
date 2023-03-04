@@ -19,9 +19,9 @@ struct Snippet {
 interface IXchainSync {
     event XchainSynced(uint256 indexed srcHeight, Snippet srcSnippet);
 
-    function getSyncedBlockHash(uint256 number) external view returns (bytes32);
+    function getXchainBlockHash(uint256 number) external view returns (bytes32);
 
-    function getSyncedSignalRoot(
+    function getXchainSignalRoot(
         uint256 number
     ) external view returns (bytes32);
 }

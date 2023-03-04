@@ -171,8 +171,8 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
         });
     });
 
-    describe("getSyncedBlockHash(0)", function () {
-        it("iterates through blockHashHistory length and asserts getSyncedBlockHash(0) returns correct value", async function () {
+    describe("getXchainBlockHash(0)", function () {
+        it("iterates through blockHashHistory length and asserts getXchainBlockHash(0) returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;
@@ -197,7 +197,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
 
                 expect(verifyEvent).not.to.be.undefined;
 
-                const header = await taikoL1.getSyncedBlockHash(0);
+                const header = await taikoL1.getXchainBlockHash(0);
                 expect(header).to.be.eq(verifyEvent.args.blockHash);
                 blocks++;
             }

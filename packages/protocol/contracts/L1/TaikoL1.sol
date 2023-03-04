@@ -189,14 +189,14 @@ contract TaikoL1 is
             LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
     }
 
-    function getSyncedBlockHash(
+    function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
         return
             state.getL2Snippet(number, getConfig().blockHashHistory).blockHash;
     }
 
-    function getSyncedSignalRoot(
+    function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         return
