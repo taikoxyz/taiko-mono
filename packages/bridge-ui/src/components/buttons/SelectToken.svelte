@@ -92,9 +92,8 @@
 </script>
 
 <div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
-  <button
-    id="tokensDropdown"
-    aria-haspopup="listbox"
+  <label
+    tabindex="0"
     class="flex items-center justify-center hover:cursor-pointer"
   >
     {#if $token.logoComponent}
@@ -104,13 +103,11 @@
     {/if}
     <p class="px-2 text-sm">{$token.symbol.toUpperCase()}</p>
     <ChevronDown size="20" />
-  </button>
+  </label>
 
   <ul
+    tabindex="0"
     class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2"
-    tabindex="-1"
-    role="listbox"
-    aria-labelledby="tokensDropdown"
   >
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5 rounded-none">
