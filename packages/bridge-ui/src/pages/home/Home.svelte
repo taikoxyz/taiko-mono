@@ -27,22 +27,14 @@
     style={styleInner}>
     
     <!-- TODO: extract this tab component into a general one? -->
-    <div role="tablist" class="tabs block mb-4">
-      <button
-        role="tab"
-        aria-selected="true"
+    <div class="tabs block mb-4">
+      <span
         class="tab tab-bordered {isBridge ? 'tab-active' : ''}"
-        on:click={() => activeTab = "bridge"}
-      >
-        Bridge
-      </button>
-      <button
-        role="tab"
+        on:click={() => (activeTab = "bridge")}>Bridge</span>
+      <span
         class="tab tab-bordered {!isBridge ? 'tab-active' : ''}"
         on:click={() => activeTab = "transactions"}
-      >
-        Transactions ({$transactions.length})
-      </button>
+      >Transactions ({$transactions.length})</span>
     </div>
 
     {#if activeTab === "bridge"}
@@ -55,3 +47,9 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .tabs {
+    display: block;
+  }
+</style>
