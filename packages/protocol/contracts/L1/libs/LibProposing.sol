@@ -74,7 +74,7 @@ library LibProposing {
                 meta.txListHash != LibUtils.hashTxList(inputs[1])
             ) revert L1_TX_LIST();
 
-            if (meta.txListProofHash != LibUtils.hashZKProof(inputs[2]))
+            if (meta.txListProofHash != keccak256(inputs[2]))
                 revert L1_TX_LIST_PROOF();
 
             if (

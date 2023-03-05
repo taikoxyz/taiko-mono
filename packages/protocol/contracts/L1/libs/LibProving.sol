@@ -100,10 +100,8 @@ library LibProving {
         TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
-        if (
-            LibUtils.hashZKProof(abi.encode(evidence.zkproof)) !=
-            meta.txListProofHash
-        ) revert L1_TX_LIST_PROOF();
+        if (meta.txListProofHash != keccak256(abi.encode(evidence.zkproof)))
+            revert L1_TX_LIST_PROOF();
 
         bool oracleProving = _proveBlock({
             state: state,

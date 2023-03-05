@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
@@ -171,11 +170,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getBlockFee() public view returns (uint256) {
-        (, uint256 fee, uint256 deposit) = LibProposing.getBlockFee(
+        (, uint256 feeAmount, uint256 depositAmount) = LibProposing.getBlockFee(
             state,
             getConfig()
         );
-        return fee + deposit;
+        return feeAmount + depositAmount;
     }
 
     function getProofReward(
@@ -217,13 +216,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         returns (LibUtils.StateVariables memory)
     {
         return state.getStateVariables();
-    }
-
-    function signWithGoldenTouch(
-        bytes32 hash,
-        uint8 k
-    ) public view returns (uint8 v, uint256 r, uint256 s) {
-        return LibAnchorSignature.signTransaction(hash, k);
     }
 
     function getForkChoice(

@@ -145,12 +145,6 @@ library LibUtils {
         return keccak256(txList);
     }
 
-    function hashZKProof(
-        bytes memory zkProofAbiEncoded
-    ) internal pure returns (bytes32) {
-        return keccak256(zkProofAbiEncoded);
-    }
-
     function movingAverage(
         uint256 maValue,
         uint256 newValue,
