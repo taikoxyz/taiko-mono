@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
 import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Snippet} from "../../common/IXchainSync.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";

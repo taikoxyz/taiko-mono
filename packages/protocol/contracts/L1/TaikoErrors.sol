@@ -28,5 +28,4 @@ abstract contract TaikoErrors {
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_PROOF();
     error L1_TX_LIST();
-    error L1_ZERO_FEE_BASE();
 }
