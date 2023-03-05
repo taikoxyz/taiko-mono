@@ -12,7 +12,7 @@ And welcome to the official Taiko documentation! This is your one-stop shop for 
 
 ## Alpha-1 (Snæfellsjökull) Testnet
 
-The Alpha-1 (Snæfellsjökull) testnet was deprecated on February 15th. The Alpha-2 testnet will launch in a sometime in March or April.
+The Alpha-1 (Snæfellsjökull) testnet was deprecated on February 15th. The Alpha-2 testnet will launch sometime in March or April.
 
 ## Learn more about Taiko
 
