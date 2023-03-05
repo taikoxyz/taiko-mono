@@ -10,7 +10,7 @@
 
 ## Environment Variables
 
-You can use the following values in the `.env` file to spin up the Bridge UI locally.
+You can use the following values in the `.env` file to spin up the Starter dapp locally.
 
 ```
 VITE_NODE_ENV=dev
