@@ -49,6 +49,7 @@ library LibProving {
 
         BlockHeader memory header = evidence.header;
         if (
+            evidence.signalRoot == 0 ||
             evidence.prover == address(0) ||
             header.parentHash == 0 ||
             header.beneficiary != meta.beneficiary ||
@@ -148,7 +149,14 @@ library LibProving {
             if (
                 fc.snippet.blockHash != snippet.blockHash ||
                 fc.snippet.signalRoot != snippet.signalRoot
-            ) revert L1_CONFLICT_PROOF(fc.snippet);
+            ) {
+                // TODO(daniel): we may allow TaikoToken holders to stake
+                // to build an insurance fund. Then once there is a conflicting
+                // proof found, we lock the insurance fund, investigate the
+                // issue, then decide through a DAO whether we need to use
+                // the insurnace fund to cover any identified loss.
+                revert L1_CONFLICT_PROOF(fc.snippet);
+            }
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 
