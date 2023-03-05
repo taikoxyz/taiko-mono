@@ -67,32 +67,35 @@ export const symbol2TestERC20LogoMap = {
   // Add more symbols
 }
 
-export let TEST_ERC20: Token[] = (() => {
-  try {
-    return JSON
-      .parse(import.meta.env.VITE_TEST_ERC20)
-      .map(({ name, address, symbol }) => ({
-        name,
-        symbol,
+export let TEST_ERC20: Token[] = JSON
+  .parse(
+    import.meta?.env?.VITE_TEST_ERC20 ?? 
+    // default erc20 token
+    `
+    [{
+      "address": "0x3435A6180fBB1BAEc87bDC49915282BfBC328C70",
+      "symbol": "BLL",
+      "name": "Bull Token"
+    }]
+    `
+  )
+  .map(({ name, address, symbol }) => ({
+    name,
+    symbol,
 
-        addresses: [
-          {
-            chainId: CHAIN_MAINNET.id,
-            address,
-          },
-          {
-            chainId: CHAIN_TKO.id,
-            address: "0x00",
-          },
-        ],
-        decimals: 18,
-        logoComponent: symbol2TestERC20LogoMap[symbol] || Unknown,
-      }))
-  } catch (e) {
-    // TODO: can we have a default token?
-    return []
-  }
-})();
+    addresses: [
+      {
+        chainId: CHAIN_MAINNET.id,
+        address,
+      },
+      {
+        chainId: CHAIN_TKO.id,
+        address: "0x00",
+      },
+    ],
+    decimals: 18,
+    logoComponent: symbol2TestERC20LogoMap[symbol] || Unknown,
+  }));
 
 export interface TokenService {
   StoreToken(

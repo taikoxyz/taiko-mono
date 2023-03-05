@@ -10,7 +10,7 @@ import { chainIdToTokenVaultAddress } from "../store/bridge";
 import { get } from "svelte/store";
 import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
 import { ProcessingFeeMethod } from "../domain/fee";
-import { ETH, type Token } from "../domain/token";
+import { ETH, TEST_ERC20 } from "../domain/token";
 import { signer } from "../store/signer";
 import {
   erc20DeployedGasLimit,
@@ -51,24 +51,6 @@ const mockProvider = {
 };
 
 const mockSigner = {} as Signer;
-
-const mockToken: Token = {
-  name: 'Mocked Token',
-  symbol: 'MT',
-
-  addresses: [
-    {
-      chainId: 31336,
-      address: '0x3435A6180fBB1BAEc87bDC49915282BfBC328C70',
-    },
-    {
-      chainId: 167001,
-      address: '0x00',
-    },
-  ],
-  decimals: 18,
-  logoComponent: {} as ComponentType,
-};
 
 describe("recommendProcessingFee()", () => {
   beforeEach(() => {
@@ -169,7 +151,7 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      mockToken,
+      TEST_ERC20[0],
       mockSigner,
     );
 
@@ -198,7 +180,7 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      mockToken,
+      TEST_ERC20[0],
       mockSigner,
     );
 
