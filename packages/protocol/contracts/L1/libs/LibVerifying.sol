@@ -139,7 +139,7 @@ library LibVerifying {
     {
         (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
             config: config,
-            feeBase: LibTokenomics.szaboToWei(state.feeBaseSzabo),
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: false,
             tNow: provenAt,
             tLast: proposedAt,
@@ -204,9 +204,9 @@ library LibVerifying {
                 }
             }
             // Update feeBase and avgProofTime
-            state.feeBaseSzabo = LibTokenomics.weiToSzabo(
+            state.feeBaseSzabo = LibTokenomics.toSzabo(
                 LibUtils.movingAverage({
-                    maValue: LibTokenomics.szaboToWei(state.feeBaseSzabo),
+                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
                     newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })

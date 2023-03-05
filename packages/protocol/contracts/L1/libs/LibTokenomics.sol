@@ -78,7 +78,7 @@ library LibTokenomics {
         }
     }
 
-    function szaboToWei(uint64 amount) internal pure returns (uint256) {
+    function fromSzabo(uint64 amount) internal pure returns (uint256) {
         if (amount == 0) {
             return SZABO_TO_WEI;
         } else {
@@ -86,7 +86,7 @@ library LibTokenomics {
         }
     }
 
-    function weiToSzabo(uint256 amount) internal pure returns (uint64) {
+    function toSzabo(uint256 amount) internal pure returns (uint64) {
         uint _szabo = amount / SZABO_TO_WEI;
         if (_szabo > type(uint64).max) {
             return type(uint64).max;

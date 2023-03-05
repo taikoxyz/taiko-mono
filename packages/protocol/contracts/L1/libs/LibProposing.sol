@@ -118,9 +118,9 @@ library LibProposing {
                 }
             }
             // Update feeBase and avgBlockTime
-            state.feeBaseSzabo = LibTokenomics.weiToSzabo(
+            state.feeBaseSzabo = LibTokenomics.toSzabo(
                 LibUtils.movingAverage({
-                    maValue: LibTokenomics.szaboToWei(state.feeBaseSzabo),
+                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
                     newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })
@@ -155,7 +155,7 @@ library LibProposing {
     ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
         (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
             config: config,
-            feeBase: LibTokenomics.szaboToWei(state.feeBaseSzabo),
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: true,
             tNow: uint64(block.timestamp),
             tLast: state.lastProposedAt,
