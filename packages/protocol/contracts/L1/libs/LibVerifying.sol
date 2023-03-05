@@ -212,15 +212,6 @@ library LibVerifying {
                 newValue: newFeeBase,
                 maf: config.feeBaseMAF
             });
-
-            // clean up the fork choice
-            // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
-            // may still reduce the gas cost if the block is proven and
-            // fianlized in the same L1 transaction.
-            fc.snippet.blockHash = 0;
-            fc.snippet.signalRoot = 0;
-            fc.prover = address(0);
-            fc.provenAt = 0;
         }
 
         state.avgProofTime = LibUtils
@@ -238,5 +229,14 @@ library LibVerifying {
             _latestL2Height = latestL2Height;
             _latestL2Snippet = latestL2Snippet;
         }
+
+        // clean up the fork choice
+        // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
+        // may still reduce the gas cost if the block is proven and
+        // fianlized in the same L1 transaction.
+        fc.snippet.blockHash = 0;
+        fc.snippet.signalRoot = 0;
+        fc.prover = address(0);
+        fc.provenAt = 0;
     }
 }
