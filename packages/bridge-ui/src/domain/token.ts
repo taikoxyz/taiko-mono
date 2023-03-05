@@ -4,11 +4,13 @@ import Tko from "../components/icons/TKO.svelte";
 import { CHAIN_MAINNET, CHAIN_TKO } from "./chain";
 import Horse from "../components/icons/Horse.svelte";
 import Bull from "../components/icons/Bull.svelte";
+import Unknown from "../components/icons/Unknown.svelte";
 
 type Address = {
   chainId: number;
   address: string;
 };
+
 export type Token = {
   name: string;
   addresses: Address[];
@@ -59,6 +61,12 @@ export const TKO: Token = {
   logoComponent: Tko,
 };
 
+export const symbol2TestERC20LogoMap = {
+  BLL: Bull,
+  HORSE: Horse,
+  // Add more symbols
+}
+
 export let TEST_ERC20: Token[] = (() => {
   try {
     return JSON
@@ -78,9 +86,7 @@ export let TEST_ERC20: Token[] = (() => {
           },
         ],
         decimals: 18,
-
-        // TODO: how about multiple tokens?
-        logoComponent: symbol === 'HORSE' ? Horse : Bull,
+        logoComponent: symbol2TestERC20LogoMap[symbol] || Unknown,
       }))
   } catch (e) {
     // TODO: can we have a default token?
