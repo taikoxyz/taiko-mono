@@ -72,7 +72,7 @@ library LibVerifying {
             if (fc.prover == address(0)) {
                 break;
             } else {
-                (latestL2Height, latestL2Snippet) = _verifyBlock({
+                (latestL2Height, latestL2Snippet) = _markBlockVerified({
                     state: state,
                     config: config,
                     fc: fc,
@@ -82,15 +82,6 @@ library LibVerifying {
                 });
                 processed += 1;
                 emit BlockVerified(i, latestL2Snippet);
-
-                // clean up the fork choice
-                // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
-                // may still reduce the gas cost if the block is proven and
-                // fianlized in the same L1 transaction.
-                fc.snippet.blockHash = 0;
-                fc.snippet.signalRoot = 0;
-                fc.prover = address(0);
-                fc.provenAt = 0;
             }
         }
 
@@ -166,7 +157,7 @@ library LibVerifying {
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 
-    function _verifyBlock(
+    function _markBlockVerified(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
@@ -221,6 +212,15 @@ library LibVerifying {
                 newValue: newFeeBase,
                 maf: config.feeBaseMAF
             });
+
+            // clean up the fork choice
+            // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
+            // may still reduce the gas cost if the block is proven and
+            // fianlized in the same L1 transaction.
+            fc.snippet.blockHash = 0;
+            fc.snippet.signalRoot = 0;
+            fc.prover = address(0);
+            fc.provenAt = 0;
         }
 
         state.avgProofTime = LibUtils
