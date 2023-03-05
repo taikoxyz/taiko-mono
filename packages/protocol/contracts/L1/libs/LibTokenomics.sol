@@ -15,6 +15,7 @@ import {TaikoData} from "../TaikoData.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
+    uint256 private constant SZABO_TO_WEI = 1E12;
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(
@@ -79,14 +80,14 @@ library LibTokenomics {
 
     function szaboToWei(uint64 amount) internal pure returns (uint256) {
         if (amount == 0) {
-            return 1E12;
+            return SZABO_TO_WEI;
         } else {
-            return amount * 1E12;
+            return amount * SZABO_TO_WEI;
         }
     }
 
     function weiToSzabo(uint256 amount) internal pure returns (uint64) {
-        uint _szabo = amount / 1E12;
+        uint _szabo = amount / SZABO_TO_WEI;
         if (_szabo > type(uint64).max) {
             return type(uint64).max;
         } else if (_szabo == 0) {
