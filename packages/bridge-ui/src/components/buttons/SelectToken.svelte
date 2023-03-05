@@ -77,7 +77,12 @@
         symbol: symbol,
         logoComponent: null,
       };
-      const updateTokensList = await $tokenService.StoreToken(token, userAddress);
+
+      const updateTokensList = await $tokenService.StoreToken(
+        token,
+        userAddress,
+      );
+
       select(token);
       userTokens.set(updateTokensList);
       eventTarget.reset();
@@ -94,8 +99,7 @@
 <div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
   <label
     tabindex="0"
-    class="flex items-center justify-center hover:cursor-pointer"
-  >
+    class="flex items-center justify-center hover:cursor-pointer">
     {#if $token.logoComponent}
       <svelte:component this={$token.logoComponent} />
     {:else}
@@ -107,32 +111,37 @@
 
   <ul
     tabindex="0"
-    class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2"
-  >
+    class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2">
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5 rounded-none">
-        <button on:click={async () => await select(t)} class="flex hover:bg-dark-5 p-4">
+        <button
+          on:click={async () => await select(t)}
+          class="flex hover:bg-dark-5 p-4">
           <svelte:component this={t.logoComponent} height={22} width={22} />
-          <span class="text-sm font-medium bg-transparent px-2">{t.symbol.toUpperCase()}</span>
+          <span class="text-sm font-medium bg-transparent px-2"
+            >{t.symbol.toUpperCase()}</span>
         </button>
       </li>
     {/each}
     {#each customTokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5">
-        <button on:click={async () => await select(t)} class="flex hover:bg-dark-5 p-4">
+        <button
+          on:click={async () => await select(t)}
+          class="flex hover:bg-dark-5 p-4">
           <Erc20 height={22} width={22} />
-          <span class="text-sm font-medium bg-transparent px-2">{t.symbol.toUpperCase()}</span>
+          <span class="text-sm font-medium bg-transparent px-2"
+            >{t.symbol.toUpperCase()}</span>
         </button>
       </li>
     {/each}
     <li class="cursor-pointer hover:bg-dark-5">
       <button
         on:click={() => (showAddressField = true)}
-        class="flex hover:bg-dark-5 justify-between items-center p-4"
-      >
+        class="flex hover:bg-dark-5 justify-between items-center p-4">
         <PlusCircle size="25" />
-        <span class="text-sm font-medium bg-transparent flex-1 w-[100px] px-0 pl-2">Add Custom</span
-        >
+        <span
+          class="text-sm font-medium bg-transparent flex-1 w-[100px] px-0 pl-2"
+          >Add Custom</span>
       </button>
     </li>
   </ul>

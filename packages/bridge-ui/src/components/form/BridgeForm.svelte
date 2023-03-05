@@ -5,7 +5,11 @@
   import { token } from '../../store/token';
   import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
-  import { activeBridge, chainIdToTokenVaultAddress, bridgeType } from '../../store/bridge';
+  import {
+    activeBridge,
+    chainIdToTokenVaultAddress,
+    bridgeType,
+  } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee.svelte';
@@ -49,9 +53,13 @@
   let memoError: string;
 
   async function addrForToken() {
-    let addr = $token.addresses.find((t) => t.chainId === $fromChain.id).address;
+    let addr = $token.addresses.find(
+      (t) => t.chainId === $fromChain.id,
+    ).address;
     if ($token.symbol !== ETH.symbol && (!addr || addr === '0x00')) {
-      const srcChainAddr = $token.addresses.find((t) => t.chainId === $toChain.id).address;
+      const srcChainAddr = $token.addresses.find(
+        (t) => t.chainId === $toChain.id,
+      ).address;
 
       const tokenVault = new Contract(
         $chainIdToTokenVaultAddress.get($fromChain.id),
@@ -59,14 +67,21 @@
         $signer,
       );
 
-      const bridged = await tokenVault.canonicalToBridged($toChain.id, srcChainAddr);
+      const bridged = await tokenVault.canonicalToBridged(
+        $toChain.id,
+        srcChainAddr,
+      );
 
       addr = bridged;
     }
     return addr;
   }
 
-  async function getUserBalance(signer: ethers.Signer, token: Token, fromChain: Chain) {
+  async function getUserBalance(
+    signer: ethers.Signer,
+    token: Token,
+    fromChain: Chain,
+  ) {
     if (signer && token) {
       if (token.symbol == ETH.symbol) {
         const userBalance = await signer.getBalance('latest');
@@ -115,7 +130,8 @@
     if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
     if (!chainId || !chains[chainId.toString()]) return true;
-    if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0))) return true;
+    if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
+      return true;
     if (isNaN(parseFloat(amount))) return true;
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
@@ -133,7 +149,8 @@
   async function approve() {
     try {
       loading = true;
-      if (!requiresAllowance) throw Error('does not require additional allowance');
+      if (!requiresAllowance)
+        throw Error('does not require additional allowance');
 
       const tx = await $activeBridge.Approve({
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
@@ -159,7 +176,9 @@
     }
   }
 
-  async function checkUserHasEnoughBalance(bridgeOpts: BridgeOpts): Promise<boolean> {
+  async function checkUserHasEnoughBalance(
+    bridgeOpts: BridgeOpts,
+  ): Promise<boolean> {
     try {
       const gasEstimate = await $activeBridge.EstimateGas({
         ...bridgeOpts,
@@ -172,7 +191,9 @@
       let balanceAvailableForTx = userBalance;
 
       if ($token.symbol === ETH.symbol) {
-        balanceAvailableForTx = userBalance.sub(ethers.utils.parseEther(amount));
+        balanceAvailableForTx = userBalance.sub(
+          ethers.utils.parseEther(amount),
+        );
       }
 
       return balanceAvailableForTx.gte(requiredGas);
@@ -190,14 +211,17 @@
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = $providers.get($toChain.id);
-      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get($toChain.id);
-      let isBridgedTokenAlreadyDeployed = await checkIfTokenIsDeployedCrossChain(
-        $token,
-        provider,
-        destTokenVaultAddress,
-        $toChain,
-        $fromChain,
+      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
+        $toChain.id,
       );
+      let isBridgedTokenAlreadyDeployed =
+        await checkIfTokenIsDeployedCrossChain(
+          $token,
+          provider,
+          destTokenVaultAddress,
+          $toChain,
+          $fromChain,
+        );
 
       const bridgeOpts = {
         amountInWei: amountInWei,
@@ -211,7 +235,9 @@
         isBridgedTokenAlreadyDeployed,
       };
 
-      const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(bridgeOpts);
+      const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
+        bridgeOpts,
+      );
 
       if (!doesUserHaveEnoughBalance) {
         errorToast('Insufficient ETH balance');
@@ -223,7 +249,9 @@
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
       tx.chainId = $fromChain.id;
-      const storageKey = `transactions-${await (await $signer.getAddress()).toLowerCase()}`;
+      const storageKey = `transactions-${await (
+        await $signer.getAddress()
+      ).toLowerCase()}`;
       let transactions: BridgeTransaction[] = JSON.parse(
         await window.localStorage.getItem(storageKey),
       );
@@ -243,14 +271,19 @@
         transactions.push(bridgeTransaction);
       }
 
-      await window.localStorage.setItem(storageKey, JSON.stringify(transactions));
+      await window.localStorage.setItem(
+        storageKey,
+        JSON.stringify(transactions),
+      );
 
       pendingTransactions.update((store) => {
         store.push(tx);
         return store;
       });
 
-      transactionsStore.set(await $transactioner.GetAllByAddress(await $signer.getAddress()));
+      transactionsStore.set(
+        await $transactioner.GetAllByAddress(await $signer.getAddress()),
+      );
 
       successToast($_('toast.transactionSent'));
       await $signer.provider.waitForTransaction(tx.hash, 1);
@@ -321,7 +354,14 @@
 
   $: getUserBalance($signer, $token, $fromChain);
 
-  $: isBtnDisabled($signer, amount, $token, tokenBalance, requiresAllowance, memoError)
+  $: isBtnDisabled(
+    $signer,
+    amount,
+    $token,
+    tokenBalance,
+    requiresAllowance,
+    memoError,
+  )
     .then((d) => (btnDisabled = d))
     .catch((e) => console.log(e));
 
@@ -338,21 +378,23 @@
       <div class="label-text ">
         <span>
           {$_('bridgeForm.balance')}:
-          {tokenBalance.length > 10 ? `${truncateString(tokenBalance, 6)}...` : tokenBalance}
+          {tokenBalance.length > 10
+            ? `${truncateString(tokenBalance, 6)}...`
+            : tokenBalance}
           {$token.symbol}
         </span>
 
         <button
           class="btn btn-xs rounded-md hover:border-accent text-xs ml-1 h-[20px]"
-          on:click={useFullAmount}
-        >
+          on:click={useFullAmount}>
           {$_('bridgeForm.maxLabel')}
         </button>
       </div>
     {/if}
   </label>
 
-  <label class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
+  <label
+    class="input-group relative rounded-lg bg-dark-2 justify-between items-center pr-4">
     <input
       type="number"
       placeholder="0.01"
@@ -360,8 +402,7 @@
       on:input={updateAmount}
       class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
       name="amount"
-      bind:this={amountInput}
-    />
+      bind:this={amountInput} />
     <SelectToken />
   </label>
 </div>
@@ -379,8 +420,7 @@
 
   <FaucetModal
     onMint={async () => await getUserBalance($signer, $token, $fromChain)}
-    bind:isOpen={isFaucetModalOpen}
-  />
+    bind:isOpen={isFaucetModalOpen} />
 {/if}
 
 <ProcessingFee bind:customFee bind:recommendedFee />
@@ -398,15 +438,20 @@
       background="transparent"
       height={26}
       width={26}
-      controlsLayout={[]}
-    />
+      controlsLayout={[]} />
   </button>
 {:else if !requiresAllowance}
-  <button class="btn btn-accent w-full mt-4" on:click={bridge} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full mt-4"
+    on:click={bridge}
+    disabled={btnDisabled}>
     {$_('home.bridge')}
   </button>
 {:else}
-  <button class="btn btn-accent w-full mt-4" on:click={approve} disabled={btnDisabled}>
+  <button
+    class="btn btn-accent w-full mt-4"
+    on:click={approve}
+    disabled={btnDisabled}>
     {$_('home.approve')}
   </button>
 {/if}

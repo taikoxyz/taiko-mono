@@ -23,7 +23,11 @@
     const balance = await signer.getBalance();
     const address = await signer.getAddress();
 
-    const contract = new ethers.Contract($token.addresses[0].address, MintableERC20, signer);
+    const contract = new ethers.Contract(
+      $token.addresses[0].address,
+      MintableERC20,
+      signer
+    );
 
     const gas = await contract.estimateGas.mint(address);
     const gasPrice = await signer.getGasPrice();
@@ -45,7 +49,11 @@
 
         signer.set(wagmiSigner);
       }
-      const contract = new ethers.Contract($token.addresses[0].address, MintableERC20, $signer);
+      const contract = new ethers.Contract(
+        $token.addresses[0].address,
+        MintableERC20,
+        $signer
+      );
 
       const address = await $signer.getAddress();
       const tx = await contract.mint(address);
@@ -67,8 +75,12 @@
   }
 
   $: isBtnDisabled($signer).catch((e) => console.error(e));
-  $: mainnetName = import.meta.env ? import.meta.env.VITE_MAINNET_CHAIN_NAME : 'Ethereum A2';
-  $: taikonetName = import.meta.env ? import.meta.env.VITE_TAIKO_CHAIN_NAME : 'Taiko A2';
+  $: mainnetName = import.meta.env
+    ? import.meta.env.VITE_MAINNET_CHAIN_NAME
+    : 'Ethereum A2';
+  $: taikonetName = import.meta.env
+    ? import.meta.env.VITE_TAIKO_CHAIN_NAME
+    : 'Taiko A2';
 
   onMount(async () => {
     isBtnDisabled($signer);
@@ -76,9 +88,10 @@
 </script>
 
 <Modal title={'ERC20 Faucet'} bind:isOpen>
-  You can request 50 {$token.symbol}. {$token.symbol} is only available to be minted on {mainnetName}.
-  If you are on {taikonetName}, your network will be changed first. You must have a small amount of
-  ETH in your {mainnetName} wallet to send the transaction.
+  You can request 50 {$token.symbol}. {$token.symbol} is only available to be minted
+  on {mainnetName}. If you are on {taikonetName}, your network will be changed
+  first. You must have a small amount of ETH in your {mainnetName} wallet to send
+  the transaction.
   <br />
   <button
     class="btn btn-dark-5 h-[60px] text-base"
