@@ -908,7 +908,7 @@
         "type": "address"
       }
     ],
-    "name": "getRewardBalance",
+    "name": "getBalance",
     "outputs": [
       {
         "internalType": "uint256",

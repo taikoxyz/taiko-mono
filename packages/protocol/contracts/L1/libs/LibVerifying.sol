@@ -113,7 +113,7 @@ library LibVerifying {
         }
     }
 
-    function withdrawBalance(
+    function withdraw(
         TaikoData.State storage state,
         AddressResolver resolver
     ) internal {
@@ -125,6 +125,18 @@ library LibVerifying {
             msg.sender,
             balance - 1
         );
+    }
+
+    function deposit(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        uint256 amount
+    ) internal {
+        TaikoToken(resolver.resolve("tko_token", false)).burn(
+            msg.sender,
+            amount
+        );
+        state.balances[msg.sender] += amount;
     }
 
     function getProofReward(

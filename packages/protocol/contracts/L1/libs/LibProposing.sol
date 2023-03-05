@@ -105,10 +105,16 @@ library LibProposing {
             {
                 uint256 fee;
                 (newFeeBase, fee, deposit) = getBlockFee(state, config);
-                TaikoToken(resolver.resolve("tko_token", false)).burn(
-                    msg.sender,
-                    fee + deposit
-                );
+
+                uint256 burnAmount = fee + deposit;
+                if (state.balances[msg.sender] > burnAmount) {
+                    state.balances[msg.sender] -= burnAmount;
+                } else {
+                    TaikoToken(resolver.resolve("tko_token", false)).burn(
+                        msg.sender,
+                        burnAmount
+                    );
+                }
             }
             // Update feeBase and avgBlockTime
             state.feeBase = LibUtils.movingAverage({
