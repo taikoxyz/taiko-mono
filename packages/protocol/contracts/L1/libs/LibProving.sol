@@ -26,7 +26,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_PROOF();
-    error L1_CONFLICT_PROOF();
+    error L1_CONFLICT_PROOF(Snippet snippet);
     error L1_ID();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
@@ -148,7 +148,7 @@ library LibProving {
             if (
                 fc.snippet.blockHash != snippet.blockHash ||
                 fc.snippet.signalRoot != snippet.signalRoot
-            ) revert L1_CONFLICT_PROOF();
+            ) revert L1_CONFLICT_PROOF(fc.snippet);
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
 

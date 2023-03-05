@@ -6,12 +6,14 @@
 
 pragma solidity ^0.8.18;
 
+import {Snippet} from "../common/IXchainSync.sol";
+
 abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_NUMBER();
     error L1_BLOCK_PROOF();
-    error L1_CONFLICT_PROOF();
+    error L1_CONFLICT_PROOF(Snippet snippet);
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
     error L1_EXTRA_DATA();
