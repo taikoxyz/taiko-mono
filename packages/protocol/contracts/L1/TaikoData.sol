@@ -98,22 +98,22 @@ library TaikoData {
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reservedA1;
-        uint64 __reservedA2;
+        uint64 __reserved1;
+        uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
         uint256 feeBase;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // The block time moving average
-        uint64 __avgGasLimit; // the block gaslimit moving average, not updated.
+        uint64 __reserved3;
         // Changed when a block is proven/finalized
         uint64 latestVerifiedHeight;
         uint64 latestVerifiedId;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime;
-        uint64 __reservedC1;
+        uint64 __reserved4;
         // Reserved
         uint256[42] __gap;
     }
