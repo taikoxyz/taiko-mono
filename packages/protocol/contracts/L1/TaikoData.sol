@@ -112,7 +112,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime;
-        uint64 feeBaseSzabo; // in 1/1E6 TaikoToken;
+        uint64 feeBaseSzabo;
         // Reserved
         uint256[42] __gap;
     }

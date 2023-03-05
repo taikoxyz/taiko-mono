@@ -62,7 +62,7 @@ library LibUtils {
     ) internal view returns (StateVariables memory) {
         return
             StateVariables({
-                feeBase: LibTokenomics.feeBaseSzaboToWei(state.feeBaseSzabo),
+                feeBase: LibTokenomics.szaboToWei(state.feeBaseSzabo),
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 nextBlockId: state.nextBlockId,
