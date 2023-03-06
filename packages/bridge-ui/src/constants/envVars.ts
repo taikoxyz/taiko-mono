@@ -9,3 +9,5 @@ export const VITE_TEST_ERC20 = import.meta.env?.VITE_TEST_ERC20 ?? `[{
   "symbol": "BLL",
   "name": "Bull Token"
 }]`
+
+// TODO: add rest of env vars in another PR

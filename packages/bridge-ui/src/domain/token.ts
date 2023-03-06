@@ -1,11 +1,11 @@
-import Eth from "../components/icons/ETH.svelte";
-import type { ComponentType } from "svelte";
-import Tko from "../components/icons/TKO.svelte";
-import { CHAIN_MAINNET, CHAIN_TKO } from "./chain";
-import Horse from "../components/icons/Horse.svelte";
-import Bull from "../components/icons/Bull.svelte";
-import Unknown from "../components/icons/Unknown.svelte";
-import { VITE_TEST_ERC20 } from '../constants/envVars'
+import Eth from '../components/icons/ETH.svelte';
+import type { ComponentType } from 'svelte';
+import Tko from '../components/icons/TKO.svelte';
+import { CHAIN_MAINNET, CHAIN_TKO } from './chain';
+import Horse from '../components/icons/Horse.svelte';
+import Bull from '../components/icons/Bull.svelte';
+import Unknown from '../components/icons/Unknown.svelte';
+import { VITE_TEST_ERC20 } from '../constants/envVars';
 
 type Address = {
   chainId: number;
@@ -26,51 +26,50 @@ export type TokenDetails = {
   decimals: number;
   address: string;
   userTokenBalance: string;
-}
+};
 
 export const ETH: Token = {
-  name: "Ethereum",
+  name: 'Ethereum',
   addresses: [
     {
       chainId: CHAIN_MAINNET.id,
-      address: "0x00",
+      address: '0x00',
     },
     {
       chainId: CHAIN_TKO.id,
-      address: "0x00",
+      address: '0x00',
     },
   ],
   decimals: 18,
-  symbol: "ETH",
+  symbol: 'ETH',
   logoComponent: Eth,
 };
 
 export const TKO: Token = {
-  name: "Taiko",
+  name: 'Taiko',
   addresses: [
     {
       chainId: CHAIN_MAINNET.id,
-      address: "0x00",
+      address: '0x00',
     },
     {
       chainId: CHAIN_TKO.id,
-      address: "0x00",
+      address: '0x00',
     },
   ],
   decimals: 18,
-  symbol: "TKO",
+  symbol: 'TKO',
   logoComponent: Tko,
 };
 
-export const symbol2TestERC20LogoMap = {
+export const symbolToLogoComponent = {
   BLL: Bull,
   HORSE: Horse,
   // Add more symbols
-}
+};
 
-export let TEST_ERC20: Token[] = JSON
-  .parse(
-    VITE_TEST_ERC20 ?? 
+export let TEST_ERC20: Token[] = JSON.parse(
+  VITE_TEST_ERC20 ??
     // default erc20 token
     `
     [{
@@ -78,33 +77,29 @@ export let TEST_ERC20: Token[] = JSON
       "symbol": "BLL",
       "name": "Bull Token"
     }]
-    `
-  )
-  .map(({ name, address, symbol }) => ({
-    name,
-    symbol,
+    `,
+).map(({ name, address, symbol }) => ({
+  name,
+  symbol,
 
-    addresses: [
-      {
-        chainId: CHAIN_MAINNET.id,
-        address,
-      },
-      {
-        chainId: CHAIN_TKO.id,
-        address: "0x00",
-      },
-    ],
-    decimals: 18,
-    logoComponent: symbol2TestERC20LogoMap[symbol] || Unknown,
-  }));
+  addresses: [
+    {
+      chainId: CHAIN_MAINNET.id,
+      address,
+    },
+    {
+      chainId: CHAIN_TKO.id,
+      address: '0x00',
+    },
+  ],
+  decimals: 18,
+  logoComponent: symbolToLogoComponent[symbol] || Unknown,
+}));
 
 export interface TokenService {
-  StoreToken(
-    token: Token,
-    address: string
-  ): Promise<Token[]>;
-  GetTokens(address: string): Token[],
-  RemoveToken(token: Token, address: string): Token[],
+  StoreToken(token: Token, address: string): Promise<Token[]>;
+  GetTokens(address: string): Token[];
+  RemoveToken(token: Token, address: string): Token[];
 }
 
 export const tokens = [ETH, ...TEST_ERC20];
