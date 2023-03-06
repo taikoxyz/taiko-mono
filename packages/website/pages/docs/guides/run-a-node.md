@@ -4,8 +4,6 @@ This is arguably the most important part of the testnet! Taiko is fully decentra
 
 Follow the guide at [simple-taiko-node/README.md](https://github.com/taikoxyz/simple-taiko-node/blob/main/README.md) to get started.
 
-> Note: You will only be able to run a node regularly or as a proposer. In this testnet we're not running any provers.
-
 ## System requirements
 
 Because we're a fork of Geth, you can consult the [Geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), which are outlined below.
