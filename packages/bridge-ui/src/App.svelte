@@ -1,11 +1,8 @@
 <script lang="ts">
-  import { wrap } from 'svelte-spa-router/wrap';
   import QueryProvider from './components/providers/QueryProvider.svelte';
   import Router from 'svelte-spa-router';
   import { SvelteToast } from '@zerodevx/svelte-toast';
-  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
 
-  import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
   import { updateBridges } from './store/bridge';
   import {
@@ -17,6 +14,9 @@
   import { subscribeToSigner } from './store/signer';
   import { setWagmiClient } from './store/wagmi';
 
+  // TODO: I'm guessing we need this here becase it's used
+  //       in SwitchEthereumChainModal, but I'm wondering
+  //       of we can we run this setup somewhere else.
   setupI18n({ withLocale: 'en' });
 
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
@@ -24,6 +24,7 @@
   import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import { setTokenService } from './store/userToken';
   import { setRelayer } from './store/relayerApi';
+  import { routes, toastOptions } from './config';
 
   const { providerMap } = setProviders(
     import.meta.env.VITE_L1_RPC_URL,
@@ -49,20 +50,6 @@
   subscribeToPendingTransactions($signer, $transitioner);
 
   subscribeToTransactions(providerMap);
-
-  const toastOptions: SvelteToastOptions = {
-    dismissable: false,
-    duration: 4000,
-    pausable: false,
-  };
-
-  const routes = {
-    '/': wrap({
-      component: Home,
-      props: {},
-      userData: {},
-    }),
-  };
 </script>
 
 <QueryProvider>

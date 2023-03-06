@@ -13,8 +13,6 @@ export const wagmiClient = writable<Client>();
 /**
  * Configure the different chains, mainnet and taiko, based on
  * our custom RPC providers, and create a wagmi client.
- * @param providerMap 
- * @returns 
  */
 export function setWagmiClient(
   providerMap: Map<number, ethers.providers.JsonRpcProvider>
