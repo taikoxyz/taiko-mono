@@ -73,24 +73,19 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      */
     function proposeBlock(
         bytes[] calldata inputs
-    )
-        external
-        onlyFromEOA
-        nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
-    {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
+        LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             inputs: inputs
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        // LibVerifying.verifyBlocks({
+        //     state: state,
+        //     config: config,
+        //     maxBlocks: config.maxVerificationsPerTx
+        // });
     }
 
     /**

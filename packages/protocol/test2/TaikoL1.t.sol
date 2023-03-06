@@ -2,14 +2,11 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/TaikoConfig.sol";
 import "../contracts/L1/TaikoData.sol";
 import "../contracts/L1/TaikoToken.sol";
-import "../contracts/libs/LibBlockHeader.sol";
 
 contract TaikoL1Test is Test {
     TaikoToken public tko;
@@ -19,11 +16,7 @@ contract TaikoL1Test is Test {
     bytes32 public genesisBlockHash;
 
     function registerContract(string memory name, address addr) internal {
-        string memory key = string.concat(
-            Strings.toString(block.chainid),
-            ".",
-            name
-        );
+        string memory key =string.concat(Strings.toString(block.chainid), ".", name);
         addressManager.setAddress(key, addr);
     }
 
@@ -40,19 +33,9 @@ contract TaikoL1Test is Test {
 
         // register all addresses
         registerContract("taiko_token", address(tko));
-
-        // set proto_broker to this address to mint some TKO
-        registerContract("proto_broker", address(this));
-        tko.mint(address(this), 1E9 ether);
-
-        // set proto_broker to L1
-        registerContract("proto_broker", address(L1));
     }
 
-    function proposeBlock(
-        address proposer,
-        uint256 txListSize
-    ) internal returns (TaikoData.BlockMetadata memory) {
+    function propose(address proposer, uint256 txListSize) internal {
         bytes[] memory inputs = new bytes[](3);
         inputs[1] = bytes("txList");
         inputs[2] = bytes("txListProof");
@@ -73,72 +56,17 @@ contract TaikoL1Test is Test {
         inputs[0] = abi.encode(meta);
 
         vm.prank(proposer, proposer);
-        return L1.proposeBlock(inputs);
+        L1.proposeBlock(inputs);
     }
 
-    function proveBlock(
-        address prover,
-        TaikoData.Config memory conf,
-        uint256 blockId,
-        bytes32 parentHash,
-        TaikoData.BlockMetadata memory meta
-    ) internal returns (bytes32 blockHash) {
-        bytes32[8] memory logsBloom;
 
-        BlockHeader memory header = BlockHeader({
-            parentHash: parentHash,
-            ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
-            beneficiary: meta.beneficiary,
-            stateRoot: bytes32(blockId + 200),
-            transactionsRoot: bytes32(blockId + 201),
-            receiptsRoot: bytes32(blockId + 202),
-            logsBloom: logsBloom,
-            difficulty: 0,
-            height: uint128(blockId),
-            gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
-            gasUsed: uint64(100),
-            timestamp: meta.timestamp,
-            extraData: meta.extraData,
-            mixHash: meta.mixHash,
-            nonce: 0,
-            baseFeePerGas: 10000
-        });
-
-        blockHash = LibBlockHeader.hashBlockHeader(header);
-
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(100),
-            circuitId: 1
-        });
-
-        TaikoData.ValidBlockEvidence memory evidence = TaikoData
-            .ValidBlockEvidence({
-                meta: meta,
-                zkproof: zkproof,
-                header: header,
-                signalRoot: bytes32(blockId + 400),
-                prover: prover
-            });
-        bytes memory evidenceBytes = abi.encode(evidence);
-        vm.prank(prover, prover);
-        L1.proveBlock(blockId, evidenceBytes);
-    }
 
     function testProposeSingleBlock() external {
         address alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
-        vm.deal(alice, 100 ether);
-        tko.transfer(alice, 1E6 ether);
-        // console2.logUint(tko.balanceOf(alice));
+        vm.deal(alice, 1 ether);
+        vm.deal(address(tko), alice, 100 ether);
+        log_uint256(address(tko).balanceOf(alice);
 
-        address bob = 0x000000000000000000636F6e736F6c652e6c6f67;
-        vm.deal(bob, 100 ether);
-
-        bytes32 parentHash = genesisBlockHash;
-
-        TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 2; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(alice, 1024);
-            parentHash = proveBlock(bob, conf, blockId, parentHash, meta);
-        }
+        propose(alice, 1024);
     }
 }

@@ -29,7 +29,7 @@ library TaikoConfig {
         return
             TaikoData.Config({
                 chainId: 167,
-                maxNumBlocks: 2049, // owner:daniel
+                maxNumBlocks: 2048, // owner:daniel
                 blockHashHistory: 40, // owner:daniel
                 maxVerificationsPerTx: 10, //owner:david. Each time one more block is verified, there will be ~20k more gas cost.
                 blockMaxGasLimit: 6000000, // owner:david. Set it to 6M, since its the upper limit of the Alpha-2 testnet's circuits.
