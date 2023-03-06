@@ -2,11 +2,11 @@ import { writable } from "svelte/store";
 import { Client, configureChains, createClient } from "@wagmi/core";
 import type { ethers } from "ethers";
 import { mainnet, taiko } from "../domain/chain";
-import { publicProvider } from "@wagmi/core/dist/providers/public";
-import { jsonRpcProvider } from "@wagmi/core/dist/providers/jsonRpc";
-import { MetaMaskConnector } from "@wagmi/core/dist/connectors/metaMask";
-import { CoinbaseWalletConnector } from "@wagmi/core/dist/connectors/coinbaseWallet";
-import { WalletConnectConnector } from "@wagmi/core/dist/connectors/walletConnect";
+import { publicProvider } from "@wagmi/core/providers/public";
+import { jsonRpcProvider } from "@wagmi/core/providers/jsonRpc";
+import { MetaMaskConnector } from "@wagmi/core/connectors/metaMask";
+import { CoinbaseWalletConnector } from "@wagmi/core/connectors/coinbaseWallet";
+import { WalletConnectConnector } from "@wagmi/core/connectors/walletConnect";
 
 export const wagmiClient = writable<Client>();
 
