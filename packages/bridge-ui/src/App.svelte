@@ -27,7 +27,7 @@
   } from "./store/transactions";
   import Navbar from "./components/Navbar.svelte";
   import { signer } from "./store/signer";
-  import type { Transactioner } from "./domain/transactions";
+  import type { BridgeTransaction, Transactioner } from "./domain/transactions";
   import { wagmiClient } from "./store/wagmi";
 
   setupI18n({ withLocale: "en" });
@@ -53,6 +53,9 @@
   import type { TokenService } from "./domain/token";
   import { CustomTokenService } from "./storage/customTokenService";
   import { userTokens, tokenService } from "./store/userToken";
+  import RelayerAPIService from "./relayer-api/service";
+  import type { RelayerAPI } from "./domain/relayerApi";
+  import { relayerApi, relayerBlockInfoMap } from "./store/relayerApi";
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -106,8 +109,6 @@
     ],
   });
 
-  providers.set(providerMap);
-
   const prover: Prover = new ProofService(providerMap);
 
   const ethBridge = new ETHBridge(prover);
@@ -133,6 +134,8 @@
     providerMap
   );
 
+  const relayerApiService: RelayerAPI = new RelayerAPIService(providerMap, import.meta.env.VITE_RELAYER_URL);
+
   const tokenStore: TokenService = new CustomTokenService(
     window.localStorage,
   );
@@ -140,15 +143,38 @@
   tokenService.set(tokenStore);
 
   transactioner.set(storageTransactioner);
+  relayerApi.set(relayerApiService);
 
   signer.subscribe(async (store) => {
     if (store) {
       const userAddress = await store.getAddress();
-      const txs = await $transactioner.GetAllByAddress(
+
+      const apiTxs = await $relayerApi.GetAllByAddress(
         userAddress
       );
 
-      transactions.set(txs);
+      const blockInfoMap = await $relayerApi.GetBlockInfo();
+      relayerBlockInfoMap.set(blockInfoMap)
+
+      const txs = await $transactioner.GetAllByAddress(
+        userAddress,
+      );
+
+      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
+      //   return [tx.hash, tx];
+      // }))
+
+      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+        const blockInfo = blockInfoMap.get(tx.fromChainId);
+        if(blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
+          return false;
+        }
+        return true;
+      });
+
+      $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
+
+      transactions.set([...updatedStorageTxs, ...apiTxs]);
 
       const tokens = await $tokenService.GetTokens(userAddress)
       userTokens.set(tokens);
@@ -160,10 +186,13 @@
     store.forEach(async (tx) => {
       await $signer.provider.waitForTransaction(tx.hash, 1);
       successToast("Transaction completed!");
+
+      // TODO: Fix, .pop() removes the last tx but the confirmed tx is not necessarily the last one in the pendingTransactions array.
       const s = store;
       s.pop();
       pendingTransactions.set(s);
 
+      // TODO: Do we need this?
       transactions.set(
         await $transactioner.GetAllByAddress(await $signer.getAddress())
       );
@@ -175,24 +204,23 @@
   transactions.subscribe((store) => {
     if (store) {
       store.forEach(async (tx) => {
-        const txInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+        const txInterval = transactionToIntervalMap.get(tx.hash);
         if (txInterval) {
           clearInterval(txInterval);
-          transactionToIntervalMap.delete(tx.ethersTx.hash);
+          transactionToIntervalMap.delete(tx.hash);
         }
 
         if (tx.status === MessageStatus.New) {
           const provider = providerMap.get(tx.toChainId);
-
           
           const interval = setInterval(async () => {
-            const txInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+            const txInterval = transactionToIntervalMap.get(tx.hash);
             if (txInterval !== interval) {
               clearInterval(txInterval);
-              transactionToIntervalMap.delete(tx.ethersTx.hash);
+              transactionToIntervalMap.delete(tx.hash);
             }
 
-            transactionToIntervalMap.set(tx.ethersTx.hash, interval);
+            transactionToIntervalMap.set(tx.hash, interval);
             if (!tx.msgHash) return;
 
             const contract = new ethers.Contract(
@@ -206,9 +234,9 @@
 
             if (messageStatus === MessageStatus.Done) {
               successToast("Bridge message processed successfully");
-              const txOngoingInterval = transactionToIntervalMap.get(tx.ethersTx.hash);
+              const txOngoingInterval = transactionToIntervalMap.get(tx.hash);
               clearInterval(txOngoingInterval);
-              transactionToIntervalMap.delete(tx.ethersTx.hash);
+              transactionToIntervalMap.delete(tx.hash);
             }
           }, 20 * 1000);
         }

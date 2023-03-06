@@ -1,52 +1,79 @@
-import type { BridgeTransaction, Transactioner } from "../domain/transactions";
-import { BigNumber, Contract, ethers } from "ethers";
-import Bridge from "../constants/abi/Bridge";
-import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
-import TokenVault from "../constants/abi/TokenVault";
-import { chainIdToTokenVaultAddress } from "../store/bridge";
-import { get } from "svelte/store";
-import ERC20 from "../constants/abi/ERC20";
-import { MessageStatus } from "../domain/message";
+import axios from 'axios';
+import { BigNumber, Contract, ethers } from 'ethers';
+import Bridge from '../constants/abi/Bridge';
+import ERC20 from '../constants/abi/ERC20';
+import TokenVault from '../constants/abi/TokenVault';
+import { chains } from '../domain/chain';
+import { MessageStatus } from '../domain/message';
 
-interface storage {
-  getItem(key: string): string;
-  setItem(key: string, value: unknown): void;
-}
+import type { BridgeTransaction } from '../domain/transactions';
+import { chainIdToTokenVaultAddress } from '../store/bridge';
+import { get } from 'svelte/store';
+import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
 
-class StorageService implements Transactioner {
-  private readonly storage: storage;
+class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
-
-  constructor(
-    storage: storage,
-    providerMap: Map<number, ethers.providers.JsonRpcProvider>
-  ) {
-    this.storage = storage;
+  private readonly baseUrl: string;
+  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>, baseUrl: string) {
     this.providerMap = providerMap;
+    this.baseUrl = baseUrl;
   }
 
-  async GetAllByAddress(
-    address: string,
-    chainID?: number
-  ): Promise<BridgeTransaction[]> {
-    const txs: BridgeTransaction[] = JSON.parse(
-      this.storage.getItem(`transactions-${address.toLowerCase()}`)
-    );
+  async GetAllByAddress(address: string, chainID?: number): Promise<BridgeTransaction[]> {
+    if(!address) {
+     throw new Error("Address need to passed to fetch transactions");
+    }
+    const params = {
+      address,
+      chainID,
+    }
+
+    const requestURL = `${this.baseUrl}events`;
+    
+    const { data } = await axios.get(requestURL, { params });
+
+    if(data.length === 0) {
+      return [];
+    }
+
+    const txs: BridgeTransaction[] = data.map((tx) => {
+      const depositValue = ethers.utils.parseUnits(tx.data.Message.DepositValue.toString(), 'wei');
+      return {
+        status: tx.status,
+        message: {
+          id: tx.data.Message.Id,
+          to: tx.data.Message.To,
+          data: tx.data.Message.Data,
+          memo: tx.data.Message.Memo,
+          owner: tx.data.Message.Owner,
+          sender: tx.data.Message.Sender,
+          gasLimit: BigNumber.from(tx.data.Message.GasLimit),
+          callValue: tx.data.Message.CallValue,
+          srcChainId: BigNumber.from(tx.data.Message.SrcChainId),
+          destChainId: BigNumber.from(tx.data.Message.DestChainId),
+          depositValue: depositValue,
+          processingFee: BigNumber.from(tx.data.Message.ProcessingFee),
+          refundAddress: tx.data.Message.RefundAddress,
+        },
+        amountInWei: tx.amount,
+        symbol: tx.canonicalTokenSymbol,
+        fromChainId: tx.data.Message.SrcChainId,
+        toChainId: tx.data.Message.DestChainId,
+        hash: tx.data.Raw.transactionHash,
+        from: tx.data.Message.Owner,
+      }
+    })
 
     const bridgeTxs: BridgeTransaction[] = [];
 
     await Promise.all(
       (txs || []).map(async (tx) => {
-        if (tx.from.toLowerCase() !== address.toLowerCase()) return;
+        if (tx.message.owner.toLowerCase() !== address.toLowerCase()) return;
+
         const destChainId = tx.toChainId;
         const destProvider = this.providerMap.get(destChainId);
 
         const srcProvider = this.providerMap.get(tx.fromChainId);
-
-        // Ignore transactions from chains not supported by the bridge
-        if(!srcProvider) {
-          return null;
-        }
 
         const receipt = await srcProvider.getTransactionReceipt(
           tx.hash
@@ -126,8 +153,6 @@ class StorageService implements Transactioner {
         }
 
         const bridgeTx: BridgeTransaction = {
-          hash: tx.hash,
-          from: tx.from,
           message: event.args.message,
           receipt: receipt,
           msgHash: event.args.msgHash,
@@ -136,10 +161,12 @@ class StorageService implements Transactioner {
           symbol: symbol,
           fromChainId: tx.fromChainId,
           toChainId: tx.toChainId,
+          hash: tx.hash,
+          from: tx.from,
         };
 
         bridgeTxs.push(bridgeTx);
-      }).filter(tx => tx)
+      })
     );
 
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
@@ -147,9 +174,19 @@ class StorageService implements Transactioner {
     return bridgeTxs;
   }
 
-  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]) {
-      this.storage.setItem(`transactions-${address.toLowerCase()}`, JSON.stringify(txs));
+  async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
+    const requestURL = `${this.baseUrl}blockInfo`;
+    const { data } = await axios.get(requestURL);
+    const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
+    if(data?.data.length > 0) {
+      data.data.forEach((blockInfoByChain => {
+        blockInfoMap.set(blockInfoByChain.chainID, blockInfoByChain);
+      }));
+    }
+
+    return blockInfoMap;
   }
+
 }
 
-export { StorageService };
+export default RelayerAPIService;

@@ -11,9 +11,18 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 // An ERC20 Token with a mint function anyone can call, for free, to receive
 // 5 tokens.
 contract FreeMintERC20 is ERC20 {
+    error HasMinted();
+
+    mapping(address minter => bool hasMinted) public minters;
+
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
-        _mint(to, 5 ** decimals());
+        if (minters[msg.sender]) {
+            revert HasMinted();
+        }
+
+        minters[msg.sender] = true;
+        _mint(to, 50 * (10 ** decimals()));
     }
 }
