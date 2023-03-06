@@ -280,8 +280,10 @@
         return store;
       });
 
+      const allTransactions = $transactionsStore;
+
       transactionsStore.set(
-        await $transactioner.GetAllByAddress(await $signer.getAddress())
+        [bridgeTransaction, ...allTransactions]
       );
 
       successToast($_("toast.transactionSent"));
