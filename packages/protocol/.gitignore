@@ -16,6 +16,7 @@ npm-debug.log*
 # Hardhat files
 cache
 artifacts
+cache_forge/
 
 # Editors
 .vscode
