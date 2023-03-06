@@ -67,9 +67,15 @@ export const symbol2TestERC20LogoMap = {
   // Add more symbols
 }
 
+// Work around: Vite needs to find this string to replace it
+// with the object containing the public env vars. When using
+// optional chaining, import.meta.env?, Vite parser cannot
+// find a match, getting undefined on import.meta.env
+import.meta.env;
+
 export let TEST_ERC20: Token[] = JSON
   .parse(
-    import.meta?.env?.VITE_TEST_ERC20 ?? 
+    import.meta.env?.VITE_TEST_ERC20 ?? 
     // default erc20 token
     `
     [{
