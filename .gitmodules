@@ -6,3 +6,7 @@
 	path = packages/protocol/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 	branch = v4.8.2
+[submodule "packages/protocol/lib/openzeppelin-contracts"]
+	path = packages/protocol/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+	branch = v4.8.2
