@@ -3,8 +3,8 @@ src = 'contracts'
 test = 'test2'
 out = 'out'
 libs = [
-	'node_modules',
 	'lib',
+	'node_modules',
 	'node_modules/@openzeppelin/contracts',
 	'node_modules/@openzeppelin/contracts-upgradeable'
 ]
