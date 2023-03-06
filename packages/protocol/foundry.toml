@@ -2,6 +2,6 @@
 src = 'contracts'
 test = 'test2'
 out = 'out'
-libs = ['node_modules', 'lib']
+libs = ['lib']
 test = 'test'
 cache_path  = 'cache_forge'
