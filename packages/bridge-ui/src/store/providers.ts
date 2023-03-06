@@ -7,7 +7,7 @@ export const providers = writable(
 );
 
 /**
- * Will set the list of custom RPC providers, Mainnet & Taiko
+ * Creates and stores the list of custom RPC providers, Mainnet & Taiko
  */
 export function setProviders(l1RpcURL: string, l2RpcURL: string) {
   const providerMap = new Map<number, ethers.providers.JsonRpcProvider>();

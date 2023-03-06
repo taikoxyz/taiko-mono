@@ -22,6 +22,11 @@ export {
   showMessageStatusTooltip,
 };
 
+/**
+ * Instantiates and stores the storage service that contains
+ * the list of transactions. Helps to keep the localStorage in sync
+ * with the latest transactions.
+ */
 export function setTransactioner(
   providerMap: Map<number, ethers.providers.JsonRpcProvider>,
   localStorage: Storage

@@ -8,6 +8,9 @@ const relayerBlockInfoMap = writable<Map<number, RelayerBlockInfo>>();
 
 export { relayerApi, relayerBlockInfoMap };
 
+/**
+ * Instantiates and stores the relayer api service
+ */
 export function setRelayer(
   providerMap: Map<number, ethers.providers.JsonRpcProvider>,
   relayerURL: string
