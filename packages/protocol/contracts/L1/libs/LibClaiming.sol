@@ -77,11 +77,6 @@ library LibClaiming {
         }
 
         uint256 baseFee = claimBaseFee(state);
-        // if user hasnt sent enough to meet their personal base deposit amount
-        // we dont allow them to claim.
-        if (bid < baseFee) {
-            revert L1_INVALID_CLAIM_DEPOSIT();
-        }
 
         TaikoToken tkoToken = TaikoToken(resolver.resolve("tko_token", false));
 
@@ -111,6 +106,11 @@ library LibClaiming {
                 );
             }
         } else {
+            // if user hasnt sent enough to meet their personal base deposit amount
+            // we dont allow them to claim.
+            if (bid < baseFee) {
+                revert L1_INVALID_CLAIM_DEPOSIT();
+            }
             try tkoToken.transferFrom(msg.sender, address(this), bid) {} catch {
                 // allow to fail in case they have a bad onTokenReceived
                 // so they cant be outbid
