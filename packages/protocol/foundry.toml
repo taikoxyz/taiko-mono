@@ -2,7 +2,5 @@
 src = 'contracts'
 test = 'test2'
 out = 'out'
-libs = [
-	'lib'
-]
+libs = ['lib']
 cache_path  = 'cache_forge'
