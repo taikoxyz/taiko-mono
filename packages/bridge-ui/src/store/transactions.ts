@@ -1,6 +1,6 @@
 import { writable } from "svelte/store";
 
-import { ethers, Signer, Transaction } from "ethers";
+import { ethers, Signer, type Transaction } from "ethers";
 import type { BridgeTransaction, Transactioner } from "../domain/transactions";
 import { StorageService } from "../storage/service";
 import { successToast } from "../utils/toast";
