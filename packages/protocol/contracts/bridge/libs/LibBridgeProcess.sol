@@ -6,15 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import {ISignalService} from "../../signal/ISignalService.sol";
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {EtherVault} from "../EtherVault.sol";
+import {IBridge} from "../IBridge.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeInvoke} from "./LibBridgeInvoke.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {IBridge} from "../IBridge.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
 
 /**
  * Process bridge messages on the destination chain.
@@ -27,8 +27,8 @@ library LibBridgeProcess {
     using LibBridgeData for LibBridgeData.State;
 
     error B_FORBIDDEN();
-    error B_STATUS_MISMTACH();
     error B_SIGNAL_NOT_RECEIVED();
+    error B_STATUS_MISMTACH();
     error B_WRONG_CHAIN_ID();
 
     /**
@@ -96,7 +96,9 @@ library LibBridgeProcess {
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
-        message.owner.sendEther(message.depositValue);
+        if (message.depositValue > 0) {
+            message.owner.sendEther(message.depositValue);
+        }
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
@@ -126,7 +128,7 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                if (ethVault != address(0)) {
+                if (ethVault != address(0) && message.callValue > 0) {
                     ethVault.sendEther(message.callValue);
                 }
             }
@@ -141,13 +143,20 @@ library LibBridgeProcess {
 
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {
-            refundAddress.sendEther(message.processingFee + refundAmount);
+            uint amount = message.processingFee + refundAmount;
+            if (amount > 0) {
+                refundAddress.sendEther(amount);
+            }
         } else {
             // if sender is another address (eg. the relayer)
             // First attempt relayer is rewarded the processingFee
             // message.owner has to eat the cost
-            msg.sender.sendEther(message.processingFee);
-            refundAddress.sendEther(refundAmount);
+            if (message.processingFee > 0) {
+                msg.sender.sendEther(message.processingFee);
+            }
+            if (refundAmount > 0) {
+                refundAddress.sendEther(refundAmount);
+            }
         }
     }
 }

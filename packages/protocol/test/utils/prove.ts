@@ -9,9 +9,9 @@ import { BlockHeader, getBlockHeader } from "./rpc";
 const buildProveBlockInputs = (
     meta: BlockMetadata,
     header: BlockHeader,
-    prover: string,
-    anchorTx: Uint8Array | string,
-    anchorReceipt: Uint8Array | string
+    prover: string
+    // anchorTx: Uint8Array | string,
+    // anchorReceipt: Uint8Array | string
 ) => {
     const inputs = [];
     const evidence: Evidence = {
@@ -34,8 +34,8 @@ const buildProveBlockInputs = (
     }
 
     inputs[0] = encodeEvidence(evidence);
-    inputs[1] = anchorTx;
-    inputs[2] = anchorReceipt;
+    // inputs[1] = anchorTx;
+    // inputs[2] = anchorReceipt;
     return inputs;
 };
 
@@ -51,9 +51,9 @@ const proveBlock = async (
     const inputs = buildProveBlockInputs(
         meta,
         header.blockHeader,
-        proverAddress,
-        "0x",
-        "0x"
+        proverAddress
+        // "0x",
+        // "0x"
     );
     const tx = await taikoL1.proveBlock(blockId, inputs, { gasLimit: 1000000 });
     const receipt = await tx.wait(1);

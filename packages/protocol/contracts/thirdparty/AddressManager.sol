@@ -102,6 +102,6 @@ contract AddressManager is OwnableUpgradeable {
      * @return Hash of the given name.
      */
     function _getNameHash(string memory _name) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_name));
+        return keccak256(bytes(_name));
     }
 }

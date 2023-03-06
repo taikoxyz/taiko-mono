@@ -6,89 +6,77 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {LibTxDecoder} from "../../libs/LibTxDecoder.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../TaikoData.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
-    using LibTxDecoder for bytes;
     using SafeCastUpgradeable for uint256;
-    using LibUtils for TaikoData.BlockMetadata;
     using LibUtils for TaikoData.State;
 
-    event BlockCommitted(uint64 commitSlot, bytes32 commitHash);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_COMMITTED();
     error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
     error L1_METADATA_FIELD();
-    error L1_NOT_COMMITTED();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TX_LIST_PROOF();
     error L1_TX_LIST();
-
-    function commitBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 commitSlot,
-        bytes32 commitHash
-    ) public {
-        assert(config.commitConfirmations > 0);
-
-        bytes32 hash = _aggregateCommitHash(block.number, commitHash);
-
-        if (state.commits[msg.sender][commitSlot] == hash)
-            revert L1_COMMITTED();
-
-        state.commits[msg.sender][commitSlot] = hash;
-
-        emit BlockCommitted({commitSlot: commitSlot, commitHash: commitHash});
-    }
 
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) public {
+    ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
 
-        // TODO(daniel): remove this special address.
         address soloProposer = resolver.resolve("solo_proposer", true);
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
+        if (inputs.length != 3) revert L1_INPUT_SIZE();
+        // inputs[0]: the block's metadata
+        // inputs[1]: the txList (future 4844 blob)
+        // inputs[2]: the txListProof (future 4844 blob)
+
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
             (TaikoData.BlockMetadata)
         );
-        _verifyBlockCommit({
-            state: state,
-            commitConfirmations: config.commitConfirmations,
-            meta: meta
-        });
-        _validateMetadata(config, meta);
 
         {
-            bytes calldata txList = inputs[1];
-            // perform validation and populate some fields
+            // Validating the metadata
             if (
-                txList.length < 0 ||
-                txList.length > config.maxBytesPerTxList ||
-                meta.txListHash != txList.hashTxList()
+                meta.id != 0 ||
+                meta.l1Height != 0 ||
+                meta.l1Hash != 0 ||
+                meta.timestamp != 0 ||
+                meta.mixHash != 0 ||
+                meta.beneficiary == address(0)
+            ) revert L1_METADATA_FIELD();
+
+            if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
+            if (meta.extraData.length > 32) {
+                revert L1_EXTRA_DATA();
+            }
+
+            if (
+                inputs[1].length > config.maxBytesPerTxList ||
+                meta.txListHash != LibUtils.hashTxList(inputs[1])
             ) revert L1_TX_LIST();
+
+            if (meta.txListProofHash != keccak256(inputs[2]))
+                revert L1_TX_LIST_PROOF();
 
             if (
                 state.nextBlockId >=
@@ -105,40 +93,46 @@ library LibProposing {
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
             meta.mixHash = keccak256(
-                abi.encodePacked(block.prevrandao, state.nextBlockId)
+                bytes.concat(
+                    bytes32(block.prevrandao),
+                    bytes32(uint256(state.nextBlockId))
+                )
             );
         }
 
         uint256 deposit;
-        if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state, config);
-                TaikoToken(resolver.resolve("tko_token", false)).burn(
-                    msg.sender,
-                    fee + deposit
-                );
-            }
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
-        }
+        // if (config.enableTokenomics) {
+        //     uint256 newFeeBase;
+        //     {
+        //         uint256 fee;
+        //         (newFeeBase, fee, deposit) = getBlockFee(state, config);
 
-        _saveProposedBlock(
-            state,
-            config.maxNumBlocks,
-            state.nextBlockId,
-            TaikoData.ProposedBlock({
-                metaHash: meta.hashMetadata(),
-                deposit: deposit,
-                proposer: msg.sender,
-                proposedAt: meta.timestamp
-            })
-        );
+        //         uint256 burnAmount = fee + deposit;
+        //         if (state.balances[msg.sender] > burnAmount) {
+        //             state.balances[msg.sender] -= burnAmount;
+        //         } else {
+        //             TaikoToken(resolver.resolve("taiko_token", false)).burn(
+        //                 msg.sender,
+        //                 burnAmount
+        //             );
+        //         }
+        //     }
+        //     // Update feeBase and avgBlockTime
+        //     state.feeBase = LibUtils.movingAverage({
+        //         maValue: state.feeBase,
+        //         newValue: newFeeBase,
+        //         maf: config.feeBaseMAF
+        //     });
+        // }
+
+        state.proposedBlocks[
+            state.nextBlockId % config.maxNumBlocks
+        ] = TaikoData.ProposedBlock({
+            metaHash: LibUtils.hashMetadata(meta),
+            deposit: deposit,
+            proposer: msg.sender,
+            proposedAt: meta.timestamp
+        });
 
         state.avgBlockTime = LibUtils
             .movingAverage({
@@ -156,7 +150,7 @@ library LibProposing {
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
-    ) public view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
+    ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
         (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
@@ -175,20 +169,6 @@ library LibProposing {
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
-    function isCommitValid(
-        TaikoData.State storage state,
-        uint256 commitConfirmations,
-        uint256 commitSlot,
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) public view returns (bool) {
-        assert(commitConfirmations > 0);
-        bytes32 hash = _aggregateCommitHash(commitHeight, commitHash);
-        return
-            state.commits[msg.sender][commitSlot] == hash &&
-            block.number >= commitHeight + commitConfirmations;
-    }
-
     function getProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
@@ -198,72 +178,5 @@ library LibProposing {
             revert L1_ID();
         }
         return state.getProposedBlock(maxNumBlocks, id);
-    }
-
-    function _saveProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id,
-        TaikoData.ProposedBlock memory blk
-    ) private {
-        state.proposedBlocks[id % maxNumBlocks] = blk;
-    }
-
-    function _verifyBlockCommit(
-        TaikoData.State storage state,
-        uint256 commitConfirmations,
-        TaikoData.BlockMetadata memory meta
-    ) private view {
-        if (commitConfirmations == 0) {
-            return;
-        }
-        bytes32 commitHash = _calculateCommitHash(
-            meta.beneficiary,
-            meta.txListHash
-        );
-
-        if (
-            !isCommitValid({
-                state: state,
-                commitConfirmations: commitConfirmations,
-                commitSlot: meta.commitSlot,
-                commitHeight: meta.commitHeight,
-                commitHash: commitHash
-            })
-        ) revert L1_NOT_COMMITTED();
-    }
-
-    function _validateMetadata(
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta
-    ) private pure {
-        if (
-            meta.id != 0 ||
-            meta.l1Height != 0 ||
-            meta.l1Hash != 0 ||
-            meta.mixHash != 0 ||
-            meta.timestamp != 0 ||
-            meta.beneficiary == address(0) ||
-            meta.txListHash == 0
-        ) revert L1_METADATA_FIELD();
-
-        if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
-        if (meta.extraData.length > 32) {
-            revert L1_EXTRA_DATA();
-        }
-    }
-
-    function _calculateCommitHash(
-        address beneficiary,
-        bytes32 txListHash
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(beneficiary, txListHash));
-    }
-
-    function _aggregateCommitHash(
-        uint256 commitHeight,
-        bytes32 commitHash
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(commitHash, commitHeight));
     }
 }

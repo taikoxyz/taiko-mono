@@ -6,20 +6,20 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {EtherVault} from "../EtherVault.sol";
+import {IBridge} from "../IBridge.sol";
 import {LibBridgeData} from "./LibBridgeData.sol";
 import {LibBridgeStatus} from "./LibBridgeStatus.sol";
-import {IBridge} from "../IBridge.sol";
-import {AddressResolver} from "../../common/AddressResolver.sol";
 
 library LibBridgeRelease {
     using LibBridgeData for IBridge.Message;
 
+    error B_ETHER_RELEASED_ALREADY();
+    error B_FAILED_TRANSFER();
+    error B_MSG_NOT_FAILED();
     error B_OWNER_IS_NULL();
     error B_WRONG_CHAIN_ID();
-    error B_ETHER_RELEASED_ALREADY();
-    error B_MSG_NOT_FAILED();
-    error B_FAILED_TRANSFER();
 
     event EtherReleased(bytes32 indexed msgHash, address to, uint256 amount);
 

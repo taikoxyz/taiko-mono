@@ -98,16 +98,6 @@ export async function deployContracts(hre: any) {
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
 
-    const ProofVerifier = await utils.deployContract(hre, "ProofVerifier");
-    await utils.waitTx(hre, await ProofVerifier.init(AddressManager.address));
-    await utils.waitTx(
-        hre,
-        await AddressManager.setAddress(
-            `${chainId}.proof_verifier`,
-            ProofVerifier.address
-        )
-    );
-
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
@@ -135,7 +125,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            `${chainId}.tko_token`,
+            `${chainId}.taiko_token`,
             TaikoToken.address
         )
     );
@@ -157,8 +147,8 @@ export async function deployContracts(hre: any) {
     // TaikoL1
     const TaikoL1 = await utils.deployContract(
         hre,
-        "TaikoL1",
-        await deployBaseLibs(hre)
+        "TaikoL1"
+        // await deployBaseLibs(hre)
     );
 
     const feeBase = hre.ethers.BigNumber.from(10).pow(18);
@@ -247,8 +237,8 @@ export async function deployContracts(hre: any) {
                 `${chainId}.${Buffer.from(
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
-                            ["string", "uint16"],
-                            ["plonk_verifier_", i]
+                            ["string", "uint256"],
+                            ["verifier_", i]
                         )
                     )
                 ).toString()}`,
@@ -298,28 +288,6 @@ export async function deployContracts(hre: any) {
     utils.saveDeployments(`${network}_L1`, deployments);
 
     return deployments;
-}
-
-async function deployBaseLibs(hre: any) {
-    const libReceiptDecoder = await utils.deployContract(
-        hre,
-        "LibReceiptDecoder"
-    );
-    const libTxDecoder = await utils.deployContract(hre, "LibTxDecoder");
-
-    const libVerifying = await utils.deployContract(hre, "LibVerifying", {});
-    const libProposing = await utils.deployContract(hre, "LibProposing", {});
-
-    const libProving = await utils.deployContract(hre, "LibProving", {
-        LibReceiptDecoder: libReceiptDecoder.address,
-        LibTxDecoder: libTxDecoder.address,
-    });
-
-    return {
-        LibVerifying: libVerifying.address,
-        LibProposing: libProposing.address,
-        LibProving: libProving.address,
-    };
 }
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {

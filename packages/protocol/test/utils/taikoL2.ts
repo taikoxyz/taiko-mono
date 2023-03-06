@@ -1,34 +1,14 @@
 import { ethers } from "ethers";
 import { ethers as hardhatEthers } from "hardhat";
-import { AddressManager, TaikoL2 } from "../../typechain";
+import { TaikoL2 } from "../../typechain";
 
 async function deployTaikoL2(
     signer: ethers.Signer,
-    addressManager: AddressManager,
-    enablePublicInputsCheck: boolean = true,
     gasLimit: number | undefined = undefined
 ): Promise<TaikoL2> {
-    // Deploying TaikoL2 Contract linked with LibTxDecoder (throws error otherwise)
-    const l2LibTxDecoder = await (
-        await hardhatEthers.getContractFactory("LibTxDecoder")
-    )
+    const taikoL2 = await (await hardhatEthers.getContractFactory("TaikoL2"))
         .connect(signer)
-        .deploy();
-
-    const taikoL2 = await (
-        await hardhatEthers.getContractFactory(
-            enablePublicInputsCheck
-                ? "TestTaikoL2EnablePublicInputsCheck"
-                : "TestTaikoL2",
-            {
-                libraries: {
-                    LibTxDecoder: l2LibTxDecoder.address,
-                },
-            }
-        )
-    )
-        .connect(signer)
-        .deploy(addressManager.address, { gasLimit });
+        .deploy({ gasLimit });
 
     return taikoL2 as TaikoL2;
 }

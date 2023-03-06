@@ -1,6 +1,7 @@
 node_modules
+lib
 artifacts
 cache
 coverage*
 gasReporterOutput.json
-contracts/thirdparty/LibBlockHeaderDecoder.sol
+test2/

@@ -7,16 +7,15 @@
 pragma solidity ^0.8.18;
 
 import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
+    ERC20Upgradeable,
+    IERC20Upgradeable
+} from "../thirdparty/ERC20Upgradeable.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IMintableERC20} from "../common/IMintableERC20.sol";
 import {LibMath} from "../libs/LibMath.sol";
 import {
-    ERC20Upgradeable,
-    IERC20Upgradeable
-} from "../thirdparty/ERC20Upgradeable.sol";
+    SafeCastUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @dev This is Taiko's governance and fee token.
 contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
@@ -45,9 +44,9 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     ///      Based on our simulation in simulate/tokenomics/index.js, both
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
     function init(
+        address _addressManager,
         string memory _name,
-        string memory _symbol,
-        address _addressManager
+        string memory _symbol
     ) external initializer {
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({

@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
+import {ISignalService} from "./ISignalService.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibBlockHeader, BlockHeader} from "../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../libs/LibTrieProof.sol";
-import {ISignalService} from "./ISignalService.sol";
 
 contract SignalService is ISignalService, EssentialContract {
     using LibBlockHeader for BlockHeader;
@@ -80,8 +80,8 @@ contract SignalService is ISignalService, EssentialContract {
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedHeaderHash = IHeaderSync(resolve("taiko", false))
-            .getSyncedHeader(sp.header.height);
+        bytes32 syncedHeaderHash = IXchainSync(resolve("taiko", false))
+            .getXchainBlockHash(sp.header.height);
 
         return
             syncedHeaderHash != 0 &&
@@ -104,6 +104,6 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(app, signal));
+        return keccak256(bytes.concat(bytes32(uint256(uint160(app))), signal));
     }
 }
