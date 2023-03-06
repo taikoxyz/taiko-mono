@@ -2,15 +2,38 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import "../contracts/thirdparty/AddressManager.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/TaikoData.sol";
+import "../contracts/L1/TaikoToken.sol";
 
 contract TaikoL1Test is Test {
+    TaikoToken public tko;
     TaikoL1 public L1;
 
     AddressManager public addressManager;
     bytes32 public genesisBlockHash;
+
+    function registerContract(string memory name, address addr) internal {
+        string memory key =string.concat(Strings.toString(block.chainid), ".", name);
+        addressManager.setAddress(key, addr);
+    }
+
+    function setUp() public {
+        addressManager = new AddressManager();
+        addressManager.init();
+
+        uint256 feeBase = 1E18;
+        L1 = new TaikoL1();
+        L1.init(address(addressManager), genesisBlockHash, feeBase);
+
+        tko = new TaikoToken();
+        tko.init(address(addressManager), "TaikoToken", "TKO");
+
+        // register all addresses
+        registerContract("taiko_token", address(tko));
+    }
 
     function propose(address proposer, uint256 txListSize) internal {
         bytes[] memory inputs = new bytes[](3);
@@ -33,21 +56,17 @@ contract TaikoL1Test is Test {
         inputs[0] = abi.encode(meta);
 
         vm.prank(proposer, proposer);
-        vm.deal(proposer, 1 ether);
         L1.proposeBlock(inputs);
     }
 
-    function setUp() public {
-        addressManager = new AddressManager();
-        addressManager.init();
 
-        uint256 feeBase = 1E18;
-        L1 = new TaikoL1();
-        L1.init(address(addressManager), genesisBlockHash, feeBase);
-    }
 
-    function testProposeSingleBlock() public {
+    function testProposeSingleBlock() external {
         address alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
+        vm.deal(alice, 1 ether);
+        vm.deal(address(tko), alice, 100 ether);
+        log_uint256(address(tko).balanceOf(alice);
+
         propose(alice, 1024);
     }
 }

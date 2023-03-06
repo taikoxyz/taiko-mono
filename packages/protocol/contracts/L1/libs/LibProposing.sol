@@ -101,29 +101,29 @@ library LibProposing {
         }
 
         uint256 deposit;
-        if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state, config);
+        // if (config.enableTokenomics) {
+        //     uint256 newFeeBase;
+        //     {
+        //         uint256 fee;
+        //         (newFeeBase, fee, deposit) = getBlockFee(state, config);
 
-                uint256 burnAmount = fee + deposit;
-                if (state.balances[msg.sender] > burnAmount) {
-                    state.balances[msg.sender] -= burnAmount;
-                } else {
-                    TaikoToken(resolver.resolve("tko_token", false)).burn(
-                        msg.sender,
-                        burnAmount
-                    );
-                }
-            }
-            // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
-        }
+        //         uint256 burnAmount = fee + deposit;
+        //         if (state.balances[msg.sender] > burnAmount) {
+        //             state.balances[msg.sender] -= burnAmount;
+        //         } else {
+        //             TaikoToken(resolver.resolve("taiko_token", false)).burn(
+        //                 msg.sender,
+        //                 burnAmount
+        //             );
+        //         }
+        //     }
+        //     // Update feeBase and avgBlockTime
+        //     state.feeBase = LibUtils.movingAverage({
+        //         maValue: state.feeBase,
+        //         newValue: newFeeBase,
+        //         maf: config.feeBaseMAF
+        //     });
+        // }
 
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks

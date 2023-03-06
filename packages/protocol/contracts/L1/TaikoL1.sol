@@ -81,11 +81,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             resolver: AddressResolver(this),
             inputs: inputs
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        // LibVerifying.verifyBlocks({
+        //     state: state,
+        //     config: config,
+        //     maxBlocks: config.maxVerificationsPerTx
+        // });
     }
 
     /**
