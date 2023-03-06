@@ -76,18 +76,24 @@ describe("integration:TaikoL1", function () {
             BigNumber.from("1000000000000000000")
         );
 
-        await taikoTokenL1
-            .connect(l1Signer)
-            .approve(taikoL1.address, BigNumber.from("1000000000000000000"));
+        (
+            await taikoTokenL1
+                .connect(l1Signer)
+                .approve(taikoL1.address, BigNumber.from("1000000000000000000"))
+        ).wait(1);
 
-        await taikoTokenL1.mintAnyone(
-            await prover.getSigner().getAddress(),
-            BigNumber.from("1000000000000000000")
-        );
+        (
+            await taikoTokenL1.mintAnyone(
+                await prover.getSigner().getAddress(),
+                BigNumber.from("1000000000000000000")
+            )
+        ).wait(1);
 
-        await taikoTokenL1
-            .connect(prover.getSigner())
-            .approve(taikoL1.address, BigNumber.from("1000000000000000000"));
+        (
+            await taikoTokenL1
+                .connect(prover.getSigner())
+                .approve(taikoL1.address, BigNumber.from("1000000000000000000"))
+        ).wait(1);
     });
 
     afterEach(() => {
