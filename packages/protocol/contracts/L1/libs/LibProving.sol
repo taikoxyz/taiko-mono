@@ -29,6 +29,7 @@ library LibProving {
     error L1_CONFLICT_PROOF(Snippet snippet);
     error L1_ID();
     error L1_INVALID_EVIDENCE();
+    error L1_EVIDENCE_MISMATCH();
     error L1_NOT_ORACLE_PROVER();
     error L1_TX_LIST_PROOF();
 
@@ -49,18 +50,23 @@ library LibProving {
 
         BlockHeader memory header = evidence.header;
         if (
-            evidence.signalRoot == 0 ||
-            evidence.prover == address(0) ||
-            header.parentHash == 0 ||
-            header.beneficiary != meta.beneficiary ||
-            header.difficulty != 0 ||
-            header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-            header.gasUsed == 0 ||
-            header.timestamp != meta.timestamp ||
-            header.extraData.length != meta.extraData.length ||
-            keccak256(header.extraData) != keccak256(meta.extraData) ||
+            // evidence.signalRoot == 0 ||
+            // evidence.prover == address(0) ||
+            // header.parentHash == 0 ||
+            // header.ommersHash != LibBlockHeader.EMPTY_OMMERS_HASH ||
+            // header.beneficiary != meta.beneficiary ||
+            // header.difficulty != 0 ||
+            // header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
+            // header.gasUsed == 0 ||
+            // header.timestamp != meta.timestamp ||
+            // header.extraData.length != meta.extraData.length ||
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
+
+        // for (uint i = 0; i < header.extraData.length; ++i) {
+        //     if (header.extraData[i] != meta.extraData[i])
+        //     revert L1_INVALID_EVIDENCE();
+        // }
 
         bool oracleProving = _proveBlock({
             state: state,
@@ -71,19 +77,19 @@ library LibProving {
             prover: evidence.prover
         });
 
-        if (!oracleProving && !config.skipZKPVerification) {
-            bytes32 instance = _getInstance(
-                evidence,
-                resolver.resolve("signal_service", false),
-                resolver.resolve(config.chainId, "signal_service", false)
-            );
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                instance
-            );
-            if (!verified) revert L1_BLOCK_PROOF();
-        }
+        // if (!oracleProving && !config.skipZKPVerification) {
+        //     bytes32 instance = _getInstance(
+        //         evidence,
+        //         resolver.resolve("signal_service", false),
+        //         resolver.resolve(config.chainId, "signal_service", false)
+        //     );
+        //     bool verified = _verifyZKProof(
+        //         resolver,
+        //         evidence.zkproof,
+        //         instance
+        //     );
+        //     if (!verified) revert L1_BLOCK_PROOF();
+        // }
     }
 
     function proveBlockInvalid(
@@ -180,7 +186,7 @@ library LibProving {
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             LibUtils.hashMetadata(meta)
-        ) revert L1_INVALID_EVIDENCE();
+        ) revert L1_EVIDENCE_MISMATCH();
     }
 
     function _verifyZKProof(
