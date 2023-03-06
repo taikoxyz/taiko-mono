@@ -3,9 +3,6 @@ src = 'contracts'
 test = 'test2'
 out = 'out'
 libs = [
-	'lib',
-	'node_modules',
-	'node_modules/@openzeppelin/contracts',
-	'node_modules/@openzeppelin/contracts-upgradeable'
+	'lib'
 ]
 cache_path  = 'cache_forge'
