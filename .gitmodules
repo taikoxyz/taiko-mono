@@ -10,3 +10,7 @@
 	path = packages/protocol/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 	branch = v4.8.2
+[submodule "packages/protocol/lib/forge-std"]
+	path = packages/protocol/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+	branch = chore/v1.5.0
