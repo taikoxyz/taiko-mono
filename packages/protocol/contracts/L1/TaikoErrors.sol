@@ -16,6 +16,7 @@ abstract contract TaikoErrors {
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
     error L1_EXTRA_DATA();
+    error L1_EVIDENCE_MISMATCH();
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();

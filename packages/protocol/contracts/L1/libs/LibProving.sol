@@ -26,6 +26,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF(Snippet snippet);
+    error L1_EVIDENCE_MISMATCH();
     error L1_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
@@ -202,7 +203,7 @@ library LibProving {
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             LibUtils.hashMetadata(meta)
-        ) revert L1_INVALID_EVIDENCE();
+        ) revert L1_EVIDENCE_MISMATCH();
     }
 
     function _getInstance(

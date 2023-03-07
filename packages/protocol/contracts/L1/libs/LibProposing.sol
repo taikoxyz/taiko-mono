@@ -35,7 +35,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) internal {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -48,10 +48,7 @@ library LibProposing {
         // inputs[0]: the block's metadata
         // inputs[1]: the txList (future 4844 blob)
 
-        TaikoData.BlockMetadata memory meta = abi.decode(
-            inputs[0],
-            (TaikoData.BlockMetadata)
-        );
+        meta = abi.decode(inputs[0], (TaikoData.BlockMetadata));
 
         {
             // Validating the metadata
@@ -97,29 +94,29 @@ library LibProposing {
         }
 
         uint256 deposit;
-        // if (config.enableTokenomics) {
-        //     uint256 newFeeBase;
-        //     {
-        //         uint256 fee;
-        //         (newFeeBase, fee, deposit) = getBlockFee(state, config);
+        if (config.enableTokenomics) {
+            uint256 newFeeBase;
+            {
+                uint256 fee;
+                (newFeeBase, fee, deposit) = getBlockFee(state, config);
 
-        //         uint256 burnAmount = fee + deposit;
-        //         if (state.balances[msg.sender] > burnAmount) {
-        //             state.balances[msg.sender] -= burnAmount;
-        //         } else {
-        //             TaikoToken(resolver.resolve("taiko_token", false)).burn(
-        //                 msg.sender,
-        //                 burnAmount
-        //             );
-        //         }
-        //     }
-        //     // Update feeBase and avgBlockTime
-        //     state.feeBase = LibUtils.movingAverage({
-        //         maValue: state.feeBase,
-        //         newValue: newFeeBase,
-        //         maf: config.feeBaseMAF
-        //     });
-        // }
+                uint256 burnAmount = fee + deposit;
+                if (state.balances[msg.sender] > burnAmount) {
+                    state.balances[msg.sender] -= burnAmount;
+                } else {
+                    TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                        msg.sender,
+                        burnAmount
+                    );
+                }
+            }
+            // Update feeBase and avgBlockTime
+            state.feeBase = LibUtils.movingAverage({
+                maValue: state.feeBase,
+                newValue: newFeeBase,
+                maf: config.feeBaseMAF
+            });
+        }
 
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
