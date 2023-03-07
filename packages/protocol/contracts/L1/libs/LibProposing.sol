@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -111,11 +112,13 @@ library LibProposing {
                 }
             }
             // Update feeBase and avgBlockTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
+            state.feeBaseSzabo = LibTokenomics.toSzabo(
+                LibUtils.movingAverage({
+                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+                    newValue: newFeeBase,
+                    maf: config.feeBaseMAF
+                })
+            );
         }
 
         state.proposedBlocks[
@@ -147,21 +150,21 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config
     ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
-        (newFeeBase, ) = LibUtils.getTimeAdjustedFee({
-            state: state,
+        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
             config: config,
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: true,
             tNow: uint64(block.timestamp),
             tLast: state.lastProposedAt,
             tAvg: state.avgBlockTime
         });
-        fee = LibUtils.getSlotsAdjustedFee({
+        fee = LibTokenomics.getSlotsAdjustedFee({
             state: state,
             config: config,
             isProposal: true,
             feeBase: newFeeBase
         });
-        fee = LibUtils.getBootstrapDiscountedFee(state, config, fee);
+        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
         deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
