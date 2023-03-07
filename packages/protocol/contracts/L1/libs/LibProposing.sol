@@ -140,7 +140,10 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId++, meta);
+        emit BlockProposed(state.nextBlockId, meta);
+        unchecked {
+            state.nextBlockId;
+        }
     }
 
     function getBlockFee(

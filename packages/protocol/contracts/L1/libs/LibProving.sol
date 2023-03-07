@@ -60,9 +60,12 @@ library LibProving {
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
 
-        for (uint i = 0; i < header.extraData.length; ++i) {
+        for (uint i = 0; i < header.extraData.length; ) {
             if (header.extraData[i] != meta.extraData[i])
                 revert L1_INVALID_EVIDENCE();
+            unchecked {
+                ++i;
+            }
         }
 
         bytes32 instance = _getInstance(
