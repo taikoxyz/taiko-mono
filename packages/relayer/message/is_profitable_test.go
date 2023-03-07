@@ -16,7 +16,7 @@ func Test_isProfitable(t *testing.T) {
 	tests := []struct {
 		name           string
 		message        bridge.IBridgeMessage
-		proof          []byte
+		cost           *big.Int
 		wantProfitable bool
 		wantErr        error
 	}{
@@ -25,24 +25,24 @@ func Test_isProfitable(t *testing.T) {
 			bridge.IBridgeMessage{
 				ProcessingFee: big.NewInt(0),
 			},
-			nil,
+			big.NewInt(1),
 			false,
 			nil,
 		},
 		{
 			"nilProcessingFee",
 			bridge.IBridgeMessage{},
-			nil,
+			big.NewInt(1),
 			false,
 			nil,
 		},
 		{
-			"lowProcessingFee",
+			"lowProcessingFeeHighCost",
 			bridge.IBridgeMessage{
 				ProcessingFee: new(big.Int).Sub(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 				DestChainId:   big.NewInt(167001),
 			},
-			nil,
+			big.NewInt(1000000),
 			false,
 			nil,
 		},
@@ -52,7 +52,7 @@ func Test_isProfitable(t *testing.T) {
 				ProcessingFee: new(big.Int).Add(mock.ProcessMessageTx.Cost(), big.NewInt(1)),
 				DestChainId:   big.NewInt(167001),
 			},
-			nil,
+			big.NewInt(1),
 			true,
 			nil,
 		},
@@ -60,10 +60,10 @@ func Test_isProfitable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profitable, _, err := p.isProfitable(
+			profitable, err := p.isProfitable(
 				context.Background(),
 				tt.message,
-				tt.proof,
+				tt.cost,
 			)
 
 			assert.Equal(t, tt.wantProfitable, profitable)
