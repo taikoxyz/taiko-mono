@@ -56,7 +56,7 @@
 
       const userAddress = await $signer.getAddress();
 
-      // Checks if the contract is a valid ERC20 contract,
+      // This calls makes surethe contract is a valid ERC20 contract,
       // otherwise it throws and gets caught
       await contract.balanceOf(userAddress);
 

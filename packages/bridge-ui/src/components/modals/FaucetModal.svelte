@@ -19,7 +19,7 @@
 
   async function shouldEnableButton() {
     if (!$signer || !$token) {
-      // Whether signer or token is missing, the button
+      // If signer or token is missing, the button
       // should remained disabled
       disabled = true;
       return;
