@@ -17,21 +17,27 @@
 
   let disabled: boolean = true;
 
-  async function isBtnDisabled(signer: Signer) {
-    if (!signer) return;
+  async function shouldEnableButton() {
+    if (!$signer || !$token) {
+      // Whether signer or token is missing, the button
+      // should remained disabled
+      disabled = true;
+      return;
+    }
 
-    const balance = await signer.getBalance();
-    const address = await signer.getAddress();
+    const balance = await $signer.getBalance();
+    const address = await $signer.getAddress();
 
     const contract = new ethers.Contract(
       $token.addresses[0].address,
       MintableERC20,
-      signer
+      $signer,
     );
 
     const gas = await contract.estimateGas.mint(address);
-    const gasPrice = await signer.getGasPrice();
+    const gasPrice = await $signer.getGasPrice();
     const estimatedGas = BigNumber.from(gas).mul(gasPrice);
+
     if (balance.lt(estimatedGas)) {
       disabled = true;
     } else {
@@ -52,7 +58,7 @@
       const contract = new ethers.Contract(
         $token.addresses[0].address,
         MintableERC20,
-        $signer
+        $signer,
       );
 
       const address = await $signer.getAddress();
@@ -74,7 +80,7 @@
     }
   }
 
-  $: isBtnDisabled($signer).catch((e) => console.error(e));
+  $: shouldEnableButton().catch((e) => console.error(e));
   $: mainnetName = import.meta.env
     ? import.meta.env.VITE_MAINNET_CHAIN_NAME
     : 'Ethereum A2';
@@ -83,7 +89,7 @@
     : 'Taiko A2';
 
   onMount(async () => {
-    isBtnDisabled($signer);
+    shouldEnableButton();
   });
 </script>
 
@@ -98,8 +104,7 @@
     {disabled}
     on:click={async () => {
       await mint();
-    }}
-  >
+    }}>
     {#if disabled}
       Insufficient ETH
     {:else}

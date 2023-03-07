@@ -56,8 +56,9 @@
 
       const userAddress = await $signer.getAddress();
 
-      // TODO: not used
-      const erc20Check = await contract.balanceOf(userAddress);
+      // Checks if the contract is a valid ERC20 contract,
+      // otherwise it throws and gets caught
+      await contract.balanceOf(userAddress);
 
       const [tokenName, decimals, symbol] = await Promise.all([
         contract.name(),
@@ -94,7 +95,8 @@
 
       showAddressField = false;
     } catch (error) {
-      errorToast(`${error}`);
+      // TODO: what if something else happens within the try block?
+      errorToast('Not a valid ERC20 address');
       console.error(error);
     } finally {
       loading = false;
