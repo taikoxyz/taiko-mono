@@ -4,7 +4,7 @@
   import { bridgeType } from '../../store/bridge';
   import { ETH, tokens } from '../../domain/token';
   import type { Token } from '../../domain/token';
-  import { BridgeType } from '../../domain/bridge';
+  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
   import { errorToast, successToast } from '../../utils/toast';
   import { ethers } from 'ethers';
@@ -18,20 +18,18 @@
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;
   let loading = false;
-  let customTokens = [];
-
-  userTokens.subscribe((value) => {
-    if (value) customTokens = value;
-  });
 
   async function select(t: Token) {
     if (t === $token) return;
+
     token.set(t);
-    if (t.symbol.toLowerCase() == ETH.symbol.toLowerCase()) {
+
+    if (t.symbol.toLowerCase() === ETH.symbol.toLowerCase()) {
       bridgeType.set(BridgeType.ETH);
     } else {
       bridgeType.set(BridgeType.ERC20);
     }
+
     successToast(`Token changed to ${t.symbol.toUpperCase()}`);
 
     // to close the dropdown on click
@@ -42,19 +40,23 @@
   }
 
   async function addERC20(event: SubmitEvent) {
+    loading = true;
+
     try {
-      loading = true;
-      const eventTarget = event.target as HTMLFormElement;
+      const eventTarget = event.target as HTMLBridgeForm;
       const { customTokenAddress } = eventTarget;
       const tokenAddress = customTokenAddress.value;
+
       if (!ethers.utils.isAddress(tokenAddress)) {
-        throw new Error();
+        throw new Error('Invalid ERC20 token address');
       }
+
       const provider = getProvider();
       const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
 
       const userAddress = await $signer.getAddress();
-      const erc20Check = await contract.balanceOf(userAddress);
+      const erc20Check = await contract.balanceOf(userAddress); // TODO: not used
+
       const [tokenName, decimals, symbol] = await Promise.all([
         contract.name(),
         contract.decimals(),
@@ -76,7 +78,7 @@
         decimals: decimals,
         symbol: symbol,
         logoComponent: null,
-      };
+      } as Token;
 
       const updateTokensList = await $tokenService.StoreToken(
         token,
@@ -84,8 +86,10 @@
       );
 
       select(token);
+
       userTokens.set(updateTokensList);
       eventTarget.reset();
+
       showAddressField = false;
     } catch (error) {
       errorToast('Not a valid ERC20 address');
@@ -98,6 +102,7 @@
 
 <div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
   <label
+    role="button"
     tabindex="0"
     class="flex items-center justify-center hover:cursor-pointer">
     {#if $token.logoComponent}
@@ -110,6 +115,7 @@
   </label>
 
   <ul
+    role="listbox"
     tabindex="0"
     class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2">
     {#each tokens as t}
@@ -123,7 +129,7 @@
         </button>
       </li>
     {/each}
-    {#each customTokens as t}
+    {#each $userTokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5">
         <button
           on:click={async () => await select(t)}

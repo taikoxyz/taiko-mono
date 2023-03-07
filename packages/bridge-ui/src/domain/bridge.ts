@@ -1,11 +1,11 @@
-import type { BigNumber, ethers, Transaction } from "ethers";
-import type { Message } from "./message";
+import type { BigNumber, ethers, Transaction } from 'ethers';
+import type { Message } from './message';
 
 enum BridgeType {
-  ERC20 = "ERC20",
-  ETH = "ETH",
-  ERC721 = "ERC721",
-  ERC1155 = "ERC1155",
+  ERC20 = 'ERC20',
+  ETH = 'ETH',
+  ERC721 = 'ERC721',
+  ERC1155 = 'ERC1155',
 }
 
 type ApproveOpts = {
@@ -55,4 +55,16 @@ interface Bridge {
   ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
 }
 
-export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts, ReleaseOpts };
+interface HTMLBridgeForm extends HTMLFormElement {
+  customTokenAddress: HTMLInputElement;
+}
+
+export {
+  ApproveOpts,
+  BridgeOpts,
+  BridgeType,
+  Bridge,
+  ClaimOpts,
+  ReleaseOpts,
+  HTMLBridgeForm,
+};
