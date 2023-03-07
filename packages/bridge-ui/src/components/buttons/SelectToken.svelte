@@ -48,14 +48,16 @@
       const tokenAddress = customTokenAddress.value;
 
       if (!ethers.utils.isAddress(tokenAddress)) {
-        throw new Error('Invalid ERC20 token address');
+        throw new Error('Not a valid ERC20 address');
       }
 
       const provider = getProvider();
       const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
 
       const userAddress = await $signer.getAddress();
-      const erc20Check = await contract.balanceOf(userAddress); // TODO: not used
+
+      // TODO: not used
+      const erc20Check = await contract.balanceOf(userAddress);
 
       const [tokenName, decimals, symbol] = await Promise.all([
         contract.name(),
@@ -92,7 +94,7 @@
 
       showAddressField = false;
     } catch (error) {
-      errorToast('Not a valid ERC20 address');
+      errorToast(`${error}`);
       console.error(error);
     } finally {
       loading = false;
