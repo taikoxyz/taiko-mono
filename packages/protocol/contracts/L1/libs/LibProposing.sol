@@ -36,7 +36,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         bytes[] calldata inputs
-    ) internal {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -49,10 +49,7 @@ library LibProposing {
         // inputs[0]: the block's metadata
         // inputs[1]: the txList (future 4844 blob)
 
-        TaikoData.BlockMetadata memory meta = abi.decode(
-            inputs[0],
-            (TaikoData.BlockMetadata)
-        );
+        meta = abi.decode(inputs[0], (TaikoData.BlockMetadata));
 
         {
             // Validating the metadata
@@ -108,7 +105,7 @@ library LibProposing {
                 if (state.balances[msg.sender] > burnAmount) {
                     state.balances[msg.sender] -= burnAmount;
                 } else {
-                    TaikoToken(resolver.resolve("tko_token", false)).burn(
+                    TaikoToken(resolver.resolve("taiko_token", false)).burn(
                         msg.sender,
                         burnAmount
                     );

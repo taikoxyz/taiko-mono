@@ -27,6 +27,7 @@ library LibProving {
 
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF(Snippet snippet);
+    error L1_EVIDENCE_MISMATCH();
     error L1_ID();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
@@ -203,7 +204,7 @@ library LibProving {
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             LibUtils.hashMetadata(meta)
-        ) revert L1_INVALID_EVIDENCE();
+        ) revert L1_EVIDENCE_MISMATCH();
     }
 
     function _getInstance(
@@ -218,21 +219,23 @@ library LibProving {
 
         uint256 i = list.length;
         // All L2 related inputs
-        list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
-        list[--i] = LibRLPWriter.writeHash(
-            bytes32(uint256(uint160(l2SignalServiceAddress)))
-        );
-        list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
-        // All L1 related inputs:
+        unchecked {
+            list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
+            list[--i] = LibRLPWriter.writeHash(
+                bytes32(uint256(uint160(l2SignalServiceAddress)))
+            );
+            list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
+            // All L1 related inputs:
 
-        list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
-        list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
-        list[--i] = LibRLPWriter.writeHash(
-            bytes32(uint256(uint160(l1SignalServiceAddress)))
-        );
+            list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
+            list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
+            list[--i] = LibRLPWriter.writeHash(
+                bytes32(uint256(uint160(l1SignalServiceAddress)))
+            );
 
-        // Other inputs
-        list[--i] = LibRLPWriter.writeAddress(evidence.prover);
+            // Other inputs
+            list[--i] = LibRLPWriter.writeAddress(evidence.prover);
+        }
 
         return keccak256(LibRLPWriter.writeList(list));
     }
