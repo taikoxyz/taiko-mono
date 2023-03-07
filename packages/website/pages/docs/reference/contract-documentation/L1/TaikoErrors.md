@@ -16,16 +16,10 @@ error L1_ALREADY_PROVEN()
 error L1_BLOCK_NUMBER()
 ```
 
-### L1_BLOCK_PROOF
-
-```solidity
-error L1_BLOCK_PROOF()
-```
-
 ### L1_CONFLICT_PROOF
 
 ```solidity
-error L1_CONFLICT_PROOF()
+error L1_CONFLICT_PROOF(struct Snippet snippet)
 ```
 
 ### L1_CONTRACT_NOT_ALLOWED
@@ -76,6 +70,12 @@ error L1_INVALID_EVIDENCE()
 error L1_INVALID_PARAM()
 ```
 
+### L1_INVALID_PROOF
+
+```solidity
+error L1_INVALID_PROOF()
+```
+
 ### L1_METADATA_FIELD
 
 ```solidity
@@ -98,12 +98,6 @@ error L1_SOLO_PROPOSER()
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
-```
-
-### L1_TX_LIST_PROOF
-
-```solidity
-error L1_TX_LIST_PROOF()
 ```
 
 ### L1_TX_LIST

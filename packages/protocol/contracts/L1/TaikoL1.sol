@@ -62,14 +62,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *          will be the first transaction in the block -- if there are
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
-     *
-     *        - inputs[2] is the `txListProof` which is the ZK-proof to verify that
-     *          the txList is correctly encoded and satisify a few other requirements
-     *          as detailed in the whitepaper. There are a couple of things that
-     *          are very important: 1) txListProof does not cover the transaction
-     *          signature validation. Transactions with invalid signatures will
-     *          be filtered. 2) `txListProof` will not be verified with a ZK-verifier
-     *          as the main ZK-proof covers `txListProof` already.
      */
     function proposeBlock(
         bytes[] calldata inputs
