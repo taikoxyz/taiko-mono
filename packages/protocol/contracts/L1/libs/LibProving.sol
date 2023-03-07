@@ -79,6 +79,7 @@ library LibProving {
             );
             bool verified = _verifyZKProof(
                 resolver,
+                "valid_block_",
                 evidence.zkproof,
                 instance
             );
@@ -116,10 +117,11 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             bool verified = _verifyZKProof(
                 resolver,
+                "invalid_block_",
                 evidence.zkproof,
                 meta.txListHash
             );
-            if (verified) revert L1_TX_LIST_PROOF();
+            if (!verified) revert L1_TX_LIST_PROOF();
         }
     }
 
@@ -185,12 +187,13 @@ library LibProving {
 
     function _verifyZKProof(
         AddressResolver resolver,
+        string memory verifierPrefix,
         TaikoData.ZKProof memory zkproof,
         bytes32 instance
     ) private view returns (bool verified) {
         // Do not revert when circuitId is invalid.
         address verifier = resolver.resolve(
-            string.concat("verifier_", Strings.toString(zkproof.circuitId)),
+            string.concat(verifierPrefix, Strings.toString(zkproof.circuitId)),
             true
         );
         if (verifier == address(0)) return false;
