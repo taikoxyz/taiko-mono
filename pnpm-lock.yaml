@@ -121,7 +121,6 @@ importers:
       '@defi-wonderland/smock': ^2.3.4
       '@foundry-rs/hardhat-forge': ^0.1.17
       '@gnosis.pm/zodiac': ^1.1.9
-      '@nomicfoundation/hardhat-foundry': ^1.0.0
       '@nomicfoundation/hardhat-network-helpers': ^1.0.8
       '@nomiclabs/hardhat-ethers': ^2.2.2
       '@nomiclabs/hardhat-etherscan': ^3.1.7
@@ -176,7 +175,6 @@ importers:
     devDependencies:
       '@defi-wonderland/smock': 2.3.4_u3rpjeimcwsavv62fpribvk5fm
       '@foundry-rs/hardhat-forge': 0.1.17_fwz6j6oy647sr4tch7c5jpqkoq
-      '@nomicfoundation/hardhat-foundry': 1.0.0_hardhat@2.13.0
       '@nomicfoundation/hardhat-network-helpers': 1.0.8_hardhat@2.13.0
       '@nomiclabs/hardhat-ethers': 2.2.2_wknqauzjtp3mhprkntsmqpccee
       '@nomiclabs/hardhat-etherscan': 3.1.7_hardhat@2.13.0
@@ -3071,15 +3069,6 @@ packages:
       rustbn.js: 0.2.0
     transitivePeerDependencies:
       - supports-color
-    dev: true
-
-  /@nomicfoundation/hardhat-foundry/1.0.0_hardhat@2.13.0:
-    resolution: {integrity: sha512-/2cmtIZPnsQj/SRIu9idbBan5j19RD35MECAGmZCcuXX4AO6Wn0nOnpUwpcvGomKW403h4+rXh8AHMWC4Vvw0Q==}
-    peerDependencies:
-      hardhat: ^2.12.6
-    dependencies:
-      chalk: 2.4.2
-      hardhat: 2.13.0_6qtx7vkbdhwvdm4crzlegk4mvi
     dev: true
 
   /@nomicfoundation/hardhat-network-helpers/1.0.8_hardhat@2.13.0:

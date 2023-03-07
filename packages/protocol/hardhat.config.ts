@@ -1,6 +1,6 @@
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
-import "@nomicfoundation/hardhat-foundry";
+// import "@nomicfoundation/hardhat-foundry";
 import "@openzeppelin/hardhat-upgrades";
 import "hardhat-preprocessor";
 import "@typechain/hardhat";
@@ -12,15 +12,6 @@ import "solidity-coverage";
 import "solidity-docgen";
 import "./tasks/compile_yul";
 import "./tasks/deploy_L1";
-import fs from "fs";
-
-function getRemappings() {
-  return fs
-    .readFileSync("remappings.txt", "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => line.trim().split("="));
-}
 
 const hardhatMnemonic =
   "test test test test test test test test test test test taik";
@@ -138,24 +129,6 @@ const config: HardhatUserConfig = {
       },
     },
     version: "0.8.18",
-  },
-  paths: {
-    sources: "contracts", // Use ./src rather than ./contracts as Hardhat expects
-    cache: "cache_hardhat", // Use a different cache for Hardhat than Foundry
-  },
-  preprocess: {
-    eachLine: (hre) => ({
-      transform: (line: string) => {
-        if (line.match(/^\s*import /i)) {
-          getRemappings().forEach(([find, replace]) => {
-            if (line.match(find)) {
-              line = line.replace(find, replace);
-            }
-          });
-        }
-        return line;
-      },
-    }),
   },
 };
 

@@ -31,7 +31,7 @@ contract TaikoL1Test is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        uint256 feeBase = 1E18;
+        uint64 feeBase = 1E18;
         L1 = new TaikoL1();
         L1.init(address(addressManager), genesisBlockHash, feeBase);
 
@@ -54,8 +54,7 @@ contract TaikoL1Test is Test {
         uint256 txListSize
     ) internal returns (TaikoData.BlockMetadata memory) {
         bytes[] memory inputs = new bytes[](3);
-        inputs[1] = bytes("txList");
-        inputs[2] = bytes("txListProof");
+        inputs[1] = new bytes(txListSize);
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: 0,
@@ -63,7 +62,6 @@ contract TaikoL1Test is Test {
             l1Hash: 0,
             beneficiary: proposer,
             txListHash: keccak256(inputs[1]),
-            txListProofHash: keccak256(inputs[2]),
             mixHash: 0,
             extraData: new bytes(10),
             gasLimit: 1000000,

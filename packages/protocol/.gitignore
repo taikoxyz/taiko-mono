@@ -18,6 +18,7 @@ cache
 artifacts
 cache
 cache_forge
+cache_hardhat
 out
 
 # Editors
