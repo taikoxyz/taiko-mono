@@ -136,17 +136,17 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	_, gas, err := p.isProfitable(ctx, event.Message, proof)
 	if err != nil {
 		return nil, errors.Wrap(err, "p.isProfitable")
 	}
 
-	if bool(p.profitableOnly) && !profitable {
-		return nil, relayer.ErrUnprofitable
-	}
+	// if bool(p.profitableOnly) && !profitable {
+	// 	return nil, relayer.ErrUnprofitable
+	// }
 
 	if gas != 0 {
-		auth.GasLimit = 2500000
+		auth.GasLimit = 3000000
 	}
 
 	// process the message on the destination bridge.
