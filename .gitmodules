@@ -1,4 +1,0 @@
-[submodule "packages/protocol/lib"]
-	path = packages/protocol/lib
-	url = https://github.com/foundry-rs/forge-std
-	branch = chore/v1.5.0
