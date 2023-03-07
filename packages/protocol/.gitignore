@@ -17,6 +17,7 @@ npm-debug.log*
 cache
 artifacts
 cache
+lib
 cache_forge
 out
 

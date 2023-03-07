@@ -62,14 +62,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *          will be the first transaction in the block -- if there are
      *          n transactions in `txList`, then there will be up to n+1
      *          transactions in the L2 block.
-     *
-     *        - inputs[2] is the `txListProof` which is the ZK-proof to verify that
-     *          the txList is correctly encoded and satisify a few other requirements
-     *          as detailed in the whitepaper. There are a couple of things that
-     *          are very important: 1) txListProof does not cover the transaction
-     *          signature validation. Transactions with invalid signatures will
-     *          be filtered. 2) `txListProof` will not be verified with a ZK-verifier
-     *          as the main ZK-proof covers `txListProof` already.
      */
     function proposeBlock(
         bytes[] calldata inputs
@@ -99,12 +91,12 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param evidenceBytes An abi-encoded TaikoData.ValidBlockEvidence object.
+     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
         uint256 blockId,
-        bytes calldata evidenceBytes
+        bytes calldata input
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
@@ -112,7 +104,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidenceBytes: evidenceBytes
+            evidenceBytes: input
         });
         LibVerifying.verifyBlocks({
             state: state,
@@ -127,11 +119,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
-     * @param evidenceBytes evidenceBytes An abi-encoded TaikoData.InvalidBlockEvidence object.
+     * @param input An abi-encoded TaikoData.InvalidBlockEvidence object.
      */
     function proveBlockInvalid(
         uint256 blockId,
-        bytes calldata evidenceBytes
+        bytes calldata input
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
 
@@ -140,7 +132,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidenceBytes: evidenceBytes
+            evidenceBytes: input
         });
         LibVerifying.verifyBlocks({
             state: state,

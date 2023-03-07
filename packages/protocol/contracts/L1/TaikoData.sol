@@ -46,7 +46,6 @@ library TaikoData {
         bytes32 l1Hash;
         address beneficiary;
         bytes32 txListHash;
-        bytes32 txListProofHash;
         bytes32 mixHash;
         bytes extraData;
         uint64 gasLimit;
@@ -61,14 +60,15 @@ library TaikoData {
     struct ValidBlockEvidence {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The block proof
+        address prover;
         BlockHeader header;
         bytes32 signalRoot;
-        address prover;
     }
 
     struct InvalidBlockEvidence {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof; // The txListProof
+        address prover;
         bytes32 parentHash;
     }
 

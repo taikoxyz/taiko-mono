@@ -1,6 +1,0 @@
-[profile.default]
-src = 'contracts'
-test = 'test2'
-out = 'out'
-libs = ['lib']
-cache_path  = 'cache_forge'

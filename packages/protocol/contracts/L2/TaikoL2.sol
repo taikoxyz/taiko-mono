@@ -55,8 +55,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         bytes32[255] memory ancestors;
         uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ++i) {
+        for (uint256 i; i < 255 && number >= i + 2; ) {
             ancestors[i] = blockhash(number - i - 2);
+            unchecked {
+                ++i;
+            }
         }
 
         _publicInputHash = _hashPublicInputs({
@@ -142,8 +145,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         // put the previous 255 blockhashes (excluding the parent's) into a
         // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ++i) {
+        for (uint256 i = 2; i <= 256 && number >= i; ) {
             ancestors[(number - i) % 255] = blockhash(number - i);
+            unchecked {
+                ++i;
+            }
         }
 
         uint256 parentHeight = number - 1;
