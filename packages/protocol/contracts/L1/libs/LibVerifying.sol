@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -22,18 +23,14 @@ library LibVerifying {
     event BlockVerified(uint256 indexed id, Snippet snippet);
     event XchainSynced(uint256 indexed srcHeight, Snippet snippet);
 
-    error L1_ZERO_FEE_BASE();
-
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
-        uint256 feeBase
+        uint64 feeBaseSzabo
     ) internal {
-        if (feeBase == 0) revert L1_ZERO_FEE_BASE();
-
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBase = feeBase;
+        state.feeBaseSzabo = feeBaseSzabo;
         state.nextBlockId = 1;
         state.lastProposedAt = uint64(block.timestamp);
 
@@ -143,15 +140,15 @@ library LibVerifying {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
-        (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
-            state: state,
+        (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
             config: config,
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: false,
             tNow: provenAt,
             tLast: proposedAt,
             tAvg: state.avgProofTime
         });
-        reward = LibUtils.getSlotsAdjustedFee({
+        reward = LibTokenomics.getSlotsAdjustedFee({
             state: state,
             config: config,
             isProposal: false,
@@ -210,11 +207,13 @@ library LibVerifying {
                 }
             }
             // Update feeBase and avgProofTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
+            state.feeBaseSzabo = LibTokenomics.toSzabo(
+                LibUtils.movingAverage({
+                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+                    newValue: newFeeBase,
+                    maf: config.feeBaseMAF
+                })
+            );
         }
 
         state.avgProofTime = LibUtils

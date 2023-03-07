@@ -101,7 +101,6 @@ library TaikoData {
         uint64 __reserved1;
         uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
-        uint256 feeBase;
         // Changed when a block is proposed
         uint64 nextBlockId;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
@@ -113,7 +112,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime;
-        uint64 __reserved4;
+        uint64 feeBaseSzabo;
         // Reserved
         uint256[42] __gap;
     }
