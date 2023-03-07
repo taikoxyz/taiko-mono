@@ -7,10 +7,10 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {LibAddress} from "../../libs/LibAddress.sol";
-import {ISignalService} from "../../signal/ISignalService.sol";
-import {LibBridgeData} from "./LibBridgeData.sol";
 import {IBridge} from "../IBridge.sol";
+import {ISignalService} from "../../signal/ISignalService.sol";
+import {LibAddress} from "../../libs/LibAddress.sol";
+import {LibBridgeData} from "./LibBridgeData.sol";
 
 /**
  * Entry point for starting a bridge transaction.
@@ -21,10 +21,10 @@ library LibBridgeSend {
     using LibAddress for address;
     using LibBridgeData for IBridge.Message;
 
+    error B_INCORRECT_VALUE();
     error B_OWNER_IS_NULL();
     error B_WRONG_CHAIN_ID();
     error B_WRONG_TO_ADDRESS();
-    error B_INCORRECT_VALUE();
 
     /**
      * Send a message to the Bridge with the details of the request. The Bridge
@@ -74,7 +74,7 @@ library LibBridgeSend {
         // store it here on the Bridge. Processing will release Ether from the
         // EtherVault or the Bridge on the destination chain.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0)) {
+        if (ethVault != address(0) && expectedAmount > 0) {
             ethVault.sendEther(expectedAmount);
         }
 

@@ -11,10 +11,7 @@ struct Config {
   uint256 chainId;
   uint256 maxNumBlocks;
   uint256 blockHashHistory;
-  uint256 zkProofsPerBlock;
   uint256 maxVerificationsPerTx;
-  uint256 commitConfirmations;
-  uint256 maxProofsPerForkChoice;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
@@ -32,12 +29,8 @@ struct Config {
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
-  uint64 initialUncleDelay;
-  uint64 proverRewardRandomizedPercentage;
   bool enableTokenomics;
-  bool enablePublicInputsCheck;
-  bool enableAnchorValidation;
-  bool enableOracleProver;
+  bool skipZKPVerification;
 }
 ```
 
@@ -50,12 +43,42 @@ struct BlockMetadata {
   bytes32 l1Hash;
   address beneficiary;
   bytes32 txListHash;
+  bytes32 txListProofHash;
   bytes32 mixHash;
   bytes extraData;
   uint64 gasLimit;
   uint64 timestamp;
-  uint64 commitHeight;
-  uint64 commitSlot;
+}
+```
+
+### ZKProof
+
+```solidity
+struct ZKProof {
+  bytes data;
+  uint256 circuitId;
+}
+```
+
+### ValidBlockEvidence
+
+```solidity
+struct ValidBlockEvidence {
+  struct TaikoData.BlockMetadata meta;
+  struct TaikoData.ZKProof zkproof;
+  struct BlockHeader header;
+  bytes32 signalRoot;
+  address prover;
+}
+```
+
+### InvalidBlockEvidence
+
+```solidity
+struct InvalidBlockEvidence {
+  struct TaikoData.BlockMetadata meta;
+  struct TaikoData.ZKProof zkproof;
+  bytes32 parentHash;
 }
 ```
 
@@ -74,9 +97,9 @@ struct ProposedBlock {
 
 ```solidity
 struct ForkChoice {
-  bytes32 blockHash;
+  struct Snippet snippet;
+  address prover;
   uint64 provenAt;
-  address[] provers;
 }
 ```
 
@@ -84,23 +107,23 @@ struct ForkChoice {
 
 ```solidity
 struct State {
-  mapping(uint256 => bytes32) l2Hashes;
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
   mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
-  mapping(address => mapping(uint256 => bytes32)) commits;
+  mapping(uint256 => struct Snippet) l2Snippets;
+  mapping(address => uint256) balances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reservedA1;
-  uint64 statusBits;
+  uint64 __reserved1;
+  uint64 __reserved2;
   uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __avgGasLimit;
+  uint64 __reserved3;
   uint64 latestVerifiedHeight;
   uint64 latestVerifiedId;
   uint64 avgProofTime;
-  uint64 __reservedC1;
+  uint64 __reserved4;
   uint256[42] __gap;
 }
 ```

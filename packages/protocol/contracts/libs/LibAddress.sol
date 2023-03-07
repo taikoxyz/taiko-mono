@@ -18,10 +18,8 @@ library LibAddress {
      * @param amount The amount of Ether to send.
      */
     function sendEther(address to, uint256 amount) internal {
-        if (amount > 0) {
-            (bool success, ) = payable(to).call{value: amount}("");
-            require(success, "ETH transfer failed");
-        }
+        (bool success, ) = payable(to).call{value: amount}("");
+        require(success, "ETH transfer failed");
     }
 
     function codeHash(address addr) internal view returns (bytes32 codehash) {

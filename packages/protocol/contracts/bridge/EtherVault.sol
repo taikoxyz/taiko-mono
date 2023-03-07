@@ -78,7 +78,9 @@ contract EtherVault is EssentialContract, BridgeCustomErrors {
      * @param amount Amount of Ether to send.
      */
     function releaseEther(uint256 amount) public onlyAuthorized nonReentrant {
-        msg.sender.sendEther(amount);
+        if (amount > 0) {
+            msg.sender.sendEther(amount);
+        }
         emit EtherReleased(msg.sender, amount);
     }
 
@@ -95,7 +97,9 @@ contract EtherVault is EssentialContract, BridgeCustomErrors {
         if (recipient == address(0)) {
             revert B_EV_DO_NOT_BURN();
         }
-        recipient.sendEther(amount);
+        if (amount > 0) {
+            recipient.sendEther(amount);
+        }
         emit EtherReleased(recipient, amount);
     }
 

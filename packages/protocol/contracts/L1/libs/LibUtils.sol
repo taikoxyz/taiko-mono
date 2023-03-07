@@ -6,11 +6,11 @@
 
 pragma solidity ^0.8.18;
 
+import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {LibMath} from "../../libs/LibMath.sol";
+import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibUtils {
@@ -40,17 +40,20 @@ library LibUtils {
         return state.proposedBlocks[id % maxNumBlocks];
     }
 
-    function getL2BlockHash(
+    function getL2Snippet(
         TaikoData.State storage state,
         uint256 number,
         uint256 blockHashHistory
-    ) internal view returns (bytes32) {
-        if (
-            number + blockHashHistory <= state.latestVerifiedHeight ||
-            number > state.latestVerifiedHeight
+    ) internal view returns (Snippet storage) {
+        uint256 _number = number;
+        if (_number == 0) {
+            _number = state.latestVerifiedHeight;
+        } else if (
+            _number + blockHashHistory <= state.latestVerifiedHeight ||
+            _number > state.latestVerifiedHeight
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2Hashes[number % blockHashHistory];
+        return state.l2Snippets[_number % blockHashHistory];
     }
 
     function getStateVariables(
@@ -136,6 +139,10 @@ library LibUtils {
         TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32) {
         return keccak256(abi.encode(meta));
+    }
+
+    function hashTxList(bytes memory txList) internal pure returns (bytes32) {
+        return keccak256(txList);
     }
 
     function movingAverage(

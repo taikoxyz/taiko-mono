@@ -19,6 +19,7 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {TaikoToken} from "../L1/TaikoToken.sol";
 import {BridgedERC20} from "./BridgedERC20.sol";
 import {IBridge} from "./IBridge.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This vault holds all ERC20 tokens (but not Ether) that users have deposited.
@@ -388,7 +389,10 @@ contract TokenVault is EssentialContract {
         bridgedToken = Create2Upgradeable.deploy(
             0, // amount of Ether to send
             keccak256(
-                abi.encodePacked(canonicalToken.chainId, canonicalToken.addr)
+                bytes.concat(
+                    bytes32(canonicalToken.chainId),
+                    bytes32(uint256(uint160(canonicalToken.addr)))
+                )
             ),
             type(BridgedERC20).creationCode
         );
@@ -399,14 +403,11 @@ contract TokenVault is EssentialContract {
             _srcChainId: canonicalToken.chainId,
             _decimals: canonicalToken.decimals,
             _symbol: canonicalToken.symbol,
-            _name: string(
-                abi.encodePacked(
-                    canonicalToken.name,
-                    "(bridged",
-                    hex"F09F8C88", // 🌈
-                    canonicalToken.chainId,
-                    ")"
-                )
+            _name: string.concat(
+                canonicalToken.name,
+                unicode"(bridged🌈",
+                Strings.toString(canonicalToken.chainId),
+                ")"
             )
         });
 

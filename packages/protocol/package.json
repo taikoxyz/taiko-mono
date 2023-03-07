@@ -85,6 +85,7 @@
   },
   "dependencies": {
     "@gnosis.pm/zodiac": "^1.0.7",
+    "@nomicfoundation/hardhat-foundry": "^1.0.0",
     "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.5.1",
     "channel-ts": "^0.1.2"
