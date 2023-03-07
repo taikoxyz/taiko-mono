@@ -1,4 +1,4 @@
-[default]
+[profile.default]
 src = 'contracts'
 out = 'out'
 test = 'test2'
