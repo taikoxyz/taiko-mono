@@ -5,3 +5,7 @@
 	path = packages/protocol/lib/solmate
 	url = https://github.com/rari-capital/solmate
 	branch = v1.5.0
+[submodule "packages/protocol/lib/openzeppelin-contracts-upgradeable"]
+	path = packages/protocol/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+	branch = v4.8.2
