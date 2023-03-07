@@ -25,12 +25,11 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_PROOF();
     error L1_CONFLICT_PROOF(Snippet snippet);
     error L1_ID();
     error L1_INVALID_EVIDENCE();
+    error L1_INVALID_PROOF();
     error L1_NOT_ORACLE_PROVER();
-    error L1_TX_LIST_PROOF();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -58,32 +57,34 @@ library LibProving {
             header.gasUsed == 0 ||
             header.timestamp != meta.timestamp ||
             header.extraData.length != meta.extraData.length ||
-            keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
 
-        bool oracleProving = _proveBlock({
+        for (uint i = 0; i < header.extraData.length; ) {
+            if (header.extraData[i] != meta.extraData[i])
+                revert L1_INVALID_EVIDENCE();
+            unchecked {
+                ++i;
+            }
+        }
+
+        bytes32 instance = _getInstance(
+            evidence,
+            resolver.resolve("signal_service", false),
+            resolver.resolve(config.chainId, "signal_service", false)
+        );
+
+        _proveBlock({
             state: state,
+            config: config,
             resolver: resolver,
             blockId: blockId,
             parentHash: header.parentHash,
             snippet: Snippet(header.hashBlockHeader(), evidence.signalRoot),
-            prover: evidence.prover
+            prover: evidence.prover,
+            zkproof: evidence.zkproof,
+            instance: instance
         });
-
-        if (!oracleProving && !config.skipZKPVerification) {
-            bytes32 instance = _getInstance(
-                evidence,
-                resolver.resolve("signal_service", false),
-                resolver.resolve(config.chainId, "signal_service", false)
-            );
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                instance
-            );
-            if (!verified) revert L1_BLOCK_PROOF();
-        }
     }
 
     function proveBlockInvalid(
@@ -101,36 +102,31 @@ library LibProving {
         TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
-        if (meta.txListProofHash != keccak256(abi.encode(evidence.zkproof)))
-            revert L1_TX_LIST_PROOF();
-
-        bool oracleProving = _proveBlock({
+        _proveBlock({
             state: state,
+            config: config,
             resolver: resolver,
             blockId: blockId,
             parentHash: evidence.parentHash,
             snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
-            prover: msg.sender
+            prover: evidence.prover,
+            zkproof: evidence.zkproof,
+            instance: meta.txListHash
         });
-
-        if (!oracleProving && !config.skipZKPVerification) {
-            bool verified = _verifyZKProof(
-                resolver,
-                evidence.zkproof,
-                meta.txListHash
-            );
-            if (verified) revert L1_TX_LIST_PROOF();
-        }
     }
 
     function _proveBlock(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
         bytes32 parentHash,
         Snippet memory snippet,
-        address prover
-    ) private returns (bool oracleProving) {
+        address prover,
+        TaikoData.ZKProof memory zkproof,
+        bytes32 instance
+    ) private {
+        bool oracleProving;
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
         ];
@@ -164,6 +160,32 @@ library LibProving {
             fc.provenAt = uint64(block.timestamp);
         }
 
+        if (!oracleProving && !config.skipZKPVerification) {
+            // Do not revert when circuitId is invalid.
+            address verifier = resolver.resolve(
+                string.concat(
+                    snippet.blockHash == LibUtils.BLOCK_DEADEND_HASH
+                        ? "invalid_block_verifier_"
+                        : "valid_block_verifeir_",
+                    Strings.toString(zkproof.circuitId)
+                ),
+                true
+            );
+            if (verifier == address(0)) revert L1_INVALID_PROOF();
+
+            (bool verified, ) = verifier.staticcall(
+                bytes.concat(
+                    bytes16(0),
+                    bytes16(instance), // left 16 bytes of the given instance
+                    bytes16(0),
+                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                    zkproof.data
+                )
+            );
+
+            if (!verified) revert L1_INVALID_PROOF();
+        }
+
         emit BlockProven({id: blockId, parentHash: parentHash, forkChoice: fc});
     }
 
@@ -183,29 +205,6 @@ library LibProving {
         ) revert L1_INVALID_EVIDENCE();
     }
 
-    function _verifyZKProof(
-        AddressResolver resolver,
-        TaikoData.ZKProof memory zkproof,
-        bytes32 instance
-    ) private view returns (bool verified) {
-        // Do not revert when circuitId is invalid.
-        address verifier = resolver.resolve(
-            string.concat("verifier_", Strings.toString(zkproof.circuitId)),
-            true
-        );
-        if (verifier == address(0)) return false;
-
-        (verified, ) = verifier.staticcall(
-            bytes.concat(
-                bytes16(0),
-                bytes16(instance), // left 16 bytes of the given instance
-                bytes16(0),
-                bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                zkproof.data
-            )
-        );
-    }
-
     function _getInstance(
         TaikoData.ValidBlockEvidence memory evidence,
         address l1SignalServiceAddress,
@@ -213,13 +212,12 @@ library LibProving {
     ) private pure returns (bytes32) {
         bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
             evidence.header,
-            8
+            7
         );
 
         uint256 i = list.length;
         // All L2 related inputs
         list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
-        list[--i] = LibRLPWriter.writeHash(evidence.meta.txListProofHash);
         list[--i] = LibRLPWriter.writeHash(
             bytes32(uint256(uint160(l2SignalServiceAddress)))
         );

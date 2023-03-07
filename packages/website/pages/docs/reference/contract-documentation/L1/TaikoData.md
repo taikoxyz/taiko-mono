@@ -43,7 +43,6 @@ struct BlockMetadata {
   bytes32 l1Hash;
   address beneficiary;
   bytes32 txListHash;
-  bytes32 txListProofHash;
   bytes32 mixHash;
   bytes extraData;
   uint64 gasLimit;
@@ -113,17 +112,17 @@ struct State {
   mapping(address => uint256) balances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reservedA1;
-  uint64 __reservedA2;
+  uint64 __reserved1;
+  uint64 __reserved2;
   uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __avgGasLimit;
+  uint64 __reserved3;
   uint64 latestVerifiedHeight;
   uint64 latestVerifiedId;
   uint64 avgProofTime;
-  uint64 __reservedC1;
+  uint64 __reserved4;
   uint256[42] __gap;
 }
 ```

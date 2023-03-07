@@ -27,7 +27,7 @@ library LibProposing {
     error L1_METADATA_FIELD();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST_PROOF();
+    error L1_INVALID_PROOF();
     error L1_TX_LIST();
 
     function proposeBlock(
@@ -44,10 +44,9 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        if (inputs.length != 3) revert L1_INPUT_SIZE();
+        if (inputs.length != 2) revert L1_INPUT_SIZE();
         // inputs[0]: the block's metadata
         // inputs[1]: the txList (future 4844 blob)
-        // inputs[2]: the txListProof (future 4844 blob)
 
         TaikoData.BlockMetadata memory meta = abi.decode(
             inputs[0],
@@ -74,9 +73,6 @@ library LibProposing {
                 inputs[1].length > config.maxBytesPerTxList ||
                 meta.txListHash != LibUtils.hashTxList(inputs[1])
             ) revert L1_TX_LIST();
-
-            if (meta.txListProofHash != keccak256(inputs[2]))
-                revert L1_TX_LIST_PROOF();
 
             if (
                 state.nextBlockId >=
@@ -144,7 +140,10 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId++, meta);
+        emit BlockProposed(state.nextBlockId, meta);
+        unchecked {
+            state.nextBlockId;
+        }
     }
 
     function getBlockFee(
