@@ -61,7 +61,24 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
-		events, err := svc.bridge.FilterMessageSent(&bind.FilterOpts{
+		messageStatusChangedEvents, err := svc.bridge.FilterMessageStatusChanged(&bind.FilterOpts{
+			Start:   svc.processingBlockHeight,
+			End:     &end,
+			Context: ctx,
+		}, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		}
+
+		err = svc.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
+		if err != nil {
+			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		}
+
+		// we dont need to do anything with msgStatus events except save them to the DB.
+		// we dont need to process them. they are for exposing via the API.
+
+		messageSentEvents, err := svc.bridge.FilterMessageSent(&bind.FilterOpts{
 			Start:   svc.processingBlockHeight,
 			End:     &end,
 			Context: ctx,
@@ -70,7 +87,7 @@ func (svc *Service) FilterThenSubscribe(
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
 
-		if !events.Next() || events.Event == nil {
+		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
 			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
 				return errors.Wrap(err, "svc.handleNoEventsInBatch")
 			}
@@ -83,7 +100,7 @@ func (svc *Service) FilterThenSubscribe(
 		group.SetLimit(svc.numGoroutines)
 
 		for {
-			event := events.Event
+			event := messageSentEvents.Event
 
 			group.Go(func() error {
 				err := svc.handleEvent(groupCtx, chainID, event)
@@ -97,7 +114,7 @@ func (svc *Service) FilterThenSubscribe(
 			})
 
 			// if there are no more events
-			if !events.Next() {
+			if !messageSentEvents.Next() {
 				// wait for the last of the goroutines to finish
 				if err := group.Wait(); err != nil {
 					return errors.Wrap(err, "group.Wait")

@@ -30,8 +30,9 @@ var ProcessMessageTx = types.NewTransaction(
 )
 
 type Bridge struct {
-	MessagesSent int
-	ErrorsSent   int
+	MessagesSent           int
+	MessageStatusesChanged int
+	ErrorsSent             int
 }
 
 type Subscription struct {
@@ -78,6 +79,41 @@ func (b *Bridge) FilterMessageSent(
 	signal [][32]byte,
 ) (*bridge.BridgeMessageSentIterator, error) {
 	return &bridge.BridgeMessageSentIterator{}, nil
+}
+
+func (b *Bridge) WatchMessageStatusChanged(
+	opts *bind.WatchOpts,
+	sink chan<- *bridge.BridgeMessageStatusChanged,
+	msgHash [][32]byte,
+) (event.Subscription, error) {
+	s := &Subscription{
+		errChan: make(chan error),
+	}
+
+	go func(sink chan<- *bridge.BridgeMessageStatusChanged) {
+		<-time.After(2 * time.Second)
+
+		sink <- &bridge.BridgeMessageStatusChanged{}
+		b.MessageStatusesChanged++
+	}(sink)
+
+	go func(errChan chan error) {
+		<-time.After(5 * time.Second)
+
+		errChan <- errors.New("fail")
+
+		s.done = true
+		b.ErrorsSent++
+	}(s.errChan)
+
+	return s, nil
+}
+
+func (b *Bridge) FilterMessageStatusChanged(
+	opts *bind.FilterOpts,
+	signal [][32]byte,
+) (*bridge.BridgeMessageStatusChangedIterator, error) {
+	return &bridge.BridgeMessageStatusChangedIterator{}, nil
 }
 
 func (b *Bridge) GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error) {

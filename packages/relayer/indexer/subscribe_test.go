@@ -20,6 +20,7 @@ func Test_subscribe(t *testing.T) {
 
 	b := bridge.(*mock.Bridge)
 
-	assert.Equal(t, b.MessagesSent, 1)
-	assert.Equal(t, b.ErrorsSent, 1)
+	assert.Equal(t, 1, b.MessagesSent)
+	assert.Equal(t, 1, b.MessageStatusesChanged)
+	assert.Equal(t, 2, b.ErrorsSent)
 }

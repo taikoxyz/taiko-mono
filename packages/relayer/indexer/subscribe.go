@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -16,6 +17,22 @@ import (
 func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	log.Info("subscribing to new events")
 
+	errChan := make(chan error)
+
+	go svc.subscribeMessageSent(ctx, chainID, errChan)
+
+	go svc.subscribeMessageStatusChanged(ctx, chainID, errChan)
+
+	// nolint: gosimple
+	for {
+		select {
+		case err := <-errChan:
+			return errors.Wrap(err, "errChan")
+		}
+	}
+}
+
+func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, errChan chan error) {
 	sink := make(chan *bridge.BridgeMessageSent)
 
 	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
@@ -33,10 +50,12 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	for {
 		select {
 		case err := <-sub.Err():
-			return errors.Wrap(err, "sub.Err()")
+			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
 			go func() {
+				log.Infof("new message sent event %v from chainID %v", common.Hash(event.MsgHash).Hex(), chainID.String())
 				err := svc.handleEvent(ctx, chainID, event)
+
 				if err != nil {
 					log.Errorf("svc.subscribe, svc.handleEvent: %v", err)
 				}
@@ -60,6 +79,35 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 					relayer.BlocksProcessed.Inc()
 				}
 			}()
+		}
+	}
+}
+
+func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *big.Int, errChan chan error) {
+	sink := make(chan *bridge.BridgeMessageStatusChanged)
+
+	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
+		if err != nil {
+			log.Errorf("svc.bridge.WatchMessageStatusChanged: %v", err)
+		}
+
+		return svc.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
+			Context: ctx,
+		}, sink, nil)
+	})
+
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case err := <-sub.Err():
+			errChan <- errors.Wrap(err, "sub.Err()")
+		case event := <-sink:
+			log.Infof("new message status changed event %v from chainID %v", common.Hash(event.MsgHash).Hex(), chainID.String())
+
+			if err := svc.saveMessageStatusChangedEvent(ctx, chainID, event); err != nil {
+				log.Errorf("svc.subscribe, svc.saveMessageStatusChangedEvent: %v", err)
+			}
 		}
 	}
 }

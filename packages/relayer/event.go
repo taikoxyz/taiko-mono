@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	EventNameMessageSent = "MessageSent"
+	EventNameMessageSent          = "MessageSent"
+	EventNameMessageStatusChanged = "MessageStatusChanged"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
