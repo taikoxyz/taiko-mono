@@ -62,6 +62,7 @@ library LibProposing {
                 meta.l1Height != 0 ||
                 meta.l1Hash != 0 ||
                 meta.timestamp != 0 ||
+                meta.mixHash != 0 ||
                 meta.beneficiary == address(0)
             ) revert L1_METADATA_FIELD();
 

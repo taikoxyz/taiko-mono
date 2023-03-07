@@ -68,7 +68,7 @@ async function initIntegrationFixture(
 
     await (
         await l1AddressManager.setAddress(
-            `${chainId}.tko_token`,
+            `${chainId}.taiko_token`,
             taikoTokenL1.address
         )
     ).wait(1);

@@ -109,7 +109,7 @@ library LibVerifying {
         if (balance <= 1) return;
 
         state.balances[msg.sender] = 1;
-        TaikoToken(resolver.resolve("tko_token", false)).mint(
+        TaikoToken(resolver.resolve("taiko_token", false)).mint(
             msg.sender,
             balance - 1
         );
@@ -120,7 +120,7 @@ library LibVerifying {
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        TaikoToken(resolver.resolve("tko_token", false)).burn(
+        TaikoToken(resolver.resolve("taiko_token", false)).burn(
             msg.sender,
             amount
         );

@@ -127,7 +127,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            `${chainId}.tko_token`,
+            `${chainId}.taiko_token`,
             TaikoToken.address
         )
     );
