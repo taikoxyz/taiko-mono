@@ -105,6 +105,7 @@
 </script>
 
 <div class="dropdown dropdown-bottom" bind:this={dropdownElement}>
+  <!-- svelte-ignore a11y-label-has-associated-control -->
   <label
     role="button"
     tabindex="0"
