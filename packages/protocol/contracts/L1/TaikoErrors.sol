@@ -12,7 +12,6 @@ abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_NUMBER();
-    error L1_BLOCK_PROOF();
     error L1_CONFLICT_PROOF(Snippet snippet);
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
@@ -22,10 +21,10 @@ abstract contract TaikoErrors {
     error L1_INPUT_SIZE();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PARAM();
+    error L1_INVALID_PROOF();
     error L1_METADATA_FIELD();
     error L1_NOT_ORACLE_PROVER();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST_PROOF();
     error L1_TX_LIST();
 }

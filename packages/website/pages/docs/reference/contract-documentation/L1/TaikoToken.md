@@ -27,7 +27,7 @@ error TKO_INVALID_ADDR()
 ### init
 
 ```solidity
-function init(string _name, string _symbol, address _addressManager) external
+function init(address _addressManager, string _name, string _symbol) external
 ```
 
 _Initializer to be called after being deployed behind a proxy.
