@@ -58,17 +58,9 @@ library LibProving {
             header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
             header.gasUsed == 0 ||
             header.timestamp != meta.timestamp ||
-            header.extraData.length != meta.extraData.length ||
-            header.mixHash != meta.mixHash
+            header.extraData.length != 0 ||
+            header.mixHash != bytes32(meta.mixHash)
         ) revert L1_INVALID_EVIDENCE();
-
-        for (uint i = 0; i < header.extraData.length; ) {
-            if (header.extraData[i] != meta.extraData[i])
-                revert L1_INVALID_EVIDENCE();
-            unchecked {
-                ++i;
-            }
-        }
 
         bytes32 instance = _getInstance(
             evidence,

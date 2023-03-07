@@ -21,7 +21,6 @@ library LibProposing {
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_EXTRA_DATA();
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
@@ -63,9 +62,6 @@ library LibProposing {
             ) revert L1_METADATA_FIELD();
 
             if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
-            if (meta.extraData.length > 32) {
-                revert L1_EXTRA_DATA();
-            }
 
             if (
                 inputs[1].length > config.maxBytesPerTxList ||
@@ -86,12 +82,10 @@ library LibProposing {
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
-            meta.mixHash = keccak256(
-                bytes.concat(
-                    bytes32(block.prevrandao),
-                    bytes32(uint256(state.nextBlockId))
-                )
-            );
+
+            unchecked {
+                meta.mixHash = block.prevrandao * state.nextBlockId;
+            }
         }
 
         uint256 deposit;
