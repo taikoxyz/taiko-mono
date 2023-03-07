@@ -57,9 +57,13 @@ library LibProving {
             header.gasUsed == 0 ||
             header.timestamp != meta.timestamp ||
             header.extraData.length != meta.extraData.length ||
-            keccak256(header.extraData) != keccak256(meta.extraData) ||
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
+
+        for (uint i = 0; i < header.extraData.length; ++i) {
+            if (header.extraData[i] != meta.extraData[i])
+                revert L1_INVALID_EVIDENCE();
+        }
 
         bytes32 instance = _getInstance(
             evidence,
