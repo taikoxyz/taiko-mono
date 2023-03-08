@@ -18,6 +18,7 @@ import {
   ethGasLimit,
   recommendProcessingFee,
 } from "./recommendProcessingFee";
+import type { ComponentType } from "svelte";
 
 jest.mock("svelte/store", () => ({
   ...(jest.requireActual("svelte/store") as object),
@@ -49,7 +50,7 @@ const mockProvider = {
   },
 };
 
-const mockSigner = {};
+const mockSigner = {} as Signer;
 
 describe("recommendProcessingFee()", () => {
   beforeEach(() => {
@@ -150,8 +151,8 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      TEST_ERC20[0],
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
@@ -179,8 +180,8 @@ describe("recommendProcessingFee()", () => {
       CHAIN_TKO,
       CHAIN_MAINNET,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      TEST_ERC20[0],
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
