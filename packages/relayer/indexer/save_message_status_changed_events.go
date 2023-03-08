@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +23,6 @@ func (svc *Service) saveMessageStatusChangedEvents(
 	}
 
 	for {
-		fmt.Println("event!")
 		event := events.Event
 		log.Infof("messageStatusChanged: %v", common.Hash(event.MsgHash).Hex())
 
@@ -66,6 +64,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		ChainID:      chainID,
 		Status:       relayer.EventStatus(event.Status),
 		MessageOwner: previousEvents[0].MessageOwner,
+		MsgHash:      common.Hash(event.MsgHash).Hex(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

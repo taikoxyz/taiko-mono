@@ -3,7 +3,7 @@ package message
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -189,23 +189,22 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		// if topic == crypto.Keccak256Hash("MessageStatusChanged(bytes32,enum,address)") {
 		err = bridgeAbi.UnpackIntoInterface(messageStatusChangedEvent, "MessageStatusChanged", log.Data)
 		if err != nil {
-			continue
+			return errors.Wrap(err, "abi.UnpackIntoInterface")
 		} else {
 			break
 		}
 	}
 
-	if e != nil {
-		marshaled, err := json.Marshal(messageStatusChangedEvent)
-		if err != nil {
-			return errors.Wrap(err, "json.Marshal(event)")
-		}
+	if messageStatusChangedEvent != nil {
+		// keep same format as other raw events
+		data := fmt.Sprintf(`{"Raw":"transactionHash": "%v"}`, receipt.TxHash.Hex())
 
 		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
 			Name:         relayer.EventNameMessageStatusChanged,
-			Data:         string(marshaled),
+			Data:         data,
 			ChainID:      event.Message.DestChainId,
 			Status:       relayer.EventStatus(messageStatusChangedEvent.Status),
+			MsgHash:      e.MsgHash,
 			MessageOwner: e.MessageOwner,
 		})
 		if err != nil {

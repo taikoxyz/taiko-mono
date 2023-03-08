@@ -61,28 +61,26 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
-		messageStatusChangedEvents, err := svc.bridge.FilterMessageStatusChanged(&bind.FilterOpts{
+		filterOpts := &bind.FilterOpts{
 			Start:   svc.processingBlockHeight,
 			End:     &end,
 			Context: ctx,
-		}, nil)
+		}
+
+		messageStatusChangedEvents, err := svc.bridge.FilterMessageStatusChanged(filterOpts, nil)
 		if err != nil {
 			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 		}
+
+		// we dont need to do anything with msgStatus events except save them to the DB.
+		// we dont need to process them. they are for exposing via the API.
 
 		err = svc.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
 		if err != nil {
 			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
 		}
 
-		// we dont need to do anything with msgStatus events except save them to the DB.
-		// we dont need to process them. they are for exposing via the API.
-
-		messageSentEvents, err := svc.bridge.FilterMessageSent(&bind.FilterOpts{
-			Start:   svc.processingBlockHeight,
-			End:     &end,
-			Context: ctx,
-		}, nil)
+		messageSentEvents, err := svc.bridge.FilterMessageSent(filterOpts, nil)
 		if err != nil {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
