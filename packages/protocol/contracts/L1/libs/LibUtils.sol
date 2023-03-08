@@ -74,16 +74,6 @@ library LibUtils {
             });
     }
 
-    function hashMetadata(
-        TaikoData.BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(meta));
-    }
-
-    function hashTxList(bytes memory txList) internal pure returns (bytes32) {
-        return keccak256(txList);
-    }
-
     function movingAverage(
         uint256 maValue,
         uint256 newValue,

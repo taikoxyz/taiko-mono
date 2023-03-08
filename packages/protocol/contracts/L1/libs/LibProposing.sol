@@ -52,8 +52,7 @@ library LibProposing {
 
             // We need txListHash as with EIP-4844, txList is no longer
             // accssible to EVM.
-            if (input.txListHash != LibUtils.hashTxList(txList))
-                revert L1_TX_LIST_HASH();
+            if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
             if (
                 state.nextBlockId >=
@@ -111,7 +110,7 @@ library LibProposing {
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: LibUtils.hashMetadata(meta),
+            metaHash: keccak256(abi.encode(meta)),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp
