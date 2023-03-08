@@ -72,10 +72,7 @@ contract AddressManager is OwnableUpgradeable {
         string memory name,
         address newAddress
     ) external onlyOwner {
-        bytes32 nameHash;
-        assembly {
-            nameHash := keccak256(add(name, 32), mload(name))
-        }
+        bytes32 nameHash = keccak256(bytes(name));
         address oldAddress = addresses[nameHash];
         addresses[nameHash] = newAddress;
         emit AddressSet(name, newAddress, oldAddress);
@@ -91,10 +88,7 @@ contract AddressManager is OwnableUpgradeable {
      * @return Address associated with the given name.
      */
     function getAddress(string memory name) external view returns (address) {
-        bytes32 nameHash;
-        assembly {
-            nameHash := keccak256(add(name, 32), mload(name))
-        }
+        bytes32 nameHash = keccak256(bytes(name));
         return addresses[nameHash];
     }
 }
