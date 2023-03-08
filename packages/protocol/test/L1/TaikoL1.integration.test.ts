@@ -205,23 +205,6 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
     });
 
     describe("proveBlock", function () {
-        it("reverts when inputs is incorrect length", async function () {
-            const txPromise = (
-                await taikoL1.proveBlock(
-                    1,
-                    new Array(2).fill(ethers.constants.HashZero), // 1 is the right size
-                    {
-                        gasLimit: 1000000,
-                    }
-                )
-            ).wait(1);
-            await txShouldRevertWithCustomError(
-                txPromise,
-                l1Provider,
-                "L1_INPUT_SIZE()"
-            );
-        });
-
         it("reverts when evidence meta id is not the same as the blockId", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 

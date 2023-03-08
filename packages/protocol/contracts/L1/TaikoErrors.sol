@@ -16,9 +16,7 @@ abstract contract TaikoErrors {
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_DUP_PROVERS();
     error L1_EVIDENCE_MISMATCH();
-    error L1_GAS_LIMIT();
     error L1_ID();
-    error L1_INPUT_SIZE();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PARAM();
@@ -27,5 +25,6 @@ abstract contract TaikoErrors {
     error L1_NOT_ORACLE_PROVER();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 }
