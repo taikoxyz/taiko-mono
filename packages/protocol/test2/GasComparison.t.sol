@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "../contracts/L1/TaikoData.sol";
 
-struct BlockMetadata2 {
+struct MyStruct {
     uint256 id;
     uint256 l1Height;
     bytes32 l1Hash;
@@ -15,19 +15,19 @@ struct BlockMetadata2 {
 
 contract FooBar {
     function loadBlockMetadata_1(bytes memory data) public {
-        BlockMetadata2 memory meta = abi.decode(data, (BlockMetadata2));
+        MyStruct memory meta = abi.decode(data, (MyStruct));
     }
 
     function loadBlockMetadata_2(bytes calldata data) public {
-        BlockMetadata2 memory meta = abi.decode(data, (BlockMetadata2));
+        MyStruct memory meta = abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_3(BlockMetadata2 memory data) public {}
+    function loadBlockMetadata_3(MyStruct memory data) public {}
 
-    function loadBlockMetadata_4(BlockMetadata2 calldata data) public {}
+    function loadBlockMetadata_4(MyStruct calldata data) public {}
 
     function loadBlockMetadata_5(bytes calldata data) public {
-        BlockMetadata2 memory meta;
+        MyStruct memory meta;
         meta.id = uint256(bytes32(data[0:32]));
         meta.l1Height = uint256(bytes32(data[32:64]));
         meta.l1Hash = bytes32(data[64:96]);
@@ -36,7 +36,7 @@ contract FooBar {
     }
 
     function loadBlockMetadata_6() public {
-        BlockMetadata2 memory meta;
+        MyStruct memory meta;
         uint256 a;
         assembly {
             a := calldatasize()
@@ -188,7 +188,7 @@ contract GasComparisonTest is Test {
         foobar.return_1();
         foobar.return_2(); // cheaper
 
-        BlockMetadata2 memory meta = BlockMetadata2({
+        MyStruct memory meta = MyStruct({
             id: 123,
             l1Height: 456,
             l1Hash: blockhash(block.number - 1),
