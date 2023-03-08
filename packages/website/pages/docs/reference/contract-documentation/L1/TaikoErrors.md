@@ -34,10 +34,10 @@ error L1_CONTRACT_NOT_ALLOWED()
 error L1_DUP_PROVERS()
 ```
 
-### L1_EXTRA_DATA
+### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EXTRA_DATA()
+error L1_EVIDENCE_MISMATCH()
 ```
 
 ### L1_GAS_LIMIT
@@ -56,6 +56,12 @@ error L1_ID()
 
 ```solidity
 error L1_INPUT_SIZE()
+```
+
+### L1_INSUFFICIENT_TOKEN
+
+```solidity
+error L1_INSUFFICIENT_TOKEN()
 ```
 
 ### L1_INVALID_EVIDENCE
@@ -104,10 +110,4 @@ error L1_TOO_MANY_BLOCKS()
 
 ```solidity
 error L1_TX_LIST()
-```
-
-### L1_ZERO_FEE_BASE
-
-```solidity
-error L1_ZERO_FEE_BASE()
 ```
