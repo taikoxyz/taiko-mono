@@ -13,7 +13,6 @@ import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
-import {TaikoToken} from "../TaikoToken.sol";
 
 library LibProposing {
     using SafeCastUpgradeable for uint256;
@@ -24,6 +23,7 @@ library LibProposing {
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_METADATA_FIELD();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
@@ -96,14 +96,10 @@ library LibProposing {
                 (newFeeBase, fee, deposit) = getBlockFee(state, config);
 
                 uint256 burnAmount = fee + deposit;
-                if (state.balances[msg.sender] > burnAmount) {
-                    state.balances[msg.sender] -= burnAmount;
-                } else {
-                    TaikoToken(resolver.resolve("taiko_token", false)).burn(
-                        msg.sender,
-                        burnAmount
-                    );
-                }
+                if (state.balances[msg.sender] <= burnAmount)
+                    revert L1_INSUFFICIENT_TOKEN();
+
+                state.balances[msg.sender] -= burnAmount;
             }
             // Update feeBase and avgBlockTime
             state.feeBaseSzabo = LibTokenomics.toSzabo(

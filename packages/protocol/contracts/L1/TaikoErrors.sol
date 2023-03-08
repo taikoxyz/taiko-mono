@@ -19,6 +19,7 @@ abstract contract TaikoErrors {
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();

@@ -11,6 +11,7 @@ import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
+import {LibTokenomics} from "./libs/LibVerifying.sol";
 import {LibUtils} from "./libs/LibUtils.sol";
 import {LibVerifying} from "./libs/LibVerifying.sol";
 import {TaikoConfig} from "./TaikoConfig.sol";
@@ -156,11 +157,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function deposit(uint256 amount) external nonReentrant {
-        LibVerifying.deposit(state, AddressResolver(this), amount);
+        LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
     function withdraw() external nonReentrant {
-        LibVerifying.withdraw(state, AddressResolver(this));
+        LibTokenomics.withdraw(state, AddressResolver(this));
     }
 
     function getBalance(address addr) public view returns (uint256) {
@@ -179,7 +180,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 reward) {
-        (, reward, ) = LibVerifying.getProofReward({
+        (, reward, ) = LibTokenomics.getProofReward({
             state: state,
             config: getConfig(),
             provenAt: provenAt,
