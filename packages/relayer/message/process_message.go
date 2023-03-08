@@ -143,18 +143,20 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	// profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "p.isProfitable")
-	// }
+	gas, cost, err := p.estimateGas(ctx, event.Message, proof)
+	if err != nil || gas == 0 {
+		// we can get unable to estimet gas for contract deployments within the contract code.
+		// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
+		// and try to actually send.
+		auth.GasLimit = 3000000
+	}
 
-	// if bool(p.profitableOnly) && !profitable {
-	// 	return nil, relayer.ErrUnprofitable
-	// }
-
-	// if gas != 0 {
-	auth.GasLimit = 2500000
-	// }
+	if bool(p.profitableOnly) {
+		profitable, err := p.isProfitable(ctx, event.Message, cost)
+		if err != nil || !profitable {
+			return nil, relayer.ErrUnprofitable
+		}
+	}
 
 	// process the message on the destination bridge.
 	tx, err := p.destBridge.ProcessMessage(auth, event.Message, proof)
