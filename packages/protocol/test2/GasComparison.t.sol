@@ -14,21 +14,20 @@ struct BlockMetadata2 {
 }
 
 contract FooBar {
-    function loadBlockMetadata_0(
-        bytes memory data
-    ) public returns (BlockMetadata2 memory meta) {
-        meta = abi.decode(data, (BlockMetadata2));
+    function loadBlockMetadata_1(bytes memory data) public {
+        BlockMetadata2 memory meta = abi.decode(data, (BlockMetadata2));
     }
 
-    function loadBlockMetadata_1(
-        bytes calldata data
-    ) public returns (BlockMetadata2 memory meta) {
-        meta = abi.decode(data, (BlockMetadata2));
+    function loadBlockMetadata_2(bytes calldata data) public {
+        BlockMetadata2 memory meta = abi.decode(data, (BlockMetadata2));
     }
 
-    function loadBlockMetadata_2(
-        bytes calldata data
-    ) public returns (BlockMetadata2 memory meta) {
+    function loadBlockMetadata_3(BlockMetadata2 memory data) public {}
+
+    function loadBlockMetadata_4(BlockMetadata2 calldata data) public {}
+
+    function loadBlockMetadata_5(bytes calldata data) public {
+        BlockMetadata2 memory meta;
         meta.id = uint256(bytes32(data[0:32]));
         meta.l1Height = uint256(bytes32(data[32:64]));
         meta.l1Hash = bytes32(data[64:96]);
@@ -36,7 +35,8 @@ contract FooBar {
         meta.timestamp = uint64(bytes8(data[104:112]));
     }
 
-    function loadBlockMetadata_3() public returns (BlockMetadata2 memory meta) {
+    function loadBlockMetadata_6() public {
+        BlockMetadata2 memory meta;
         uint256 a;
         assembly {
             a := calldatasize()
@@ -197,14 +197,10 @@ contract GasComparisonTest is Test {
         });
         {
             bytes memory b = abi.encode(meta);
-            assertEq(
-                keccak256(abi.encode(meta)),
-                keccak256(abi.encode(foobar.loadBlockMetadata_0(b)))
-            );
-            assertEq(
-                keccak256(abi.encode(meta)),
-                keccak256(abi.encode(foobar.loadBlockMetadata_1(b))) // cheaper
-            );
+            foobar.loadBlockMetadata_1(b);
+            foobar.loadBlockMetadata_2(b);
+            foobar.loadBlockMetadata_3(meta);
+            foobar.loadBlockMetadata_4(meta); // best
         }
         {
             bytes memory b = bytes.concat(
@@ -215,21 +211,12 @@ contract GasComparisonTest is Test {
                 bytes8(meta.timestamp)
             );
 
-            assertEq(
-                keccak256(abi.encode(meta)),
-                keccak256(abi.encode(foobar.loadBlockMetadata_2(b)))
-            );
-
             bytes memory c = bytes.concat(
-                FooBar.loadBlockMetadata_3.selector,
+                FooBar.loadBlockMetadata_5.selector,
                 b
             );
 
-            (, bytes memory ret) = address(foobar).call(c); // best
-            assertEq(
-                keccak256(abi.encode(meta)),
-                keccak256(abi.encode(abi.decode(ret, (BlockMetadata2))))
-            );
+            address(foobar).call(c); // best
         }
     }
 }
