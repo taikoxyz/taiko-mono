@@ -41,7 +41,6 @@ library LibProving {
         TaikoData.ValidBlockEvidence calldata evidence
     ) internal {
         TaikoData.BlockMetadata calldata meta = evidence.meta;
-        _checkMetadata(state, config, meta, blockId);
 
         BlockHeader memory header = evidence.header;
         if (
@@ -68,6 +67,7 @@ library LibProving {
             config: config,
             resolver: resolver,
             blockId: blockId,
+            meta: meta,
             parentHash: header.parentHash,
             snippet: Snippet(header.hashBlockHeader(), evidence.signalRoot),
             prover: evidence.prover,
@@ -83,19 +83,17 @@ library LibProving {
         uint256 blockId,
         TaikoData.InvalidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.BlockMetadata calldata meta = evidence.meta;
-        _checkMetadata(state, config, meta, blockId);
-
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
             blockId: blockId,
+            meta: evidence.meta,
             parentHash: evidence.parentHash,
             snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
             prover: evidence.prover,
             zkproof: evidence.zkproof,
-            instance: meta.txListHash
+            instance: evidence.meta.txListHash
         });
     }
 
@@ -104,12 +102,22 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
+        TaikoData.BlockMetadata calldata meta,
         bytes32 parentHash,
         Snippet memory snippet,
         address prover,
-        TaikoData.ZKProof memory zkproof,
+        TaikoData.ZKProof calldata zkproof,
         bytes32 instance
     ) private {
+        if (meta.id != blockId) revert L1_ID();
+
+        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
+            revert L1_ID();
+        if (
+            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
+            LibUtils.hashMetadata(meta)
+        ) revert L1_EVIDENCE_MISMATCH();
+
         bool oracleProving;
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
@@ -173,24 +181,8 @@ library LibProving {
         emit BlockProven({id: blockId, parentHash: parentHash, forkChoice: fc});
     }
 
-    function _checkMetadata(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta,
-        uint256 blockId
-    ) private view {
-        if (meta.id != blockId) revert L1_ID();
-
-        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
-            revert L1_ID();
-        if (
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            LibUtils.hashMetadata(meta)
-        ) revert L1_EVIDENCE_MISMATCH();
-    }
-
     function _getInstance(
-        TaikoData.ValidBlockEvidence memory evidence,
+        TaikoData.ValidBlockEvidence calldata evidence,
         address l1SignalServiceAddress,
         address l2SignalServiceAddress
     ) private pure returns (bytes32) {
