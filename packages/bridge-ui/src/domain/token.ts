@@ -5,7 +5,6 @@ import { CHAIN_MAINNET, CHAIN_TKO } from './chain';
 import Horse from '../components/icons/Horse.svelte';
 import Bull from '../components/icons/Bull.svelte';
 import Unknown from '../components/icons/Unknown.svelte';
-import { VITE_TEST_ERC20 } from '../constants/envVars';
 
 type Address = {
   chainId: number;
@@ -69,7 +68,7 @@ export const symbolToLogoComponent = {
 };
 
 export let TEST_ERC20: Token[] = JSON.parse(
-  VITE_TEST_ERC20 ??
+  import.meta.env?.VITE_TEST_ERC20 ??
     // default erc20 token
     `
     [{
