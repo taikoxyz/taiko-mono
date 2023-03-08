@@ -115,7 +115,7 @@ library LibProving {
             revert L1_ID();
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            LibUtils.hashMetadata(meta)
+            keccak256(abi.encode(meta))
         ) revert L1_EVIDENCE_MISMATCH();
 
         bool oracleProving;
