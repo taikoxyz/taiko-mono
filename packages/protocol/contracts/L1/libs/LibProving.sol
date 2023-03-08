@@ -48,10 +48,10 @@ library LibProving {
             evidence.signalRoot == 0 ||
             evidence.prover == address(0) ||
             header.parentHash == 0 ||
+            header.gasUsed == 0 ||
             header.beneficiary != meta.beneficiary ||
             header.difficulty != 0 ||
             header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-            header.gasUsed == 0 ||
             header.timestamp != meta.timestamp ||
             header.extraData.length != 0 ||
             header.mixHash != bytes32(meta.mixHash)
