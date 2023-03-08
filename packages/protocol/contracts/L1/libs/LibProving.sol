@@ -209,7 +209,7 @@ library LibProving {
             );
             list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
 
-            // All L1 related inputs:
+            // All L1 related inputs
             list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
             list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
             list[--i] = LibRLPWriter.writeHash(
