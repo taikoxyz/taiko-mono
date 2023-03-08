@@ -15,7 +15,8 @@
     "prettier:check": "pnpm run prettier '**/*.{css,js,ts,svelte}' --write",
     "svelte:check": "npx svelte-check --ignore test-app",
     "lint": "pnpm exec eslint './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
-    "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore"
+    "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
+    "lint-staged": "lint-staged --allow-empty"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
