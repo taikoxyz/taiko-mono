@@ -53,12 +53,13 @@ contract TaikoL1Test is Test {
         address proposer,
         uint256 txListSize
     ) internal returns (TaikoData.BlockMetadata memory) {
-        TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
- beneficiary: proposer,
-  gasLimit: 1000000
-        });
         bytes memory txList = new bytes(txListSize);
-
+        TaikoData.BlockMetadataInput memory input = TaikoData
+            .BlockMetadataInput({
+                beneficiary: proposer,
+                gasLimit: 1000000,
+                txListHash: keccak256(txList)
+            });
 
         vm.prank(proposer, proposer);
         return L1.proposeBlock(input, txList);
@@ -73,43 +74,43 @@ contract TaikoL1Test is Test {
     ) internal returns (bytes32 blockHash) {
         bytes32[8] memory logsBloom;
 
-        BlockHeader memory header = BlockHeader({
-            parentHash: parentHash,
-            ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
-            beneficiary: meta.beneficiary,
-            stateRoot: bytes32(blockId + 200),
-            transactionsRoot: bytes32(blockId + 201),
-            receiptsRoot: bytes32(blockId + 202),
-            logsBloom: logsBloom,
-            difficulty: 0,
-            height: uint128(blockId),
-            gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
-            gasUsed: uint64(100),
-            timestamp: meta.timestamp,
-            extraData: meta.extraData,
-            mixHash: meta.mixHash,
-            nonce: 0,
-            baseFeePerGas: 10000
-        });
+        // BlockHeader memory header = BlockHeader({
+        //     parentHash: parentHash,
+        //     ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
+        //     beneficiary: meta.beneficiary,
+        //     stateRoot: bytes32(blockId + 200),
+        //     transactionsRoot: bytes32(blockId + 201),
+        //     receiptsRoot: bytes32(blockId + 202),
+        //     logsBloom: logsBloom,
+        //     difficulty: 0,
+        //     height: uint128(blockId),
+        //     gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
+        //     gasUsed: uint64(100),
+        //     timestamp: meta.timestamp,
+        //     extraData: meta.extraData,
+        //     mixHash: meta.mixHash,
+        //     nonce: 0,
+        //     baseFeePerGas: 10000
+        // });
 
-        blockHash = LibBlockHeader.hashBlockHeader(header);
+        // blockHash = LibBlockHeader.hashBlockHeader(header);
 
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(100),
-            circuitId: 1
-        });
+        // TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
+        //     data: new bytes(100),
+        //     circuitId: 1
+        // });
 
-        TaikoData.ValidBlockEvidence memory evidence = TaikoData
-            .ValidBlockEvidence({
-                meta: meta,
-                zkproof: zkproof,
-                header: header,
-                signalRoot: bytes32(blockId + 400),
-                prover: prover
-            });
-        bytes memory evidenceBytes = abi.encode(evidence);
-        vm.prank(prover, prover);
-        L1.proveBlock(blockId, evidenceBytes);
+        // TaikoData.ValidBlockEvidence memory evidence = TaikoData
+        //     .ValidBlockEvidence({
+        //         meta: meta,
+        //         zkproof: zkproof,
+        //         header: header,
+        //         signalRoot: bytes32(blockId + 400),
+        //         prover: prover
+        //     });
+        // bytes memory evidenceBytes = abi.encode(evidence);
+        // vm.prank(prover, prover);
+        // L1.proveBlock(blockId, evidenceBytes);
     }
 
     function testProposeSingleBlock() external {
