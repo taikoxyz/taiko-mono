@@ -107,7 +107,9 @@ dist
 .DS_Store
 
 # vscode
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # python
 __pycache__/
