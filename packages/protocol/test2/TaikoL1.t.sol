@@ -53,25 +53,15 @@ contract TaikoL1Test is Test {
         address proposer,
         uint256 txListSize
     ) internal returns (TaikoData.BlockMetadata memory) {
-        bytes[] memory inputs = new bytes[](3);
-        inputs[1] = new bytes(txListSize);
-
-        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
-            id: 0,
-            l1Height: 0,
-            l1Hash: 0,
-            beneficiary: proposer,
-            txListHash: keccak256(inputs[1]),
-            mixHash: 0,
-            extraData: new bytes(10),
-            gasLimit: 1000000,
-            timestamp: 0
+        TaikoData.BlockMetadataInput memory input = TaikoData.BlockMetadataInput({
+ beneficiary: proposer,
+  gasLimit: 1000000
         });
+        bytes memory txList = new bytes(txListSize);
 
-        inputs[0] = abi.encode(meta);
 
         vm.prank(proposer, proposer);
-        return L1.proposeBlock(inputs);
+        return L1.proposeBlock(input, txList);
     }
 
     function proveBlock(
