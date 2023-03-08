@@ -14,7 +14,6 @@ struct Config {
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
-  uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 anchorTxGasLimit;
   uint256 slotSmoothingFactor;
@@ -34,6 +33,16 @@ struct Config {
 }
 ```
 
+### BlockMetadataInput
+
+```solidity
+struct BlockMetadataInput {
+  address beneficiary;
+  uint64 gasLimit;
+  bytes32 txListHash;
+}
+```
+
 ### BlockMetadata
 
 ```solidity
@@ -43,8 +52,7 @@ struct BlockMetadata {
   bytes32 l1Hash;
   address beneficiary;
   bytes32 txListHash;
-  bytes32 mixHash;
-  bytes extraData;
+  uint256 mixHash;
   uint64 gasLimit;
   uint64 timestamp;
 }
@@ -65,9 +73,9 @@ struct ZKProof {
 struct ValidBlockEvidence {
   struct TaikoData.BlockMetadata meta;
   struct TaikoData.ZKProof zkproof;
+  address prover;
   struct BlockHeader header;
   bytes32 signalRoot;
-  address prover;
 }
 ```
 
@@ -77,6 +85,7 @@ struct ValidBlockEvidence {
 struct InvalidBlockEvidence {
   struct TaikoData.BlockMetadata meta;
   struct TaikoData.ZKProof zkproof;
+  address prover;
   bytes32 parentHash;
 }
 ```
@@ -114,7 +123,6 @@ struct State {
   uint64 genesisTimestamp;
   uint64 __reserved1;
   uint64 __reserved2;
-  uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
@@ -122,7 +130,7 @@ struct State {
   uint64 latestVerifiedHeight;
   uint64 latestVerifiedId;
   uint64 avgProofTime;
-  uint64 __reserved4;
+  uint64 feeBaseSzabo;
   uint256[42] __gap;
 }
 ```
