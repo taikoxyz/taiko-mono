@@ -36,6 +36,38 @@ contract FooBar {
     function hashTwo_2(address a, bytes32 b) public returns (bytes32 hash) {
         hash = keccak256(bytes.concat(bytes32(uint256(uint160(a))), b));
     }
+
+    //------
+
+    function increment_1(uint count) public {
+        for (uint i = 0; i < count; i++) {
+            new bytes(1000);
+        }
+    }
+
+    function increment_2(uint count) public {
+        for (uint i = 0; i < count; ++i) {
+            new bytes(1000);
+        }
+    }
+
+    function increment_3(uint count) public {
+        for (uint i = 0; i < count; ) {
+            new bytes(1000);
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function increment_4(uint count) public {
+        for (uint i = 0; i < count; ) {
+            new bytes(1000);
+            unchecked {
+                ++i;
+            }
+        }
+    }
 }
 
 contract TaikoL1Test is Test {
@@ -45,13 +77,24 @@ contract TaikoL1Test is Test {
         foobar = new FooBar();
     }
 
-    function testCompareHashString(uint len) external {
-        vm.assume(len > 10 && len < 1000);
-        string memory str = string(new bytes(len));
-        assertEq(foobar.hashString_1(str), foobar.hashString_2(str));
+    function testCompareHashString(uint count) external {
+        vm.assume(count > 10 && count < 1000);
+        string memory str = string(new bytes(count));
+        assertEq(
+            foobar.hashString_1(str),
+            foobar.hashString_2(str) //best
+        );
 
         address a = address(this);
         bytes32 b = blockhash(block.number - 1);
-        assertEq(foobar.hashTwo_1(a, b), foobar.hashTwo_2(a, b));
+        assertEq(
+            foobar.hashTwo_1(a, b), //best
+            foobar.hashTwo_2(a, b)
+        );
+
+        foobar.increment_1(count);
+        foobar.increment_2(count);
+        foobar.increment_3(count); // best
+        foobar.increment_4(count);
     }
 }
