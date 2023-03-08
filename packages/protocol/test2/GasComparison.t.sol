@@ -211,12 +211,14 @@ contract GasComparisonTest is Test {
                 bytes8(meta.timestamp)
             );
 
+            foobar.loadBlockMetadata_5(b);
+
             bytes memory c = bytes.concat(
-                FooBar.loadBlockMetadata_5.selector,
+                FooBar.loadBlockMetadata_6.selector,
                 b
             );
 
-            address(foobar).call(c); // best
+            address(foobar).call(c);
         }
     }
 }
