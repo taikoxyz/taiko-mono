@@ -6,16 +6,71 @@
 
 pragma solidity ^0.8.18;
 
+import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
+import {TaikoToken} from "../TaikoToken.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
     uint256 private constant SZABO_TO_WEI = 1E12;
+
+    function withdraw(
+        TaikoData.State storage state,
+        AddressResolver resolver
+    ) internal {
+        uint256 balance = state.balances[msg.sender];
+        if (balance <= 1) return;
+
+        state.balances[msg.sender] = 1;
+        TaikoToken(resolver.resolve("taiko_token", false)).mint(
+            msg.sender,
+            balance - 1
+        );
+    }
+
+    function deposit(
+        TaikoData.State storage state,
+        AddressResolver resolver,
+        uint256 amount
+    ) internal {
+        TaikoToken(resolver.resolve("taiko_token", false)).burn(
+            msg.sender,
+            amount
+        );
+        state.balances[msg.sender] += amount;
+    }
+
+    function getProofReward(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint64 provenAt,
+        uint64 proposedAt
+    )
+        internal
+        view
+        returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
+    {
+        (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
+            config: config,
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+            isProposal: false,
+            tNow: provenAt,
+            tLast: proposedAt,
+            tAvg: state.avgProofTime
+        });
+        reward = LibTokenomics.getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: false,
+            feeBase: newFeeBase
+        });
+        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+    }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
     function getSlotsAdjustedFee(

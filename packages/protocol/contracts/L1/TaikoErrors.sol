@@ -17,6 +17,7 @@ abstract contract TaikoErrors {
     error L1_DUP_PROVERS();
     error L1_EVIDENCE_MISMATCH();
     error L1_ID();
+    error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
