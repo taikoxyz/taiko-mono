@@ -197,20 +197,21 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			break
 		}
 	}
+	if m["status"] != nil {
+		// keep same format as other raw events
+		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
 
-	// keep same format as other raw events
-	data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
-
-	_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:         relayer.EventNameMessageStatusChanged,
-		Data:         data,
-		ChainID:      event.Message.DestChainId,
-		Status:       relayer.EventStatus(m["status"].(uint8)),
-		MsgHash:      e.MsgHash,
-		MessageOwner: e.MessageOwner,
-	})
-	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
+			Name:         relayer.EventNameMessageStatusChanged,
+			Data:         data,
+			ChainID:      event.Message.DestChainId,
+			Status:       relayer.EventStatus(m["status"].(uint8)),
+			MsgHash:      e.MsgHash,
+			MessageOwner: e.MessageOwner,
+		})
+		if err != nil {
+			return errors.Wrap(err, "svc.eventRepo.Save")
+		}
 	}
 
 	return nil
