@@ -14,6 +14,12 @@ struct BlockMetadata2 {
 }
 
 contract FooBar {
+    function loadBlockMetadata_0(
+        bytes memory data
+    ) public returns (BlockMetadata2 memory meta) {
+        meta = abi.decode(data, (BlockMetadata2));
+    }
+
     function loadBlockMetadata_1(
         bytes calldata data
     ) public returns (BlockMetadata2 memory meta) {
@@ -191,6 +197,10 @@ contract GasComparisonTest is Test {
         });
         {
             bytes memory b = abi.encode(meta);
+            assertEq(
+                keccak256(abi.encode(meta)),
+                keccak256(abi.encode(foobar.loadBlockMetadata_0(b)))
+            );
             assertEq(
                 keccak256(abi.encode(meta)),
                 keccak256(abi.encode(foobar.loadBlockMetadata_1(b))) // cheaper
