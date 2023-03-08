@@ -10,12 +10,12 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "pnpm exec jest",
-    "prettier": "pnpm exec prettier '**/*.{ts,svelte}'",
-    "prettier:write": "pnpm run prettier '**/*.{ts,svelte}' --write",
-    "prettier:check": "pnpm run prettier '**/*.{ts,svelte}' --check",
+    "prettier": "pnpm exec prettier '**/*.{css,js,ts,svelte}'",
+    "prettier:write": "pnpm run prettier '**/*.{css,js,ts,svelte}' --write",
+    "prettier:check": "pnpm run prettier '**/*.{css,js,ts,svelte}' --write",
     "svelte:check": "npx svelte-check --ignore test-app",
-    "lint": "pnpm exec eslint './**/*.{ts,svelte}' --ignore-path .eslintignore",
-    "lint:fix": "pnpm exec eslint --fix './**/*.{ts,svelte}' --ignore-path .eslintignore"
+    "lint": "pnpm exec eslint './**/*.{js,ts,svelte}' --ignore-path .eslintignore",
+    "lint:fix": "pnpm exec eslint --fix './**/*.{js,ts,svelte}' --ignore-path .eslintignore"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.0",
