@@ -62,7 +62,6 @@ contract FooBar {
 
     function increment_4(uint count) public {
         for (uint i = 0; i < count; ) {
-            new bytes(1000);
             unchecked {
                 ++i;
             }
@@ -94,7 +93,7 @@ contract TaikoL1Test is Test {
 
         foobar.increment_1(count);
         foobar.increment_2(count);
-        foobar.increment_3(count); // best
-        foobar.increment_4(count);
+        foobar.increment_3(count);
+        foobar.increment_4(count); // best
     }
 }
