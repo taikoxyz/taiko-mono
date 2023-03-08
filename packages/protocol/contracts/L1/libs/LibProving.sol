@@ -189,10 +189,11 @@ library LibProving {
         TaikoData.BlockMetadata memory meta,
         uint256 blockId
     ) private view {
-        if (meta.id != blockId) revert L1_ID();
-
-        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
-            revert L1_ID();
+        if (
+            meta.id != blockId ||
+            meta.id <= state.latestVerifiedId ||
+            meta.id >= state.nextBlockId
+        ) revert L1_ID();
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             LibUtils.hashMetadata(meta)
