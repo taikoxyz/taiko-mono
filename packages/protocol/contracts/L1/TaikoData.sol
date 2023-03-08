@@ -42,6 +42,7 @@ library TaikoData {
     struct BlockMetadataInput {
         address beneficiary;
         uint64 gasLimit;
+        bytes32 txListHash;
     }
 
     struct BlockMetadata {

@@ -26,6 +26,7 @@ library LibProposing {
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_INVALID_PROOF();
+    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 
     function proposeBlock(
@@ -49,6 +50,11 @@ library LibProposing {
                 input.gasLimit > config.blockMaxGasLimit
             ) revert L1_METADATA_FIELD();
 
+            // We need txListHash as with EIP-4844, txList is no longer
+            // accssible to EVM.
+            if (input.txListHash != LibUtils.hashTxList(txList))
+                revert L1_TX_LIST_HASH();
+
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
@@ -69,7 +75,7 @@ library LibProposing {
                 l1Height: block.number - 1,
                 l1Hash: blockhash(block.number - 1),
                 beneficiary: input.beneficiary,
-                txListHash: LibUtils.hashTxList(txList),
+                txListHash: input.txListHash,
                 mixHash: mixHash,
                 gasLimit: input.gasLimit,
                 timestamp: uint64(block.timestamp)
