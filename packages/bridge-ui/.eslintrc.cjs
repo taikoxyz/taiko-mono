@@ -15,7 +15,6 @@ module.exports = {
   plugins: ['svelte3', '@typescript-eslint'],
   rules: {
     'linebreak-style': ['error', 'unix'],
-    quotes: ['error', 'double'],
     semi: ['error', 'always'],
   },
   ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package

@@ -21,7 +21,7 @@ import {
 import type { ComponentType } from 'svelte';
 
 jest.mock('svelte/store', () => ({
-  ...(jest.requireActual('svelte/store') as object),
+  ...(jest.requireActual('svelte/store') ),
   get: function () {
     return mockGet();
   },

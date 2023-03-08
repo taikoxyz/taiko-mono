@@ -67,7 +67,7 @@
       if (error instanceof ConnectorNotFoundError) {
         errorToast(`${connector.name} not installed`);
       } else {
-        errorToast(`Error while connecting to wallet`);
+        errorToast('Error while connecting to wallet');
       }
     }
   }

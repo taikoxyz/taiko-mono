@@ -1,7 +1,7 @@
 const mockPush = jest.fn();
 
 jest.mock('@zerodevx/svelte-toast', () => ({
-  ...(jest.requireActual('@zerodevx/svelte-toast') as object),
+  ...(jest.requireActual('@zerodevx/svelte-toast') ),
   toast: {
     push: mockPush,
   },

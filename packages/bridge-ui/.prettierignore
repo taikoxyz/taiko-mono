@@ -1,4 +1,7 @@
 dist
-public
+build
 coverage
 node_modules
+example
+LICENSES
+public

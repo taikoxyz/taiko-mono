@@ -67,7 +67,7 @@ export const symbolToLogoComponent = {
   // Add more symbols
 };
 
-export let TEST_ERC20: Token[] = JSON.parse(
+export const TEST_ERC20: Token[] = JSON.parse(
   import.meta.env?.VITE_TEST_ERC20 ??
     // default erc20 token
     `
