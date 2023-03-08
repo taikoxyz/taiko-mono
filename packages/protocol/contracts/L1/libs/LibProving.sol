@@ -38,25 +38,19 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes calldata evidenceBytes
+        TaikoData.ValidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.ValidBlockEvidence memory evidence = abi.decode(
-            evidenceBytes,
-            (TaikoData.ValidBlockEvidence)
-        );
-
-        TaikoData.BlockMetadata memory meta = evidence.meta;
-        _checkMetadata(state, config, meta, blockId);
+        TaikoData.BlockMetadata calldata meta = evidence.meta;
 
         BlockHeader memory header = evidence.header;
         if (
             evidence.signalRoot == 0 ||
             evidence.prover == address(0) ||
             header.parentHash == 0 ||
+            header.gasUsed == 0 ||
             header.beneficiary != meta.beneficiary ||
             header.difficulty != 0 ||
             header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-            header.gasUsed == 0 ||
             header.timestamp != meta.timestamp ||
             header.extraData.length != 0 ||
             header.mixHash != bytes32(meta.mixHash)
@@ -73,6 +67,7 @@ library LibProving {
             config: config,
             resolver: resolver,
             blockId: blockId,
+            meta: meta,
             parentHash: header.parentHash,
             snippet: Snippet(header.hashBlockHeader(), evidence.signalRoot),
             prover: evidence.prover,
@@ -86,26 +81,19 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes calldata evidenceBytes
+        TaikoData.InvalidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.InvalidBlockEvidence memory evidence = abi.decode(
-            evidenceBytes,
-            (TaikoData.InvalidBlockEvidence)
-        );
-
-        TaikoData.BlockMetadata memory meta = evidence.meta;
-        _checkMetadata(state, config, meta, blockId);
-
         _proveBlock({
             state: state,
             config: config,
             resolver: resolver,
             blockId: blockId,
+            meta: evidence.meta,
             parentHash: evidence.parentHash,
             snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
             prover: evidence.prover,
             zkproof: evidence.zkproof,
-            instance: meta.txListHash
+            instance: evidence.meta.txListHash
         });
     }
 
@@ -114,12 +102,22 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
+        TaikoData.BlockMetadata calldata meta,
         bytes32 parentHash,
         Snippet memory snippet,
         address prover,
-        TaikoData.ZKProof memory zkproof,
+        TaikoData.ZKProof calldata zkproof,
         bytes32 instance
     ) private {
+        if (meta.id != blockId) revert L1_ID();
+
+        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
+            revert L1_ID();
+        if (
+            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
+            LibUtils.hashMetadata(meta)
+        ) revert L1_EVIDENCE_MISMATCH();
+
         bool oracleProving;
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
             parentHash
@@ -183,25 +181,8 @@ library LibProving {
         emit BlockProven({id: blockId, parentHash: parentHash, forkChoice: fc});
     }
 
-    function _checkMetadata(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        TaikoData.BlockMetadata memory meta,
-        uint256 blockId
-    ) private view {
-        if (
-            meta.id != blockId ||
-            meta.id <= state.latestVerifiedId ||
-            meta.id >= state.nextBlockId
-        ) revert L1_ID();
-        if (
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            LibUtils.hashMetadata(meta)
-        ) revert L1_EVIDENCE_MISMATCH();
-    }
-
     function _getInstance(
-        TaikoData.ValidBlockEvidence memory evidence,
+        TaikoData.ValidBlockEvidence calldata evidence,
         address l1SignalServiceAddress,
         address l2SignalServiceAddress
     ) private pure returns (bytes32) {
@@ -211,15 +192,16 @@ library LibProving {
         );
 
         uint256 i = list.length;
-        // All L2 related inputs
+
         unchecked {
+            // All L2 related inputs
             list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
             list[--i] = LibRLPWriter.writeHash(
                 bytes32(uint256(uint160(l2SignalServiceAddress)))
             );
             list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
-            // All L1 related inputs:
 
+            // All L1 related inputs
             list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
             list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
             list[--i] = LibRLPWriter.writeHash(
