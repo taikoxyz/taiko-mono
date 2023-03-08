@@ -34,6 +34,7 @@
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "daisyui": "1.16.6",
     "jest": "^27.5.1",
+    "lint-staged": "^12.3.4",
     "node-sass": "^7.0.1",
     "postcss": "^8.4.19",
     "postcss-cli": "^7.1.2",
@@ -71,5 +72,8 @@
     "identicon.js": "^2.3.3",
     "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0"
+  },
+  "lint-staged": {
+    "**/*": "prettier '**/*.{css,js,ts,svelte}' --write"
   }
 }
