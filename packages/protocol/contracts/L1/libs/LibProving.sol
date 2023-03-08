@@ -200,15 +200,16 @@ library LibProving {
         );
 
         uint256 i = list.length;
-        // All L2 related inputs
+
         unchecked {
+            // All L2 related inputs
             list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
             list[--i] = LibRLPWriter.writeHash(
                 bytes32(uint256(uint160(l2SignalServiceAddress)))
             );
             list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
-            // All L1 related inputs:
 
+            // All L1 related inputs:
             list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
             list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
             list[--i] = LibRLPWriter.writeHash(
