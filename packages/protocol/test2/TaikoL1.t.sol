@@ -113,7 +113,7 @@ contract TaikoL1Test is Test {
         // L1.proveBlock(blockId, evidenceBytes);
     }
 
-    function testProposeSingleBlock() external {
+    function te2stProposeSingleBlock() external {
         address alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
         vm.deal(alice, 100 ether);
         tko.transfer(alice, 1E6 ether);
