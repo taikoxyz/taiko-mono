@@ -1,12 +1,12 @@
-import { BigNumber, Contract, ethers, Signer } from "ethers";
-import TokenVault from "../constants/abi/TokenVault";
-import type { Chain } from "../domain/chain";
-import type { ProcessingFeeMethod } from "../domain/fee";
-import type { Token } from "../domain/token";
-import { ETH } from "../domain/token";
-import { chainIdToTokenVaultAddress } from "../store/bridge";
-import { providers } from "../store/providers";
-import { get } from "svelte/store";
+import { BigNumber, Contract, ethers, Signer } from 'ethers';
+import TokenVault from '../constants/abi/TokenVault';
+import type { Chain } from '../domain/chain';
+import type { ProcessingFeeMethod } from '../domain/fee';
+import type { Token } from '../domain/token';
+import { ETH } from '../domain/token';
+import { chainIdToTokenVaultAddress } from '../store/bridge';
+import { providers } from '../store/providers';
+import { get } from 'svelte/store';
 
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
@@ -17,9 +17,9 @@ export async function recommendProcessingFee(
   fromChain: Chain,
   feeType: ProcessingFeeMethod,
   token: Token,
-  signer: Signer
+  signer: Signer,
 ): Promise<string> {
-  if (!toChain || !fromChain || !token || !signer || !feeType) return "0";
+  if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
   const p = get(providers);
   const provider = p.get(toChain.id);
   const gasPrice = await provider.getGasPrice();
@@ -28,12 +28,12 @@ export async function recommendProcessingFee(
   let gasLimit = ethGasLimit;
   if (token.symbol.toLowerCase() !== ETH.symbol.toLowerCase()) {
     let srcChainAddr = token.addresses.find(
-      (t) => t.chainId === fromChain.id
+      (t) => t.chainId === fromChain.id,
     ).address;
 
-    if (!srcChainAddr || srcChainAddr === "0x00") {
+    if (!srcChainAddr || srcChainAddr === '0x00') {
       srcChainAddr = token.addresses.find(
-        (t) => t.chainId === toChain.id
+        (t) => t.chainId === toChain.id,
       ).address;
     }
 
@@ -41,12 +41,12 @@ export async function recommendProcessingFee(
     const tokenVault = new Contract(
       chainIdsToTokenVault.get(fromChain.id),
       TokenVault,
-      signer
+      signer,
     );
 
     const bridged = await tokenVault.canonicalToBridged(
       toChain.id,
-      srcChainAddr
+      srcChainAddr,
     );
 
     // gas limit for erc20 if not deployed on the dest chain already

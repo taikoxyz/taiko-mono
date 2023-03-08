@@ -1,11 +1,11 @@
-import type { BigNumber } from "ethers";
+import type { BigNumber } from 'ethers';
 
 enum MessageStatus {
   New,
   Retriable,
   Done,
   Failed,
-  FailedReleased
+  FailedReleased,
 }
 
 type Message = {

@@ -1,14 +1,14 @@
-import { BigNumber, BigNumberish, ethers } from "ethers";
-import { TKO } from "../domain/token";
+import { BigNumber, BigNumberish, ethers } from 'ethers';
+import { TKO } from '../domain/token';
 import {
   CHAIN_ID_MAINNET,
   CHAIN_ID_TAIKO,
   CHAIN_MAINNET,
   CHAIN_TKO,
-} from "../domain/chain";
-import { MessageStatus } from "../domain/message";
-import { StorageService } from "./service";
-import type { BridgeTransaction } from "../domain/transactions";
+} from '../domain/chain';
+import { MessageStatus } from '../domain/message';
+import { StorageService } from './service';
+import type { BridgeTransaction } from '../domain/transactions';
 const mockStorage = {
   getItem: jest.fn(),
 };
@@ -23,12 +23,12 @@ const mockContract = {
   symbol: jest.fn(),
   filters: {
     ERC20Sent: jest.fn(),
-  }
+  },
 };
 
-jest.mock("ethers", () => ({
+jest.mock('ethers', () => ({
   /* eslint-disable-next-line */
-  ...(jest.requireActual("ethers") as object),
+  ...(jest.requireActual('ethers') as object),
   Contract: function () {
     return mockContract;
   },
@@ -41,16 +41,16 @@ const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
 
 providerMap.set(
   CHAIN_ID_MAINNET,
-  mockProvider as unknown as ethers.providers.JsonRpcProvider
+  mockProvider as unknown as ethers.providers.JsonRpcProvider,
 );
 providerMap.set(
   CHAIN_ID_TAIKO,
-  mockProvider as unknown as ethers.providers.JsonRpcProvider
+  mockProvider as unknown as ethers.providers.JsonRpcProvider,
 );
 
 const mockTx: BridgeTransaction = {
-  hash: "0x123",
-  from: "0x123",
+  hash: '0x123',
+  from: '0x123',
   status: MessageStatus.New,
   fromChainId: CHAIN_ID_MAINNET,
   toChainId: CHAIN_ID_TAIKO,
@@ -65,17 +65,17 @@ const mockTxReceipt = {
 const mockEvent = {
   args: {
     message: {
-      owner: "0x123",
+      owner: '0x123',
     },
-    msgHash: "0x456",
-    amount: "100",
+    msgHash: '0x456',
+    amount: '100',
   },
 };
 
 const mockErc20Event = {
   args: {
-    amount: "100",
-    msgHash: "0x456",
+    amount: '100',
+    msgHash: '0x456',
   },
 };
 
@@ -83,11 +83,11 @@ const mockQuery = [mockEvent];
 
 const mockErc20Query = [mockErc20Event];
 
-jest.mock("../store/bridge", () => ({
+jest.mock('../store/bridge', () => ({
   chainIdToTokenVaultAddress: jest.fn(),
 }));
 
-jest.mock("svelte/store", () => ({
+jest.mock('svelte/store', () => ({
   get: function () {
     return {
       get: jest.fn(),
@@ -95,14 +95,14 @@ jest.mock("svelte/store", () => ({
   },
 }));
 
-describe("storage tests", () => {
+describe('storage tests', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
 
-  it("gets all transactions by address, no transactions in list", async () => {
+  it('gets all transactions by address, no transactions in list', async () => {
     mockStorage.getItem.mockImplementation(() => {
-      return "[]";
+      return '[]';
     });
 
     mockContract.symbol.mockImplementation(() => {
@@ -111,12 +111,12 @@ describe("storage tests", () => {
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress("0x123", CHAIN_ID_TAIKO);
+    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_TAIKO);
 
     expect(addresses).toEqual([]);
   });
 
-  it("gets all transactions by address, no receipt", async () => {
+  it('gets all transactions by address, no receipt', async () => {
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -135,12 +135,12 @@ describe("storage tests", () => {
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress("0x123", CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
 
     expect(addresses).toEqual([
       {
-        from: "0x123",
-        hash: "0x123",
+        from: '0x123',
+        hash: '0x123',
         fromChainId: CHAIN_ID_MAINNET,
         status: 0,
         toChainId: CHAIN_ID_TAIKO,
@@ -148,7 +148,7 @@ describe("storage tests", () => {
     ]);
   });
 
-  it("gets all transactions by address, no event", async () => {
+  it('gets all transactions by address, no event', async () => {
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -171,12 +171,12 @@ describe("storage tests", () => {
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress("0x123", CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
 
     expect(addresses).toEqual([
       {
-        from: "0x123",
-        hash: "0x123",
+        from: '0x123',
+        hash: '0x123',
         fromChainId: CHAIN_ID_MAINNET,
         receipt: {
           blockNumber: 1,
@@ -187,7 +187,7 @@ describe("storage tests", () => {
     ]);
   });
 
-  it("gets all transactions by address", async () => {
+  it('gets all transactions by address', async () => {
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -202,12 +202,12 @@ describe("storage tests", () => {
 
     mockContract.queryFilter.mockImplementation(
       (name: string, from: BigNumberish, to: BigNumberish) => {
-        if (name === "ERC20Sent") {
+        if (name === 'ERC20Sent') {
           return mockErc20Query;
         }
 
         return mockQuery;
-      }
+      },
     );
 
     mockContract.symbol.mockImplementation(() => {
@@ -216,29 +216,29 @@ describe("storage tests", () => {
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress("0x123", CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
 
     expect(addresses).toEqual([
       {
         amountInWei: BigNumber.from(0x64),
-        hash: "0x123",
-        from: "0x123",
+        hash: '0x123',
+        from: '0x123',
         message: {
-          owner: "0x123",
+          owner: '0x123',
         },
         receipt: {
           blockNumber: 1,
         },
-        msgHash: "0x456",
+        msgHash: '0x456',
         status: 0,
         fromChainId: CHAIN_ID_MAINNET,
         toChainId: CHAIN_ID_TAIKO,
-        symbol: "TKO",
+        symbol: 'TKO',
       },
     ]);
   });
 
-  it("gets all transactions by address, CHAIN_TKO", async () => {
+  it('gets all transactions by address, CHAIN_TKO', async () => {
     mockTx.toChainId = CHAIN_ID_TAIKO;
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
@@ -254,12 +254,12 @@ describe("storage tests", () => {
 
     mockContract.queryFilter.mockImplementation(
       (name: string, from: BigNumberish, to: BigNumberish) => {
-        if (name === "ERC20Sent") {
+        if (name === 'ERC20Sent') {
           return mockErc20Query;
         }
 
         return mockQuery;
-      }
+      },
     );
 
     mockContract.symbol.mockImplementation(() => {
@@ -268,22 +268,22 @@ describe("storage tests", () => {
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress("0x123", CHAIN_ID_TAIKO);
+    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_TAIKO);
 
     expect(addresses).toEqual([
       {
         amountInWei: BigNumber.from(0x64),
-        from: "0x123",
-        hash: "0x123",
+        from: '0x123',
+        hash: '0x123',
         message: {
-          owner: "0x123",
+          owner: '0x123',
         },
         receipt: {
           blockNumber: 1,
         },
-        msgHash: "0x456",
+        msgHash: '0x456',
         status: 0,
-        symbol: "TKO",
+        symbol: 'TKO',
         fromChainId: CHAIN_ID_MAINNET,
         toChainId: CHAIN_ID_TAIKO,
       },

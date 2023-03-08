@@ -1,11 +1,11 @@
-import type { Ethereum } from "@wagmi/core";
-import { ethers } from "ethers";
-import type { Chain } from "../domain/chain";
+import type { Ethereum } from '@wagmi/core';
+import { ethers } from 'ethers';
+import type { Chain } from '../domain/chain';
 
 export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
   try {
     await ethereum.request({
-      method: "wallet_switchEthereumChain",
+      method: 'wallet_switchEthereumChain',
       params: [{ chainId: ethers.utils.hexValue(chain.id) }],
     });
   } catch (switchError) {
@@ -16,16 +16,16 @@ export const switchEthereumChain = async (ethereum: Ethereum, chain: Chain) => {
     ) {
       try {
         await ethereum.request({
-          method: "wallet_addEthereumChain",
+          method: 'wallet_addEthereumChain',
           params: [
             {
               chainId: ethers.utils.hexValue(chain.id),
               chainName: chain.name,
               rpcUrls: [chain.rpc],
               nativeCurrency: {
-                symbol: "ETH",
+                symbol: 'ETH',
                 decimals: 18,
-                name: "Ethereum",
+                name: 'Ethereum',
               },
             },
           ],

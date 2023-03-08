@@ -11,8 +11,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "pnpm exec jest",
     "prettier": "pnpm exec prettier '**/*.{ts,svelte}'",
-    "prettier:write": "pnpm run prettier -- --write",
-    "prettier:check": "pnpm run prettier -- --check",
+    "prettier:write": "pnpm run prettier '**/*.{ts,svelte}' --write",
+    "prettier:check": "pnpm run prettier '**/*.{ts,svelte}' --check",
     "svelte:check": "npx svelte-check --ignore test-app",
     "lint": "pnpm exec eslint './**/*.{ts,svelte}' --ignore-path .eslintignore",
     "lint:fix": "pnpm exec eslint --fix './**/*.{ts,svelte}' --ignore-path .eslintignore"
