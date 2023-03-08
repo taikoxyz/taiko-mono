@@ -87,7 +87,10 @@ library LibProposing {
             uint256 newFeeBase;
             {
                 uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state, config);
+                (newFeeBase, fee, deposit) = LibTokenomics.getBlockFee(
+                    state,
+                    config
+                );
 
                 uint256 burnAmount = fee + deposit;
                 if (state.balances[msg.sender] <= burnAmount)
@@ -128,28 +131,6 @@ library LibProposing {
         unchecked {
             state.nextBlockId;
         }
-    }
-
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
-        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-            isProposal: true,
-            tNow: uint64(block.timestamp),
-            tLast: state.lastProposedAt,
-            tAvg: state.avgBlockTime
-        });
-        fee = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
-        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
-        deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
     function getProposedBlock(
