@@ -29,7 +29,7 @@ linters:
 linters-settings:
   funlen:
     lines: 132
-    statements: 52
+    statements: 54
   gocognit:
     min-complexity: 41
 

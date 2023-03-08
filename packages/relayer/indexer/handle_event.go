@@ -62,6 +62,8 @@ func (svc *Service) handleEvent(
 		CanonicalTokenName:     canonicalToken.Name,
 		CanonicalTokenDecimals: canonicalToken.Decimals,
 		Amount:                 amount.String(),
+		MsgHash:                common.Hash(event.MsgHash).Hex(),
+		MessageOwner:           event.Message.Owner.Hex(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

@@ -58,7 +58,11 @@ func (b *Bridge) WatchMessageSent(
 	go func(sink chan<- *bridge.BridgeMessageSent) {
 		<-time.After(2 * time.Second)
 
-		sink <- &bridge.BridgeMessageSent{}
+		sink <- &bridge.BridgeMessageSent{
+			Message: bridge.IBridgeMessage{
+				SrcChainId: big.NewInt(1),
+			},
+		}
 		b.MessagesSent++
 	}(sink)
 

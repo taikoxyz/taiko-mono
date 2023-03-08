@@ -46,11 +46,24 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
+	// get the previous MessageSent event or other message status changed events,
+	// so we can find out the previous owner of this msg hash,
+	// to save to the db
+	previousEvents, err := svc.eventRepo.FindAllByMsgHash(ctx, common.Hash(event.MsgHash).Hex())
+	if err != nil {
+		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
+	}
+
+	if len(previousEvents) == 0 {
+		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
+	}
+
 	_, err = svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:    relayer.EventNameMessageStatusChanged,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Status:  relayer.EventStatus(event.Status),
+		Name:         relayer.EventNameMessageStatusChanged,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Status:       relayer.EventStatus(event.Status),
+		MessageOwner: previousEvents[0].MessageOwner,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

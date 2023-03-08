@@ -3,7 +3,10 @@ package message
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -88,9 +91,13 @@ func (p *Processor) ProcessMessage(
 
 	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
 
-	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
+	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "relayer.WaitReceipt")
+	}
+
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, e, event); err != nil {
+		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
 	}
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
@@ -162,4 +169,49 @@ func (p *Processor) sendProcessMessageCall(
 
 func (p *Processor) setLatestNonce(nonce uint64) {
 	p.destNonce = nonce
+}
+
+func (p *Processor) saveMessageStatusChangedEvent(
+	ctx context.Context,
+	receipt *types.Receipt,
+	e *relayer.Event,
+	event *bridge.BridgeMessageSent,
+) error {
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	if err != nil {
+		return errors.Wrap(err, "abi.JSON")
+	}
+
+	messageStatusChangedEvent := &bridge.BridgeMessageStatusChanged{}
+
+	for _, log := range receipt.Logs {
+		// topic := log.Topics[0]
+		// if topic == crypto.Keccak256Hash("MessageStatusChanged(bytes32,enum,address)") {
+		err = bridgeAbi.UnpackIntoInterface(messageStatusChangedEvent, "MessageStatusChanged", log.Data)
+		if err != nil {
+			continue
+		} else {
+			break
+		}
+	}
+
+	if e != nil {
+		marshaled, err := json.Marshal(messageStatusChangedEvent)
+		if err != nil {
+			return errors.Wrap(err, "json.Marshal(event)")
+		}
+
+		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
+			Name:         relayer.EventNameMessageStatusChanged,
+			Data:         string(marshaled),
+			ChainID:      event.Message.SrcChainId,
+			Status:       relayer.EventStatus(messageStatusChangedEvent.Status),
+			MessageOwner: e.MessageOwner,
+		})
+		if err != nil {
+			return errors.Wrap(err, "svc.eventRepo.Save")
+		}
+	}
+
+	return nil
 }

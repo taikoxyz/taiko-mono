@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS events (
     canonical_token_symbol VARCHAR(10) DEFAULT "",
     canonical_token_name VARCHAR(255) DEFAULT "",
     canonical_token_decimals int DEFAULT 0,
-    amount VARCHAR(255) NOT NULL,
+    amount VARCHAR(255) NOT NULL DEFAULT 0,
+    msg_hash VARCHAR(255) NOT NULL,
+    message_owner VARCHAR(255) NOT NULL DEFAULT "",
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
