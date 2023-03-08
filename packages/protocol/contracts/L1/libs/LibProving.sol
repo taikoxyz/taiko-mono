@@ -40,12 +40,7 @@ library LibProving {
         uint256 blockId,
         TaikoData.ValidBlockEvidence calldata evidence
     ) internal {
-        // TaikoData.ValidBlockEvidence memory evidence = abi.decode(
-        //     evidenceBytes,
-        //     (TaikoData.ValidBlockEvidence)
-        // );
-
-        TaikoData.BlockMetadata memory meta = evidence.meta;
+        TaikoData.BlockMetadata calldata meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
         BlockHeader memory header = evidence.header;
@@ -88,7 +83,7 @@ library LibProving {
         uint256 blockId,
         TaikoData.InvalidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.BlockMetadata memory meta = evidence.meta;
+        TaikoData.BlockMetadata calldata meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 
         _proveBlock({
