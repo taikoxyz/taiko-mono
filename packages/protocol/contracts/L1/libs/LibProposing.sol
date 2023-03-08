@@ -26,6 +26,7 @@ library LibProposing {
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_INVALID_PROOF();
+    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 
     function proposeBlock(
@@ -49,6 +50,11 @@ library LibProposing {
                 input.gasLimit > config.blockMaxGasLimit
             ) revert L1_METADATA_FIELD();
 
+            // We need txListHash as with EIP-4844, txList is no longer
+            // accssible to EVM.
+            if (input.txListHash != LibUtils.hashTxList(txList))
+                revert L1_TX_LIST_HASH();
+
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
@@ -69,7 +75,7 @@ library LibProposing {
                 l1Height: block.number - 1,
                 l1Hash: blockhash(block.number - 1),
                 beneficiary: input.beneficiary,
-                txListHash: LibUtils.hashTxList(txList),
+                txListHash: input.txListHash,
                 mixHash: mixHash,
                 gasLimit: input.gasLimit,
                 timestamp: uint64(block.timestamp)
@@ -81,7 +87,10 @@ library LibProposing {
             uint256 newFeeBase;
             {
                 uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state, config);
+                (newFeeBase, fee, deposit) = LibTokenomics.getBlockFee(
+                    state,
+                    config
+                );
 
                 uint256 burnAmount = fee + deposit;
                 if (state.balances[msg.sender] <= burnAmount)
@@ -122,28 +131,6 @@ library LibProposing {
         unchecked {
             state.nextBlockId;
         }
-    }
-
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
-        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-            isProposal: true,
-            tNow: uint64(block.timestamp),
-            tLast: state.lastProposedAt,
-            tAvg: state.avgBlockTime
-        });
-        fee = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
-        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
-        deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
     function getProposedBlock(

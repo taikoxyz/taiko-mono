@@ -45,6 +45,32 @@ library LibTokenomics {
         state.balances[msg.sender] += amount;
     }
 
+    function getBlockFee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    )
+        internal
+        view
+        returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
+    {
+        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
+            config: config,
+            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+            isProposal: true,
+            tNow: uint64(block.timestamp),
+            tLast: state.lastProposedAt,
+            tAvg: state.avgBlockTime
+        });
+        fee = LibTokenomics.getSlotsAdjustedFee({
+            state: state,
+            config: config,
+            isProposal: true,
+            feeBase: newFeeBase
+        });
+        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
+        depositAmount = (fee * config.proposerDepositPctg) / 100;
+    }
+
     function getProofReward(
         TaikoData.State storage state,
         TaikoData.Config memory config,
