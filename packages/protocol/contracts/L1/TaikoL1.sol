@@ -46,20 +46,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     /**
      * Propose a Taiko L2 block.
      *
-     * @param input An abi-encoded BlockMetadata that the actual L2 block header
-     *        must satisfy.
-     *        Note the following fields in the provided meta object must
-     *        be zeros -- their actual values will be provisioned by Ethereum.
-     *            - id
-     *            - l1Height
-     *            - l1Hash
-     *            - mixHash
-     *            - timestamp
+     * @param input An abi-encoded BlockMetadataInput that the actual L2
+     *        block header must satisfy.
      * @param txList A list of transactions in this block, encoded with RLP.
-     *          Note, in the corresponding L2 block an _anchor transaction_
-     *          will be the first transaction in the block -- if there are
-     *          n transactions in `txList`, then there will be up to n+1
-     *          transactions in the L2 block.
+     *        Note, in the corresponding L2 block an _anchor transaction_
+     *        will be the first transaction in the block -- if there are
+     *        `n` transactions in `txList`, then there will be up to `n + 1`
+     *        transactions in the L2 block.
      * @return meta The updated block metadata.
      */
     function proposeBlock(
