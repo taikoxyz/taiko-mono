@@ -17,7 +17,7 @@ func (svc *Service) saveMessageStatusChangedEvents(
 	chainID *big.Int,
 	events *bridge.BridgeMessageStatusChangedIterator,
 ) error {
-	if !events.Next() || events.Event == nil {
+	if !events.Next() {
 		log.Infof("no messageStatusChanged events")
 		return nil
 	}

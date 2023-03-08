@@ -52,7 +52,7 @@ func (svc *Service) handleEvent(
 	}
 
 	e, err := svc.eventRepo.Save(ctx, relayer.SaveEventOpts{
-		Name:                   eventName,
+		Name:                   relayer.EventNameMessageSent,
 		Data:                   string(marshaled),
 		ChainID:                chainID,
 		Status:                 eventStatus,

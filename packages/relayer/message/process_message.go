@@ -184,34 +184,33 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		return errors.Wrap(err, "abi.JSON")
 	}
 
-	messageStatusChangedEvent := &bridge.BridgeMessageStatusChanged{}
+	m := make(map[string]interface{})
 
 	for _, log := range receipt.Logs {
-		// topic := log.Topics[0]
-		// if topic == crypto.Keccak256Hash("MessageStatusChanged(bytes32,enum,address)") {
-		err = bridgeAbi.UnpackIntoInterface(messageStatusChangedEvent, "MessageStatusChanged", log.Data)
-		if err != nil {
-			return errors.Wrap(err, "abi.UnpackIntoInterface")
-		} else {
+		topic := log.Topics[0]
+		if topic == crypto.Keccak256Hash([]byte("MessageStatusChanged(bytes32,uint8,address)")) {
+			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
+			if err != nil {
+				return errors.Wrap(err, "abi.UnpackIntoInterface")
+			}
+
 			break
 		}
 	}
 
-	if messageStatusChangedEvent != nil {
-		// keep same format as other raw events
-		data := fmt.Sprintf(`{"Raw":"transactionHash": "%v"}`, receipt.TxHash.Hex())
+	// keep same format as other raw events
+	data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
 
-		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
-			Name:         relayer.EventNameMessageStatusChanged,
-			Data:         data,
-			ChainID:      event.Message.DestChainId,
-			Status:       relayer.EventStatus(messageStatusChangedEvent.Status),
-			MsgHash:      e.MsgHash,
-			MessageOwner: e.MessageOwner,
-		})
-		if err != nil {
-			return errors.Wrap(err, "svc.eventRepo.Save")
-		}
+	_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
+		Name:         relayer.EventNameMessageStatusChanged,
+		Data:         data,
+		ChainID:      event.Message.DestChainId,
+		Status:       relayer.EventStatus(m["status"].(uint8)),
+		MsgHash:      e.MsgHash,
+		MessageOwner: e.MessageOwner,
+	})
+	if err != nil {
+		return errors.Wrap(err, "svc.eventRepo.Save")
 	}
 
 	return nil
