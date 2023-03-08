@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
 contract FooBar {
+
+
     function hashString_1(string memory str) public returns (bytes32 hash) {
         assembly {
             hash := keccak256(add(str, 32), mload(str))
@@ -24,7 +26,8 @@ contract TaikoL1Test is Test {
     }
 
     function testCompareHashString(uint len) external {
-        string memory str = "abcdefg";
+        vm.assume(len > 10 && len < 1000);
+        string memory str = string(new bytes(len));
         foobar.hashString_1(str);
         foobar.hashString_2(str);
     }
