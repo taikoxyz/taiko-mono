@@ -52,7 +52,7 @@ contract TaikoL1Test is Test {
     function proposeBlock(
         address proposer,
         uint256 txListSize
-    ) internal returns (TaikoData.BlockMetadata memory) {
+    ) internal returns (TaikoData.BlockMetadata memory meta) {
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
@@ -62,7 +62,10 @@ contract TaikoL1Test is Test {
             });
 
         vm.prank(proposer, proposer);
-        return L1.proposeBlock(input, txList);
+        L1.proposeBlock(input, txList);
+
+        // todo
+        // meta init
     }
 
     function proveBlock(
@@ -113,7 +116,7 @@ contract TaikoL1Test is Test {
         // L1.proveBlock(blockId, evidenceBytes);
     }
 
-    function te2stProposeSingleBlock() external {
+    function teastProposeSingleBlock() external {
         address alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
         vm.deal(alice, 100 ether);
         tko.transfer(alice, 1E6 ether);

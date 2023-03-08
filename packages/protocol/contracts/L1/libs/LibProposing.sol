@@ -35,7 +35,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput calldata input,
         bytes calldata txList
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -43,6 +43,8 @@ library LibProposing {
         address soloProposer = resolver.resolve("solo_proposer", true);
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
+
+        TaikoData.BlockMetadata memory meta;
 
         {
             if (
