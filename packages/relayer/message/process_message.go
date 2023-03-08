@@ -204,7 +204,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
 			Name:         relayer.EventNameMessageStatusChanged,
 			Data:         string(marshaled),
-			ChainID:      event.Message.SrcChainId,
+			ChainID:      event.Message.DestChainId,
 			Status:       relayer.EventStatus(messageStatusChangedEvent.Status),
 			MessageOwner: e.MessageOwner,
 		})

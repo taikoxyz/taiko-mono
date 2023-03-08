@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,6 +24,7 @@ func (svc *Service) saveMessageStatusChangedEvents(
 	}
 
 	for {
+		fmt.Println("event!")
 		event := events.Event
 		log.Infof("messageStatusChanged: %v", common.Hash(event.MsgHash).Hex())
 
@@ -48,7 +50,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 
 	// get the previous MessageSent event or other message status changed events,
 	// so we can find out the previous owner of this msg hash,
-	// to save to the db
+	// to save to the db.
 	previousEvents, err := svc.eventRepo.FindAllByMsgHash(ctx, common.Hash(event.MsgHash).Hex())
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.FindAllByMsgHash")
