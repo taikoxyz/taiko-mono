@@ -21,9 +21,7 @@ library LibProposing {
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_GAS_LIMIT();
     error L1_ID();
-    error L1_INPUT_SIZE();
     error L1_METADATA_FIELD();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
@@ -34,7 +32,8 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes[] calldata inputs
+        TaikoData.BlockMetadataInput calldata input,
+        bytes calldata txList
     ) internal returns (TaikoData.BlockMetadata memory meta) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
@@ -44,48 +43,37 @@ library LibProposing {
         if (soloProposer != address(0) && soloProposer != msg.sender)
             revert L1_SOLO_PROPOSER();
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
-        // inputs[0]: the block's metadata
-        // inputs[1]: the txList (future 4844 blob)
-
-        meta = abi.decode(inputs[0], (TaikoData.BlockMetadata));
-
         {
-            // Validating the metadata
             if (
-                meta.id != 0 ||
-                meta.l1Height != 0 ||
-                meta.l1Hash != 0 ||
-                meta.timestamp != 0 ||
-                meta.mixHash != 0 ||
-                meta.beneficiary == address(0)
+                input.beneficiary == address(0) ||
+                input.gasLimit > config.blockMaxGasLimit
             ) revert L1_METADATA_FIELD();
-
-            if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
-
-            if (
-                inputs[1].length > config.maxBytesPerTxList ||
-                meta.txListHash != LibUtils.hashTxList(inputs[1])
-            ) revert L1_TX_LIST();
 
             if (
                 state.nextBlockId >=
                 state.latestVerifiedId + config.maxNumBlocks
             ) revert L1_TOO_MANY_BLOCKS();
 
-            meta.id = state.nextBlockId;
-            meta.l1Height = block.number - 1;
-            meta.l1Hash = blockhash(block.number - 1);
-            meta.timestamp = uint64(block.timestamp);
-
             // After The Merge, L1 mixHash contains the prevrandao
             // from the beacon chain. Since multiple Taiko blocks
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
 
+            uint256 mixHash;
             unchecked {
-                meta.mixHash = block.prevrandao * state.nextBlockId;
+                mixHash = block.prevrandao * state.nextBlockId;
             }
+
+            meta = TaikoData.BlockMetadata({
+                id: state.nextBlockId,
+                l1Height: block.number - 1,
+                l1Hash: blockhash(block.number - 1),
+                beneficiary: input.beneficiary,
+                txListHash: LibUtils.hashTxList(txList),
+                mixHash: mixHash,
+                gasLimit: input.gasLimit,
+                timestamp: uint64(block.timestamp)
+            });
         }
 
         uint256 deposit;

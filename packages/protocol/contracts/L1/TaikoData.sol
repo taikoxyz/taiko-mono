@@ -20,7 +20,6 @@ library TaikoData {
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
-        uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 anchorTxGasLimit;
         uint256 slotSmoothingFactor;
@@ -38,6 +37,11 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         bool enableTokenomics;
         bool skipZKPVerification;
+    }
+
+    struct BlockMetadataInput {
+        address beneficiary;
+        uint64 gasLimit;
     }
 
     struct BlockMetadata {

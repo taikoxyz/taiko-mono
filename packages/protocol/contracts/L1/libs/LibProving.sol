@@ -38,12 +38,12 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes calldata evidenceBytes
+        TaikoData.ValidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.ValidBlockEvidence memory evidence = abi.decode(
-            evidenceBytes,
-            (TaikoData.ValidBlockEvidence)
-        );
+        // TaikoData.ValidBlockEvidence memory evidence = abi.decode(
+        //     evidenceBytes,
+        //     (TaikoData.ValidBlockEvidence)
+        // );
 
         TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
@@ -86,13 +86,8 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        bytes calldata evidenceBytes
+        TaikoData.InvalidBlockEvidence calldata evidence
     ) internal {
-        TaikoData.InvalidBlockEvidence memory evidence = abi.decode(
-            evidenceBytes,
-            (TaikoData.InvalidBlockEvidence)
-        );
-
         TaikoData.BlockMetadata memory meta = evidence.meta;
         _checkMetadata(state, config, meta, blockId);
 

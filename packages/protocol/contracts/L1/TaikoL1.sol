@@ -46,18 +46,16 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     /**
      * Propose a Taiko L2 block.
      *
-     * @param inputs A list of data input:
-     *        - inputs[0] is abi-encoded BlockMetadata that the actual L2 block
-     *          header must satisfy.
-     *          Note the following fields in the provided meta object must
-     *          be zeros -- their actual values will be provisioned by Ethereum.
+     * @param input An abi-encoded BlockMetadata that the actual L2 block header
+     *        must satisfy.
+     *        Note the following fields in the provided meta object must
+     *        be zeros -- their actual values will be provisioned by Ethereum.
      *            - id
      *            - l1Height
      *            - l1Hash
      *            - mixHash
      *            - timestamp
-     *        - inputs[1] is called the `txList` which is list of transactions in
-     *          this block, encoded with RLP.
+     * @param txList A list of transactions in this block, encoded with RLP.
      *          Note, in the corresponding L2 block an _anchor transaction_
      *          will be the first transaction in the block -- if there are
      *          n transactions in `txList`, then there will be up to n+1
@@ -65,7 +63,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * @return meta The updated block metadata.
      */
     function proposeBlock(
-        bytes[] calldata inputs
+        TaikoData.BlockMetadataInput calldata input,
+        bytes calldata txList
     )
         external
         onlyFromEOA
@@ -77,7 +76,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            inputs: inputs
+            input: input,
+            txList: txList
         });
         LibVerifying.verifyBlocks({
             state: state,
@@ -92,12 +92,12 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
+     * @param evidence An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
         uint256 blockId,
-        bytes calldata input
+        TaikoData.ValidBlockEvidence calldata evidence
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
@@ -105,7 +105,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidenceBytes: input
+            evidence: evidence
         });
         LibVerifying.verifyBlocks({
             state: state,
@@ -120,11 +120,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used to
      *        select the right implementation version.
-     * @param input An abi-encoded TaikoData.InvalidBlockEvidence object.
+     * @param evidence An abi-encoded TaikoData.InvalidBlockEvidence object.
      */
     function proveBlockInvalid(
         uint256 blockId,
-        bytes calldata input
+        TaikoData.InvalidBlockEvidence calldata evidence
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
 
@@ -133,7 +133,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidenceBytes: input
+            evidence: evidence
         });
         LibVerifying.verifyBlocks({
             state: state,
