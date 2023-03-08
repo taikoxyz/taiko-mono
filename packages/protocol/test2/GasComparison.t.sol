@@ -102,7 +102,7 @@ contract FooBar {
     }
 }
 
-contract TaikoL1Test is Test {
+contract GasComparisonTest is Test {
     FooBar foobar;
 
     function setUp() public {

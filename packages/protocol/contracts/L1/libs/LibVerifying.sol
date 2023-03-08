@@ -51,12 +51,12 @@ library LibVerifying {
         ];
 
         uint64 processed;
+        uint256 i;
 
-        for (
-            uint256 i = state.latestVerifiedId + 1;
-            i < state.nextBlockId && processed < maxBlocks;
-
-        ) {
+        unchecked {
+            i = state.latestVerifiedId + 1;
+        }
+        while (i < state.nextBlockId && processed < maxBlocks) {
             TaikoData.ForkChoice storage fc = state.forkChoices[i][
                 latestL2Snippet.blockHash
             ];
@@ -76,11 +76,13 @@ library LibVerifying {
                     latestL2Height: latestL2Height,
                     latestL2Snippet: latestL2Snippet
                 });
-                processed += 1;
+                unchecked {
+                    processed++;
+                }
                 emit BlockVerified(i, latestL2Snippet);
             }
             unchecked {
-                ++i;
+                i++;
             }
         }
 
