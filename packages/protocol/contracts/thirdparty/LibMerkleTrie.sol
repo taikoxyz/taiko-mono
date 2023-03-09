@@ -46,8 +46,8 @@ library LibMerkleTrie {
     }
 
     struct TrieNode {
-        bytes encoded;
         LibRLPReader.RLPItem[] decoded;
+        bytes encoded;
     }
 
     /**********************
@@ -55,11 +55,11 @@ library LibMerkleTrie {
      **********************/
 
     // TREE_RADIX determines the number of elements per branch node.
-    uint256 constant TREE_RADIX = 16;
+    uint8 constant TREE_RADIX = 16;
     // Branch nodes have TREE_RADIX elements plus an additional `value` slot.
-    uint256 constant BRANCH_NODE_LENGTH = TREE_RADIX + 1;
+    uint8 constant BRANCH_NODE_LENGTH = TREE_RADIX + 1;
     // Leaf nodes and extension nodes always have two elements, a `path` and a `value`.
-    uint256 constant LEAF_OR_EXTENSION_NODE_LENGTH = 2;
+    uint8 constant LEAF_OR_EXTENSION_NODE_LENGTH = 2;
 
     // Prefixes are prepended to the `path` within a leaf or extension node and
     // allow us to differentiate between the two node types. `ODD` or `EVEN` is
@@ -343,6 +343,13 @@ library LibMerkleTrie {
         return LibRLPReader.readBytes(_node.decoded[_node.decoded.length - 1]);
     }
 
+    /**
+     * @notice Utility; determines the number of nibbles shared between two
+     * nibble arrays.
+     * @param _a First nibble array.
+     * @param _b Second nibble array.
+     * @return _shared Number of shared nibbles.
+     */
     /**
      * @notice Utility; determines the number of nibbles shared between two
      * nibble arrays.

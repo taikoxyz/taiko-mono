@@ -70,17 +70,8 @@ describe("LibBridgeRetry", function () {
             value: ethers.utils.parseEther("10.0"),
         });
 
-        const libRetryLink = await (
-            await ethers.getContractFactory("LibBridgeRetry")
-        ).deploy();
-        await libRetryLink.deployed();
-
         const libRetryFactory = await (
-            await ethers.getContractFactory("TestLibBridgeRetry", {
-                libraries: {
-                    LibBridgeRetry: libRetryLink.address,
-                },
-            })
+            await ethers.getContractFactory("TestLibBridgeRetry")
         ).connect(owner);
 
         libRetry = await libRetryFactory.deploy();
