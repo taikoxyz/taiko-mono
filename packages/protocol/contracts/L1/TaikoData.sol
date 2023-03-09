@@ -39,18 +39,18 @@ library TaikoData {
     }
 
     struct BlockMetadataInput {
+        bytes32 txListHash;
         address beneficiary;
         uint64 gasLimit;
-        bytes32 txListHash;
     }
 
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
         bytes32 l1Hash;
-        address beneficiary;
-        bytes32 txListHash;
         uint256 mixHash;
+        bytes32 txListHash;
+        address beneficiary;
         uint64 gasLimit;
         uint64 timestamp;
     }
