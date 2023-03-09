@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {BlockHeader} from "../libs/LibBlockHeader.sol";
 import {Snippet} from "../common/IXchainSync.sol";
 
 library TaikoData {
@@ -45,6 +44,25 @@ library TaikoData {
         bytes32 txListHash;
     }
 
+    struct BlockHeader {
+        bytes32 parentHash;
+        // bytes32 ommersHash;
+        address beneficiary;
+        bytes32 stateRoot;
+        bytes32 transactionsRoot;
+        bytes32 receiptsRoot;
+        // bytes32[8] logsBloom; // must be 0s.
+        // uint256 difficulty; // must be 0
+        uint128 height;
+        uint64 gasLimit;
+        uint64 gasUsed;
+        uint64 timestamp;
+        // bytes extraData; // must be `new bytes(0)`
+        bytes32 mixHash;
+        // uint64 nonce; // must be 0
+        uint256 baseFeePerGas;
+    }
+
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
@@ -61,19 +79,13 @@ library TaikoData {
         uint256 circuitId;
     }
 
-    struct ValidBlockEvidence {
+    struct BlockEvidence {
         TaikoData.BlockMetadata meta;
-        ZKProof zkproof; // The block proof
-        address prover;
-        BlockHeader header;
-        bytes32 signalRoot;
-    }
-
-    struct InvalidBlockEvidence {
-        TaikoData.BlockMetadata meta;
-        ZKProof zkproof; // The txListProof
+        ZKProof zkproof;
         address prover;
         bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 signalRoot;
     }
 
     // 3 slots
