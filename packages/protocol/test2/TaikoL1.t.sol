@@ -152,8 +152,6 @@ contract TaikoL1Test is Test {
             });
         vm.prank(prover, prover);
         L1.proveBlock(blockId, evidence);
-        vm.prank(prover, prover);
-        L1.verifyBlocks(1);
     }
 
     function testProposeSingleBlock() external {
@@ -168,6 +166,8 @@ contract TaikoL1Test is Test {
             // mockCall(VB_100, "", bytes(bytes32(true)));
             parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
 
+            vm.prank(BOB, BOB);
+            L1.verifyBlocks(1);
             // clearMockCalls();
             vm.roll(block.number + 1);
         }
