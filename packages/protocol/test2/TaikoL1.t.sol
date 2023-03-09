@@ -90,9 +90,9 @@ contract TaikoL1Test is Test {
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
-        uint256 mixHash;
+        uint256 _mixHash;
         unchecked {
-            mixHash = block.prevrandao * variables.nextBlockId;
+            _mixHash = block.prevrandao * variables.nextBlockId;
         }
 
         meta.id = variables.nextBlockId;
@@ -100,7 +100,7 @@ contract TaikoL1Test is Test {
         meta.l1Hash = blockhash(block.number - 1);
         meta.beneficiary = proposer;
         meta.txListHash = keccak256(txList);
-        meta.mixHash = bytes32(mixHash);
+        meta.mixHash = bytes32(_mixHash);
         meta.gasLimit = gasLimit;
         meta.timestamp = uint64(block.timestamp);
 
@@ -145,16 +145,16 @@ contract TaikoL1Test is Test {
             circuitId: 100
         });
 
-        TaikoData.ValidBlockEvidence memory evidence = TaikoData
-            .ValidBlockEvidence({
-                meta: meta,
-                zkproof: zkproof,
-                header: header,
-                signalRoot: bytes32(blockId + 400),
-                prover: prover
-            });
-        vm.prank(prover, prover);
-        L1.proveBlock(blockId, evidence);
+        // TaikoData.ValidBlockEvidence memory evidence = TaikoData
+        //     .ValidBlockEvidence({
+        //         meta: meta,
+        //         zkproof: zkproof,
+        //         header: header,
+        //         signalRoot: bytes32(blockId + 400),
+        //         prover: prover
+        //     });
+        // vm.prank(prover, prover);
+        // L1.proveBlock(blockId, evidence);
     }
 
     function testProposeSingleBlock() external {

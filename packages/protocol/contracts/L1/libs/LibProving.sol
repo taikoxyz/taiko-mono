@@ -60,7 +60,7 @@ library LibProving {
             fc.snippet = Snippet(evidence.blockHash, evidence.signalRoot);
 
             if (!oracleProving) {
-                fc.prover = prover;
+                fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }
         } else {
@@ -76,14 +76,11 @@ library LibProving {
 
         if (!oracleProving && !config.skipZKPVerification) {
             // Do not revert when circuitId is invalid.
-            address verifier = resolver.resolve(
-                 abi.encodePacked(
-                    "plonk_verifier",
-                    evidence.zkproof.circuitId
-                ),
-                true
+
+            string memory veriferName = string(
+                abi.encodePacked("verifier", evidence.zkproof.circuitId)
             );
-            if (verifier == address(0)) revert L1_INVALID_PROOF();
+            address verifier = resolver.resolve(veriferName, false);
 
             bytes32 instance;
             if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
@@ -107,7 +104,13 @@ library LibProving {
                         // for checking signalRoot
                         bytes32(uint256(uint160(l2SignalService))),
                         evidence.blockHash,
-                        evidence.signalRoot,
+                        evidence.signalRoot
+                    )
+                );
+
+                instance = keccak256(
+                    bytes.concat(
+                        instance,
                         bytes32(uint256(uint160(evidence.prover))),
                         bytes32(uint256(evidence.meta.id)),
                         bytes32(evidence.meta.l1Height),
@@ -130,6 +133,6 @@ library LibProving {
             if (!verified) revert L1_INVALID_PROOF();
         }
 
-        emit BlockProven({id: blockId, parentHash: parentHash});
+        emit BlockProven({id: blockId, parentHash: evidence.parentHash});
     }
 }

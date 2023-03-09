@@ -65,9 +65,9 @@ library LibProposing {
             // can be proposed in one Ethereum block, we need to
             // add salt to this random number as L2 mixHash
 
-            uint256 mixHash;
+            uint256 _mixHash;
             unchecked {
-                mixHash = block.prevrandao * state.nextBlockId;
+                _mixHash = block.prevrandao * state.nextBlockId;
             }
 
             meta = TaikoData.BlockMetadata({
@@ -76,7 +76,7 @@ library LibProposing {
                 l1Hash: blockhash(block.number - 1),
                 beneficiary: input.beneficiary,
                 txListHash: input.txListHash,
-                mixHash: bytes32(mixHash),
+                mixHash: bytes32(_mixHash),
                 gasLimit: input.gasLimit,
                 timestamp: uint64(block.timestamp)
             });
