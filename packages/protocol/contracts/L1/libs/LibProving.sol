@@ -52,6 +52,8 @@ library LibProving {
         ) revert L1_INVALID_EVIDENCE();
 
         // TODO(daniel): this function call will consume 230891 gas!!!
+        // It will be great if we can use _getInstanceIdeally instead
+        // it  consumes 221317 less gas.
         bytes32 instance = _getInstance(
             evidence,
             resolver.resolve("signal_service", false),
@@ -209,5 +211,25 @@ library LibProving {
         }
 
         return keccak256(LibRLPWriter.writeList(list));
+    }
+
+    function _getInstanceIdeally(
+        TaikoData.ValidBlockEvidence calldata evidence,
+        address l1SignalServiceAddress,
+        address l2SignalServiceAddress
+    ) private pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    keccak256(abi.encode(evidence.header)),
+                    evidence.signalRoot,
+                    evidence.meta.txListHash,
+                    evidence.meta.l1Height,
+                    evidence.meta.l1Hash,
+                    l2SignalServiceAddress,
+                    l1SignalServiceAddress,
+                    evidence.prover
+                )
+            );
     }
 }
