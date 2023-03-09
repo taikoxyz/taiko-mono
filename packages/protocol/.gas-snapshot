@@ -1,2 +1,2 @@
-GasComparisonTest:testCompareHashString(uint256) (runs: 256, μ: 282072, ~: 202967)
-TaikoL1Test:testProposeSingleBlock() (gas: 725760)
+GasComparisonTest:testCompareHashString(uint256) (runs: 256, μ: 282730, ~: 206082)
+TaikoL1Test:testProposeSingleBlock() (gas: 3474497)

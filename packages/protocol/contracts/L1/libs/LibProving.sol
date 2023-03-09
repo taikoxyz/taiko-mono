@@ -116,6 +116,7 @@ library LibProving {
                     bytes32(uint256(uint160(l1SignalService))),
                     // for checking signalRoot
                     bytes32(uint256(uint160(l2SignalService))),
+                    evidence.parentHash,
                     evidence.blockHash,
                     evidence.signalRoot
                 );
