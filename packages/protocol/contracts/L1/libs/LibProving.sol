@@ -141,9 +141,7 @@ library LibProving {
                 revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[blockId % config.maxNumBlocks][
-            evidence.parentHash
-        ] = fcId;
+        state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
         unchecked {
             ++proposal.nextForkChoiceId;
         }

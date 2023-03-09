@@ -62,9 +62,7 @@ library LibVerifying {
                 i
             );
 
-            uint256 fcId = state.forkChoiceIds[i % config.maxNumBlocks][
-                latestL2ChainData.blockHash
-            ];
+            uint256 fcId = state.forkChoiceIds[i][latestL2ChainData.blockHash];
             if (proposal.nextForkChoiceId <= fcId) {
                 break;
             }
