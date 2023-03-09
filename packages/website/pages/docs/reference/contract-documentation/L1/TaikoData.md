@@ -14,6 +14,7 @@ struct Config {
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
+  uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 anchorTxGasLimit;
   uint256 slotSmoothingFactor;
@@ -28,6 +29,7 @@ struct Config {
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
+  bool enableSoloProposer;
   bool enableTokenomics;
   bool skipZKPVerification;
 }
