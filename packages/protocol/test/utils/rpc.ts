@@ -57,7 +57,7 @@ type BlockHeader = {
     mixHash: string;
     nonce: number;
     baseFeePerGas: number;
-    withdrawalsRoot: string;
+    withdrawalsRoot?: string;
 };
 
 async function getBlockHeader(
@@ -92,7 +92,7 @@ async function getBlockHeader(
         mixHash: block.mixHash,
         nonce: block.nonce,
         baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
-        withdrawalsRoot: block.withdrawalsRoot ? block.withdrawalsRoot : "0x0",
+        withdrawalsRoot: block.withdrawalsRoot,
     };
 
     return { block, blockHeader };
