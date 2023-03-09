@@ -58,9 +58,9 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         TaikoData.BlockMetadataInput calldata input,
         bytes calldata txList
-    ) external onlyFromEOA nonReentrant {
+    ) external onlyFromEOA nonReentrant returns (bytes32 metaHash) {
         TaikoData.Config memory config = getConfig();
-        LibProposing.proposeBlock({
+        metaHash = LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),

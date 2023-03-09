@@ -15,17 +15,11 @@ contract TaikoL1Test is Test {
     TaikoToken public tko;
     TaikoL1 public L1;
 
-    AddressManager public addressManager;
-    bytes32 public genesisBlockHash;
+    bytes32 public constant genesisBlockHash = keccak256("genesisBlockHash");
+    address public constant alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
+    address public constant bob = 0x000000000000000000636F6e736F6c652e6c6f67;
 
-    function registerContract(string memory name, address addr) internal {
-        string memory key = string.concat(
-            Strings.toString(block.chainid),
-            ".",
-            name
-        );
-        addressManager.setAddress(key, addr);
-    }
+    AddressManager public addressManager;
 
     function setUp() public {
         addressManager = new AddressManager();
@@ -39,33 +33,48 @@ contract TaikoL1Test is Test {
         tko.init(address(addressManager), "TaikoToken", "TKO");
 
         // register all addresses
-        registerContract("taiko_token", address(tko));
+        _registerAddress("taiko_token", address(tko));
 
         // set proto_broker to this address to mint some TKO
-        registerContract("proto_broker", address(this));
+        _registerAddress("proto_broker", address(this));
         tko.mint(address(this), 1E9 ether);
 
         // set proto_broker to L1
-        registerContract("proto_broker", address(L1));
+        _registerAddress("proto_broker", address(L1));
     }
 
     function proposeBlock(
         address proposer,
         uint256 txListSize
     ) internal returns (TaikoData.BlockMetadata memory meta) {
+        uint64 gasLimit = 1000000;
         bytes memory txList = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
                 beneficiary: proposer,
-                gasLimit: 1000000,
+                gasLimit: gasLimit,
                 txListHash: keccak256(txList)
             });
 
+        TaikoData.StateVariables memory variables = L1.getStateVariables();
+
+        uint256 mixHash;
+        unchecked {
+            mixHash = block.prevrandao * variables.nextBlockId;
+        }
+        meta.id = variables.nextBlockId;
+        meta.l1Height = block.number - 1;
+        meta.l1Hash = blockhash(block.number - 1);
+        meta.beneficiary = proposer;
+        meta.txListHash = keccak256(txList);
+        meta.mixHash = bytes32(mixHash);
+        meta.gasLimit = gasLimit;
+        meta.timestamp = uint64(block.timestamp);
 
         vm.prank(proposer, proposer);
-        L1.proposeBlock(input, txList);
+        bytes32 metaHash = L1.proposeBlock(input, txList);
 
-
+        assertEq(metaHash, keccak256(abi.encode(meta)));
     }
 
     function proveBlock(
@@ -77,53 +86,47 @@ contract TaikoL1Test is Test {
     ) internal returns (bytes32 blockHash) {
         bytes32[8] memory logsBloom;
 
-        // BlockHeader memory header = BlockHeader({
-        //     parentHash: parentHash,
-        //     ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
-        //     beneficiary: meta.beneficiary,
-        //     stateRoot: bytes32(blockId + 200),
-        //     transactionsRoot: bytes32(blockId + 201),
-        //     receiptsRoot: bytes32(blockId + 202),
-        //     logsBloom: logsBloom,
-        //     difficulty: 0,
-        //     height: uint128(blockId),
-        //     gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
-        //     gasUsed: uint64(100),
-        //     timestamp: meta.timestamp,
-        //     extraData: meta.extraData,
-        //     mixHash: meta.mixHash,
-        //     nonce: 0,
-        //     baseFeePerGas: 10000
-        // });
+        BlockHeader memory header = BlockHeader({
+            parentHash: parentHash,
+            ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
+            beneficiary: meta.beneficiary,
+            stateRoot: bytes32(blockId + 200),
+            transactionsRoot: bytes32(blockId + 201),
+            receiptsRoot: bytes32(blockId + 202),
+            logsBloom: logsBloom,
+            difficulty: 0,
+            height: uint128(blockId),
+            gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
+            gasUsed: uint64(100),
+            timestamp: meta.timestamp,
+            extraData: new bytes(0),
+            mixHash: bytes32(meta.mixHash),
+            nonce: 0,
+            baseFeePerGas: 10000
+        });
 
-        // blockHash = LibBlockHeader.hashBlockHeader(header);
+        blockHash = LibBlockHeader.hashBlockHeader(header);
 
-        // TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-        //     data: new bytes(100),
-        //     circuitId: 1
-        // });
+        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
+            data: new bytes(100),
+            circuitId: 1
+        });
 
-        // TaikoData.ValidBlockEvidence memory evidence = TaikoData
-        //     .ValidBlockEvidence({
-        //         meta: meta,
-        //         zkproof: zkproof,
-        //         header: header,
-        //         signalRoot: bytes32(blockId + 400),
-        //         prover: prover
-        //     });
-        // bytes memory evidenceBytes = abi.encode(evidence);
-        // vm.prank(prover, prover);
-        // L1.proveBlock(blockId, evidenceBytes);
+        TaikoData.ValidBlockEvidence memory evidence = TaikoData
+            .ValidBlockEvidence({
+                meta: meta,
+                zkproof: zkproof,
+                header: header,
+                signalRoot: bytes32(blockId + 400),
+                prover: prover
+            });
+        vm.prank(prover, prover);
+        L1.proveBlock(blockId, evidence);
     }
 
-    function teastProposeSingleBlock() external {
-        address alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
-        vm.deal(alice, 100 ether);
-        tko.transfer(alice, 1E6 ether);
-        // console2.logUint(tko.balanceOf(alice));
-
-        address bob = 0x000000000000000000636F6e736F6c652e6c6f67;
-        vm.deal(bob, 100 ether);
+    function testProposeSingleBlock() external {
+        _depositTaikoToken(alice, 1E6, 100);
+        _depositTaikoToken(bob, 1E6, 100);
 
         bytes32 parentHash = genesisBlockHash;
 
@@ -132,5 +135,25 @@ contract TaikoL1Test is Test {
             TaikoData.BlockMetadata memory meta = proposeBlock(alice, 1024);
             parentHash = proveBlock(bob, conf, blockId, parentHash, meta);
         }
+    }
+
+    function _registerAddress(string memory name, address addr) internal {
+        string memory key = string.concat(
+            Strings.toString(block.chainid),
+            ".",
+            name
+        );
+        addressManager.setAddress(key, addr);
+    }
+
+    function _depositTaikoToken(
+        address who,
+        uint256 amountTko,
+        uint amountEth
+    ) private {
+        vm.deal(who, amountEth * 1 ether);
+        tko.transfer(who, amountTko * 1 ether);
+        vm.prank(who, who);
+        L1.deposit(amountTko);
     }
 }

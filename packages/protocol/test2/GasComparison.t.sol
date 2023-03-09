@@ -70,7 +70,7 @@ contract FooBar {
             beneficiary: address(this),
             txListHash: bytes32(uint256(1)),
             gasLimit: 1,
-            mixHash: 1,
+            mixHash: bytes32(uint256(1)),
             timestamp: 1
         });
     }
@@ -83,7 +83,7 @@ contract FooBar {
             beneficiary: address(this),
             txListHash: bytes32(uint256(1)),
             gasLimit: 1,
-            mixHash: 1,
+            mixHash: bytes32(uint256(1)),
             timestamp: 1
         });
     }
