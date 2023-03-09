@@ -97,27 +97,24 @@ library LibProving {
                     false
                 );
 
-                instance = keccak256(
-                    bytes.concat(
-                        // for checking anchor tx
-                        bytes32(uint256(uint160(l1SignalService))),
-                        // for checking signalRoot
-                        bytes32(uint256(uint160(l2SignalService))),
-                        evidence.blockHash,
-                        evidence.signalRoot
-                    )
+                bytes memory buffer = bytes.concat(
+                    // for checking anchor tx
+                    bytes32(uint256(uint160(l1SignalService))),
+                    // for checking signalRoot
+                    bytes32(uint256(uint160(l2SignalService))),
+                    evidence.blockHash,
+                    evidence.signalRoot
+                );
+                buffer = bytes.concat(
+                    buffer,
+                    bytes32(uint256(uint160(evidence.prover))),
+                    bytes32(uint256(evidence.meta.id)),
+                    bytes32(evidence.meta.l1Height),
+                    evidence.meta.l1Hash,
+                    evidence.meta.txListHash
                 );
 
-                instance = keccak256(
-                    bytes.concat(
-                        instance,
-                        bytes32(uint256(uint160(evidence.prover))),
-                        bytes32(uint256(evidence.meta.id)),
-                        bytes32(evidence.meta.l1Height),
-                        evidence.meta.l1Hash,
-                        evidence.meta.txListHash
-                    )
-                );
+                instance = keccak256(buffer);
             }
 
             (bool verified, ) = verifier.staticcall(
