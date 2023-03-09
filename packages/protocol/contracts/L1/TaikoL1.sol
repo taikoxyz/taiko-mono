@@ -57,7 +57,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * @return metaHash The hash of the updated block metadata.
      */
     function proposeBlock(
-        TaikoData.BlockMetadataInput calldata input,
+        bytes calldata input,
         bytes calldata txList
     ) external onlyFromEOA nonReentrant returns (bytes32 metaHash) {
         TaikoData.Config memory config = getConfig();
@@ -65,7 +65,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            input: input,
+            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             txList: txList
         });
         if (config.maxVerificationsPerTx > 0) {
@@ -88,7 +88,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function proveBlock(
         uint256 blockId,
-        TaikoData.BlockEvidence calldata evidence
+        bytes calldata evidence
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
@@ -96,7 +96,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: evidence
+            evidence: abi.decode(evidence, (TaikoData.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
