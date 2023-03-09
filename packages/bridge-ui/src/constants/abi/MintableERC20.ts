@@ -16,6 +16,11 @@ export default [
     type: 'constructor',
   },
   {
+    inputs: [],
+    name: 'HasMinted',
+    type: 'error',
+  },
+  {
     anonymous: false,
     inputs: [
       {
@@ -204,6 +209,25 @@ export default [
     name: 'mint',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'minter',
+        type: 'address',
+      },
+    ],
+    name: 'minters',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: 'hasMinted',
+        type: 'bool',
+      },
+    ],
+    stateMutability: 'view',
     type: 'function',
   },
   {
