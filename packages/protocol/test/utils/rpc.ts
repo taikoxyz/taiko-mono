@@ -37,6 +37,7 @@ type Block = {
     uncles: string[];
     baseFeePerGas?: string;
     mixHash: string;
+    withdrawalsRoot: string;
 };
 
 type BlockHeader = {
@@ -56,6 +57,7 @@ type BlockHeader = {
     mixHash: string;
     nonce: number;
     baseFeePerGas: number;
+    withdrawalsRoot: string;
 };
 
 async function getBlockHeader(
@@ -90,6 +92,8 @@ async function getBlockHeader(
         mixHash: block.mixHash,
         nonce: block.nonce,
         baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+        // set to zero for pre-shanghai L1 blocks used in the integration test node
+        withdrawalsRoot: ethers.constants.HashZero,
     };
 
     return { block, blockHeader };
