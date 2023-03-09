@@ -242,7 +242,7 @@
   };
 
   const routes = {
-    '/': wrap({
+    '/:tab?': wrap({
       component: Home,
       props: {},
       userData: {},
