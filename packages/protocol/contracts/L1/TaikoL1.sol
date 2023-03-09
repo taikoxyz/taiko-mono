@@ -54,6 +54,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *        will be the first transaction in the block -- if there are
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
+     * @return metaHash The hash of the updated block metadata.
      */
     function proposeBlock(
         TaikoData.BlockMetadataInput calldata input,

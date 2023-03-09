@@ -75,12 +75,12 @@ library LibProving {
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
-            // Do not revert when circuitId is invalid.
-
-            string memory veriferName = string(
-                abi.encodePacked("verifier", evidence.zkproof.circuitId)
+            address verifier = resolver.resolve(
+                string(
+                    abi.encodePacked("verifier", evidence.zkproof.circuitId)
+                ),
+                false
             );
-            address verifier = resolver.resolve(veriferName, false);
 
             bytes32 instance;
             if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
