@@ -17,7 +17,7 @@ import {TaikoData} from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+    bytes32 public constant BYTES32_ONE = bytes32(uint256(1));
 
     error L1_BLOCK_NUMBER();
 

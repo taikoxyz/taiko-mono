@@ -150,7 +150,7 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 4; blockId++) {
+        for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
             bytes32 blockHash = bytes32(1E9 + blockId);
             bytes32 signalRoot = bytes32(2E9 + blockId);

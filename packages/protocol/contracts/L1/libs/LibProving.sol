@@ -92,7 +92,7 @@ library LibProving {
             );
 
             bytes32 instance;
-            if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
+            if (evidence.blockHash == LibUtils.BYTES32_ONE) {
                 if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
                 instance = evidence.meta.txListHash;
             } else {

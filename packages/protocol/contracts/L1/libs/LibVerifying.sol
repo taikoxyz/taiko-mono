@@ -146,7 +146,7 @@ library LibVerifying {
                 }
 
                 // refund proposer deposit
-                if (fc.chainData.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+                if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
                     uint256 refund = (proposal.deposit * (10000 - tRelBp)) /
                         10000;
                     if (refund > 0) {
@@ -178,7 +178,7 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.chainData.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
+        if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
             _latestL2Height = latestL2Height + 1;
             _latestL2ChainData = fc.chainData;
         } else {
@@ -190,8 +190,8 @@ library LibVerifying {
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
-        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.chainData.blockHash = LibUtils.BYTES32_ONE; // none-zero placeholder
+        fc.chainData.signalRoot = LibUtils.BYTES32_ONE; // none-zero placeholder
         fc.provenAt = 1; // none-zero placeholder
         fc.prover = address(0);
     }
