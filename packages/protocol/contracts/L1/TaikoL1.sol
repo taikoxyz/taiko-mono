@@ -67,11 +67,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             input: input,
             txList: txList
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
@@ -95,11 +97,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             blockId: blockId,
             evidence: evidence
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
@@ -123,11 +127,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             blockId: blockId,
             evidence: evidence
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
