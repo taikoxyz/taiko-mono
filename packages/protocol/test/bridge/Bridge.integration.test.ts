@@ -145,7 +145,7 @@ describe("integrationbridge:Bridge", function () {
             callValue: 1000,
             processingFee: 1000,
             gasLimit: 10000,
-            data: ethers.constants.HashZero,
+            data: "0x",
             memo: "",
         };
     });
@@ -164,7 +164,7 @@ describe("integrationbridge:Bridge", function () {
                 callValue: 1000,
                 processingFee: 1000,
                 gasLimit: 0,
-                data: ethers.constants.HashZero,
+                data: "0x",
                 memo: "",
             };
 
@@ -198,7 +198,7 @@ describe("integrationbridge:Bridge", function () {
                 callValue: 1000,
                 processingFee: 1000,
                 gasLimit: 10000,
-                data: ethers.constants.HashZero,
+                data: "0x",
                 memo: "",
             };
 

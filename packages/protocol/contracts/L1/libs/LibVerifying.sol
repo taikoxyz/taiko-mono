@@ -84,6 +84,10 @@ library LibVerifying {
             unchecked {
                 i++;
             }
+
+            unchecked {
+                ++i;
+            }
         }
 
         if (processed > 0) {

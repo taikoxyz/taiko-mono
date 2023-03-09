@@ -46,7 +46,7 @@ Propose a Taiko L2 block.
 ### proveBlock
 
 ```solidity
-function proveBlock(uint256 blockId, struct TaikoData.ValidBlockEvidence evidence) external
+function proveBlock(uint256 blockId, struct TaikoData.BlockEvidence evidence) external
 ```
 
 Prove a block is valid with a zero-knowledge proof, a transaction
@@ -54,26 +54,10 @@ merkel proof, and a receipt merkel proof.
 
 #### Parameters
 
-| Name     | Type                                | Description                                                                                    |
-| -------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- |
-| blockId  | uint256                             | The index of the block to prove. This is also used to select the right implementation version. |
-| evidence | struct TaikoData.ValidBlockEvidence | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
-
-### proveBlockInvalid
-
-```solidity
-function proveBlockInvalid(uint256 blockId, struct TaikoData.InvalidBlockEvidence evidence) external
-```
-
-Prove a block is invalid with a zero-knowledge proof and a receipt
-merkel proof.
-
-#### Parameters
-
-| Name     | Type                                  | Description                                                                                    |
-| -------- | ------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| blockId  | uint256                               | The index of the block to prove. This is also used to select the right implementation version. |
-| evidence | struct TaikoData.InvalidBlockEvidence | An abi-encoded TaikoData.InvalidBlockEvidence object.                                          |
+| Name     | Type                           | Description                                                                                    |
+| -------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| blockId  | uint256                        | The index of the block to prove. This is also used to select the right implementation version. |
+| evidence | struct TaikoData.BlockEvidence | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
 
 ### verifyBlocks
 

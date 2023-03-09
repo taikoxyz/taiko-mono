@@ -76,6 +76,12 @@ error L1_INVALID_PROOF()
 error L1_METADATA_FIELD()
 ```
 
+### L1_NONZERO_SIGNAL_ROOT
+
+```solidity
+error L1_NONZERO_SIGNAL_ROOT()
+```
+
 ### L1_NOT_ORACLE_PROVER
 
 ```solidity
