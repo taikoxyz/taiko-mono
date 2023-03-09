@@ -44,25 +44,6 @@ library TaikoData {
         bytes32 txListHash;
     }
 
-    struct BlockHeader {
-        bytes32 parentHash;
-        // bytes32 ommersHash;
-        address beneficiary;
-        bytes32 stateRoot;
-        bytes32 transactionsRoot;
-        bytes32 receiptsRoot;
-        // bytes32[8] logsBloom; // must be 0s.
-        // uint256 difficulty; // must be 0
-        uint128 height;
-        uint64 gasLimit;
-        uint64 gasUsed;
-        uint64 timestamp;
-        // bytes extraData; // must be `new bytes(0)`
-        bytes32 mixHash;
-        // uint64 nonce; // must be 0
-        uint256 baseFeePerGas;
-    }
-
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
