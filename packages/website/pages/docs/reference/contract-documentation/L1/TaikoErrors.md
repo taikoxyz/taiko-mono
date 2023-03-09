@@ -19,7 +19,7 @@ error L1_BLOCK_NUMBER()
 ### L1_CONFLICT_PROOF
 
 ```solidity
-error L1_CONFLICT_PROOF(struct Snippet snippet)
+error L1_CONFLICT_PROOF()
 ```
 
 ### L1_CONTRACT_NOT_ALLOWED
