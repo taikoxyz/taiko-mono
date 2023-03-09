@@ -25,7 +25,6 @@ library LibProposing {
     error L1_METADATA_FIELD();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_INVALID_PROOF();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 
@@ -35,7 +34,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput calldata input,
         bytes calldata txList
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    ) internal returns (bytes32 metaHash) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -68,13 +67,13 @@ library LibProposing {
             mixHash = block.prevrandao * state.nextBlockId;
         }
 
-        meta = TaikoData.BlockMetadata({
+        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
             l1Height: block.number - 1,
             l1Hash: blockhash(block.number - 1),
             beneficiary: input.beneficiary,
             txListHash: input.txListHash,
-            mixHash: mixHash,
+            mixHash: bytes32(mixHash),
             gasLimit: input.gasLimit,
             timestamp: uint64(block.timestamp)
         });
@@ -105,10 +104,11 @@ library LibProposing {
             );
         }
 
+        metaHash = keccak256(abi.encode(meta));
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: keccak256(abi.encode(meta)),
+            metaHash: metaHash,
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp

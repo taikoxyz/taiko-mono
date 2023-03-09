@@ -85,6 +85,7 @@ describe("integrationbridge:Bridge", function () {
             enabledDestChainId
         ));
 
+        // TODO(): {ethers.utils.solidityPack(chainId, 'dao_vault')
         await addressManager.setAddress(
             `${enabledDestChainId}.signal_service`,
             l2SignalService.address

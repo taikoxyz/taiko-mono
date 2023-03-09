@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Snippet} from "../common/IXchainSync.sol";
+import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct Config {
@@ -36,8 +36,21 @@ library TaikoData {
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         bool enableSoloProposer;
+        bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
+    }
+
+    struct StateVariables {
+        uint256 feeBase;
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 nextBlockId;
+        uint64 lastProposedAt;
+        uint64 avgBlockTime;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
+        uint64 avgProofTime;
     }
 
     struct BlockMetadataInput {
@@ -50,7 +63,7 @@ library TaikoData {
         uint256 id;
         uint256 l1Height;
         bytes32 l1Hash;
-        uint256 mixHash;
+        bytes32 mixHash;
         bytes32 txListHash;
         address beneficiary;
         uint64 gasLimit;
@@ -81,7 +94,7 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        Snippet snippet;
+        ChainData chainData;
         address prover;
         uint64 provenAt;
     }
@@ -92,7 +105,7 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockNumber => Snippet) l2Snippets;
+        mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;

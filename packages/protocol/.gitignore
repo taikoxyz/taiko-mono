@@ -17,8 +17,8 @@ npm-debug.log*
 cache
 artifacts
 cache
-lib
 cache_forge
+cache_hardhat
 out
 
 # Editors

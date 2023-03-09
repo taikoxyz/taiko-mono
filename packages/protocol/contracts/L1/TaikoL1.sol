@@ -54,30 +54,27 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *        will be the first transaction in the block -- if there are
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
-     * @return meta The updated block metadata.
+     * @return metaHash The hash of the updated block metadata.
      */
     function proposeBlock(
         TaikoData.BlockMetadataInput calldata input,
         bytes calldata txList
-    )
-        external
-        onlyFromEOA
-        nonReentrant
-        returns (TaikoData.BlockMetadata memory meta)
-    {
+    ) external onlyFromEOA nonReentrant returns (bytes32 metaHash) {
         TaikoData.Config memory config = getConfig();
-        meta = LibProposing.proposeBlock({
+        metaHash = LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             input: input,
             txList: txList
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
@@ -101,11 +98,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             blockId: blockId,
             evidence: evidence
         });
-        LibVerifying.verifyBlocks({
-            state: state,
-            config: config,
-            maxBlocks: config.maxVerificationsPerTx
-        });
+        if (config.maxVerificationsPerTx > 0) {
+            LibVerifying.verifyBlocks({
+                state: state,
+                config: config,
+                maxBlocks: config.maxVerificationsPerTx
+            });
+        }
     }
 
     /**
@@ -162,20 +161,24 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint256 number
     ) public view override returns (bytes32) {
         return
-            state.getL2Snippet(number, getConfig().blockHashHistory).blockHash;
+            state
+                .getL2ChainData(number, getConfig().blockHashHistory)
+                .blockHash;
     }
 
     function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         return
-            state.getL2Snippet(number, getConfig().blockHashHistory).signalRoot;
+            state
+                .getL2ChainData(number, getConfig().blockHashHistory)
+                .signalRoot;
     }
 
     function getStateVariables()
         public
         view
-        returns (LibUtils.StateVariables memory)
+        returns (TaikoData.StateVariables memory)
     {
         return state.getStateVariables();
     }
