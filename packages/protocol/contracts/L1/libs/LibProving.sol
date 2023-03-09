@@ -60,6 +60,7 @@ library LibProving {
             resolver.resolve(config.chainId, "signal_service", false)
         );
 
+        // TODO(daniel): hashBlockHeader cost 143140 gas!!!
         _proveBlock({
             state: state,
             config: config,
