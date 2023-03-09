@@ -197,6 +197,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			break
 		}
 	}
+
 	if m["status"] != nil {
 		// keep same format as other raw events
 		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
