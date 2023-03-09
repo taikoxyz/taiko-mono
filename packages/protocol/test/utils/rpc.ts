@@ -92,6 +92,7 @@ async function getBlockHeader(
         mixHash: block.mixHash,
         nonce: block.nonce,
         baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+        // set to zero for pre-shanghai L1 blocks used in the integration test node
         withdrawalsRoot: ethers.constants.HashZero,
     };
 
