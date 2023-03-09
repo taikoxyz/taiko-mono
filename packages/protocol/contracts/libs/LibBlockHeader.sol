@@ -45,7 +45,7 @@ library LibBlockHeader {
         uint256 extraCapacity
     ) internal pure returns (bytes[] memory list) {
         if (header.baseFeePerGas == 0) {
-            // non-EIP-1159 transaction
+            // non-EIP-1559 transaction
             list = new bytes[](15 + extraCapacity);
         } else {
             // EIP-1159 transaction
