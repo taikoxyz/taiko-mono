@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.18;
 
+import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IXchainSync, ChainData} from "../common/IXchainSync.sol";
 
 contract TaikoL2 is EssentialContract, IXchainSync {
     /**********************

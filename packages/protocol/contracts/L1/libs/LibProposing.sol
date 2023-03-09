@@ -111,7 +111,8 @@ library LibProposing {
             metaHash: metaHash,
             deposit: deposit,
             proposer: msg.sender,
-            proposedAt: meta.timestamp
+            proposedAt: meta.timestamp,
+            nextForkChoiceId: 1
         });
 
         state.avgBlockTime = LibUtils
@@ -138,6 +139,7 @@ library LibProposing {
         if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
             revert L1_ID();
         }
-        return state.getProposedBlock(maxNumBlocks, id);
+
+        return state.proposedBlocks[id % maxNumBlocks];
     }
 }

@@ -84,26 +84,27 @@ library TaikoData {
         address prover;
     }
 
-    // 3 slots
-    struct ProposedBlock {
-        bytes32 metaHash;
-        uint256 deposit;
-        address proposer;
-        uint64 proposedAt;
-    }
-
-    // 3 + n slots
     struct ForkChoice {
         ChainData chainData;
         address prover;
         uint64 provenAt;
     }
 
+    // 3 slots
+    struct ProposedBlock {
+        bytes32 metaHash;
+        uint256 deposit;
+        address proposer;
+        uint64 proposedAt;
+        uint32 nextForkChoiceId;
+    }
+
     // This struct takes 9 slots.
     struct State {
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
+        mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 outstandingReward) balances;
