@@ -25,6 +25,7 @@ struct BlockHeader {
     bytes32 mixHash;
     uint64 nonce;
     uint256 baseFeePerGas;
+    bytes32 withdrawalsRoot;
 }
 
 library LibBlockHeader {
@@ -44,12 +45,15 @@ library LibBlockHeader {
         BlockHeader memory header,
         uint256 extraCapacity
     ) internal pure returns (bytes[] memory list) {
-        if (header.baseFeePerGas == 0) {
-            // non-EIP11559 transaction
-            list = new bytes[](15 + extraCapacity);
-        } else {
-            // EIP1159 transaction
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list = new bytes[](17 + extraCapacity);
+        } else if (header.baseFeePerGas != 0) {
+            // EIP-1559 transaction
             list = new bytes[](16 + extraCapacity);
+        } else {
+            // non-EIP-1559 transaction
+            list = new bytes[](15 + extraCapacity);
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
@@ -69,8 +73,12 @@ library LibBlockHeader {
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
         if (header.baseFeePerGas != 0) {
-            // non-EIP11559 transaction
+            // EIP-1559 transaction
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
+        }
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list[16] = LibRLPWriter.writeHash(header.withdrawalsRoot);
         }
     }
 }
