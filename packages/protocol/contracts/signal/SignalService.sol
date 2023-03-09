@@ -79,19 +79,26 @@ contract SignalService is ISignalService, EssentialContract {
         }
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
+
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        bytes32 syncedHeaderHash = IXchainSync(resolve("taiko", false))
-            .getXchainBlockHash(sp.header.height);
+        IXchainSync chainSync = IXchainSync(resolve("taiko", false));
+
+        bytes32 syncedHeaderHash = chainSync.getXchainBlockHash(
+            sp.header.height
+        );
+
+        bytes32 syncedSignalRoot = chainSync.getXchainSignalRoot(
+            sp.header.height
+        );
 
         return
             syncedHeaderHash != 0 &&
             syncedHeaderHash == sp.header.hashBlockHeader() &&
             LibTrieProof.verify({
-                stateRoot: sp.header.stateRoot,
-                addr: resolve(srcChainId, "signal_service", false),
                 slot: getSignalSlot(app, signal),
                 value: bytes32(uint256(1)),
-                mkproof: sp.proof
+                storageProof: sp.proof,
+                storageRoot: syncedSignalRoot
             });
     }
 

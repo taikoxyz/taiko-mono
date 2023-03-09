@@ -18,7 +18,7 @@ contract TestXchainSync is IXchainSync {
         _blockHash = blockHash;
     }
 
-    function seXchainSignalRoot(bytes32 signalRoot) external {
+    function setXchainSignalRoot(bytes32 signalRoot) external {
         _blockHash = signalRoot;
     }
 

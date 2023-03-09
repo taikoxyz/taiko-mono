@@ -114,11 +114,14 @@ describe("integration:LibTrieProof", function () {
 
             // use this instead of ethers.provider.getBlock() beccause it doesnt have stateRoot
             // in the response
-            const block: { stateRoot: string; number: string; hash: string } =
-                await ethers.provider.send("eth_getBlockByNumber", [
-                    "latest",
-                    false,
-                ]);
+            const block: {
+                stateRoot: string;
+                number: string;
+                hash: string;
+            } = await ethers.provider.send("eth_getBlockByNumber", [
+                "latest",
+                false,
+            ]);
 
             // get storageValue for the slot
             const storageValue = await ethers.provider.getStorageAt(
@@ -136,23 +139,12 @@ describe("integration:LibTrieProof", function () {
                 [signalService.address, [slot], block.hash]
             );
 
-            const stateRoot = block.stateRoot;
-
-            // RLP encode the proof together for LibTrieProof to decode
-            const encodedProof = ethers.utils.defaultAbiCoder.encode(
-                ["bytes", "bytes"],
-                [
-                    RLP.encode(proof.accountProof),
-                    RLP.encode(proof.storageProof[0].proof),
-                ]
-            );
             // proof verifies the storageValue at slot is 1
             await testLibTrieProof.verify(
-                stateRoot,
-                signalService.address,
                 slot,
                 "0x0000000000000000000000000000000000000000000000000000000000000001",
-                encodedProof
+                RLP.encode(proof.storageProof[0].proof),
+                proof.storageHash
             );
         });
     });

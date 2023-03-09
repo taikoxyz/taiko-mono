@@ -1,13 +1,11 @@
 import { expect } from "chai";
 import { SimpleChannel } from "channel-ts";
-import { BigNumber, ethers as ethersLib } from "ethers";
+import { ethers as ethersLib } from "ethers";
 import { ethers } from "hardhat";
 import { TaikoL1, TestTaikoToken } from "../../typechain";
 import blockListener from "../utils/blockListener";
 import { BlockMetadata } from "../utils/block_metadata";
-import {
-    proposeLatestBlock,
-} from "../utils/commit";
+import { proposeLatestBlock } from "../utils/commit";
 import { encodeEvidence } from "../utils/encoding";
 import {
     readShouldRevertWithCustomError,
@@ -15,12 +13,11 @@ import {
 } from "../utils/errors";
 import Evidence from "../utils/evidence";
 import { initIntegrationFixture } from "../utils/fixture";
-import { buildProposeBlockInputs } from "../utils/propose";
 import Proposer from "../utils/proposer";
 import { buildProveBlockInputs, proveBlock } from "../utils/prove";
 import Prover from "../utils/prover";
 import { getBlockHeader } from "../utils/rpc";
-import { seedTko, sendTinyEtherToZeroAddress } from "../utils/seed";
+import { seedTko } from "../utils/seed";
 import { proposeProveAndVerify, verifyBlocks } from "../utils/verify";
 
 describe("integ-----disabled-----ration:TaikoL1", function () {
@@ -82,7 +79,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
             const { proposedEvent } = await proposeLatestBlock(
                 taikoL1,
                 l1Signer,
-                l2Provider,
+                l2Provider
             );
             expect(proposedEvent).not.to.be.undefined;
 
@@ -141,9 +138,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
             const block = await l2Provider.getBlock(blockNumber);
 
             // propose block, so our provers can prove it.
-            const { proposedEvent } = await proposer.proposeBlock(
-                block
-            );
+            const { proposedEvent } = await proposer.proposeBlock(block);
 
             await prover.prove(
                 proposedEvent.args.id.toNumber(),
@@ -221,9 +216,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
                 const block = await l2Provider.getBlock(blockNumber);
 
                 // propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.proposeBlock(
-                    block
-                );
+                const { proposedEvent } = await proposer.proposeBlock(block);
 
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = buildProveBlockInputs(
@@ -268,9 +261,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
                 const block = await l2Provider.getBlock(blockNumber);
 
                 // propose block, so our provers can prove it.
-                const { proposedEvent } = await proposer.proposeBlock(
-                    block
-                );
+                const { proposedEvent } = await proposer.proposeBlock(block);
 
                 const header = await getBlockHeader(l2Provider, blockNumber);
                 const inputs = [];

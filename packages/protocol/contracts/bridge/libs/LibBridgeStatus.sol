@@ -79,6 +79,7 @@ library LibBridgeStatus {
             proof,
             (LibBridgeData.StatusProof)
         );
+
         bytes32 syncedHeaderHash = IXchainSync(resolver.resolve("taiko", false))
             .getXchainBlockHash(sp.header.height);
 
@@ -90,7 +91,7 @@ library LibBridgeStatus {
         }
 
         return
-            LibTrieProof.verify({
+            LibTrieProof.verifyWithAccountProof({
                 stateRoot: sp.header.stateRoot,
                 addr: resolver.resolve(destChainId, "bridge", false),
                 slot: getMessageStatusSlot(msgHash),
