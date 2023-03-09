@@ -37,9 +37,9 @@ struct Config {
 
 ```solidity
 struct BlockMetadataInput {
+  bytes32 txListHash;
   address beneficiary;
   uint64 gasLimit;
-  bytes32 txListHash;
 }
 ```
 
@@ -50,9 +50,9 @@ struct BlockMetadata {
   uint256 id;
   uint256 l1Height;
   bytes32 l1Hash;
-  address beneficiary;
-  bytes32 txListHash;
   uint256 mixHash;
+  bytes32 txListHash;
+  address beneficiary;
   uint64 gasLimit;
   uint64 timestamp;
 }
@@ -67,26 +67,16 @@ struct ZKProof {
 }
 ```
 
-### ValidBlockEvidence
+### BlockEvidence
 
 ```solidity
-struct ValidBlockEvidence {
+struct BlockEvidence {
   struct TaikoData.BlockMetadata meta;
   struct TaikoData.ZKProof zkproof;
-  address prover;
-  struct BlockHeader header;
-  bytes32 signalRoot;
-}
-```
-
-### InvalidBlockEvidence
-
-```solidity
-struct InvalidBlockEvidence {
-  struct TaikoData.BlockMetadata meta;
-  struct TaikoData.ZKProof zkproof;
-  address prover;
   bytes32 parentHash;
+  bytes32 blockHash;
+  bytes32 signalRoot;
+  address prover;
 }
 ```
 
