@@ -152,6 +152,8 @@ contract TaikoL1Test is Test {
             });
         vm.prank(prover, prover);
         L1.proveBlock(blockId, evidence);
+        vm.prank(prover, prover);
+        L1.verifyBlocks(1);
     }
 
     function testProposeSingleBlock() external {
@@ -161,10 +163,11 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks - 1; blockId++) {
+        for (uint blockId = 1; blockId < conf.maxNumBlocks * 3; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
             // mockCall(VB_100, "", bytes(bytes32(true)));
             parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
+
             // clearMockCalls();
             vm.roll(block.number + 1);
         }
