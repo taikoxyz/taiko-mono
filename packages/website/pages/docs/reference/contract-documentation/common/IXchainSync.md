@@ -1,7 +1,7 @@
-## Snippet
+## ChainData
 
 ```solidity
-struct Snippet {
+struct ChainData {
   bytes32 blockHash;
   bytes32 signalRoot;
 }
@@ -16,7 +16,7 @@ struct Snippet {
 ### XchainSynced
 
 ```solidity
-event XchainSynced(uint256 srcHeight, struct Snippet srcSnippet)
+event XchainSynced(uint256 srcHeight, struct ChainData srcChainData)
 ```
 
 ### getXchainBlockHash

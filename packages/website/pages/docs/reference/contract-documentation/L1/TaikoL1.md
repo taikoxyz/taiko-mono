@@ -25,7 +25,7 @@ function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBas
 ### proposeBlock
 
 ```solidity
-function proposeBlock(struct TaikoData.BlockMetadataInput input, bytes txList) external returns (struct TaikoData.BlockMetadata meta)
+function proposeBlock(struct TaikoData.BlockMetadataInput input, bytes txList) external returns (bytes32 metaHash)
 ```
 
 Propose a Taiko L2 block.
@@ -39,9 +39,9 @@ Propose a Taiko L2 block.
 
 #### Return Values
 
-| Name | Type                           | Description                 |
-| ---- | ------------------------------ | --------------------------- |
-| meta | struct TaikoData.BlockMetadata | The updated block metadata. |
+| Name     | Type    | Description                             |
+| -------- | ------- | --------------------------------------- |
+| metaHash | bytes32 | The hash of the updated block metadata. |
 
 ### proveBlock
 
@@ -153,7 +153,7 @@ block number.
 ### getStateVariables
 
 ```solidity
-function getStateVariables() public view returns (struct LibUtils.StateVariables)
+function getStateVariables() public view returns (struct TaikoData.StateVariables)
 ```
 
 ### getForkChoice
