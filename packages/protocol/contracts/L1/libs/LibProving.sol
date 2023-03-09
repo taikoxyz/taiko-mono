@@ -81,7 +81,7 @@ library LibProving {
         if (!oracleProving && !config.skipZKPVerification) {
             address verifier = resolver.resolve(
                 string(
-                    abi.encodePacked("verifier", evidence.zkproof.circuitId)
+                    abi.encodePacked("verifier_", evidence.zkproof.circuitId)
                 ),
                 false
             );
