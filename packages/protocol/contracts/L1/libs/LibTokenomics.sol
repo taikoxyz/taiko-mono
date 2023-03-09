@@ -105,14 +105,18 @@ library LibTokenomics {
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
+        uint256 m;
+        uint256 n;
+        uint256 k;
         // m is the `n'` in the whitepaper
-        uint256 m = 1000 *
-            (config.maxNumBlocks - 1) +
-            config.slotSmoothingFactor;
-        // n is the number of unverified blocks
-        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
-        // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+        unchecked {
+            m = 1000 * (config.maxNumBlocks - 1) + config.slotSmoothingFactor;
+            // n is the number of unverified blocks
+            n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
+
+            // k is `m − n + 1` or `m − n - 1`in the whitepaper
+            k = isProposal ? m - n - 1000 : m - n + 1000;
+        }
         return (feeBase * (m - 1000) * m) / (m - n) / k;
     }
 
