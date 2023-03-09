@@ -16,6 +16,10 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibProving {
     using LibUtils for TaikoData.State;
 
+
+    bytes32 public constant  VERIFIER_OK =  // keccak256("Taiko")
+    0xc6baa0f809cf694efa91aff0be8930f6986b3b4037ae3a94e302aeff2f794039;
+
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -125,7 +129,7 @@ library LibProving {
                 );
             }
 
-            (bool verified, ) = verifier.staticcall(
+            (bool verified, bytes memory ret) = verifier.staticcall(
                 bytes.concat(
                     bytes16(0),
                     bytes16(instance), // left 16 bytes of the given instance
@@ -135,7 +139,7 @@ library LibProving {
                 )
             );
 
-            if (!verified) revert L1_INVALID_PROOF();
+            if (!verified || ret.length != 32 || bytes32(ret) != VERIFIER_OK) revert L1_INVALID_PROOF();
         }
 
         emit BlockProven({
