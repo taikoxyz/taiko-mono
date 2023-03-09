@@ -324,16 +324,9 @@ async function deployBaseLibs(hre: any) {
 
 async function deployBridge(hre: any, addressManager: string): Promise<any> {
     const libTrieProof = await utils.deployContract(hre, "LibTrieProof");
-    const libBridgeRetry = await utils.deployContract(hre, "LibBridgeRetry");
-    const libBridgeProcess = await utils.deployContract(
-        hre,
-        "LibBridgeProcess"
-    );
 
     const Bridge = await utils.deployContract(hre, "Bridge", {
         LibTrieProof: libTrieProof.address,
-        LibBridgeRetry: libBridgeRetry.address,
-        LibBridgeProcess: libBridgeProcess.address,
     });
 
     await utils.waitTx(hre, await Bridge.init(addressManager));
