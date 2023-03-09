@@ -57,10 +57,9 @@ library LibVerifying {
             i = state.latestVerifiedId + 1;
         }
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.ProposedBlock storage proposal = state.getProposedBlock(
-                config.maxNumBlocks,
-                i
-            );
+            TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+                i % config.maxNumBlocks
+            ];
 
             uint256 fcId = state.forkChoiceIds[i][latestL2ChainData.blockHash];
             if (proposal.nextForkChoiceId <= fcId) {

@@ -24,6 +24,7 @@ library LibProving {
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
+    error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INVALID_PROOF();
     error L1_NONZERO_SIGNAL_ROOT();
@@ -43,10 +44,9 @@ library LibProving {
             meta.id >= state.nextBlockId
         ) revert L1_ID();
 
-        TaikoData.ProposedBlock storage proposal = state.getProposedBlock(
-            config.maxNumBlocks,
-            meta.id
-        );
+        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+            meta.id % config.maxNumBlocks
+        ];
 
         if (proposal.metaHash != keccak256(abi.encode(meta)))
             revert L1_EVIDENCE_MISMATCH();
@@ -146,5 +146,24 @@ library LibProving {
             ++proposal.nextForkChoiceId;
         }
         emit BlockProven({id: blockId, parentHash: evidence.parentHash});
+    }
+
+    function getForkChoice(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id,
+        bytes32 parentHash
+    ) internal view returns (TaikoData.ForkChoice storage) {
+        if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
+            revert L1_ID();
+        }
+
+        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+            id % maxNumBlocks
+        ];
+        uint256 fcId = state.forkChoiceIds[id][parentHash];
+        if (fcId >= proposal.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+
+        return state.forkChoices[id % maxNumBlocks][fcId];
     }
 }

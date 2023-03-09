@@ -156,6 +156,19 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
     }
 
+    function getForkChoice(
+        uint256 id,
+        bytes32 parentHash
+    ) public view returns (TaikoData.ForkChoice memory) {
+        return
+            LibProving.getForkChoice(
+                state,
+                getConfig().maxNumBlocks,
+                id,
+                parentHash
+            );
+    }
+
     function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
@@ -181,13 +194,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     {
         return state.getStateVariables();
     }
-
-    // function getForkChoice(
-    //     uint256 id,
-    //     bytes32 parentHash
-    // ) public view returns (TaikoData.ForkChoice memory) {
-    //     return state.forkChoices[id][parentHash];
-    // }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoConfig.getConfig();

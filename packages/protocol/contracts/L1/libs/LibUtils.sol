@@ -21,14 +21,6 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
-    function getProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
-        return state.proposedBlocks[id % maxNumBlocks];
-    }
-
     function getL2ChainData(
         TaikoData.State storage state,
         uint256 number,

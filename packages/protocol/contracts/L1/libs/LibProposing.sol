@@ -139,6 +139,7 @@ library LibProposing {
         if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
             revert L1_ID();
         }
-        return state.getProposedBlock(maxNumBlocks, id);
+
+        return state.proposedBlocks[id % maxNumBlocks];
     }
 }
