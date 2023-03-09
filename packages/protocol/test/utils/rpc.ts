@@ -92,7 +92,7 @@ async function getBlockHeader(
         mixHash: block.mixHash,
         nonce: block.nonce,
         baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
-        withdrawalsRoot: block.withdrawalsRoot,
+        withdrawalsRoot: ethers.constants.HashZero,
     };
 
     return { block, blockHeader };
