@@ -159,26 +159,26 @@ library LibProving {
 
         if (!oracleProving && !config.skipZKPVerification) {
             // Do not revert when circuitId is invalid.
-            address verifier = resolver.resolve(
-                string.concat(
+            string memory verifierName = string(
+                abi.encodePacked(
                     snippet.blockHash == LibUtils.BLOCK_DEADEND_HASH
                         ? "vib_" // verifier for invalid blocks
                         : "vb_", // verifier for valid blocks
-                    Strings.toString(zkproof.circuitId)
-                ),
-                true
-            );
-            if (verifier == address(0)) revert L1_INVALID_PROOF();
-
-            (bool verified, ) = verifier.staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    zkproof.data
+                    zkproof.circuitId
                 )
             );
+
+            (bool verified, ) = resolver
+                .resolve(verifierName, false)
+                .staticcall(
+                    bytes.concat(
+                        bytes16(0),
+                        bytes16(instance), // left 16 bytes of the given instance
+                        bytes16(0),
+                        bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                        zkproof.data
+                    )
+                );
 
             if (!verified) revert L1_INVALID_PROOF();
         }

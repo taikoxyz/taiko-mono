@@ -69,8 +69,11 @@ contract TaikoL1Test is Test {
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(L2SS));
-        _registerAddress("bib_100", VIB_100);
-        _registerAddress("vb_100", VB_100);
+        _registerAddress(
+            string(abi.encodePacked("vib_", uint256(100))),
+            VIB_100
+        );
+        _registerAddress(string(abi.encodePacked("vb_", uint256(100))), VB_100);
     }
 
     function proposeBlock(
