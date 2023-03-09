@@ -6,6 +6,7 @@
 
 pragma solidity ^0.8.18;
 
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IAddressManager} from "./IAddressManager.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -79,7 +80,7 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        string memory key = string(abi.encodePacked(chainId, name));
+        string memory key = string.concat(Strings.toString(chainId), ".", name);
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
