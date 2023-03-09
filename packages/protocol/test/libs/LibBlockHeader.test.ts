@@ -46,6 +46,7 @@ describe("LibBlockHeader tests", function () {
                 "0xf5ba25df1e92e89a09e0b32063b81795f631100801158f5fa733f2ba26843bd0",
             nonce: EBN.from("0x738b7e38476abe98"),
             baseFeePerGas: 0,
+            withdrawalsRoot: ethers.constants.HashZero,
         };
 
         const headerComputed = await libBlockHeader.hashBlockHeader(
@@ -87,6 +88,7 @@ describe("LibBlockHeader tests", function () {
             mixHash: ethers.constants.HashZero,
             nonce: EBN.from("0x0"),
             baseFeePerGas: 0,
+            withdrawalsRoot: ethers.constants.HashZero,
         };
 
         const headerComputed = await libBlockHeader.hashBlockHeader(
@@ -96,7 +98,7 @@ describe("LibBlockHeader tests", function () {
         expect(headerComputed).to.equal(blockHash);
     });
 
-    it("can calculate EIP1159", async function () {
+    it("can calculate EIP-1559", async function () {
         const blockHash =
             "0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e";
         // block 0xb39b05b327d23ca29286fa7e2331d8269cd257cf10a8310b40ebaddf411f191e on our L1 testnet
@@ -130,6 +132,52 @@ describe("LibBlockHeader tests", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
             nonce: "0x0",
             baseFeePerGas: EBN.from("0x37"),
+            withdrawalsRoot: ethers.constants.HashZero,
+        };
+
+        const headerComputed = await libBlockHeader.hashBlockHeader(
+            l2BlockHeader
+        );
+        log.debug("headerComputed:", headerComputed);
+
+        expect(headerComputed).to.equal(blockHash);
+    });
+
+    it("can hash post Shanghai fork blocks", async function () {
+        const blockHash =
+            "0x0fb703aea6875ca7e78a73552064cf96a0985879c3b1fa27c846d41b1aa4e98e";
+        // block 0x0fb703aea6875ca7e78a73552064cf96a0985879c3b1fa27c846d41b1aa4e98e on Sepolia.
+
+        const parentHash =
+            "0xe122a2cc28199703e3ed6bee61875dc1703aa97c3187d8df507f1f789e363977";
+
+        const l2BlockHeader: any = {
+            parentHash: parentHash,
+            ommersHash:
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            beneficiary: "0x3826539cbd8d68dcf119e80b994557b4278cec9f",
+            stateRoot:
+                "0x2525478f8cd349640e6d1780334e63c56fa0bfb44d89fbd75cb3fcf82d38521c",
+            transactionsRoot:
+                "0x97ea65e77b43073c372976694916209b916caa0caef1445d53e9757b9824bdef",
+            receiptsRoot:
+                "0xa8b034a217a5d4d4615ee0ed28c4d5275b93888c01c65a98fcdd1aeda6903e1c",
+            logsBloom:
+                "00000004000000000000000000100000000100000010001000000000000000000000880000000000000400001100000000000000000000000000000010300000000000000000000000000008000000000000200000000000000000008080000000002000020040000200000400000900000000000000000010000014000000000020024008000000000800000000900000211001000040002000000000000810021000000040400000102000000000040400002000000000000008000000001000008002300000000000000020000008004000000001000110000001000028000014440800010000000000000000000004210000000000400000000000000000"
+                    .match(/.{1,64}/g)!
+                    .map((s) => "0x" + s),
+            difficulty: EBN.from("0x0"),
+            height: EBN.from("0x2e93c3"),
+            gasLimit: EBN.from("0x1c9c380"),
+            gasUsed: EBN.from("0x44dd61"),
+            timestamp: EBN.from("0x64097a78"),
+            extraData: "0x",
+            mixHash:
+                "0xa3fedc5083947ffb01157d6a89aa00f0592e14b94da8768ac0e6ded0aa490eb8",
+            nonce: "0x0000000000000000",
+            baseFeePerGas: EBN.from("0x7"),
+            withdrawalsRoot:
+                "0x0975bba9482fab7591735f9dc8c344078d27abac007086d5dd62ee3a21e3ed29",
         };
 
         const headerComputed = await libBlockHeader.hashBlockHeader(
