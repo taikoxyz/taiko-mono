@@ -22,6 +22,10 @@ contract TaikoL1Test is Test {
     address public constant alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
     address public constant bob = 0x000000000000000000636F6e736F6c652e6c6f67;
 
+    address public constant vib_100 =
+        0xeD33259a056F4fb449FFB7B7E2eCB43a9B5685Bf;
+    address public constant vb_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
+
     AddressManager public addressManager;
 
     function setUp() public {
@@ -47,6 +51,8 @@ contract TaikoL1Test is Test {
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(l2ss));
+        _registerAddress("vib_100", vib_100);
+        _registerAddress("vb_100", vb_100);
     }
 
     function proposeBlock(
@@ -116,7 +122,7 @@ contract TaikoL1Test is Test {
 
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
-            circuitId: 1
+            circuitId: 100
         });
 
         TaikoData.ValidBlockEvidence memory evidence = TaikoData
@@ -138,9 +144,12 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = genesisBlockHash;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 2; blockId++) {
+        for (uint blockId = 1; blockId < 2; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(alice, 1024);
+            // mockCall(vb_100, "", bytes(bytes32(true)));
             parentHash = proveBlock(bob, conf, blockId, parentHash, meta);
+            // clearMockCalls();
+            vm.roll(block.number + 1);
         }
     }
 

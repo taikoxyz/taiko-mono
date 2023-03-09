@@ -158,8 +158,8 @@ library LibProving {
             address verifier = resolver.resolve(
                 string.concat(
                     snippet.blockHash == LibUtils.BLOCK_DEADEND_HASH
-                        ? "vib" // verifier for invalid blocks
-                        : "vb", // verifier for valid blocks
+                        ? "vib_" // verifier for invalid blocks
+                        : "vb_", // verifier for valid blocks
                     Strings.toString(zkproof.circuitId)
                 ),
                 true
