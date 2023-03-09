@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "../contracts/L1/TaikoData.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 struct MyStruct {
     uint256 id;
@@ -156,6 +157,21 @@ contract FooBar {
             }
         }
     }
+
+    // ------
+    function hashKey_1(
+        uint chainId,
+        string memory name
+    ) public view returns (bytes32) {
+        return keccak256(bytes(string.concat(Strings.toString(chainId), name)));
+    }
+
+    function hashKey_2(
+        uint chainId,
+        string memory name
+    ) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(chainId, name));
+    }
 }
 
 contract GasComparisonTest is Test {
@@ -187,6 +203,9 @@ contract GasComparisonTest is Test {
 
         foobar.return_1();
         foobar.return_2(); // cheaper
+
+        foobar.hashKey_1(123, "abc");
+        foobar.hashKey_2(123, "abc");
 
         MyStruct memory meta = MyStruct({
             id: 123,

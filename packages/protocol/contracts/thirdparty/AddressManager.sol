@@ -72,7 +72,7 @@ contract AddressManager is OwnableUpgradeable {
         string memory _name,
         address _address
     ) external onlyOwner {
-        bytes32 nameHash = _getNameHash(_name);
+        bytes32 nameHash = keccak256(bytes(_name));
         address oldAddress = addresses[nameHash];
         addresses[nameHash] = _address;
 
@@ -89,19 +89,6 @@ contract AddressManager is OwnableUpgradeable {
      * @return Address associated with the given name.
      */
     function getAddress(string memory _name) external view returns (address) {
-        return addresses[_getNameHash(_name)];
-    }
-
-    /**********************
-     * Internal Functions *
-     **********************/
-
-    /**
-     * Computes the hash of a name.
-     * @param _name Name to compute a hash for.
-     * @return Hash of the given name.
-     */
-    function _getNameHash(string memory _name) internal pure returns (bytes32) {
-        return keccak256(bytes(_name));
+        return addresses[keccak256(bytes(_name))];
     }
 }

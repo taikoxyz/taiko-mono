@@ -161,7 +161,7 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 3; blockId++) {
+        for (uint blockId = 1; blockId < conf.maxNumBlocks - 1; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
             // mockCall(VB_100, "", bytes(bytes32(true)));
             parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
@@ -174,21 +174,14 @@ contract TaikoL1Test is Test {
     }
 
     function _registerAddress(string memory name, address addr) internal {
-        string memory key = string.concat(
-            Strings.toString(block.chainid),
-            ".",
-            name
-        );
+        string memory key = string(abi.encodePacked(block.chainid, name));
         addressManager.setAddress(key, addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         TaikoData.Config memory conf = L1.getConfig();
-        string memory key = string.concat(
-            Strings.toString(conf.chainId),
-            ".",
-            name
-        );
+        string memory key = string(abi.encodePacked(conf.chainId, name));
+
         addressManager.setAddress(key, addr);
     }
 
