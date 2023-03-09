@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Snippet} from "../common/IXchainSync.sol";
+import {ChainData} from "../common/IXchainSync.sol";
 import {TaikoData} from "./TaikoData.sol";
 
 abstract contract TaikoEvents {
@@ -16,5 +16,5 @@ abstract contract TaikoEvents {
 
     event BlockProven(uint256 indexed id, bytes32 parentHash);
 
-    event BlockVerified(uint256 indexed id, Snippet snippet);
+    event BlockVerified(uint256 indexed id, ChainData chainData);
 }

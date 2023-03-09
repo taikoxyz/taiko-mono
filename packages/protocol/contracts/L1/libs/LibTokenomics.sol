@@ -11,7 +11,7 @@ import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {Snippet} from "../../common/IXchainSync.sol";
+import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 

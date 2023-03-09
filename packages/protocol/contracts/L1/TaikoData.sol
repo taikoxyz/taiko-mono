@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Snippet} from "../common/IXchainSync.sol";
+import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct Config {
@@ -92,7 +92,7 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        Snippet snippet;
+        ChainData chainData;
         address prover;
         uint64 provenAt;
     }
@@ -103,7 +103,7 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockNumber => Snippet) l2Snippets;
+        mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;

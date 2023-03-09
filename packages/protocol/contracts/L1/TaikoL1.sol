@@ -161,14 +161,18 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         uint256 number
     ) public view override returns (bytes32) {
         return
-            state.getL2Snippet(number, getConfig().blockHashHistory).blockHash;
+            state
+                .getL2ChainData(number, getConfig().blockHashHistory)
+                .blockHash;
     }
 
     function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         return
-            state.getL2Snippet(number, getConfig().blockHashHistory).signalRoot;
+            state
+                .getL2ChainData(number, getConfig().blockHashHistory)
+                .signalRoot;
     }
 
     function getStateVariables()

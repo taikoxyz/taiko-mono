@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
-import {Snippet} from "../../common/IXchainSync.sol";
+import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -49,7 +49,7 @@ library LibProving {
             evidence.parentHash
         ];
 
-        if (fc.snippet.blockHash == 0) {
+        if (fc.chainData.blockHash == 0) {
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
@@ -57,7 +57,7 @@ library LibProving {
                 oracleProving = true;
             }
 
-            fc.snippet = Snippet(evidence.blockHash, evidence.signalRoot);
+            fc.chainData = ChainData(evidence.blockHash, evidence.signalRoot);
 
             if (!oracleProving) {
                 fc.prover = evidence.prover;
@@ -66,8 +66,8 @@ library LibProving {
         } else {
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
             if (
-                fc.snippet.blockHash != evidence.blockHash ||
-                fc.snippet.signalRoot != evidence.signalRoot
+                fc.chainData.blockHash != evidence.blockHash ||
+                fc.chainData.signalRoot != evidence.signalRoot
             ) revert L1_CONFLICT_PROOF();
 
             fc.prover = evidence.prover;
