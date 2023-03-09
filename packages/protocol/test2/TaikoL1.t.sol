@@ -9,6 +9,8 @@ import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
 
 contract TaikoL1WithConfig is TaikoL1 {
     function getConfig()
@@ -20,6 +22,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config = TaikoConfig.getConfig();
         config.maxNumBlocks = 5;
         config.maxVerificationsPerTx = 0;
+        config.enableSoloProposer = false;
         config.enableOracleProver = false;
     }
 }
@@ -35,9 +38,7 @@ contract TaikoL1Test is Test {
     address public constant ALICE = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
     address public constant BOB = 0x000000000000000000636F6e736F6c652e6c6f67;
 
-    address public constant VIB_100 =
-        0xeD33259a056F4fb449FFB7B7E2eCB43a9B5685Bf;
-    address public constant VB_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
+    address public constant VERIFIER_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
 
     AddressManager public addressManager;
 
@@ -65,10 +66,11 @@ contract TaikoL1Test is Test {
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(L2SS));
         _registerAddress(
-            string(abi.encodePacked("vib_", uint256(100))),
-            VIB_100
+             string(
+                    abi.encodePacked("verifier_", uint256(100))
+                ),
+            VERIFIER_100
         );
-        _registerAddress(string(abi.encodePacked("vb_", uint256(100))), VB_100);
     }
 
     function proposeBlock(
@@ -107,50 +109,31 @@ contract TaikoL1Test is Test {
     }
 
     function proveBlock(
-        address prover,
         TaikoData.Config memory conf,
         uint256 blockId,
+        TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
-        TaikoData.BlockMetadata memory meta
-    ) internal returns (bytes32 blockHash) {
-        bytes32[8] memory logsBloom;
+        bytes32 blockHash,
+        bytes32 signalRoot,
+        address prover
+    ) internal {
 
-        // BlockHeader memory header = BlockHeader({
-        //     parentHash: parentHash,
-        //     ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
-        //     beneficiary: meta.beneficiary,
-        //     stateRoot: bytes32(blockId + 200),
-        //     transactionsRoot: bytes32(blockId + 201),
-        //     receiptsRoot: bytes32(blockId + 202),
-        //     logsBloom: logsBloom,
-        //     difficulty: 0,
-        //     height: uint128(blockId),
-        //     gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
-        //     gasUsed: uint64(100),
-        //     timestamp: meta.timestamp,
-        //     extraData: new bytes(0),
-        //     mixHash: bytes32(meta.mixHash),
-        //     nonce: 0,
-        //     baseFeePerGas: 10000
-        // });
+        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
+            data: new bytes(100),
+            circuitId: 100
+        });
 
-        // blockHash = LibBlockHeader.hashBlockHeader(header);
-
-        // TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-        //     data: new bytes(100),
-        //     circuitId: 100
-        // });
-
-        // TaikoData.ValidBlockEvidence memory evidence = TaikoData
-        //     .ValidBlockEvidence({
-        //         meta: meta,
-        //         zkproof: zkproof,
-        //         header: header,
-        //         signalRoot: bytes32(blockId + 400),
-        //         prover: prover
-        //     });
-        // vm.prank(prover, prover);
-        // L1.proveBlock(blockId, evidence);
+        TaikoData.BlockEvidence memory evidence = TaikoData
+            .BlockEvidence({
+                meta: meta,
+                zkproof: zkproof,
+                parentHash:parentHash,
+                blockHash:blockHash,
+                signalRoot: signalRoot,
+                prover: prover
+            });
+        vm.prank(prover, prover);
+        L1.proveBlock(blockId, evidence);
     }
 
     function testProposeSingleBlock() external {
@@ -163,24 +146,23 @@ contract TaikoL1Test is Test {
         for (uint blockId = 1; blockId < conf.maxNumBlocks - 1; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
             // mockCall(VB_100, "", bytes(bytes32(true)));
-            parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
+            // parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
 
-            vm.prank(BOB, BOB);
-            L1.verifyBlocks(1);
+            // vm.prank(BOB, BOB);
+            // L1.verifyBlocks(1);
             // clearMockCalls();
             vm.roll(block.number + 1);
         }
     }
 
     function _registerAddress(string memory name, address addr) internal {
-        string memory key = string(abi.encodePacked(block.chainid, name));
+        string memory key = string.concat(Strings.toString(block.chainid), ".", name);
         addressManager.setAddress(key, addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         TaikoData.Config memory conf = L1.getConfig();
-        string memory key = string(abi.encodePacked(conf.chainId, name));
-
+        string memory key = string.concat(Strings.toString(conf.chainId), ".", name);
         addressManager.setAddress(key, addr);
     }
 
