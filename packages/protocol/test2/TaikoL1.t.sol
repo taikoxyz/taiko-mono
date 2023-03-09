@@ -1,30 +1,46 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
-import "forge-std/console2.sol";
+import {Test} from "forge-std/Test.sol";
+// import {console2} from "forge-std/console2.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import "../contracts/thirdparty/AddressManager.sol";
-import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/TaikoConfig.sol";
-import "../contracts/L1/TaikoData.sol";
-import "../contracts/L1/TaikoToken.sol";
-import "../contracts/libs/LibBlockHeader.sol";
-import "../contracts/signal/SignalService.sol";
+import {AddressManager} from "../contracts/thirdparty/AddressManager.sol";
+import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
+import {TaikoData} from "../contracts/L1/TaikoData.sol";
+import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
+import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
+import {
+    BlockHeader,
+    LibBlockHeader
+} from "../contracts/libs/LibBlockHeader.sol";
+import {SignalService} from "../contracts/signal/SignalService.sol";
+
+contract TaikoL1WithConfig is TaikoL1 {
+    function getConfig()
+        public
+        pure
+        override
+        returns (TaikoData.Config memory config)
+    {
+        config = TaikoConfig.getConfig();
+        config.maxNumBlocks = 5;
+    }
+}
 
 contract TaikoL1Test is Test {
     TaikoToken public tko;
-    TaikoL1 public L1;
+    TaikoL1WithConfig public L1;
     SignalService public ss;
 
-    bytes32 public constant genesisBlockHash = keccak256("genesisBlockHash");
-    address public constant l2ss = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
-    address public constant alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
-    address public constant bob = 0x000000000000000000636F6e736F6c652e6c6f67;
+    bytes32 public constant GENESIS_BLOCK_HASH =
+        keccak256("GENESIS_BLOCK_HASH");
+    address public constant L2SS = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
+    address public constant ALICE = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
+    address public constant BOB = 0x000000000000000000636F6e736F6c652e6c6f67;
 
-    address public constant vib_100 =
+    address public constant VIB_100 =
         0xeD33259a056F4fb449FFB7B7E2eCB43a9B5685Bf;
-    address public constant vb_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
+    address public constant VB_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
 
     AddressManager public addressManager;
 
@@ -33,8 +49,8 @@ contract TaikoL1Test is Test {
         addressManager.init();
 
         uint64 feeBase = 1E18;
-        L1 = new TaikoL1();
-        L1.init(address(addressManager), genesisBlockHash, feeBase);
+        L1 = new TaikoL1WithConfig();
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
 
         tko = new TaikoToken();
         tko.init(address(addressManager), "TaikoToken", "TKO");
@@ -50,9 +66,9 @@ contract TaikoL1Test is Test {
         _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
-        _registerL2Address("signal_service", address(l2ss));
-        _registerAddress("vib_100", vib_100);
-        _registerAddress("vb_100", vb_100);
+        _registerL2Address("signal_service", address(L2SS));
+        _registerAddress("bib_100", VIB_100);
+        _registerAddress("vb_100", VB_100);
     }
 
     function proposeBlock(
@@ -138,16 +154,16 @@ contract TaikoL1Test is Test {
     }
 
     function testProposeSingleBlock() external {
-        _depositTaikoToken(alice, 1E6, 100);
-        _depositTaikoToken(bob, 1E6, 100);
+        _depositTaikoToken(ALICE, 1E6, 100);
+        _depositTaikoToken(BOB, 1E6, 100);
 
-        bytes32 parentHash = genesisBlockHash;
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < 2; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(alice, 1024);
-            // mockCall(vb_100, "", bytes(bytes32(true)));
-            parentHash = proveBlock(bob, conf, blockId, parentHash, meta);
+        for (uint blockId = 1; blockId < conf.maxNumBlocks - 1; blockId++) {
+            TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
+            // mockCall(VB_100, "", bytes(bytes32(true)));
+            parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
             // clearMockCalls();
             vm.roll(block.number + 1);
         }
