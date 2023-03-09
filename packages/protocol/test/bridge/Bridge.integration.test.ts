@@ -25,7 +25,11 @@ import {
     getL2Provider,
 } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
-import { deploySignalService, getSignalProof } from "../utils/signal";
+import {
+    deploySignalService,
+    getSignalProof,
+    getSignalProofWithAccountProof,
+} from "../utils/signal";
 
 describe("integrationbridge:Bridge", function () {
     let owner: SignerWithAddress;
@@ -247,7 +251,7 @@ describe("integrationbridge:Bridge", function () {
 
             await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 await l1SignalService.getSignalSlot(l1Bridge.address, msgHash),
@@ -298,7 +302,7 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
@@ -410,13 +414,15 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof, signalRoot } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
                 block.number,
                 blockHeader
             );
+
+            await l2XchainSync.setXchainSignalRoot(signalRoot);
 
             await expect(
                 l2Bridge.isMessageReceived(msgHash, srcChainId, signalProof)
@@ -447,13 +453,14 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof, signalRoot } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
                 block.number,
                 blockHeader
             );
+            await l2XchainSync.setXchainSignalRoot(signalRoot);
 
             expect(
                 await l2Bridge.isMessageReceived(
@@ -565,7 +572,7 @@ describe("integrationbridge:Bridge", function () {
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 l1Provider,
                 l1Bridge.address,
                 slot,
@@ -636,7 +643,7 @@ describe("integrationbridge:Bridge", function () {
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 
-            const signalProof = await getSignalProof(
+            const signalProof = await getSignalProofWithAccountProof(
                 l1Provider,
                 l1Bridge.address,
                 slot,
