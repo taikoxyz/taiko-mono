@@ -7,6 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./IAddressManager.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
@@ -78,7 +79,10 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        string memory key = string(abi.encodePacked(chainId, name));
+        // TODO(daniel): measure the difference in gas cost:
+        // string memory key = string(abi.encodePacked(chainId, name));
+        string memory key = string.concat(Strings.toString(chainId), ".", name);
+
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based

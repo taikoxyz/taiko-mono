@@ -67,13 +67,13 @@ library LibProposing {
             mixHash = block.prevrandao * state.nextBlockId;
         }
 
-        meta = TaikoData.BlockMetadata({
+        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
             l1Height: block.number - 1,
             l1Hash: blockhash(block.number - 1),
             beneficiary: input.beneficiary,
             txListHash: input.txListHash,
-            mixHash: mixHash,
+            mixHash: bytes32(mixHash),
             gasLimit: input.gasLimit,
             timestamp: uint64(block.timestamp)
         });
