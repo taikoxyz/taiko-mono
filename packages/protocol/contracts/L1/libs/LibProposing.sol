@@ -32,7 +32,7 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        TaikoData.BlockMetadataInput calldata input,
+        TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal returns (bytes32 metaHash) {
         // For alpha-2 testnet, the network only allows an special address

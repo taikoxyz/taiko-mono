@@ -34,9 +34,9 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.BlockEvidence calldata evidence
+        TaikoData.BlockEvidence memory evidence
     ) internal {
-        TaikoData.BlockMetadata calldata meta = evidence.meta;
+        TaikoData.BlockMetadata memory meta = evidence.meta;
         if (
             meta.id != blockId ||
             meta.id <= state.latestVerifiedId ||
