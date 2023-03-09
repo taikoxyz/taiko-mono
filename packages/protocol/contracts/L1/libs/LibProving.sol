@@ -12,7 +12,6 @@ import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Snippet} from "../../common/IXchainSync.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {

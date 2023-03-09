@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./IAddressManager.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
