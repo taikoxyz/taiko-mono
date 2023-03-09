@@ -82,10 +82,10 @@ library TaikoData {
     struct BlockEvidence {
         TaikoData.BlockMetadata meta;
         ZKProof zkproof;
-        address prover;
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 signalRoot;
+        address prover;
     }
 
     // 3 slots
