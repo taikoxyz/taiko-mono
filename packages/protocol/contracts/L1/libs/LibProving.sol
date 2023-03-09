@@ -27,6 +27,7 @@ library LibProving {
     error L1_EVIDENCE_MISMATCH();
     error L1_ID();
     error L1_INVALID_PROOF();
+    error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
 
     function proveBlock(
@@ -38,17 +39,12 @@ library LibProving {
     ) internal {
         TaikoData.BlockMetadata calldata meta = evidence.meta;
         bytes32 instance;
-        string memory verifierPrefix;
         if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
-            require(evidence.signalRoot == 0);
-
-            verifierPrefix = "vib";
+            if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
             instance = evidence.meta.txListHash;
         } else {
-            verifierPrefix = "vb";
-
-            address signalServiceL1 = resolver.resolve("signal_service", false);
-            address signalServiceL2 = resolver.resolve(
+            address l1SignalService = resolver.resolve("signal_service", false);
+            address l2SignalService = resolver.resolve(
                 config.chainId,
                 "signal_service",
                 false
@@ -56,8 +52,8 @@ library LibProving {
 
             instance = keccak256(
                 bytes.concat(
-                    bytes32(uint256(uint160(signalServiceL1))),
-                    bytes32(uint256(uint160(signalServiceL2))),
+                    bytes32(uint256(uint160(l1SignalService))),
+                    bytes32(uint256(uint160(l2SignalService))),
                     evidence.parentHash,
                     evidence.blockHash,
                     evidence.signalRoot,
@@ -70,10 +66,11 @@ library LibProving {
             );
         }
 
-        if (meta.id != blockId) revert L1_ID();
-
-        if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
-            revert L1_ID();
+        if (
+            meta.id != blockId ||
+            meta.id <= state.latestVerifiedId ||
+            meta.id >= state.nextBlockId
+        ) revert L1_ID();
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             keccak256(abi.encode(meta))
@@ -117,7 +114,7 @@ library LibProving {
             // Do not revert when circuitId is invalid.
             address verifier = resolver.resolve(
                 string.concat(
-                    verifierPrefix,
+                    "plonk_verifier",
                     Strings.toString(evidence.zkproof.circuitId)
                 ),
                 true

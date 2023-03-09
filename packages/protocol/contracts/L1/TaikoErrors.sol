@@ -22,6 +22,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_PARAM();
     error L1_INVALID_PROOF();
     error L1_METADATA_FIELD();
+    error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
