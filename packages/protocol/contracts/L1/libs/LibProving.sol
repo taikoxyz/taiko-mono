@@ -52,8 +52,10 @@ library LibProving {
 
             instance = keccak256(
                 bytes.concat(
-                    bytes32(uint256(uint160(l1SignalService))), // for checking anchor tx
-                    bytes32(uint256(uint160(l2SignalService))), // for checking signalRoot
+                    // for checking anchor tx
+                    bytes32(uint256(uint160(l1SignalService))),
+                    // for checking signalRoot
+                    bytes32(uint256(uint160(l2SignalService))),
                     evidence.blockHash,
                     evidence.signalRoot,
                     bytes32(uint256(uint160(evidence.prover))),
