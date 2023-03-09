@@ -111,7 +111,8 @@ library LibProposing {
             metaHash: metaHash,
             deposit: deposit,
             proposer: msg.sender,
-            proposedAt: meta.timestamp
+            proposedAt: meta.timestamp,
+            nextForkChoiceId: 1
         });
 
         state.avgBlockTime = LibUtils

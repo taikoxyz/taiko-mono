@@ -19,6 +19,8 @@ library LibProving {
     bytes32 public constant VERIFIER_OK =
         0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
 
+    bytes32 public constant NON_ZERO_PLACEHOLDER = bytes32(uint256(1));
+
     event BlockProven(uint256 indexed id, bytes32 parentHash);
 
     error L1_ALREADY_PROVEN();
@@ -43,17 +45,25 @@ library LibProving {
             meta.id >= state.nextBlockId
         ) revert L1_ID();
 
-        if (
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            keccak256(abi.encode(meta))
-        ) revert L1_EVIDENCE_MISMATCH();
+        TaikoData.ProposedBlock storage proposal = state.getProposedBlock(
+            config.maxNumBlocks,
+            meta.id
+        );
+
+        if (proposal.metaHash != keccak256(abi.encode(meta)))
+            revert L1_EVIDENCE_MISMATCH();
+
+        uint fcId = proposal.nextForkChoiceId;
+
+        TaikoData.ForkChoice storage fc = state.forkChoices[
+            blockId % config.maxNumBlocks
+        ][fcId];
 
         bool oracleProving;
-        TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
-            evidence.parentHash
-        ];
-
-        if (fc.chainData.blockHash == 0) {
+        if (
+            fc.chainData.blockHash == 0 ||
+            fc.chainData.blockHash == bytes32(uint256(1)) // reused
+        ) {
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
@@ -135,6 +145,12 @@ library LibProving {
                 revert L1_INVALID_PROOF();
         }
 
+        state.forkChoiceIds[blockId % config.maxNumBlocks][
+            evidence.parentHash
+        ] = fcId;
+        unchecked {
+            ++proposal.nextForkChoiceId;
+        }
         emit BlockProven({id: blockId, parentHash: evidence.parentHash});
     }
 }

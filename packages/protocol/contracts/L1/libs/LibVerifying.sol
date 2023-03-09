@@ -57,13 +57,21 @@ library LibVerifying {
             i = state.latestVerifiedId + 1;
         }
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.ForkChoice storage fc = state.forkChoices[i][
-                latestL2ChainData.blockHash
-            ];
-            TaikoData.ProposedBlock storage target = state.getProposedBlock(
+            TaikoData.ProposedBlock storage proposal = state.getProposedBlock(
                 config.maxNumBlocks,
                 i
             );
+
+            uint256 fcId = state.forkChoiceIds[i % config.maxNumBlocks][
+                latestL2ChainData.blockHash
+            ];
+            if (proposal.nextForkChoiceId <= fcId) {
+                break;
+            }
+
+            TaikoData.ForkChoice storage fc = state.forkChoices[
+                i % config.maxNumBlocks
+            ][fcId];
 
             if (fc.prover == address(0)) {
                 break;
@@ -72,7 +80,7 @@ library LibVerifying {
                     state: state,
                     config: config,
                     fc: fc,
-                    target: target,
+                    proposal: proposal,
                     latestL2Height: latestL2Height,
                     latestL2ChainData: latestL2ChainData
                 });
@@ -80,9 +88,6 @@ library LibVerifying {
                     processed++;
                 }
                 emit BlockVerified(i, latestL2ChainData);
-            }
-            unchecked {
-                i++;
             }
 
             unchecked {
@@ -113,7 +118,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage target,
+        TaikoData.ProposedBlock storage proposal,
         uint64 latestL2Height,
         ChainData memory latestL2ChainData
     )
@@ -129,7 +134,7 @@ library LibVerifying {
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
-                    proposedAt: target.proposedAt
+                    proposedAt: proposal.proposedAt
                 });
 
                 // reward the prover
@@ -145,15 +150,15 @@ library LibVerifying {
 
                 // refund proposer deposit
                 if (fc.chainData.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
-                    uint256 refund = (target.deposit * (10000 - tRelBp)) /
+                    uint256 refund = (proposal.deposit * (10000 - tRelBp)) /
                         10000;
                     if (refund > 0) {
-                        if (state.balances[target.proposer] == 0) {
+                        if (state.balances[proposal.proposer] == 0) {
                             // Reduce refund to 1 wei as a penalty if the proposer
                             // has 0 TKO outstanding balance.
-                            state.balances[target.proposer] = 1;
+                            state.balances[proposal.proposer] = 1;
                         } else {
-                            state.balances[target.proposer] += refund;
+                            state.balances[proposal.proposer] += refund;
                         }
                     }
                 }
@@ -171,7 +176,7 @@ library LibVerifying {
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
-                newValue: fc.provenAt - target.proposedAt,
+                newValue: fc.provenAt - proposal.proposedAt,
                 maf: config.proofTimeMAF
             })
             .toUint64();
@@ -184,13 +189,13 @@ library LibVerifying {
             _latestL2ChainData = latestL2ChainData;
         }
 
-        // clean up the fork choice
-        // Even after https://eips.ethereum.org/EIPS/eip-3298 the cleanup
-        // may still reduce the gas cost if the block is proven and
-        // fianlized in the same L1 transaction.
-        fc.chainData.blockHash = 0;
-        fc.chainData.signalRoot = 0;
+        proposal.nextForkChoiceId = 1;
+
+        // Clean up the fork choice but keep non-zeros if possible to be
+        // reused.
+        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
+        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.provenAt = 1; // none-zero placeholder
         fc.prover = address(0);
-        fc.provenAt = 0;
     }
 }

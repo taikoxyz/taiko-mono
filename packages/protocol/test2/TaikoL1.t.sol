@@ -140,7 +140,7 @@ contract TaikoL1Test is Test {
         });
 
         vm.prank(prover, prover);
-        L1.proveBlock(meta.id, abi.encode(evidence)); // gas: 95930/92982
+        L1.proveBlock(meta.id, abi.encode(evidence));
     }
 
     function testProposeSingleBlock() external {
@@ -150,7 +150,7 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks -1; blockId++) {
+        for (uint blockId = 1; blockId < conf.maxNumBlocks * 4; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
             bytes32 blockHash = bytes32(1E9 + blockId);
             bytes32 signalRoot = bytes32(2E9 + blockId);
