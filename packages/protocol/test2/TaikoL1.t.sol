@@ -11,7 +11,6 @@ import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-
 contract TaikoL1WithConfig is TaikoL1 {
     function getConfig()
         public
@@ -27,6 +26,18 @@ contract TaikoL1WithConfig is TaikoL1 {
     }
 }
 
+contract Verifier {
+    bytes32 private _ret;
+
+    constructor(bytes32 ret) {
+        _ret = ret;
+    }
+
+    fallback(bytes calldata) external returns (bytes memory) {
+        return bytes.concat(_ret);
+    }
+}
+
 contract TaikoL1Test is Test {
     TaikoToken public tko;
     TaikoL1WithConfig public L1;
@@ -38,7 +49,8 @@ contract TaikoL1Test is Test {
     address public constant ALICE = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
     address public constant BOB = 0x000000000000000000636F6e736F6c652e6c6f67;
 
-    address public constant VERIFIER_100 = 0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
+    address public constant VERIFIER_100 =
+        0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
 
     AddressManager public addressManager;
 
@@ -66,10 +78,8 @@ contract TaikoL1Test is Test {
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(L2SS));
         _registerAddress(
-             string(
-                    abi.encodePacked("verifier_", uint256(100))
-                ),
-            VERIFIER_100
+            string(abi.encodePacked("verifier_", uint256(100))),
+            address(new Verifier(keccak256("taiko")))
         );
     }
 
@@ -103,37 +113,34 @@ contract TaikoL1Test is Test {
         meta.timestamp = uint64(block.timestamp);
 
         vm.prank(proposer, proposer);
-        bytes32 metaHash = L1.proposeBlock(input, txList);
+        L1.proposeBlock(abi.encode(input), txList);
 
-        assertEq(metaHash, keccak256(abi.encode(meta)));
+        // assertEq(metaHash, keccak256(abi.encode(meta)));
     }
 
     function proveBlock(
-        TaikoData.Config memory conf,
-        uint256 blockId,
+        address prover,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
-        bytes32 signalRoot,
-        address prover
+        bytes32 signalRoot
     ) internal {
-
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
             circuitId: 100
         });
 
-        TaikoData.BlockEvidence memory evidence = TaikoData
-            .BlockEvidence({
-                meta: meta,
-                zkproof: zkproof,
-                parentHash:parentHash,
-                blockHash:blockHash,
-                signalRoot: signalRoot,
-                prover: prover
-            });
+        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+            meta: meta,
+            zkproof: zkproof,
+            parentHash: parentHash,
+            blockHash: blockHash,
+            signalRoot: signalRoot,
+            prover: prover
+        });
+
         vm.prank(prover, prover);
-        L1.proveBlock(blockId, evidence);
+        L1.proveBlock(meta.id, abi.encode(evidence)); // gas: 95930/92982
     }
 
     function testProposeSingleBlock() external {
@@ -143,26 +150,37 @@ contract TaikoL1Test is Test {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         TaikoData.Config memory conf = L1.getConfig();
-        for (uint blockId = 1; blockId < conf.maxNumBlocks - 1; blockId++) {
+        for (uint blockId = 1; blockId < conf.maxNumBlocks -1; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
-            // mockCall(VB_100, "", bytes(bytes32(true)));
-            // parentHash = proveBlock(BOB, conf, blockId, parentHash, meta);
+            bytes32 blockHash = bytes32(1E9 + blockId);
+            bytes32 signalRoot = bytes32(2E9 + blockId);
 
-            // vm.prank(BOB, BOB);
-            // L1.verifyBlocks(1);
-            // clearMockCalls();
+            proveBlock(BOB, meta, parentHash, blockHash, signalRoot);
+
+            parentHash = blockHash;
+
+            vm.prank(BOB, BOB);
+            L1.verifyBlocks(1);
             vm.roll(block.number + 1);
         }
     }
 
     function _registerAddress(string memory name, address addr) internal {
-        string memory key = string.concat(Strings.toString(block.chainid), ".", name);
+        string memory key = string.concat(
+            Strings.toString(block.chainid),
+            ".",
+            name
+        );
         addressManager.setAddress(key, addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         TaikoData.Config memory conf = L1.getConfig();
-        string memory key = string.concat(Strings.toString(conf.chainId), ".", name);
+        string memory key = string.concat(
+            Strings.toString(conf.chainId),
+            ".",
+            name
+        );
         addressManager.setAddress(key, addr);
     }
 
