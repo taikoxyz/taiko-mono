@@ -24,23 +24,9 @@ async function deployBridge(
         .connect(signer)
         .deploy();
 
-    const libBridgeProcess = await (
-        await hardhatEthers.getContractFactory("LibBridgeProcess")
-    )
-        .connect(signer)
-        .deploy();
-
-    const libBridgeRetry = await (
-        await hardhatEthers.getContractFactory("LibBridgeRetry")
-    )
-        .connect(signer)
-        .deploy();
-
     const BridgeFactory = await hardhatEthers.getContractFactory("Bridge", {
         libraries: {
             LibTrieProof: libTrieProof.address,
-            LibBridgeProcess: libBridgeProcess.address,
-            LibBridgeRetry: libBridgeRetry.address,
         },
     });
 

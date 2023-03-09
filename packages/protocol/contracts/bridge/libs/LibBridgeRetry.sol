@@ -45,7 +45,7 @@ library LibBridgeRetry {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bool isLastAttempt
-    ) external {
+    ) internal {
         // If the gasLimit is not set to 0 or isLastAttempt is true, the
         // address calling this function must be message.owner.
         if (message.gasLimit == 0 || isLastAttempt) {

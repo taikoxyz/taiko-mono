@@ -48,7 +48,7 @@ library LibBridgeProcess {
         AddressResolver resolver,
         IBridge.Message calldata message,
         bytes calldata proof
-    ) external {
+    ) internal {
         // If the gas limit is set to zero, only the owner can process the message.
         if (message.gasLimit == 0 && msg.sender != message.owner) {
             revert B_FORBIDDEN();
@@ -86,13 +86,14 @@ library LibBridgeProcess {
             revert B_SIGNAL_NOT_RECEIVED();
         }
 
+        uint256 allValue = message.depositValue +
+            message.callValue +
+            message.processingFee;
         // We retrieve the necessary ether from EtherVault if receiving on
         // Taiko, otherwise it is already available in this Bridge.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            EtherVault(payable(ethVault)).releaseEther(
-                message.depositValue + message.callValue + message.processingFee
-            );
+        if (ethVault != address(0) && (allValue > 0)) {
+            EtherVault(payable(ethVault)).releaseEther(allValue);
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
