@@ -38,35 +38,6 @@ library LibProving {
         TaikoData.BlockEvidence calldata evidence
     ) internal {
         TaikoData.BlockMetadata calldata meta = evidence.meta;
-        bytes32 instance;
-        if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
-            if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
-            instance = evidence.meta.txListHash;
-        } else {
-            address l1SignalService = resolver.resolve("signal_service", false);
-            address l2SignalService = resolver.resolve(
-                config.chainId,
-                "signal_service",
-                false
-            );
-
-            instance = keccak256(
-                bytes.concat(
-                    // for checking anchor tx
-                    bytes32(uint256(uint160(l1SignalService))),
-                    // for checking signalRoot
-                    bytes32(uint256(uint160(l2SignalService))),
-                    evidence.blockHash,
-                    evidence.signalRoot,
-                    bytes32(uint256(uint160(evidence.prover))),
-                    bytes32(uint256(evidence.meta.id)),
-                    bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash,
-                    evidence.meta.txListHash
-                )
-            );
-        }
-
         if (
             meta.id != blockId ||
             meta.id <= state.latestVerifiedId ||
@@ -121,6 +92,38 @@ library LibProving {
                 true
             );
             if (verifier == address(0)) revert L1_INVALID_PROOF();
+
+            bytes32 instance;
+            if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
+                if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+                instance = evidence.meta.txListHash;
+            } else {
+                address l1SignalService = resolver.resolve(
+                    "signal_service",
+                    false
+                );
+                address l2SignalService = resolver.resolve(
+                    config.chainId,
+                    "signal_service",
+                    false
+                );
+
+                instance = keccak256(
+                    bytes.concat(
+                        // for checking anchor tx
+                        bytes32(uint256(uint160(l1SignalService))),
+                        // for checking signalRoot
+                        bytes32(uint256(uint160(l2SignalService))),
+                        evidence.blockHash,
+                        evidence.signalRoot,
+                        bytes32(uint256(uint160(evidence.prover))),
+                        bytes32(uint256(evidence.meta.id)),
+                        bytes32(evidence.meta.l1Height),
+                        evidence.meta.l1Hash,
+                        evidence.meta.txListHash
+                    )
+                );
+            }
 
             (bool verified, ) = verifier.staticcall(
                 bytes.concat(
