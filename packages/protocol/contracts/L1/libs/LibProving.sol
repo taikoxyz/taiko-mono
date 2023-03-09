@@ -125,15 +125,19 @@ library LibProving {
         ];
 
         if (fc.snippet.blockHash == 0) {
-            address oracleProver = resolver.resolve("oracle_prover", true);
-            if (msg.sender == oracleProver) {
+            if (config.enableOracleProver) {
+                if (msg.sender != resolver.resolve("oracle_prover", false))
+                    revert L1_NOT_ORACLE_PROVER();
+
                 oracleProving = true;
-            } else {
-                if (oracleProver != address(0)) revert L1_NOT_ORACLE_PROVER();
+            }
+
+            fc.snippet = snippet;
+
+            if (!oracleProving) {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
-            fc.snippet = snippet;
         } else {
             if (
                 fc.snippet.blockHash != snippet.blockHash ||
