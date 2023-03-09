@@ -59,6 +59,7 @@ describe("LibBlockHeaderDecoder", async function () {
                 "0xf5ba25df1e92e89a09e0b32063b81795f631100801158f5fa733f2ba26843bd0",
             nonce: EBN.from("0x738b7e38476abe98"),
             baseFeePerGas: 0,
+            withdrawalsRoot: ethers.constants.HashZero,
         };
 
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
@@ -103,6 +104,7 @@ describe("LibBlockHeaderDecoder", async function () {
             mixHash: block.mixHash,
             nonce: block.nonce,
             baseFeePerGas: 0,
+            withdrawalsRoot: ethers.constants.HashZero,
         };
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
             blockHeader
@@ -146,6 +148,7 @@ describe("LibBlockHeaderDecoder", async function () {
             mixHash: block.mixHash,
             nonce: block.nonce,
             baseFeePerGas: 0,
+            withdrawalsRoot: ethers.constants.HashZero,
         };
         const encodedBlockHeader = await hashBlockHeader.rlpBlockHeader(
             blockHeader
