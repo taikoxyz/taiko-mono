@@ -29,8 +29,36 @@ struct Config {
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
+  bool enableSoloProposer;
+  bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
+}
+```
+
+### StateVariables
+
+```solidity
+struct StateVariables {
+  uint256 feeBase;
+  uint64 genesisHeight;
+  uint64 genesisTimestamp;
+  uint64 nextBlockId;
+  uint64 lastProposedAt;
+  uint64 avgBlockTime;
+  uint64 latestVerifiedHeight;
+  uint64 latestVerifiedId;
+  uint64 avgProofTime;
+}
+```
+
+### BlockMetadataInput
+
+```solidity
+struct BlockMetadataInput {
+  bytes32 txListHash;
+  address beneficiary;
+  uint64 gasLimit;
 }
 ```
 
@@ -41,10 +69,9 @@ struct BlockMetadata {
   uint256 id;
   uint256 l1Height;
   bytes32 l1Hash;
-  address beneficiary;
-  bytes32 txListHash;
   bytes32 mixHash;
-  bytes extraData;
+  bytes32 txListHash;
+  address beneficiary;
   uint64 gasLimit;
   uint64 timestamp;
 }
@@ -59,25 +86,16 @@ struct ZKProof {
 }
 ```
 
-### ValidBlockEvidence
+### BlockEvidence
 
 ```solidity
-struct ValidBlockEvidence {
-  struct TaikoData.BlockMetadata meta;
-  struct TaikoData.ZKProof zkproof;
-  struct BlockHeader header;
-  bytes32 signalRoot;
-  address prover;
-}
-```
-
-### InvalidBlockEvidence
-
-```solidity
-struct InvalidBlockEvidence {
+struct BlockEvidence {
   struct TaikoData.BlockMetadata meta;
   struct TaikoData.ZKProof zkproof;
   bytes32 parentHash;
+  bytes32 blockHash;
+  bytes32 signalRoot;
+  address prover;
 }
 ```
 
@@ -96,7 +114,7 @@ struct ProposedBlock {
 
 ```solidity
 struct ForkChoice {
-  struct Snippet snippet;
+  struct ChainData chainData;
   address prover;
   uint64 provenAt;
 }
@@ -108,13 +126,12 @@ struct ForkChoice {
 struct State {
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
   mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
-  mapping(uint256 => struct Snippet) l2Snippets;
+  mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;
   uint64 __reserved2;
-  uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
@@ -122,7 +139,7 @@ struct State {
   uint64 latestVerifiedHeight;
   uint64 latestVerifiedId;
   uint64 avgProofTime;
-  uint64 __reserved4;
+  uint64 feeBaseSzabo;
   uint256[42] __gap;
 }
 ```

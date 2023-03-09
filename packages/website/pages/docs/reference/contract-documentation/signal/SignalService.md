@@ -94,7 +94,7 @@ Check if signal has been received on the destination chain (current).
 ### getSignalSlot
 
 ```solidity
-function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32)
+function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32 signalSlot)
 ```
 
 #### Parameters
@@ -106,6 +106,6 @@ function getSignalSlot(address app, bytes32 signal) public pure returns (bytes32
 
 #### Return Values
 
-| Name | Type    | Description                                                      |
-| ---- | ------- | ---------------------------------------------------------------- |
-| [0]  | bytes32 | signalSlot The storage key for the signal on the signal service. |
+| Name       | Type    | Description                                           |
+| ---------- | ------- | ----------------------------------------------------- |
+| signalSlot | bytes32 | The storage key for the signal on the signal service. |

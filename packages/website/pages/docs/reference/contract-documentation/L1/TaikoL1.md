@@ -19,27 +19,34 @@ modifier onlyFromEOA()
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint256 _feeBase) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBaseSzabo) external
 ```
 
 ### proposeBlock
 
 ```solidity
-function proposeBlock(bytes[] inputs) external
+function proposeBlock(struct TaikoData.BlockMetadataInput input, bytes txList) external returns (bytes32 metaHash)
 ```
 
 Propose a Taiko L2 block.
 
 #### Parameters
 
-| Name   | Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| inputs | bytes[] | A list of data input: - inputs[0] is abi-encoded BlockMetadata that the actual L2 block header must satisfy. Note the following fields in the provided meta object must be zeros -- their actual values will be provisioned by Ethereum. - id - l1Height - l1Hash - mixHash - timestamp - inputs[1] is called the `txList` which is list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are n transactions in `txList`, then there will be up to n+1 transactions in the L2 block. |
+| Name   | Type                                | Description                                                                                                                                                                                                                                                                 |
+| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| input  | struct TaikoData.BlockMetadataInput | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
+| txList | bytes                               | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+
+#### Return Values
+
+| Name     | Type    | Description                             |
+| -------- | ------- | --------------------------------------- |
+| metaHash | bytes32 | The hash of the updated block metadata. |
 
 ### proveBlock
 
 ```solidity
-function proveBlock(uint256 blockId, bytes evidenceBytes) external
+function proveBlock(uint256 blockId, struct TaikoData.BlockEvidence evidence) external
 ```
 
 Prove a block is valid with a zero-knowledge proof, a transaction
@@ -47,26 +54,10 @@ merkel proof, and a receipt merkel proof.
 
 #### Parameters
 
-| Name          | Type    | Description                                                                                    |
-| ------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| blockId       | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| evidenceBytes | bytes   | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
-
-### proveBlockInvalid
-
-```solidity
-function proveBlockInvalid(uint256 blockId, bytes evidenceBytes) external
-```
-
-Prove a block is invalid with a zero-knowledge proof and a receipt
-merkel proof.
-
-#### Parameters
-
-| Name          | Type    | Description                                                                                    |
-| ------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| blockId       | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| evidenceBytes | bytes   | evidenceBytes An abi-encoded TaikoData.InvalidBlockEvidence object.                            |
+| Name     | Type                           | Description                                                                                    |
+| -------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| blockId  | uint256                        | The index of the block to prove. This is also used to select the right implementation version. |
+| evidence | struct TaikoData.BlockEvidence | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
 
 ### verifyBlocks
 
@@ -162,7 +153,7 @@ block number.
 ### getStateVariables
 
 ```solidity
-function getStateVariables() public view returns (struct LibUtils.StateVariables)
+function getStateVariables() public view returns (struct TaikoData.StateVariables)
 ```
 
 ### getForkChoice

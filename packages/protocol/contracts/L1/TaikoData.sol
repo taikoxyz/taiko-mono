@@ -6,8 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-import {BlockHeader} from "../libs/LibBlockHeader.sol";
-import {Snippet} from "../common/IXchainSync.sol";
+import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct Config {
@@ -36,18 +35,37 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
+        bool enableSoloProposer;
+        bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
+    }
+
+    struct StateVariables {
+        uint256 feeBase;
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 nextBlockId;
+        uint64 lastProposedAt;
+        uint64 avgBlockTime;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
+        uint64 avgProofTime;
+    }
+
+    struct BlockMetadataInput {
+        bytes32 txListHash;
+        address beneficiary;
+        uint64 gasLimit;
     }
 
     struct BlockMetadata {
         uint256 id;
         uint256 l1Height;
         bytes32 l1Hash;
-        address beneficiary;
-        bytes32 txListHash;
         bytes32 mixHash;
-        bytes extraData;
+        bytes32 txListHash;
+        address beneficiary;
         uint64 gasLimit;
         uint64 timestamp;
     }
@@ -57,19 +75,13 @@ library TaikoData {
         uint256 circuitId;
     }
 
-    struct ValidBlockEvidence {
+    struct BlockEvidence {
         TaikoData.BlockMetadata meta;
-        ZKProof zkproof; // The block proof
-        address prover;
-        BlockHeader header;
-        bytes32 signalRoot;
-    }
-
-    struct InvalidBlockEvidence {
-        TaikoData.BlockMetadata meta;
-        ZKProof zkproof; // The txListProof
-        address prover;
+        ZKProof zkproof;
         bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 signalRoot;
+        address prover;
     }
 
     // 3 slots
@@ -82,7 +94,7 @@ library TaikoData {
 
     // 3 + n slots
     struct ForkChoice {
-        Snippet snippet;
+        ChainData chainData;
         address prover;
         uint64 provenAt;
     }
@@ -93,7 +105,7 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockNumber => Snippet) l2Snippets;
+        mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 outstandingReward) balances;
         // Never or rarely changed
         uint64 genesisHeight;

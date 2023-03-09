@@ -20,86 +20,73 @@ library LibProposing {
 
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_EXTRA_DATA();
-    error L1_GAS_LIMIT();
     error L1_ID();
-    error L1_INPUT_SIZE();
     error L1_INSUFFICIENT_TOKEN();
     error L1_METADATA_FIELD();
     error L1_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_INVALID_PROOF();
+    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 
     function proposeBlock(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        bytes[] calldata inputs
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+        TaikoData.BlockMetadataInput calldata input,
+        bytes calldata txList
+    ) internal returns (bytes32 metaHash) {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
+        if (
+            config.enableSoloProposer &&
+            msg.sender != resolver.resolve("solo_proposer", false)
+        ) revert L1_SOLO_PROPOSER();
 
-        address soloProposer = resolver.resolve("solo_proposer", true);
-        if (soloProposer != address(0) && soloProposer != msg.sender)
-            revert L1_SOLO_PROPOSER();
+        if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
 
-        if (inputs.length != 2) revert L1_INPUT_SIZE();
-        // inputs[0]: the block's metadata
-        // inputs[1]: the txList (future 4844 blob)
+        if (
+            input.beneficiary == address(0) ||
+            input.gasLimit > config.blockMaxGasLimit
+        ) revert L1_METADATA_FIELD();
 
-        meta = abi.decode(inputs[0], (TaikoData.BlockMetadata));
+        // We need txListHash as with EIP-4844, txList is no longer
+        // accssible to EVM.
+        if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
-        {
-            // Validating the metadata
-            if (
-                meta.id != 0 ||
-                meta.l1Height != 0 ||
-                meta.l1Hash != 0 ||
-                meta.timestamp != 0 ||
-                meta.mixHash != 0 ||
-                meta.beneficiary == address(0)
-            ) revert L1_METADATA_FIELD();
+        if (state.nextBlockId >= state.latestVerifiedId + config.maxNumBlocks)
+            revert L1_TOO_MANY_BLOCKS();
 
-            if (meta.gasLimit > config.blockMaxGasLimit) revert L1_GAS_LIMIT();
-            if (meta.extraData.length > 32) {
-                revert L1_EXTRA_DATA();
-            }
+        // After The Merge, L1 mixHash contains the prevrandao
+        // from the beacon chain. Since multiple Taiko blocks
+        // can be proposed in one Ethereum block, we need to
+        // add salt to this random number as L2 mixHash
 
-            if (
-                inputs[1].length > config.maxBytesPerTxList ||
-                meta.txListHash != LibUtils.hashTxList(inputs[1])
-            ) revert L1_TX_LIST();
-
-            if (
-                state.nextBlockId >=
-                state.latestVerifiedId + config.maxNumBlocks
-            ) revert L1_TOO_MANY_BLOCKS();
-
-            meta.id = state.nextBlockId;
-            meta.l1Height = block.number - 1;
-            meta.l1Hash = blockhash(block.number - 1);
-            meta.timestamp = uint64(block.timestamp);
-
-            // After The Merge, L1 mixHash contains the prevrandao
-            // from the beacon chain. Since multiple Taiko blocks
-            // can be proposed in one Ethereum block, we need to
-            // add salt to this random number as L2 mixHash
-            meta.mixHash = keccak256(
-                bytes.concat(
-                    bytes32(block.prevrandao),
-                    bytes32(uint256(state.nextBlockId))
-                )
-            );
+        uint256 mixHash;
+        unchecked {
+            mixHash = block.prevrandao * state.nextBlockId;
         }
+
+        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
+            id: state.nextBlockId,
+            l1Height: block.number - 1,
+            l1Hash: blockhash(block.number - 1),
+            beneficiary: input.beneficiary,
+            txListHash: input.txListHash,
+            mixHash: bytes32(mixHash),
+            gasLimit: input.gasLimit,
+            timestamp: uint64(block.timestamp)
+        });
 
         uint256 deposit;
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
                 uint256 fee;
-                (newFeeBase, fee, deposit) = getBlockFee(state, config);
+                (newFeeBase, fee, deposit) = LibTokenomics.getBlockFee(
+                    state,
+                    config
+                );
 
                 uint256 burnAmount = fee + deposit;
                 if (state.balances[msg.sender] <= burnAmount)
@@ -117,10 +104,11 @@ library LibProposing {
             );
         }
 
+        metaHash = keccak256(abi.encode(meta));
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: LibUtils.hashMetadata(meta),
+            metaHash: metaHash,
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp
@@ -140,28 +128,6 @@ library LibProposing {
         unchecked {
             ++state.nextBlockId;
         }
-    }
-
-    function getBlockFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    ) internal view returns (uint256 newFeeBase, uint256 fee, uint256 deposit) {
-        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-            isProposal: true,
-            tNow: uint64(block.timestamp),
-            tLast: state.lastProposedAt,
-            tAvg: state.avgBlockTime
-        });
-        fee = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
-        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
-        deposit = (fee * config.proposerDepositPctg) / 100;
     }
 
     function getProposedBlock(

@@ -8,3 +8,4 @@ contracts/libs/LibMath.sol
 contracts/libs/LibUint512Math.sol
 contracts/L1/TaikoConfig.sol
 **/contracts/thirdparty/**/*.sol
+test2/GasComparison.t.sol

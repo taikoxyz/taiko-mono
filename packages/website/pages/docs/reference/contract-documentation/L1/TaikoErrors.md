@@ -19,7 +19,7 @@ error L1_BLOCK_NUMBER()
 ### L1_CONFLICT_PROOF
 
 ```solidity
-error L1_CONFLICT_PROOF(struct Snippet snippet)
+error L1_CONFLICT_PROOF()
 ```
 
 ### L1_CONTRACT_NOT_ALLOWED
@@ -34,16 +34,10 @@ error L1_CONTRACT_NOT_ALLOWED()
 error L1_DUP_PROVERS()
 ```
 
-### L1_EXTRA_DATA
+### L1_EVIDENCE_MISMATCH
 
 ```solidity
-error L1_EXTRA_DATA()
-```
-
-### L1_GAS_LIMIT
-
-```solidity
-error L1_GAS_LIMIT()
+error L1_EVIDENCE_MISMATCH()
 ```
 
 ### L1_ID
@@ -52,10 +46,10 @@ error L1_GAS_LIMIT()
 error L1_ID()
 ```
 
-### L1_INPUT_SIZE
+### L1_INSUFFICIENT_TOKEN
 
 ```solidity
-error L1_INPUT_SIZE()
+error L1_INSUFFICIENT_TOKEN()
 ```
 
 ### L1_INVALID_EVIDENCE
@@ -82,6 +76,12 @@ error L1_INVALID_PROOF()
 error L1_METADATA_FIELD()
 ```
 
+### L1_NONZERO_SIGNAL_ROOT
+
+```solidity
+error L1_NONZERO_SIGNAL_ROOT()
+```
+
 ### L1_NOT_ORACLE_PROVER
 
 ```solidity
@@ -100,14 +100,14 @@ error L1_SOLO_PROPOSER()
 error L1_TOO_MANY_BLOCKS()
 ```
 
+### L1_TX_LIST_HASH
+
+```solidity
+error L1_TX_LIST_HASH()
+```
+
 ### L1_TX_LIST
 
 ```solidity
 error L1_TX_LIST()
-```
-
-### L1_ZERO_FEE_BASE
-
-```solidity
-error L1_ZERO_FEE_BASE()
 ```
