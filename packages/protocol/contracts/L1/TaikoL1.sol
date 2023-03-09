@@ -87,40 +87,10 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function proveBlock(
         uint256 blockId,
-        TaikoData.ValidBlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata evidence
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
-            state: state,
-            config: config,
-            resolver: AddressResolver(this),
-            blockId: blockId,
-            evidence: evidence
-        });
-        if (config.maxVerificationsPerTx > 0) {
-            LibVerifying.verifyBlocks({
-                state: state,
-                config: config,
-                maxBlocks: config.maxVerificationsPerTx
-            });
-        }
-    }
-
-    /**
-     * Prove a block is invalid with a zero-knowledge proof and a receipt
-     * merkel proof.
-     *
-     * @param blockId The index of the block to prove. This is also used to
-     *        select the right implementation version.
-     * @param evidence An abi-encoded TaikoData.InvalidBlockEvidence object.
-     */
-    function proveBlockInvalid(
-        uint256 blockId,
-        TaikoData.InvalidBlockEvidence calldata evidence
-    ) external onlyFromEOA nonReentrant {
-        TaikoData.Config memory config = getConfig();
-
-        LibProving.proveBlockInvalid({
             state: state,
             config: config,
             resolver: AddressResolver(this),

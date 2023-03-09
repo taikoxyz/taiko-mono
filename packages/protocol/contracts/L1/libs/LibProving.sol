@@ -7,15 +7,12 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {BlockHeader, LibBlockHeader} from "../../libs/LibBlockHeader.sol";
-import {LibRLPWriter} from "../../thirdparty/LibRLPWriter.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {Snippet} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
-    using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.State;
 
     event BlockProven(uint256 indexed id, bytes32 parentHash);
@@ -24,8 +21,8 @@ library LibProving {
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_ID();
-    error L1_INVALID_EVIDENCE();
     error L1_INVALID_PROOF();
+    error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
 
     function proveBlock(
@@ -33,81 +30,9 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.ValidBlockEvidence calldata evidence
+        TaikoData.BlockEvidence calldata evidence
     ) internal {
         TaikoData.BlockMetadata calldata meta = evidence.meta;
-
-        BlockHeader memory header = evidence.header;
-        if (
-            evidence.signalRoot == 0 ||
-            evidence.prover == address(0) ||
-            header.parentHash == 0 ||
-            header.gasUsed == 0 ||
-            header.beneficiary != meta.beneficiary ||
-            header.difficulty != 0 ||
-            header.gasLimit != meta.gasLimit + config.anchorTxGasLimit ||
-            header.timestamp != meta.timestamp ||
-            header.extraData.length != 0 ||
-            header.mixHash != meta.mixHash
-        ) revert L1_INVALID_EVIDENCE();
-
-        // TODO(daniel): this function call will consume 230891 gas!!!
-        // It will be great if we can use _getInstanceIdeally instead
-        // it  consumes 221317 less gas.
-        bytes32 instance = _getInstance(
-            evidence,
-            resolver.resolve("signal_service", false),
-            resolver.resolve(config.chainId, "signal_service", false)
-        );
-
-        // TODO(daniel): hashBlockHeader cost 143140 gas!!!
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            blockId: blockId,
-            meta: meta,
-            parentHash: header.parentHash,
-            snippet: Snippet(header.hashBlockHeader(), evidence.signalRoot),
-            prover: evidence.prover,
-            zkproof: evidence.zkproof,
-            instance: instance
-        });
-    }
-
-    function proveBlockInvalid(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint256 blockId,
-        TaikoData.InvalidBlockEvidence calldata evidence
-    ) internal {
-        _proveBlock({
-            state: state,
-            config: config,
-            resolver: resolver,
-            blockId: blockId,
-            meta: evidence.meta,
-            parentHash: evidence.parentHash,
-            snippet: Snippet(LibUtils.BLOCK_DEADEND_HASH, 0),
-            prover: evidence.prover,
-            zkproof: evidence.zkproof,
-            instance: evidence.meta.txListHash
-        });
-    }
-
-    function _proveBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        AddressResolver resolver,
-        uint256 blockId,
-        TaikoData.BlockMetadata calldata meta,
-        bytes32 parentHash,
-        Snippet memory snippet,
-        address prover,
-        TaikoData.ZKProof calldata zkproof,
-        bytes32 instance
-    ) private {
         if (
             meta.id != blockId ||
             meta.id <= state.latestVerifiedId ||
@@ -121,7 +46,7 @@ library LibProving {
 
         bool oracleProving;
         TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
-            parentHash
+            evidence.parentHash
         ];
 
         if (fc.snippet.blockHash == 0) {
@@ -132,105 +57,79 @@ library LibProving {
                 oracleProving = true;
             }
 
-            fc.snippet = snippet;
+            fc.snippet = Snippet(evidence.blockHash, evidence.signalRoot);
 
             if (!oracleProving) {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
-
-            // TODO(daniel): 64426 gas will be consuled for writing fc!
         } else {
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
             if (
-                fc.snippet.blockHash != snippet.blockHash ||
-                fc.snippet.signalRoot != snippet.signalRoot
+                fc.snippet.blockHash != evidence.blockHash ||
+                fc.snippet.signalRoot != evidence.signalRoot
             ) revert L1_CONFLICT_PROOF();
 
-            fc.prover = prover;
+            fc.prover = evidence.prover;
             fc.provenAt = uint64(block.timestamp);
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
             // Do not revert when circuitId is invalid.
-            string memory verifierName = string(
-                abi.encodePacked(
-                    snippet.blockHash == LibUtils.BLOCK_DEADEND_HASH
-                        ? "vib_" // verifier for invalid blocks
-                        : "vb_", // verifier for valid blocks
-                    zkproof.circuitId
-                )
+            address verifier = resolver.resolve(
+                 abi.encodePacked(
+                    "plonk_verifier",
+                    evidence.zkproof.circuitId
+                ),
+                true
             );
+            if (verifier == address(0)) revert L1_INVALID_PROOF();
 
-            (bool verified, ) = resolver
-                .resolve(verifierName, false)
-                .staticcall(
+            bytes32 instance;
+            if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
+                if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+                instance = evidence.meta.txListHash;
+            } else {
+                address l1SignalService = resolver.resolve(
+                    "signal_service",
+                    false
+                );
+                address l2SignalService = resolver.resolve(
+                    config.chainId,
+                    "signal_service",
+                    false
+                );
+
+                instance = keccak256(
                     bytes.concat(
-                        bytes16(0),
-                        bytes16(instance), // left 16 bytes of the given instance
-                        bytes16(0),
-                        bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                        zkproof.data
+                        // for checking anchor tx
+                        bytes32(uint256(uint160(l1SignalService))),
+                        // for checking signalRoot
+                        bytes32(uint256(uint160(l2SignalService))),
+                        evidence.blockHash,
+                        evidence.signalRoot,
+                        bytes32(uint256(uint160(evidence.prover))),
+                        bytes32(uint256(evidence.meta.id)),
+                        bytes32(evidence.meta.l1Height),
+                        evidence.meta.l1Hash,
+                        evidence.meta.txListHash
                     )
                 );
+            }
+
+            (bool verified, ) = verifier.staticcall(
+                bytes.concat(
+                    bytes16(0),
+                    bytes16(instance), // left 16 bytes of the given instance
+                    bytes16(0),
+                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                    evidence.zkproof.data
+                )
+            );
 
             if (!verified) revert L1_INVALID_PROOF();
         }
 
         emit BlockProven({id: blockId, parentHash: parentHash});
-    }
-
-    function _getInstance(
-        TaikoData.ValidBlockEvidence calldata evidence,
-        address l1SignalServiceAddress,
-        address l2SignalServiceAddress
-    ) private pure returns (bytes32) {
-        bytes[] memory list = LibBlockHeader.getBlockHeaderRLPItemsList(
-            evidence.header,
-            7
-        );
-
-        uint256 i = list.length;
-
-        unchecked {
-            // All L2 related inputs
-            list[--i] = LibRLPWriter.writeHash(evidence.meta.txListHash);
-            list[--i] = LibRLPWriter.writeHash(
-                bytes32(uint256(uint160(l2SignalServiceAddress)))
-            );
-            list[--i] = LibRLPWriter.writeHash(evidence.signalRoot);
-
-            // All L1 related inputs
-            list[--i] = LibRLPWriter.writeHash(bytes32(evidence.meta.l1Height));
-            list[--i] = LibRLPWriter.writeHash(evidence.meta.l1Hash);
-            list[--i] = LibRLPWriter.writeHash(
-                bytes32(uint256(uint160(l1SignalServiceAddress)))
-            );
-
-            // Other inputs
-            list[--i] = LibRLPWriter.writeAddress(evidence.prover);
-        }
-
-        return keccak256(LibRLPWriter.writeList(list));
-    }
-
-    function _getInstanceIdeally(
-        TaikoData.ValidBlockEvidence calldata evidence,
-        address l1SignalServiceAddress,
-        address l2SignalServiceAddress
-    ) private pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    keccak256(abi.encode(evidence.header)),
-                    evidence.signalRoot,
-                    evidence.meta.txListHash,
-                    evidence.meta.l1Height,
-                    evidence.meta.l1Hash,
-                    l2SignalServiceAddress,
-                    l1SignalServiceAddress,
-                    evidence.prover
-                )
-            );
     }
 }
