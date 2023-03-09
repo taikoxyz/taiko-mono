@@ -16,9 +16,9 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibProving {
     using LibUtils for TaikoData.State;
 
-    // keccak256("Taiko")
+    // keccak256("taiko")
     bytes32 public constant VERIFIER_OK =
-        0xc6baa0f809cf694efa91aff0be8930f6986b3b4037ae3a94e302aeff2f794039;
+        93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
 
     event BlockProven(
         uint256 indexed id,
