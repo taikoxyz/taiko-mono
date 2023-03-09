@@ -17,7 +17,7 @@ library LibProving {
 
     // keccak256("taiko")
     bytes32 public constant VERIFIER_OK =
-        93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
+        0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
 
     event BlockProven(uint256 indexed id, bytes32 parentHash);
 
