@@ -37,7 +37,7 @@ type Block = {
     uncles: string[];
     baseFeePerGas?: string;
     mixHash: string;
-    withdrawalsRoot?: string;
+    withdrawalsRoot: string;
 };
 
 type BlockHeader = {
@@ -57,7 +57,7 @@ type BlockHeader = {
     mixHash: string;
     nonce: number;
     baseFeePerGas: number;
-    withdrawalsRoot?: string;
+    withdrawalsRoot: string;
 };
 
 async function getBlockHeader(
