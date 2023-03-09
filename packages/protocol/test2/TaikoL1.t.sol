@@ -8,10 +8,6 @@ import {TaikoConfig} from "../contracts/L1/TaikoConfig.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
 import {TaikoL1} from "../contracts/L1/TaikoL1.sol";
 import {TaikoToken} from "../contracts/L1/TaikoToken.sol";
-import {
-    BlockHeader,
-    LibBlockHeader
-} from "../contracts/libs/LibBlockHeader.sol";
 import {SignalService} from "../contracts/signal/SignalService.sol";
 
 contract TaikoL1WithConfig is TaikoL1 {
@@ -119,31 +115,31 @@ contract TaikoL1Test is Test {
     ) internal returns (bytes32 blockHash) {
         bytes32[8] memory logsBloom;
 
-        BlockHeader memory header = BlockHeader({
-            parentHash: parentHash,
-            ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
-            beneficiary: meta.beneficiary,
-            stateRoot: bytes32(blockId + 200),
-            transactionsRoot: bytes32(blockId + 201),
-            receiptsRoot: bytes32(blockId + 202),
-            logsBloom: logsBloom,
-            difficulty: 0,
-            height: uint128(blockId),
-            gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
-            gasUsed: uint64(100),
-            timestamp: meta.timestamp,
-            extraData: new bytes(0),
-            mixHash: bytes32(meta.mixHash),
-            nonce: 0,
-            baseFeePerGas: 10000
-        });
+        // BlockHeader memory header = BlockHeader({
+        //     parentHash: parentHash,
+        //     ommersHash: LibBlockHeader.EMPTY_OMMERS_HASH,
+        //     beneficiary: meta.beneficiary,
+        //     stateRoot: bytes32(blockId + 200),
+        //     transactionsRoot: bytes32(blockId + 201),
+        //     receiptsRoot: bytes32(blockId + 202),
+        //     logsBloom: logsBloom,
+        //     difficulty: 0,
+        //     height: uint128(blockId),
+        //     gasLimit: uint64(meta.gasLimit + conf.anchorTxGasLimit),
+        //     gasUsed: uint64(100),
+        //     timestamp: meta.timestamp,
+        //     extraData: new bytes(0),
+        //     mixHash: bytes32(meta.mixHash),
+        //     nonce: 0,
+        //     baseFeePerGas: 10000
+        // });
 
-        blockHash = LibBlockHeader.hashBlockHeader(header);
+        // blockHash = LibBlockHeader.hashBlockHeader(header);
 
-        TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
-            data: new bytes(100),
-            circuitId: 100
-        });
+        // TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
+        //     data: new bytes(100),
+        //     circuitId: 100
+        // });
 
         // TaikoData.ValidBlockEvidence memory evidence = TaikoData
         //     .ValidBlockEvidence({
