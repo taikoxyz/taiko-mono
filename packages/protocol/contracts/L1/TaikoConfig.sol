@@ -51,6 +51,7 @@ library TaikoConfig {
                 proofTimeCap: 30 minutes, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 enableSoloProposer: true,
+                enableOracleProver: true,
                 enableTokenomics: true,
                 skipZKPVerification: false
             });

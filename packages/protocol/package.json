@@ -42,7 +42,7 @@
   "license": "MIT",
   "devDependencies": {
     "@defi-wonderland/smock": "^2.3.4",
-    "@nomicfoundation/hardhat-foundry": "^1.0.0",
+    "@foundry-rs/hardhat-forge": "^0.1.17",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
@@ -74,6 +74,7 @@
     "hardhat-contract-sizer": "^2.8.0",
     "hardhat-docgen": "^1.3.0",
     "hardhat-gas-reporter": "^1.0.9",
+    "hardhat-preprocessor": "^0.1.5",
     "lint-staged": "^12.5.0",
     "merkle-patricia-tree": "^4.2.4",
     "prettier": "^2.8.4",

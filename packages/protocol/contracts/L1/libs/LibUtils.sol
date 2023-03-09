@@ -11,7 +11,7 @@ import {LibTokenomics} from "./LibTokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {Snippet} from "../../common/IXchainSync.sol";
+import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibUtils {
@@ -21,18 +21,6 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
-    struct StateVariables {
-        uint256 feeBase;
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 nextBlockId;
-        uint64 lastProposedAt;
-        uint64 avgBlockTime;
-        uint64 latestVerifiedHeight;
-        uint64 latestVerifiedId;
-        uint64 avgProofTime;
-    }
-
     function getProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
@@ -41,11 +29,11 @@ library LibUtils {
         return state.proposedBlocks[id % maxNumBlocks];
     }
 
-    function getL2Snippet(
+    function getL2ChainData(
         TaikoData.State storage state,
         uint256 number,
         uint256 blockHashHistory
-    ) internal view returns (Snippet storage) {
+    ) internal view returns (ChainData storage) {
         uint256 _number = number;
         if (_number == 0) {
             _number = state.latestVerifiedHeight;
@@ -54,14 +42,14 @@ library LibUtils {
             _number > state.latestVerifiedHeight
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2Snippets[_number % blockHashHistory];
+        return state.l2ChainDatas[_number % blockHashHistory];
     }
 
     function getStateVariables(
         TaikoData.State storage state
-    ) internal view returns (StateVariables memory) {
+    ) internal view returns (TaikoData.StateVariables memory) {
         return
-            StateVariables({
+            TaikoData.StateVariables({
                 feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,

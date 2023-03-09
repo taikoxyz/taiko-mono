@@ -7,7 +7,7 @@
 pragma solidity ^0.8.18;
 
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {IXchainSync, Snippet} from "../common/IXchainSync.sol";
+import {IXchainSync, ChainData} from "../common/IXchainSync.sol";
 
 contract TaikoL2 is EssentialContract, IXchainSync {
     /**********************
@@ -18,7 +18,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    mapping(uint256 blockNumber => Snippet) private _l1Snippet;
+    mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
     uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
@@ -94,15 +94,15 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         _checkPublicInputs();
 
         latestSyncedL1Height = l1Height;
-        Snippet memory snippet = Snippet(l1Hash, l1SignalRoot);
-        _l1Snippet[l1Height] = snippet;
+        ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
+        _l1ChainData[l1Height] = chainData;
 
         // A circuit will verify the integratity among:
         // l1Hash, l1SignalRoot, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
 
-        emit XchainSynced(l1Height, snippet);
+        emit XchainSynced(l1Height, chainData);
     }
 
     /**********************
@@ -113,14 +113,14 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1Snippet[_number].blockHash;
+        return _l1ChainData[_number].blockHash;
     }
 
     function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1Snippet[_number].signalRoot;
+        return _l1ChainData[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
