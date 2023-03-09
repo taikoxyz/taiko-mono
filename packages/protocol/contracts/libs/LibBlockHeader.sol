@@ -45,10 +45,10 @@ library LibBlockHeader {
         uint256 extraCapacity
     ) internal pure returns (bytes[] memory list) {
         if (header.baseFeePerGas == 0) {
-            // non-EIP11559 transaction
+            // non-EIP-1159 transaction
             list = new bytes[](15 + extraCapacity);
         } else {
-            // EIP1159 transaction
+            // EIP-1159 transaction
             list = new bytes[](16 + extraCapacity);
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
@@ -69,7 +69,7 @@ library LibBlockHeader {
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
         if (header.baseFeePerGas != 0) {
-            // non-EIP11559 transaction
+            // EIP-1159 transaction
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
         }
     }
