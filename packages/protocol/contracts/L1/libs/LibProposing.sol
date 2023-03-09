@@ -39,47 +39,45 @@ library LibProposing {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
+        if (
+            config.enableSoloProposer &&
+            msg.sender != resolver.resolve("solo_proposer", false)
+        ) revert L1_SOLO_PROPOSER();
 
-        address soloProposer = resolver.resolve("solo_proposer", true);
-        if (soloProposer != address(0) && soloProposer != msg.sender)
-            revert L1_SOLO_PROPOSER();
+        if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
 
-        {
-            if (
-                input.beneficiary == address(0) ||
-                input.gasLimit > config.blockMaxGasLimit
-            ) revert L1_METADATA_FIELD();
+        if (
+            input.beneficiary == address(0) ||
+            input.gasLimit > config.blockMaxGasLimit
+        ) revert L1_METADATA_FIELD();
 
-            // We need txListHash as with EIP-4844, txList is no longer
-            // accssible to EVM.
-            if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
+        // We need txListHash as with EIP-4844, txList is no longer
+        // accssible to EVM.
+        if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
-            if (
-                state.nextBlockId >=
-                state.latestVerifiedId + config.maxNumBlocks
-            ) revert L1_TOO_MANY_BLOCKS();
+        if (state.nextBlockId >= state.latestVerifiedId + config.maxNumBlocks)
+            revert L1_TOO_MANY_BLOCKS();
 
-            // After The Merge, L1 mixHash contains the prevrandao
-            // from the beacon chain. Since multiple Taiko blocks
-            // can be proposed in one Ethereum block, we need to
-            // add salt to this random number as L2 mixHash
+        // After The Merge, L1 mixHash contains the prevrandao
+        // from the beacon chain. Since multiple Taiko blocks
+        // can be proposed in one Ethereum block, we need to
+        // add salt to this random number as L2 mixHash
 
-            uint256 mixHash;
-            unchecked {
-                mixHash = block.prevrandao * state.nextBlockId;
-            }
-
-            meta = TaikoData.BlockMetadata({
-                id: state.nextBlockId,
-                l1Height: block.number - 1,
-                l1Hash: blockhash(block.number - 1),
-                beneficiary: input.beneficiary,
-                txListHash: input.txListHash,
-                mixHash: mixHash,
-                gasLimit: input.gasLimit,
-                timestamp: uint64(block.timestamp)
-            });
+        uint256 mixHash;
+        unchecked {
+            mixHash = block.prevrandao * state.nextBlockId;
         }
+
+        meta = TaikoData.BlockMetadata({
+            id: state.nextBlockId,
+            l1Height: block.number - 1,
+            l1Hash: blockhash(block.number - 1),
+            beneficiary: input.beneficiary,
+            txListHash: input.txListHash,
+            mixHash: mixHash,
+            gasLimit: input.gasLimit,
+            timestamp: uint64(block.timestamp)
+        });
 
         uint256 deposit;
         if (config.enableTokenomics) {
