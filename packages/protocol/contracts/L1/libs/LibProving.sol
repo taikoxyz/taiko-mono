@@ -18,14 +18,10 @@ library LibProving {
     using LibBlockHeader for BlockHeader;
     using LibUtils for TaikoData.State;
 
-    event BlockProven(
-        uint256 indexed id,
-        bytes32 parentHash,
-        TaikoData.ForkChoice forkChoice
-    );
+    event BlockProven(uint256 indexed id, bytes32 parentHash);
 
     error L1_ALREADY_PROVEN();
-    error L1_CONFLICT_PROOF(Snippet snippet);
+    error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_ID();
     error L1_INVALID_EVIDENCE();
@@ -55,6 +51,7 @@ library LibProving {
             header.mixHash != meta.mixHash
         ) revert L1_INVALID_EVIDENCE();
 
+        // TODO(daniel): this function call will consume 230891 gas!!!
         bytes32 instance = _getInstance(
             evidence,
             resolver.resolve("signal_service", false),
@@ -138,20 +135,14 @@ library LibProving {
                 fc.prover = prover;
                 fc.provenAt = uint64(block.timestamp);
             }
+
+            // TODO(daniel): 64426 gas will be consuled for writing fc!
         } else {
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
             if (
                 fc.snippet.blockHash != snippet.blockHash ||
                 fc.snippet.signalRoot != snippet.signalRoot
-            ) {
-                // TODO(daniel): we may allow TaikoToken holders to stake
-                // to build an insurance fund. Then once there is a conflicting
-                // proof found, we lock the insurance fund, investigate the
-                // issue, then decide through a DAO whether we need to use
-                // the insurnace fund to cover any identified loss.
-                revert L1_CONFLICT_PROOF(fc.snippet);
-            }
-
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+            ) revert L1_CONFLICT_PROOF();
 
             fc.prover = prover;
             fc.provenAt = uint64(block.timestamp);
@@ -183,7 +174,7 @@ library LibProving {
             if (!verified) revert L1_INVALID_PROOF();
         }
 
-        emit BlockProven({id: blockId, parentHash: parentHash, forkChoice: fc});
+        emit BlockProven({id: blockId, parentHash: parentHash});
     }
 
     function _getInstance(
