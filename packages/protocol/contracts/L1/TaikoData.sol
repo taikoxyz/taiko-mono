@@ -39,6 +39,18 @@ library TaikoData {
         bool skipZKPVerification;
     }
 
+    struct StateVariables {
+        uint256 feeBase;
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 nextBlockId;
+        uint64 lastProposedAt;
+        uint64 avgBlockTime;
+        uint64 latestVerifiedHeight;
+        uint64 latestVerifiedId;
+        uint64 avgProofTime;
+    }
+
     struct BlockMetadataInput {
         address beneficiary;
         uint64 gasLimit;

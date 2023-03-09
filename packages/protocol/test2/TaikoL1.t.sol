@@ -61,11 +61,11 @@ contract TaikoL1Test is Test {
                 txListHash: keccak256(txList)
             });
 
+
         vm.prank(proposer, proposer);
         L1.proposeBlock(input, txList);
 
-        // todo
-        // meta init
+
     }
 
     function proveBlock(

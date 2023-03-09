@@ -21,18 +21,6 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
-    struct StateVariables {
-        uint256 feeBase;
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 nextBlockId;
-        uint64 lastProposedAt;
-        uint64 avgBlockTime;
-        uint64 latestVerifiedHeight;
-        uint64 latestVerifiedId;
-        uint64 avgProofTime;
-    }
-
     function getProposedBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
@@ -59,9 +47,9 @@ library LibUtils {
 
     function getStateVariables(
         TaikoData.State storage state
-    ) internal view returns (StateVariables memory) {
+    ) internal view returns (TaikoData.StateVariables memory) {
         return
-            StateVariables({
+            TaikoData.StateVariables({
                 feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
