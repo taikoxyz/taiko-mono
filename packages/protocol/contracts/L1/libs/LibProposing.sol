@@ -131,7 +131,7 @@ library LibProposing {
 
         emit BlockProposed(state.nextBlockId, meta);
         unchecked {
-            state.nextBlockId;
+            ++state.nextBlockId;
         }
     }
 

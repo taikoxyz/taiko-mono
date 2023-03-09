@@ -113,6 +113,7 @@ library LibProving {
 
         if (meta.id <= state.latestVerifiedId || meta.id >= state.nextBlockId)
             revert L1_ID();
+
         if (
             state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
             keccak256(abi.encode(meta))

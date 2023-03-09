@@ -10,12 +10,15 @@ import "../contracts/L1/TaikoConfig.sol";
 import "../contracts/L1/TaikoData.sol";
 import "../contracts/L1/TaikoToken.sol";
 import "../contracts/libs/LibBlockHeader.sol";
+import "../contracts/signal/SignalService.sol";
 
 contract TaikoL1Test is Test {
     TaikoToken public tko;
     TaikoL1 public L1;
+    SignalService public ss;
 
     bytes32 public constant genesisBlockHash = keccak256("genesisBlockHash");
+    address public constant l2ss = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
     address public constant alice = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
     address public constant bob = 0x000000000000000000636F6e736F6c652e6c6f67;
 
@@ -32,15 +35,18 @@ contract TaikoL1Test is Test {
         tko = new TaikoToken();
         tko.init(address(addressManager), "TaikoToken", "TKO");
 
-        // register all addresses
-        _registerAddress("taiko_token", address(tko));
+        ss = new SignalService();
+        ss.init(address(addressManager));
 
         // set proto_broker to this address to mint some TKO
         _registerAddress("proto_broker", address(this));
-        tko.mint(address(this), 1E9 ether);
+        tko.mint(address(this), 1E12 ether);
 
-        // set proto_broker to L1
+        // register all addresses
+        _registerAddress("taiko_token", address(tko));
         _registerAddress("proto_broker", address(L1));
+        _registerAddress("signal_service", address(ss));
+        _registerL2Address("signal_service", address(l2ss));
     }
 
     function proposeBlock(
@@ -62,6 +68,7 @@ contract TaikoL1Test is Test {
         unchecked {
             mixHash = block.prevrandao * variables.nextBlockId;
         }
+
         meta.id = variables.nextBlockId;
         meta.l1Height = block.number - 1;
         meta.l1Hash = blockhash(block.number - 1);
@@ -140,6 +147,16 @@ contract TaikoL1Test is Test {
     function _registerAddress(string memory name, address addr) internal {
         string memory key = string.concat(
             Strings.toString(block.chainid),
+            ".",
+            name
+        );
+        addressManager.setAddress(key, addr);
+    }
+
+    function _registerL2Address(string memory name, address addr) internal {
+        TaikoData.Config memory conf = L1.getConfig();
+        string memory key = string.concat(
+            Strings.toString(conf.chainId),
             ".",
             name
         );
