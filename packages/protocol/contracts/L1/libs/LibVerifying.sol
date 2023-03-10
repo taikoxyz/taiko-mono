@@ -189,6 +189,8 @@ library LibVerifying {
 
         proposal.nextForkChoiceId = 1;
 
+        // Clean up the fork choice but keep non-zeros if possible to be
+        // reused.
         unchecked {
             fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
             fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
