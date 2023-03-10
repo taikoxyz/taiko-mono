@@ -10,6 +10,12 @@ title: TaikoCustomErrors
 error L1_0_FEE_BASE()
 ```
 
+### L1_ALREADY_PROVEN
+
+```solidity
+error L1_ALREADY_PROVEN()
+```
+
 ### L1_ANCHOR_CALLDATA
 
 ```solidity
@@ -100,12 +106,6 @@ error L1_BLOCK_NUMBER()
 error L1_CANNOT_BE_FIRST_PROVER()
 ```
 
-### L1_CIRCUIT_LENGTH
-
-```solidity
-error L1_CIRCUIT_LENGTH()
-```
-
 ### L1_COMMITTED
 
 ```solidity
@@ -140,18 +140,6 @@ error L1_EXTRA_DATA()
 
 ```solidity
 error L1_GAS_LIMIT()
-```
-
-### L1_HALTED
-
-```solidity
-error L1_HALTED()
-```
-
-### L1_HALT_CONDITION
-
-```solidity
-error L1_HALT_CONDITION()
 ```
 
 ### L1_ID
@@ -190,10 +178,10 @@ error L1_META_MISMATCH()
 error L1_NOT_COMMITTED()
 ```
 
-### L1_NOT_FIRST_PROVER
+### L1_NOT_ORACLE_PROVER
 
 ```solidity
-error L1_NOT_FIRST_PROVER()
+error L1_NOT_ORACLE_PROVER()
 ```
 
 ### L1_PROOF_LENGTH
@@ -214,22 +202,10 @@ error L1_PROVER()
 error L1_SOLO_PROPOSER()
 ```
 
-### L1_TOO_LATE
+### L1_TOO_MANY_BLOCKS
 
 ```solidity
-error L1_TOO_LATE()
-```
-
-### L1_TOO_MANY
-
-```solidity
-error L1_TOO_MANY()
-```
-
-### L1_TOO_MANY_PROVERS
-
-```solidity
-error L1_TOO_MANY_PROVERS()
+error L1_TOO_MANY_BLOCKS()
 ```
 
 ### L1_TX_LIST
