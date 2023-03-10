@@ -148,8 +148,10 @@ library LibVerifying {
 
                 // refund proposer deposit for valid blocks
                 if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
-                    uint256 refund = (proposal.deposit * (10000 - tRelBp)) /
-                        10000;
+                    uint256 refund;
+                    unchecked {
+                        refund = (proposal.deposit * (10000 - tRelBp)) / 10000;
+                    }
                     if (refund > 0) {
                         if (state.balances[proposal.proposer] == 0) {
                             // Reduce refund to 1 wei as a penalty if the proposer

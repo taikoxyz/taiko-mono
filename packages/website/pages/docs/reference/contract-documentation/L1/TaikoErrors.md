@@ -28,16 +28,16 @@ error L1_CONFLICT_PROOF()
 error L1_CONTRACT_NOT_ALLOWED()
 ```
 
-### L1_DUP_PROVERS
-
-```solidity
-error L1_DUP_PROVERS()
-```
-
 ### L1_EVIDENCE_MISMATCH
 
 ```solidity
 error L1_EVIDENCE_MISMATCH()
+```
+
+### L1_FORK_CHOICE_ID
+
+```solidity
+error L1_FORK_CHOICE_ID()
 ```
 
 ### L1_ID
@@ -58,6 +58,12 @@ error L1_INSUFFICIENT_TOKEN()
 error L1_INVALID_EVIDENCE()
 ```
 
+### L1_INVALID_METADATA
+
+```solidity
+error L1_INVALID_METADATA()
+```
+
 ### L1_INVALID_PARAM
 
 ```solidity
@@ -68,12 +74,6 @@ error L1_INVALID_PARAM()
 
 ```solidity
 error L1_INVALID_PROOF()
-```
-
-### L1_METADATA_FIELD
-
-```solidity
-error L1_METADATA_FIELD()
 ```
 
 ### L1_NONZERO_SIGNAL_ROOT
@@ -88,10 +88,10 @@ error L1_NONZERO_SIGNAL_ROOT()
 error L1_NOT_ORACLE_PROVER()
 ```
 
-### L1_SOLO_PROPOSER
+### L1_NOT_SOLO_PROPOSER
 
 ```solidity
-error L1_SOLO_PROPOSER()
+error L1_NOT_SOLO_PROPOSER()
 ```
 
 ### L1_TOO_MANY_BLOCKS
