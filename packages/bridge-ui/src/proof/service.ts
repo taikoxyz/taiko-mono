@@ -1,14 +1,14 @@
-import { Contract, ethers } from "ethers";
-import { RLP } from "ethers/lib/utils.js";
-import Bridge from "../constants/abi/Bridge";
-import HeaderSync from "../constants/abi/HeaderSync";
-import type { Block, BlockHeader } from "../domain/block";
+import { Contract, ethers } from 'ethers';
+import { RLP } from 'ethers/lib/utils.js';
+import Bridge from '../constants/abi/Bridge';
+import HeaderSync from '../constants/abi/HeaderSync';
+import type { Block, BlockHeader } from '../domain/block';
 import type {
   Prover,
   GenerateProofOpts,
   EthGetProofResponse,
   GenerateReleaseProofOpts,
-} from "../domain/proof";
+} from '../domain/proof';
 
 class ProofService implements Prover {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
@@ -20,18 +20,21 @@ class ProofService implements Prover {
   private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
-        ["address", "bytes32"],
-        [opts.sender, opts.msgHash]
-      )
+        ['address', 'bytes32'],
+        [opts.sender, opts.msgHash],
+      ),
     );
 
     return key;
   }
 
-  private static async getBlockAndBlockHeader(contract: ethers.Contract, provider: ethers.providers.JsonRpcProvider): Promise<{block: Block, blockHeader: BlockHeader}> {
+  private static async getBlockAndBlockHeader(
+    contract: ethers.Contract,
+    provider: ethers.providers.JsonRpcProvider,
+  ): Promise<{ block: Block; blockHeader: BlockHeader }> {
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
 
-    const block: Block = await provider.send("eth_getBlockByHash", [
+    const block: Block = await provider.send('eth_getBlockByHash', [
       latestSyncedHeader,
       false,
     ]);
@@ -45,7 +48,7 @@ class ProofService implements Prover {
       stateRoot: block.stateRoot,
       transactionsRoot: block.transactionsRoot,
       receiptsRoot: block.receiptsRoot,
-      logsBloom: logsBloom.match(/.{1,64}/g)!.map((s: string) => "0x" + s),
+      logsBloom: logsBloom.match(/.{1,64}/g)!.map((s: string) => '0x' + s),
       difficulty: block.difficulty,
       height: block.number,
       gasLimit: block.gasLimit,
@@ -60,19 +63,22 @@ class ProofService implements Prover {
     return { block, blockHeader };
   }
 
-  private static getSignalProof(proof: EthGetProofResponse, blockHeader: BlockHeader) {
+  private static getSignalProof(
+    proof: EthGetProofResponse,
+    blockHeader: BlockHeader,
+  ) {
     // RLP encode the proof together for LibTrieProof to decode
     const encodedProof = ethers.utils.defaultAbiCoder.encode(
-      ["bytes", "bytes"],
-      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)]
+      ['bytes', 'bytes'],
+      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
     );
 
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
       [
-        "tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)",
+        'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)',
       ],
-      [{ header: blockHeader, proof: encodedProof }]
+      [{ header: blockHeader, proof: encodedProof }],
     );
 
     return signalProof;
@@ -86,20 +92,23 @@ class ProofService implements Prover {
     const contract = new Contract(
       opts.destHeaderSyncAddress,
       HeaderSync,
-      this.providerMap.get(opts.destChain)
+      this.providerMap.get(opts.destChain),
     );
 
-    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(
+      contract,
+      provider,
+    );
 
     // rpc call to get the merkle proof what value is at key on the SignalService contract
-    const proof: EthGetProofResponse = await provider.send("eth_getProof", [
+    const proof: EthGetProofResponse = await provider.send('eth_getProof', [
       opts.srcSignalServiceAddress,
       [key],
       block.hash,
     ]);
 
-    if (proof.storageProof[0].value !== "0x1") {
-      throw Error("invalid proof");
+    if (proof.storageProof[0].value !== '0x1') {
+      throw Error('invalid proof');
     }
 
     return ProofService.getSignalProof(proof, blockHeader);
@@ -113,20 +122,23 @@ class ProofService implements Prover {
     const contract = new Contract(
       opts.srcHeaderSyncAddress,
       HeaderSync,
-      this.providerMap.get(opts.srcChain)
+      this.providerMap.get(opts.srcChain),
     );
 
-    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(contract, provider)
+    const { block, blockHeader } = await ProofService.getBlockAndBlockHeader(
+      contract,
+      provider,
+    );
 
     // rpc call to get the merkle proof what value is at key on the SignalService contract
-    const proof: EthGetProofResponse = await provider.send("eth_getProof", [
+    const proof: EthGetProofResponse = await provider.send('eth_getProof', [
       opts.destBridgeAddress,
       [key],
       block.hash,
     ]);
 
-    if (proof.storageProof[0].value !== "0x3") {
-      throw Error("invalid proof");
+    if (proof.storageProof[0].value !== '0x3') {
+      throw Error('invalid proof');
     }
 
     return ProofService.getSignalProof(proof, blockHeader);

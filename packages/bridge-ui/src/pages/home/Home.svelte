@@ -8,8 +8,10 @@
 
   let bridgeWidth: number;
   let bridgeHeight: number;
-  
-  $: activeTab = $location.replace('/', '').startsWith('transactions') ? 'transactions' : 'bridge';
+
+  $: activeTab = $location.replace('/', '').startsWith('transactions')
+    ? 'transactions'
+    : 'bridge';
   $: isBridge = activeTab === 'bridge';
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
@@ -31,11 +33,12 @@
     <div class="tabs block mb-4">
       <a
         class="tab tab-bordered {isBridge ? 'tab-active' : ''}"
-        href="/" use:link>Bridge</a>
+        href="/"
+        use:link>Bridge</a>
       <a
         class="tab tab-bordered {!isBridge ? 'tab-active' : ''}"
-        href="/transactions" use:link
-        >Transactions ({$transactions.length})</a>
+        href="/transactions"
+        use:link>Transactions ({$transactions.length})</a>
     </div>
 
     {#if activeTab === 'bridge'}
