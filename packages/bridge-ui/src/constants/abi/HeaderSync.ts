@@ -1,53 +1,53 @@
 export default [
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "srcHeight",
-        "type": "uint256"
+        indexed: true,
+        internalType: 'uint256',
+        name: 'srcHeight',
+        type: 'uint256',
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "srcHash",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'srcHash',
+        type: 'bytes32',
+      },
     ],
-    "name": "HeaderSynced",
-    "type": "event"
+    name: 'HeaderSynced',
+    type: 'event',
   },
   {
-    "inputs": [],
-    "name": "getLatestSyncedHeader",
-    "outputs": [
+    inputs: [],
+    name: 'getLatestSyncedHeader',
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
+        internalType: 'bytes32',
+        name: '',
+        type: 'bytes32',
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: 'view',
+    type: 'function',
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "number",
-        "type": "uint256"
-      }
+        internalType: 'uint256',
+        name: 'number',
+        type: 'uint256',
+      },
     ],
-    "name": "getSyncedHeader",
-    "outputs": [
+    name: 'getSyncedHeader',
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
+        internalType: 'bytes32',
+        name: '',
+        type: 'bytes32',
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: 'view',
+    type: 'function',
   },
 ];

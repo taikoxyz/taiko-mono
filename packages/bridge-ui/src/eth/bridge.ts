@@ -1,17 +1,17 @@
-import { BigNumber, Contract } from "ethers";
-import type { Transaction } from "ethers";
+import { BigNumber, Contract } from 'ethers';
+import type { Transaction } from 'ethers';
 import type {
   ApproveOpts,
   Bridge as BridgeInterface,
   BridgeOpts,
   ClaimOpts,
   ReleaseOpts,
-} from "../domain/bridge";
-import TokenVault from "../constants/abi/TokenVault";
-import type { Prover } from "../domain/proof";
-import { MessageStatus } from "../domain/message";
-import Bridge from "../constants/abi/Bridge";
-import { chains } from "../domain/chain";
+} from '../domain/bridge';
+import TokenVault from '../constants/abi/TokenVault';
+import type { Prover } from '../domain/proof';
+import { MessageStatus } from '../domain/message';
+import Bridge from '../constants/abi/Bridge';
+import { chains } from '../domain/chain';
 
 class ETHBridge implements BridgeInterface {
   private readonly prover: Prover;
@@ -21,12 +21,12 @@ class ETHBridge implements BridgeInterface {
   }
 
   static async prepareTransaction(
-    opts: BridgeOpts
+    opts: BridgeOpts,
   ): Promise<{ contract: Contract; message: any; owner: string }> {
     const contract: Contract = new Contract(
       opts.tokenVaultAddress,
       TokenVault,
-      opts.signer
+      opts.signer,
     );
 
     const owner = await opts.signer.getAddress();
@@ -43,7 +43,7 @@ class ETHBridge implements BridgeInterface {
       gasLimit: opts.processingFeeInWei
         ? BigNumber.from(140000)
         : BigNumber.from(0),
-      memo: opts.memo ?? "",
+      memo: opts.memo ?? '',
     };
 
     return { contract, owner, message };
@@ -60,7 +60,7 @@ class ETHBridge implements BridgeInterface {
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, owner, message } = await ETHBridge.prepareTransaction(
-      opts
+      opts,
     );
 
     const tx = await contract.sendEther(
@@ -74,7 +74,7 @@ class ETHBridge implements BridgeInterface {
         value: message.depositValue
           .add(message.processingFee)
           .add(message.callValue),
-      }
+      },
     );
 
     return tx;
@@ -82,7 +82,7 @@ class ETHBridge implements BridgeInterface {
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, owner, message } = await ETHBridge.prepareTransaction(
-      opts
+      opts,
     );
 
     const gasEstimate = await contract.estimateGas.sendEther(
@@ -96,7 +96,7 @@ class ETHBridge implements BridgeInterface {
         value: message.depositValue
           .add(message.processingFee)
           .add(message.callValue),
-      }
+      },
     );
 
     return gasEstimate;
@@ -106,21 +106,21 @@ class ETHBridge implements BridgeInterface {
     const contract: Contract = new Contract(
       opts.destBridgeAddress,
       Bridge,
-      opts.signer
+      opts.signer,
     );
 
     const messageStatus: MessageStatus = await contract.getMessageStatus(
-      opts.msgHash
+      opts.msgHash,
     );
 
     if (messageStatus === MessageStatus.Done) {
-      throw Error("message already processed");
+      throw Error('message already processed');
     }
 
     const signerAddress = await opts.signer.getAddress();
 
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error("user can not process this, it is not their message");
+      throw Error('user can not process this, it is not their message');
     }
 
     if (messageStatus === MessageStatus.New) {
@@ -132,7 +132,8 @@ class ETHBridge implements BridgeInterface {
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
           chains[opts.message.destChainId.toNumber()].headerSyncAddress,
-        srcSignalServiceAddress: chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
+        srcSignalServiceAddress:
+          chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       };
 
       const proof = await this.prover.GenerateProof(proofOpts);
@@ -145,23 +146,22 @@ class ETHBridge implements BridgeInterface {
 
   async ReleaseTokens(opts: ReleaseOpts): Promise<Transaction> {
     const destBridgeContract: Contract = new Contract(
-        opts.destBridgeAddress,
-        Bridge,
-        opts.destProvider
+      opts.destBridgeAddress,
+      Bridge,
+      opts.destProvider,
     );
-      
-    const messageStatus: MessageStatus = await destBridgeContract.getMessageStatus(
-      opts.msgHash
-    );
-      
+
+    const messageStatus: MessageStatus =
+      await destBridgeContract.getMessageStatus(opts.msgHash);
+
     if (messageStatus === MessageStatus.Done) {
-      throw Error("message already processed");
+      throw Error('message already processed');
     }
 
     const signerAddress = await opts.signer.getAddress();
 
     if (opts.message.owner.toLowerCase() !== signerAddress.toLowerCase()) {
-      throw Error("user can not release these tokens, it is not their message");
+      throw Error('user can not release these tokens, it is not their message');
     }
 
     if (messageStatus === MessageStatus.Failed) {
@@ -180,9 +180,9 @@ class ETHBridge implements BridgeInterface {
       const proof = await this.prover.GenerateReleaseProof(proofOpts);
 
       const srcBridgeContract: Contract = new Contract(
-          opts.srcBridgeAddress,
-          Bridge,
-          opts.signer
+        opts.srcBridgeAddress,
+        Bridge,
+        opts.signer,
       );
 
       return await srcBridgeContract.releaseEther(opts.message, proof);

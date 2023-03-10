@@ -1,12 +1,12 @@
 <script lang="ts">
-  import Connect from "./buttons/Connect.svelte";
-  import TaikoLogo from "./icons/TaikoLogo.svelte";
-  import TaikoLight from "./icons/TaikoLight.svelte";
-  import { signer } from "../store/signer";
-  import AddressDropdown from "./AddressDropdown.svelte";
-  import ChainDropdown from "./ChainDropdown.svelte";
-  import TaikoLogoFluo from "./icons/TaikoLogoFluo.svelte";
-  import { Sun, Moon } from "svelte-heros-v2";
+  import Connect from './buttons/Connect.svelte';
+  import TaikoLogo from './icons/TaikoLogo.svelte';
+  import TaikoLight from './icons/TaikoLight.svelte';
+  import { signer } from '../store/signer';
+  import AddressDropdown from './AddressDropdown.svelte';
+  import ChainDropdown from './ChainDropdown.svelte';
+  import TaikoLogoFluo from './icons/TaikoLogoFluo.svelte';
+  import { Sun, Moon } from 'svelte-heros-v2';
   import { fly } from 'svelte/transition';
 
   let isDarkMode = localStorage.getItem('theme') === 'dark';
@@ -15,7 +15,7 @@
     if (!document) {
       return;
     }
-    document.documentElement.setAttribute("data-theme", "light")
+    document.documentElement.setAttribute('data-theme', 'light');
     localStorage.setItem('theme', 'light');
     isDarkMode = false;
   }
@@ -24,7 +24,7 @@
     if (!document) {
       return;
     }
-    document.documentElement.setAttribute("data-theme", "dark")
+    document.documentElement.setAttribute('data-theme', 'dark');
     localStorage.setItem('theme', 'dark');
     isDarkMode = true;
   }
@@ -52,11 +52,13 @@
 
     <div class="ml-2">
       {#if isDarkMode}
-        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle">
+        <button in:fly={{ y: 10, duration: 500 }} class="btn btn-sm btn-circle">
           <Moon on:click={switchToLightMode} />
         </button>
       {:else}
-        <button in:fly="{{ y: 10, duration: 500 }}" class="btn btn-sm btn-circle bg-base-100 hover:bg-base-100 text-neutral border-none">
+        <button
+          in:fly={{ y: 10, duration: 500 }}
+          class="btn btn-sm btn-circle bg-base-100 hover:bg-base-100 text-neutral border-none">
           <Sun on:click={switchToDarkMode} class="text-gray-800" />
         </button>
       {/if}

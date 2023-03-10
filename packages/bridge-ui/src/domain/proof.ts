@@ -38,4 +38,10 @@ interface Prover {
   GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string>;
 }
 
-export { GenerateProofOpts, Prover, StorageEntry, EthGetProofResponse, GenerateReleaseProofOpts };
+export {
+  GenerateProofOpts,
+  Prover,
+  StorageEntry,
+  EthGetProofResponse,
+  GenerateReleaseProofOpts,
+};

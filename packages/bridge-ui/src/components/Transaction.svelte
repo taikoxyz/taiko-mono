@@ -1,33 +1,33 @@
 <script lang="ts">
-  import type { BridgeTransaction } from "../domain/transactions";
-  import { chains, CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
-  import type { Chain } from "../domain/chain";
-  import { ArrowTopRightOnSquare } from "svelte-heros-v2";
-  import { MessageStatus } from "../domain/message";
-  import { Contract, ethers } from "ethers";
-  import { bridges, chainIdToTokenVaultAddress } from "../store/bridge";
-  import { signer } from "../store/signer";
+  import type { BridgeTransaction } from '../domain/transactions';
+  import { chains, CHAIN_MAINNET, CHAIN_TKO } from '../domain/chain';
+  import type { Chain } from '../domain/chain';
+  import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
+  import { MessageStatus } from '../domain/message';
+  import { Contract, ethers } from 'ethers';
+  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
+  import { signer } from '../store/signer';
   import {
     pendingTransactions,
     showTransactionDetails,
     showMessageStatusTooltip,
-  } from "../store/transactions";
-  import { errorToast, successToast } from "../utils/toast";
-  import { _ } from "svelte-i18n";
+  } from '../store/transactions';
+  import { errorToast, successToast } from '../utils/toast';
+  import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
-  } from "../store/chain";
-  import { BridgeType } from "../domain/bridge";
-  import { onMount } from "svelte";
+  } from '../store/chain';
+  import { BridgeType } from '../domain/bridge';
+  import { onMount } from 'svelte';
 
-  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
-  import HeaderSync from "../constants/abi/HeaderSync";
-  import { providers } from "../store/providers";
-  import { fetchSigner, switchNetwork } from "@wagmi/core";
-  import Bridge from "../constants/abi/Bridge";
-  import ButtonWithTooltip from "./ButtonWithTooltip.svelte";
-  import TokenVault from "../constants/abi/TokenVault";
+  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import HeaderSync from '../constants/abi/HeaderSync';
+  import { providers } from '../store/providers';
+  import { fetchSigner, switchNetwork } from '@wagmi/core';
+  import Bridge from '../constants/abi/Bridge';
+  import ButtonWithTooltip from './ButtonWithTooltip.svelte';
+  import TokenVault from '../constants/abi/TokenVault';
 
   export let transaction: BridgeTransaction;
 
@@ -45,7 +45,7 @@
       chainId: chain.id,
     });
     const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    await provider.send('eth_requestAccounts', []);
 
     fromChainStore.set(chain);
     if (chain === CHAIN_MAINNET) {
@@ -62,10 +62,10 @@
       loading = true;
       if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
         const chain = chains[bridgeTx.message.destChainId.toNumber()];
-        await switchChainAndSetSigner(chain)
+        await switchChainAndSetSigner(chain);
       }
       const tx = await $bridges
-        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
+        .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
         .Claim({
           signer: $signer,
           message: bridgeTx.message,
@@ -81,10 +81,10 @@
         return store;
       });
 
-      successToast($_("toast.transactionSent"));
+      successToast($_('toast.transactionSent'));
     } catch (e) {
       console.log(e);
-      errorToast($_("toast.errorSendingTransaction"));
+      errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
     }
@@ -95,10 +95,10 @@
       loading = true;
       if (fromChain.id !== bridgeTx.message.srcChainId.toNumber()) {
         const chain = chains[bridgeTx.message.srcChainId.toNumber()];
-        await switchChainAndSetSigner(chain)
+        await switchChainAndSetSigner(chain);
       }
       const tx = await $bridges
-        .get(bridgeTx.message.data === "0x" ? BridgeType.ETH : BridgeType.ERC20)
+        .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
         .ReleaseTokens({
           signer: $signer,
           message: bridgeTx.message,
@@ -106,9 +106,11 @@
           destBridgeAddress:
             chains[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
           srcBridgeAddress:
-          chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+            chains[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
           destProvider: $providers.get(bridgeTx.message.destChainId.toNumber()),
-          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(bridgeTx.message.srcChainId.toNumber())
+          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(
+            bridgeTx.message.srcChainId.toNumber(),
+          ),
         });
 
       pendingTransactions.update((store) => {
@@ -116,10 +118,10 @@
         return store;
       });
 
-      successToast($_("toast.transactionSent"));
+      successToast($_('toast.transactionSent'));
     } catch (e) {
       console.log(e);
-      errorToast($_("toast.errorSendingTransaction"));
+      errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
     }
@@ -133,7 +135,7 @@
     const contract = new Contract(
       chains[transaction.message.destChainId.toNumber()].headerSyncAddress,
       HeaderSync,
-      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id),
     );
 
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
@@ -148,29 +150,33 @@
     const contract = new ethers.Contract(
       chains[transaction.toChainId].bridgeAddress,
       Bridge,
-      $providers.get(chains[transaction.message.destChainId.toNumber()].id)
+      $providers.get(chains[transaction.message.destChainId.toNumber()].id),
     );
 
     transaction.status = await contract.getMessageStatus(transaction.msgHash);
-    if(transaction.status === MessageStatus.Failed) {
-      if(transaction.message.data !== "0x") {
+    if (transaction.status === MessageStatus.Failed) {
+      if (transaction.message.data !== '0x') {
         const srcTokenVaultContract = new ethers.Contract(
           $chainIdToTokenVaultAddress.get(transaction.fromChainId),
           TokenVault,
-          $providers.get(chains[transaction.message.srcChainId.toNumber()].id)
-        )
-        const {token, amount} = await srcTokenVaultContract.messageDeposits(transaction.msgHash);
-        if(token === ethers.constants.AddressZero && amount.eq(0)) {
+          $providers.get(chains[transaction.message.srcChainId.toNumber()].id),
+        );
+        const { token, amount } = await srcTokenVaultContract.messageDeposits(
+          transaction.msgHash,
+        );
+        if (token === ethers.constants.AddressZero && amount.eq(0)) {
           transaction.status = MessageStatus.FailedReleased;
         }
       } else {
         const srcBridgeContract = new ethers.Contract(
           chains[transaction.fromChainId].bridgeAddress,
           Bridge,
-          $providers.get(chains[transaction.message.srcChainId.toNumber()].id)
-        )
-        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(transaction.msgHash);
-        if(isFailedMessageResolved) {
+          $providers.get(chains[transaction.message.srcChainId.toNumber()].id),
+        );
+        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
+          transaction.msgHash,
+        );
+        if (isFailedMessageResolved) {
           transaction.status = MessageStatus.FailedReleased;
         }
       }
@@ -190,51 +196,47 @@
     <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
   </td>
   <td>
-    {transaction.message?.data === "0x"
+    {transaction.message?.data === '0x'
       ? ethers.utils.formatEther(transaction.message.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message?.data !== "0x" ? transaction.symbol : "ETH"}
+    {transaction.message?.data !== '0x' ? transaction.symbol : 'ETH'}
   </td>
 
   <td>
     <ButtonWithTooltip onClick={() => ($showMessageStatusTooltip = true)}>
       <span slot="buttonText">
-    {#if !processable}
-      Pending
-    {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
-      <div class="inline-block">
-        <LottiePlayer
-          src="/lottie/loader.json"
-          autoplay={true}
-          loop={true}
-          controls={false}
-          renderer="svg"
-          background="transparent"
-          height={26}
-          width={26}
-          controlsLayout={[]}
-        />
-      </div>
+        {#if !processable}
+          Pending
+        {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
+          <div class="inline-block">
+            <LottiePlayer
+              src="/lottie/loader.json"
+              autoplay={true}
+              loop={true}
+              controls={false}
+              renderer="svg"
+              background="transparent"
+              height={26}
+              width={26}
+              controlsLayout={[]} />
+          </div>
         {:else if transaction.receipt && transaction.status === MessageStatus.New}
           <button
             class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-            on:click={async () => await claim(transaction)}
-          >
+            on:click={async () => await claim(transaction)}>
             Claim
           </button>
         {:else if transaction.status === MessageStatus.Retriable}
-        <button
-          class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-          on:click={async () => await claim(transaction)}
-        >
-          Retry
-        </button>
+          <button
+            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
+            on:click={async () => await claim(transaction)}>
+            Retry
+          </button>
         {:else if transaction.status === MessageStatus.Failed}
           <!-- todo: releaseTokens() on src bridge with proof from destBridge-->
           <button
             class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-            on:click={async () => await releaseTokens(transaction)}
-          >
+            on:click={async () => await releaseTokens(transaction)}>
             Release
           </button>
         {:else if transaction.status === MessageStatus.Done}
@@ -249,8 +251,7 @@
   <td>
     <span
       class="cursor-pointer inline-block"
-      on:click={() => ($showTransactionDetails = transaction)}
-    >
+      on:click={() => ($showTransactionDetails = transaction)}>
       <ArrowTopRightOnSquare />
     </span>
   </td>
