@@ -45,10 +45,12 @@ library LibProving {
             meta.id >= state.nextBlockId
         ) revert L1_ID();
 
-        // 0 and 1 (placeholder) are not allowed
         if (
+            // 0 and 1 (placeholder) are not allowed
             uint256(evidence.parentHash) <= 1 ||
+            // 0 and 1 (placeholder) are not allowed
             uint256(evidence.blockHash) <= 1 ||
+            // 1 (placeholder) are not allowed
             uint256(evidence.signalRoot) != 1 ||
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
