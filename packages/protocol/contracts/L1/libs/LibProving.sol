@@ -7,9 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ChainData} from "../../common/IXchainSync.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
 library LibProving {
@@ -24,6 +24,7 @@ library LibProving {
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
+    error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INVALID_PROOF();
     error L1_NONZERO_SIGNAL_ROOT();
@@ -43,17 +44,21 @@ library LibProving {
             meta.id >= state.nextBlockId
         ) revert L1_ID();
 
-        if (
-            state.getProposedBlock(config.maxNumBlocks, meta.id).metaHash !=
-            keccak256(abi.encode(meta))
-        ) revert L1_EVIDENCE_MISMATCH();
-
-        bool oracleProving;
-        TaikoData.ForkChoice storage fc = state.forkChoices[blockId][
-            evidence.parentHash
+        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+            meta.id % config.maxNumBlocks
         ];
 
-        if (fc.chainData.blockHash == 0) {
+        if (proposal.metaHash != keccak256(abi.encode(meta)))
+            revert L1_EVIDENCE_MISMATCH();
+
+        uint256 fcId = proposal.nextForkChoiceId;
+
+        TaikoData.ForkChoice storage fc = state.forkChoices[
+            blockId % config.maxNumBlocks
+        ][fcId];
+
+        bool oracleProving;
+        if (uint256(fc.chainData.blockHash) <= 1) {
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
@@ -87,7 +92,7 @@ library LibProving {
             );
 
             bytes32 instance;
-            if (evidence.blockHash == LibUtils.BLOCK_DEADEND_HASH) {
+            if (evidence.blockHash == LibUtils.BYTES32_ONE) {
                 if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
                 instance = evidence.meta.txListHash;
             } else {
@@ -106,6 +111,7 @@ library LibProving {
                     bytes32(uint256(uint160(l1SignalService))),
                     // for checking signalRoot
                     bytes32(uint256(uint160(l2SignalService))),
+                    evidence.parentHash,
                     evidence.blockHash,
                     evidence.signalRoot
                 );
@@ -135,6 +141,29 @@ library LibProving {
                 revert L1_INVALID_PROOF();
         }
 
+        state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
+        unchecked {
+            ++proposal.nextForkChoiceId;
+        }
         emit BlockProven({id: blockId, parentHash: evidence.parentHash});
+    }
+
+    function getForkChoice(
+        TaikoData.State storage state,
+        uint256 maxNumBlocks,
+        uint256 id,
+        bytes32 parentHash
+    ) internal view returns (TaikoData.ForkChoice storage) {
+        if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
+            revert L1_ID();
+        }
+
+        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+            id % maxNumBlocks
+        ];
+        uint256 fcId = state.forkChoiceIds[id][parentHash];
+        if (fcId >= proposal.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+
+        return state.forkChoices[id % maxNumBlocks][fcId];
     }
 }

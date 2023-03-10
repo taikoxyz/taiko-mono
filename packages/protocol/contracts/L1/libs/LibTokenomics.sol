@@ -7,11 +7,11 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {ChainData} from "../../common/IXchainSync.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
@@ -105,14 +105,18 @@ library LibTokenomics {
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
+        uint256 m;
+        uint256 n;
+        uint256 k;
         // m is the `n'` in the whitepaper
-        uint256 m = 1000 *
-            (config.maxNumBlocks - 1) +
-            config.slotSmoothingFactor;
-        // n is the number of unverified blocks
-        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
-        // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+        unchecked {
+            m = 1000 * (config.maxNumBlocks - 1) + config.slotSmoothingFactor;
+            // n is the number of unverified blocks
+            n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
+
+            // k is `m − n + 1` or `m − n - 1`in the whitepaper
+            k = isProposal ? m - n - 1000 : m - n + 1000;
+        }
         return (feeBase * (m - 1000) * m) / (m - n) / k;
     }
 
@@ -168,7 +172,7 @@ library LibTokenomics {
     }
 
     function toSzabo(uint256 amount) internal pure returns (uint64) {
-        uint _szabo = amount / SZABO_TO_WEI;
+        uint256 _szabo = amount / SZABO_TO_WEI;
         if (_szabo > type(uint64).max) {
             return type(uint64).max;
         } else if (_szabo == 0) {
