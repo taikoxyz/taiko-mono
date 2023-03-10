@@ -49,9 +49,11 @@ library LibProving {
             uint256(evidence.parentHash) <= 1 ||
             // 0 and 1 (placeholder) are not allowed
             uint256(evidence.blockHash) <= 1 ||
+            // cannot be the same hash
             evidence.blockHash == evidence.parentHash ||
-            // 1 (placeholder) are not allowed
+            // 0 and 1 (placeholder) are not allowed
             uint256(evidence.signalRoot) <= 1 ||
+            // prover must not be zero
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
