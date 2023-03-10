@@ -81,7 +81,7 @@ abstract contract AddressResolver {
     ) private view returns (address payable addr) {
         // TODO(daniel): measure the difference in gas cost:
         // string memory key = string(abi.encodePacked(chainId, name));
-        string memory key = string.concat(Strings.toString(chainId), ".", name);
+        string memory key = keyForName(chainId, name);
 
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
@@ -89,5 +89,9 @@ abstract contract AddressResolver {
             // error message is more helpful for diagnosis.
             require(addr != address(0), string.concat("AR:zeroAddr:", key));
         }
+    }
+
+    function keyForName(uint256 chainId, string memory name) public pure returns (string memory) {
+        return string(bytes.concat(bytes32(chainId), bytes(name))); //1437
     }
 }

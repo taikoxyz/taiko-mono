@@ -166,21 +166,14 @@ contract TaikoL1Test is Test {
     }
 
     function _registerAddress(string memory name, address addr) internal {
-        string memory key = string.concat(
-            Strings.toString(block.chainid),
-            ".",
-            name
-        );
+        string memory key = L1.keyForName(block.chainid, name);
         addressManager.setAddress(key, addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         TaikoData.Config memory conf = L1.getConfig();
-        string memory key = string.concat(
-            Strings.toString(conf.chainId),
-            ".",
-            name
-        );
+
+        string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
     }
 
