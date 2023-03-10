@@ -51,10 +51,10 @@ library LibProving {
             uint256(evidence.blockHash) <= 1
         ) revert L1_BLOCK_HASH();
 
-        if (
-            evidence.blockHash == evidence.parentHash &&
-            evidence.signalRoot != bytes32(uint256(1))
-        ) revert L1_NONZERO_SIGNAL_ROOT();
+        if (evidence.blockHash == evidence.parentHash) {
+            if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+            evidence.signalRoot = bytes32(uint256(1));
+        }
 
         TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
             meta.id % config.maxNumBlocks
