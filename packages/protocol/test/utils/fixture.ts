@@ -36,7 +36,7 @@ async function initIntegrationFixture(
         await Promise.all([l1Signer.unlock(""), l2Signer.unlock("")]);
     } catch (_) {}
 
-    const l2AddressManager = await deployAddressManager(l2Signer);
+    // const l2AddressManager = await deployAddressManager(l2Signer);
     const taikoL2 = await deployTaikoL2(
         l2Signer,
         5000000 // Note: need to explicitly set gasLimit here, otherwise the deployment transaction may fail.
