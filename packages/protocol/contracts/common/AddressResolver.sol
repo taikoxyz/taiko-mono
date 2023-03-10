@@ -74,7 +74,8 @@ abstract contract AddressResolver {
         string memory name
     ) public view returns (string memory key) {
         key = string.concat(Strings.toString(chainId), ".", name);
-        // TODO: the next line is cheaper in gas
+        // TODO: the next line is cheaper in gas but will break
+        //       many Hardhat tests.
         // key = string(bytes.concat(bytes32(chainId), bytes(name)));
     }
 
@@ -88,7 +89,7 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        string memory key = string.concat(Strings.toString(chainId), ".", name);
+        string memory key = keyForName(chainId, name);
 
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
