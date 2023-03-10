@@ -188,7 +188,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 	for _, log := range receipt.Logs {
 		topic := log.Topics[0]
-		if topic == crypto.Keccak256Hash([]byte("MessageStatusChanged(bytes32,uint8,address)")) {
+		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
 			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
 			if err != nil {
 				return errors.Wrap(err, "abi.UnpackIntoInterface")
