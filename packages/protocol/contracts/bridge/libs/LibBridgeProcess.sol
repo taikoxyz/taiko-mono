@@ -144,7 +144,7 @@ library LibBridgeProcess {
 
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {
-            uint amount = message.processingFee + refundAmount;
+            uint256 amount = message.processingFee + refundAmount;
             if (amount > 0) {
                 refundAddress.sendEther(amount);
             }

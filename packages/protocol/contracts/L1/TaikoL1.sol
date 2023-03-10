@@ -54,14 +54,13 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *        will be the first transaction in the block -- if there are
      *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
-     * @return metaHash The hash of the updated block metadata.
      */
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external onlyFromEOA nonReentrant returns (bytes32 metaHash) {
+    ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
-        metaHash = LibProposing.proposeBlock({
+        LibProposing.proposeBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
@@ -157,6 +156,19 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             LibProposing.getProposedBlock(state, getConfig().maxNumBlocks, id);
     }
 
+    function getForkChoice(
+        uint256 id,
+        bytes32 parentHash
+    ) public view returns (TaikoData.ForkChoice memory) {
+        return
+            LibProving.getForkChoice(
+                state,
+                getConfig().maxNumBlocks,
+                id,
+                parentHash
+            );
+    }
+
     function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
@@ -181,13 +193,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         returns (TaikoData.StateVariables memory)
     {
         return state.getStateVariables();
-    }
-
-    function getForkChoice(
-        uint256 id,
-        bytes32 parentHash
-    ) public view returns (TaikoData.ForkChoice memory) {
-        return state.forkChoices[id][parentHash];
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

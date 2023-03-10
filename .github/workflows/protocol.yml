@@ -20,6 +20,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

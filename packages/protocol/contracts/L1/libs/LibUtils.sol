@@ -6,28 +6,20 @@
 
 pragma solidity ^0.8.18;
 
+import {ChainData} from "../../common/IXchainSync.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {
     SafeCastUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {TaikoData} from "../TaikoData.sol";
 
 library LibUtils {
     using LibMath for uint256;
 
-    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+    bytes32 public constant BYTES32_ONE = bytes32(uint256(1));
 
     error L1_BLOCK_NUMBER();
-
-    function getProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
-        return state.proposedBlocks[id % maxNumBlocks];
-    }
 
     function getL2ChainData(
         TaikoData.State storage state,
