@@ -45,9 +45,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        uint64 latestL2Height = state.latestVerifiedHeight;
+        uint64 latestVerifiedId = state.latestVerifiedId;
         ChainData memory latestL2ChainData = state.l2ChainDatas[
-            latestL2Height % config.blockHashHistory
+            latestVerifiedId% config.blockHashHistory
         ];
 
         uint64 processed;
@@ -74,13 +74,11 @@ library LibVerifying {
             if (fc.prover == address(0)) {
                 break;
             } else {
-                (latestL2Height, latestL2ChainData) = _markBlockVerified({
+                latestL2ChainData = _markBlockVerified({
                     state: state,
                     config: config,
                     fc: fc,
-                    proposal: proposal,
-                    latestL2Height: latestL2Height,
-                    latestL2ChainData: latestL2ChainData
+                    proposal: proposal
                 });
                 unchecked {
                     processed++;
@@ -94,21 +92,17 @@ library LibVerifying {
         }
 
         if (processed > 0) {
-            state.latestVerifiedId += processed;
-
-            if (latestL2Height > state.latestVerifiedHeight) {
-                state.latestVerifiedHeight = latestL2Height;
+                state.latestVerifiedId = latestVerifiedId;
 
                 // Note: Not all L2 hashes are stored on L1, only the last
                 // verified one in a batch. This is sufficient because the last
                 // verified hash is the only one needed checking the existence
                 // of a cross-chain message with a merkle proof.
                 state.l2ChainDatas[
-                    latestL2Height % config.blockHashHistory
+                    latestVerifiedId % config.blockHashHistory
                 ] = latestL2ChainData;
 
-                emit XchainSynced(latestL2Height, latestL2ChainData);
-            }
+                emit XchainSynced(latestVerifiedId, latestL2ChainData);
         }
     }
 
@@ -116,12 +110,10 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage proposal,
-        uint64 latestL2Height,
-        ChainData memory latestL2ChainData
+        TaikoData.ProposedBlock storage proposal
     )
         private
-        returns (uint64 _latestL2Height, ChainData memory _latestL2ChainData)
+        returns (ChainData memory _latestL2ChainData)
     {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
@@ -180,13 +172,7 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
-            // valid block
-            unchecked {
-                _latestL2Height = latestL2Height + 1;
-            }
-            _latestL2ChainData = fc.chainData;
-        }
+        _latestL2ChainData = fc.chainData;
 
         proposal.nextForkChoiceId = 1;
 
