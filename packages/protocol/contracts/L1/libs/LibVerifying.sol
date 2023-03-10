@@ -124,44 +124,41 @@ library LibVerifying {
         returns (uint64 _latestL2Height, ChainData memory _latestL2ChainData)
     {
         if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                // otherwise: stack too deep
-                uint256 reward;
-                uint256 tRelBp; // [0-10000], see the whitepaper
-                (newFeeBase, reward, tRelBp) = LibTokenomics.getProofReward({
+            (uint256 newFeeBase, uint256 reward, uint256 tRelBp) = LibTokenomics
+                .getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
                     proposedAt: proposal.proposedAt
                 });
 
-                // reward the prover
-                if (reward > 0) {
-                    if (state.balances[fc.prover] == 0) {
-                        // Reduce reward to 1 wei as a penalty if the prover
-                        // has 0 TKO outstanding balance.
-                        state.balances[fc.prover] = 1;
-                    } else {
-                        state.balances[fc.prover] += reward;
-                    }
-                }
-
-                // refund proposer deposit for valid blocks
-                uint256 refund;
-                unchecked {
-                    refund = (proposal.deposit * (10000 - tRelBp)) / 10000;
-                }
-                if (refund > 0) {
-                    if (state.balances[proposal.proposer] == 0) {
-                        // Reduce refund to 1 wei as a penalty if the proposer
-                        // has 0 TKO outstanding balance.
-                        state.balances[proposal.proposer] = 1;
-                    } else {
-                        state.balances[proposal.proposer] += refund;
-                    }
+            // reward the prover
+            if (reward > 0) {
+                if (state.balances[fc.prover] == 0) {
+                    // Reduce reward to 1 wei as a penalty if the prover
+                    // has 0 TKO outstanding balance.
+                    state.balances[fc.prover] = 1;
+                } else {
+                    state.balances[fc.prover] += reward;
                 }
             }
+
+            // refund proposer deposit for valid blocks
+            uint256 refund;
+            unchecked {
+                // tRelBp in [0-10000]
+                refund = (proposal.deposit * (10000 - tRelBp)) / 10000;
+            }
+            if (refund > 0) {
+                if (state.balances[proposal.proposer] == 0) {
+                    // Reduce refund to 1 wei as a penalty if the proposer
+                    // has 0 TKO outstanding balance.
+                    state.balances[proposal.proposer] = 1;
+                } else {
+                    state.balances[proposal.proposer] += refund;
+                }
+            }
+
             // Update feeBase and avgProofTime
             state.feeBaseSzabo = LibTokenomics.toSzabo(
                 LibUtils.movingAverage({
