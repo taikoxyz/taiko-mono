@@ -45,23 +45,22 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        uint64 latestVerifiedId = state.latestVerifiedId;
-        ChainData memory latestL2ChainData = state.l2ChainDatas[
-            latestVerifiedId% config.blockHashHistory
+        ChainData memory cd = state.l2ChainDatas[
+            state.latestVerifiedId % config.blockHashHistory
         ];
 
         uint64 processed;
         uint256 i;
-
         unchecked {
             i = state.latestVerifiedId + 1;
         }
+
         while (i < state.nextBlockId && processed < maxBlocks) {
             TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
                 i % config.maxNumBlocks
             ];
 
-            uint256 fcId = state.forkChoiceIds[i][latestL2ChainData.blockHash];
+            uint256 fcId = state.forkChoiceIds[i][cd.blockHash];
 
             if (proposal.nextForkChoiceId <= fcId) {
                 break;
@@ -73,36 +72,37 @@ library LibVerifying {
 
             if (fc.prover == address(0)) {
                 break;
-            } else {
-                latestL2ChainData = _markBlockVerified({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    proposal: proposal
-                });
-                unchecked {
-                    processed++;
-                }
-                emit BlockVerified(i, latestL2ChainData);
             }
+
+            cd = _markBlockVerified({
+                state: state,
+                config: config,
+                fc: fc,
+                proposal: proposal
+            });
+
+            emit BlockVerified(i, cd);
 
             unchecked {
                 ++i;
+                ++processed;
             }
         }
 
         if (processed > 0) {
-                state.latestVerifiedId = latestVerifiedId;
+            unchecked {
+                state.latestVerifiedId += processed;
+            }
 
-                // Note: Not all L2 hashes are stored on L1, only the last
-                // verified one in a batch. This is sufficient because the last
-                // verified hash is the only one needed checking the existence
-                // of a cross-chain message with a merkle proof.
-                state.l2ChainDatas[
-                    latestVerifiedId % config.blockHashHistory
-                ] = latestL2ChainData;
+            // Note: Not all L2 hashes are stored on L1, only the last
+            // verified one in a batch. This is sufficient because the last
+            // verified hash is the only one needed checking the existence
+            // of a cross-chain message with a merkle proof.
+            state.l2ChainDatas[
+                state.latestVerifiedId % config.blockHashHistory
+            ] = cd;
 
-                emit XchainSynced(latestVerifiedId, latestL2ChainData);
+            emit XchainSynced(state.latestVerifiedId, cd);
         }
     }
 
@@ -111,10 +111,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage proposal
-    )
-        private
-        returns (ChainData memory _latestL2ChainData)
-    {
+    ) private returns (ChainData memory cd) {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
@@ -172,8 +169,7 @@ library LibVerifying {
             })
             .toUint64();
 
-        _latestL2ChainData = fc.chainData;
-
+        cd = fc.chainData;
         proposal.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
