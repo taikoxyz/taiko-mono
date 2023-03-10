@@ -27,6 +27,7 @@ library LibProving {
     error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INVALID_PROOF();
+    error L1_INVALID_EVIDENCE();
     error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
 
@@ -44,6 +45,23 @@ library LibProving {
             meta.id >= state.nextBlockId
         ) revert L1_ID();
 
+        if (
+            // 0 and 1 (placeholder) are not allowed
+            uint256(evidence.parentHash) <= 1 ||
+            // 0 and 1 (placeholder) are not allowed
+            uint256(evidence.blockHash) <= 1 ||
+            // 1 (placeholder) are not allowed
+            uint256(evidence.signalRoot) != 1 ||
+            evidence.prover == address(0)
+        ) revert L1_INVALID_EVIDENCE();
+
+        if (evidence.blockHash == evidence.parentHash) {
+            // This is an invalid block
+            if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+            // use 1 instad of 0 as placeholder
+            evidence.signalRoot = bytes32(uint256(1));
+        }
+
         TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
             meta.id % config.maxNumBlocks
         ];
@@ -51,14 +69,13 @@ library LibProving {
         if (proposal.metaHash != keccak256(abi.encode(meta)))
             revert L1_EVIDENCE_MISMATCH();
 
-        uint256 fcId = proposal.nextForkChoiceId;
-
         TaikoData.ForkChoice storage fc = state.forkChoices[
             blockId % config.maxNumBlocks
-        ][fcId];
+        ][proposal.nextForkChoiceId];
 
         bool oracleProving;
         if (uint256(fc.chainData.blockHash) <= 1) {
+            // 0 or 1 (placeholder) indicate this block has not been proven
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
@@ -68,7 +85,11 @@ library LibProving {
 
             fc.chainData = ChainData(evidence.blockHash, evidence.signalRoot);
 
-            if (!oracleProving) {
+            if (oracleProving) {
+                // make sure we reset the prover address to indicate it is
+                // proven by the oracle prover
+                fc.prover = address(0);
+            } else {
                 fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }
@@ -92,8 +113,7 @@ library LibProving {
             );
 
             bytes32 instance;
-            if (evidence.blockHash == LibUtils.BYTES32_ONE) {
-                if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+            if (evidence.blockHash == evidence.parentHash) {
                 instance = evidence.meta.txListHash;
             } else {
                 address l1SignalService = resolver.resolve(
@@ -141,7 +161,9 @@ library LibProving {
                 revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
+        state.forkChoiceIds[blockId][evidence.parentHash] = proposal
+            .nextForkChoiceId;
+
         unchecked {
             ++proposal.nextForkChoiceId;
         }

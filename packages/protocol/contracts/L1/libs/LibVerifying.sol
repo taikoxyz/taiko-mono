@@ -62,6 +62,7 @@ library LibVerifying {
             ];
 
             uint256 fcId = state.forkChoiceIds[i][latestL2ChainData.blockHash];
+
             if (proposal.nextForkChoiceId <= fcId) {
                 break;
             }
@@ -145,8 +146,8 @@ library LibVerifying {
                     }
                 }
 
-                // refund proposer deposit
-                if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
+                // refund proposer deposit for valid blocks
+                if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
                     uint256 refund = (proposal.deposit * (10000 - tRelBp)) /
                         10000;
                     if (refund > 0) {
@@ -178,21 +179,21 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
-            _latestL2Height = latestL2Height + 1;
+        if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
+            // valid block
+            unchecked {
+                _latestL2Height = latestL2Height + 1;
+            }
             _latestL2ChainData = fc.chainData;
-        } else {
-            _latestL2Height = latestL2Height;
-            _latestL2ChainData = latestL2ChainData;
         }
 
         proposal.nextForkChoiceId = 1;
 
-        // Clean up the fork choice but keep non-zeros if possible to be
-        // reused.
-        fc.chainData.blockHash = LibUtils.BYTES32_ONE; // none-zero placeholder
-        fc.chainData.signalRoot = LibUtils.BYTES32_ONE; // none-zero placeholder
-        fc.provenAt = 1; // none-zero placeholder
-        fc.prover = address(0);
+        unchecked {
+            fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
+            fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+            fc.provenAt = 1; // none-zero placeholder
+            fc.prover = address(0);
+        }
     }
 }

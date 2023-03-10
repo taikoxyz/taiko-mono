@@ -26,14 +26,14 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install pnpm dependencies
-        uses: ./.github/actions/install-pnpm-dependencies
-
       - name: protocol - Unit Tests (foundry)
         run: forge test -vvv
 
       - name: protocol - Run snapshot (foundry)
         run: forge snapshot
+        
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
 
       - name: protocol - Unit Tests (hardhat)
         working-directory: ./packages/protocol
