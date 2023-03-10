@@ -181,7 +181,9 @@ library LibVerifying {
 
         if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
             // valid block
-            _latestL2Height = latestL2Height + 1;
+            unchecked {
+                _latestL2Height = latestL2Height + 1;
+            }
             _latestL2ChainData = fc.chainData;
         }
 
