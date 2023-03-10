@@ -28,7 +28,7 @@ library LibProving {
     error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INVALID_PROOF();
-    error L1_NONZERO_SIGNAL_ROOT();
+    error L1_SIGNAL_ROOT_NOT_ONE();
     error L1_NOT_ORACLE_PROVER();
 
     function proveBlock(
@@ -54,7 +54,7 @@ library LibProving {
         if (
             evidence.blockHash == evidence.parentHash &&
             evidence.signalRoot != bytes32(uint256(1))
-        ) revert L1_NONZERO_SIGNAL_ROOT();
+        ) revert L1_SIGNAL_ROOT_NOT_ONE();
 
         TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
             meta.id % config.maxNumBlocks
