@@ -11,10 +11,8 @@ struct Config {
   uint256 chainId;
   uint256 maxNumBlocks;
   uint256 blockHashHistory;
-  uint256 zkProofsPerBlock;
   uint256 maxVerificationsPerTx;
   uint256 commitConfirmations;
-  uint256 maxProofsPerForkChoice;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
@@ -32,12 +30,9 @@ struct Config {
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
-  uint64 initialUncleDelay;
-  uint64 proverRewardRandomizedPercentage;
   bool enableTokenomics;
   bool enablePublicInputsCheck;
   bool enableAnchorValidation;
-  bool enableOracleProver;
 }
 ```
 
@@ -59,6 +54,18 @@ struct BlockMetadata {
 }
 ```
 
+### Evidence
+
+```solidity
+struct Evidence {
+  struct TaikoData.BlockMetadata meta;
+  struct BlockHeader header;
+  address prover;
+  bytes[] proofs;
+  uint16 circuitId;
+}
+```
+
 ### ProposedBlock
 
 ```solidity
@@ -75,8 +82,8 @@ struct ProposedBlock {
 ```solidity
 struct ForkChoice {
   bytes32 blockHash;
+  address prover;
   uint64 provenAt;
-  address[] provers;
 }
 ```
 
@@ -88,10 +95,11 @@ struct State {
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
   mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(address => mapping(uint256 => bytes32)) commits;
+  mapping(address => uint256) balances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reservedA1;
-  uint64 statusBits;
+  uint64 __reservedA2;
   uint256 feeBase;
   uint64 nextBlockId;
   uint64 lastProposedAt;
