@@ -22,8 +22,8 @@ library LibProposing {
 
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
-    error L1_METADATA_FIELD();
-    error L1_SOLO_PROPOSER();
+    error L1_INVALID_METADATA();
+    error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST();
@@ -41,14 +41,14 @@ library LibProposing {
         if (
             config.enableSoloProposer &&
             msg.sender != resolver.resolve("solo_proposer", false)
-        ) revert L1_SOLO_PROPOSER();
+        ) revert L1_NOT_SOLO_PROPOSER();
 
         if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
 
         if (
             input.beneficiary == address(0) ||
             input.gasLimit > config.blockMaxGasLimit
-        ) revert L1_METADATA_FIELD();
+        ) revert L1_INVALID_METADATA();
 
         // We need txListHash as with EIP-4844, txList is no longer
         // accssible to EVM.
