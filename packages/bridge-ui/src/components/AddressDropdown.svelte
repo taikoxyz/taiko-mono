@@ -1,23 +1,23 @@
 <script lang="ts">
-  import { disconnect as wagmiDisconnect } from '@wagmi/core'
-  import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
-  import { addressSubsection } from "../utils/addressSubsection";
-  import { signer } from "../store/signer";
-  import { pendingTransactions } from "../store/transactions";
-  import { getAddressAvatarFromIdenticon } from "../utils/addressAvatar";
-  import { LottiePlayer } from "@lottiefiles/svelte-lottie-player";
-  import { ethers, Signer } from "ethers";
-  import { errorToast, successToast } from "../utils/toast";
-  import { ClipboardDocument, Power } from "svelte-heros-v2";
-  import { slide } from "svelte/transition";
-  import { fromChain } from "../store/chain";
-  import { truncateString } from "../utils/truncateString";
-  import { ChevronDown } from "svelte-heros-v2";
+  import { disconnect as wagmiDisconnect } from '@wagmi/core';
+  import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
+  import { addressSubsection } from '../utils/addressSubsection';
+  import { signer } from '../store/signer';
+  import { pendingTransactions } from '../store/transactions';
+  import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
+  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import { ethers, Signer } from 'ethers';
+  import { errorToast, successToast } from '../utils/toast';
+  import { ClipboardDocument, Power } from 'svelte-heros-v2';
+  import { slide } from 'svelte/transition';
+  import { fromChain } from '../store/chain';
+  import { truncateString } from '../utils/truncateString';
+  import { ChevronDown } from 'svelte-heros-v2';
 
-  let address: string = "";
-  let addressAvatarImgData: string = "";
-  let tokenBalance: string = "";
+  let address: string = '';
+  let addressAvatarImgData: string = '';
+  let tokenBalance: string = '';
 
   onMount(() => {
     (async () => {
@@ -31,7 +31,7 @@
 
   async function getUserBalance(signer) {
     if (signer) {
-      const userBalance = await signer.getBalance("latest");
+      const userBalance = await signer.getBalance('latest');
       tokenBalance = ethers.utils.formatEther(userBalance);
     }
   }
@@ -54,7 +54,7 @@
       signer.set(null);
     } catch (e) {
       console.error(e);
-      errorToast($_("toast.errorDisconnecting"));
+      errorToast($_('toast.errorDisconnecting'));
     }
   }
 </script>
@@ -74,8 +74,7 @@
             background="transparent"
             height={26}
             width={26}
-            controlsLayout={[]}
-          />
+            controlsLayout={[]} />
         </div>
       {:else}
         <img
@@ -83,20 +82,18 @@
           height="26"
           src="data:image/png;base64,{addressAvatarImgData}"
           class="rounded-full mr-2 inline-block"
-          alt="avatar"
-        />
+          alt="avatar" />
 
         <span class="hidden md:inline-block mr-2">
           {addressSubsection(address)}
         </span>
       {/if}
     </span>
-    <ChevronDown size='20' />
+    <ChevronDown size="20" />
   </label>
   <ul
     tabindex="0"
-    class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm"
-  >
+    class="dropdown-content address-dropdown-content menu shadow bg-dark-2 rounded-sm w-48 mt-2 pb-2 text-sm">
     <div class="p-5 pb-0 flex flex-col items-center" transition:slide>
       {#if $fromChain && $signer}
         <svelte:component this={$fromChain.icon} />
@@ -106,9 +103,7 @@
             : tokenBalance} ETH
         </div>
       {:else}
-      <div class="text-lg mt-2">
-        -- ETH
-      </div>
+        <div class="text-lg mt-2">-- ETH</div>
       {/if}
     </div>
     <div class="divider" />
@@ -118,21 +113,18 @@
         height="24"
         src="data:image/png;base64,{addressAvatarImgData}"
         class="rounded-full mr-2 inline-block"
-        alt="avatar"
-      />
+        alt="avatar" />
       {addressSubsection(address)}
     </div>
     <div
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
-      on:click={async () => await copyToClipboard(address)}
-    >
+      on:click={async () => await copyToClipboard(address)}>
       <ClipboardDocument class="mr-2" />
       Copy Address
     </div>
     <div
       class="cursor-pointer flex hover:bg-dark-5 items-center py-2 px-4 mx-2 rounded-md"
-      on:click={async () => await disconnect()}
-    >
+      on:click={async () => await disconnect()}>
       <Power class="mr-2" /> Disconnect
     </div>
   </ul>

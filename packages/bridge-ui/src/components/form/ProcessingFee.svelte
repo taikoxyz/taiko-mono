@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
-  import { processingFee } from "../../store/fee";
-  import { ProcessingFeeMethod, PROCESSING_FEE_META } from "../../domain/fee";
-  import { toChain, fromChain } from "../../store/chain";
-  import { token } from "../../store/token";
-  import { signer } from "../../store/signer";
-  import { recommendProcessingFee } from "../../utils/recommendProcessingFee";
-  import Tooltip from "../Tooltip.svelte";
-  import TooltipModal from "../modals/TooltipModal.svelte";
-  import ButtonWithTooltip from "../ButtonWithTooltip.svelte";
+  import { _ } from 'svelte-i18n';
+  import { processingFee } from '../../store/fee';
+  import { ProcessingFeeMethod, PROCESSING_FEE_META } from '../../domain/fee';
+  import { toChain, fromChain } from '../../store/chain';
+  import { token } from '../../store/token';
+  import { signer } from '../../store/signer';
+  import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
+  import Tooltip from '../Tooltip.svelte';
+  import TooltipModal from '../modals/TooltipModal.svelte';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
 
   export let customFee: string;
-  export let recommendedFee: string = "0";
+  export let recommendedFee: string = '0';
 
   let tooltipOpen: boolean = false;
 
@@ -20,7 +20,7 @@
     $fromChain,
     $processingFee,
     $token,
-    $signer
+    $signer,
   )
     .then((fee) => (recommendedFee = fee))
     .catch((e) => console.error(e));
@@ -37,7 +37,7 @@
 <div class="my-10">
   <div class="flex flex-row justify-between">
     <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
-      <span slot="buttonText">{$_("bridgeForm.processingFeeLabel")}</span>
+      <span slot="buttonText">{$_('bridgeForm.processingFeeLabel')}</span>
     </ButtonWithTooltip>
   </div>
 
@@ -50,8 +50,7 @@
         min="0"
         on:input={updateAmount}
         class="input input-primary bg-dark-2 border-dark-2 input-md md:input-lg w-full focus:ring-0 !rounded-r-none"
-        name="amount"
-      />
+        name="amount" />
       <span class="!rounded-r-lg bg-dark-2">ETH</span>
     </label>
   {:else if $processingFee === ProcessingFeeMethod.RECOMMENDED}
@@ -67,8 +66,7 @@
           ? 'border-accent hover:border-accent'
           : ''} btn btn-md text-xs font-semibold md:w-32 dark:bg-dark-5"
         on:click={() => selectProcessingFee(fee[0])}
-        >{fee[1].displayText}</button
-      >
+        >{fee[1].displayText}</button>
     {/each}
   </div>
 </div>
@@ -101,8 +99,8 @@
 
 <style>
   /* hide number input arrows */
-  input[type="number"]::-webkit-outer-spin-button,
-  input[type="number"]::-webkit-inner-spin-button {
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
     -moz-appearance: textfield !important;
