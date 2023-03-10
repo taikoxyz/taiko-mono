@@ -23,7 +23,7 @@ library LibProposing {
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
-    error L1_SOLO_PROPOSER();
+    error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
     error L1_TX_LIST_HASH();
     error L1_TX_LIST();
@@ -41,7 +41,7 @@ library LibProposing {
         if (
             config.enableSoloProposer &&
             msg.sender != resolver.resolve("solo_proposer", false)
-        ) revert L1_SOLO_PROPOSER();
+        ) revert L1_NOT_SOLO_PROPOSER();
 
         if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
 
