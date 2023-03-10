@@ -8,6 +8,7 @@ pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./IAddressManager.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import "forge-std/console.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
@@ -69,6 +70,14 @@ abstract contract AddressResolver {
         return address(_addressManager);
     }
 
+    function keyForName(
+        uint256 chainId,
+        string memory name
+    ) public view returns (string memory key) {
+        key = string(bytes.concat(bytes32(chainId), bytes(name))); //1437
+        console.logString(key);
+    }
+
     function _init(address addressManager_) internal virtual {
         if (addressManager_ == address(0)) revert RESOLVER_INVALID_ADDR();
         _addressManager = IAddressManager(addressManager_);
@@ -79,9 +88,7 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        // TODO(daniel): measure the difference in gas cost:
-        // string memory key = string(abi.encodePacked(chainId, name));
-        string memory key = keyForName(chainId, name);
+        string memory key = string(bytes.concat(bytes32(chainId), bytes(name)));
 
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
@@ -89,9 +96,5 @@ abstract contract AddressResolver {
             // error message is more helpful for diagnosis.
             require(addr != address(0), string.concat("AR:zeroAddr:", key));
         }
-    }
-
-    function keyForName(uint256 chainId, string memory name) public pure returns (string memory) {
-        return string(bytes.concat(bytes32(chainId), bytes(name))); //1437
     }
 }
