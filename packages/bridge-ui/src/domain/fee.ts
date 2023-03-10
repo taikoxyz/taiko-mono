@@ -1,7 +1,7 @@
 enum ProcessingFeeMethod {
-  RECOMMENDED = "recommended",
-  CUSTOM = "custom",
-  NONE = "none",
+  RECOMMENDED = 'recommended',
+  CUSTOM = 'custom',
+  NONE = 'none',
 }
 
 interface ProcessingFeeDetails {
@@ -14,21 +14,21 @@ const PROCESSING_FEE_META: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
     [
       ProcessingFeeMethod.RECOMMENDED,
       {
-        displayText: "Recommended",
+        displayText: 'Recommended',
         timeToConfirm: 15 * 60 * 1000,
       },
     ],
     [
       ProcessingFeeMethod.CUSTOM,
       {
-        displayText: "Custom",
+        displayText: 'Custom',
         timeToConfirm: 15 * 60 * 1000,
       },
     ],
     [
       ProcessingFeeMethod.NONE,
       {
-        displayText: "None",
+        displayText: 'None',
         timeToConfirm: 15 * 60 * 1000,
       },
     ],

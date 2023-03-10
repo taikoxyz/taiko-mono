@@ -14,30 +14,39 @@ import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
 class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
   private readonly baseUrl: string;
-  constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>, baseUrl: string) {
+  constructor(
+    providerMap: Map<number, ethers.providers.JsonRpcProvider>,
+    baseUrl: string,
+  ) {
     this.providerMap = providerMap;
     this.baseUrl = baseUrl;
   }
 
-  async GetAllByAddress(address: string, chainID?: number): Promise<BridgeTransaction[]> {
-    if(!address) {
-     throw new Error("Address need to passed to fetch transactions");
+  async GetAllByAddress(
+    address: string,
+    chainID?: number,
+  ): Promise<BridgeTransaction[]> {
+    if (!address) {
+      throw new Error('Address need to passed to fetch transactions');
     }
     const params = {
       address,
       chainID,
-    }
+    };
 
     const requestURL = `${this.baseUrl}events`;
-    
+
     const { data } = await axios.get(requestURL, { params });
 
-    if(data.length === 0) {
+    if (data.length === 0) {
       return [];
     }
 
     const txs: BridgeTransaction[] = data.map((tx) => {
-      const depositValue = ethers.utils.parseUnits(tx.data.Message.DepositValue.toString(), 'wei');
+      const depositValue = ethers.utils.parseUnits(
+        tx.data.Message.DepositValue.toString(),
+        'wei',
+      );
       return {
         status: tx.status,
         message: {
@@ -61,8 +70,8 @@ class RelayerAPIService implements RelayerAPI {
         toChainId: tx.data.Message.DestChainId,
         hash: tx.data.Raw.transactionHash,
         from: tx.data.Message.Owner,
-      }
-    })
+      };
+    });
 
     const bridgeTxs: BridgeTransaction[] = [];
 
@@ -75,9 +84,7 @@ class RelayerAPIService implements RelayerAPI {
 
         const srcProvider = this.providerMap.get(tx.fromChainId);
 
-        const receipt = await srcProvider.getTransactionReceipt(
-          tx.hash
-        );
+        const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
         if (!receipt) {
           bridgeTxs.push(tx);
@@ -93,23 +100,23 @@ class RelayerAPIService implements RelayerAPI {
         const destContract: Contract = new Contract(
           destBridgeAddress,
           Bridge,
-          destProvider
+          destProvider,
         );
 
         const srcContract: Contract = new Contract(
           srcBridgeAddress,
           Bridge,
-          srcProvider
+          srcProvider,
         );
 
         const events = await srcContract.queryFilter(
-          "MessageSent",
+          'MessageSent',
           receipt.blockNumber,
-          receipt.blockNumber
+          receipt.blockNumber,
         );
 
         const event = events.find(
-          (e) => e.args.message.owner.toLowerCase() === address.toLowerCase()
+          (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
         );
 
         if (!event) {
@@ -120,33 +127,33 @@ class RelayerAPIService implements RelayerAPI {
         const msgHash = event.args.msgHash;
 
         const messageStatus: number = await destContract.getMessageStatus(
-          msgHash
+          msgHash,
         );
 
         let amountInWei: BigNumber;
         let symbol: string;
-        if (event.args.message.data !== "0x") {
+        if (event.args.message.data !== '0x') {
           const tokenVaultContract = new Contract(
             get(chainIdToTokenVaultAddress).get(tx.fromChainId),
             TokenVault,
-            srcProvider
+            srcProvider,
           );
-          const filter = tokenVaultContract.filters.ERC20Sent(msgHash)
+          const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
           const erc20Events = await tokenVaultContract.queryFilter(
             filter,
             receipt.blockNumber,
-            receipt.blockNumber
+            receipt.blockNumber,
           );
 
           const erc20Event = erc20Events.find(
-            (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase()
+            (e) => e.args.msgHash.toLowerCase() === msgHash.toLowerCase(),
           );
           if (!erc20Event) return;
 
           const erc20Contract = new Contract(
             erc20Event.args.token,
             ERC20,
-            srcProvider
+            srcProvider,
           );
           symbol = await erc20Contract.symbol();
           amountInWei = BigNumber.from(erc20Event.args.amount);
@@ -166,7 +173,7 @@ class RelayerAPIService implements RelayerAPI {
         };
 
         bridgeTxs.push(bridgeTx);
-      })
+      }),
     );
 
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
@@ -178,15 +185,14 @@ class RelayerAPIService implements RelayerAPI {
     const requestURL = `${this.baseUrl}blockInfo`;
     const { data } = await axios.get(requestURL);
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
-    if(data?.data.length > 0) {
-      data.data.forEach((blockInfoByChain => {
+    if (data?.data.length > 0) {
+      data.data.forEach((blockInfoByChain) => {
         blockInfoMap.set(blockInfoByChain.chainID, blockInfoByChain);
-      }));
+      });
     }
 
     return blockInfoMap;
   }
-
 }
 
 export default RelayerAPIService;

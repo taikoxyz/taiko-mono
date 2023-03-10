@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Modal from "./Modal.svelte";
+  import Modal from './Modal.svelte';
 
   export let title: string;
   export let isOpen: boolean = false;

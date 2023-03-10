@@ -14,11 +14,10 @@
 
 <svelte:window
   on:keydown={function (e) {
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       onCloseClicked();
     }
-  }}
-/>
+  }} />
 
 <div class="modal bg-black/60" class:modal-open={isOpen}>
   <div class="modal-box bg-dark-2">
@@ -28,8 +27,7 @@
         <button
           type="button"
           class="btn btn-sm btn-circle absolute right-2 top-2 cursor-pointer font-sans text-lg"
-          on:click={onCloseClicked}
-        >
+          on:click={onCloseClicked}>
           &times;
         </button>
       </div>

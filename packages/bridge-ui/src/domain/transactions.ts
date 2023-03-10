@@ -1,5 +1,5 @@
-import type { BigNumber, ethers } from "ethers";
-import type { Message, MessageStatus } from "./message";
+import type { BigNumber, ethers } from 'ethers';
+import type { Message, MessageStatus } from './message';
 
 export type BridgeTransaction = {
   hash: string;
@@ -17,11 +17,8 @@ export type BridgeTransaction = {
 export interface Transactioner {
   GetAllByAddress(
     address: string,
-    chainID?: number
+    chainID?: number,
   ): Promise<BridgeTransaction[]>;
 
-  UpdateStorageByAddress(
-    address: string,
-    txs: BridgeTransaction[]
-  ): void;
+  UpdateStorageByAddress(address: string, txs: BridgeTransaction[]): void;
 }
