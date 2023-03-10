@@ -8,8 +8,7 @@
             target="_blank"
             rel="noopener noreferrer"
             class="font-bold text-white underline">faucet</a
-          >.</span
-        >
+          >.</span>
       </p>
     </div>
   </div>

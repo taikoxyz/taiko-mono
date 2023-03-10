@@ -47,7 +47,8 @@
   border-radius: 0.5rem;
 }
 
-ul.token-dropdown li.cursor-pointer:last-child, ul.token-dropdown li.cursor-pointer:first-child {
+ul.token-dropdown li.cursor-pointer:last-child,
+ul.token-dropdown li.cursor-pointer:first-child {
   border-radius: 0;
 }
 
@@ -60,48 +61,48 @@ ul.token-dropdown li.cursor-pointer:last-child, ul.token-dropdown li.cursor-poin
   border-radius: 6px;
 }
 
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-input[type=number] {
-    -moz-appearance: textfield;
+input[type='number'] {
+  -moz-appearance: textfield;
 }
 
 .taiko-logo {
   display: none;
 }
 
-[data-theme="dark"] .taiko-logo {
+[data-theme='dark'] .taiko-logo {
   display: inline;
 }
 
-[data-theme="dark"] .taiko-light-logo {
+[data-theme='dark'] .taiko-light-logo {
   display: none;
 }
 
-[data-theme="dark"] .switch-to-dark-mode {
+[data-theme='dark'] .switch-to-dark-mode {
   display: none;
 }
 
-[data-theme="light"] .switch-to-light-mode {
+[data-theme='light'] .switch-to-light-mode {
   display: none;
 }
 
-[data-theme="light"] .toggle-chain.btn[disabled] {
+[data-theme='light'] .toggle-chain.btn[disabled] {
   color: #1f2937;
   background-color: #d4d4d4;
   opacity: 0.4;
 }
 
 @media screen and (max-width: 768px) {
-  [data-theme="dark"] .taiko-logo {
+  [data-theme='dark'] .taiko-logo {
     display: none;
   }
-  
-  [data-theme="light"] .taiko-light-logo {
+
+  [data-theme='light'] .taiko-light-logo {
     display: none;
   }
 }
