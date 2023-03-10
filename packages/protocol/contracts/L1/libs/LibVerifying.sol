@@ -62,6 +62,7 @@ library LibVerifying {
             ];
 
             uint256 fcId = state.forkChoiceIds[i][latestL2ChainData.blockHash];
+
             if (proposal.nextForkChoiceId <= fcId) {
                 break;
             }
@@ -178,21 +179,21 @@ library LibVerifying {
             })
             .toUint64();
 
-        if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
+        if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
+            // valid block
             _latestL2Height = latestL2Height + 1;
             _latestL2ChainData = fc.chainData;
-        } else {
-            _latestL2Height = latestL2Height;
-            _latestL2ChainData = latestL2ChainData;
         }
 
         proposal.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        fc.chainData.blockHash = LibUtils.BYTES32_ONE; // none-zero placeholder
-        fc.chainData.signalRoot = LibUtils.BYTES32_ONE; // none-zero placeholder
-        fc.provenAt = 1; // none-zero placeholder
-        fc.prover = address(0);
+        unchecked {
+            fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
+            fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+            fc.provenAt = 1; // none-zero placeholder
+            fc.prover = address(0);
+        }
     }
 }
