@@ -25,28 +25,22 @@ function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBas
 ### proposeBlock
 
 ```solidity
-function proposeBlock(struct TaikoData.BlockMetadataInput input, bytes txList) external returns (bytes32 metaHash)
+function proposeBlock(bytes input, bytes txList) external
 ```
 
 Propose a Taiko L2 block.
 
 #### Parameters
 
-| Name   | Type                                | Description                                                                                                                                                                                                                                                                 |
-| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input  | struct TaikoData.BlockMetadataInput | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
-| txList | bytes                               | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
-
-#### Return Values
-
-| Name     | Type    | Description                             |
-| -------- | ------- | --------------------------------------- |
-| metaHash | bytes32 | The hash of the updated block metadata. |
+| Name   | Type  | Description                                                                                                                                                                                                                                                                 |
+| ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
+| txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
 
 ### proveBlock
 
 ```solidity
-function proveBlock(uint256 blockId, struct TaikoData.BlockEvidence evidence) external
+function proveBlock(uint256 blockId, bytes evidence) external
 ```
 
 Prove a block is valid with a zero-knowledge proof, a transaction
@@ -54,10 +48,10 @@ merkel proof, and a receipt merkel proof.
 
 #### Parameters
 
-| Name     | Type                           | Description                                                                                    |
-| -------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| blockId  | uint256                        | The index of the block to prove. This is also used to select the right implementation version. |
-| evidence | struct TaikoData.BlockEvidence | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
+| Name     | Type    | Description                                                                                    |
+| -------- | ------- | ---------------------------------------------------------------------------------------------- |
+| blockId  | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
+| evidence | bytes   | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
 
 ### verifyBlocks
 
@@ -109,6 +103,12 @@ function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns 
 function getProposedBlock(uint256 id) public view returns (struct TaikoData.ProposedBlock)
 ```
 
+### getForkChoice
+
+```solidity
+function getForkChoice(uint256 id, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
+```
+
 ### getXchainBlockHash
 
 ```solidity
@@ -154,12 +154,6 @@ block number.
 
 ```solidity
 function getStateVariables() public view returns (struct TaikoData.StateVariables)
-```
-
-### getForkChoice
-
-```solidity
-function getForkChoice(uint256 id, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
 ```
 
 ### getConfig

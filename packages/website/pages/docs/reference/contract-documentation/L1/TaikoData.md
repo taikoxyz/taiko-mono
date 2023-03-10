@@ -99,17 +99,6 @@ struct BlockEvidence {
 }
 ```
 
-### ProposedBlock
-
-```solidity
-struct ProposedBlock {
-  bytes32 metaHash;
-  uint256 deposit;
-  address proposer;
-  uint64 proposedAt;
-}
-```
-
 ### ForkChoice
 
 ```solidity
@@ -120,12 +109,25 @@ struct ForkChoice {
 }
 ```
 
+### ProposedBlock
+
+```solidity
+struct ProposedBlock {
+  bytes32 metaHash;
+  uint256 deposit;
+  address proposer;
+  uint64 proposedAt;
+  uint32 nextForkChoiceId;
+}
+```
+
 ### State
 
 ```solidity
 struct State {
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
-  mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
+  mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
+  mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
   uint64 genesisHeight;
