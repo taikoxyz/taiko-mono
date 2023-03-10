@@ -146,8 +146,8 @@ library LibVerifying {
                     }
                 }
 
-                // refund proposer deposit
-                if (fc.chainData.blockHash != LibUtils.BYTES32_ONE) {
+                // refund proposer deposit for valid blocks
+                if (fc.chainData.blockHash != latestL2ChainData.blockHash) {
                     uint256 refund = (proposal.deposit * (10000 - tRelBp)) /
                         10000;
                     if (refund > 0) {
