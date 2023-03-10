@@ -28,6 +28,7 @@ library LibProving {
     error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INVALID_PROOF();
+    error L1_INVALID_EVIDENCE();
     error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
 
@@ -48,11 +49,14 @@ library LibProving {
         // 0 and 1 (placeholder) are not allowed
         if (
             uint256(evidence.parentHash) <= 1 ||
-            uint256(evidence.blockHash) <= 1
-        ) revert L1_BLOCK_HASH();
+            uint256(evidence.blockHash) <= 1 ||
+            evidence.prover == address(0)
+        ) revert L1_INVALID_EVIDENCE();
 
         if (evidence.blockHash == evidence.parentHash) {
+            // This is an invalid block
             if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
+            // use 1 instad of 0 as placeholder
             evidence.signalRoot = bytes32(uint256(1));
         }
 
