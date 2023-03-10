@@ -49,7 +49,7 @@ library LibProving {
         if (
             uint256(evidence.parentHash) <= 1 ||
             uint256(evidence.blockHash) <= 1 ||
-            uint256(evidence.signalRoot) <= 1 ||
+            uint256(evidence.signalRoot) != 1 ||
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
