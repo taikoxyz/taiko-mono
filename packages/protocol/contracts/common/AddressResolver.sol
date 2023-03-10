@@ -79,9 +79,7 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        // TODO(daniel): measure the difference in gas cost:
-        // string memory key = string(abi.encodePacked(chainId, name));
-        string memory key = string.concat(Strings.toString(chainId), ".", name);
+        string memory key = string(abi.encodePacked(chainId, name));
 
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
