@@ -28,7 +28,6 @@ library LibProving {
     error L1_ID();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
-    error L1_NONZERO_SIGNAL_ROOT();
     error L1_NOT_ORACLE_PROVER();
 
     function proveBlock(
@@ -50,17 +49,13 @@ library LibProving {
             uint256(evidence.parentHash) <= 1 ||
             // 0 and 1 (placeholder) are not allowed
             uint256(evidence.blockHash) <= 1 ||
-            // 1 (placeholder) are not allowed
-            uint256(evidence.signalRoot) == 1 ||
+            // cannot be the same hash
+            evidence.blockHash == evidence.parentHash ||
+            // 0 and 1 (placeholder) are not allowed
+            uint256(evidence.signalRoot) <= 1 ||
+            // prover must not be zero
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
-
-        if (evidence.blockHash == evidence.parentHash) {
-            // This is an invalid block
-            if (evidence.signalRoot != 0) revert L1_NONZERO_SIGNAL_ROOT();
-            // use 1 instad of 0 as placeholder
-            evidence.signalRoot = bytes32(uint256(1));
-        }
 
         TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
             meta.id % config.maxNumBlocks
@@ -113,9 +108,8 @@ library LibProving {
             );
 
             bytes32 instance;
-            if (evidence.blockHash == evidence.parentHash) {
-                instance = evidence.meta.txListHash;
-            } else {
+            {
+                // otherwise: stack too deep
                 address l1SignalService = resolver.resolve(
                     "signal_service",
                     false
