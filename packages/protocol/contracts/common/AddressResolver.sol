@@ -8,7 +8,7 @@ pragma solidity ^0.8.18;
 
 import {IAddressManager} from "./IAddressManager.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-
+import "hardhat/console.sol";
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
  * it uses an AddressManager to manage the name-to-address mapping.
@@ -79,8 +79,9 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        string memory key = string(abi.encodePacked(chainId, name));
+        string memory key = string(abi.encodePacked(chainId, ".", name));
 
+console.log("====> ", key);
         addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based

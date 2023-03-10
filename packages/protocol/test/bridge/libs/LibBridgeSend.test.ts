@@ -7,6 +7,7 @@ import {
 } from "../../../typechain";
 import { Message } from "../../utils/message";
 import { deploySignalService } from "../../utils/signal";
+import {addressKey} from "../../../tasks/utils";
 
 // TODO(roger): we should deprecate these test and test Bridge.sol
 // as a whole.
@@ -33,7 +34,7 @@ describe("LibBridgeSend", function () {
         await deploySignalService(owner, addressManager, blockChainId);
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
+            addressKey(enabledDestChainId, "bridge"),
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
 

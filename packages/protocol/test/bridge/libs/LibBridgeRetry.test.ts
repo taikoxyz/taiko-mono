@@ -16,6 +16,7 @@ import {
     TestReceiver,
 } from "../../../typechain";
 import deployAddressManager from "../../utils/addressManager";
+import {addressKey} from "../../../tasks/utils";
 
 // TODO(roger): we should deprecate these test and test Bridge.sol
 // as a whole.
@@ -56,12 +57,12 @@ describe("LibBridgeRetry", function () {
             .authorize(owner.address, true);
         const blockChainId = hre.network.config.chainId ?? 0;
         await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+            addressKey(blockChainId, "ether_vault"),
             etherVault.address
         );
 
         await badAddressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+              addressKey(blockChainId, "ether_vault"),
             ethers.constants.AddressZero
         );
 

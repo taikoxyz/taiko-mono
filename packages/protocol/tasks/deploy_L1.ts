@@ -3,7 +3,9 @@ import { task } from "hardhat/config";
 import * as types from "hardhat/internal/core/params/argumentTypes";
 import * as config from "./config";
 import * as log from "./log";
-import * as utils from "./utils";
+import * as utils  from "./utils";
+
+const addressKey = utils.addressKey;
 
 task("deploy_L1")
     .addParam("daoVault", "The DAO vault address")
@@ -102,16 +104,24 @@ export async function deployContracts(hre: any) {
 
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)
+        await AddressManager.setAddress(
+            addressKey(chainId, "dao_vault")
+           , daoVault)
     );
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${chainId}.team_vault`, teamVault)
+        await AddressManager.setAddress(
+
+addressKey(chainId, "team_vault"),
+
+             teamVault)
     );
     // Used by LibProving
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${l2ChainId}.taiko`, taikoL2Address)
+        await AddressManager.setAddress(
+addressKey(l2ChainId, "taiko"),
+taikoL2Address)
     );
 
     // TaikoToken
@@ -127,7 +137,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            `${chainId}.taiko_token`,
+            addressKey(chainId, "taiko_token"),
             TaikoToken.address
         )
     );
@@ -163,14 +173,17 @@ export async function deployContracts(hre: any) {
     // Used by LibBridgeRead
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${chainId}.taiko`, TaikoL1.address)
+        await AddressManager.setAddress(
+
+            addressKey(chainId, "taiko"),
+                       TaikoL1.address)
     );
 
     // Used by TaikoToken
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            `${chainId}.proto_broker`,
+            addressKey(chainId, "proto_broker"),
             TaikoL1.address
         )
     );
@@ -184,7 +197,10 @@ export async function deployContracts(hre: any) {
     // Used by TokenVault
     await utils.waitTx(
         hre,
-        await AddressManager.setAddress(`${chainId}.bridge`, Bridge.address)
+        await AddressManager.setAddress(
+  addressKey(chainId, "bridge"),
+
+   Bridge.address)
     );
 
     // Fund L1 bridge, which is necessary when there is a L2 faucet
@@ -222,7 +238,7 @@ export async function deployContracts(hre: any) {
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(
-            `${chainId}.signal_service`,
+              addressKey(chainId, "signal_service"),
             SignalService.address
         )
     );
@@ -232,18 +248,18 @@ export async function deployContracts(hre: any) {
 
     // Used by ProofVerifier
     for (let i = 0; i < PlonkVerifiers.length; i++) {
-        await utils.waitTx(
-            hre,
-            await AddressManager.setAddress(
-                // string(abi.encodePacked("plonk_verifier_", i))
-                `${chainId}.${Buffer.from(
+        let verifierName = Buffer.from(
                     ethers.utils.arrayify(
                         ethers.utils.solidityPack(
                             ["string", "uint256"],
                             ["verifier_", i]
                         )
                     )
-                ).toString()}`,
+                ).toString();
+        await utils.waitTx(
+            hre,
+            await AddressManager.setAddress(
+                addressKey(chainId, verifierName),
                 PlonkVerifiers[i].address
             )
         );
@@ -253,7 +269,7 @@ export async function deployContracts(hre: any) {
         await utils.waitTx(
             hre,
             await AddressManager.setAddress(
-                `${chainId}.oracle_prover`,
+                  addressKey(chainId, "oracle_prover"),
                 oracleProver
             )
         );
@@ -263,7 +279,7 @@ export async function deployContracts(hre: any) {
         await utils.waitTx(
             hre,
             await AddressManager.setAddress(
-                `${chainId}.solo_proposer`,
+                   addressKey(chainId, "solo_proposer"),
                 soloProposer
             )
         );

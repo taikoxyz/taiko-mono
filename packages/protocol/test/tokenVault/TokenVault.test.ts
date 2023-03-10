@@ -12,6 +12,7 @@ import {
 import { ethers } from "hardhat";
 import { BigNumber, BigNumberish } from "ethers";
 import { MockContract, smock } from "@defi-wonderland/smock";
+import {addressKey} from "../../tasks/utils";
 
 type CanonicalERC20 = {
     chainId: BigNumberish;
@@ -70,19 +71,19 @@ describe("TokenVault", function () {
         const testMessageSender2 = await TestMessageSenderFactory.deploy();
 
         await tokenVaultAddressManager.setAddress(
-            `${network.chainId}.bridge`,
+            addressKey(network.chainId, "bridge"),
             testMessageSender.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${destChainId}.bridge`,
+             addressKey(destChainId, "bridge"),
             testMessageSender2.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${network.chainId}.token_vault`,
+             addressKey(network.chainId, "token_vault"),
             L1TokenVault.address
         );
         await tokenVaultAddressManager.setAddress(
-            `${destChainId}.token_vault`,
+             addressKey(destChainId, "token_vault"),
             destChainTokenVault.address
         );
 

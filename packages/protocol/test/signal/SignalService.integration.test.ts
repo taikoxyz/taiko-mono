@@ -9,6 +9,7 @@ import {
     getL1Provider,
     getL2Provider,
 } from "../utils/provider";
+import {addressKey} from "../../tasks/utils";
 
 describe("integration:SignalService", function () {
     async function deployIntegrationSignalService() {
@@ -45,12 +46,12 @@ describe("integration:SignalService", function () {
         );
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.signal_service`,
+            addressKey(enabledDestChainId, "signal_service"),
             l2SignalService.address
         );
 
         await l2AddressManager.setAddress(
-            `${srcChainId}.signal_service`,
+             addressKey(srcChainId, "signal_service"),
             l1SignalService.address
         );
 
@@ -61,7 +62,7 @@ describe("integration:SignalService", function () {
             .deploy();
 
         await l2AddressManager.setAddress(
-            `${enabledDestChainId}.taiko`,
+              addressKey(enabledDestChainId, "taiko"),
             xchainSync.address
         );
 

@@ -13,6 +13,7 @@ import { createAndSeedWallets, sendTinyEtherToZeroAddress } from "./seed";
 import { defaultFeeBase, deployTaikoL1 } from "./taikoL1";
 import { deployTaikoL2 } from "./taikoL2";
 import deployTaikoToken from "./taikoToken";
+import {addressKey} from "../../tasks/utils";
 
 async function initIntegrationFixture(
     mintTkoToProposer: boolean,
@@ -81,7 +82,7 @@ async function initIntegrationFixture(
 
     await (
         await l1AddressManager.setAddress(
-            `${chainId}.proof_verifier`,
+            addressKey(chainId, "proof_verifier"),
             taikoL1.address
         )
     ).wait(1);

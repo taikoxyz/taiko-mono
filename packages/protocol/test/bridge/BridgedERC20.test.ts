@@ -7,6 +7,7 @@ import {
     ERC20_TRANSFER_AMOUNT_EXCEEDED,
 } from "../constants/errors";
 import deployAddressManager from "../utils/addressManager";
+import {addressKey} from "../../tasks/utils";
 
 const WETH_GOERLI = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
 const CHAIN_ID_GOERLI = 5;
@@ -38,7 +39,7 @@ describe("BridgedERC20", function () {
         const network = await ethers.provider.getNetwork();
 
         await addressManager.setAddress(
-            `${network.chainId}.token_vault`,
+            addressKey(network.chainId, "token_vault"),
             tokenVault.address
         );
 

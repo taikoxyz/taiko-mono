@@ -12,6 +12,8 @@ import {
     TestLibBridgeData,
     TestLibBridgeProcess,
 } from "../../../typechain";
+import {addressKey} from "../../../tasks/utils";
+
 
 // TODO(roger): we should deprecate these test and test Bridge.sol
 // as a whole.
@@ -49,7 +51,7 @@ describe("LibBridgeProcess", async function () {
             .authorize(owner.address, true);
         const blockChainId = hre.network.config.chainId ?? 0;
         await addressManager.setAddress(
-            `${blockChainId}.ether_vault`,
+              addressKey(blockChainId, "ether_vault"),
             etherVault.address
         );
         // Sends initial value of 10 ether to EtherVault for releaseEther calls

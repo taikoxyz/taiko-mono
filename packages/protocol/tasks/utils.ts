@@ -142,6 +142,14 @@ async function decode(hre: any, type: any, data: any) {
     return hre.ethers.utils.defaultAbiCoder.decode([type], data).toString();
 }
 
+function addressKey(chainId: any, name: string):string {
+    return Buffer.from(ethers.utils.arrayify(ethers.utils.solidityPack(
+                            ["uint256", 'string', "string"],
+                            [chainId, ".", name]
+                        ))).toString();
+
+}
+
 export {
     deployContract,
     compileYulContract,
@@ -152,4 +160,5 @@ export {
     saveDeployments,
     getDeployments,
     decode,
+    addressKey,
 };

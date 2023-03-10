@@ -5,6 +5,7 @@ import { AddressManager, Bridge, EtherVault } from "../../typechain";
 import { deployBridge, sendMessage } from "../utils/bridge";
 import { deploySignalService } from "../utils/signal";
 import { Message } from "../utils/message";
+import {addressKey} from "../../tasks/utils";
 
 describe("Bridge", function () {
     let owner: any;
@@ -37,7 +38,7 @@ describe("Bridge", function () {
         ));
 
         await addressManager.setAddress(
-            `${enabledDestChainId}.bridge`,
+            addressKey(enabledDestChainId, "bridge"),
             "0x0000000000000000000000000000000000000001" // dummy address so chain is "enabled"
         );
     });
