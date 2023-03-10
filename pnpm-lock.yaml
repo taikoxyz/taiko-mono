@@ -36,9 +36,12 @@ importers:
       babel-plugin-transform-es2015-modules-commonjs: ^6.26.2
       buffer: ^6.0.3
       daisyui: 1.16.6
+      eslint-plugin-jest: ^27.2.1
+      eslint-plugin-svelte3: ^4.0.0
       ethers: ^5.7.1
       identicon.js: ^2.3.3
       jest: ^27.5.1
+      lint-staged: ^12.3.4
       node-sass: ^7.0.1
       postcss: ^8.4.19
       postcss-cli: ^7.1.2
@@ -93,7 +96,10 @@ importers:
       babel-jest: 27.5.1
       babel-plugin-transform-es2015-modules-commonjs: 6.26.2
       daisyui: 1.16.6
+      eslint-plugin-jest: 27.2.1_jnnvroutqvszjic6xgfk2wgrhu
+      eslint-plugin-svelte3: 4.0.0_svelte@3.53.1
       jest: 27.5.1
+      lint-staged: 12.5.0
       node-sass: 7.0.3
       postcss: 8.4.19
       postcss-cli: 7.1.2
@@ -9944,6 +9950,27 @@ packages:
       - supports-color
     dev: true
 
+  /eslint-plugin-jest/27.2.1_jnnvroutqvszjic6xgfk2wgrhu:
+    resolution: {integrity: sha512-l067Uxx7ZT8cO9NJuf+eJHvt6bqJyz2Z29wykyEdz/OtmcELQl2MQGQLX8J94O1cSJWAwUSEvCjwjA7KEK3Hmg==}
+    engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
+    peerDependencies:
+      '@typescript-eslint/eslint-plugin': ^5.0.0
+      eslint: ^7.0.0 || ^8.0.0
+      jest: '*'
+    peerDependenciesMeta:
+      '@typescript-eslint/eslint-plugin':
+        optional: true
+      jest:
+        optional: true
+    dependencies:
+      '@typescript-eslint/eslint-plugin': 5.44.0_c5rgyxfozmk6acmvyot27wcp74
+      '@typescript-eslint/utils': 5.44.0_typescript@4.9.3
+      jest: 27.5.1
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
+    dev: true
+
   /eslint-plugin-node/11.1.0_eslint@7.32.0:
     resolution: {integrity: sha512-oUwtPJ1W0SKD0Tr+wqu92c5xuCeQqB3hSCHasn/ZgjFdA9iDGNkNf2Zi9ztY7X+hNuMib23LNGRm6+uN+KLE3g==}
     engines: {node: '>=8.10.0'}
@@ -9983,6 +10010,15 @@ packages:
       eslint: ^7.0.0
     dependencies:
       eslint: 7.32.0
+    dev: true
+
+  /eslint-plugin-svelte3/4.0.0_svelte@3.53.1:
+    resolution: {integrity: sha512-OIx9lgaNzD02+MDFNLw0GEUbuovNcglg+wnd/UY0fbZmlQSz7GlQiQ1f+yX0XvC07XPcDOnFcichqI3xCwp71g==}
+    peerDependencies:
+      eslint: '>=8.0.0'
+      svelte: ^3.2.0
+    dependencies:
+      svelte: 3.53.1
     dev: true
 
   /eslint-scope/5.1.1:

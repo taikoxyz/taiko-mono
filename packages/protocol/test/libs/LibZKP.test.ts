@@ -30,4 +30,33 @@ describe("LibZKP", function () {
 
         expect(result).to.be.true;
     });
+
+    it("should not successfully verifiy the given zkp and instance when the given contract address is not PlonkVerifier", async function () {
+        // random EOA address
+        let result = await libZKP.verify(
+            ethers.Wallet.createRandom().address,
+            testProof.result.circuit.proof,
+            ethers.utils.hexConcat([
+                testProof.result.circuit.instance[0],
+                testProof.result.circuit.instance[1],
+            ])
+        );
+
+        expect(result).to.be.false;
+
+        // another smart contract
+        const testERC20 = await utils.deployContract(hre, "TestERC20", {}, [
+            1024,
+        ]);
+        result = await libZKP.verify(
+            testERC20.address,
+            testProof.result.circuit.proof,
+            ethers.utils.hexConcat([
+                testProof.result.circuit.instance[0],
+                testProof.result.circuit.instance[1],
+            ])
+        );
+
+        expect(result).to.be.false;
+    });
 });

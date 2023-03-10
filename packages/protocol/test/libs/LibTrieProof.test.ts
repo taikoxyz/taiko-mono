@@ -15,7 +15,7 @@ describe("integration:LibTrieProof", function () {
             await ethers.getContractFactory("LibTrieProof")
         ).deploy();
 
-        const testLibTreProof = await (
+        const testLibTrieProof = await (
             await ethers.getContractFactory("TestLibTrieProof", {
                 libraries: {
                     LibTrieProof: libTrieProof.address,
@@ -50,19 +50,9 @@ describe("integration:LibTrieProof", function () {
             chainId
         );
 
-        const libBridgeRetry = await (
-            await ethers.getContractFactory("LibBridgeRetry")
-        ).deploy();
-
-        const libBridgeProcess = await (
-            await ethers.getContractFactory("LibBridgeProcess")
-        ).deploy();
-
         const BridgeFactory = await ethers.getContractFactory("Bridge", {
             libraries: {
-                LibBridgeProcess: libBridgeProcess.address,
-                LibBridgeRetry: libBridgeRetry.address,
-                LibTrieProof: testLibTreProof.address,
+                LibTrieProof: testLibTrieProof.address,
             },
         });
 
@@ -72,7 +62,7 @@ describe("integration:LibTrieProof", function () {
 
         return {
             owner,
-            testLibTreProof,
+            testLibTrieProof,
             signalService,
             bridge,
             enabledDestChainId,
@@ -82,7 +72,7 @@ describe("integration:LibTrieProof", function () {
         it("verifies", async function () {
             const {
                 owner,
-                testLibTreProof,
+                testLibTrieProof,
                 signalService,
                 bridge,
                 enabledDestChainId,
@@ -157,7 +147,7 @@ describe("integration:LibTrieProof", function () {
                 ]
             );
             // proof verifies the storageValue at slot is 1
-            await testLibTreProof.verify(
+            await testLibTrieProof.verify(
                 stateRoot,
                 signalService.address,
                 slot,

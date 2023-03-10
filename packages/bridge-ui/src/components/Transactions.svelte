@@ -1,7 +1,11 @@
 <script lang="ts">
-  import { chains } from "../domain/chain";
-  import { transactions, showTransactionDetails, showMessageStatusTooltip } from "../store/transactions";
-  import Transaction from "./Transaction.svelte";
+  import { chains } from '../domain/chain';
+  import {
+    transactions,
+    showTransactionDetails,
+    showMessageStatusTooltip,
+  } from '../store/transactions';
+  import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
 </script>
@@ -23,8 +27,7 @@
           <Transaction
             toChain={chains[transaction.toChainId]}
             fromChain={chains[transaction.fromChainId]}
-            {transaction}
-          />
+            {transaction} />
         {/each}
       </tbody>
     </table>

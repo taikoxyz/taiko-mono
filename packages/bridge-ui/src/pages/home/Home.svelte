@@ -1,14 +1,17 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
+  import { link, location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions.svelte';
 
-  let activeTab: string = 'bridge';
   let bridgeWidth: number;
   let bridgeHeight: number;
 
+  $: activeTab = $location.replace('/', '').startsWith('transactions')
+    ? 'transactions'
+    : 'bridge';
   $: isBridge = activeTab === 'bridge';
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
@@ -28,13 +31,14 @@
     style={styleInner}>
     <!-- TODO: extract this tab component into a general one? -->
     <div class="tabs block mb-4">
-      <span
+      <a
         class="tab tab-bordered {isBridge ? 'tab-active' : ''}"
-        on:click={() => (activeTab = 'bridge')}>Bridge</span>
-      <span
+        href="/"
+        use:link>Bridge</a>
+      <a
         class="tab tab-bordered {!isBridge ? 'tab-active' : ''}"
-        on:click={() => (activeTab = 'transactions')}
-        >Transactions ({$transactions.length})</span>
+        href="/transactions"
+        use:link>Transactions ({$transactions.length})</a>
     </div>
 
     {#if activeTab === 'bridge'}
