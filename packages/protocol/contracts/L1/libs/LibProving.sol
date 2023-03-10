@@ -22,7 +22,6 @@ library LibProving {
     event BlockProven(uint256 indexed id, bytes32 parentHash);
 
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_HASH();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_ID();
@@ -50,6 +49,7 @@ library LibProving {
         if (
             uint256(evidence.parentHash) <= 1 ||
             uint256(evidence.blockHash) <= 1 ||
+            uint256(evidence.signalRoot) <= 1 ||
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
