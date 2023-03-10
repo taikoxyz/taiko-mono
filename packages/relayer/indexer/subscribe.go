@@ -26,6 +26,9 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 	// nolint: gosimple
 	for {
 		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return nil
 		case err := <-errChan:
 			return errors.Wrap(err, "errChan")
 		}
@@ -49,6 +52,9 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 
 	for {
 		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
@@ -100,6 +106,9 @@ func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *
 
 	for {
 		select {
+		case <-ctx.Done():
+			log.Info("context finished")
+			return
 		case err := <-sub.Err():
 			errChan <- errors.Wrap(err, "sub.Err()")
 		case event := <-sink:
