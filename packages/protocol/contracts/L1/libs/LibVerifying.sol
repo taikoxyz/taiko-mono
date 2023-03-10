@@ -45,7 +45,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        ChainData memory cd = state.l2ChainDatas[
+        ChainData memory chainData = state.l2ChainDatas[
             state.latestVerifiedId % config.blockHashHistory
         ];
 
@@ -60,7 +60,7 @@ library LibVerifying {
                 i % config.maxNumBlocks
             ];
 
-            uint256 fcId = state.forkChoiceIds[i][cd.blockHash];
+            uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
 
             if (proposal.nextForkChoiceId <= fcId) {
                 break;
@@ -74,14 +74,14 @@ library LibVerifying {
                 break;
             }
 
-            cd = _markBlockVerified({
+            chainData = _markBlockVerified({
                 state: state,
                 config: config,
                 fc: fc,
                 proposal: proposal
             });
 
-            emit BlockVerified(i, cd);
+            emit BlockVerified(i, chainData);
 
             unchecked {
                 ++i;
@@ -100,9 +100,9 @@ library LibVerifying {
             // of a cross-chain message with a merkle proof.
             state.l2ChainDatas[
                 state.latestVerifiedId % config.blockHashHistory
-            ] = cd;
+            ] = chainData;
 
-            emit XchainSynced(state.latestVerifiedId, cd);
+            emit XchainSynced(state.latestVerifiedId, chainData);
         }
     }
 
@@ -111,7 +111,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         TaikoData.ProposedBlock storage proposal
-    ) private returns (ChainData memory cd) {
+    ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
             uint256 newFeeBase;
             {
@@ -169,7 +169,7 @@ library LibVerifying {
             })
             .toUint64();
 
-        cd = fc.chainData;
+        chainData = fc.chainData;
         proposal.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
