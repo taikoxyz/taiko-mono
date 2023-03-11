@@ -115,13 +115,15 @@ library LibProposing {
             nextForkChoiceId: 1
         });
 
-        state.avgBlockTime = LibUtils
-            .movingAverage({
-                maValue: state.avgBlockTime,
-                newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                maf: config.blockTimeMAF
-            })
-            .toUint64();
+        if (state.lastProposedAt > 0) {
+            state.avgBlockTime = LibUtils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
+                    maf: config.blockTimeMAF
+                })
+                .toUint64();
+        }
 
         state.lastProposedAt = meta.timestamp;
 

@@ -31,7 +31,6 @@ library LibVerifying {
         state.genesisTimestamp = uint64(block.timestamp);
         state.feeBaseSzabo = feeBaseSzabo;
         state.nextBlockId = 1;
-        state.lastProposedAt = uint64(block.timestamp);
 
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
         state.l2ChainDatas[0] = chainData;

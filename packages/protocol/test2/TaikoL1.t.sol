@@ -55,7 +55,7 @@ contract TaikoL1Test is Test {
         L1 = new TaikoL1WithConfig();
         L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
         conf = L1.getConfig();
-        _printVariables();
+        _printVariables("init");
 
         tko = new TaikoToken();
         tko.init(address(addressManager), "TaikoToken", "TKO");
@@ -76,6 +76,8 @@ contract TaikoL1Test is Test {
             string(abi.encodePacked("verifier_", uint256(100))),
             address(new Verifier())
         );
+
+        vm.warp(1000000);
     }
 
     function proposeBlock(
@@ -109,7 +111,7 @@ contract TaikoL1Test is Test {
 
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
-        _printVariables();
+        _printVariables("propose");
         _mine(1);
     }
 
@@ -136,8 +138,13 @@ contract TaikoL1Test is Test {
 
         vm.prank(prover, prover);
         L1.proveBlock(meta.id, abi.encode(evidence));
-        _printVariables();
-        _mine(1);
+        _printVariables("prove  ");
+    }
+
+    function verifyBlock(address verifier, uint256 count) internal {
+        vm.prank(verifier, verifier);
+        L1.verifyBlocks(count);
+        _printVariables("verify ");
     }
 
     function testProposeSingleBlock() external {
@@ -148,16 +155,14 @@ contract TaikoL1Test is Test {
 
         for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
             TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
+
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-
             proveBlock(BOB, meta, parentHash, blockHash, signalRoot);
 
-            parentHash = blockHash;
+            verifyBlock(BOB, 1);
 
-            vm.prank(BOB, BOB);
-            L1.verifyBlocks(1);
-            _printVariables();
+            parentHash = blockHash;
             _mine(1);
         }
     }
@@ -183,40 +188,31 @@ contract TaikoL1Test is Test {
         L1.deposit(amountTko);
     }
 
-    // struct StateVariables {
-    //        uint256 feeBase;
-    //        uint64 genesisHeight;
-    //        uint64 genesisTimestamp;
-    //        uint64 nextBlockId;
-    //        uint64 lastProposedAt;
-    //        uint64 avgBlockTime;
-    //        uint64 lastBlockId;
-    //        uint64 avgProofTime;
-    //    }
-
-    function _printVariables() private {
+    function _printVariables(string memory prefix) private {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
-            "| feeBase:",
+            " - ",
+            prefix,
+            " - feeBase:",
             Strings.toString(vars.feeBase / 1E12),
             " nextBlockId:",
             Strings.toString(vars.nextBlockId),
-            " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt),
             " lastBlockId:",
             Strings.toString(vars.lastBlockId),
             " avgBlockTime:",
             Strings.toString(vars.avgBlockTime),
             " avgProofTime:",
-            Strings.toString(vars.avgProofTime)
+            Strings.toString(vars.avgProofTime),
+            " lastProposedAt:",
+            Strings.toString(vars.lastProposedAt)
         );
         // console2.log("feeBase:",vars.feeBase/1E12);
         console2.log(str);
     }
 
     function _mine(uint256 counts) private {
-        vm.warp(block.timestamp + 12*counts);
-            vm.roll(block.number + counts);
+        vm.warp(block.timestamp + 10 * counts);
+        vm.roll(block.number + counts);
     }
 }
