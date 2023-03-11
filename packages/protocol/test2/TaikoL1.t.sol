@@ -110,6 +110,7 @@ contract TaikoL1Test is Test {
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
         _printVariables();
+        _mine(1);
     }
 
     function proveBlock(
@@ -136,6 +137,7 @@ contract TaikoL1Test is Test {
         vm.prank(prover, prover);
         L1.proveBlock(meta.id, abi.encode(evidence));
         _printVariables();
+        _mine(1);
     }
 
     function testProposeSingleBlock() external {
@@ -156,7 +158,7 @@ contract TaikoL1Test is Test {
             vm.prank(BOB, BOB);
             L1.verifyBlocks(1);
             _printVariables();
-            vm.roll(block.number + 1);
+            _mine(1);
         }
     }
 
@@ -211,5 +213,10 @@ contract TaikoL1Test is Test {
         );
         // console2.log("feeBase:",vars.feeBase/1E12);
         console2.log(str);
+    }
+
+    function _mine(uint256 counts) private {
+        vm.warp(block.timestamp + 12*counts);
+            vm.roll(block.number + counts);
     }
 }
