@@ -19,18 +19,31 @@ library LibTokenomics {
     using LibMath for uint256;
     uint256 private constant TWEI_TO_WEI = 1E12;
 
+    error L1_INSUFFICIENT_TOKEN();
+
     function withdraw(
         TaikoData.State storage state,
-        AddressResolver resolver
+        AddressResolver resolver,
+        uint256 amount
     ) internal {
         uint256 balance = state.balances[msg.sender];
-        if (balance <= 1) return;
+        if (balance <= amount) revert L1_INSUFFICIENT_TOKEN();
 
-        state.balances[msg.sender] = 1;
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(
-            msg.sender,
-            balance - 1
-        );
+        uint256 x;
+        {
+            x = balance - amount;
+        }
+        if (x == 0) {
+            x = 1;
+        }
+
+        state.balances[msg.sender] = x;
+
+        unchecked {
+            x = balance - x;
+        }
+
+        TaikoToken(resolver.resolve("taiko_token", false)).mint(msg.sender, x);
     }
 
     function deposit(
@@ -38,11 +51,13 @@ library LibTokenomics {
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        TaikoToken(resolver.resolve("taiko_token", false)).burn(
-            msg.sender,
-            amount
-        );
-        state.balances[msg.sender] += amount;
+        if (amount > 0) {
+            TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                msg.sender,
+                amount
+            );
+            state.balances[msg.sender] += amount;
+        }
     }
 
     function getBlockFee(
@@ -61,8 +76,8 @@ library LibTokenomics {
                 config: config,
                 feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
                 isProposal: true,
-                tNow: block.timestamp * 1000,
-                tLast: state.lastProposedAt * 1000,
+                tNow: block.timestamp,
+                tLast: state.lastProposedAt,
                 tAvg: state.avgBlockTime,
                 tTimeCap: config.blockTimeCap
             });
@@ -74,7 +89,9 @@ library LibTokenomics {
             });
         }
         fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
-        depositAmount = (fee * config.proposerDepositPctg) / 100;
+        unchecked {
+            depositAmount = (fee * config.proposerDepositPctg) / 100;
+        }
     }
 
     function getProofReward(
@@ -96,8 +113,8 @@ library LibTokenomics {
                 config: config,
                 feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
                 isProposal: false,
-                tNow: provenAt * 1000,
-                tLast: proposedAt * 1000,
+                tNow: provenAt,
+                tLast: proposedAt,
                 tAvg: state.avgProofTime,
                 tTimeCap: config.proofTimeCap
             });
@@ -108,7 +125,9 @@ library LibTokenomics {
                 feeBase: newFeeBase
             });
         }
-        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+        unchecked {
+            reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+        }
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
@@ -138,11 +157,14 @@ library LibTokenomics {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 feeBase
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 fee) {
         uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
             config.bootstrapDiscountHalvingPeriod;
-        uint256 gamma = 1024 - (1024 >> halves);
-        return (feeBase * gamma) / 1024;
+        uint256 gamma;
+        unchecked {
+            gamma = 1024 - (1024 >> halves);
+            fee = (feeBase * gamma) / 1024;
+        }
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
@@ -150,8 +172,8 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint256 feeBase,
         bool isProposal,
-        uint256 tNow, // milliseconds
-        uint256 tLast, // milliseconds
+        uint256 tNow, // seconds
+        uint256 tLast, // seconds
         uint256 tAvg, // milliseconds
         uint256 tTimeCap // milliseconds
     ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
@@ -159,18 +181,22 @@ library LibTokenomics {
             newFeeBase = feeBase;
             // tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > tTimeCap ? tTimeCap : tAvg;
-            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
-            a = tNow > a ? tNow - a : 0;
-            tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
-            uint256 alpha = 10000 +
-                ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                100;
-            if (isProposal) {
-                newFeeBase = (feeBase * 10000) / alpha; // fee
-            } else {
-                newFeeBase = (feeBase * alpha) / 10000; // reward
+            unchecked {
+                tNow *= 1000;
+                tLast *= 1000;
+                uint256 _tAvg = tAvg > tTimeCap ? tTimeCap : tAvg;
+                uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
+                uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
+                a = tNow > a ? tNow - a : 0;
+                tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
+                uint256 alpha = 10000 +
+                    ((config.rewardMultiplierPctg - 100) * tRelBp) /
+                    100;
+                if (isProposal) {
+                    newFeeBase = (feeBase * 10000) / alpha; // fee
+                } else {
+                    newFeeBase = (feeBase * alpha) / 10000; // reward
+                }
             }
         }
     }

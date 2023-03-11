@@ -157,10 +157,14 @@ library LibVerifying {
             );
         }
 
+        uint proofTime;
+        unchecked {
+            proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
+        }
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
-                newValue: (fc.provenAt - proposal.proposedAt) * 1000,
+                newValue: proofTime,
                 maf: config.proofTimeMAF
             })
             .toUint64();
@@ -170,11 +174,9 @@ library LibVerifying {
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        unchecked {
-            fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
-            fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
-            fc.provenAt = 1; // none-zero placeholder
-            fc.prover = address(0);
-        }
+        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
+        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.provenAt = 1; // none-zero placeholder
+        fc.prover = address(0);
     }
 }

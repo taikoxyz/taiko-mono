@@ -116,10 +116,14 @@ library LibProposing {
         });
 
         if (state.lastProposedAt > 0) {
+            uint256 blockTime;
+            unchecked {
+                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
+            }
             state.avgBlockTime = LibUtils
                 .movingAverage({
                     maValue: state.avgBlockTime,
-                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
+                    newValue: blockTime,
                     maf: config.blockTimeMAF
                 })
                 .toUint64();

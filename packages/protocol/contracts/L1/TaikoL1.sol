@@ -123,8 +123,8 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
-    function withdraw() external nonReentrant {
-        LibTokenomics.withdraw(state, AddressResolver(this));
+    function withdraw(uint256 amount) external nonReentrant {
+        LibTokenomics.withdraw(state, AddressResolver(this), amount);
     }
 
     function getBalance(address addr) public view returns (uint256) {
