@@ -87,7 +87,7 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
-        if (state.nextBlockId <= config.constantFeeRewardBlocks) {
+        if (state.lastBlockId <= config.constantFeeRewardBlocks) {
             reward = LibTokenomics.fromTwei(state.feeBaseTwei);
             newFeeBase = reward;
             // tRelBp = 0;

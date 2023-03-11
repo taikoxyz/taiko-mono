@@ -50,7 +50,7 @@ library TaikoConfig {
                 blockTimeCap: 60 seconds * 1000, // owner:daniel
                 proofTimeCap: 30 minutes * 1000, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
-                constantFeeRewardBlocks: 1000, // owner:daniel
+                constantFeeRewardBlocks: 1024, // owner:daniel
                 enableSoloProposer: true,
                 enableOracleProver: true,
                 enableTokenomics: true,
