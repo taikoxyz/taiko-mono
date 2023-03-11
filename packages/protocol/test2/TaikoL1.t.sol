@@ -35,13 +35,8 @@ contract Verifier {
 }
 
 contract TaikoL1Test is TaikoL1TestBase {
-    address public constant ALICE = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
-    address public constant BOB = 0x000000000000000000636F6e736F6c652e6c6f67;
-    uint64 feeBaseTwei = 1000000; // 1 TKO
-
     function deployTaikoL1() internal override returns (TaikoL1 taikoL1) {
         taikoL1 = new TaikoL1WithConfig();
-        taikoL1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBaseTwei);
     }
 
     function setUp() public override {
@@ -54,20 +49,21 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Testing we can propose, prove, then verify more blocks than 'maxNumBlocks'
     function testBlockRingBuffer() external {
-        _depositTaikoToken(ALICE, 1E6, 100);
-        _depositTaikoToken(BOB, 1E6, 100);
+        _depositTaikoToken(Alice, 1E6, 100);
+        _depositTaikoToken(Bob, 1E6, 100);
+        _depositTaikoToken(Carol, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint blockId = 1; blockId < conf.maxNumBlocks * 3; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(ALICE, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(BOB, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
 
-            verifyBlock(BOB, 1);
+            verifyBlock(Carol, 1);
 
             parentHash = blockHash;
             mine(1);

@@ -18,11 +18,25 @@ abstract contract TaikoL1TestBase is Test {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
+    bool internal printVars;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
+    uint64 feeBaseTwei = 1000000; // 1 TKO
 
-    address public constant L2SS = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
+    address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
+
+    address public constant Alice = 0x10020FCb72e27650651B05eD2CEcA493bC807Ba4;
+    address public constant Bob = 0x200708D76eB1B69761c23821809d53F65049939e;
+    address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
+    address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
+    address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
+
+    modifier printingVars() {
+        _startPrintingVars(true);
+        _;
+        _startPrintingVars(false);
+    }
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -33,9 +47,8 @@ abstract contract TaikoL1TestBase is Test {
         addressManager.init();
 
         L1 = deployTaikoL1();
-
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBaseTwei);
         conf = L1.getConfig();
-        _printVariables("init");
 
         tko = new TaikoToken();
         tko.init(address(addressManager), "TaikoToken", "TKO");
@@ -52,6 +65,8 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("proto_broker", address(L1));
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(L2SS));
+
+        _printVariables("init  ");
     }
 
     function proposeBlock(
@@ -143,6 +158,7 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function _printVariables(string memory prefix) internal {
+        if (!printVars) return;
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
@@ -167,5 +183,9 @@ abstract contract TaikoL1TestBase is Test {
     function mine(uint256 counts) internal {
         vm.warp(block.timestamp + 10 * counts);
         vm.roll(block.number + counts);
+    }
+
+    function _startPrintingVars(bool start) private {
+        printVars = start;
     }
 }
