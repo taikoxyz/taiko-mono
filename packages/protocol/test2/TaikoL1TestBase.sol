@@ -41,7 +41,6 @@ abstract contract TaikoL1TestBase is Test {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
-        console2.log("chainid: ", block.chainid);
         vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
@@ -138,12 +137,13 @@ abstract contract TaikoL1TestBase is Test {
     function _registerAddress(string memory name, address addr) internal {
         string memory key = L1.keyForName(block.chainid, name);
         addressManager.setAddress(key, addr);
-        console2.log(key, " ---> ", addr);
+        console2.log(key, " -> ", addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
+        console2.log(key, " -> ", addr);
     }
 
     function _depositTaikoToken(
