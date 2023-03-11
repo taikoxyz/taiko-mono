@@ -53,21 +53,26 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
-        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
-            isProposal: true,
-            tNow: block.timestamp * 1000,
-            tLast: state.lastProposedAt * 1000,
-            tAvg: state.avgBlockTime,
-            tTimeCap: config.blockTimeCap
-        });
-        fee = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
+        if (state.nextBlockId <= config.constantFeeRewardBlocks) {
+            fee = LibTokenomics.fromTwei(state.feeBaseTwei);
+            newFeeBase = fee;
+        } else {
+            (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
+                config: config,
+                feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
+                isProposal: true,
+                tNow: block.timestamp * 1000,
+                tLast: state.lastProposedAt * 1000,
+                tAvg: state.avgBlockTime,
+                tTimeCap: config.blockTimeCap
+            });
+            fee = LibTokenomics.getSlotsAdjustedFee({
+                state: state,
+                config: config,
+                isProposal: true,
+                feeBase: newFeeBase
+            });
+        }
         fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
         depositAmount = (fee * config.proposerDepositPctg) / 100;
     }
@@ -82,21 +87,27 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
-        (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
-            isProposal: false,
-            tNow: provenAt * 1000,
-            tLast: proposedAt * 1000,
-            tAvg: state.avgProofTime,
-            tTimeCap: config.proofTimeCap
-        });
-        reward = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
+        if (state.nextBlockId <= config.constantFeeRewardBlocks) {
+            reward = LibTokenomics.fromTwei(state.feeBaseTwei);
+            newFeeBase = reward;
+            // tRelBp = 0;
+        } else {
+            (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
+                config: config,
+                feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
+                isProposal: false,
+                tNow: provenAt * 1000,
+                tLast: proposedAt * 1000,
+                tAvg: state.avgProofTime,
+                tTimeCap: config.proofTimeCap
+            });
+            reward = LibTokenomics.getSlotsAdjustedFee({
+                state: state,
+                config: config,
+                isProposal: false,
+                feeBase: newFeeBase
+            });
+        }
         reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
     }
 

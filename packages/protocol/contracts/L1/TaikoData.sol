@@ -35,6 +35,7 @@ library TaikoData {
         uint64 blockTimeCap;
         uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
+        uint64 constantFeeRewardBlocks;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
