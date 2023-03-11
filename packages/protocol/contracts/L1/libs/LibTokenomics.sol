@@ -68,6 +68,7 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
+        // TODO(daniel): we have a bug here
         if (state.nextBlockId <= config.constantFeeRewardBlocks) {
             fee = LibTokenomics.fromTwei(state.feeBaseTwei);
             newFeeBase = fee;

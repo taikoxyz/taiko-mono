@@ -158,6 +158,8 @@ abstract contract TaikoL1TestBase is Test {
             prefix,
             " - feeBase(twei):",
             Strings.toString(vars.feeBaseTwei),
+            " fee:",
+            Strings.toString(L1.getBlockFee()),
             " nextBlockId:",
             Strings.toString(vars.nextBlockId),
             " lastBlockId:",

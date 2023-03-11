@@ -21,6 +21,7 @@ contract TaikoL1WithConfig is TaikoL1 {
     {
         config = TaikoConfig.getConfig();
         config.maxNumBlocks = 5;
+        config.constantFeeRewardBlocks = 0;
         config.maxVerificationsPerTx = 0;
         config.constantFeeRewardBlocks = 10;
         config.enableSoloProposer = false;
