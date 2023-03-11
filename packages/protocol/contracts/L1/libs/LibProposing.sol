@@ -118,7 +118,7 @@ library LibProposing {
         state.avgBlockTime = LibUtils
             .movingAverage({
                 maValue: state.avgBlockTime,
-                newValue: (meta.timestamp - state.lastProposedAt)*1000,
+                newValue: (meta.timestamp - state.lastProposedAt) * 1000,
                 maf: config.blockTimeMAF
             })
             .toUint64();
