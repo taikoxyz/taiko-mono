@@ -20,7 +20,9 @@ contract TaikoL1WithConfig is TaikoL1 {
         returns (TaikoData.Config memory config)
     {
         config = TaikoConfig.getConfig();
-        config.maxNumBlocks = 5;
+        config.maxNumBlocks = 10;
+        config.slotSmoothingFactor = 100000; //???
+        config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
         config.maxVerificationsPerTx = 0;
         config.constantFeeRewardBlocks = 10;
@@ -75,7 +77,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_multiple_blocks_in_one_L1_block() external {
-        _depositTaikoToken(Alice, 1E6, 100);
+        _depositTaikoToken(Alice, 1000, 1000);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -90,7 +92,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         }
     }
 
-    /// @dev Test verify multiple blocks in one transaction
+    // /// @dev Test verify multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
         _depositTaikoToken(Alice, 1E6, 100);
 

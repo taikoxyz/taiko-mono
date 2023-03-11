@@ -72,7 +72,7 @@ abstract contract AddressResolver {
     function keyForName(
         uint256 chainId,
         string memory name
-    ) public view returns (string memory key) {
+    ) public pure returns (string memory key) {
         key = string.concat(Strings.toString(chainId), ".", name);
         // TODO: the next line is cheaper in gas but will break
         //       many Hardhat tests.

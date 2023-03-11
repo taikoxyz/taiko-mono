@@ -60,6 +60,25 @@ library LibTokenomics {
         }
     }
 
+    function fromTwei(uint64 amount) internal pure returns (uint256) {
+        if (amount == 0) {
+            return TWEI_TO_WEI;
+        } else {
+            return amount * TWEI_TO_WEI;
+        }
+    }
+
+    function toTwei(uint256 amount) internal pure returns (uint64) {
+        uint256 _twei = amount / TWEI_TO_WEI;
+        if (_twei > type(uint64).max) {
+            return type(uint64).max;
+        } else if (_twei == 0) {
+            return uint64(1);
+        } else {
+            return uint64(_twei);
+        }
+    }
+
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
@@ -68,28 +87,28 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
-        // TODO(daniel): we have a bug here
+        uint256 feeBase = fromTwei(state.feeBaseTwei);
         if (state.nextBlockId <= config.constantFeeRewardBlocks) {
-            fee = LibTokenomics.fromTwei(state.feeBaseTwei);
-            newFeeBase = fee;
+            fee = feeBase;
+            newFeeBase = feeBase;
         } else {
-            (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
+            (newFeeBase, ) = _getTimeAdjustedFee({
                 config: config,
-                feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
+                feeBase: feeBase,
                 isProposal: true,
                 tNow: block.timestamp,
                 tLast: state.lastProposedAt,
                 tAvg: state.avgBlockTime,
                 tTimeCap: config.blockTimeCap
             });
-            fee = LibTokenomics.getSlotsAdjustedFee({
+            fee = _getSlotsAdjustedFee({
                 state: state,
                 config: config,
                 isProposal: true,
                 feeBase: newFeeBase
             });
         }
-        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
+        fee = _getBootstrapDiscountedFee(state, config, fee);
         unchecked {
             depositAmount = (fee * config.proposerDepositPctg) / 100;
         }
@@ -105,21 +124,22 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
+        uint256 feeBase = fromTwei(state.feeBaseTwei);
         if (state.lastBlockId <= config.constantFeeRewardBlocks) {
-            reward = LibTokenomics.fromTwei(state.feeBaseTwei);
-            newFeeBase = reward;
+            reward = feeBase;
+            newFeeBase = feeBase;
             // tRelBp = 0;
         } else {
-            (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
+            (newFeeBase, tRelBp) = _getTimeAdjustedFee({
                 config: config,
-                feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
+                feeBase: feeBase,
                 isProposal: false,
                 tNow: provenAt,
                 tLast: proposedAt,
                 tAvg: state.avgProofTime,
                 tTimeCap: config.proofTimeCap
             });
-            reward = LibTokenomics.getSlotsAdjustedFee({
+            reward = _getSlotsAdjustedFee({
                 state: state,
                 config: config,
                 isProposal: false,
@@ -132,12 +152,12 @@ library LibTokenomics {
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
-    function getSlotsAdjustedFee(
+    function _getSlotsAdjustedFee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bool isProposal,
         uint256 feeBase
-    ) internal view returns (uint256) {
+    ) private view returns (uint256) {
         uint256 m;
         uint256 n;
         uint256 k;
@@ -154,22 +174,26 @@ library LibTokenomics {
     }
 
     // Implement "Bootstrap Discount Multipliers", see the whitepaper.
-    function getBootstrapDiscountedFee(
+    function _getBootstrapDiscountedFee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 feeBase
-    ) internal view returns (uint256 fee) {
-        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.bootstrapDiscountHalvingPeriod;
-        uint256 gamma;
-        unchecked {
-            gamma = 1024 - (1024 >> halves);
-            fee = (feeBase * gamma) / 1024;
+    ) private view returns (uint256 fee) {
+        if (config.bootstrapDiscountHalvingPeriod == 0) {
+            fee = feeBase;
+        } else {
+            uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
+                config.bootstrapDiscountHalvingPeriod;
+            uint256 gamma;
+            unchecked {
+                gamma = 1024 - (1024 >> halves);
+                fee = (feeBase * gamma) / 1024;
+            }
         }
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
-    function getTimeAdjustedFee(
+    function _getTimeAdjustedFee(
         TaikoData.Config memory config,
         uint256 feeBase,
         bool isProposal,
@@ -177,7 +201,7 @@ library LibTokenomics {
         uint256 tLast, // seconds
         uint256 tAvg, // milliseconds
         uint256 tTimeCap // milliseconds
-    ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
+    ) private pure returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = feeBase;
             // tRelBp = 0;
@@ -199,25 +223,6 @@ library LibTokenomics {
                     newFeeBase = (feeBase * alpha) / 10000; // reward
                 }
             }
-        }
-    }
-
-    function fromTwei(uint64 amount) internal pure returns (uint256) {
-        if (amount == 0) {
-            return TWEI_TO_WEI;
-        } else {
-            return amount * TWEI_TO_WEI;
-        }
-    }
-
-    function toTwei(uint256 amount) internal pure returns (uint64) {
-        uint256 _twei = amount / TWEI_TO_WEI;
-        if (_twei > type(uint64).max) {
-            return type(uint64).max;
-        } else if (_twei == 0) {
-            return uint64(1);
-        } else {
-            return uint64(_twei);
         }
     }
 }
