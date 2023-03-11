@@ -17,7 +17,7 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
-    uint256 private constant SZABO_TO_WEI = 1E12;
+    uint256 private constant TWEI_TO_WEI = 1E12;
 
     function withdraw(
         TaikoData.State storage state,
@@ -55,7 +55,7 @@ library LibTokenomics {
     {
         (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
             config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+            feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
             isProposal: true,
             tNow: block.timestamp * 1000,
             tLast: state.lastProposedAt * 1000,
@@ -84,7 +84,7 @@ library LibTokenomics {
     {
         (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
             config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+            feeBase: LibTokenomics.fromTwei(state.feeBaseTwei),
             isProposal: false,
             tNow: provenAt * 1000,
             tLast: proposedAt * 1000,
@@ -164,22 +164,22 @@ library LibTokenomics {
         }
     }
 
-    function fromSzabo(uint64 amount) internal pure returns (uint256) {
+    function fromTwei(uint64 amount) internal pure returns (uint256) {
         if (amount == 0) {
-            return SZABO_TO_WEI;
+            return TWEI_TO_WEI;
         } else {
-            return amount * SZABO_TO_WEI;
+            return amount * TWEI_TO_WEI;
         }
     }
 
-    function toSzabo(uint256 amount) internal pure returns (uint64) {
-        uint256 _szabo = amount / SZABO_TO_WEI;
-        if (_szabo > type(uint64).max) {
+    function toTwei(uint256 amount) internal pure returns (uint64) {
+        uint256 _twei = amount / TWEI_TO_WEI;
+        if (_twei > type(uint64).max) {
             return type(uint64).max;
-        } else if (_szabo == 0) {
+        } else if (_twei == 0) {
             return uint64(1);
         } else {
-            return uint64(_szabo);
+            return uint64(_twei);
         }
     }
 }

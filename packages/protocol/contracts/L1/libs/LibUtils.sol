@@ -40,7 +40,7 @@ library LibUtils {
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
-                feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+                feeBaseTwei: state.feeBaseTwei,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 nextBlockId: state.nextBlockId,

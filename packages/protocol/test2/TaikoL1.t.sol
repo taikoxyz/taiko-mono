@@ -51,9 +51,9 @@ contract TaikoL1Test is Test {
         addressManager = new AddressManager();
         addressManager.init();
 
-        uint64 feeBase = 1E18;
+        uint64 feeBaseTwei = 1000000; // 1 TKO
         L1 = new TaikoL1WithConfig();
-        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBase);
+        L1.init(address(addressManager), GENESIS_BLOCK_HASH, feeBaseTwei);
         conf = L1.getConfig();
         _printVariables("init");
 
@@ -194,8 +194,8 @@ contract TaikoL1Test is Test {
             Strings.toString(logCount++),
             " - ",
             prefix,
-            " - feeBase:",
-            Strings.toString(vars.feeBase / 1E12),
+            " - feeBase(twei):",
+            Strings.toString(vars.feeBaseTwei),
             " nextBlockId:",
             Strings.toString(vars.nextBlockId),
             " lastBlockId:",
@@ -207,7 +207,6 @@ contract TaikoL1Test is Test {
             " lastProposedAt:",
             Strings.toString(vars.lastProposedAt)
         );
-        // console2.log("feeBase:",vars.feeBase/1E12);
         console2.log(str);
     }
 

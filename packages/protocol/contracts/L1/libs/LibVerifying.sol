@@ -25,11 +25,11 @@ library LibVerifying {
     function init(
         TaikoData.State storage state,
         bytes32 genesisBlockHash,
-        uint64 feeBaseSzabo
+        uint64 feeBaseTwei
     ) internal {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBaseSzabo = feeBaseSzabo;
+        state.feeBaseTwei = feeBaseTwei;
         state.nextBlockId = 1;
 
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
@@ -148,9 +148,9 @@ library LibVerifying {
             }
 
             // Update feeBase and avgProofTime
-            state.feeBaseSzabo = LibTokenomics.toSzabo(
+            state.feeBaseTwei = LibTokenomics.toTwei(
                 LibUtils.movingAverage({
-                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
+                    maValue: LibTokenomics.fromTwei(state.feeBaseTwei),
                     newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })
