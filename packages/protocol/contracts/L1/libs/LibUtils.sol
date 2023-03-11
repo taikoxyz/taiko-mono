@@ -26,10 +26,10 @@ library LibUtils {
     ) internal view returns (ChainData storage) {
         uint256 _number = number;
         if (_number == 0) {
-            _number = state.latestVerifiedId;
+            _number = state.lastBlockId;
         } else if (
-            _number + blockHashHistory <= state.latestVerifiedId ||
-            _number > state.latestVerifiedId
+            _number + blockHashHistory <= state.lastBlockId ||
+            _number > state.lastBlockId
         ) revert L1_BLOCK_NUMBER();
 
         return state.l2ChainDatas[_number % blockHashHistory];
@@ -46,7 +46,7 @@ library LibUtils {
                 nextBlockId: state.nextBlockId,
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
-                latestVerifiedId: state.latestVerifiedId,
+                lastBlockId: state.lastBlockId,
                 avgProofTime: state.avgProofTime
             });
     }

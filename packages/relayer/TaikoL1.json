@@ -962,7 +962,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "latestVerifiedId",
+            "name": "lastBlockId",
             "type": "uint64"
           },
           {
@@ -1300,7 +1300,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "latestVerifiedId",
+        "name": "lastBlockId",
         "type": "uint64"
       },
       {

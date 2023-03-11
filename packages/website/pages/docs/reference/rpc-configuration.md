@@ -1,6 +1,6 @@
-# RPC configuration
+# Hackathon testnet RPC configuration
 
-| Network     | Chain ID | RPC URL                    | Symbol | Block Explorer URL              |
-| ----------- | -------- | -------------------------- | ------ | ------------------------------- |
-| Ethereum A1 | 31338    | https://l1rpc.a1.taiko.xyz | ETH    | https://l1explorer.a1.taiko.xyz |
-| Taiko A1    | 167003   | https://l2rpc.a1.taiko.xyz | ETH    | https://l2explorer.a1.taiko.xyz |
+| Network | Chain ID | RPC URL                           | Symbol | Block Explorer URL                     |
+| ------- | -------- | --------------------------------- | ------ | -------------------------------------- |
+| Sepolia | 11155111 | https://rpc.sepolia.org           | ETH    | https://sepolia.etherscan.io/          |
+| Taiko   | 167002   | https://l2rpc.hackathon.taiko.xyz | ETH    | https://l2explorer.hackathon.taiko.xyz |

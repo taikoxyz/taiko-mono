@@ -112,7 +112,7 @@ library LibTokenomics {
         unchecked {
             m = 1000 * (config.maxNumBlocks - 1) + config.slotSmoothingFactor;
             // n is the number of unverified blocks
-            n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
+            n = 1000 * (state.nextBlockId - state.lastBlockId - 1);
 
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
             k = isProposal ? m - n - 1000 : m - n + 1000;

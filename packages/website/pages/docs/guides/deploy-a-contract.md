@@ -19,7 +19,7 @@ These steps will show you how to deploy a smart contract to Taiko A1 using Found
    ```
 3. Deploy the contract from your project, located at `src/Counter.sol`. Replace `YOUR_PRIVATE_KEY` with your private key, mentioned in the previous prerequisites section.
    ```sh
-   forge create --legacy --rpc-url https://l2rpc.a1.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
+   forge create --legacy --rpc-url https://l2rpc.hackathon.taiko.xyz --private-key YOUR_PRIVATE_KEY src/Counter.sol:Counter
    ```
    > Note: The `--legacy` flag is needed because EIP-1559 is currently disabled on Taiko—there are plans to re-enable it in the future.
-4. Paste the address from the output into the [L2 block explorer](https://l2explorer.a1.taiko.xyz/) to verify that the contract was deployed.
+4. Paste the address from the output into the [L2 block explorer](https://l2explorer.hackathon.taiko.xyz/) to verify that the contract was deployed.
