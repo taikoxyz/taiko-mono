@@ -47,8 +47,8 @@ library TaikoConfig {
                 rewardMultiplierPctg: 400, //  owner:daniel - 400%
                 feeGracePeriodPctg: 200, // owner:daniel - 200%
                 feeMaxPeriodPctg: 400, // owner:daniel - 400%
-                blockTimeCap: 60 seconds, // owner:daniel
-                proofTimeCap: 30 minutes, // owner:daniel
+                blockTimeCap: 60 seconds * 1000, // owner:daniel
+                proofTimeCap: 30 minutes * 1000, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 enableSoloProposer: true,
                 enableOracleProver: true,
