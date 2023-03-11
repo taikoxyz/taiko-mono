@@ -44,10 +44,10 @@ struct StateVariables {
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 nextBlockId;
-  uint64 lastProposedAt;
-  uint64 avgBlockTime;
   uint64 lastBlockId;
+  uint64 avgBlockTime;
   uint64 avgProofTime;
+  uint64 lastProposedAt;
 }
 ```
 
