@@ -57,9 +57,10 @@ library LibTokenomics {
             config: config,
             feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: true,
-            tNow: uint64(block.timestamp),
-            tLast: state.lastProposedAt,
-            tAvg: state.avgBlockTime
+            tNow: block.timestamp * 1000,
+            tLast: state.lastProposedAt * 1000,
+            tAvg: state.avgBlockTime,
+            tTimeCap: config.blockTimeCap
         });
         fee = LibTokenomics.getSlotsAdjustedFee({
             state: state,
@@ -85,9 +86,10 @@ library LibTokenomics {
             config: config,
             feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
             isProposal: false,
-            tNow: provenAt,
-            tLast: proposedAt,
-            tAvg: state.avgProofTime
+            tNow: provenAt * 1000,
+            tLast: proposedAt * 1000,
+            tAvg: state.avgProofTime,
+            tTimeCap: config.proofTimeCap
         });
         reward = LibTokenomics.getSlotsAdjustedFee({
             state: state,
@@ -137,21 +139,20 @@ library LibTokenomics {
         TaikoData.Config memory config,
         uint256 feeBase,
         bool isProposal,
-        uint64 tNow,
-        uint64 tLast,
-        uint64 tAvg
+        uint256 tNow, // milliseconds
+        uint256 tLast, // milliseconds
+        uint256 tAvg, // milliseconds
+        uint256 tTimeCap // milliseconds
     ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = feeBase;
             // tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > config.proofTimeCap
-                ? config.proofTimeCap
-                : tAvg;
+            uint256 _tAvg = tAvg > tTimeCap ? tTimeCap : tAvg;
             uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
             uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 b = tNow > a ? tNow - a : 0;
-            tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
+            a = tNow > a ? tNow - a : 0;
+            tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
             uint256 alpha = 10000 +
                 ((config.rewardMultiplierPctg - 100) * tRelBp) /
                 100;
