@@ -18,7 +18,6 @@ abstract contract TaikoL1TestBase is Test {
     TaikoL1 public L1;
     TaikoData.Config conf;
     uint256 internal logCount;
-    bool internal printVars;
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
@@ -31,12 +30,6 @@ abstract contract TaikoL1TestBase is Test {
     address public constant Carol = 0x300C9b60E19634e12FC6D68B7FEa7bFB26c2E419;
     address public constant Dave = 0x400147C0Eb43D8D71b2B03037bB7B31f8f78EF5F;
     address public constant Eve = 0x50081b12838240B1bA02b3177153Bca678a86078;
-
-    modifier printingVars() {
-        _startPrintingVars(true);
-        _;
-        _startPrintingVars(false);
-    }
 
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
@@ -158,7 +151,6 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function _printVariables(string memory prefix) internal {
-        if (!printVars) return;
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         string memory str = string.concat(
             Strings.toString(logCount++),
@@ -183,9 +175,5 @@ abstract contract TaikoL1TestBase is Test {
     function mine(uint256 counts) internal {
         vm.warp(block.timestamp + 10 * counts);
         vm.roll(block.number + counts);
-    }
-
-    function _startPrintingVars(bool start) private {
-        printVars = start;
     }
 }

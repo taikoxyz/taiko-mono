@@ -73,7 +73,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
-    function test_multiple_blocks_in_one_L1_block() external printingVars {
+    function test_multiple_blocks_in_one_L1_block() external {
         _depositTaikoToken(Alice, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -84,8 +84,26 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Alice, 1);
+            verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
+    }
+
+    /// @dev Test verify multiple blocks in one transaction
+    function test_verifying_multiple_blocks_once() external {
+        _depositTaikoToken(Alice, 1E6, 100);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        for (uint blockId = 1; blockId <= conf.maxNumBlocks - 1; blockId++) {
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+
+            bytes32 blockHash = bytes32(1E10 + blockId);
+            bytes32 signalRoot = bytes32(1E9 + blockId);
+            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            parentHash = blockHash;
+        }
+        verifyBlock(Alice, conf.maxNumBlocks - 2);
+        verifyBlock(Alice, conf.maxNumBlocks);
     }
 }
