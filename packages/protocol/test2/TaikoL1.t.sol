@@ -27,14 +27,8 @@ contract TaikoL1WithConfig is TaikoL1 {
 }
 
 contract Verifier {
-    bytes32 private _ret;
-
-    constructor(bytes32 ret) {
-        _ret = ret;
-    }
-
     fallback(bytes calldata) external returns (bytes memory) {
-        return bytes.concat(_ret);
+        return bytes.concat(keccak256("taiko"));
     }
 }
 
@@ -48,9 +42,6 @@ contract TaikoL1Test is Test {
     address public constant L2SS = 0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5;
     address public constant ALICE = 0xc8885E210E59Dba0164Ba7CDa25f607e6d586B7A;
     address public constant BOB = 0x000000000000000000636F6e736F6c652e6c6f67;
-
-    address public constant VERIFIER_100 =
-        0x5F927395213ee6b95dE97bDdCb1b2B1C0F16844F;
 
     AddressManager public addressManager;
 
@@ -79,7 +70,7 @@ contract TaikoL1Test is Test {
         _registerL2Address("signal_service", address(L2SS));
         _registerAddress(
             string(abi.encodePacked("verifier_", uint256(100))),
-            address(new Verifier(keccak256("taiko")))
+            address(new Verifier())
         );
     }
 
