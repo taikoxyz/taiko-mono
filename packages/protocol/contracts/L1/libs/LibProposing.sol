@@ -54,7 +54,7 @@ library LibProposing {
         // accssible to EVM.
         if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
-        if (state.nextBlockId >= state.latestVerifiedId + config.maxNumBlocks)
+        if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
             revert L1_TOO_MANY_BLOCKS();
 
         // After The Merge, L1 mixHash contains the prevrandao
@@ -136,7 +136,7 @@ library LibProposing {
         uint256 maxNumBlocks,
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
-        if (id <= state.latestVerifiedId || id >= state.nextBlockId) {
+        if (id <= state.lastBlockId || id >= state.nextBlockId) {
             revert L1_ID();
         }
 

@@ -46,13 +46,13 @@ library LibVerifying {
         uint256 maxBlocks
     ) internal {
         ChainData memory chainData = state.l2ChainDatas[
-            state.latestVerifiedId % config.blockHashHistory
+            state.lastBlockId % config.blockHashHistory
         ];
 
         uint64 processed;
         uint256 i;
         unchecked {
-            i = state.latestVerifiedId + 1;
+            i = state.lastBlockId + 1;
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
@@ -91,7 +91,7 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
-                state.latestVerifiedId += processed;
+                state.lastBlockId += processed;
             }
 
             // Note: Not all L2 hashes are stored on L1, only the last
@@ -99,10 +99,10 @@ library LibVerifying {
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
             state.l2ChainDatas[
-                state.latestVerifiedId % config.blockHashHistory
+                state.lastBlockId % config.blockHashHistory
             ] = chainData;
 
-            emit XchainSynced(state.latestVerifiedId, chainData);
+            emit XchainSynced(state.lastBlockId, chainData);
         }
     }
 

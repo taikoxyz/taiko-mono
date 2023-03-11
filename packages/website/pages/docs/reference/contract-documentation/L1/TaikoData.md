@@ -46,8 +46,7 @@ struct StateVariables {
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 latestVerifiedHeight;
-  uint64 latestVerifiedId;
+  uint64 lastBlockId;
   uint64 avgProofTime;
 }
 ```
@@ -138,8 +137,8 @@ struct State {
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 __reserved3;
-  uint64 latestVerifiedHeight;
-  uint64 latestVerifiedId;
+  uint64 __reserved4;
+  uint64 lastBlockId;
   uint64 avgProofTime;
   uint64 feeBaseSzabo;
   uint256[42] __gap;

@@ -8,6 +8,6 @@ export const getPendingBlocks = async (
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
   const nextBlockId = stateVariables.nextBlockId;
-  const latestVerifiedId = stateVariables.latestVerifiedId;
-  return nextBlockId - latestVerifiedId - 1;
+  const lastBlockId = stateVariables.lastBlockId;
+  return nextBlockId - lastBlockId - 1;
 };

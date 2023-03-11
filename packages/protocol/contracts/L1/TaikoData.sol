@@ -48,7 +48,7 @@ library TaikoData {
         uint64 nextBlockId;
         uint64 lastProposedAt;
         uint64 avgBlockTime;
-        uint64 latestVerifiedId;
+        uint64 lastBlockId;
         uint64 avgProofTime;
     }
 
@@ -120,7 +120,7 @@ library TaikoData {
         uint64 __reserved3;
         // Changed when a block is proven/finalized
         uint64 __reserved4;
-        uint64 latestVerifiedId;
+        uint64 lastBlockId;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime;
