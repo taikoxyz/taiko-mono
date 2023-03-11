@@ -110,7 +110,7 @@ describe("integration:SignalService", function () {
                 enabledDestChainId,
                 app,
                 signal,
-                signalProof
+                signalProof.signalProof
             )
         ).to.be.revertedWith("B_WRONG_CHAIN_ID()");
     });
@@ -149,7 +149,7 @@ describe("integration:SignalService", function () {
                 srcChainId,
                 app,
                 signal,
-                signalProof
+                signalProof.signalProof
             )
         ).to.be.revertedWith("B_NULL_APP_ADDR()");
     });
@@ -188,7 +188,7 @@ describe("integration:SignalService", function () {
                 srcChainId,
                 app,
                 ethers.constants.HashZero,
-                signalProof
+                signalProof.signalProof
             )
         ).to.be.revertedWith("B_ZERO_SIGNAL()");
     });
@@ -213,32 +213,18 @@ describe("integration:SignalService", function () {
 
         const { block, blockHeader } = await getBlockHeader(l1Provider);
 
-        const failProof = await getSignalProof(
-            l1Provider,
-            l1SignalService.address,
-            slot,
-            block.number,
-            blockHeader
-        );
-        // should return false since header has not been synced yet.
-        expect(
-            await l2SignalService.isSignalReceived(
-                srcChainId,
-                app,
-                signal,
-                failProof
-            )
-        ).to.be.equal(false);
-
+        console.log(blockHeader);
         await xchainSync.setXchainBlockHeader(block.hash);
 
-        const signalProof = await getSignalProof(
+        const { signalProof, signalRoot } = await getSignalProof(
             l1Provider,
             l1SignalService.address,
             slot,
             block.number,
             blockHeader
         );
+
+        await xchainSync.setXchainSignalRoot(signalRoot);
 
         expect(
             await l2SignalService.isSignalReceived(

@@ -111,13 +111,15 @@ async function processMessage(
 
     await xchainSync.setXchainBlockHeader(block.hash);
 
-    const signalProof = await getSignalProof(
+    const { signalProof, signalRoot } = await getSignalProof(
         provider,
         l1SignalService.address,
         slot,
         block.number,
         blockHeader
     );
+
+    await xchainSync.setXchainSignalRoot(signalRoot);
 
     const tx = await l2Bridge.processMessage(message, signalProof);
     const receipt = await tx.wait(1);

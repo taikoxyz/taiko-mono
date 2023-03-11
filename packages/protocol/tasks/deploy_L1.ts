@@ -98,8 +98,6 @@ export async function deployContracts(hre: any) {
     const AddressManager = await utils.deployContract(hre, "AddressManager");
     await utils.waitTx(hre, await AddressManager.init());
 
-
-
     await utils.waitTx(
         hre,
         await AddressManager.setAddress(`${chainId}.dao_vault`, daoVault)

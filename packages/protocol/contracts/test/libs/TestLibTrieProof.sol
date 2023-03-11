@@ -16,12 +16,11 @@ contract TestLibTrieProof {
     }
 
     function verify(
-        bytes32 stateRoot,
-        address addr,
         bytes32 slot,
         bytes32 value,
-        bytes calldata mkproof
+        bytes calldata storageProof,
+        bytes32 storageRoot
     ) public pure returns (bool) {
-        return LibTrieProof.verify(stateRoot, addr, slot, value, mkproof);
+        return LibTrieProof.verify(slot, value, storageProof, storageRoot);
     }
 }

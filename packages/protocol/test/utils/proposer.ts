@@ -28,8 +28,6 @@ class Proposer {
         return this.signer;
     }
 
-
-
     async proposeBlock(block?: ethers.providers.Block) {
         try {
             while (this.proposingMutex) {

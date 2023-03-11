@@ -31,7 +31,7 @@ const proposeBlock = async (
         mixHash: ethers.constants.HashZero,
         extraData: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
         gasLimit: gasLimit,
-        timestamp: 0
+        timestamp: 0,
     };
 
     const inputs = buildProposeBlockInputs(block, meta);
