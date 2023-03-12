@@ -26,12 +26,33 @@ library LibVerifying {
     event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
 
     error L1_0_FEE_BASE();
+    error L1_INVALID_CONFIG();
 
     function init(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint256 feeBase
-    ) public {
+        uint feeBase
+    ) internal {
+        if (
+            config.chainId <= 1 ||
+            config.maxNumBlocks <= 1 ||
+            config.blockHashHistory == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            config.minTxGasLimit == 0 ||
+            config.slotSmoothingFactor == 0 ||
+            config.rewardBurnBips >= 10000 ||
+            config.feeBaseMAF == 0 ||
+            config.blockTimeMAF == 0 ||
+            config.proofTimeMAF == 0 ||
+            config.blockTimeCap == 0 ||
+            config.proofTimeCap == 0 ||
+            config.feeGracePeriodPctg > config.feeMaxPeriodPctg ||
+            config.rewardMultiplierPctg < 100
+        ) revert L1_INVALID_CONFIG();
+
         if (feeBase == 0) revert L1_0_FEE_BASE();
 
         state.genesisHeight = uint64(block.number);
