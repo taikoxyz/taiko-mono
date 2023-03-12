@@ -44,7 +44,9 @@ library LibVerifying {
             config.blockTimeMAF == 0 ||
             config.proofTimeMAF == 0 ||
             config.blockTimeCap == 0 ||
-            config.proofTimeCap == 0
+            config.proofTimeCap == 0 ||
+            config.feeGracePeriodPctg > config.feeMaxPeriodPctg ||
+            config.feeMultiplierPctg < 100
         ) revert L1_INVALID_CONFIG();
 
         state.genesisHeight = uint64(block.number);

@@ -28,7 +28,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
         config.feeGracePeriodPctg = 0;
-        config.feeActivationPeriodPctg = 200;
+        config.feeMaxPeriodPctg = 200;
         config.feeMultiplierPctg = 400;
         config.blockTimeCap = 10 * 60 seconds * 1000; // 10 minutes
         config.maxNumBlocks = 11;

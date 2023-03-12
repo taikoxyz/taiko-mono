@@ -205,24 +205,22 @@ library LibTokenomics {
         if (
             tAvg == 0 ||
             tNow == tLast ||
-            config.feeActivationPeriodPctg == 0 ||
-            config.feeMultiplierPctg == 0
+            config.feeMaxPeriodPctg < config.feeGracePeriodPctg ||
+            config.feeMultiplierPctg <= 100
         ) {
             return (feeBase, 0);
         }
 
         unchecked {
             tAvg = tAvg.min(tTimeCap);
-            uint256 activation = (config.feeActivationPeriodPctg * tAvg) / 100;
+            uint256 max = (config.feeMaxPeriodPctg * tAvg) / 100;
             uint256 grace = (config.feeGracePeriodPctg * tAvg) / 100;
-            uint256 max = grace + activation;
 
-            uint256 t = (tNow - tLast) * 1000; // convert to milliseconds
-            t = t.max(tAvg) - tAvg;
-            t = t.max(grace).min(max) - grace;
-            tRelBp = (t * 10000) / activation; // [0 - 10000]
+            uint256 t = ((tNow - tLast) * 1000).max(grace).min(max);
+            uint256 alpha = 10000 +
+                (100 * (config.feeMultiplierPctg - 100) * (t - grace)) /
+                (max - grace);
 
-            uint256 alpha = 10000 + (config.feeMultiplierPctg * tRelBp) / 100;
             if (isProposal) {
                 newFeeBase = (feeBase * 10000) / alpha; // fee
             } else {
