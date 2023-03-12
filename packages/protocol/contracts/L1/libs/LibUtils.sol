@@ -80,7 +80,11 @@ library LibUtils {
         uint64 tAvg,
         uint64 tCap
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (tAvg == 0) {
+        if (
+            tAvg == 0 ||
+            config.feeMaxPeriodPctg <= config.feeGracePeriodPctg ||
+            config.rewardMultiplierPctg <= 100
+        ) {
             newFeeBase = state.feeBase;
             // tRelBp = 0;
         } else {
