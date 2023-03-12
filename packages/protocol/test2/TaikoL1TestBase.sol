@@ -147,15 +147,13 @@ abstract contract TaikoL1TestBase is Test {
         L1.deposit(amountTko * 1 ether);
     }
 
-    function printVariables(string memory prefix) internal {
+    function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         (uint256 fee, ) = L1.getBlockFee();
         fee /= 1E12;
         string memory str = string.concat(
             Strings.toString(logCount++),
-            " - ",
-            prefix,
-            " [",
+            ":[",
             Strings.toString(vars.lastBlockId),
             unicode"→",
             Strings.toString(vars.nextBlockId),
@@ -168,7 +166,9 @@ abstract contract TaikoL1TestBase is Test {
             " avgProofTime:",
             Strings.toString(vars.avgProofTime),
             " lastProposedAt:",
-            Strings.toString(vars.lastProposedAt)
+            Strings.toString(vars.lastProposedAt),
+            " // ",
+            comment
         );
         console2.log(str);
     }
