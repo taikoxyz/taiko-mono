@@ -77,20 +77,19 @@ library LibUtils {
         bool isProposal,
         uint64 tNow,
         uint64 tLast,
-        uint64 tAvg
+        uint64 tAvg,
+        uint64 tCap
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0) {
             newFeeBase = state.feeBase;
             // tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > config.proofTimeCap
-                ? config.proofTimeCap
-                : tAvg;
-            uint256 tGrace = (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 a = tLast + tGrace;
-            uint256 b = tNow > a ? tNow - a : 0;
-            tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
+            uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
+            uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
+            uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
+            uint256 a = tLast + tAvg + grace;
+            a = tNow > a ? tNow - a : 0;
+            tRelBp = (a.min(max) * 10000) / max; // [0 - 10000]
             uint256 alpha = 10000 +
                 ((config.rewardMultiplierPctg - 100) * tRelBp) /
                 100;

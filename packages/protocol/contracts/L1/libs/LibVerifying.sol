@@ -138,7 +138,8 @@ library LibVerifying {
             isProposal: false,
             tNow: provenAt,
             tLast: proposedAt,
-            tAvg: state.avgProofTime
+            tAvg: state.avgProofTime,
+            tCap: config.proofTimeCap
         });
         reward = LibUtils.getSlotsAdjustedFee({
             state: state,
