@@ -57,12 +57,3 @@ The script will output two JSON files under `./deployments`:
 
 - `l2_genesis_alloc.json`: the `alloc` field which will be used in L2 genesis JSON file
 - `l2_genesis_storage_layout.json`: the storage layout of those pre-deployed contracts
-
-## Using Foundry
-
-This project also integrates with Foundry for building and testing contracts.
-
-- To compile using foundry: `forge build` or `pnpm compile2`
-- To run foundry tests: `forge test` or `pnpm test2`
-
-Note that compiling with foundry uses dependencies inside the `lib` dir (instead of `node_modules`).
