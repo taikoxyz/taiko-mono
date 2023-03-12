@@ -81,6 +81,7 @@ library LibUtils {
         uint64 tCap
     ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
         if (
+            tCap == 0 ||
             tAvg == 0 ||
             config.feeMaxPeriodPctg <= config.feeGracePeriodPctg ||
             config.rewardMultiplierPctg <= 100
