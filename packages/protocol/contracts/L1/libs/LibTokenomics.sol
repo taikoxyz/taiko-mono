@@ -109,7 +109,18 @@ library LibTokenomics {
                 feeBase: newFeeBase
             });
         }
-        fee = _getBootstrapDiscountedFee(state, config, fee);
+
+        if (config.bootstrapDiscountHalvingPeriod > 0) {
+            unchecked {
+                uint256 halves = uint256(
+                    block.timestamp - state.genesisTimestamp
+                ) / config.bootstrapDiscountHalvingPeriod;
+                uint256 gamma;
+                gamma = 1024 - (1024 >> halves);
+                fee = (fee * gamma) / 1024;
+            }
+        }
+
         unchecked {
             depositAmount = (fee * config.proposerDepositPctg) / 100;
         }
@@ -171,26 +182,6 @@ library LibTokenomics {
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
             uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
             return (feeBase * (m - 1000) * m) / (m - n) / k;
-        }
-    }
-
-    // Implement "Bootstrap Discount Multipliers", see the whitepaper.
-    function _getBootstrapDiscountedFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 feeBase
-    ) private view returns (uint256 fee) {
-        if (config.bootstrapDiscountHalvingPeriod == 0) {
-            fee = feeBase;
-        } else {
-            unchecked {
-                uint256 halves = uint256(
-                    block.timestamp - state.genesisTimestamp
-                ) / config.bootstrapDiscountHalvingPeriod;
-                uint256 gamma;
-                gamma = 1024 - (1024 >> halves);
-                fee = (feeBase * gamma) / 1024;
-            }
         }
     }
 
