@@ -27,6 +27,7 @@ library LibVerifying {
 
     error L1_0_FEE_BASE();
     error L1_INVALID_CONFIG();
+    error L1_INVALID_PARAM();
 
     function init(
         TaikoData.State storage state,
@@ -153,6 +154,7 @@ library LibVerifying {
         uint64 provenAt,
         uint64 proposedAt
     ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
+        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
         (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
             state: state,
             config: config,
