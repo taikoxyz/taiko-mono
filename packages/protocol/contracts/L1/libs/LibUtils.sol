@@ -84,9 +84,9 @@ library LibUtils {
             newFeeBase = state.feeBase;
             // tRelBp = 0;
         } else {
-            uint256 _tAvg = tAvg > tCap ? tCap : tAvg;
-            uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
+            tAvg = tAvg > tCap ? tCap : tAvg;
+            uint256 grace = (config.feeGracePeriodPctg * tAvg) / 100;
+            uint256 max = (config.feeMaxPeriodPctg * tAvg) / 100;
             uint256 a = tLast + tAvg + grace;
             a = tNow > a ? tNow - a : 0;
             tRelBp = (a.min(max) * 10000) / max; // [0 - 10000]
