@@ -384,7 +384,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "feeActivationPeriodPctg",
+            name: "feeMaxPctg",
             type: "uint64",
           },
           {
