@@ -114,10 +114,8 @@ library LibTokenomics {
             unchecked {
                 uint256 halves = uint256(
                     block.timestamp - state.genesisTimestamp
-                ) /
-                    config.bootstrapDiscountHalvingPeriod +
-                    1;
-                uint256 gamma = 1024 - (1024 >> halves);
+                ) / config.bootstrapDiscountHalvingPeriod;
+                uint256 gamma = 1024 - (1024 >> (1 + halves));
                 fee = (fee * gamma) / 1024;
             }
         }
