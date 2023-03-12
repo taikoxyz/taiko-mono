@@ -20,6 +20,7 @@ library LibTokenomics {
     uint256 private constant TWEI_TO_WEI = 1E12;
 
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_PARAM();
 
     function withdraw(
         TaikoData.State storage state,
@@ -124,6 +125,8 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
+        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
+
         uint256 feeBase = fromTwei(state.feeBaseTwei);
         if (state.lastBlockId <= config.constantFeeRewardBlocks) {
             reward = feeBase;
