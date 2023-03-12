@@ -131,10 +131,15 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return state.balances[addr];
     }
 
-    function getBlockFee() public view returns (uint256) {
-        (, uint256 feeAmount, uint256 depositAmount) = LibTokenomics
-            .getBlockFee(state, getConfig());
-        return feeAmount + depositAmount;
+    function getBlockFee()
+        public
+        view
+        returns (uint256 feeAmount, uint256 depositAmount)
+    {
+        (, feeAmount, depositAmount) = LibTokenomics.getBlockFee(
+            state,
+            getConfig()
+        );
     }
 
     function getProofReward(

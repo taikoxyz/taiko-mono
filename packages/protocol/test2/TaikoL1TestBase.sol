@@ -58,7 +58,7 @@ abstract contract TaikoL1TestBase is Test {
         _registerAddress("signal_service", address(ss));
         _registerL2Address("signal_service", address(L2SS));
 
-        _printVariables("init  ");
+        printVariables("init  ");
     }
 
     function proposeBlock(
@@ -92,7 +92,6 @@ abstract contract TaikoL1TestBase is Test {
 
         vm.prank(proposer, proposer);
         L1.proposeBlock(abi.encode(input), txList);
-        _printVariables("propose");
     }
 
     function proveBlock(
@@ -118,25 +117,23 @@ abstract contract TaikoL1TestBase is Test {
 
         vm.prank(prover, prover);
         L1.proveBlock(meta.id, abi.encode(evidence));
-        _printVariables("prove  ");
     }
 
     function verifyBlock(address verifier, uint256 count) internal {
         vm.prank(verifier, verifier);
         L1.verifyBlocks(count);
-        _printVariables("verify ");
     }
 
     function _registerAddress(string memory name, address addr) internal {
         string memory key = L1.keyForName(block.chainid, name);
         addressManager.setAddress(key, addr);
-        console2.log(key, " -> ", addr);
+        console2.log(key, unicode"→", addr);
     }
 
     function _registerL2Address(string memory name, address addr) internal {
         string memory key = L1.keyForName(conf.chainId, name);
         addressManager.setAddress(key, addr);
-        console2.log(key, " -> ", addr);
+        console2.log(key, unicode"→", addr);
     }
 
     function _depositTaikoToken(
@@ -150,20 +147,22 @@ abstract contract TaikoL1TestBase is Test {
         L1.deposit(amountTko * 1 ether);
     }
 
-    function _printVariables(string memory prefix) internal {
+    function printVariables(string memory prefix) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
+        (uint256 fee, ) = L1.getBlockFee();
+        fee /= 1E12;
         string memory str = string.concat(
             Strings.toString(logCount++),
             " - ",
             prefix,
-            " - feeBase(twei):",
-            Strings.toString(vars.feeBaseTwei),
-            " fee:",
-            Strings.toString(L1.getBlockFee()),
-            " nextBlockId:",
-            Strings.toString(vars.nextBlockId),
-            " lastBlockId:",
+            " [",
             Strings.toString(vars.lastBlockId),
+            unicode"→",
+            Strings.toString(vars.nextBlockId),
+            "] feeBase(twei):",
+            Strings.toString(vars.feeBaseTwei),
+            " fee(twei):",
+            Strings.toString(fee),
             " avgBlockTime:",
             Strings.toString(vars.avgBlockTime),
             " avgProofTime:",
@@ -175,7 +174,7 @@ abstract contract TaikoL1TestBase is Test {
     }
 
     function mine(uint256 counts) internal {
-        vm.warp(block.timestamp + 10 * counts);
+        vm.warp(block.timestamp + 20 * counts);
         vm.roll(block.number + counts);
     }
 }

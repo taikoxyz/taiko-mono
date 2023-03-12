@@ -148,13 +148,13 @@ library LibVerifying {
             }
 
             // Update feeBase and avgProofTime
-            state.feeBaseTwei = LibTokenomics.toTwei(
-                LibUtils.movingAverage({
-                    maValue: LibTokenomics.fromTwei(state.feeBaseTwei),
-                    newValue: newFeeBase,
+            state.feeBaseTwei = LibUtils
+                .movingAverage({
+                    maValue: state.feeBaseTwei,
+                    newValue: LibTokenomics.toTwei(newFeeBase),
                     maf: config.feeBaseMAF
                 })
-            );
+                .toUint64();
         }
 
         uint proofTime;

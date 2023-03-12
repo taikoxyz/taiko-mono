@@ -15,6 +15,8 @@ import {
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 library LibTokenomics {
     using LibMath for uint256;
     uint256 private constant TWEI_TO_WEI = 1E12;
@@ -209,9 +211,9 @@ library LibTokenomics {
             unchecked {
                 tNow *= 1000;
                 tLast *= 1000;
-                uint256 _tAvg = tAvg > tTimeCap ? tTimeCap : tAvg;
-                uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-                uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
+                uint256 tAvg = tAvg.min(tTimeCap);
+                uint256 tMax = (config.feeMaxPeriodPctg * tAvg) / 100;
+                uint256 a = tLast + (config.feeGracePeriodPctg * tAvg) / 100;
                 a = tNow > a ? tNow - a : 0;
                 tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
                 uint256 alpha = 10000 +

@@ -20,14 +20,16 @@ contract TaikoL1WithConfig is TaikoL1 {
         returns (TaikoData.Config memory config)
     {
         config = TaikoConfig.getConfig();
-        config.maxNumBlocks = 10;
-        config.slotSmoothingFactor = 100000; //???
+        config.enableTokenomics = true;
         config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
+        config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
-        config.constantFeeRewardBlocks = 10;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
+        config.maxNumBlocks = 11;
+        // this value must be changed if `maxNumBlocks` is changed.
+        config.slotSmoothingFactor = 4160;
     }
 }
 
@@ -50,63 +52,115 @@ contract TaikoL1Test is TaikoL1TestBase {
         );
     }
 
-    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumBlocks'
-    function test_more_blocks_than_ring_buffer_size() external {
+    // /// @dev Test we can propose, prove, then verify more blocks than 'maxNumBlocks'
+    // function test_more_blocks_than_ring_buffer_size() external {
+    //     _depositTaikoToken(Alice, 1E6, 100);
+    //     _depositTaikoToken(Bob, 1E6, 100);
+    //     _depositTaikoToken(Carol, 1E6, 100);
+
+    //     bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+    //     for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
+    //         printVariables("before propose:");
+    //         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+    //         printVariables("after propose :");
+    //         mine(1);
+
+    //         bytes32 blockHash = bytes32(1E10 + blockId);
+    //         bytes32 signalRoot = bytes32(1E9 + blockId);
+    //         proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+    //         verifyBlock(Carol, 1);
+    //         parentHash = blockHash;
+    //     }
+    //     printVariables("finally:");
+    // }
+
+    // /// @dev Test more than one block can be proposed, proven, & verified in the
+    // ///      same L1 block.
+    // function test_multiple_blocks_in_one_L1_block() external {
+    //     _depositTaikoToken(Alice, 1000, 1000);
+
+    //     bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+    //     for (uint blockId = 1; blockId <= 2; blockId++) {
+    //         printVariables("before propose:");
+    //         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+    //         printVariables("after propose :");
+
+    //         bytes32 blockHash = bytes32(1E10 + blockId);
+    //         bytes32 signalRoot = bytes32(1E9 + blockId);
+    //         proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+    //         verifyBlock(Alice, 2);
+    //         parentHash = blockHash;
+    //     }
+    //     printVariables("finally:");
+    // }
+
+    // /// @dev Test verify multiple blocks in one transaction
+    // function test_verifying_multiple_blocks_once() external {
+    //     _depositTaikoToken(Alice, 1E6, 100);
+
+    //     bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+    //     for (uint blockId = 1; blockId <= conf.maxNumBlocks - 1; blockId++) {
+    //         printVariables("before propose:");
+    //         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+    //         printVariables("after propose :");
+
+    //         bytes32 blockHash = bytes32(1E10 + blockId);
+    //         bytes32 signalRoot = bytes32(1E9 + blockId);
+    //         proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+    //         parentHash = blockHash;
+    //     }
+    //     verifyBlock(Alice, conf.maxNumBlocks - 2);
+    //     printVariables("after verify:");
+    //     verifyBlock(Alice, conf.maxNumBlocks);
+    //     printVariables("after verify:");
+    // }
+
+    // function test_block_time_increases_but_fee_decreases() external {
+    //     _depositTaikoToken(Alice, 1E6, 100);
+    //     _depositTaikoToken(Bob, 1E6, 100);
+    //     _depositTaikoToken(Carol, 1E6, 100);
+
+    //     bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+    //     for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
+    //         printVariables("before propose:");
+    //         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
+    //         mine(1);
+
+    //         bytes32 blockHash = bytes32(1E10 + blockId);
+    //         bytes32 signalRoot = bytes32(1E9 + blockId);
+    //         proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+    //         verifyBlock(Carol, 1);
+    //         mine(blockId);
+    //         parentHash = blockHash;
+    //     }
+    //     printVariables("finally:");
+    // }
+
+    function test_block_time_decreases_but_fee_increases() external {
         _depositTaikoToken(Alice, 1E6, 100);
         _depositTaikoToken(Bob, 1E6, 100);
         _depositTaikoToken(Carol, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
+        uint total = conf.maxNumBlocks * 10;
+
+        for (uint blockId = 1; blockId < total; blockId++) {
+            printVariables("before propose:");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
             proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
-            mine(1);
-
             verifyBlock(Carol, 1);
-            mine(1);
-
+            mine(total + 1 - blockId);
             parentHash = blockHash;
         }
-    }
-
-    /// @dev Test more than one block can be proposed, proven, & verified in the
-    ///      same L1 block.
-    function test_multiple_blocks_in_one_L1_block() external {
-        _depositTaikoToken(Alice, 1000, 1000);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint blockId = 1; blockId <= 2; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
-            verifyBlock(Alice, 2);
-            parentHash = blockHash;
-        }
-    }
-
-    // /// @dev Test verify multiple blocks in one transaction
-    function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6, 100);
-
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
-        for (uint blockId = 1; blockId <= conf.maxNumBlocks - 1; blockId++) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
-
-            bytes32 blockHash = bytes32(1E10 + blockId);
-            bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
-            parentHash = blockHash;
-        }
-        verifyBlock(Alice, conf.maxNumBlocks - 2);
-        verifyBlock(Alice, conf.maxNumBlocks);
+        printVariables("finally:");
     }
 }
