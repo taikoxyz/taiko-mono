@@ -27,6 +27,10 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
+        config.feeGracePeriodPctg = 0;
+        config.feeActivationPeriodPctg = 200;
+        config.feeMultiplierPctg = 400;
+        config.blockTimeCap = 10 * 60 seconds * 1000; // 10 minutes
         config.maxNumBlocks = 11;
         // this value must be changed if `maxNumBlocks` is changed.
         config.slotSmoothingFactor = 4160;
@@ -143,7 +147,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test block time goes down lover time and the fee should remain
     // the same (I think there is a bug)
-    function test_block_time_decreases_but_fee_increases() external {
+    function test_block_time_decreases_but_fee_remains() external {
         _depositTaikoToken(Alice, 1E6, 100);
         _depositTaikoToken(Bob, 1E6, 100);
         _depositTaikoToken(Carol, 1E6, 100);

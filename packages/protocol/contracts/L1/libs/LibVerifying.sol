@@ -43,9 +43,6 @@ library LibVerifying {
             config.feeBaseMAF == 0 ||
             config.blockTimeMAF == 0 ||
             config.proofTimeMAF == 0 ||
-            config.rewardMultiplierPctg < 100 ||
-            config.feeGracePeriodPctg < 100 ||
-            config.feeMaxPeriodPctg < config.feeGracePeriodPctg ||
             config.blockTimeCap == 0 ||
             config.proofTimeCap == 0
         ) revert L1_INVALID_CONFIG();

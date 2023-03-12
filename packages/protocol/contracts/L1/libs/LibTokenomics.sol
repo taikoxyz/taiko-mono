@@ -15,8 +15,6 @@ import {
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 library LibTokenomics {
     using LibMath for uint256;
     uint256 private constant TWEI_TO_WEI = 1E12;
@@ -204,26 +202,31 @@ library LibTokenomics {
         uint256 tAvg, // milliseconds
         uint256 tTimeCap // milliseconds
     ) private pure returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (tAvg == 0) {
-            newFeeBase = feeBase;
-            // tRelBp = 0;
-        } else {
-            unchecked {
-                tNow *= 1000;
-                tLast *= 1000;
-                uint256 _tAvg = tAvg.min(tTimeCap);
-                uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-                uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
-                a = tNow > a ? tNow - a : 0;
-                tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
-                uint256 alpha = 10000 +
-                    ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                    100;
-                if (isProposal) {
-                    newFeeBase = (feeBase * 10000) / alpha; // fee
-                } else {
-                    newFeeBase = (feeBase * alpha) / 10000; // reward
-                }
+        if (
+            tAvg == 0 ||
+            tNow == tLast ||
+            config.feeActivationPeriodPctg == 0 ||
+            config.feeMultiplierPctg == 0
+        ) {
+            return (feeBase, 0);
+        }
+
+        unchecked {
+            tAvg = tAvg.min(tTimeCap);
+            uint256 activation = (config.feeActivationPeriodPctg * tAvg) / 100;
+            uint256 grace = (config.feeGracePeriodPctg * tAvg) / 100;
+            uint256 max = grace + activation;
+
+            uint256 t = (tNow - tLast) * 1000; // convert to milliseconds
+            t = t.max(tAvg) - tAvg;
+            t = t.max(grace).min(max) - grace;
+            tRelBp = (t * 10000) / activation; // [0 - 10000]
+
+            uint256 alpha = 10000 + (config.feeMultiplierPctg * tRelBp) / 100;
+            if (isProposal) {
+                newFeeBase = (feeBase * 10000) / alpha; // fee
+            } else {
+                newFeeBase = (feeBase * alpha) / 10000; // reward
             }
         }
     }

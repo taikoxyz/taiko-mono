@@ -34,7 +34,7 @@ abstract contract TaikoL1TestBase is Test {
     function deployTaikoL1() internal virtual returns (TaikoL1 taikoL1);
 
     function setUp() public virtual {
-        vm.warp(1000000);
+        // vm.warp(1000000);
         addressManager = new AddressManager();
         addressManager.init();
 
