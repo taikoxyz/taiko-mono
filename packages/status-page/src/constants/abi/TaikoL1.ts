@@ -374,7 +374,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "rewardMultiplierPctg",
+            name: "feeMultiplierPctg",
             type: "uint64",
           },
           {
@@ -384,7 +384,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "feeMaxPeriodPctg",
+            name: "feeActivationPeriodPctg",
             type: "uint64",
           },
           {

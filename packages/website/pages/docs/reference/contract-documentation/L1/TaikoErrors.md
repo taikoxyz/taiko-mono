@@ -52,6 +52,12 @@ error L1_ID()
 error L1_INSUFFICIENT_TOKEN()
 ```
 
+### L1_INVALID_CONFIG
+
+```solidity
+error L1_INVALID_CONFIG()
+```
+
 ### L1_INVALID_EVIDENCE
 
 ```solidity

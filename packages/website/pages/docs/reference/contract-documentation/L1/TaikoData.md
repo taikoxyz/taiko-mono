@@ -16,19 +16,19 @@ struct Config {
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
-  uint256 anchorTxGasLimit;
   uint256 slotSmoothingFactor;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
   uint256 blockTimeMAF;
   uint256 proofTimeMAF;
-  uint64 rewardMultiplierPctg;
+  uint64 feeMultiplierPctg;
   uint64 feeGracePeriodPctg;
-  uint64 feeMaxPeriodPctg;
+  uint64 feeActivationPeriodPctg;
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
+  uint64 constantFeeRewardBlocks;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -40,7 +40,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint256 feeBase;
+  uint64 feeBaseTwei;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 nextBlockId;
@@ -140,7 +140,7 @@ struct State {
   uint64 __reserved4;
   uint64 lastBlockId;
   uint64 avgProofTime;
-  uint64 feeBaseSzabo;
+  uint64 feeBaseTwei;
   uint256[42] __gap;
 }
 ```

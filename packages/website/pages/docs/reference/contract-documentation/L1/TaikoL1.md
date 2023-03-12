@@ -19,7 +19,7 @@ modifier onlyFromEOA()
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBaseSzabo) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBaseTwei) external
 ```
 
 ### proposeBlock
@@ -76,7 +76,7 @@ function deposit(uint256 amount) external
 ### withdraw
 
 ```solidity
-function withdraw() external
+function withdraw(uint256 amount) external
 ```
 
 ### getBalance
@@ -88,7 +88,7 @@ function getBalance(address addr) public view returns (uint256)
 ### getBlockFee
 
 ```solidity
-function getBlockFee() public view returns (uint256)
+function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAmount)
 ```
 
 ### getProofReward
