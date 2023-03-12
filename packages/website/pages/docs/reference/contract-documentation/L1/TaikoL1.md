@@ -99,19 +99,17 @@ Verify up to N blocks.
 | --------- | ------- | ------------------------------- |
 | maxBlocks | uint256 | Max number of blocks to verify. |
 
-### halt
+### withdrawBalance
 
 ```solidity
-function halt(bool toHalt) public
+function withdrawBalance() external
 ```
 
-Halt or resume the chain.
+### getRewardBalance
 
-#### Parameters
-
-| Name   | Type | Description                    |
-| ------ | ---- | ------------------------------ |
-| toHalt | bool | True to halt, false to resume. |
+```solidity
+function getRewardBalance(address addr) public view returns (uint256)
+```
 
 ### getBlockFee
 
@@ -124,20 +122,6 @@ function getBlockFee() public view returns (uint256)
 ```solidity
 function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
 ```
-
-### isHalted
-
-```solidity
-function isHalted() public view returns (bool)
-```
-
-Check if the L1 is halted.
-
-#### Return Values
-
-| Name | Type | Description                      |
-| ---- | ---- | -------------------------------- |
-| [0]  | bool | True if halted, false otherwise. |
 
 ### isCommitValid
 
@@ -179,24 +163,6 @@ function signWithGoldenTouch(bytes32 hash, uint8 k) public view returns (uint8 v
 
 ```solidity
 function getForkChoice(uint256 id, bytes32 parentHash) public view returns (struct TaikoData.ForkChoice)
-```
-
-### getUncleProofDelay
-
-```solidity
-function getUncleProofDelay(uint256 blockId) public view returns (uint64)
-```
-
-### getProverRewardBips
-
-```solidity
-function getProverRewardBips(uint256 numProvers) public view returns (uint256[])
-```
-
-### isBlockVerifiable
-
-```solidity
-function isBlockVerifiable(uint256 blockId, bytes32 parentHash) public view returns (bool)
 ```
 
 ### getConfig
