@@ -43,9 +43,9 @@ library TaikoConfig {
                 feeBaseMAF: 1024,
                 blockTimeMAF: 1024,
                 proofTimeMAF: 1024,
-                feeMultiplierPctg: 500, //  owner:daniel - fee/reward can go up to 500%
+                feeMultiplierPctg: 400, //  owner:daniel - 400%
                 feeGracePeriodPctg: 200, // owner:daniel - 200%
-                feeMaxPeriodPctg: 300, // owner:daniel - 300%
+                feeMaxPeriodPctg: 400, // owner:daniel - 400%
                 blockTimeCap: 60 seconds * 1000, // owner:daniel
                 proofTimeCap: 30 minutes * 1000, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
