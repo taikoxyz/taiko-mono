@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "compile": "pnpm hardhat compile",
-    "compile:foundry": "forge build",
     "compile:yul": "LOG_LEVEL=debug pnpm hardhat compile_yul",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
@@ -13,7 +12,6 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts .",
     "eslint:fix": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "test": "./scripts/download_solc.sh && pnpm hardhat test --grep '^[^integration]'",
-    "test:foundry": "forge test -vvv --gas-report",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm coverage",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
