@@ -161,8 +161,8 @@ library LibTokenomics {
         bool isProposal,
         uint256 feeBase
     ) private view returns (uint256) {
-        // m is the `n'` in the whitepaper
         unchecked {
+            // m is the `n'` in the whitepaper
             uint256 m = 1000 *
                 (config.maxNumBlocks - 1) +
                 config.slotSmoothingFactor;
