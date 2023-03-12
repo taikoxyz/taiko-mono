@@ -35,7 +35,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.blockTimeMAF = 64;
         config.proofTimeMAF = 64;
 
-        config.feeMultiplierPctg = 300; // up to 400% fee/reward
+        config.feeMultiplierPctg = 500; // 400%
         config.feeGracePeriodPctg = 125; // 125%
         config.feeMaxPeriodPctg = 375; // 375%
         config.blockTimeCap = 48 seconds * 1000;
