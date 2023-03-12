@@ -78,6 +78,8 @@ describe("tokenomics: blockFee", function () {
 
             let lastProofReward = BigNumber.from(0);
 
+            // we want to wait for enough blocks until the blockFee is no longer 0, then run our
+            // tests.
             while ((await taikoL1.getBlockFee()).eq(0)) {
                 await sleep(500);
             }
