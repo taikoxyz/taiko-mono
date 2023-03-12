@@ -19,14 +19,37 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
+    error L1_INVALID_CONFIG();
+
     event BlockVerified(uint256 indexed id, ChainData chainData);
     event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
 
     function init(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         bytes32 genesisBlockHash,
         uint64 feeBaseTwei
     ) internal {
+        if (
+            config.chainId <= 1 ||
+            config.maxNumBlocks <= 1 ||
+            config.blockHashHistory == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            config.minTxGasLimit == 0 ||
+            config.slotSmoothingFactor == 0 ||
+            config.rewardBurnBips >= 10000 ||
+            config.feeBaseMAF == 0 ||
+            config.blockTimeMAF == 0 ||
+            config.proofTimeMAF == 0 ||
+            config.rewardMultiplierPctg < 100 ||
+            config.feeGracePeriodPctg < 100 ||
+            config.feeMaxPeriodPctg < config.feeGracePeriodPctg ||
+            config.blockTimeCap == 0 ||
+            config.proofTimeCap == 0
+        ) revert L1_INVALID_CONFIG();
+
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
         state.feeBaseTwei = feeBaseTwei;

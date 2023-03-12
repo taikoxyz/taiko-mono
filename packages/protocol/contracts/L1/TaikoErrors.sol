@@ -18,6 +18,7 @@ abstract contract TaikoErrors {
     error L1_FORK_CHOICE_ID();
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_CONFIG();
     error L1_INVALID_EVIDENCE();
     error L1_INVALID_METADATA();
     error L1_INVALID_PARAM();

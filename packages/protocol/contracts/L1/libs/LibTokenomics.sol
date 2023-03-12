@@ -211,9 +211,9 @@ library LibTokenomics {
             unchecked {
                 tNow *= 1000;
                 tLast *= 1000;
-                uint256 tAvg = tAvg.min(tTimeCap);
-                uint256 tMax = (config.feeMaxPeriodPctg * tAvg) / 100;
-                uint256 a = tLast + (config.feeGracePeriodPctg * tAvg) / 100;
+                uint256 _tAvg = tAvg.min(tTimeCap);
+                uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
+                uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
                 a = tNow > a ? tNow - a : 0;
                 tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
                 uint256 alpha = 10000 +

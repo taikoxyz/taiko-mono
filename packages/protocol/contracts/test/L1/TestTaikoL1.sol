@@ -26,7 +26,6 @@ contract TestTaikoL1 is TaikoL1 {
         config.blockMaxGasLimit = 30000000;
         config.maxTransactionsPerBlock = 20;
         config.minTxGasLimit = 21000;
-        config.anchorTxGasLimit = 250000;
         config.slotSmoothingFactor = 590000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
