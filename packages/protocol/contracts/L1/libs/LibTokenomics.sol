@@ -206,12 +206,7 @@ library LibTokenomics {
         uint256 tAvg, // milliseconds
         uint256 tTimeCap // milliseconds
     ) private pure returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (
-            tAvg == 0 ||
-            tNow == tLast ||
-            config.feeMaxPeriodPctg < config.feeGracePeriodPctg ||
-            config.feeMultiplierPctg <= 100
-        ) {
+        if (tAvg == 0 || tNow == tLast) {
             return (feeBase, 0);
         }
 
