@@ -96,7 +96,7 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
-	address common.Address,
+	opts relayer.FindAllByAddressOpts,
 ) ([]*relayer.Event, error) {
 	type d struct {
 		Owner string `json:"Owner"`
@@ -115,7 +115,7 @@ func (r *EventRepository) FindAllByAddress(
 			return nil, err
 		}
 
-		if data.Owner == address.Hex() {
+		if data.Owner == opts.Address.Hex() {
 			events = append(events, e)
 			break
 		}

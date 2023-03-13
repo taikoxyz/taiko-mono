@@ -97,12 +97,22 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
-	address common.Address,
+	opts relayer.FindAllByAddressOpts,
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
-	if err := r.db.GormDB().
+	q := r.db.GormDB()
+
+	if opts.EventType != nil {
+		q = q.Where("event_type = ?", *opts.EventType)
+	}
+
+	if opts.MsgHash != nil && *opts.MsgHash != "" {
+		q = q.Where("msg_hash = ?", *opts.MsgHash)
+	}
+
+	if err := q.
 		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
+			Equals(strings.ToLower(opts.Address.Hex()), "Message", "Owner")).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 

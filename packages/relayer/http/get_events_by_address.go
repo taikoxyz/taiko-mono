@@ -4,6 +4,7 @@ import (
 	"html"
 	"math/big"
 	"net/http"
+	"strconv"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,23 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	chainID, ok := new(big.Int).SetString(c.QueryParam("chainID"), 10)
 
 	address := html.EscapeString(c.QueryParam("address"))
+
+	msgHash := html.EscapeString(c.QueryParam("msgHash"))
+
+	eventTypeParam := html.EscapeString(c.QueryParam("eventType"))
+
+	var eventType *relayer.EventType
+
+	if eventTypeParam != "" {
+		i, err := strconv.Atoi(eventTypeParam)
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		et := relayer.EventType(i)
+
+		eventType = &et
+	}
 
 	var events []*relayer.Event
 
@@ -29,7 +47,11 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	} else {
 		events, err = srv.eventRepo.FindAllByAddress(
 			c.Request().Context(),
-			common.HexToAddress(address),
+			relayer.FindAllByAddressOpts{
+				Address:   common.HexToAddress(address),
+				MsgHash:   &msgHash,
+				EventType: eventType,
+			},
 		)
 	}
 

@@ -75,6 +75,13 @@ type SaveEventOpts struct {
 	MessageOwner           string
 }
 
+type FindAllByAddressOpts struct {
+	Address   common.Address
+	EventType *EventType
+	MsgHash   *string
+	ChainID   *big.Int
+}
+
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
@@ -86,7 +93,7 @@ type EventRepository interface {
 	) ([]*Event, error)
 	FindAllByAddress(
 		ctx context.Context,
-		address common.Address,
+		opts FindAllByAddressOpts,
 	) ([]*Event, error)
 	FindAllByMsgHash(
 		ctx context.Context,
