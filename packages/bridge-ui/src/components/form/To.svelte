@@ -8,9 +8,9 @@
   let tooltipOpen: boolean = false;
 </script>
 
-<div class="flex flex-row justify-between mb-2">
+<div class="flex flex-row justify-between mb-2 mt-2">
   <ButtonWithTooltip onClick={() => (tooltipOpen = true)}>
-    <span slot="buttonText">Memo</span>
+    <span slot="buttonText">Custom Recipient</span>
   </ButtonWithTooltip>
 
   <input
@@ -24,7 +24,7 @@
 {#if showTo}
   <input
     type="text"
-    class="input input-primary"
+    class="input input-primary bg-dark-2 input-md md:input-lg w-full focus:ring-0 border-dark-2"
     placeholder="0x..."
     name="to"
     bind:value={to} />
