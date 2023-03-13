@@ -19,7 +19,12 @@ library LibProving {
     bytes32 public constant VERIFIER_OK =
         0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
 
-    event BlockProven(uint256 indexed id, bytes32 parentHash);
+    event BlockProven(
+        uint256 indexed id,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        address prover
+    );
 
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF();
@@ -100,13 +105,6 @@ library LibProving {
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
-            address verifier = resolver.resolve(
-                string(
-                    abi.encodePacked("verifier_", evidence.zkproof.circuitId)
-                ),
-                false
-            );
-
             bytes32 instance;
             {
                 // otherwise: stack too deep
@@ -141,15 +139,22 @@ library LibProving {
                 instance = keccak256(buffer);
             }
 
-            (bool verified, bytes memory ret) = verifier.staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    evidence.zkproof.data
-                )
+            bytes memory verifierId = abi.encodePacked(
+                "verifier_",
+                evidence.zkproof.circuitId
             );
+
+            (bool verified, bytes memory ret) = resolver
+                .resolve(string(verifierId), false)
+                .staticcall(
+                    bytes.concat(
+                        bytes16(0),
+                        bytes16(instance), // left 16 bytes of the given instance
+                        bytes16(0),
+                        bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                        evidence.zkproof.data
+                    )
+                );
 
             if (!verified || ret.length != 32 || bytes32(ret) != VERIFIER_OK)
                 revert L1_INVALID_PROOF();
@@ -161,7 +166,12 @@ library LibProving {
         unchecked {
             ++proposal.nextForkChoiceId;
         }
-        emit BlockProven({id: blockId, parentHash: evidence.parentHash});
+        emit BlockProven({
+            id: blockId,
+            parentHash: evidence.parentHash,
+            blockHash: evidence.blockHash,
+            prover: evidence.prover
+        });
     }
 
     function getForkChoice(
