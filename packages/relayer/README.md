@@ -74,9 +74,9 @@ Mandatory:
 `address`: user's ethereum address who sent the message.
 
 Optional:  
-`chainID`: chain ID of the source chain  
-`msgHash`: filter events by message hash
-`eventType`: filter events by event typoe
+`chainID`: chain ID of the source chain. Default: all chains.
+`msgHash`: filter events by message hash. Default: all msgHashs.
+`eventType`: filter events by event typoe. Default: all eventType.
 
 Pagination:
 `page`: page number to retrive. Default: 0.
