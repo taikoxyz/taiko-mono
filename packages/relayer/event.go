@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	EventNameMessageSent = "MessageSent"
+	EventNameMessageSent          = "MessageSent"
+	EventNameMessageStatusChanged = "MessageStatusChanged"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -54,6 +55,8 @@ type Event struct {
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
 	Amount                 string         `json:"amount"`
+	MsgHash                string         `json:"msgHash"`
+	MessageOwner           string         `json:"messageOwner"`
 }
 
 // SaveEventOpts
@@ -68,6 +71,8 @@ type SaveEventOpts struct {
 	CanonicalTokenName     string
 	CanonicalTokenDecimals uint8
 	Amount                 string
+	MsgHash                string
+	MessageOwner           string
 }
 
 // EventRepository is used to interact with events in the store
@@ -82,5 +87,9 @@ type EventRepository interface {
 	FindAllByAddress(
 		ctx context.Context,
 		address common.Address,
+	) ([]*Event, error)
+	FindAllByMsgHash(
+		ctx context.Context,
+		msgHash string,
 	) ([]*Event, error)
 }
