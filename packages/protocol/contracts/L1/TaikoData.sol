@@ -10,12 +10,12 @@ import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
     struct FeeConfig {
-        uint64 avgTimeMAF;
-        uint64 avgTimeCap;
-        uint64 gracePeriodPctg;
-        uint64 maxPeriodPctg;
+        uint16 avgTimeMAF;
+        uint64 avgTimeCap; // miliseconds
+        uint16 gracePeriodPctg;
+        uint16 maxPeriodPctg;
         // extra fee/reward on top of baseFee
-        uint64 multiplerPctg;
+        uint16 multiplerPctg;
     }
 
     struct Config {
