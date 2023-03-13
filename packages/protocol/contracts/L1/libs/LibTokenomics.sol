@@ -93,7 +93,7 @@ library LibTokenomics {
             fee = feeBase;
             newFeeBase = feeBase;
         } else {
-            (newFeeBase, ) = _getTimeAdjustedFee({
+            (newFeeBase, ) = getTimeAdjustedFee({
                 config: config,
                 feeBase: feeBase,
                 isProposal: true,
@@ -102,7 +102,7 @@ library LibTokenomics {
                 tAvg: state.avgBlockTime,
                 tTimeCap: config.blockTimeCap
             });
-            fee = _getSlotsAdjustedFee({
+            fee = getSlotsAdjustedFee({
                 state: state,
                 config: config,
                 isProposal: true,
@@ -143,7 +143,7 @@ library LibTokenomics {
             newFeeBase = feeBase;
             // tRelBp = 0;
         } else {
-            (newFeeBase, tRelBp) = _getTimeAdjustedFee({
+            (newFeeBase, tRelBp) = getTimeAdjustedFee({
                 config: config,
                 feeBase: feeBase,
                 isProposal: false,
@@ -152,7 +152,7 @@ library LibTokenomics {
                 tAvg: state.avgProofTime,
                 tTimeCap: config.proofTimeCap
             });
-            reward = _getSlotsAdjustedFee({
+            reward = getSlotsAdjustedFee({
                 state: state,
                 config: config,
                 isProposal: false,
@@ -165,12 +165,12 @@ library LibTokenomics {
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
-    function _getSlotsAdjustedFee(
+    function getSlotsAdjustedFee(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bool isProposal,
         uint256 feeBase
-    ) private view returns (uint256) {
+    ) internal view returns (uint256) {
         unchecked {
             // m is the `n'` in the whitepaper
             uint256 m = 1000 *
@@ -185,7 +185,7 @@ library LibTokenomics {
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
-    function _getTimeAdjustedFee(
+    function getTimeAdjustedFee(
         TaikoData.Config memory config,
         uint256 feeBase,
         bool isProposal,
@@ -193,7 +193,7 @@ library LibTokenomics {
         uint256 tLast, // seconds
         uint256 tAvg, // milliseconds
         uint256 tTimeCap // milliseconds
-    ) private pure returns (uint256 newFeeBase, uint256 tRelBp) {
+    ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0 || tNow == tLast) {
             return (feeBase, 0);
         }
