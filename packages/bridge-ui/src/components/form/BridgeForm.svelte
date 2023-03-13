@@ -255,7 +255,7 @@
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
-        to: (showTo && to) ?? (await $signer.getAddress()),
+        to: showTo && to ? to : await $signer.getAddress(),
       };
 
       const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
