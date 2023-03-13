@@ -15,7 +15,8 @@
     "title": "Showcase",
     "type": "page",
     "theme": {
-      "layout": "raw"
+      "typesetting": "article",
+      "layout": "full"
     }
   },
   "blog": {
