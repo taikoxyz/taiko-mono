@@ -23,6 +23,7 @@ library LibProving {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
+        bytes32 signalRoot,
         address prover
     );
 
@@ -170,6 +171,7 @@ library LibProving {
             id: blockId,
             parentHash: evidence.parentHash,
             blockHash: evidence.blockHash,
+            signalRoot: evidence.signalRoot,
             prover: evidence.prover
         });
     }

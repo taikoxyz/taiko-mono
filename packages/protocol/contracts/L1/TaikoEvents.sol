@@ -16,6 +16,7 @@ abstract contract TaikoEvents {
         uint256 indexed id,
         bytes32 parentHash,
         bytes32 blockHash,
+        bytes32 signalRoot,
         address prover
     );
 
