@@ -103,11 +103,10 @@ library LibProposing {
                 .toUint64();
         }
 
-        metaHash = keccak256(abi.encode(meta));
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: metaHash,
+            metaHash: keccak256(abi.encode(meta)),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp,
