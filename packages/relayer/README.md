@@ -79,8 +79,8 @@ Optional:
 `eventType`: filter events by event typoe
 
 Pagination:
-`page`: page number to retrive
-`size`: size to retrieve per page.
+`page`: page number to retrive. Default: 0.
+`size`: size to retrieve per page. Default: 100
 
 Example:
 `http://localhost:4101/events?page=3&address=0x79B9F64744C98Cd8cc20ADb79B6a297E964254cc&size=1&msgHash=0x47ce4d255907937aba12dfa09d87a0a707fea7eeac687924ac0a80fa291c3289&eventType=1`:
