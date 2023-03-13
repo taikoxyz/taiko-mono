@@ -41,7 +41,7 @@ contract TestTaikoL1 is TaikoL1 {
             avgTimeCap: 48 seconds * 1000,
             gracePeriodPctg: 125,
             maxPeriodPctg: 375,
-            multiplerPctg: 400
+            multiplerPctg: 300
         });
 
         config.provingConfig = TaikoData.FeeConfig({
@@ -49,7 +49,7 @@ contract TestTaikoL1 is TaikoL1 {
             avgTimeCap: 4 seconds * 1000,
             gracePeriodPctg: 125,
             maxPeriodPctg: 375,
-            multiplerPctg: 400
+            multiplerPctg: 300
         });
     }
 }

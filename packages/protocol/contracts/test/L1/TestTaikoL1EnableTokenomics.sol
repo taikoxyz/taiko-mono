@@ -43,7 +43,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
             avgTimeCap: 48 seconds * 1000,
             gracePeriodPctg: 125,
             maxPeriodPctg: 375,
-            multiplerPctg: 400
+            multiplerPctg: 300
         });
 
         config.provingConfig = TaikoData.FeeConfig({
@@ -51,7 +51,7 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
             avgTimeCap: 5 seconds * 1000,
             gracePeriodPctg: 125,
             maxPeriodPctg: 375,
-            multiplerPctg: 400
+            multiplerPctg: 300
         });
     }
 }

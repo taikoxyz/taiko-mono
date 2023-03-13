@@ -203,9 +203,7 @@ library LibTokenomics {
             uint256 t = ((tNow - tLast) * 1000).max(grace).min(max);
             tRelBp = (10000 * (t - grace)) / (max - grace); // [0-10000]
 
-            uint256 alpha = 10000 +
-                (tRelBp * (feeConfig.multiplerPctg - 100)) /
-                100;
+            uint256 alpha = 10000 + (tRelBp * feeConfig.multiplerPctg) / 100;
 
             if (isProposal) {
                 newFeeBase = (feeBase * 10000) / alpha; // fee

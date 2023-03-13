@@ -208,7 +208,6 @@ library LibVerifying {
         if (
             feeConfig.avgTimeMAF <= 1 ||
             feeConfig.avgTimeCap == 0 ||
-            feeConfig.multiplerPctg < 100 ||
             feeConfig.gracePeriodPctg > feeConfig.maxPeriodPctg
         ) revert L1_INVALID_CONFIG();
     }

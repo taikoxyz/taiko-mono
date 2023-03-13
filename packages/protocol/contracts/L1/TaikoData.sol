@@ -14,6 +14,7 @@ library TaikoData {
         uint64 avgTimeCap;
         uint64 gracePeriodPctg;
         uint64 maxPeriodPctg;
+        // extra fee/reward on top of baseFee
         uint64 multiplerPctg;
     }
 

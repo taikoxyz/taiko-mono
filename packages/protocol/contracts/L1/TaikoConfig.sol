@@ -52,14 +52,14 @@ library TaikoConfig {
                     avgTimeCap: 60 seconds * 1000,
                     gracePeriodPctg: 200,
                     maxPeriodPctg: 400,
-                    multiplerPctg: 400
+                    multiplerPctg: 300
                 }),
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
                     avgTimeCap: 30 minutes * 1000,
                     gracePeriodPctg: 200,
                     maxPeriodPctg: 400,
-                    multiplerPctg: 400
+                    multiplerPctg: 300
                 })
             });
     }
