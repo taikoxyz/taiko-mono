@@ -21,7 +21,7 @@ library LibVerifying {
 
     error L1_INVALID_CONFIG();
 
-    event BlockVerified(uint256 indexed id, ChainData chainData);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
 
     function init(
@@ -40,8 +40,7 @@ library LibVerifying {
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
         state.l2ChainDatas[0] = chainData;
 
-        emit BlockVerified(0, chainData);
-        emit XchainSynced(0, chainData);
+        emit BlockVerified(0, genesisBlockHash);
     }
 
     function verifyBlocks(
@@ -85,7 +84,7 @@ library LibVerifying {
                 proposal: proposal
             });
 
-            emit BlockVerified(i, chainData);
+            emit BlockVerified(i, chainData.blockHash);
 
             unchecked {
                 ++i;
