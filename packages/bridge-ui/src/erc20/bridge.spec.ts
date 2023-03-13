@@ -199,7 +199,7 @@ describe('bridge tests', () => {
     expect(mockContract.sendERC20).toHaveBeenCalled();
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
       opts.toChainId,
-      '0xfake',
+      '0x',
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(2640000),
