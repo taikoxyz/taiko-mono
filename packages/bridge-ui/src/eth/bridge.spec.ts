@@ -84,7 +84,7 @@ describe('bridge tests', () => {
       tokenVaultAddress: '0x456',
       processingFeeInWei: BigNumber.from(2),
       memo: 'memo',
-      to: await wallet.getAddress(),
+      to: '0x',
     };
 
     expect(mockSigner.getAddress).not.toHaveBeenCalled();
@@ -116,7 +116,7 @@ describe('bridge tests', () => {
       fromChainId: mainnet.id,
       toChainId: taiko.id,
       tokenVaultAddress: '0x456',
-      to: await wallet.getAddress(),
+      to: '0x',
     };
 
     await bridge.Bridge(opts);

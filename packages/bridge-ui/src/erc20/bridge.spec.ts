@@ -53,7 +53,7 @@ const opts: BridgeOpts = {
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
-  to: await wallet.getAddress(),
+  to: '0x',
 };
 
 const approveOpts: ApproveOpts = {
