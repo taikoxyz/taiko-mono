@@ -33,6 +33,7 @@ abstract contract TaikoCustomErrors {
     error L1_GAS_LIMIT();
     error L1_ID();
     error L1_INPUT_SIZE();
+    error L1_INVALID_CONFIG();
     error L1_INVALID_PARAM();
     error L1_METADATA_FIELD();
     error L1_META_MISMATCH();
