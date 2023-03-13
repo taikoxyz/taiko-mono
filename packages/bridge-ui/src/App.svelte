@@ -174,14 +174,20 @@
   });
 
   pendingTransactions.subscribe((store) => {
-    store.forEach(async (tx, index) => {
-      await $signer.provider.waitForTransaction(tx.hash, 1);
+    (async () => {
+      const confirmedPendingTxIndex = await Promise.race(
+        store.map((tx, index) => {
+          return new Promise<number>(async (resolve) => {
+            await $signer.provider.waitForTransaction(tx.hash, 1);
+            resolve(index);
+          });
+        }),
+      );
       successToast('Transaction completed!');
-
-      const s = store;
-      s.slice(index, 0);
+      let s = store;
+      s = s.slice(confirmedPendingTxIndex, 0);
       pendingTransactions.set(s);
-    });
+    })();
   });
 
   const transactionToIntervalMap = new Map();
