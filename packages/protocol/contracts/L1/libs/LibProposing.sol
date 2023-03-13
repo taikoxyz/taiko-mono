@@ -34,7 +34,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (bytes32 metaHash) {
+    ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -61,7 +61,6 @@ library LibProposing {
         // from the beacon chain. Since multiple Taiko blocks
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
-
         uint256 mixHash;
         unchecked {
             mixHash = block.prevrandao * state.nextBlockId;
