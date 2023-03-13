@@ -13,7 +13,7 @@ import (
 )
 
 func (srv *Server) GetEventsByAddress(c echo.Context) error {
-	chainID, ok := new(big.Int).SetString(c.QueryParam("chainID"), 10)
+	chainID, _ := new(big.Int).SetString(c.QueryParam("chainID"), 10)
 
 	address := html.EscapeString(c.QueryParam("address"))
 
@@ -34,26 +34,15 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 		eventType = &et
 	}
 
-	var events []*relayer.Event
-
-	var err error
-
-	if ok {
-		events, err = srv.eventRepo.FindAllByAddressAndChainID(
-			c.Request().Context(),
-			chainID,
-			common.HexToAddress(address),
-		)
-	} else {
-		events, err = srv.eventRepo.FindAllByAddress(
-			c.Request().Context(),
-			relayer.FindAllByAddressOpts{
-				Address:   common.HexToAddress(address),
-				MsgHash:   &msgHash,
-				EventType: eventType,
-			},
-		)
-	}
+	events, err := srv.eventRepo.FindAllByAddress(
+		c.Request().Context(),
+		relayer.FindAllByAddressOpts{
+			Address:   common.HexToAddress(address),
+			MsgHash:   &msgHash,
+			EventType: eventType,
+			ChainID:   chainID,
+		},
+	)
 
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)

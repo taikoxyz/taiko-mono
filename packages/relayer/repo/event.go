@@ -2,10 +2,8 @@ package repo
 
 import (
 	"context"
-	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
@@ -77,24 +75,6 @@ func (r *EventRepository) FindAllByMsgHash(
 	return e, nil
 }
 
-func (r *EventRepository) FindAllByAddressAndChainID(
-	ctx context.Context,
-	chainID *big.Int,
-	address common.Address,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	// find all message sent events
-	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
-		Where("message_owner = ?", strings.ToLower(address.Hex())).
-		Find(&e).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
-	}
-
-	// find all message status changed events
-
-	return e, nil
-}
-
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	opts relayer.FindAllByAddressOpts,
@@ -108,6 +88,10 @@ func (r *EventRepository) FindAllByAddress(
 
 	if opts.MsgHash != nil && *opts.MsgHash != "" {
 		q = q.Where("msg_hash = ?", *opts.MsgHash)
+	}
+
+	if opts.ChainID != nil {
+		q = q.Where("chain_id = ?", *opts.ChainID)
 	}
 
 	if err := q.
