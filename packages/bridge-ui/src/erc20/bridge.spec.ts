@@ -53,6 +53,7 @@ const opts: BridgeOpts = {
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
+  to: await wallet.getAddress(),
 };
 
 const approveOpts: ApproveOpts = {
@@ -228,6 +229,7 @@ describe('bridge tests', () => {
       fromChainId: mainnet.id,
       toChainId: taiko.id,
       tokenVaultAddress: '0x456',
+      to: await wallet.getAddress(),
     };
 
     await bridge.Bridge(opts);
