@@ -6,7 +6,7 @@ These steps will help you to use the bridge to transfer assets between Ethereum 
 
 ## Prerequisites
 
-- Have some ETH or HORSE on either Ethereum A1 or Taiko A1. If you don't have any, you can [request from faucet](/docs/testnet-guide/request-from-faucet).
+- Have some ETH or HORSE on either Ethereum A1 or Taiko A1. If you don't have any, you can [request from faucet](/docs/guides/request-from-faucet).
 
 ## Steps
 

@@ -50,7 +50,7 @@ Because we use a fork of geth, you can consult the [geth minimum requirements](h
 
 - [Docker](https://docs.docker.com/engine/install/) is installed and running.
 - [Git](https://github.com/git-guides/install-git/) is installed.
-- Will need some ETH on the Layer 1 (L1) network. To receive Ethereum A1 ETH (L1), follow the Directions in [Request from faucet](/docs/testnet-guide/request-from-faucet).
+- Will need some ETH on the Layer 1 (L1) network. To receive Ethereum A1 ETH (L1), follow the Directions in [Request from faucet](/docs/guides/request-from-faucet).
     
 > Note: On Windows, Docker may also require step 4 and 5 if using the [WSL 2 backend](https://learn.microsoft.com/nl-nl/windows/wsl/install-manual#step-4---download-the-linux-kernel-update-package)
 
@@ -304,7 +304,7 @@ First, check that you have updated the optional environment variables in `.env` 
 Next, check the proposer image's log (`docker compose logs -f taiko_client_proposer`) to figure out what could be wrong. It's probably because:
 
 - Your local node is still catching up with the latest chain head.
-- Your L1 proposer account ran out of ETH (needed to propose tx's). Please refer to [Request from faucet](/docs/testnet-guide/request-from-faucet).
+- Your L1 proposer account ran out of ETH (needed to propose tx's). Please refer to [Request from faucet](/docs/guides/request-from-faucet).
 - There is no available block slot to propose in the Taiko L1 smart contract, so you must wait for one to become available (you can check the protocol smart contract's status with [`TaikoL1.getStateVariables`](https://taiko.xyz/docs/smart-contracts/L1/TaikoL1#getstatevariables)).
 
 If the above does not work, please try resyncing the images and start over
