@@ -22,11 +22,13 @@ func NewEventRepository() *EventRepository {
 }
 func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
-		ID:      rand.Int(), // nolint: gosec
-		Data:    datatypes.JSON(opts.Data),
-		Status:  opts.Status,
-		ChainID: opts.ChainID.Int64(),
-		Name:    opts.Name,
+		ID:           rand.Int(), // nolint: gosec
+		Data:         datatypes.JSON(opts.Data),
+		Status:       opts.Status,
+		ChainID:      opts.ChainID.Int64(),
+		Name:         opts.Name,
+		MessageOwner: opts.MessageOwner,
+		MsgHash:      opts.MsgHash,
 	})
 
 	return nil, nil
@@ -116,6 +118,21 @@ func (r *EventRepository) FindAllByAddress(
 		if data.Owner == address.Hex() {
 			events = append(events, e)
 			break
+		}
+	}
+
+	return events, nil
+}
+
+func (r *EventRepository) FindAllByMsgHash(
+	ctx context.Context,
+	msgHash string,
+) ([]*relayer.Event, error) {
+	events := make([]*relayer.Event, 0)
+
+	for _, e := range r.events {
+		if e.MsgHash == msgHash {
+			events = append(events, e)
 		}
 	}
 
