@@ -91,7 +91,7 @@ func (r *EventRepository) FindAllByAddress(
 	}
 
 	if opts.ChainID != nil {
-		q = q.Where("chain_id = ?", *opts.ChainID)
+		q = q.Where("chain_id = ?", opts.ChainID.Int64())
 	}
 
 	if err := q.
