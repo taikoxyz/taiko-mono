@@ -4,6 +4,18 @@ title: TaikoData
 
 ## TaikoData
 
+### FeeConfig
+
+```solidity
+struct FeeConfig {
+  uint16 avgTimeMAF;
+  uint64 avgTimeCap;
+  uint16 gracePeriodPctg;
+  uint16 maxPeriodPctg;
+  uint16 multiplerPctg;
+}
+```
+
 ### Config
 
 ```solidity
@@ -20,19 +32,14 @@ struct Config {
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint256 blockTimeMAF;
-  uint256 proofTimeMAF;
-  uint64 feeMultiplierPctg;
-  uint64 feeGracePeriodPctg;
-  uint64 feeMaxPeriodPctg;
-  uint64 blockTimeCap;
-  uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 constantFeeRewardBlocks;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
+  struct TaikoData.FeeConfig proposingConfig;
+  struct TaikoData.FeeConfig provingConfig;
 }
 ```
 
