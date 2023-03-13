@@ -67,6 +67,7 @@ func Test_ProcessMessage(t *testing.T) {
 			GasLimit:      big.NewInt(1),
 			DestChainId:   mock.MockChainID,
 			ProcessingFee: big.NewInt(1000000000),
+			SrcChainId:    mock.MockChainID,
 		},
 		MsgHash: mock.SuccessMsgHash,
 	}, &relayer.Event{})

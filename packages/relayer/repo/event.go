@@ -37,6 +37,8 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		CanonicalTokenName:     opts.CanonicalTokenName,
 		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
 		Amount:                 opts.Amount,
+		MsgHash:                opts.MsgHash,
+		MessageOwner:           opts.MessageOwner,
 	}
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
@@ -59,17 +61,36 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
+func (r *EventRepository) FindAllByMsgHash(
+	ctx context.Context,
+	msgHash string,
+) ([]*relayer.Event, error) {
+	e := make([]*relayer.Event, 0)
+	// find all message sent events
+	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+		Find(&e).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+
+	// find all message status changed events
+
+	return e, nil
+}
+
 func (r *EventRepository) FindAllByAddressAndChainID(
 	ctx context.Context,
 	chainID *big.Int,
 	address common.Address,
 ) ([]*relayer.Event, error) {
 	e := make([]*relayer.Event, 0)
+	// find all message sent events
 	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
-		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
+		Where("message_owner = ?", strings.ToLower(address.Hex())).
+		Find(&e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
+
+	// find all message status changed events
 
 	return e, nil
 }

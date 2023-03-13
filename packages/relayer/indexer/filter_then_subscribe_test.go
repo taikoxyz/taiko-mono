@@ -27,7 +27,8 @@ func Test_FilterThenSubscribe(t *testing.T) {
 	<-time.After(6 * time.Second)
 
 	assert.Equal(t, b.MessagesSent, 1)
-	assert.Equal(t, b.ErrorsSent, 1)
+	assert.Equal(t, b.MessageStatusesChanged, 1)
+	assert.Equal(t, b.ErrorsSent, 2)
 }
 
 func Test_FilterThenSubscribe_subscribeWatchMode(t *testing.T) {
@@ -45,7 +46,8 @@ func Test_FilterThenSubscribe_subscribeWatchMode(t *testing.T) {
 	<-time.After(6 * time.Second)
 
 	assert.Equal(t, b.MessagesSent, 1)
-	assert.Equal(t, b.ErrorsSent, 1)
+	assert.Equal(t, b.MessageStatusesChanged, 1)
+	assert.Equal(t, b.ErrorsSent, 2)
 }
 
 func Test_FilterThenSubscribe_alreadyCaughtUp(t *testing.T) {
@@ -65,5 +67,6 @@ func Test_FilterThenSubscribe_alreadyCaughtUp(t *testing.T) {
 	<-time.After(6 * time.Second)
 
 	assert.Equal(t, b.MessagesSent, 1)
-	assert.Equal(t, b.ErrorsSent, 1)
+	assert.Equal(t, b.MessageStatusesChanged, 1)
+	assert.Equal(t, b.ErrorsSent, 2)
 }
