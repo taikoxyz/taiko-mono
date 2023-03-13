@@ -9,6 +9,14 @@ pragma solidity ^0.8.18;
 import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
+    struct FeeConfig {
+        uint64 avgTimeMAF;
+        uint64 avgTimeCap;
+        uint64 gracePeriodPctg;
+        uint64 maxPeriodPctg;
+        uint64 multiplerPctg;
+    }
+
     struct Config {
         uint256 chainId;
         // up to 2048 pending blocks
@@ -26,19 +34,14 @@ library TaikoData {
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint256 blockTimeMAF;
-        uint256 proofTimeMAF;
-        uint64 feeMultiplierPctg;
-        uint64 feeGracePeriodPctg;
-        uint64 feeMaxPeriodPctg;
-        uint64 blockTimeCap;
-        uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
+        FeeConfig proposingConfig;
+        FeeConfig provingConfig;
     }
 
     struct StateVariables {

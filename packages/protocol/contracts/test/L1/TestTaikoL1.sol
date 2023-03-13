@@ -31,18 +31,25 @@ contract TestTaikoL1 is TaikoL1 {
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 
-        // Moving average factors
-        config.feeBaseMAF = 1024;
-        config.blockTimeMAF = 64;
-        config.proofTimeMAF = 64;
-
-        config.feeMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds * 1000;
-        config.proofTimeCap = 4 seconds * 1000;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = false;
         config.skipZKPVerification = true;
+        config.feeBaseMAF = 1024;
+
+        config.proposingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 48 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 400
+        });
+
+        config.provingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 4 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 400
+        });
     }
 }

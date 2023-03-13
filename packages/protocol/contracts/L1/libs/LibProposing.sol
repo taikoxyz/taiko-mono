@@ -124,7 +124,7 @@ library LibProposing {
                 .movingAverage({
                     maValue: state.avgBlockTime,
                     newValue: blockTime,
-                    maf: config.blockTimeMAF
+                    maf: config.proposingConfig.avgTimeMAF
                 })
                 .toUint64();
         }

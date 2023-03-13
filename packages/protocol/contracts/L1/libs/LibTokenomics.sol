@@ -94,13 +94,12 @@ library LibTokenomics {
             newFeeBase = feeBase;
         } else {
             (newFeeBase, ) = getTimeAdjustedFee({
-                config: config,
+                feeConfig: config.proposingConfig,
                 feeBase: feeBase,
                 isProposal: true,
                 tNow: block.timestamp,
                 tLast: state.lastProposedAt,
-                tAvg: state.avgBlockTime,
-                tTimeCap: config.blockTimeCap
+                tAvg: state.avgBlockTime
             });
             fee = getSlotsAdjustedFee({
                 state: state,
@@ -144,13 +143,12 @@ library LibTokenomics {
             // tRelBp = 0;
         } else {
             (newFeeBase, tRelBp) = getTimeAdjustedFee({
-                config: config,
+                feeConfig: config.provingConfig,
                 feeBase: feeBase,
                 isProposal: false,
                 tNow: provenAt,
                 tLast: proposedAt,
-                tAvg: state.avgProofTime,
-                tTimeCap: config.proofTimeCap
+                tAvg: state.avgProofTime
             });
             reward = getSlotsAdjustedFee({
                 state: state,
@@ -186,28 +184,27 @@ library LibTokenomics {
 
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
-        TaikoData.Config memory config,
+        TaikoData.FeeConfig memory feeConfig,
         uint256 feeBase,
         bool isProposal,
         uint256 tNow, // seconds
         uint256 tLast, // seconds
-        uint256 tAvg, // milliseconds
-        uint256 tTimeCap // milliseconds
+        uint256 tAvg // milliseconds
     ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
         if (tAvg == 0 || tNow == tLast) {
             return (feeBase, 0);
         }
 
         unchecked {
-            tAvg = tAvg.min(tTimeCap);
-            uint256 max = (config.feeMaxPeriodPctg * tAvg) / 100;
-            uint256 grace = (config.feeGracePeriodPctg * tAvg) / 100;
+            tAvg = tAvg.min(feeConfig.avgTimeCap);
+            uint256 max = (feeConfig.maxPeriodPctg * tAvg) / 100;
+            uint256 grace = (feeConfig.gracePeriodPctg * tAvg) / 100;
 
             uint256 t = ((tNow - tLast) * 1000).max(grace).min(max);
             tRelBp = (10000 * (t - grace)) / (max - grace); // [0-10000]
 
             uint256 alpha = 10000 +
-                (tRelBp * (config.feeMultiplierPctg - 100)) /
+                (tRelBp * (feeConfig.multiplerPctg - 100)) /
                 100;
 
             if (isProposal) {

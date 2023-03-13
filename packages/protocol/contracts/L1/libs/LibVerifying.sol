@@ -30,24 +30,7 @@ library LibVerifying {
         bytes32 genesisBlockHash,
         uint64 feeBaseTwei
     ) internal {
-        if (
-            config.chainId <= 1 ||
-            config.maxNumBlocks <= 1 ||
-            config.blockHashHistory == 0 ||
-            config.blockMaxGasLimit == 0 ||
-            config.maxTransactionsPerBlock == 0 ||
-            config.maxBytesPerTxList == 0 ||
-            config.minTxGasLimit == 0 ||
-            config.slotSmoothingFactor == 0 ||
-            config.rewardBurnBips >= 10000 ||
-            config.feeBaseMAF == 0 ||
-            config.blockTimeMAF == 0 ||
-            config.proofTimeMAF == 0 ||
-            config.blockTimeCap == 0 ||
-            config.proofTimeCap == 0 ||
-            config.feeGracePeriodPctg > config.feeMaxPeriodPctg ||
-            config.feeMultiplierPctg < 100
-        ) revert L1_INVALID_CONFIG();
+        _checkConfig(config);
 
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
@@ -187,7 +170,7 @@ library LibVerifying {
             .movingAverage({
                 maValue: state.avgProofTime,
                 newValue: proofTime,
-                maf: config.proofTimeMAF
+                maf: config.provingConfig.avgTimeMAF
             })
             .toUint64();
 
@@ -200,5 +183,33 @@ library LibVerifying {
         fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
         fc.provenAt = 1; // none-zero placeholder
         fc.prover = address(0);
+    }
+
+    function _checkConfig(TaikoData.Config memory config) private pure {
+        if (
+            config.chainId <= 1 ||
+            config.maxNumBlocks <= 1 ||
+            config.blockHashHistory == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            config.minTxGasLimit == 0 ||
+            config.slotSmoothingFactor == 0 ||
+            config.rewardBurnBips >= 10000
+        ) revert L1_INVALID_CONFIG();
+
+        _checkFeeConfig(config.proposingConfig);
+        _checkFeeConfig(config.provingConfig);
+    }
+
+    function _checkFeeConfig(
+        TaikoData.FeeConfig memory feeConfig
+    ) private pure {
+        if (
+            feeConfig.avgTimeMAF <= 1 ||
+            feeConfig.avgTimeCap == 0 ||
+            feeConfig.multiplerPctg < 100 ||
+            feeConfig.gracePeriodPctg > feeConfig.maxPeriodPctg
+        ) revert L1_INVALID_CONFIG();
     }
 }

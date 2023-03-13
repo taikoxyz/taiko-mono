@@ -27,13 +27,25 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
-        config.feeGracePeriodPctg = 100;
-        config.feeMaxPeriodPctg = 400;
-        config.feeMultiplierPctg = 500;
-        config.blockTimeCap = 10 * 60 seconds * 1000; // 10 minutes
         config.maxNumBlocks = 11;
         // this value must be changed if `maxNumBlocks` is changed.
         config.slotSmoothingFactor = 4160;
+
+        config.proposingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 10 minutes * 1000,
+            gracePeriodPctg: 100,
+            maxPeriodPctg: 400,
+            multiplerPctg: 500
+        });
+
+        config.provingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 10 minutes * 1000,
+            gracePeriodPctg: 100,
+            maxPeriodPctg: 400,
+            multiplerPctg: 500
+        });
     }
 }
 

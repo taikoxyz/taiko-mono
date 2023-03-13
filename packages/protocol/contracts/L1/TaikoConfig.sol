@@ -41,19 +41,26 @@ library TaikoConfig {
                 proposerDepositPctg: 25, // owner:daniel - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
-                blockTimeMAF: 1024,
-                proofTimeMAF: 1024,
-                feeMultiplierPctg: 400, //  owner:daniel - 400%
-                feeGracePeriodPctg: 200, // owner:daniel - 200%
-                feeMaxPeriodPctg: 400, // owner:daniel - 400%
-                blockTimeCap: 60 seconds * 1000, // owner:daniel
-                proofTimeCap: 30 minutes * 1000, // owner:daniel
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 constantFeeRewardBlocks: 1024, // owner:daniel
                 enableSoloProposer: true,
                 enableOracleProver: true,
                 enableTokenomics: true,
-                skipZKPVerification: false
+                skipZKPVerification: false,
+                proposingConfig: TaikoData.FeeConfig({
+                    avgTimeMAF: 1024,
+                    avgTimeCap: 60 seconds * 1000,
+                    gracePeriodPctg: 200,
+                    maxPeriodPctg: 400,
+                    multiplerPctg: 400
+                }),
+                provingConfig: TaikoData.FeeConfig({
+                    avgTimeMAF: 1024,
+                    avgTimeCap: 30 minutes * 1000,
+                    gracePeriodPctg: 200,
+                    maxPeriodPctg: 400,
+                    multiplerPctg: 400
+                })
             });
     }
 }
