@@ -93,7 +93,7 @@ library LibUtils {
             uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
             uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
             uint256 t = uint256(tNow - tLast).max(grace).min(max);
-            tRelBp = (t * 10000) / (max - grace); // [0 - 10000]
+            tRelBp = ((t - grace) * 10000) / (max - grace); // [0 - 10000]
             uint256 alpha = 10000 +
                 ((config.rewardMultiplierPctg - 100) * tRelBp) /
                 100;
