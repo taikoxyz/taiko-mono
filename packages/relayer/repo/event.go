@@ -3,9 +3,11 @@ package repo
 import (
 	"context"
 	"math/big"
+	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
@@ -97,14 +99,19 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
+	req *http.Request,
 	address common.Address,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	if err := r.db.GormDB().
-		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
-	}
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
 
-	return e, nil
+	q := r.db.GormDB().
+		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(address.Hex()))
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]relayer.Event{})
+
+	return page, nil
 }
