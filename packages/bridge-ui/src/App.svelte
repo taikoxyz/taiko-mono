@@ -7,10 +7,7 @@
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
-  import { BridgeType } from './domain/bridge';
-  import ETHBridge from './eth/bridge';
-  import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
-  import ERC20Bridge from './erc20/bridge';
+  import { chainIdToTokenVaultAddress } from './store/bridge';
   import {
     pendingTransactions,
     transactioner,
@@ -24,9 +21,7 @@
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from './domain/chain';
   import { providers } from './domain/provider';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/service';
   import { ethers } from 'ethers';
-  import type { Prover } from './domain/proof';
   import { successToast } from './utils/toast';
   import { StorageService } from './storage/service';
   import { MessageStatus } from './domain/message';
@@ -38,17 +33,6 @@
   import RelayerAPIService from './relayer-api/service';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
-
-  const prover: Prover = new ProofService(providers);
-
-  const ethBridge = new ETHBridge(prover);
-  const erc20Bridge = new ERC20Bridge(prover);
-
-  bridges.update((store) => {
-    store.set(BridgeType.ETH, ethBridge);
-    store.set(BridgeType.ERC20, erc20Bridge);
-    return store;
-  });
 
   chainIdToTokenVaultAddress.update((store) => {
     store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);

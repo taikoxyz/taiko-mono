@@ -6,7 +6,7 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
+  import { chainIdToTokenVaultAddress } from '../store/bridge';
   import { signer } from '../store/signer';
   import {
     pendingTransactions,
@@ -19,7 +19,7 @@
     fromChain as fromChainStore,
     toChain as toChainStore,
   } from '../store/chain';
-  import { BridgeType } from '../domain/bridge';
+  import { bridges, BridgeType } from '../domain/bridge';
   import { onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
@@ -67,7 +67,7 @@
         const chain = chains[bridgeTx.message.destChainId.toNumber()];
         await switchChainAndSetSigner(chain);
       }
-      const tx = await $bridges
+      const tx = await bridges
         .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
         .Claim({
           signer: $signer,
@@ -100,7 +100,7 @@
         const chain = chains[bridgeTx.message.srcChainId.toNumber()];
         await switchChainAndSetSigner(chain);
       }
-      const tx = await $bridges
+      const tx = await bridges
         .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
         .ReleaseTokens({
           signer: $signer,
