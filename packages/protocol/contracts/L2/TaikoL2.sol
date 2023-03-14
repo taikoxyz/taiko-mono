@@ -53,21 +53,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             revert L2_INVALID_CHAIN_ID();
         }
 
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ) {
-            ancestors[i] = blockhash(number - i - 2);
-            unchecked {
-                ++i;
-            }
-        }
-
-        _publicInputHash = _hashPublicInputs({
-            chainId: block.chainid,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
+        (_publicInputHash, ) = hashPublicInputs(0);
     }
 
     /**********************
@@ -91,7 +77,15 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        _checkPublicInputs();
+        uint256 parentHeight = block.number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
+
+        (bytes32 current, bytes32 next) = hashPublicInputs(parentHash);
+
+        if (_publicInputHash != current) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        _publicInputHash = next;
+
+        _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
@@ -133,15 +127,14 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
     }
 
-    /**********************
-     * Private Functions  *
-     **********************/
-
-    function _checkPublicInputs() private {
-        // Check the latest 256 block hashes (excluding the parent hash).
+    // TODO: optimize this function to remove the ancestors ringbuffer and
+    // avoid abi.encodePacked by using assembly
+    function hashPublicInputs(
+        bytes32 parentHash
+    ) public view returns (bytes32 current, bytes32 next) {
         bytes32[255] memory ancestors;
         uint256 number = block.number;
-        uint256 chainId = block.chainid;
+        uint256 baseFee = 0;
 
         // put the previous 255 blockhashes (excluding the parent's) into a
         // ring buffer.
@@ -152,44 +145,17 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             }
         }
 
-        uint256 parentHeight = number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
-
-        if (
-            _publicInputHash !=
-            _hashPublicInputs({
-                chainId: chainId,
-                number: parentHeight,
-                baseFee: 0,
-                ancestors: ancestors
-            })
-        ) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        }
-
-        // replace the oldest block hash with the parent's blockhash
-        ancestors[parentHeight % 255] = parentHash;
-        _publicInputHash = _hashPublicInputs({
-            chainId: chainId,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
-
-        _l2Hashes[parentHeight] = parentHash;
-    }
-
-    function _hashPublicInputs(
-        uint256 chainId,
-        uint256 number,
-        uint256 baseFee,
-        bytes32[255] memory ancestors
-    ) private pure returns (bytes32) {
         bytes memory extra = bytes.concat(
-            bytes32(chainId),
+            bytes32(block.chainid),
             bytes32(number),
             bytes32(baseFee)
         );
-        return keccak256(abi.encodePacked(extra, ancestors));
+
+        current = keccak256(abi.encodePacked(extra, ancestors));
+        if (parentHash != 0) {
+            // replace the oldest block hash with the parent's blockhash
+            ancestors[(number - 1) % 255] = parentHash;
+            next = keccak256(abi.encodePacked(extra, ancestors));
+        }
     }
 }
