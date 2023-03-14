@@ -35,7 +35,7 @@ class ETHBridge implements BridgeInterface {
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
       owner: owner,
-      to: owner,
+      to: opts.to,
       refundAddress: owner,
       depositValue: opts.amountInWei,
       callValue: 0,
@@ -59,13 +59,11 @@ class ETHBridge implements BridgeInterface {
   }
 
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
-    const { contract, owner, message } = await ETHBridge.prepareTransaction(
-      opts,
-    );
+    const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
     const tx = await contract.sendEther(
       message.destChainId,
-      owner,
+      message.to,
       message.gasLimit,
       message.processingFee,
       message.refundAddress,
@@ -81,13 +79,11 @@ class ETHBridge implements BridgeInterface {
   }
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, owner, message } = await ETHBridge.prepareTransaction(
-      opts,
-    );
+    const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
     const gasEstimate = await contract.estimateGas.sendEther(
       message.destChainId,
-      owner,
+      message.to,
       message.gasLimit,
       message.processingFee,
       message.refundAddress,
