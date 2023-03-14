@@ -25,7 +25,9 @@
       <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
-            onTooltipClick={() => (showMessageStatusTooltip = true)}
+            onTooltipClick={() => {
+              showMessageStatusTooltip = true;
+            }}
             onShowTransactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
