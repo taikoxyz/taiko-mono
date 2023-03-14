@@ -153,7 +153,6 @@
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
 
-      console.log(txs);
       // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
       //   return [tx.hash, tx];
       // }))
@@ -167,15 +166,11 @@
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         const blockInfo = blockInfoMap.get(tx.fromChainId);
-        console.log('blockinfo', blockInfo.latestProcessedBlock);
-        console.log('blockNUmber', tx.receipt.blockNumber);
         if (blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
           return false;
         }
         return true;
       });
-
-      console.log(updatedStorageTxs);
 
       $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 

@@ -224,10 +224,8 @@
     try {
       loading = true;
       if (requiresAllowance) throw Error('requires additional allowance');
-      if (showTo) {
-        if (!ethers.utils.isAddress(to)) {
-          throw Error('Invalid custom recipient address');
-        }
+      if (showTo && !ethers.utils.isAddress(to)) {
+        throw Error('Invalid custom recipient address');
       }
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
