@@ -6,7 +6,6 @@ import {
   L2_RPC,
 } from '../domain/chain';
 
-// Will help us to map from chain id to RPC provider
 export const providersMap = new Map([
   [CHAIN_ID_MAINNET, new ethers.providers.JsonRpcProvider(L1_RPC)],
   [CHAIN_ID_TAIKO, new ethers.providers.JsonRpcProvider(L2_RPC)],
