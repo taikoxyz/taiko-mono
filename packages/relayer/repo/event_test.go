@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/db"
 	"gopkg.in/go-playground/assert.v1"
@@ -245,44 +247,67 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 	tests := []struct {
 		name     string
 		address  common.Address
-		wantResp []*relayer.Event
+		wantResp paginate.Page
 		wantErr  error
 	}{
 		{
 			"success",
 			addr,
-			[]*relayer.Event{
-				{
-					ID:   1,
-					Name: "name",
-					// nolint lll
-					Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
-					ChainID:                1,
-					Status:                 relayer.EventStatusDone,
-					EventType:              relayer.EventTypeSendETH,
-					CanonicalTokenAddress:  "0x1",
-					CanonicalTokenSymbol:   "ETH",
-					CanonicalTokenName:     "Ethereum",
-					CanonicalTokenDecimals: 18,
-					Amount:                 "1",
-					MsgHash:                "0x1",
-					MessageOwner:           addr.Hex(),
+			paginate.Page{
+				Items: []relayer.Event{
+					{
+						ID:   1,
+						Name: "name",
+						// nolint lll
+						Data:                   datatypes.JSON([]byte(fmt.Sprintf(`{"Message": {"Owner": "%s"}}`, strings.ToLower(addr.Hex())))),
+						ChainID:                1,
+						Status:                 relayer.EventStatusDone,
+						EventType:              relayer.EventTypeSendETH,
+						CanonicalTokenAddress:  "0x1",
+						CanonicalTokenSymbol:   "ETH",
+						CanonicalTokenName:     "Ethereum",
+						CanonicalTokenDecimals: 18,
+						Amount:                 "1",
+						MsgHash:                "0x1",
+						MessageOwner:           addr.Hex(),
+					},
 				},
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
 			},
 			nil,
 		},
 		{
 			"noneByAddr",
 			common.HexToAddress("0x165CD37b4C644C2921454429E7F9358d18A45e14"),
-			[]*relayer.Event{},
+			paginate.Page{
+				Items:      []relayer.Event{},
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       true,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.FindAllByAddress(context.Background(), tt.address)
-			assert.Equal(t, tt.wantResp, resp)
+			req, err := http.NewRequest(http.MethodGet, "/events", nil)
+			assert.Equal(t, nil, err)
+
+			resp, err := eventRepo.FindAllByAddress(context.Background(), req, tt.address)
+			assert.Equal(t, tt.wantResp.Items, resp.Items)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
