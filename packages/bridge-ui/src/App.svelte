@@ -146,7 +146,6 @@
 
       const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
 
-      console.log(apiTxs);
 
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
