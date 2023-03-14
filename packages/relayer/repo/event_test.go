@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/db"
 	"gopkg.in/go-playground/assert.v1"
@@ -20,7 +22,7 @@ var testEventTypeSendETH = relayer.EventTypeSendETH
 var testEventTypeSendERC20 = relayer.EventTypeSendERC20
 var addr = common.HexToAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
 
-var testEvents = []*relayer.Event{
+var testEvents = []relayer.Event{
 	{
 		ID:   1,
 		Name: "name",
@@ -254,7 +256,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 	tests := []struct {
 		name     string
 		opts     relayer.FindAllByAddressOpts
-		wantResp []*relayer.Event
+		wantResp paginate.Page
 		wantErr  error
 	}{
 		{
@@ -262,7 +264,17 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 			relayer.FindAllByAddressOpts{
 				Address: addr,
 			},
-			testEvents,
+			paginate.Page{
+				Items:      testEvents,
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 		{
@@ -271,7 +283,17 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				Address: addr,
 				MsgHash: &testMsgHash,
 			},
-			testEvents[:2],
+			paginate.Page{
+				Items:      testEvents[:2],
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 		{
@@ -280,7 +302,17 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				Address:   addr,
 				EventType: &testEventTypeSendERC20,
 			},
-			testEvents[1:3],
+			paginate.Page{
+				Items:      testEvents[1:3],
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 		{
@@ -290,7 +322,17 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				EventType: &testEventTypeSendERC20,
 				MsgHash:   &testSecondMsgHash,
 			},
-			testEvents[2:],
+			paginate.Page{
+				Items:      testEvents[2:],
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 		{
@@ -298,15 +340,28 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 			relayer.FindAllByAddressOpts{
 				Address: common.HexToAddress("0x165CD37b4C644C2921454429E7F9358d18A45e14"),
 			},
-			[]*relayer.Event{},
+			paginate.Page{
+				Items:      []relayer.Event{},
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       true,
+				First:      true,
+				Visible:    1,
+			},
 			nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := eventRepo.FindAllByAddress(context.Background(), tt.opts)
-			assert.Equal(t, tt.wantResp, resp)
+			req, err := http.NewRequest(http.MethodGet, "/events", nil)
+			assert.Equal(t, nil, err)
+
+			resp, err := eventRepo.FindAllByAddress(context.Background(), req, tt.opts)
+			assert.Equal(t, tt.wantResp.Items, resp.Items)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

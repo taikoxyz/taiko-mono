@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"math/rand"
+	"net/http"
 
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
 )
@@ -59,8 +61,9 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
+	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) ([]*relayer.Event, error) {
+) (paginate.Page, error) {
 	type d struct {
 		Owner string `json:"Owner"`
 	}
@@ -70,12 +73,12 @@ func (r *EventRepository) FindAllByAddress(
 	for _, e := range r.events {
 		m, err := e.Data.MarshalJSON()
 		if err != nil {
-			return nil, err
+			return paginate.Page{}, err
 		}
 
 		data := &d{}
 		if err := json.Unmarshal(m, data); err != nil {
-			return nil, err
+			return paginate.Page{}, err
 		}
 
 		if data.Owner == opts.Address.Hex() {
@@ -84,7 +87,9 @@ func (r *EventRepository) FindAllByAddress(
 		}
 	}
 
-	return events, nil
+	return paginate.Page{
+		Items: events,
+	}, nil
 }
 
 func (r *EventRepository) FindAllByMsgHash(

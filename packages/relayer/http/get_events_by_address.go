@@ -34,8 +34,9 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 		eventType = &et
 	}
 
-	events, err := srv.eventRepo.FindAllByAddress(
+	page, err := srv.eventRepo.FindAllByAddress(
 		c.Request().Context(),
+		c.Request(),
 		relayer.FindAllByAddressOpts{
 			Address:   common.HexToAddress(address),
 			MsgHash:   &msgHash,
@@ -43,10 +44,9 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			ChainID:   chainID,
 		},
 	)
-
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	return c.JSON(http.StatusOK, events)
+	return c.JSON(http.StatusOK, page)
 }

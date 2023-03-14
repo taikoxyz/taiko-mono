@@ -3,8 +3,10 @@ package relayer
 import (
 	"context"
 	"math/big"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"gorm.io/datatypes"
 )
 
@@ -88,8 +90,9 @@ type EventRepository interface {
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
 	FindAllByAddress(
 		ctx context.Context,
+		req *http.Request,
 		opts FindAllByAddressOpts,
-	) ([]*Event, error)
+	) (paginate.Page, error)
 	FindAllByMsgHash(
 		ctx context.Context,
 		msgHash string,

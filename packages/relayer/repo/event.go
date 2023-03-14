@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"net/http"
+
+	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
@@ -38,6 +41,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		MsgHash:                opts.MsgHash,
 		MessageOwner:           opts.MessageOwner,
 	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
@@ -77,10 +81,15 @@ func (r *EventRepository) FindAllByMsgHash(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
+	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	q := r.db.GormDB()
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(opts.Address.Hex()))
 
 	if opts.EventType != nil {
 		q = q.Where("event_type = ?", *opts.EventType)
@@ -94,11 +103,9 @@ func (r *EventRepository) FindAllByAddress(
 		q = q.Where("chain_id = ?", opts.ChainID.Int64())
 	}
 
-	if err := q.
-		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(opts.Address.Hex()), "Message", "Owner")).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
-	}
+	reqCtx := pg.With(q)
 
-	return e, nil
+	page := reqCtx.Request(req).Response(&[]relayer.Event{})
+
+	return page, nil
 }
