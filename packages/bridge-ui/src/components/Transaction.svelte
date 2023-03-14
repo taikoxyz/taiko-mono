@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { BridgeTransaction } from '../domain/transactions';
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from '../domain/chain';
-  import { Chain, providers } from '../domain/chain';
+  import { type Chain, providers } from '../domain/chain';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
