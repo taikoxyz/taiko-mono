@@ -8,11 +8,7 @@
   import { Contract, ethers } from 'ethers';
   import { chainIdToTokenVaultAddress } from '../store/bridge';
   import { signer } from '../store/signer';
-  import {
-    pendingTransactions,
-    showTransactionDetails,
-    showMessageStatusTooltip,
-  } from '../store/transactions';
+  import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
   import { _ } from 'svelte-i18n';
   import {
@@ -32,16 +28,14 @@
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
   export let toChain: Chain;
+  export let onTooltipClick: () => void;
+  export let onShowTransactionDetailsClick: () => void;
 
   let loading: boolean = false;
   let processable: boolean = false;
 
   let srcChain = chains[transaction.message.srcChainId.toNumber()];
   let destChain = chains[transaction.message.destChainId.toNumber()];
-
-  onMount(async () => {
-    processable = await isProcessable();
-  });
 
   async function switchChainAndSetSigner(chain: Chain) {
     await switchNetwork({
@@ -188,6 +182,10 @@
     transaction = transaction;
     if (transaction.status === MessageStatus.Done) clearInterval(interval);
   }, 20 * 1000);
+
+  onMount(async () => {
+    processable = await isProcessable();
+  });
 </script>
 
 <tr class="text-transaction-table">
@@ -207,7 +205,7 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={() => ($showMessageStatusTooltip = true)}>
+    <ButtonWithTooltip onClick={onTooltipClick}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -253,11 +251,9 @@
   </td>
 
   <td>
-    <span
-      class="cursor-pointer inline-block"
-      on:click={() => ($showTransactionDetails = transaction)}>
+    <button on:click={onShowTransactionDetailsClick}>
       <ArrowTopRightOnSquare />
-    </span>
+    </button>
   </td>
 </tr>
 

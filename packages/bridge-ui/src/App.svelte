@@ -53,7 +53,9 @@
     import.meta.env.VITE_RELAYER_URL,
   );
 
-  const tokenStore: TokenService = new CustomTokenService(window.localStorage);
+  const tokenStore: TokenService = new CustomTokenService(
+    globalThis.localStorage,
+  );
 
   tokenService.set(tokenStore);
 
