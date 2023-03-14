@@ -3,12 +3,15 @@ jest.mock('../store/bridge', () => ({
   chainIdToTokenVaultAddress: mockChainIdToTokenVaultAddress,
 }));
 
-const mockGet = jest.fn();
-
 import { BigNumber, ethers, Signer } from 'ethers';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
-import { CHAIN_MAINNET, CHAIN_TKO } from '../domain/chain';
+import {
+  CHAIN_ID_MAINNET,
+  CHAIN_ID_TAIKO,
+  CHAIN_MAINNET,
+  CHAIN_TKO,
+  providers,
+} from '../domain/chain';
 import { ProcessingFeeMethod } from '../domain/fee';
 import { ETH, TEST_ERC20 } from '../domain/token';
 import { signer } from '../store/signer';
@@ -18,21 +21,22 @@ import {
   ethGasLimit,
   recommendProcessingFee,
 } from './recommendProcessingFee';
-import type { ComponentType } from 'svelte';
 
 jest.mock('svelte/store', () => ({
   ...jest.requireActual('svelte/store'),
   get: function () {
-    return mockGet();
+    // mocking get(chainIdToTokenVaultAddress)
+    return new Map<number, string>().set(CHAIN_MAINNET.id, '0x12345');
   },
 }));
 
+const gasPrice = 2;
+const mockGetGasPrice = async () => BigNumber.from(2);
+providers.get(CHAIN_ID_MAINNET).getGasPrice = mockGetGasPrice;
+providers.get(CHAIN_ID_TAIKO).getGasPrice = mockGetGasPrice;
+
 const mockContract = {
   canonicalToBridged: jest.fn(),
-};
-
-const mockProver = {
-  GenerateProof: jest.fn(),
 };
 
 jest.mock('ethers', () => ({
@@ -42,13 +46,6 @@ jest.mock('ethers', () => ({
     return mockContract;
   },
 }));
-
-const gasPrice = 2;
-const mockProvider = {
-  getGasPrice: () => {
-    return 2;
-  },
-};
 
 const mockSigner = {} as Signer;
 
@@ -110,12 +107,12 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses ethGasLimit if the token is ETH', async () => {
-    mockGet.mockImplementationOnce(() =>
-      new Map<number, ethers.providers.JsonRpcProvider>().set(
-        CHAIN_TKO.id,
-        mockProvider as unknown as ethers.providers.JsonRpcProvider,
-      ),
-    );
+    // mockGet.mockImplementationOnce(() =>
+    //   new Map<number, ethers.providers.JsonRpcProvider>().set(
+    //     CHAIN_TKO.id,
+    //     mockProvider as unknown as ethers.providers.JsonRpcProvider,
+    //   ),
+    // );
 
     const fee = await recommendProcessingFee(
       CHAIN_TKO,
@@ -133,16 +130,17 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(CHAIN_MAINNET.id, '0x12345');
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          CHAIN_TKO.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider,
-        );
-      }
-    });
+    // mockGet.mockImplementation((store: any) => {
+    //   if (typeof store === typeof chainIdToTokenVaultAddress) {
+    //     return new Map<number, string>().set(CHAIN_MAINNET.id, '0x12345');
+    //   } else {
+    //     return new Map<number, ethers.providers.JsonRpcProvider>().set(
+    //       CHAIN_TKO.id,
+    //       mockProvider as unknown as ethers.providers.JsonRpcProvider,
+    //     );
+    //   }
+    // });
+
     mockContract.canonicalToBridged.mockImplementationOnce(
       () => ethers.constants.AddressZero,
     );
@@ -163,16 +161,16 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(CHAIN_MAINNET.id, '0x12345');
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          CHAIN_TKO.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider,
-        );
-      }
-    });
+    // mockGet.mockImplementation((store: any) => {
+    //   if (typeof store === typeof chainIdToTokenVaultAddress) {
+    //     return new Map<number, string>().set(CHAIN_MAINNET.id, '0x12345');
+    //   } else {
+    //     return new Map<number, ethers.providers.JsonRpcProvider>().set(
+    //       CHAIN_TKO.id,
+    //       mockProvider as unknown as ethers.providers.JsonRpcProvider,
+    //     );
+    //   }
+    // });
 
     mockContract.canonicalToBridged.mockImplementationOnce(() => '0x123');
 
