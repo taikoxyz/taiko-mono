@@ -6,8 +6,8 @@
   import { chains } from '../domain/chain';
   import type { BridgeTransaction } from '../domain/transactions';
 
-  // TODO: can we always guarantee that this object isn't null or undefined?
-  //   in which case we need to guard => transaction?.prop
+  // TODO: can we always guarantee that this object is defined?
+  //       in which case we need to guard => transaction?.prop
   export let transaction: BridgeTransaction;
   export let onClose: () => void;
 </script>
