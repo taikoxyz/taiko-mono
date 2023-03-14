@@ -77,19 +77,21 @@ type SaveEventOpts struct {
 	MessageOwner           string
 }
 
+type FindAllByAddressOpts struct {
+	Address   common.Address
+	EventType *EventType
+	MsgHash   *string
+	ChainID   *big.Int
+}
+
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
-	FindAllByAddressAndChainID(
-		ctx context.Context,
-		chainID *big.Int,
-		address common.Address,
-	) ([]*Event, error)
 	FindAllByAddress(
 		ctx context.Context,
 		req *http.Request,
-		address common.Address,
+		opts FindAllByAddressOpts,
 	) (paginate.Page, error)
 	FindAllByMsgHash(
 		ctx context.Context,

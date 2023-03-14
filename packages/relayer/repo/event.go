@@ -2,11 +2,10 @@ package repo
 
 import (
 	"context"
-	"math/big"
-	"net/http"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"net/http"
+
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -42,6 +41,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		MsgHash:                opts.MsgHash,
 		MessageOwner:           opts.MessageOwner,
 	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
@@ -79,35 +79,29 @@ func (r *EventRepository) FindAllByMsgHash(
 	return e, nil
 }
 
-func (r *EventRepository) FindAllByAddressAndChainID(
-	ctx context.Context,
-	chainID *big.Int,
-	address common.Address,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	// find all message sent events
-	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
-		Where("message_owner = ?", strings.ToLower(address.Hex())).
-		Find(&e).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
-	}
-
-	// find all message status changed events
-
-	return e, nil
-}
-
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
-	address common.Address,
+	opts relayer.FindAllByAddressOpts,
 ) (paginate.Page, error) {
 	pg := paginate.New(&paginate.Config{
 		DefaultSize: 100,
 	})
 
 	q := r.db.GormDB().
-		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(address.Hex()))
+		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(opts.Address.Hex()))
+
+	if opts.EventType != nil {
+		q = q.Where("event_type = ?", *opts.EventType)
+	}
+
+	if opts.MsgHash != nil && *opts.MsgHash != "" {
+		q = q.Where("msg_hash = ?", *opts.MsgHash)
+	}
+
+	if opts.ChainID != nil {
+		q = q.Where("chain_id = ?", opts.ChainID.Int64())
+	}
 
 	reqCtx := pg.With(q)
 
