@@ -25,7 +25,11 @@
 </script>
 
 <div class="dropdown dropdown-end mr-4">
-  <label tabindex="0" class="btn btn-md justify-around md:w-[194px]">
+  <!-- svelte-ignore a11y-label-has-associated-control -->
+  <label
+    role="button"
+    tabindex="0"
+    class="btn btn-md justify-around md:w-[194px]">
     <span class="font-normal flex-1 text-left mr-2">
       {#if $fromChain}
         <svelte:component this={$fromChain.icon} />
@@ -40,6 +44,7 @@
     <ChevronDown size="20" />
   </label>
   <ul
+    role="listbox"
     tabindex="0"
     class="dropdown-content address-dropdown-content flex my-2 menu p-2 shadow bg-dark-2 rounded-sm w-[194px]">
     <li>

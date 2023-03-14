@@ -24,16 +24,15 @@
   import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from '../../domain/chain';
   import { providersMap } from '../../providers/map';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    isSwitchEthereumChainModalOpen,
-    isConnectWalletModalOpen,
-  } from '../../store/modal';
+  import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import { errorToast, successToast } from '../../utils/toast';
   import Modal from '../modals/Modal.svelte';
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
+
+  let isConnectWalletModalOpen = false;
 
   const iconMap = {
     metamask: MetaMask,
@@ -129,13 +128,14 @@
   });
 </script>
 
-<button class="btn btn-md" on:click={() => ($isConnectWalletModalOpen = true)}
-  >{$_('nav.connect')}</button>
+<button class="btn btn-md" on:click={() => (isConnectWalletModalOpen = true)}>
+  {$_('nav.connect')}
+</button>
 
 <Modal
   title={$_('connectModal.title')}
-  isOpen={$isConnectWalletModalOpen}
-  onClose={() => ($isConnectWalletModalOpen = false)}>
+  isOpen={isConnectWalletModalOpen}
+  onClose={() => (isConnectWalletModalOpen = false)}>
   <div class="flex flex-col items-center space-y-4 space-x-0 p-8">
     {#each wagmiClient.connectors as connector}
       <button

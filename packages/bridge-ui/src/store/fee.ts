@@ -1,5 +1,4 @@
-import { derived, writable } from 'svelte/store';
-import { ethers } from 'ethers';
+import { writable } from 'svelte/store';
 
 import { ProcessingFeeMethod } from '../domain/fee';
 

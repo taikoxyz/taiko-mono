@@ -36,16 +36,16 @@
         on:click={async () => {
           await switchChain(CHAIN_MAINNET);
         }}>
-        <svelte:component this={CHAIN_MAINNET.icon} /><span class="ml-2"
-          >{CHAIN_MAINNET.name}</span>
+        <svelte:component this={CHAIN_MAINNET.icon} />
+        <span class="ml-2">{CHAIN_MAINNET.name}</span>
       </button>
       <button
         class="btn btn-dark-5 h-[60px] text-base"
         on:click={async () => {
           await switchChain(CHAIN_TKO);
         }}>
-        <svelte:component this={CHAIN_TKO.icon} /><span class="ml-2"
-          >{CHAIN_TKO.name}</span>
+        <svelte:component this={CHAIN_TKO.icon} />
+        <span class="ml-2">{CHAIN_TKO.name}</span>
       </button>
     </div>
   </div>
