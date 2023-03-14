@@ -3,7 +3,7 @@ import TokenVault from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { providers } from '../domain/provider';
+import { providersMap } from '../providers/map';
 import { ETH } from '../domain/token';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
@@ -20,7 +20,7 @@ export async function recommendProcessingFee(
   signer: Signer,
 ): Promise<string> {
   if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
-  const provider = providers.get(toChain.id);
+  const provider = providersMap.get(toChain.id);
   const gasPrice = await provider.getGasPrice();
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.

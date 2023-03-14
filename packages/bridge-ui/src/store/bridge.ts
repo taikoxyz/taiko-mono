@@ -1,10 +1,11 @@
 import { derived, writable } from 'svelte/store';
-import { BridgeType, bridges } from '../domain/bridge';
+import { BridgeType } from '../domain/bridge';
+import { bridgesMap } from '../bridges/map';
 
 export const bridgeType = writable<BridgeType>(BridgeType.ETH);
 
 export const activeBridge = derived(bridgeType, ($bridgeType) =>
-  bridges.get($bridgeType),
+  bridgesMap.get($bridgeType),
 );
 
 export const chainIdToTokenVaultAddress = writable<Map<number, string>>(

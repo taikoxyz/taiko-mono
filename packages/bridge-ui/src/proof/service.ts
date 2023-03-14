@@ -1,6 +1,5 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import Bridge from '../constants/abi/Bridge';
 import HeaderSync from '../constants/abi/HeaderSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {

@@ -19,7 +19,7 @@
 
   setupI18n({ withLocale: 'en' });
   import { chains, CHAIN_MAINNET, CHAIN_TKO } from './domain/chain';
-  import { providers } from './domain/provider';
+  import { providersMap } from './providers/map';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ethers } from 'ethers';
   import { successToast } from './utils/toast';
@@ -45,11 +45,11 @@
 
   const storageTransactioner: Transactioner = new StorageService(
     globalThis.localStorage,
-    providers,
+    providersMap,
   );
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
-    providers,
+    providersMap,
     import.meta.env.VITE_RELAYER_URL,
   );
 
@@ -130,7 +130,7 @@
         }
 
         if (tx.status === MessageStatus.New) {
-          const provider = providers.get(tx.toChainId);
+          const provider = providersMap.get(tx.toChainId);
 
           const interval = setInterval(async () => {
             const txInterval = transactionToIntervalMap.get(tx.hash);

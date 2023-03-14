@@ -11,7 +11,7 @@ import {
   CHAIN_MAINNET,
   CHAIN_TKO,
 } from '../domain/chain';
-import { providers } from '../domain/provider';
+import { providersMap } from '../providers/map';
 import { ProcessingFeeMethod } from '../domain/fee';
 import { ETH, TEST_ERC20 } from '../domain/token';
 import { signer } from '../store/signer';
@@ -32,8 +32,8 @@ jest.mock('svelte/store', () => ({
 
 const gasPrice = 2;
 const mockGetGasPrice = async () => BigNumber.from(2);
-providers.get(CHAIN_ID_MAINNET).getGasPrice = mockGetGasPrice;
-providers.get(CHAIN_ID_TAIKO).getGasPrice = mockGetGasPrice;
+providersMap.get(CHAIN_ID_MAINNET).getGasPrice = mockGetGasPrice;
+providersMap.get(CHAIN_ID_TAIKO).getGasPrice = mockGetGasPrice;
 
 const mockContract = {
   canonicalToBridged: jest.fn(),

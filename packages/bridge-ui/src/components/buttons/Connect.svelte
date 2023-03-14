@@ -22,7 +22,7 @@
 
   import { signer } from '../../store/signer';
   import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from '../../domain/chain';
-  import { providers } from '../../domain/provider';
+  import { providersMap } from '../../providers/map';
   import { fromChain, toChain } from '../../store/chain';
   import {
     isSwitchEthereumChainModalOpen,
@@ -47,7 +47,7 @@
       publicProvider(),
       jsonRpcProvider({
         rpc: (chain) => ({
-          http: providers.get(chain.id).connection.url,
+          http: providersMap.get(chain.id).connection.url,
         }),
       }),
     ],

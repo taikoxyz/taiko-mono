@@ -1,8 +1,13 @@
 import { ethers } from 'ethers';
-import { CHAIN_ID_MAINNET, CHAIN_ID_TAIKO, L1_RPC, L2_RPC } from './chain';
+import {
+  CHAIN_ID_MAINNET,
+  CHAIN_ID_TAIKO,
+  L1_RPC,
+  L2_RPC,
+} from '../domain/chain';
 
 // Will help us to map from chain id to RPC provider
-export const providers = new Map([
+export const providersMap = new Map([
   [CHAIN_ID_MAINNET, new ethers.providers.JsonRpcProvider(L1_RPC)],
   [CHAIN_ID_TAIKO, new ethers.providers.JsonRpcProvider(L2_RPC)],
 ]);

@@ -1,10 +1,5 @@
 import type { BigNumber, ethers, Transaction } from 'ethers';
-import ERC20Bridge from '../erc20/bridge';
-import ETHBridge from '../eth/bridge';
-import { ProofService } from '../proof/service';
 import type { Message } from './message';
-import type { Prover } from './proof';
-import { providers } from './provider';
 
 enum BridgeType {
   ERC20 = 'ERC20',
@@ -65,15 +60,6 @@ interface HTMLBridgeForm extends HTMLFormElement {
   customTokenAddress: HTMLInputElement;
 }
 
-const prover: Prover = new ProofService(providers);
-const ethBridge = new ETHBridge(prover);
-const erc20Bridge = new ERC20Bridge(prover);
-
-const bridges = new Map<BridgeType, Bridge>([
-  [BridgeType.ETH, ethBridge],
-  [BridgeType.ERC20, erc20Bridge],
-]);
-
 export {
   ApproveOpts,
   BridgeOpts,
@@ -82,5 +68,4 @@ export {
   ClaimOpts,
   ReleaseOpts,
   HTMLBridgeForm,
-  bridges,
 };

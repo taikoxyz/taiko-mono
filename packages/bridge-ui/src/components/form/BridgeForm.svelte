@@ -19,7 +19,7 @@
   import type { Token } from '../../domain/token';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
   import { chains } from '../../domain/chain';
-  import { providers } from '../../domain/provider';
+  import { providersMap } from '../../providers/map';
 
   import type { Chain } from '../../domain/chain';
   import { truncateString } from '../../utils/truncateString';
@@ -230,7 +230,7 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = providers.get($toChain.id);
+      const provider = providersMap.get($toChain.id);
       const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
         $toChain.id,
       );
