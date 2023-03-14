@@ -1,5 +1,5 @@
 import type { Chain as WagmiChain } from '@wagmi/core';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber } from 'ethers';
 import type { ComponentType } from 'svelte';
 
 import Eth from '../components/icons/ETH.svelte';
@@ -13,10 +13,10 @@ export const CHAIN_ID_TAIKO = import.meta.env
   ? BigNumber.from(import.meta.env.VITE_TAIKO_CHAIN_ID).toNumber()
   : 167001;
 
-const L1_RPC =
+export const L1_RPC =
   import.meta.env?.VITE_L1_RPC_URL ?? 'https://l1rpc.internal.taiko.xyz/';
 
-const L2_RPC =
+export const L2_RPC =
   import.meta.env?.VITE_L2_RPC_URL ?? 'https://l2rpc.internal.taiko.xyz/';
 
 const L1_BRIDGE_ADDRESS =
@@ -137,8 +137,3 @@ export const taiko: WagmiChain = {
   //   address: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
   // },
 };
-
-// Will help us to map from chain id to RPC provider
-export const providers = new Map<number, ethers.providers.JsonRpcProvider>();
-providers.set(CHAIN_ID_MAINNET, new ethers.providers.JsonRpcProvider(L1_RPC));
-providers.set(CHAIN_ID_TAIKO, new ethers.providers.JsonRpcProvider(L2_RPC));

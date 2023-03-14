@@ -10,8 +10,8 @@ import {
   CHAIN_ID_TAIKO,
   CHAIN_MAINNET,
   CHAIN_TKO,
-  providers,
 } from '../domain/chain';
+import { providers } from '../domain/provider';
 import { ProcessingFeeMethod } from '../domain/fee';
 import { ETH, TEST_ERC20 } from '../domain/token';
 import { signer } from '../store/signer';

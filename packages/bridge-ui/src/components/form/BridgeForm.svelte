@@ -18,7 +18,8 @@
 
   import type { Token } from '../../domain/token';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
-  import { chains, providers } from '../../domain/chain';
+  import { chains } from '../../domain/chain';
+  import { providers } from '../../domain/provider';
 
   import type { Chain } from '../../domain/chain';
   import { truncateString } from '../../utils/truncateString';

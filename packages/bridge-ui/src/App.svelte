@@ -4,12 +4,6 @@
   import Router from 'svelte-spa-router';
   import { SvelteToast } from '@zerodevx/svelte-toast';
   import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
-  import { configureChains, createClient } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public';
-  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
-  import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
-  import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
@@ -25,17 +19,10 @@
   import Navbar from './components/Navbar.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction, Transactioner } from './domain/transactions';
-  import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
-  import {
-    chains,
-    providers,
-    CHAIN_MAINNET,
-    CHAIN_TKO,
-    mainnet,
-    taiko,
-  } from './domain/chain';
+  import { chains, CHAIN_MAINNET, CHAIN_TKO } from './domain/chain';
+  import { providers } from './domain/provider';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ProofService } from './proof/service';
   import { ethers } from 'ethers';

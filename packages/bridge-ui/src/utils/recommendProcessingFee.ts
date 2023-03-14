@@ -1,8 +1,9 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
 import TokenVault from '../constants/abi/TokenVault';
-import { type Chain, providers } from '../domain/chain';
+import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
+import { providers } from '../domain/provider';
 import { ETH } from '../domain/token';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';

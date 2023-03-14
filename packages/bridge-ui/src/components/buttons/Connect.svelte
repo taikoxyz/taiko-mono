@@ -21,13 +21,8 @@
   import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
 
   import { signer } from '../../store/signer';
-  import {
-    CHAIN_MAINNET,
-    CHAIN_TKO,
-    mainnet,
-    taiko,
-    providers,
-  } from '../../domain/chain';
+  import { CHAIN_MAINNET, CHAIN_TKO, mainnet, taiko } from '../../domain/chain';
+  import { providers } from '../../domain/provider';
   import { fromChain, toChain } from '../../store/chain';
   import {
     isSwitchEthereumChainModalOpen,
