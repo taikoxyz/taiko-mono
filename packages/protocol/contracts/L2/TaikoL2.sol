@@ -11,6 +11,8 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 contract TaikoL2 is OwnableUpgradeable, IXchainSync {
     /**********************
      * State Variables    *
@@ -23,7 +25,7 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
     // A hash to check te integrity of public inputs.
-    bytes32 private _publicInputHash;
+    bytes32 public publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
@@ -36,14 +38,15 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
-    error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_PUBLIC_INPUT_HASH_MISMATCH(bytes32 current, bytes32 expected);
 
     /**********************
      * Constructor         *
      **********************/
 
     function init() external initializer {
-        (_publicInputHash, ) = hashPublicInputs(0);
+        (publicInputHash, ) = hashPublicInputs(0);
+        console2.log("genesis:", uint(publicInputHash));
     }
 
     /**********************
@@ -70,11 +73,12 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
         uint256 parentHeight = block.number - 1;
         bytes32 parentHash = blockhash(parentHeight);
 
-        (bytes32 current, bytes32 next) = hashPublicInputs(parentHash);
+        (bytes32 expected, bytes32 next) = hashPublicInputs(parentHash);
 
-        if (_publicInputHash != current) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        if (publicInputHash != expected)
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH(publicInputHash, expected);
 
-        _publicInputHash = next;
+        publicInputHash = next;
         _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
@@ -122,7 +126,7 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
     // avoid abi.encodePacked by using assembly
     function hashPublicInputs(
         bytes32 parentHash
-    ) public view returns (bytes32 current, bytes32 next) {
+    ) public view returns (bytes32 expected, bytes32 next) {
         bytes32[255] memory ancestors;
         uint256 number = block.number;
 
@@ -143,8 +147,9 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
             bytes32(0) //placeholder for EIP-1559 baseFee
         );
 
-        current = keccak256(abi.encodePacked(extra, ancestors));
+        expected = keccak256(abi.encodePacked(extra, ancestors));
         // replace the oldest block hash with the parent's blockhash
+
         ancestors[(number - 1) % 255] = parentHash;
         next = keccak256(abi.encodePacked(extra, ancestors));
     }
