@@ -18,7 +18,7 @@
 
   import type { Token } from '../../domain/token';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
-  import { chains } from '../../domain/chain';
+  import { chains, providers } from '../../domain/chain';
 
   import type { Chain } from '../../domain/chain';
   import { truncateString } from '../../utils/truncateString';
@@ -36,7 +36,6 @@
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
   import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
 
@@ -230,7 +229,7 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = $providers.get($toChain.id);
+      const provider = providers.get($toChain.id);
       const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
         $toChain.id,
       );
