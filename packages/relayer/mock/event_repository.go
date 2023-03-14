@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"math/big"
 	"math/rand"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
 )
@@ -22,11 +24,13 @@ func NewEventRepository() *EventRepository {
 }
 func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
-		ID:      rand.Int(), // nolint: gosec
-		Data:    datatypes.JSON(opts.Data),
-		Status:  opts.Status,
-		ChainID: opts.ChainID.Int64(),
-		Name:    opts.Name,
+		ID:           rand.Int(), // nolint: gosec
+		Data:         datatypes.JSON(opts.Data),
+		Status:       opts.Status,
+		ChainID:      opts.ChainID.Int64(),
+		Name:         opts.Name,
+		MessageOwner: opts.MessageOwner,
+		MsgHash:      opts.MsgHash,
 	})
 
 	return nil, nil
@@ -94,8 +98,9 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
+	req *http.Request,
 	address common.Address,
-) ([]*relayer.Event, error) {
+) (paginate.Page, error) {
 	type d struct {
 		Owner string `json:"Owner"`
 	}
@@ -105,17 +110,34 @@ func (r *EventRepository) FindAllByAddress(
 	for _, e := range r.events {
 		m, err := e.Data.MarshalJSON()
 		if err != nil {
-			return nil, err
+			return paginate.Page{}, err
 		}
 
 		data := &d{}
 		if err := json.Unmarshal(m, data); err != nil {
-			return nil, err
+			return paginate.Page{}, err
 		}
 
 		if data.Owner == address.Hex() {
 			events = append(events, e)
 			break
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
+}
+
+func (r *EventRepository) FindAllByMsgHash(
+	ctx context.Context,
+	msgHash string,
+) ([]*relayer.Event, error) {
+	events := make([]*relayer.Event, 0)
+
+	for _, e := range r.events {
+		if e.MsgHash == msgHash {
+			events = append(events, e)
 		}
 	}
 

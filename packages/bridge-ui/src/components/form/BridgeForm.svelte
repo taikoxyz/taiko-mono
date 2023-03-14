@@ -25,7 +25,6 @@
   import {
     pendingTransactions,
     transactions as transactionsStore,
-    transactioner,
   } from '../../store/transactions';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
@@ -39,6 +38,7 @@
   import { fetchFeeData } from '@wagmi/core';
   import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
+  import To from './To.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -51,6 +51,8 @@
   let loading: boolean = false;
   let isFaucetModalOpen: boolean = false;
   let memoError: string;
+  let to: string = '';
+  let showTo: boolean = false;
 
   $: getUserBalance($signer, $token, $fromChain);
 
@@ -222,6 +224,9 @@
     try {
       loading = true;
       if (requiresAllowance) throw Error('requires additional allowance');
+      if (showTo && !ethers.utils.isAddress(to)) {
+        throw Error('Invalid custom recipient address');
+      }
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
@@ -238,7 +243,7 @@
           $fromChain,
         );
 
-      const bridgeOpts = {
+      const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
@@ -248,6 +253,7 @@
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
+        to: showTo && to ? to : await $signer.getAddress(),
       };
 
       const doesUserHaveEnoughBalance = await checkUserHasEnoughBalance(
@@ -324,6 +330,7 @@
           tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
           processingFeeInWei: getProcessingFee(),
           memo: memo,
+          to: showTo && to ? to : await $signer.getAddress(),
         });
         const requiredGas = gasEstimate.mul(feeData.gasPrice);
         const userBalance = await $signer.getBalance('latest');
@@ -420,6 +427,8 @@
     onMint={async () => await getUserBalance($signer, $token, $fromChain)}
     bind:isOpen={isFaucetModalOpen} />
 {/if}
+
+<To bind:showTo bind:to />
 
 <ProcessingFee bind:customFee bind:recommendedFee />
 

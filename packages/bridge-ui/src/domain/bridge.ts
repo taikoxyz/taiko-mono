@@ -26,6 +26,7 @@ type BridgeOpts = {
   tokenId?: string;
   memo?: string;
   isBridgedTokenAlreadyDeployed?: boolean;
+  to: string;
 };
 
 type ClaimOpts = {

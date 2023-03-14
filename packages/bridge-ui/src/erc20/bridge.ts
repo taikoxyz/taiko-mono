@@ -34,7 +34,7 @@ class ERC20Bridge implements Bridge {
       srcChainId: opts.fromChainId,
       destChainId: opts.toChainId,
       owner: owner,
-      to: owner,
+      to: opts.to,
       refundAddress: owner,
       depositValue: opts.amountInWei,
       callValue: 0,
@@ -108,13 +108,11 @@ class ERC20Bridge implements Bridge {
       throw Error('token vault does not have required allowance');
     }
 
-    const { contract, owner, message } = await ERC20Bridge.prepareTransaction(
-      opts,
-    );
+    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
     const tx = await contract.sendERC20(
       message.destChainId,
-      owner,
+      message.to,
       opts.tokenAddress,
       opts.amountInWei,
       message.gasLimit,
@@ -130,13 +128,11 @@ class ERC20Bridge implements Bridge {
   }
 
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
-    const { contract, owner, message } = await ERC20Bridge.prepareTransaction(
-      opts,
-    );
+    const { contract, message } = await ERC20Bridge.prepareTransaction(opts);
 
     const gasEstimate = await contract.estimateGas.sendERC20(
       message.destChainId,
-      owner,
+      message.to,
       opts.tokenAddress,
       opts.amountInWei,
       message.gasLimit,

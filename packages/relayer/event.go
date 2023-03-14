@@ -3,13 +3,16 @@ package relayer
 import (
 	"context"
 	"math/big"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"gorm.io/datatypes"
 )
 
 var (
-	EventNameMessageSent = "MessageSent"
+	EventNameMessageSent          = "MessageSent"
+	EventNameMessageStatusChanged = "MessageStatusChanged"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -54,6 +57,8 @@ type Event struct {
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
 	Amount                 string         `json:"amount"`
+	MsgHash                string         `json:"msgHash"`
+	MessageOwner           string         `json:"messageOwner"`
 }
 
 // SaveEventOpts
@@ -68,6 +73,8 @@ type SaveEventOpts struct {
 	CanonicalTokenName     string
 	CanonicalTokenDecimals uint8
 	Amount                 string
+	MsgHash                string
+	MessageOwner           string
 }
 
 // EventRepository is used to interact with events in the store
@@ -81,6 +88,11 @@ type EventRepository interface {
 	) ([]*Event, error)
 	FindAllByAddress(
 		ctx context.Context,
+		req *http.Request,
 		address common.Address,
+	) (paginate.Page, error)
+	FindAllByMsgHash(
+		ctx context.Context,
+		msgHash string,
 	) ([]*Event, error)
 }

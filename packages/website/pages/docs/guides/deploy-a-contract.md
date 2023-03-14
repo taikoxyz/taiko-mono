@@ -1,4 +1,4 @@
-# Deploy a contract
+## Summary
 
 These steps will show you how to deploy a smart contract to Taiko A1 using Foundry. Read the [Foundry Book](https://book.getfoundry.sh/getting-started/first-steps) for the latest docs on Foundry.
 
@@ -23,3 +23,5 @@ These steps will show you how to deploy a smart contract to Taiko A1 using Found
    ```
    > Note: The `--legacy` flag is needed because EIP-1559 is currently disabled on Taiko—there are plans to re-enable it in the future.
 4. Paste the address from the output into the [L2 block explorer](https://l2explorer.hackathon.taiko.xyz/) to verify that the contract was deployed.
+
+## Troubleshooting

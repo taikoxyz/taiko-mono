@@ -146,6 +146,7 @@
 
       const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
 
+
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
@@ -154,6 +155,13 @@
       // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
       //   return [tx.hash, tx];
       // }))
+
+      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+      //   if (apiTxs.find((apiTx) => apiTx.hash.toLowerCase() === tx.hash)) {
+      //     return false;
+      //   }
+      //   return true;
+      // });
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         const blockInfo = blockInfoMap.get(tx.fromChainId);
@@ -170,7 +178,6 @@
       const tokens = await $tokenService.GetTokens(userAddress);
       userTokens.set(tokens);
     }
-    return store;
   });
 
   pendingTransactions.subscribe((store) => {

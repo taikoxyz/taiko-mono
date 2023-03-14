@@ -19,4 +19,13 @@ type Bridge interface {
 	GetMessageStatus(opts *bind.CallOpts, msgHash [32]byte) (uint8, error)
 	ProcessMessage(opts *bind.TransactOpts, message bridge.IBridgeMessage, proof []byte) (*types.Transaction, error)
 	IsMessageReceived(opts *bind.CallOpts, msgHash [32]byte, srcChainId *big.Int, proof []byte) (bool, error) // nolint
+	FilterMessageStatusChanged(
+		opts *bind.FilterOpts,
+		msgHash [][32]byte,
+	) (*bridge.BridgeMessageStatusChangedIterator, error)
+	WatchMessageStatusChanged(
+		opts *bind.WatchOpts,
+		sink chan<- *bridge.BridgeMessageStatusChanged,
+		msgHash [][32]byte,
+	) (event.Subscription, error)
 }

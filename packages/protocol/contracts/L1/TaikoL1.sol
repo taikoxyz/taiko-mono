@@ -45,6 +45,7 @@ contract TaikoL1 is
         LibVerifying.init({
             state: state,
             genesisBlockHash: _genesisBlockHash,
+            config: getConfig(),
             feeBase: _feeBase
         });
     }

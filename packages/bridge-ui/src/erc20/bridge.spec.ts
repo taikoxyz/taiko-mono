@@ -53,6 +53,7 @@ const opts: BridgeOpts = {
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
+  to: '0x',
 };
 
 const approveOpts: ApproveOpts = {
@@ -198,7 +199,7 @@ describe('bridge tests', () => {
     expect(mockContract.sendERC20).toHaveBeenCalled();
     expect(mockContract.sendERC20).toHaveBeenCalledWith(
       opts.toChainId,
-      '0xfake',
+      '0x',
       opts.tokenAddress,
       opts.amountInWei,
       BigNumber.from(2640000),
@@ -228,6 +229,7 @@ describe('bridge tests', () => {
       fromChainId: mainnet.id,
       toChainId: taiko.id,
       tokenVaultAddress: '0x456',
+      to: await wallet.getAddress(),
     };
 
     await bridge.Bridge(opts);
