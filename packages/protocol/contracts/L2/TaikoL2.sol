@@ -84,7 +84,9 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         if (_publicInputHash != current) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
+        _publicInputHash = next;
         _l2Hashes[parentHeight] = parentHash;
+
         latestSyncedL1Height = l1Height;
 
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
@@ -137,8 +139,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         // put the previous 255 blockhashes (excluding the parent's) into a
         // ring buffer.
         for (uint256 i = 2; i <= 256 && number >= i; ) {
-            ancestors[(number - i) % 255] = blockhash(number - i);
             unchecked {
+                uint j = number - i;
+
+                ancestors[j % 255] = blockhash(j);
                 ++i;
             }
         }
@@ -150,9 +154,8 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         );
 
         current = keccak256(abi.encodePacked(extra, ancestors));
-            // replace the oldest block hash with the parent's blockhash
-            ancestors[(number - 1) % 255] = parentHash;
-            next = keccak256(abi.encodePacked(extra, ancestors));
-        }
+        // replace the oldest block hash with the parent's blockhash
+        ancestors[(number - 1) % 255] = parentHash;
+        next = keccak256(abi.encodePacked(extra, ancestors));
     }
 }
