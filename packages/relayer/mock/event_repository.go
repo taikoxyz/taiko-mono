@@ -3,11 +3,9 @@ package mock
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"math/rand"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
@@ -61,45 +59,10 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddressAndChainID(
-	ctx context.Context,
-	chainID *big.Int,
-	address common.Address,
-) ([]*relayer.Event, error) {
-	type d struct {
-		Owner string `json:"Owner"`
-	}
-
-	events := make([]*relayer.Event, 0)
-
-	for _, e := range r.events {
-		if e.ChainID != int64(chainID.Uint64()) {
-			continue
-		}
-
-		m, err := e.Data.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-
-		data := &d{}
-		if err := json.Unmarshal(m, data); err != nil {
-			return nil, err
-		}
-
-		if data.Owner == address.Hex() {
-			events = append(events, e)
-			break
-		}
-	}
-
-	return events, nil
-}
-
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
-	address common.Address,
+	opts relayer.FindAllByAddressOpts,
 ) (paginate.Page, error) {
 	type d struct {
 		Owner string `json:"Owner"`
@@ -118,7 +81,7 @@ func (r *EventRepository) FindAllByAddress(
 			return paginate.Page{}, err
 		}
 
-		if data.Owner == address.Hex() {
+		if data.Owner == opts.Address.Hex() {
 			events = append(events, e)
 			break
 		}
