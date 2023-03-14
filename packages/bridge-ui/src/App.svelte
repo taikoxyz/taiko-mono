@@ -30,8 +30,7 @@
   setupI18n({ withLocale: 'en' });
   import {
     chains,
-    CHAIN_ID_MAINNET,
-    CHAIN_ID_TAIKO,
+    providers,
     CHAIN_MAINNET,
     CHAIN_TKO,
     mainnet,
@@ -45,7 +44,6 @@
   import { StorageService } from './storage/service';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { providers } from './store/providers';
   import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/customTokenService';
@@ -54,56 +52,7 @@
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
 
-  const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
-    number,
-    ethers.providers.JsonRpcProvider
-  >();
-
-  providerMap.set(
-    CHAIN_ID_MAINNET,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL),
-  );
-  providerMap.set(
-    CHAIN_ID_TAIKO,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL),
-  );
-  providers.set(providerMap);
-
-  const { chains: wagmiChains, provider } = configureChains(
-    [mainnet, taiko],
-    [
-      publicProvider(),
-      jsonRpcProvider({
-        rpc: (chain) => ({
-          http: providerMap.get(chain.id).connection.url,
-        }),
-      }),
-    ],
-  );
-
-  $wagmiClient = createClient({
-    autoConnect: true,
-    provider,
-    connectors: [
-      new MetaMaskConnector({
-        chains: wagmiChains,
-      }),
-      new CoinbaseWalletConnector({
-        chains: wagmiChains,
-        options: {
-          appName: 'Taiko Bridge',
-        },
-      }),
-      new WalletConnectConnector({
-        chains: wagmiChains,
-        options: {
-          qrcode: true,
-        },
-      }),
-    ],
-  });
-
-  const prover: Prover = new ProofService(providerMap);
+  const prover: Prover = new ProofService(providers);
 
   const ethBridge = new ETHBridge(prover);
   const erc20Bridge = new ERC20Bridge(prover);
@@ -124,12 +73,12 @@
   });
 
   const storageTransactioner: Transactioner = new StorageService(
-    window.localStorage,
-    providerMap,
+    globalThis.localStorage,
+    providers,
   );
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
-    providerMap,
+    providers,
     import.meta.env.VITE_RELAYER_URL,
   );
 
@@ -145,7 +94,6 @@
       const userAddress = await store.getAddress();
 
       const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
-
 
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
@@ -209,7 +157,7 @@
         }
 
         if (tx.status === MessageStatus.New) {
-          const provider = providerMap.get(tx.toChainId);
+          const provider = providers.get(tx.toChainId);
 
           const interval = setInterval(async () => {
             const txInterval = transactionToIntervalMap.get(tx.hash);

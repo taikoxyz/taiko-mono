@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
-  import { signer } from '../../store/signer';
+  import { onMount } from 'svelte';
   import { _ } from 'svelte-i18n';
   import {
     connect as wagmiConnect,
@@ -11,9 +10,24 @@
     ConnectorNotFoundError,
     getNetwork,
     getAccount,
+    Client,
+    createClient,
+    configureChains,
   } from '@wagmi/core';
+  import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
+  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
+  import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
+  import { publicProvider } from '@wagmi/core/providers/public';
+  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
 
-  import { CHAIN_MAINNET, CHAIN_TKO } from '../../domain/chain';
+  import { signer } from '../../store/signer';
+  import {
+    CHAIN_MAINNET,
+    CHAIN_TKO,
+    mainnet,
+    taiko,
+    providers,
+  } from '../../domain/chain';
   import { fromChain, toChain } from '../../store/chain';
   import {
     isSwitchEthereumChainModalOpen,
@@ -21,11 +35,48 @@
   } from '../../store/modal';
   import { errorToast, successToast } from '../../utils/toast';
   import Modal from '../modals/Modal.svelte';
-  import { wagmiClient } from '../../store/wagmi';
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
+
+  const iconMap = {
+    metamask: MetaMask,
+    walletconnect: WalletConnect,
+    'coinbase wallet': CoinbaseWallet,
+  };
+
+  const { chains, provider } = configureChains(
+    [mainnet, taiko],
+    [
+      publicProvider(),
+      jsonRpcProvider({
+        rpc: (chain) => ({
+          http: providers.get(chain.id).connection.url,
+        }),
+      }),
+    ],
+  );
+
+  let wagmiClient: Client = createClient({
+    autoConnect: true,
+    provider,
+    connectors: [
+      new MetaMaskConnector({ chains }),
+      new CoinbaseWalletConnector({
+        chains,
+        options: {
+          appName: 'Taiko Bridge',
+        },
+      }),
+      new WalletConnectConnector({
+        chains,
+        options: {
+          qrcode: true,
+        },
+      }),
+    ],
+  });
 
   const changeChain = async (chainId: number) => {
     if (chainId === CHAIN_TKO.id) {
@@ -72,15 +123,10 @@
     }
   }
 
-  const iconMap = {
-    metamask: MetaMask,
-    walletconnect: WalletConnect,
-    'coinbase wallet': CoinbaseWallet,
-  };
-
   onMount(() => {
     const account = getAccount();
     if (account.isConnected) {
+      // TODO: loading state
       (async () => {
         await onConnect();
       })();
@@ -96,7 +142,7 @@
   isOpen={$isConnectWalletModalOpen}
   onClose={() => ($isConnectWalletModalOpen = false)}>
   <div class="flex flex-col items-center space-y-4 space-x-0 p-8">
-    {#each $wagmiClient.connectors as connector}
+    {#each wagmiClient.connectors as connector}
       <button
         class="btn flex items-center justify-start md:pl-32 space-x-4 w-full"
         on:click={() => connectWithConnector(connector)}>
