@@ -30,7 +30,7 @@ describe("TaikoL1", function () {
             );
         });
 
-        it("should return appropraite hash for header", async function () {
+        it("should return appropriate hash for header", async function () {
             const hash = await taikoL1.getSyncedHeader(0);
             expect(hash).to.be.eq(genesisHash);
         });
