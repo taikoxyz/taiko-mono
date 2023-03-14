@@ -7,9 +7,11 @@
 pragma solidity ^0.8.18;
 
 import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
-import {EssentialContract} from "../common/EssentialContract.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract TaikoL2 is EssentialContract, IXchainSync {
+contract TaikoL2 is OwnableUpgradeable, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
@@ -20,14 +22,13 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
-    uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events and Errors  *
@@ -35,24 +36,13 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     event BlockInvalidated(bytes32 indexed txListHash);
 
-    error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
 
     /**********************
      * Constructor         *
      **********************/
 
-    function init(
-        address _addressManager,
-        uint256 _l1ChainId
-    ) external initializer {
-        EssentialContract._init(_addressManager);
-        l1ChainId = _l1ChainId;
-
-        if (block.chainid == 0 || block.chainid == _l1ChainId) {
-            revert L2_INVALID_CHAIN_ID();
-        }
-
+    function init() external initializer {
         (_publicInputHash, ) = hashPublicInputs(0);
     }
 
