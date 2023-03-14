@@ -7,11 +7,7 @@
   import { Contract, ethers } from 'ethers';
   import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
   import { signer } from '../store/signer';
-  import {
-    pendingTransactions,
-    showTransactionDetails,
-    showMessageStatusTooltip,
-  } from '../store/transactions';
+  import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
   import { _ } from 'svelte-i18n';
   import {
@@ -30,9 +26,12 @@
   import TokenVault from '../constants/abi/TokenVault';
 
   export let transaction: BridgeTransaction;
-
   export let fromChain: Chain;
   export let toChain: Chain;
+
+  export let onTooltipClick: () => void;
+  export let onShowTransactionDetailsClick: () => void;
+
   let loading: boolean;
 
   let processable: boolean = false;
@@ -203,7 +202,7 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={() => ($showMessageStatusTooltip = true)}>
+    <ButtonWithTooltip onClick={onTooltipClick}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -249,11 +248,11 @@
   </td>
 
   <td>
-    <span
+    <button
       class="cursor-pointer inline-block"
-      on:click={() => ($showTransactionDetails = transaction)}>
+      on:click={onShowTransactionDetailsClick}>
       <ArrowTopRightOnSquare />
-    </span>
+    </button>
   </td>
 </tr>
 
