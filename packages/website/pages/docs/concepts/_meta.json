@@ -4,5 +4,11 @@
   },
   "bridging": {
     "title": "Bridging"
+  },
+  "intrinsic-validity-checks": {
+    "title": "Intrinsic validity checks"
+  },
+  "taiko-nodes": {
+    "title": "Taiko nodes"
   }
 }
