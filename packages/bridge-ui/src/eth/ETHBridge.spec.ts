@@ -6,7 +6,7 @@ import {
   taiko,
 } from '../domain/chain';
 import type { Bridge, BridgeOpts } from '../domain/bridge';
-import ETHBridge from './bridge';
+import { ETHBridge } from './ETHBridge';
 import { Message, MessageStatus } from '../domain/message';
 
 const mockSigner = {
