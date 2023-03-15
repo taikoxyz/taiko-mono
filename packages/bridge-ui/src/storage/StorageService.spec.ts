@@ -1,13 +1,8 @@
 import { BigNumber, BigNumberish, ethers } from 'ethers';
 import { TKO } from '../domain/token';
-import {
-  CHAIN_ID_MAINNET,
-  CHAIN_ID_TAIKO,
-  CHAIN_MAINNET,
-  CHAIN_TKO,
-} from '../domain/chain';
+import { CHAIN_ID_MAINNET, CHAIN_ID_TAIKO } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
-import { StorageService } from './service';
+import { StorageService } from './StorageService';
 import type { BridgeTransaction } from '../domain/transactions';
 const mockStorage = {
   getItem: jest.fn(),
