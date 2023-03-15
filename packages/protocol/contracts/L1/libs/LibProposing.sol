@@ -113,21 +113,19 @@ library LibProposing {
             nextForkChoiceId: 1
         });
 
-        if (state.lastProposedAt > 0) {
-            uint256 blockTime;
+        {
+            uint256 time = LibUtils.getLastProposedAt(state, config);
             unchecked {
-                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
+                time = (meta.timestamp - time) * 1000;
             }
-            state.avgBlockTime = LibUtils
+            state.avgBlockTimeRT = LibUtils
                 .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: blockTime,
+                    maValue: state.avgBlockTimeRT,
+                    newValue: time,
                     maf: config.proposingConfig.avgTimeMAF
                 })
                 .toUint64();
         }
-
-        state.lastProposedAt = meta.timestamp;
 
         emit BlockProposed(state.nextBlockId, meta);
         unchecked {

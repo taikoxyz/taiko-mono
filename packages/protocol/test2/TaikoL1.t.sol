@@ -67,6 +67,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             string(abi.encodePacked("verifier_", uint256(100))),
             address(new Verifier())
         );
+        mine(1);
     }
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumBlocks'
