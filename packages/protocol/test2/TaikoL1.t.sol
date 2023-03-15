@@ -30,6 +30,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxNumBlocks = 11;
         // this value must be changed if `maxNumBlocks` is changed.
         config.slotSmoothingFactor = 4160;
+        config.anchorTxGasLimit = 180000;
 
         config.proposingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,

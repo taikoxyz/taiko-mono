@@ -119,25 +119,26 @@ library LibProving {
                     false
                 );
 
-                bytes memory buffer = bytes.concat(
-                    // for checking anchor tx
-                    bytes32(uint256(uint160(l1SignalService))),
-                    // for checking signalRoot
-                    bytes32(uint256(uint160(l2SignalService))),
-                    evidence.parentHash,
-                    evidence.blockHash,
-                    evidence.signalRoot
-                );
-                buffer = bytes.concat(
-                    buffer,
-                    bytes32(uint256(uint160(evidence.prover))),
-                    bytes32(uint256(evidence.meta.id)),
-                    bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash,
-                    evidence.meta.txListHash
-                );
+                bytes32[10] memory inputs;
+                // for checking anchor tx
+                inputs[0] = bytes32(uint256(uint160(l1SignalService)));
+                // for checking signalRoot
+                inputs[1] = bytes32(uint256(uint160(l2SignalService)));
+                inputs[2] = evidence.parentHash;
+                inputs[3] = evidence.blockHash;
+                inputs[4] = evidence.signalRoot;
+                inputs[5] = bytes32(uint256(uint160(evidence.prover)));
+                inputs[6] = bytes32(uint256(evidence.meta.id));
+                inputs[7] = bytes32(evidence.meta.l1Height);
+                inputs[8] = evidence.meta.l1Hash;
+                inputs[9] = evidence.meta.txListHash;
 
-                instance = keccak256(buffer);
+                // circuit should use this value to check anchor gas limit
+                inputs[10] = bytes32(config.anchorTxGasLimit);
+
+                assembly {
+                    instance := keccak256(inputs, mul(32, 10))
+                }
             }
 
             bytes memory verifierId = abi.encodePacked(

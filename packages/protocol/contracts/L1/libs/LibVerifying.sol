@@ -193,6 +193,7 @@ library LibVerifying {
             config.maxBytesPerTxList == 0 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
+            config.anchorTxGasLimit == 0 ||
             config.rewardBurnBips >= 10000
         ) revert L1_INVALID_CONFIG();
 

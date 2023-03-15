@@ -21,6 +21,7 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000, // owner:david. Set it to 120KB, since 128KB is the upper size limit of a geth transaction, so using 120KB for the proposed transactions list calldata, 8K for the remaining tx fields.
                 minTxGasLimit: 21000, // owner:david
                 slotSmoothingFactor: 946649, // owner:daniel
+                anchorTxGasLimit: 180000, // owner: david
                 rewardBurnBips: 100, // owner:daniel. 100 basis points or 1%
                 proposerDepositPctg: 25, // owner:daniel - 25%
                 // Moving average factors
