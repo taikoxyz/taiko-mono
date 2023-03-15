@@ -14,9 +14,9 @@
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
   import { BridgeType } from './domain/bridge';
-  import ETHBridge from './eth/bridge';
+  import { ETHBridge } from './eth/ETHBridge';
   import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
-  import ERC20Bridge from './erc20/bridge';
+  import { ERC20Bridge } from './erc20/ERC20Bridge';
   import {
     pendingTransactions,
     transactioner,
@@ -38,7 +38,7 @@
     taiko,
   } from './domain/chain';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/service';
+  import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
   import type { Prover } from './domain/proof';
   import { successToast } from './utils/toast';
@@ -50,7 +50,7 @@
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
-  import RelayerAPIService from './relayer-api/service';
+  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
 
