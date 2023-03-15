@@ -45,8 +45,8 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
      **********************/
 
     function init() external initializer {
+        console2.log("genesis height:", block.number);
         (publicInputHash, ) = hashPublicInputs(0);
-        console2.log("genesis:", uint(publicInputHash));
     }
 
     /**********************
@@ -132,25 +132,33 @@ contract TaikoL2 is OwnableUpgradeable, IXchainSync {
 
         // put the previous 255 blockhashes (excluding the parent's) into a
         // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ) {
-            unchecked {
-                uint j = number - i;
 
-                ancestors[j % 255] = blockhash(j);
-                ++i;
-            }
+        for (uint i = 2; i <= 256; number >= i) {
+            uint j = number - i;
+            ancestors[j % 255] = blockhash(j);
+             console2.log(j % 255, " >", uint256(blockhash(j)));
+             ++i;
         }
 
         bytes memory extra = bytes.concat(
             bytes32(block.chainid),
-            bytes32(number),
+            bytes32(number-1),
             bytes32(0) //placeholder for EIP-1559 baseFee
         );
 
         expected = keccak256(abi.encodePacked(extra, ancestors));
+        console2.log(number, "->", uint(expected));
         // replace the oldest block hash with the parent's blockhash
 
-        ancestors[(number - 1) % 255] = parentHash;
-        next = keccak256(abi.encodePacked(extra, ancestors));
+        if (parentHash != 0) {
+            ancestors[(number - 1) % 255] = parentHash;
+            extra = bytes.concat(
+                bytes32(block.chainid),
+                bytes32(number),
+                bytes32(0) //placeholder for EIP-1559 baseFee
+            );
+            next = keccak256(abi.encodePacked(extra, ancestors));
+            console2.log(block.number, "=>", uint(next));
+        }
     }
 }
