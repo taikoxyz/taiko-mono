@@ -56,7 +56,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        inputs[256] = bytes32(0); // EIP-1559 feeBase
+        // inputs[256] = bytes32(0); // EIP-1559 feeBase
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
@@ -92,22 +92,23 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             // Check the latest 256 block hashes (excluding the parent hash).
             bytes32[257] memory inputs;
             uint256 n = block.number;
+            uint256 m; // parent block height
 
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
             unchecked {
+                m = n - 1;
                 for (uint256 i; i < 255 && n >= i + 2; ++i) {
                     uint j = n - i - 2;
                     inputs[j % 255] = blockhash(j);
                 }
             }
             inputs[255] = bytes32(block.chainid);
-            inputs[256] = bytes32(0); // EIP-1559 feeBase
+            // inputs[256] = bytes32(0); // EIP-1559 feeBase
 
             if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
-            uint256 m = n - 1; // parent block height
             // replace the oldest block hash with the parent's blockhash
             inputs[m % 255] = blockhash(m);
             _publicInputHash = _hashInputs(inputs);
