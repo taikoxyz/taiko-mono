@@ -8,7 +8,6 @@ pragma solidity ^0.8.18;
 
 import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
-import "forge-std/console2.sol";
 
 contract TaikoL2 is EssentialContract, IXchainSync {
     /**********************
@@ -21,7 +20,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
+    // A hash to check te integrity of public inputs.
     bytes32 public publicInputHash;
+
+    // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
     uint256[46] private __gap;
@@ -30,67 +32,32 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Events and Errors  *
      **********************/
 
-    event BlockInvalidated(bytes32 indexed txListHash);
-
     error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
-    error L2_TOO_LATE();
 
     /**********************
      * Constructor         *
      **********************/
 
     function init(address _addressManager) external initializer {
-        uint256 n = block.number;
-
-        // This contract must be initialized in genesis
-        if (n > 1) revert L2_TOO_LATE();
-        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
-
-        // _addressManager is current not used but is kept for future
-        // usage.
         EssentialContract._init(_addressManager);
 
-        bytes32 parentHash =  n == 1? blockhash(n - 1): bytes32(0);
+        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
 
-        bytes32 ptr;
-        assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
-            ptr := mload(64)
-        }
+        bytes32[258] memory inputs;
+        uint256 n = block.number;
 
-            for (uint256 i = 0; i < 255; ++i) {
-                if (n >= i + 2) {
-                    assembly {
-                        let m := sub(sub(n, i), 2)
-                        let offset := mul(mod(m, 255), 32)
-                        mstore(add(ptr, offset), blockhash(m))
-                    }
-                } else {
-                    assembly {
-                        let m := sub(sub(add(n, 255), i), 2)
-                        let offset := mul(mod(m, 255), 32)
-                        mstore(add(ptr, offset), 0)
-                    }
-                }
-                unchecked {
-                    ++i;
-                }
+        unchecked {
+            for (uint256 i; i < 255 && n >= i + 1; ++i) {
+                uint j = n - i - 1;
+                inputs[j % 255] = blockhash(j);
             }
-
-        assembly {
-            mstore(add(ptr, mul(255, 32)), chainid()) // chain id
-            mstore(add(ptr, mul(256, 32)), 0) // fee base
-
-            let offset := mul(mod(sub(add(n, 255), 1), 255), 32)
-            mstore(add(ptr, offset), parentHash) // parentHash
-            mstore(add(ptr, mul(257, 32)), n) // current block height
-            sstore(publicInputHash.slot, keccak256(ptr, mul(32, 258)))
         }
 
-        console2.log("----------");
-        console2.log("number:", block.number);
-        console2.log("now  :", uint(publicInputHash));
+        inputs[255] = bytes32(block.chainid);
+        inputs[256] = bytes32(0); // baseFee
+        inputs[257] = bytes32(n);
+        publicInputHash = _hashInputs(inputs);
     }
 
     /**********************
@@ -114,61 +81,36 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        uint256 n = block.number;
-        bytes32 parentHash = blockhash(n - 1);
-        bytes32 prevPublicInputHash;
-        bytes32 currPublicInputHash;
-
-        bytes32 ptr;
-        assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
-            ptr := mload(64)
-        }
-
-            for (uint256 i = 0; i < 255; ++i) {
-                if (n >= i + 2) {
-                    assembly {
-                        let m := sub(sub(n, i), 2)
-                        let offset := mul(mod(m, 255), 32)
-                        mstore(add(ptr, offset), blockhash(m))
-                    }
-                } else {
-                    assembly {
-                        let m := sub(sub(add(n, 255), i), 2)
-                        let offset := mul(mod(m, 255), 32)
-                        mstore(add(ptr, offset), 0)
-                    }
-                }
-                unchecked {
-                    ++i;
+        {
+            // Check the latest 256 block hashes (excluding the parent hash).
+            bytes32[258] memory inputs;
+            uint256 n = block.number;
+            uint256 m = n - 1; // parent block height
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            unchecked {
+                for (uint256 i; i < 255 && n >= i + 2; ++i) {
+                    uint j = n - i - 2;
+                    inputs[j % 255] = blockhash(j);
                 }
             }
+            inputs[255] = bytes32(block.chainid);
+            inputs[256] = bytes32(0); // baseFee
+            inputs[257] = bytes32(m);
 
-        assembly {
-            mstore(add(ptr, mul(255, 32)), chainid()) // chain id
-            mstore(add(ptr, mul(256, 32)), 0) // fee base
+            if (publicInputHash != _hashInputs(inputs))
+                revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
-            mstore(add(ptr, mul(257, 32)), sub(n, 1)) // parent block height
-            prevPublicInputHash := keccak256(ptr, mul(32, 258))
+            // replace the oldest block hash with the parent's blockhash
 
-            let offset := mul(mod(sub(add(n, 255), 1), 255), 32)
-            mstore(add(ptr, offset), parentHash) // parentHash
-            mstore(add(ptr, mul(257, 32)), n) // current block height
-            currPublicInputHash := keccak256(ptr, mul(32, 258))
+            inputs[m % 255] = blockhash(m);
+            inputs[257] = bytes32(n);
+            _l2Hashes[m] = blockhash(m);
+
+            publicInputHash = _hashInputs(inputs);
         }
-        console2.log("----------");
-        console2.log("number:", block.number);
-        console2.log("now  :", uint(publicInputHash));
-        console2.log("pre  :", uint(prevPublicInputHash));
-        console2.log("curr :", uint(currPublicInputHash));
-        // if (prevPublicInputHash != publicInputHash) {
-        //     revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        // }
-        publicInputHash = currPublicInputHash;
 
         latestSyncedL1Height = l1Height;
-        _l2Hashes[n-1] = parentHash;
-
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
 
@@ -176,6 +118,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         // l1Hash, l1SignalRoot, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
+
         emit XchainSynced(l1Height, chainData);
     }
 
@@ -204,6 +147,18 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             return blockhash(number);
         } else {
             return _l2Hashes[number];
+        }
+    }
+
+    /**********************
+     * Private Functions  *
+     **********************/
+
+    function _hashInputs(
+        bytes32[258] memory inputs
+    ) private pure returns (bytes32 hash) {
+        assembly {
+            hash := keccak256(inputs, mul(258, 32))
         }
     }
 }
