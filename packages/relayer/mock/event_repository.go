@@ -29,6 +29,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Name:         opts.Name,
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
+		EventType:    opts.EventType,
 	})
 
 	return nil, nil

@@ -209,6 +209,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 			Status:       relayer.EventStatus(m["status"].(uint8)),
 			MsgHash:      e.MsgHash,
 			MessageOwner: e.MessageOwner,
+			Event:        relayer.EventNameMessageStatusChanged,
 		})
 		if err != nil {
 			return errors.Wrap(err, "svc.eventRepo.Save")

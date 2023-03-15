@@ -40,6 +40,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		Amount:                 opts.Amount,
 		MsgHash:                opts.MsgHash,
 		MessageOwner:           opts.MessageOwner,
+		Event:                  opts.Event,
 	}
 
 	if err := r.db.GormDB().Create(e).Error; err != nil {
@@ -74,8 +75,6 @@ func (r *EventRepository) FindAllByMsgHash(
 		return nil, errors.Wrap(err, "r.db.Find")
 	}
 
-	// find all message status changed events
-
 	return e, nil
 }
 
@@ -101,6 +100,10 @@ func (r *EventRepository) FindAllByAddress(
 
 	if opts.ChainID != nil {
 		q = q.Where("chain_id = ?", opts.ChainID.Int64())
+	}
+
+	if opts.Event != nil && *opts.Event != "" {
+		q = q.Where("event = ?", *opts.Event)
 	}
 
 	reqCtx := pg.With(q)
