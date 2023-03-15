@@ -11,9 +11,10 @@ import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
 
-class RelayerAPIService implements RelayerAPI {
+export class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
   private readonly baseUrl: string;
+
   constructor(
     providerMap: Map<number, ethers.providers.JsonRpcProvider>,
     baseUrl: string,
@@ -190,5 +191,3 @@ class RelayerAPIService implements RelayerAPI {
     return blockInfoMap;
   }
 }
-
-export default RelayerAPIService;
