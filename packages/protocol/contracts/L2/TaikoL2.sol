@@ -22,7 +22,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
-    bytes32 private _publicInputHash;
+    bytes32 private publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
@@ -37,6 +37,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_TOO_LATE();
 
     /**********************
      * Constructor         *
@@ -46,6 +47,8 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         address _addressManager,
         uint256 _l1ChainId
     ) external initializer {
+        if (block.number > 1) revert L2_TOO_LATE();
+
         EssentialContract._init(_addressManager);
         l1ChainId = _l1ChainId;
 
@@ -62,12 +65,16 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             }
         }
 
-        _publicInputHash = _hashPublicInputs({
-            chainId: block.chainid,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
+        uint baseFee = 0;
+
+        bytes32[258] memory inputs;
+        if (block.number == 1) {
+            inputs[0] = blockhash(0);
+        }
+        inputs[255] = bytes32(block.chainid);
+        inputs[256] = bytes32(baseFee);
+        inputs[257] = bytes32(block.number);
+        publicInputHash = keccak256(abi.encodePacked(inputs));
     }
 
     /**********************
@@ -87,15 +94,56 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
     function anchor(
+        bytes32[255] calldata /*publicInput*/,
         uint256 l1Height,
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        _checkPublicInputs();
+        // Check public inputs
+        uint n = block.number;
+        bytes32 parentHash = blockhash(block.number - 1);
+        uint baseFee = 0;
+        bytes32 prevPublicInputHash;
+        bytes32 currPublicInputHash;
+
+        assembly {
+            // Load the free memory pointer and allocate memory for the concatenated arguments
+            let ptr := mload(64)
+            for {
+                let i := 0
+            } lt(i, 255) {
+                i := add(i, 1)
+            } {
+                // loc = (n + 255 - i - 2) % 255
+                let loc := mod(sub(sub(add(n, 255), i), 2), 255)
+                calldatacopy(
+                    add(ptr, mul(loc, 32)), // location
+                    add(4, mul(i, 32)), // index on calldata
+                    32
+                )
+            }
+
+            mstore(add(ptr, mul(255, 32)), chainid())
+            mstore(add(ptr, mul(256, 32)), baseFee)
+            mstore(add(ptr, mul(257, 32)), sub(n, 1))
+
+            prevPublicInputHash := keccak256(ptr, mul(32, 258))
+
+            let loc := mod(sub(n, 1), 255)
+            mstore(add(ptr, mul(loc, 32)), parentHash)
+            mstore(add(ptr, mul(256, 32)), n)
+            currPublicInputHash := keccak256(ptr, mul(32, 258))
+        }
+
+        if (publicInputHash != 0 && prevPublicInputHash != publicInputHash) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
+        publicInputHash = currPublicInputHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
+        _l2Hashes[n - 1] = parentHash;
 
         // A circuit will verify the integratity among:
         // l1Hash, l1SignalRoot, and l1SignalServiceAddress
@@ -131,65 +179,5 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         } else {
             return _l2Hashes[number];
         }
-    }
-
-    /**********************
-     * Private Functions  *
-     **********************/
-
-    function _checkPublicInputs() private {
-        // Check the latest 256 block hashes (excluding the parent hash).
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        uint256 chainId = block.chainid;
-
-        // put the previous 255 blockhashes (excluding the parent's) into a
-        // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ) {
-            ancestors[(number - i) % 255] = blockhash(number - i);
-            unchecked {
-                ++i;
-            }
-        }
-
-        uint256 parentHeight = number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
-
-        if (
-            _publicInputHash !=
-            _hashPublicInputs({
-                chainId: chainId,
-                number: parentHeight,
-                baseFee: 0,
-                ancestors: ancestors
-            })
-        ) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        }
-
-        // replace the oldest block hash with the parent's blockhash
-        ancestors[parentHeight % 255] = parentHash;
-        _publicInputHash = _hashPublicInputs({
-            chainId: chainId,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
-
-        _l2Hashes[parentHeight] = parentHash;
-    }
-
-    function _hashPublicInputs(
-        uint256 chainId,
-        uint256 number,
-        uint256 baseFee,
-        bytes32[255] memory ancestors
-    ) private pure returns (bytes32) {
-        bytes memory extra = bytes.concat(
-            bytes32(chainId),
-            bytes32(number),
-            bytes32(baseFee)
-        );
-        return keccak256(abi.encodePacked(extra, ancestors));
     }
 }
