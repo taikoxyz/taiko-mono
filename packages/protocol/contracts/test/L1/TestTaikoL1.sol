@@ -28,6 +28,7 @@ contract TestTaikoL1 is TaikoL1 {
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
         config.slotSmoothingFactor = 590000;
+        config.anchorTxGasLimit = 180000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 
