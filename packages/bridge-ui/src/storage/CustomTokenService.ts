@@ -1,14 +1,9 @@
 import type { Token, TokenService } from 'src/domain/token';
 
-interface storage {
-  getItem(key: string): string;
-  setItem(key: string, value: string);
-}
+export class CustomTokenService implements TokenService {
+  private readonly storage: Storage;
 
-class CustomTokenService implements TokenService {
-  private readonly storage: storage;
-
-  constructor(storage: storage) {
+  constructor(storage: Storage) {
     this.storage = storage;
   }
 
@@ -57,5 +52,3 @@ class CustomTokenService implements TokenService {
     return updatedTokenList;
   }
 }
-
-export { CustomTokenService };
