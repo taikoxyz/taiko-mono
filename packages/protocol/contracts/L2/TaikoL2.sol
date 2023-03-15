@@ -56,7 +56,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        inputs[256] = bytes32(0); // baseFee
+        inputs[256] = bytes32(0); // EIP-1559 feeBase
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
@@ -72,7 +72,12 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * certain block-level global variables because they are not part of the
      * Trie structure.
      *
-     * Note: This transaction shall be the first transaction in every L2 block.
+     * A circuit will verify the integratity among:
+     * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
+     * -  (l1Hash and l1SignalServiceAddress) are both hased into of the
+     *    ZKP's instance.
+     *
+     * This transaction shall be the first transaction in every L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
@@ -97,7 +102,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                 }
             }
             inputs[255] = bytes32(block.chainid);
-            inputs[256] = bytes32(0); // baseFee
+            inputs[256] = bytes32(0); // EIP-1559 feeBase
 
             if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -113,11 +118,6 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
-
-        // A circuit will verify the integratity among:
-        // l1Hash, l1SignalRoot, and l1SignalServiceAddress
-        // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
-        // instance.
 
         emit XchainSynced(l1Height, chainData);
     }

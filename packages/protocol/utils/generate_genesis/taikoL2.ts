@@ -277,7 +277,7 @@ async function generateContractConfigs(
                         new Array(255)
                             .fill(ethers.constants.HashZero)
                             .concat([chainId])
-                            .concat([0]),
+                            .concat([0]), // EIP-1559 feeBase
                     ]
                 )}`,
             },
