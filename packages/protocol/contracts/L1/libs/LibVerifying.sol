@@ -116,7 +116,7 @@ library LibVerifying {
         TaikoData.ProposedBlock storage proposal
     ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 reward, uint256 tRelBp) = LibTokenomics
+            (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
                 .getProofReward({
                     state: state,
                     config: config,
@@ -125,29 +125,28 @@ library LibVerifying {
                 });
 
             // reward the prover
-            if (reward > 0) {
+            if (amount > 0) {
                 if (state.balances[fc.prover] == 0) {
                     // Reduce reward to 1 wei as a penalty if the prover
                     // has 0 TKO outstanding balance.
                     state.balances[fc.prover] = 1;
                 } else {
-                    state.balances[fc.prover] += reward;
+                    state.balances[fc.prover] += amount;
                 }
             }
 
             // refund proposer deposit for valid blocks
-            uint256 refund;
             unchecked {
                 // tRelBp in [0-10000]
-                refund = (proposal.deposit * (10000 - tRelBp)) / 10000;
+                amount = (proposal.deposit * (10000 - tRelBp)) / 10000;
             }
-            if (refund > 0) {
+            if (amount > 0) {
                 if (state.balances[proposal.proposer] == 0) {
                     // Reduce refund to 1 wei as a penalty if the proposer
                     // has 0 TKO outstanding balance.
                     state.balances[proposal.proposer] = 1;
                 } else {
-                    state.balances[proposal.proposer] += refund;
+                    state.balances[proposal.proposer] += amount;
                 }
             }
 

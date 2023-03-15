@@ -30,21 +30,14 @@ library LibTokenomics {
         uint256 balance = state.balances[msg.sender];
         if (balance <= amount) revert L1_INSUFFICIENT_TOKEN();
 
-        uint256 x;
-        {
-            x = balance - amount;
-        }
-        if (x == 0) {
-            x = 1;
-        }
-
-        state.balances[msg.sender] = x;
-
         unchecked {
-            x = balance - x;
+            state.balances[msg.sender] -= amount;
         }
 
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(msg.sender, x);
+        TaikoToken(resolver.resolve("taiko_token", false)).mint(
+            msg.sender,
+            amount
+        );
     }
 
     function deposit(
