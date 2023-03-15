@@ -112,5 +112,3 @@ var signalProofT, _ = abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		Type: "bytes",
 	},
 })
-
-var bytesT, _ = abi.NewType("bytes", "", nil)
