@@ -15,16 +15,9 @@ contract ReadBlockhashVsCalldata is Test {
     }
 
     function testAnchorTx() external {
-        bytes32[255] memory ancestors;
         for (uint256 i = 0; i < 3; i++) {
-            vm.roll(i + 1);
-
-            for (uint j = 0; j < 255; j++) {
-                ancestors[j] = block.number >= j + 2?
-                blockhash(block.number - j - 2):bytes32(0);
-            }
-
-            L2.anchor(ancestors, 12345, keccak256("a"), keccak256("b"));
+            vm.roll(block.number + 1);
+            L2.anchor(12345, keccak256("a"), keccak256("b"));
         }
     }
 }

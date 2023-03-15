@@ -51,34 +51,46 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         // usage.
         EssentialContract._init(_addressManager);
 
-        bytes32 parentHash;
+        bytes32 parentHash =  n == 1? blockhash(n - 1): bytes32(0);
 
-        if (n == 1) {
-            parentHash = blockhash(0);
+        bytes32 ptr;
+        assembly {
+            // Load the free memory pointer and allocate memory for the concatenated arguments
+            ptr := mload(64)
         }
 
-        bytes32 hash;
-       assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
-            let ptr := mload(64)
-            for {
-                let i := 0
-            } lt(i, 255) {
-                i := add(i, 1)
-            } {
-                mstore(add(ptr, mul(i, 32)), 0 )
+            for (uint256 i = 0; i < 255; ++i) {
+                if (n >= i + 2) {
+                    assembly {
+                        let m := sub(sub(n, i), 2)
+                        let offset := mul(mod(m, 255), 32)
+                        mstore(add(ptr, offset), blockhash(m))
+                    }
+                } else {
+                    assembly {
+                        let m := sub(sub(add(n, 255), i), 2)
+                        let offset := mul(mod(m, 255), 32)
+                        mstore(add(ptr, offset), 0)
+                    }
+                }
+                unchecked {
+                    ++i;
+                }
             }
 
-            mstore(ptr, parentHash)
+        assembly {
             mstore(add(ptr, mul(255, 32)), chainid()) // chain id
             mstore(add(ptr, mul(256, 32)), 0) // fee base
+
+            let offset := mul(mod(sub(add(n, 255), 1), 255), 32)
+            mstore(add(ptr, offset), parentHash) // parentHash
             mstore(add(ptr, mul(257, 32)), n) // current block height
-
-            hash := keccak256(ptr, mul(32, 258))
+            sstore(publicInputHash.slot, keccak256(ptr, mul(32, 258)))
         }
-        console2.log("init:",uint(hash));
-        publicInputHash = hash;
 
+        console2.log("----------");
+        console2.log("number:", block.number);
+        console2.log("now  :", uint(publicInputHash));
     }
 
     /**********************
@@ -93,61 +105,66 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      *
      * Note: This transaction shall be the first transaction in every L2 block.
      *
-     * @param ancestors The 255 ancestor hashes excluding the parent.
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
     function anchor(
-        bytes32[255] calldata ancestors,
         uint256 l1Height,
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        // Check public inputs
         uint256 n = block.number;
-        bytes32 parentHash = blockhash(n-1);
-        uint256 baseFee = 0;
+        bytes32 parentHash = blockhash(n - 1);
         bytes32 prevPublicInputHash;
         bytes32 currPublicInputHash;
 
+        bytes32 ptr;
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
-            let ptr := mload(64)
-            for {
-                let i := 0
-            } lt(i, 255) {
-                i := add(i, 1)
-            } {
-                // loc = (n + 510 - i - 2) % 255
-                let loc := mod(sub(sub(add(n, 510), i), 2), 255)
-                calldatacopy(
-                    add(ptr, mul(loc, 32)), // location
-                    add(4, mul(i, 32)), // index on calldata
-                    32
-                )
+            ptr := mload(64)
+        }
+
+            for (uint256 i = 0; i < 255; ++i) {
+                if (n >= i + 2) {
+                    assembly {
+                        let m := sub(sub(n, i), 2)
+                        let offset := mul(mod(m, 255), 32)
+                        mstore(add(ptr, offset), blockhash(m))
+                    }
+                } else {
+                    assembly {
+                        let m := sub(sub(add(n, 255), i), 2)
+                        let offset := mul(mod(m, 255), 32)
+                        mstore(add(ptr, offset), 0)
+                    }
+                }
+                unchecked {
+                    ++i;
+                }
             }
 
+        assembly {
             mstore(add(ptr, mul(255, 32)), chainid()) // chain id
-            mstore(add(ptr, mul(256, 32)), baseFee) // fee base
+            mstore(add(ptr, mul(256, 32)), 0) // fee base
 
             mstore(add(ptr, mul(257, 32)), sub(n, 1)) // parent block height
             prevPublicInputHash := keccak256(ptr, mul(32, 258))
 
-            let loc := mod(sub(n, 1), 255)
-            mstore(add(ptr, mul(loc, 32)), parentHash)
+            let offset := mul(mod(sub(add(n, 255), 1), 255), 32)
+            mstore(add(ptr, offset), parentHash) // parentHash
             mstore(add(ptr, mul(257, 32)), n) // current block height
             currPublicInputHash := keccak256(ptr, mul(32, 258))
         }
-
-        console2.log("now:",uint(publicInputHash));
-        console2.log("pre : ", uint(prevPublicInputHash));
-        console2.log("curr: ", uint(currPublicInputHash));
-        // if (publicInputHash != 0 && prevPublicInputHash != publicInputHash) {
+        console2.log("----------");
+        console2.log("number:", block.number);
+        console2.log("now  :", uint(publicInputHash));
+        console2.log("pre  :", uint(prevPublicInputHash));
+        console2.log("curr :", uint(currPublicInputHash));
+        // if (prevPublicInputHash != publicInputHash) {
         //     revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         // }
         publicInputHash = currPublicInputHash;
-
 
         latestSyncedL1Height = l1Height;
         _l2Hashes[n-1] = parentHash;
