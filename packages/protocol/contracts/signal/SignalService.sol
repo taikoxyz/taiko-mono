@@ -113,7 +113,7 @@ contract SignalService is ISignalService, EssentialContract {
     ) public pure returns (bytes32 signalSlot) {
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
-            let ptr := mload(64)
+            let ptr := mload(0x40)
 
             // Store the app address and signal bytes32 value in the allocated memory
             mstore(ptr, app)
@@ -122,10 +122,8 @@ contract SignalService is ISignalService, EssentialContract {
             // Calculate the hash of the concatenated arguments using keccak256
             signalSlot := keccak256(ptr, 64)
 
-            // Free the memory allocated for the input
-            // Question: since we only used 2 bytes32, should we add 64 to input instead?
-            // Jeff, Brecht?
-            // mstore(0x40, add(ptr, 64))
+            // Update free memory pointer
+            mstore(0x40, add(ptr, 64))
         }
     }
 }
