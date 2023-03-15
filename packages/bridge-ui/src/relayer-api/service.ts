@@ -38,15 +38,11 @@ class RelayerAPIService implements RelayerAPI {
 
     const { data } = await axios.get(requestURL, { params });
 
-    if (data.length === 0) {
+    if (data?.items?.length === 0) {
       return [];
     }
 
-    const txs: BridgeTransaction[] = data.map((tx) => {
-      const depositValue = ethers.utils.parseUnits(
-        tx.data.Message.DepositValue.toString(),
-        'wei',
-      );
+    const txs: BridgeTransaction[] = data.items.map((tx) => {
       return {
         status: tx.status,
         message: {
@@ -60,8 +56,8 @@ class RelayerAPIService implements RelayerAPI {
           callValue: tx.data.Message.CallValue,
           srcChainId: BigNumber.from(tx.data.Message.SrcChainId),
           destChainId: BigNumber.from(tx.data.Message.DestChainId),
-          depositValue: depositValue,
-          processingFee: BigNumber.from(tx.data.Message.ProcessingFee),
+          depositValue: BigNumber.from(`${tx.data.Message.DepositValue}`),
+          processingFee: BigNumber.from(`${tx.data.Message.ProcessingFee}`),
           refundAddress: tx.data.Message.RefundAddress,
         },
         amountInWei: tx.amount,
@@ -73,9 +69,7 @@ class RelayerAPIService implements RelayerAPI {
       };
     });
 
-    const bridgeTxs: BridgeTransaction[] = [];
-
-    await Promise.all(
+    const bridgeTxs: BridgeTransaction[] = await Promise.all(
       (txs || []).map(async (tx) => {
         if (tx.message.owner.toLowerCase() !== address.toLowerCase()) return;
 
@@ -87,8 +81,7 @@ class RelayerAPIService implements RelayerAPI {
         const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
         if (!receipt) {
-          bridgeTxs.push(tx);
-          return;
+          return tx;
         }
 
         tx.receipt = receipt;
@@ -115,13 +108,16 @@ class RelayerAPIService implements RelayerAPI {
           receipt.blockNumber,
         );
 
+        // A block could have multiple events being triggered so we need to find this particular tx
         const event = events.find(
-          (e) => e.args.message.owner.toLowerCase() === address.toLowerCase(),
+          (e) =>
+            e.args.message.owner.toLowerCase() === address.toLowerCase() &&
+            e.args.message.depositValue.eq(tx.message.depositValue) &&
+            e.args.msgHash === tx.msgHash,
         );
 
         if (!event) {
-          bridgeTxs.push(tx);
-          return;
+          return tx;
         }
 
         const msgHash = event.args.msgHash;
@@ -172,12 +168,12 @@ class RelayerAPIService implements RelayerAPI {
           from: tx.from,
         };
 
-        bridgeTxs.push(bridgeTx);
+        return bridgeTx;
       }),
     );
 
+    bridgeTxs.reverse();
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
-
     return bridgeTxs;
   }
 
