@@ -43,37 +43,21 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Constructor         *
      **********************/
 
-    function init(
-        address _addressManager,
-        uint256 _l1ChainId
-    ) external initializer {
+    function init(address _addressManager) external initializer {
+        // This contract must be initialized in genesis
         if (block.number > 1) revert L2_TOO_LATE();
+        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
 
         EssentialContract._init(_addressManager);
-        l1ChainId = _l1ChainId;
-
-        if (block.chainid == 0 || block.chainid == _l1ChainId) {
-            revert L2_INVALID_CHAIN_ID();
-        }
-
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ) {
-            ancestors[i] = blockhash(number - i - 2);
-            unchecked {
-                ++i;
-            }
-        }
-
-        uint baseFee = 0;
 
         bytes32[258] memory inputs;
-        if (block.number == 1) {
+        if (block.number ==1) {
             inputs[0] = blockhash(0);
         }
         inputs[255] = bytes32(block.chainid);
-        inputs[256] = bytes32(baseFee);
-        inputs[257] = bytes32(block.number);
+        inputs[256] = bytes32(0); // baseFee = 0
+        inputs[257] = bytes32(block.number); // block number
+
         publicInputHash = keccak256(abi.encodePacked(inputs));
     }
 
@@ -100,9 +84,9 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1SignalRoot
     ) external {
         // Check public inputs
-        uint n = block.number;
-        bytes32 parentHash = blockhash(block.number - 1);
-        uint baseFee = 0;
+        uint256 parentHeight = block.number -1;
+        bytes32 parentHash = blockhash(parentHeight);
+        uint256 baseFee = 0;
         bytes32 prevPublicInputHash;
         bytes32 currPublicInputHash;
 
@@ -115,7 +99,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                 i := add(i, 1)
             } {
                 // loc = (n + 255 - i - 2) % 255
-                let loc := mod(sub(sub(add(n, 255), i), 2), 255)
+                let loc := mod(sub(sub(add(parentHeight, 255), i), 2), 255)
                 calldatacopy(
                     add(ptr, mul(loc, 32)), // location
                     add(4, mul(i, 32)), // index on calldata
@@ -125,13 +109,13 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
             mstore(add(ptr, mul(255, 32)), chainid())
             mstore(add(ptr, mul(256, 32)), baseFee)
-            mstore(add(ptr, mul(257, 32)), sub(n, 1))
+            mstore(add(ptr, mul(257, 32)), parentHeight)
 
             prevPublicInputHash := keccak256(ptr, mul(32, 258))
 
-            let loc := mod(sub(n, 1), 255)
+            let loc := mod(parentHeight, 255)
             mstore(add(ptr, mul(loc, 32)), parentHash)
-            mstore(add(ptr, mul(256, 32)), n)
+            mstore(add(ptr, mul(256, 32)), number())
             currPublicInputHash := keccak256(ptr, mul(32, 258))
         }
 
@@ -141,15 +125,15 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         publicInputHash = currPublicInputHash;
 
         latestSyncedL1Height = l1Height;
+        _l2Hashes[parentHeight] = parentHash;
+
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
-        _l2Hashes[n - 1] = parentHash;
 
         // A circuit will verify the integratity among:
         // l1Hash, l1SignalRoot, and l1SignalServiceAddress
         // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
         // instance.
-
         emit XchainSynced(l1Height, chainData);
     }
 
