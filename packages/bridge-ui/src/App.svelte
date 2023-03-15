@@ -180,20 +180,20 @@
   });
 
   pendingTransactions.subscribe((store) => {
-    store.forEach(async (tx) => {
-      await $signer.provider.waitForTransaction(tx.hash, 1);
-      successToast('Transaction completed!');
-
-      // TODO: Fix, .pop() removes the last tx but the confirmed tx is not necessarily the last one in the pendingTransactions array.
-      const s = store;
-      s.pop();
-      pendingTransactions.set(s);
-
-      // TODO: Do we need this?
-      transactions.set(
-        await $transactioner.GetAllByAddress(await $signer.getAddress()),
+    (async () => {
+      const confirmedPendingTxIndex = await Promise.race(
+        store.map((tx, index) => {
+          return new Promise<number>(async (resolve) => {
+            await $signer.provider.waitForTransaction(tx.hash, 1);
+            resolve(index);
+          });
+        }),
       );
-    });
+      successToast('Transaction completed!');
+      let s = store;
+      s = s.slice(confirmedPendingTxIndex, 0);
+      pendingTransactions.set(s);
+    })();
   });
 
   const transactionToIntervalMap = new Map();

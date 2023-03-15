@@ -73,10 +73,11 @@ Filter params:
 Mandatory:  
 `address`: user's ethereum address who sent the message.
 
-Optional:  
-`chainID`: chain ID of the source chain. Default: all chains.
-`msgHash`: filter events by message hash. Default: all msgHashs.
-`eventType`: filter events by event typoe. Default: all eventType.
+Optional:
+`chainID`: chain ID of the source chain. Default: all chains. Options: any integer.
+`msgHash`: filter events by message hash. Default: all msgHashs. Options: any hash.
+`eventType`: filter events by event type. Default: all eventType. Options: Enum value, `0` for sendETH, `1` for sendERC20.
+`event`: filter events by event name. Default: all event names. Options: `MessageSent`, `MessageStatusChanged`
 
 Pagination:
 `page`: page number to retrive. Default: 0.
