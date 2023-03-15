@@ -38,11 +38,11 @@ class RelayerAPIService implements RelayerAPI {
 
     const { data } = await axios.get(requestURL, { params });
 
-    if (data.length === 0) {
+    if (data?.items?.length === 0) {
       return [];
     }
 
-    const txs: BridgeTransaction[] = data.map((tx) => {
+    const txs: BridgeTransaction[] = data.items.map((tx) => {
       return {
         status: tx.status,
         message: {
@@ -81,8 +81,7 @@ class RelayerAPIService implements RelayerAPI {
         const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
         if (!receipt) {
-          bridgeTxs.push(tx);
-          return;
+          return tx;
         }
 
         tx.receipt = receipt;
@@ -109,15 +108,16 @@ class RelayerAPIService implements RelayerAPI {
           receipt.blockNumber,
         );
 
+        // A block could have multiple events being triggered so we need to find this particular tx
         const event = events.find(
           (e) =>
             e.args.message.owner.toLowerCase() === address.toLowerCase() &&
-            e.args.message.depositValue.eq(tx.message.depositValue),
+            e.args.message.depositValue.eq(tx.message.depositValue) &&
+            e.args.msgHash === tx.msgHash,
         );
 
         if (!event) {
-          bridgeTxs.push(tx);
-          return;
+          return tx;
         }
 
         const msgHash = event.args.msgHash;
