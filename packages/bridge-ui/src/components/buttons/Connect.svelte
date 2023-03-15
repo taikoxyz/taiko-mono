@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import { signer } from '../../store/signer';
   import { _ } from 'svelte-i18n';
   import {
@@ -15,10 +15,7 @@
 
   import { CHAIN_MAINNET, CHAIN_TKO } from '../../domain/chain';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    isSwitchEthereumChainModalOpen,
-    isConnectWalletModalOpen,
-  } from '../../store/modal';
+  import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import { errorToast, successToast } from '../../utils/toast';
   import Modal from '../modals/Modal.svelte';
   import { wagmiClient } from '../../store/wagmi';
@@ -26,6 +23,8 @@
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
+
+  export let isConnectWalletModalOpen = false;
 
   const changeChain = async (chainId: number) => {
     if (chainId === CHAIN_TKO.id) {
@@ -88,13 +87,14 @@
   });
 </script>
 
-<button class="btn btn-md" on:click={() => ($isConnectWalletModalOpen = true)}
-  >{$_('nav.connect')}</button>
+<button class="btn btn-md" on:click={() => (isConnectWalletModalOpen = true)}>
+  {$_('nav.connect')}
+</button>
 
 <Modal
   title={$_('connectModal.title')}
-  isOpen={$isConnectWalletModalOpen}
-  onClose={() => ($isConnectWalletModalOpen = false)}>
+  isOpen={isConnectWalletModalOpen}
+  onClose={() => (isConnectWalletModalOpen = false)}>
   <div class="flex flex-col items-center space-y-4 space-x-0 p-8">
     {#each $wagmiClient.connectors as connector}
       <button
