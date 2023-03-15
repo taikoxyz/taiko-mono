@@ -21,6 +21,8 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 
 	eventTypeParam := html.EscapeString(c.QueryParam("eventType"))
 
+	event := html.EscapeString(c.QueryParam("event"))
+
 	var eventType *relayer.EventType
 
 	if eventTypeParam != "" {
@@ -42,6 +44,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			MsgHash:   &msgHash,
 			EventType: eventType,
 			ChainID:   chainID,
+			Event:     &event,
 		},
 	)
 	if err != nil {
