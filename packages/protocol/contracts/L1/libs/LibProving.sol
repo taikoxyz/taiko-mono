@@ -119,7 +119,7 @@ library LibProving {
                     false
                 );
 
-                bytes32[10] memory inputs;
+                bytes32[11] memory inputs;
                 // for checking anchor tx
                 inputs[0] = bytes32(uint256(uint160(l1SignalService)));
                 // for checking signalRoot
@@ -137,7 +137,7 @@ library LibProving {
                 inputs[10] = bytes32(config.anchorTxGasLimit);
 
                 assembly {
-                    instance := keccak256(inputs, mul(32, 10))
+                    instance := keccak256(inputs, mul(32, 11))
                 }
             }
 
