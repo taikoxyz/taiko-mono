@@ -6,7 +6,7 @@ import {
   taiko,
 } from '../domain/chain';
 import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
-import ERC20Bridge from './bridge';
+import { ERC20Bridge } from './ERC20Bridge';
 import { Message, MessageStatus } from '../domain/message';
 
 const mockSigner = {
