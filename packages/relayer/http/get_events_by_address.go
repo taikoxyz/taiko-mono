@@ -4,6 +4,7 @@ import (
 	"html"
 	"math/big"
 	"net/http"
+	"strconv"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,30 +13,40 @@ import (
 )
 
 func (srv *Server) GetEventsByAddress(c echo.Context) error {
-	chainID, ok := new(big.Int).SetString(c.QueryParam("chainID"), 10)
+	chainID, _ := new(big.Int).SetString(c.QueryParam("chainID"), 10)
 
 	address := html.EscapeString(c.QueryParam("address"))
 
-	var events []*relayer.Event
+	msgHash := html.EscapeString(c.QueryParam("msgHash"))
 
-	var err error
+	eventTypeParam := html.EscapeString(c.QueryParam("eventType"))
 
-	if ok {
-		events, err = srv.eventRepo.FindAllByAddressAndChainID(
-			c.Request().Context(),
-			chainID,
-			common.HexToAddress(address),
-		)
-	} else {
-		events, err = srv.eventRepo.FindAllByAddress(
-			c.Request().Context(),
-			common.HexToAddress(address),
-		)
+	var eventType *relayer.EventType
+
+	if eventTypeParam != "" {
+		i, err := strconv.Atoi(eventTypeParam)
+		if err != nil {
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		}
+
+		et := relayer.EventType(i)
+
+		eventType = &et
 	}
 
+	page, err := srv.eventRepo.FindAllByAddress(
+		c.Request().Context(),
+		c.Request(),
+		relayer.FindAllByAddressOpts{
+			Address:   common.HexToAddress(address),
+			MsgHash:   &msgHash,
+			EventType: eventType,
+			ChainID:   chainID,
+		},
+	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
-	return c.JSON(http.StatusOK, events)
+	return c.JSON(http.StatusOK, page)
 }
