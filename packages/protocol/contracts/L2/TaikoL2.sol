@@ -89,6 +89,8 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     ) external {
         {
             // Check the latest 256 block hashes (excluding the parent hash).
+            // TODO(daniel & brecht):
+            //    we can move this to circuits to free L2 blockspace.
             bytes32[256] memory inputs;
             uint256 n = block.number;
             uint256 m; // parent block height
