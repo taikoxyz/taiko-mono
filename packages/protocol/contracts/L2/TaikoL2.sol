@@ -21,7 +21,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
     // A hash to check te integrity of public inputs.
-    bytes32 public publicInputHash;
+    bytes32 private _publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
@@ -45,7 +45,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         if (block.number > 1) revert L2_TOO_LATE();
         EssentialContract._init(_addressManager);
 
-        bytes32[258] memory inputs;
+        bytes32[257] memory inputs;
         uint256 n = block.number;
 
         unchecked {
@@ -57,8 +57,9 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         inputs[255] = bytes32(block.chainid);
         inputs[256] = bytes32(0); // baseFee
-        inputs[257] = bytes32(n);
-        publicInputHash = _hashInputs(inputs);
+        _publicInputHash = _hashInputs(inputs);
+
+        _l2Hashes[n - 1] = blockhash(n - 1);
     }
 
     /**********************
@@ -84,9 +85,9 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     ) external {
         {
             // Check the latest 256 block hashes (excluding the parent hash).
-            bytes32[258] memory inputs;
+            bytes32[257] memory inputs;
             uint256 n = block.number;
-            uint256 m = n - 1; // parent block height
+
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
             unchecked {
@@ -97,18 +98,16 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             }
             inputs[255] = bytes32(block.chainid);
             inputs[256] = bytes32(0); // baseFee
-            inputs[257] = bytes32(m);
 
-            if (publicInputHash != _hashInputs(inputs))
+            if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
+            uint256 m = n - 1; // parent block height
             // replace the oldest block hash with the parent's blockhash
-
             inputs[m % 255] = blockhash(m);
-            inputs[257] = bytes32(n);
-            _l2Hashes[m] = blockhash(m);
+            _publicInputHash = _hashInputs(inputs);
 
-            publicInputHash = _hashInputs(inputs);
+            _l2Hashes[m] = blockhash(m);
         }
 
         latestSyncedL1Height = l1Height;
@@ -156,10 +155,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      **********************/
 
     function _hashInputs(
-        bytes32[258] memory inputs
+        bytes32[257] memory inputs
     ) private pure returns (bytes32 hash) {
         assembly {
-            hash := keccak256(inputs, mul(258, 32))
+            hash := keccak256(inputs, mul(257, 32))
         }
     }
 }
