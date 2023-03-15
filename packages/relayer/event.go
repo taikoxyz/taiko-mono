@@ -59,6 +59,7 @@ type Event struct {
 	Amount                 string         `json:"amount"`
 	MsgHash                string         `json:"msgHash"`
 	MessageOwner           string         `json:"messageOwner"`
+	Event                  string         `json:"event"`
 }
 
 // SaveEventOpts
@@ -75,11 +76,13 @@ type SaveEventOpts struct {
 	Amount                 string
 	MsgHash                string
 	MessageOwner           string
+	Event                  string
 }
 
 type FindAllByAddressOpts struct {
 	Address   common.Address
 	EventType *EventType
+	Event     *string
 	MsgHash   *string
 	ChainID   *big.Int
 }
