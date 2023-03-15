@@ -8,10 +8,10 @@ if __name__ == "__main__":
     print("Expected proof time (minutes)", end=": ")
     proof_time = int(input()) * 60
 
-    print("Slot availability multiplier", end=": ")
-    slot_availability_multiplier = int(input())
-    if slot_availability_multiplier <= 5:
-        print("error: Slot availability multiplier must be greater than 5")
+    print("Max baseFee upside (5 = 5x)", end=": ")
+    max_basefee_upside = int(input())
+    if max_basefee_upside < 5:
+        print("error: Max baseFee upside < 5")
         exit(1)
 
     min_num_slots = math.ceil(1.0 * proof_time / block_time)
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print("min num slots:", min_num_slots)
     max_num_slots = min_num_slots + math.ceil(min_num_slots * extra_slots / 100) + 1
 
-    k = slot_availability_multiplier
+    k = max_basefee_upside
     n = max_num_slots
 
     # https://www.wolframalpha.com/input?i=solve++%28n%2Bx%29%28n%2Bx-1%29%3Dk*%281%2Bx%29x+for+x
