@@ -31,7 +31,7 @@ async function onNewL2Block(
     const { enableTokenomics } = await taikoL1.getConfig();
 
     const newProofReward = await taikoL1.getProofReward(
-        new Date().getMilliseconds(),
+        new Date().getTime(),
         meta.timestamp
     );
 

@@ -8,23 +8,7 @@ pragma solidity ^0.8.18;
 
 import {TaikoData} from "../L1/TaikoData.sol";
 
-/*
-> cd taiko-mono/packages/protocol/utils/generate_config
-> python3 main.py
-Expected block time (seconds): 20
-Expected proof time (minutes): 10
-Slot availability multiplier: 20
-Number of ZKPs required per block before verificaiton: 1
-Extra slots (e.g, 50 means 50% more slots): 100
----------
-min num slots: 30
----------
-maxNumBlocks: 61
-slotSmoothingFactor: 16789
-*/
-
 library TaikoConfig {
-    /// Returns shared configs for both TaikoL1 and TaikoL2 for production.
     function getConfig() internal pure returns (TaikoData.Config memory) {
         return
             TaikoData.Config({
