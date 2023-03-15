@@ -34,15 +34,16 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_TOO_LATE();
 
     /**********************
      * Constructor         *
      **********************/
 
     function init(address _addressManager) external initializer {
-        EssentialContract._init(_addressManager);
-
         if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
+        if (block.number > 1) revert L2_TOO_LATE();
+        EssentialContract._init(_addressManager);
 
         bytes32[258] memory inputs;
         uint256 n = block.number;
