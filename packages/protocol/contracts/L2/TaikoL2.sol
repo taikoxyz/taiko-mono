@@ -45,7 +45,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         if (block.number > 1) revert L2_TOO_LATE();
         EssentialContract._init(_addressManager);
 
-        bytes32[257] memory inputs;
+        bytes32[256] memory inputs;
         uint256 n = block.number;
 
         unchecked {
@@ -56,7 +56,6 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        // inputs[256] = bytes32(0); // EIP-1559 feeBase
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
@@ -90,7 +89,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     ) external {
         {
             // Check the latest 256 block hashes (excluding the parent hash).
-            bytes32[257] memory inputs;
+            bytes32[256] memory inputs;
             uint256 n = block.number;
             uint256 m; // parent block height
 
@@ -104,7 +103,6 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                 }
             }
             inputs[255] = bytes32(block.chainid);
-            // inputs[256] = bytes32(0); // EIP-1559 feeBase
 
             if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -156,10 +154,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      **********************/
 
     function _hashInputs(
-        bytes32[257] memory inputs
+        bytes32[256] memory inputs
     ) private pure returns (bytes32 hash) {
         assembly {
-            hash := keccak256(inputs, mul(257, 32))
+            hash := keccak256(inputs, mul(256, 32))
         }
     }
 }
