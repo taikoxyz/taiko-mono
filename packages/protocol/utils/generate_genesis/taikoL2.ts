@@ -272,7 +272,7 @@ async function generateContractConfigs(
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
                 _publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["bytes32[256]"],
+                    ["bytes32[257]"],
                     [
                         new Array(255)
                             .fill(ethers.constants.HashZero)
@@ -281,7 +281,8 @@ async function generateContractConfigs(
                                     ethers.utils.hexlify(chainId),
                                     32
                                 ),
-                            ]),
+                            ])
+                            .concat(ethers.constants.HashZero), // basefee
                     ]
                 )}`,
             },
