@@ -1,9 +1,6 @@
-const mockChainIdToTokenVaultAddress = jest.fn();
-jest.mock('../store/bridge', () => ({
-  chainIdToTokenVaultAddress: mockChainIdToTokenVaultAddress,
-}));
-
-const mockGet = jest.fn();
+// jest.mock('../store/bridge', () => ({
+//   chainIdToTokenVaultAddress: jest.fn(),
+// }));
 
 import { BigNumber, ethers, Signer } from 'ethers';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
@@ -19,6 +16,8 @@ import {
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
 
+const mockGet = jest.fn();
+
 jest.mock('svelte/store', () => ({
   ...jest.requireActual('svelte/store'),
   get: function () {
@@ -28,10 +27,6 @@ jest.mock('svelte/store', () => ({
 
 const mockContract = {
   canonicalToBridged: jest.fn(),
-};
-
-const mockProver = {
-  GenerateProof: jest.fn(),
 };
 
 jest.mock('ethers', () => ({
