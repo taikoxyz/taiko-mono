@@ -133,7 +133,10 @@ library LibProving {
                 inputs[8] = evidence.meta.l1Hash;
                 inputs[9] = evidence.meta.txListHash;
 
-                // circuit should use this value to check anchor gas limit
+                // Circuits shall use this value to check anchor gas limit.
+                // Note that this value is not necessary and can be hard-coded
+                // in to the circuit code, but if we upgrade the protocol
+                // and the gas limit changes, then having it here may be handy.
                 inputs[10] = bytes32(config.anchorTxGasLimit);
 
                 assembly {
