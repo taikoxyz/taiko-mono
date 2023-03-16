@@ -82,12 +82,14 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
+     * @return parentHash The parent hash. Circuits need to check this hash is
+     *         the same as the block header's parentHash.
      */
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
         bytes32 l1SignalRoot
-    ) external {
+    ) external returns (bytes32 parentHash) {
         {
             // Check the latest 256 block hashes (excluding the parent hash).
             // TODO(daniel & brecht):
@@ -116,10 +118,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
             // replace the oldest block hash with the parent's blockhash
-            inputs[m % 255] = blockhash(m);
+            parentHash = blockhash(m);
+            inputs[m % 255] = parentHash;
             _publicInputHash = _hashInputs(inputs);
 
-            _l2Hashes[m] = blockhash(m);
+            _l2Hashes[m] = parentHash;
         }
 
         latestSyncedL1Height = l1Height;
