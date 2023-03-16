@@ -1,5 +1,3 @@
-## Summary
-
 These steps will help you receive testnet tokens from the faucet.
 
 ## Prerequisites
