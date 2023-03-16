@@ -57,9 +57,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
+
         // TODO(daniel): uncomment the next line when London
         // fork (including EIP-1559) is enabled on L2.
         // inputs[256] = bytes32(block.basefee);
+
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
