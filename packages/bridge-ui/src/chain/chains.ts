@@ -48,7 +48,7 @@ export const chainsRecord: Record<number, Chain> = {
   [L2_CHAIN_ID]: taikoChain,
 };
 
-// TODO: can we not merge this chain with mainnetChain?
+// TODO: can we not merge this chain into mainnetChain?
 export const mainnetWagmiChain: WagmiChain = {
   id: L1_CHAIN_ID,
   name: L1_CHAIN_NAME,
@@ -67,7 +67,7 @@ export const mainnetWagmiChain: WagmiChain = {
   },
 };
 
-// TODO: same here, merge it with taikoChain
+// TODO: same here, merge it into taikoChain
 export const taikoWagmiChain: WagmiChain = {
   id: L2_CHAIN_ID,
   name: L2_CHAIN_NAME,

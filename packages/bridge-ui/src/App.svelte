@@ -14,9 +14,9 @@
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
   import { BridgeType } from './domain/bridge';
-  import { ETHBridge } from './eth/ETHBridge';
+  import { ETHBridge } from './bridge/ETHBridge';
+  import { ERC20Bridge } from './bridge/ERC20Bridge';
   import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
-  import { ERC20Bridge } from './erc20/ERC20Bridge';
   import {
     pendingTransactions,
     transactioner,
