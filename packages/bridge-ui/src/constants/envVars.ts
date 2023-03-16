@@ -68,11 +68,5 @@ export const RELAYER_URL =
 
 export const TEST_ERC20 = JSON.parse(
   import.meta.env?.VITE_TEST_ERC20 ??
-    `[
-      {
-        "address": "0xAED64948E0d09f4eb07d8B76A65Cd3d517c6Fb15",
-        "symbol": "HORSE",
-        "name": "Horse Token"
-      }
-    ]`,
+    '[{"address": "0xAED64948E0d09f4eb07d8B76A65Cd3d517c6Fb15", "symbol": "HORSE", "name": "Horse Token"}]',
 );
