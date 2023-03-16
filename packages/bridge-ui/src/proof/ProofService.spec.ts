@@ -1,6 +1,6 @@
 import { BigNumber, ethers } from 'ethers';
 import type { EthGetProofResponse } from '../domain/proof';
-import { ProofService } from './service';
+import { ProofService } from './ProofService';
 
 const mockProvider = {
   send: jest.fn(),
