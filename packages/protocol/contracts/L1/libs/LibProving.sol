@@ -15,10 +15,6 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibProving {
     using LibUtils for TaikoData.State;
 
-    // keccak256("taiko")
-    bytes32 public constant VERIFIER_OK =
-        0x93ac8fdbfc0b0608f9195474a0dd6242f019f5abc3c4e26ad51fefb059cc0177;
-
     event BlockProven(
         uint256 indexed id,
         bytes32 parentHash,
@@ -133,7 +129,10 @@ library LibProving {
                 inputs[8] = evidence.meta.l1Hash;
                 inputs[9] = evidence.meta.txListHash;
 
-                // circuit should use this value to check anchor gas limit
+                // Circuits shall use this value to check anchor gas limit.
+                // Note that this value is not necessary and can be hard-coded
+                // in to the circuit code, but if we upgrade the protocol
+                // and the gas limit changes, then having it here may be handy.
                 inputs[10] = bytes32(config.anchorTxGasLimit);
 
                 assembly {
@@ -158,7 +157,7 @@ library LibProving {
                     )
                 );
 
-            if (!verified || ret.length != 32 || bytes32(ret) != VERIFIER_OK)
+            if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
                 revert L1_INVALID_PROOF();
         }
 

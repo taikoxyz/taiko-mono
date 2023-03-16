@@ -38,6 +38,7 @@ var testEvents = []relayer.Event{
 		Amount:                 "1",
 		MsgHash:                testMsgHash,
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageSent,
 	},
 	{
 		ID:   2,
@@ -54,6 +55,7 @@ var testEvents = []relayer.Event{
 		Amount:                 "1",
 		MsgHash:                testMsgHash,
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageSent,
 	},
 	{
 		ID:   3,
@@ -70,6 +72,7 @@ var testEvents = []relayer.Event{
 		Amount:                 "1",
 		MsgHash:                testSecondMsgHash,
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageStatusChanged,
 	},
 }
 
@@ -126,6 +129,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				Amount:                 "1",
 				MsgHash:                "0x1",
 				MessageOwner:           "0x1",
+				Event:                  relayer.EventNameMessageSent,
 			},
 			nil,
 		},
@@ -184,6 +188,7 @@ func TestIntegration_Event_UpdateStatus(t *testing.T) {
 						Amount:                 "1",
 						MsgHash:                "0x1",
 						MessageOwner:           "0x1",
+						Event:                  relayer.EventNameMessageSent,
 					},
 				)
 				assert.Equal(t, nil, err)
@@ -218,6 +223,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Amount:                 "1",
 		MsgHash:                "0x1",
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageSent,
 	})
 	assert.Equal(t, nil, err)
 
@@ -234,6 +240,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Amount:                 "1",
 		MsgHash:                "0x1",
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageSent,
 	})
 	assert.Equal(t, nil, err)
 
@@ -250,6 +257,7 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 		Amount:                 "1",
 		MsgHash:                "0x2",
 		MessageOwner:           addr.Hex(),
+		Event:                  relayer.EventNameMessageStatusChanged,
 	})
 	assert.Equal(t, nil, err)
 
@@ -266,6 +274,25 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 			},
 			paginate.Page{
 				Items:      testEvents,
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
+			nil,
+		},
+		{
+			"successJustAddressAndEvent",
+			relayer.FindAllByAddressOpts{
+				Address: addr,
+				Event:   &relayer.EventNameMessageSent,
+			},
+			paginate.Page{
+				Items:      testEvents[:2],
 				Page:       0,
 				Size:       100,
 				MaxPage:    1,
@@ -321,6 +348,26 @@ func TestIntegration_Event_FindAllByAddress(t *testing.T) {
 				Address:   addr,
 				EventType: &testEventTypeSendERC20,
 				MsgHash:   &testSecondMsgHash,
+			},
+			paginate.Page{
+				Items:      testEvents[2:],
+				Page:       0,
+				Size:       100,
+				MaxPage:    1,
+				TotalPages: 1,
+				Total:      1,
+				Last:       false,
+				First:      true,
+				Visible:    1,
+			},
+			nil,
+		},
+		{
+			"successAddressMsgHashAndEvent",
+			relayer.FindAllByAddressOpts{
+				Address: addr,
+				MsgHash: &testSecondMsgHash,
+				Event:   &relayer.EventNameMessageStatusChanged,
 			},
 			paginate.Page{
 				Items:      testEvents[2:],

@@ -64,6 +64,7 @@ func (svc *Service) handleEvent(
 		Amount:                 amount.String(),
 		MsgHash:                common.Hash(event.MsgHash).Hex(),
 		MessageOwner:           event.Message.Owner.Hex(),
+		Event:                  relayer.EventNameMessageSent,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")
