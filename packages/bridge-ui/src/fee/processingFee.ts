@@ -1,4 +1,4 @@
-import { ProcessingFeeDetails, ProcessingFeeMethod } from '../domain/fee';
+import { type ProcessingFeeDetails, ProcessingFeeMethod } from '../domain/fee';
 
 export const processingFeeMap: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
   new Map([
