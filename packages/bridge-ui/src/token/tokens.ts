@@ -47,7 +47,7 @@ const symbolToLogoComponent = {
   // Add more symbols
 };
 
-export const TestERC20Token: Token[] = JSON.parse(
+export const testERC20Tokens: Token[] = JSON.parse(
   getEnv(
     'VITE_TEST_ERC20',
     `[{
@@ -74,4 +74,4 @@ export const TestERC20Token: Token[] = JSON.parse(
   logoComponent: symbolToLogoComponent[symbol] || Unknown,
 }));
 
-export const tokens = [ETHToken, ...TestERC20Token];
+export const tokens = [ETHToken, ...testERC20Tokens];

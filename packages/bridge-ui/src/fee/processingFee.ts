@@ -1,6 +1,6 @@
 import { ProcessingFeeDetails, ProcessingFeeMethod } from '../domain/fee';
 
-export const ProcessingFeeMap: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
+export const processingFeeMap: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
   new Map([
     [
       ProcessingFeeMethod.RECOMMENDED,

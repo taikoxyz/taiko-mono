@@ -1,8 +1,8 @@
 import { ethers } from 'ethers';
+import { ETHToken } from '../token/tokens';
 import TokenVault from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
-import { ETH } from '../domain/token';
 
 export const checkIfTokenIsDeployedCrossChain = async (
   token: Token,
@@ -11,7 +11,7 @@ export const checkIfTokenIsDeployedCrossChain = async (
   toChain: Chain,
   fromChain: Chain,
 ): Promise<boolean> => {
-  if (token.symbol !== ETH.symbol) {
+  if (token.symbol !== ETHToken.symbol) {
     const destTokenVaultContract = new ethers.Contract(
       destTokenVaultAddress,
       TokenVault,

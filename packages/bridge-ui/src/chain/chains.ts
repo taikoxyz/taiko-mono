@@ -19,7 +19,7 @@ import type { Chain } from '../domain/chain';
 import Eth from '../components/icons/ETH.svelte';
 import Taiko from '../components/icons/TKO.svelte';
 
-export const MainnetChain: Chain = {
+export const mainnetChain: Chain = {
   id: L1_CHAIN_ID,
   name: L1_CHAIN_NAME,
   rpc: L1_RPC,
@@ -31,7 +31,7 @@ export const MainnetChain: Chain = {
   signalServiceAddress: L1_SIGNAL_SERVICE_ADDRESS,
 };
 
-export const TaikoChain: Chain = {
+export const taikoChain: Chain = {
   id: L2_CHAIN_ID,
   name: L2_CHAIN_NAME,
   rpc: L2_RPC,
@@ -43,12 +43,12 @@ export const TaikoChain: Chain = {
   signalServiceAddress: L2_SIGNAL_SERVICE_ADDRESS,
 };
 
-export const ChainsRecord: Record<number, Chain> = {
-  [L1_CHAIN_ID]: MainnetChain,
-  [L2_CHAIN_ID]: TaikoChain,
+export const chainsRecord: Record<number, Chain> = {
+  [L1_CHAIN_ID]: mainnetChain,
+  [L2_CHAIN_ID]: taikoChain,
 };
 
-export const MainnetWagmiChain: WagmiChain = {
+export const mainnetWagmiChain: WagmiChain = {
   id: L1_CHAIN_ID,
   name: L1_CHAIN_NAME,
   network: '',
@@ -66,7 +66,7 @@ export const MainnetWagmiChain: WagmiChain = {
   },
 };
 
-export const TaikoWagmiChain: WagmiChain = {
+export const taikoWagmiChain: WagmiChain = {
   id: L2_CHAIN_ID,
   name: L2_CHAIN_NAME,
   network: '',

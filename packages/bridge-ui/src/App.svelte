@@ -28,15 +28,6 @@
   import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
-  import {
-    chains,
-    CHAIN_ID_MAINNET,
-    CHAIN_ID_TAIKO,
-    CHAIN_MAINNET,
-    CHAIN_TKO,
-    mainnet,
-    taiko,
-  } from './domain/chain';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
   import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
@@ -53,24 +44,32 @@
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import {
+    L1_CHAIN_ID,
+    L1_TOKEN_VAULT_ADDRESS,
+    L2_CHAIN_ID,
+    L2_TOKEN_VAULT_ADDRESS,
+  } from './constants/envVars';
+  import {
+    chainsRecord,
+    mainnetWagmiChain,
+    taikoWagmiChain,
+  } from './chain/chains';
 
-  const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
-    number,
-    ethers.providers.JsonRpcProvider
-  >();
+  const providerMap = new Map<number, ethers.providers.JsonRpcProvider>();
 
   providerMap.set(
-    CHAIN_ID_MAINNET,
+    L1_CHAIN_ID,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL),
   );
   providerMap.set(
-    CHAIN_ID_TAIKO,
+    L2_CHAIN_ID,
     new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL),
   );
   providers.set(providerMap);
 
   const { chains: wagmiChains, provider } = configureChains(
-    [mainnet, taiko],
+    [mainnetWagmiChain, taikoWagmiChain],
     [
       publicProvider(),
       jsonRpcProvider({
@@ -115,11 +114,8 @@
   });
 
   chainIdToTokenVaultAddress.update((store) => {
-    store.set(CHAIN_TKO.id, import.meta.env.VITE_TAIKO_TOKEN_VAULT_ADDRESS);
-    store.set(
-      CHAIN_MAINNET.id,
-      import.meta.env.VITE_MAINNET_TOKEN_VAULT_ADDRESS,
-    );
+    store.set(L2_CHAIN_ID, L2_TOKEN_VAULT_ADDRESS);
+    store.set(L1_CHAIN_ID, L1_TOKEN_VAULT_ADDRESS);
     return store;
   });
 
@@ -221,7 +217,7 @@
             if (!tx.msgHash) return;
 
             const contract = new ethers.Contract(
-              chains[tx.toChainId].bridgeAddress,
+              chainsRecord[tx.toChainId].bridgeAddress,
               BridgeABI,
               provider,
             );
