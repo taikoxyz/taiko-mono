@@ -88,7 +88,6 @@ contract AddressManager is OwnableUpgradeable {
      * @return Address associated with the given name.
      */
     function getAddress(string memory name) external view returns (address) {
-        bytes32 nameHash = keccak256(bytes(name));
-        return addresses[nameHash];
+        return addresses[keccak256(bytes(name))];
     }
 }

@@ -103,13 +103,19 @@ describe("tokenomics: blockFee", function () {
                         taikoTokenL1
                     );
 
-                console.log("lastProposerBalance", lastProposerBalance);
-                console.log("newProposerBalance", newProposerBalance);
+                // console.log("lastProposerBalance", lastProposerBalance);
+                // console.log("newProposerBalance", newProposerBalance);
 
                 expect(newProposerBalance).to.be.lt(lastProposerBalance);
 
-                console.log("lastProofReward", lastProofReward);
-                console.log("newProofReward", newProofReward);
+                // console.log("lastBlockFee", lastBlockFee);
+                // console.log("newBlockFee", newBlockFee);
+
+                // expect(newBlockFee).to.be.gt(lastBlockFee);
+
+                // console.log("lastProofReward", lastProofReward);
+                // console.log("newProofReward", newProofReward);
+
                 expect(newProofReward).to.be.gt(lastProofReward);
 
                 lastProofReward = newProofReward;

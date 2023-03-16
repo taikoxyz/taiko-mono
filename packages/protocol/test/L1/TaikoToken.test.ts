@@ -6,14 +6,14 @@ import {
 } from "../constants/errors";
 import { BigNumber } from "ethers";
 import deployTaikoToken from "../utils/taikoToken";
-import { TestTaikoToken } from "../../typechain/TestTaikoToken";
+import { TaikoToken } from "../../typechain/TaikoToken";
 import deployAddressManager from "../utils/addressManager";
 
 describe("TaikoToken", function () {
     let owner: any;
     let nonOwner: any;
     let protoBroker: any;
-    let token: TestTaikoToken;
+    let token: TaikoToken;
     let amountMinted: BigNumber;
 
     before(async function () {

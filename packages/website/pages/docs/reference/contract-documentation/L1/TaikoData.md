@@ -12,7 +12,6 @@ struct Config {
   uint256 maxNumBlocks;
   uint256 blockHashHistory;
   uint256 maxVerificationsPerTx;
-  uint256 commitConfirmations;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
@@ -30,9 +29,35 @@ struct Config {
   uint64 blockTimeCap;
   uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
+  bool enableSoloProposer;
+  bool enableOracleProver;
   bool enableTokenomics;
-  bool enablePublicInputsCheck;
-  bool enableAnchorValidation;
+  bool skipZKPVerification;
+}
+```
+
+### StateVariables
+
+```solidity
+struct StateVariables {
+  uint256 feeBase;
+  uint64 genesisHeight;
+  uint64 genesisTimestamp;
+  uint64 nextBlockId;
+  uint64 lastBlockId;
+  uint64 avgBlockTime;
+  uint64 avgProofTime;
+  uint64 lastProposedAt;
+}
+```
+
+### BlockMetadataInput
+
+```solidity
+struct BlockMetadataInput {
+  bytes32 txListHash;
+  address beneficiary;
+  uint64 gasLimit;
 }
 ```
 
@@ -43,26 +68,43 @@ struct BlockMetadata {
   uint256 id;
   uint256 l1Height;
   bytes32 l1Hash;
-  address beneficiary;
-  bytes32 txListHash;
   bytes32 mixHash;
-  bytes extraData;
+  bytes32 txListHash;
+  address beneficiary;
   uint64 gasLimit;
   uint64 timestamp;
-  uint64 commitHeight;
-  uint64 commitSlot;
 }
 ```
 
-### Evidence
+### ZKProof
 
 ```solidity
-struct Evidence {
+struct ZKProof {
+  bytes data;
+  uint256 circuitId;
+}
+```
+
+### BlockEvidence
+
+```solidity
+struct BlockEvidence {
   struct TaikoData.BlockMetadata meta;
-  struct BlockHeader header;
+  struct TaikoData.ZKProof zkproof;
+  bytes32 parentHash;
+  bytes32 blockHash;
+  bytes32 signalRoot;
   address prover;
-  bytes[] proofs;
-  uint16 circuitId;
+}
+```
+
+### ForkChoice
+
+```solidity
+struct ForkChoice {
+  struct ChainData chainData;
+  address prover;
+  uint64 provenAt;
 }
 ```
 
@@ -74,16 +116,7 @@ struct ProposedBlock {
   uint256 deposit;
   address proposer;
   uint64 proposedAt;
-}
-```
-
-### ForkChoice
-
-```solidity
-struct ForkChoice {
-  bytes32 blockHash;
-  address prover;
-  uint64 provenAt;
+  uint32 nextForkChoiceId;
 }
 ```
 
@@ -91,24 +124,23 @@ struct ForkChoice {
 
 ```solidity
 struct State {
-  mapping(uint256 => bytes32) l2Hashes;
   mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
-  mapping(uint256 => mapping(bytes32 => struct TaikoData.ForkChoice)) forkChoices;
-  mapping(address => mapping(uint256 => bytes32)) commits;
+  mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
+  mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
+  mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 __reservedA1;
-  uint64 __reservedA2;
-  uint256 feeBase;
+  uint64 __reserved1;
+  uint64 __reserved2;
   uint64 nextBlockId;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
-  uint64 __avgGasLimit;
-  uint64 latestVerifiedHeight;
-  uint64 latestVerifiedId;
+  uint64 __reserved3;
+  uint64 __reserved4;
+  uint64 lastBlockId;
   uint64 avgProofTime;
-  uint64 __reservedC1;
+  uint64 feeBaseSzabo;
   uint256[42] __gap;
 }
 ```

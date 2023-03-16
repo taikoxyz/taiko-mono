@@ -36,11 +36,9 @@ async function initIntegrationFixture(
         await Promise.all([l1Signer.unlock(""), l2Signer.unlock("")]);
     } catch (_) {}
 
-    const l2AddressManager = await deployAddressManager(l2Signer);
+    // const l2AddressManager = await deployAddressManager(l2Signer);
     const taikoL2 = await deployTaikoL2(
         l2Signer,
-        l2AddressManager,
-        false,
         5000000 // Note: need to explicitly set gasLimit here, otherwise the deployment transaction may fail.
     );
     const taikoL2DeployReceipt = await taikoL2.deployTransaction.wait();
@@ -70,7 +68,7 @@ async function initIntegrationFixture(
 
     await (
         await l1AddressManager.setAddress(
-            `${chainId}.tko_token`,
+            `${chainId}.taiko_token`,
             taikoTokenL1.address
         )
     ).wait(1);
@@ -123,7 +121,6 @@ async function initIntegrationFixture(
     const proposer = new Proposer(
         taikoL1.connect(proposerSigner),
         l2Provider,
-        config.commitConfirmations.toNumber(),
         config.maxNumBlocks.toNumber(),
         0,
         proposerSigner

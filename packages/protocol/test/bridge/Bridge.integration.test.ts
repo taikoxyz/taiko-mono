@@ -7,7 +7,7 @@ import {
     Bridge,
     SignalService,
     TestBadReceiver,
-    TestHeaderSync,
+    TestXchainSync,
 } from "../../typechain";
 import deployAddressManager from "../utils/addressManager";
 import {
@@ -25,7 +25,11 @@ import {
     getL2Provider,
 } from "../utils/provider";
 import { Block, getBlockHeader } from "../utils/rpc";
-import { deploySignalService, getSignalProof } from "../utils/signal";
+import {
+    deploySignalService,
+    getSignalProof,
+    getSignalProofWithAccountProof,
+} from "../utils/signal";
 
 describe("integrationbridge:Bridge", function () {
     let owner: SignerWithAddress;
@@ -40,8 +44,8 @@ describe("integrationbridge:Bridge", function () {
     let l1Bridge: Bridge;
     let l2Bridge: Bridge;
     let m: Message;
-    let l1HeaderSync: TestHeaderSync;
-    let l2HeaderSync: TestHeaderSync;
+    let l1XchainSync: TestXchainSync;
+    let l2XchainSync: TestXchainSync;
 
     beforeEach(async () => {
         [owner] = await ethers.getSigners();
@@ -85,6 +89,7 @@ describe("integrationbridge:Bridge", function () {
             enabledDestChainId
         ));
 
+        // TODO(): {ethers.utils.solidityPack(chainId, 'dao_vault')
         await addressManager.setAddress(
             `${enabledDestChainId}.signal_service`,
             l2SignalService.address
@@ -116,21 +121,21 @@ describe("integrationbridge:Bridge", function () {
             .connect(l2Signer)
             .setAddress(`${srcChainId}.bridge`, l1Bridge.address);
 
-        l1HeaderSync = await (await ethers.getContractFactory("TestHeaderSync"))
+        l1XchainSync = await (await ethers.getContractFactory("TestXchainSync"))
             .connect(owner)
             .deploy();
 
         await addressManager
             .connect(owner)
-            .setAddress(`${srcChainId}.taiko`, l1HeaderSync.address);
+            .setAddress(`${srcChainId}.taiko`, l1XchainSync.address);
 
-        l2HeaderSync = await (await ethers.getContractFactory("TestHeaderSync"))
+        l2XchainSync = await (await ethers.getContractFactory("TestXchainSync"))
             .connect(l2Signer)
             .deploy();
 
         await l2AddressManager
             .connect(l2Signer)
-            .setAddress(`${enabledDestChainId}.taiko`, l2HeaderSync.address);
+            .setAddress(`${enabledDestChainId}.taiko`, l2XchainSync.address);
 
         m = {
             id: 1,
@@ -217,7 +222,7 @@ describe("integrationbridge:Bridge", function () {
         it("should throw if messageStatus of message is != NEW", async function () {
             const { message, signalProof } = await sendAndProcessMessage(
                 hre.ethers.provider,
-                l2HeaderSync,
+                l2XchainSync,
                 m,
                 l1SignalService,
                 l1Bridge,
@@ -244,9 +249,9 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 await l1SignalService.getSignalSlot(l1Bridge.address, msgHash),
@@ -282,7 +287,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2HeaderSync.setSyncedHeader(ethers.constants.HashZero);
+            await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
             const slot = await l1SignalService.getSignalSlot(sender, msgHash);
 
@@ -297,7 +302,7 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
@@ -334,7 +339,7 @@ describe("integrationbridge:Bridge", function () {
                     l2Bridge,
                     msgHash,
                     hre.ethers.provider,
-                    l2HeaderSync,
+                    l2XchainSync,
                     message
                 ))
             ).to.emit(l2Bridge, "MessageStatusChanged");
@@ -396,7 +401,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2HeaderSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -409,13 +414,15 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof, signalRoot } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
                 block.number,
                 blockHeader
             );
+
+            await l2XchainSync.setXchainSignalRoot(signalRoot);
 
             await expect(
                 l2Bridge.isMessageReceived(msgHash, srcChainId, signalProof)
@@ -433,7 +440,7 @@ describe("integrationbridge:Bridge", function () {
                 hre.ethers.provider
             );
 
-            await l2HeaderSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             // get storageValue for the key
             const storageValue = await ethers.provider.getStorageAt(
@@ -446,13 +453,14 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const signalProof = await getSignalProof(
+            const { signalProof, signalRoot } = await getSignalProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
                 block.number,
                 blockHeader
             );
+            await l2XchainSync.setXchainSignalRoot(signalRoot);
 
             expect(
                 await l2Bridge.isMessageReceived(
@@ -544,7 +552,7 @@ describe("integrationbridge:Bridge", function () {
                 l1Bridge,
                 msgHash,
                 l2Provider,
-                l1HeaderSync,
+                l1XchainSync,
                 message
             );
             expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
@@ -564,7 +572,7 @@ describe("integrationbridge:Bridge", function () {
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 
-            const signalProof = await getSignalProof(
+            const { signalProof } = await getSignalProof(
                 l1Provider,
                 l1Bridge.address,
                 slot,
@@ -613,7 +621,7 @@ describe("integrationbridge:Bridge", function () {
                 l1Bridge,
                 msgHash,
                 l2Provider,
-                l1HeaderSync,
+                l1XchainSync,
                 message
             );
             expect(messageStatusChangedEvent.args.msgHash).to.be.eq(msgHash);
@@ -631,11 +639,11 @@ describe("integrationbridge:Bridge", function () {
 
             const { block, blockHeader } = await getBlockHeader(l1Provider);
 
-            await l2HeaderSync.setSyncedHeader(block.hash);
+            await l2XchainSync.setXchainBlockHeader(block.hash);
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 
-            const signalProof = await getSignalProof(
+            const signalProof = await getSignalProofWithAccountProof(
                 l1Provider,
                 l1Bridge.address,
                 slot,

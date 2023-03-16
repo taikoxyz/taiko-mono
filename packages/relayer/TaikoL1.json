@@ -908,7 +908,7 @@
         "type": "address"
       }
     ],
-    "name": "getRewardBalance",
+    "name": "getBalance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -962,7 +962,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "latestVerifiedId",
+            "name": "lastBlockId",
             "type": "uint64"
           },
           {
@@ -1300,7 +1300,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "latestVerifiedId",
+        "name": "lastBlockId",
         "type": "uint64"
       },
       {

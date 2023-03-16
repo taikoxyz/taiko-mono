@@ -6,8 +6,8 @@
 
 pragma solidity ^0.8.18;
 
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IAddressManager} from "./IAddressManager.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * This abstract contract provides a name-to-address lookup. Under the hood,
@@ -79,19 +79,15 @@ abstract contract AddressResolver {
         string memory name,
         bool allowZeroAddress
     ) private view returns (address payable addr) {
-        bytes memory key = abi.encodePacked(
-            Strings.toString(chainId),
-            ".",
-            name
-        );
-        addr = payable(_addressManager.getAddress(string(key)));
+        // TODO(daniel): measure the difference in gas cost:
+        // string memory key = string(abi.encodePacked(chainId, name));
+        string memory key = string.concat(Strings.toString(chainId), ".", name);
+
+        addr = payable(_addressManager.getAddress(key));
         if (!allowZeroAddress) {
             // We do not use custom error so this string-based
             // error message is more helpful for diagnosis.
-            require(
-                addr != address(0),
-                string(abi.encodePacked("AR:zeroAddr:", key))
-            );
+            require(addr != address(0), string.concat("AR:zeroAddr:", key));
         }
     }
 }

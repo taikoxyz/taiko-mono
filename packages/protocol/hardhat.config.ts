@@ -1,6 +1,8 @@
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
+// import "@nomicfoundation/hardhat-foundry";
 import "@openzeppelin/hardhat-upgrades";
+import "hardhat-preprocessor";
 import "@typechain/hardhat";
 import "hardhat-abi-exporter";
 import "hardhat-contract-sizer";
@@ -27,6 +29,7 @@ const config: HardhatUserConfig = {
         pages: "files",
         templates: "./solidity-docgen/templates",
     },
+
     gasReporter: {
         currency: "USD",
         enabled: true,
