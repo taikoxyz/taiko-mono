@@ -16,14 +16,14 @@ import {
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ERC20Upgradeable} from "../thirdparty/ERC20Upgradeable.sol";
-import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
+import {BridgeErrors} from "./BridgeErrors.sol";
 
 contract BridgedERC20 is
     EssentialContract,
     IERC20Upgradeable,
     IERC20MetadataUpgradeable,
     ERC20Upgradeable,
-    BridgeCustomErrors
+    BridgeErrors
 {
     address public srcToken;
     uint256 public srcChainId;

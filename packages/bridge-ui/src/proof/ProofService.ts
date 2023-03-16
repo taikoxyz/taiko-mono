@@ -1,6 +1,5 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
-import Bridge from '../constants/abi/Bridge';
 import HeaderSync from '../constants/abi/HeaderSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
@@ -10,7 +9,7 @@ import type {
   GenerateReleaseProofOpts,
 } from '../domain/proof';
 
-class ProofService implements Prover {
+export class ProofService implements Prover {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
 
   constructor(providerMap: Map<number, ethers.providers.JsonRpcProvider>) {
@@ -141,5 +140,3 @@ class ProofService implements Prover {
     return ProofService.getSignalProof(proof, blockHeader);
   }
 }
-
-export { ProofService };

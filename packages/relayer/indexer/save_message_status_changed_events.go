@@ -65,6 +65,7 @@ func (svc *Service) saveMessageStatusChangedEvent(
 		Status:       relayer.EventStatus(event.Status),
 		MessageOwner: previousEvents[0].MessageOwner,
 		MsgHash:      common.Hash(event.MsgHash).Hex(),
+		Event:        relayer.EventNameMessageStatusChanged,
 	})
 	if err != nil {
 		return errors.Wrap(err, "svc.eventRepo.Save")

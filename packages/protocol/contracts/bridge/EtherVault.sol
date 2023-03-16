@@ -16,7 +16,7 @@ import {
 
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {LibAddress} from "../libs/LibAddress.sol";
-import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
+import {BridgeErrors} from "./BridgeErrors.sol";
 
 /**
  * EtherVault is a special vault contract that:
@@ -24,7 +24,7 @@ import {BridgeCustomErrors} from "./BridgeCustomErrors.sol";
  * - Allows the contract owner to authorize addresses.
  * - Allows authorized addresses to send/release Ether.
  */
-contract EtherVault is EssentialContract, BridgeCustomErrors {
+contract EtherVault is EssentialContract, BridgeErrors {
     using LibAddress for address;
 
     /*********************

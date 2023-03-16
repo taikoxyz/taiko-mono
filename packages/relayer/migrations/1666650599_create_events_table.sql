@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS events (
     name VARCHAR(255) NOT NULL,
     status int NOT NULL DEFAULT 0,
     event_type int NOT NULL DEFAULT 0,
+    event VARCHAR(255) NOT NULL DEFAULT "",
     chain_id int NOT NULL,
     data JSON NOT NULL,
     canonical_token_address VARCHAR(255) DEFAULT "",

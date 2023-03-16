@@ -14,9 +14,9 @@
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
   import { BridgeType } from './domain/bridge';
-  import ETHBridge from './eth/bridge';
+  import { ETHBridge } from './eth/ETHBridge';
   import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
-  import ERC20Bridge from './erc20/bridge';
+  import { ERC20Bridge } from './erc20/ERC20Bridge';
   import {
     pendingTransactions,
     transactioner,
@@ -38,19 +38,19 @@
     taiko,
   } from './domain/chain';
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/service';
+  import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
   import type { Prover } from './domain/proof';
   import { successToast } from './utils/toast';
-  import { StorageService } from './storage/service';
+  import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
   import { providers } from './store/providers';
   import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
-  import { CustomTokenService } from './storage/customTokenService';
+  import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
-  import RelayerAPIService from './relayer-api/service';
+  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
 
@@ -146,7 +146,6 @@
 
       const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
 
-
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
@@ -181,20 +180,20 @@
   });
 
   pendingTransactions.subscribe((store) => {
-    store.forEach(async (tx) => {
-      await $signer.provider.waitForTransaction(tx.hash, 1);
-      successToast('Transaction completed!');
-
-      // TODO: Fix, .pop() removes the last tx but the confirmed tx is not necessarily the last one in the pendingTransactions array.
-      const s = store;
-      s.pop();
-      pendingTransactions.set(s);
-
-      // TODO: Do we need this?
-      transactions.set(
-        await $transactioner.GetAllByAddress(await $signer.getAddress()),
+    (async () => {
+      const confirmedPendingTxIndex = await Promise.race(
+        store.map((tx, index) => {
+          return new Promise<number>(async (resolve) => {
+            await $signer.provider.waitForTransaction(tx.hash, 1);
+            resolve(index);
+          });
+        }),
       );
-    });
+      successToast('Transaction completed!');
+      let s = store;
+      s = s.slice(confirmedPendingTxIndex, 0);
+      pendingTransactions.set(s);
+    })();
   });
 
   const transactionToIntervalMap = new Map();
@@ -268,10 +267,6 @@
 </QueryProvider>
 
 <style global lang="postcss">
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
-
   main {
     font-family: 'Inter', sans-serif;
   }

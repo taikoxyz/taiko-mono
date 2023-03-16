@@ -1,8 +1,8 @@
 ---
-title: BridgeCustomErrors
+title: BridgeErrors
 ---
 
-## BridgeCustomErrors
+## BridgeErrors
 
 ### B_CANNOT_RECEIVE
 

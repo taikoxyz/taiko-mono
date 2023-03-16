@@ -1,24 +1,19 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
 import Bridge from '../constants/abi/Bridge';
-import { chains, CHAIN_MAINNET, CHAIN_TKO } from '../domain/chain';
+import { chains } from '../domain/chain';
 import TokenVault from '../constants/abi/TokenVault';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import ERC20 from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
 
-interface storage {
-  getItem(key: string): string;
-  setItem(key: string, value: unknown): void;
-}
-
-class StorageService implements Transactioner {
-  private readonly storage: storage;
+export class StorageService implements Transactioner {
+  private readonly storage: Storage;
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
 
   constructor(
-    storage: storage,
+    storage: Storage,
     providerMap: Map<number, ethers.providers.JsonRpcProvider>,
   ) {
     this.storage = storage;
@@ -154,5 +149,3 @@ class StorageService implements Transactioner {
     );
   }
 }
-
-export { StorageService };
