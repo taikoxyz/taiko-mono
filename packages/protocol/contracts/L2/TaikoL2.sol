@@ -33,6 +33,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      **********************/
 
     error L2_INVALID_CHAIN_ID();
+    error L2_PARENT_HASH_MISMATCH();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -82,26 +83,30 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
-     * @return parentHash The parent hash. Circuits need to check this hash is
-     *         the same as the block header's parentHash.
+     * @param l2parentHash The expected parent hash.
      */
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
-        bytes32 l1SignalRoot
-    ) external returns (bytes32 parentHash) {
+        bytes32 l1SignalRoot,
+        bytes32 l2parentHash
+    ) external {
         {
+            uint256 n = block.number;
+            uint256 m; // parent block height
+            unchecked {
+                m = n - 1;
+            }
+
+            if (l2parentHash != blockhash(m)) revert L2_PARENT_HASH_MISMATCH();
+
             // Check the latest 256 block hashes (excluding the parent hash).
             // TODO(daniel & brecht):
             //    we can move this to circuits to free L2 blockspace.
             bytes32[257] memory inputs;
-            uint256 n = block.number;
-            uint256 m; // parent block height
-
-            // put the previous 255 blockhashes (excluding the parent's) into a
-            // ring buffer.
             unchecked {
-                m = n - 1;
+                // put the previous 255 blockhashes (excluding the parent's) into a
+                // ring buffer.
                 for (uint256 i; i < 255 && n >= i + 2; ++i) {
                     uint j = n - i - 2;
                     inputs[j % 255] = blockhash(j);
@@ -118,11 +123,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
             // replace the oldest block hash with the parent's blockhash
-            parentHash = blockhash(m);
-            inputs[m % 255] = parentHash;
+            inputs[m % 255] = l2parentHash;
             _publicInputHash = _hashInputs(inputs);
 
-            _l2Hashes[m] = parentHash;
+            _l2Hashes[m] = l2parentHash;
         }
 
         latestSyncedL1Height = l1Height;

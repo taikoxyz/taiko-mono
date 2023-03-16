@@ -153,10 +153,13 @@ action("Generate Genesis", function () {
 
             let latestL1Height = 1;
             for (let i = 0; i < 300; i++) {
+                const parentHash = await hre.ethers.provider.getBlock("latest")
+                    .parentHash;
                 const tx = await TaikoL2.anchor(
                     latestL1Height++,
                     ethers.utils.hexlify(ethers.utils.randomBytes(32)),
                     ethers.utils.hexlify(ethers.utils.randomBytes(32)),
+                    parentHash,
                     { gasLimit: 1000000 }
                 );
 

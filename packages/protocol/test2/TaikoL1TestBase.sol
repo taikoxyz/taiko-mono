@@ -78,7 +78,7 @@ abstract contract TaikoL1TestBase is Test {
 
         uint256 _mixHash;
         unchecked {
-            _mixHash = block.difficulty * variables.nextBlockId;
+            _mixHash = block.prevrandao * variables.nextBlockId;
         }
 
         meta.id = variables.nextBlockId;
