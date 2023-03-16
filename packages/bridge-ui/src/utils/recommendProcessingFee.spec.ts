@@ -1,6 +1,7 @@
-// jest.mock('../store/bridge', () => ({
-//   chainIdToTokenVaultAddress: jest.fn(),
-// }));
+// TODO: ??, feels like it's here to make the tests pass. Look into it
+jest.mock('../store/bridge', () => ({
+  chainIdToTokenVaultAddress: jest.fn(),
+}));
 
 import { BigNumber, ethers, Signer } from 'ethers';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
@@ -38,11 +39,10 @@ jest.mock('ethers', () => ({
 }));
 
 const gasPrice = 2;
+
 const mockProvider = {
-  getGasPrice: () => {
-    return 2;
-  },
-};
+  getGasPrice: () => gasPrice,
+} as unknown as ethers.providers.JsonRpcProvider;
 
 const mockSigner = {} as Signer;
 
@@ -107,7 +107,7 @@ describe('recommendProcessingFee()', () => {
     mockGet.mockImplementationOnce(() =>
       new Map<number, ethers.providers.JsonRpcProvider>().set(
         taikoChain.id,
-        mockProvider as unknown as ethers.providers.JsonRpcProvider,
+        mockProvider,
       ),
     );
 
@@ -133,7 +133,7 @@ describe('recommendProcessingFee()', () => {
       } else {
         return new Map<number, ethers.providers.JsonRpcProvider>().set(
           taikoChain.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider,
+          mockProvider,
         );
       }
     });
@@ -163,7 +163,7 @@ describe('recommendProcessingFee()', () => {
       } else {
         return new Map<number, ethers.providers.JsonRpcProvider>().set(
           taikoChain.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider,
+          mockProvider,
         );
       }
     });
