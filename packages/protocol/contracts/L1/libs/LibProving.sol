@@ -157,8 +157,11 @@ library LibProving {
                     )
                 );
 
-            if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
-                revert L1_INVALID_PROOF();
+            if (
+                !verified ||
+                ret.length != 32 ||
+                bytes32(ret) != keccak256("taiko")
+            ) revert L1_INVALID_PROOF();
         }
 
         state.forkChoiceIds[blockId][evidence.parentHash] = proposal

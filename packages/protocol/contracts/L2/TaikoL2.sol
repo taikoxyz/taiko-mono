@@ -91,7 +91,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             // Check the latest 256 block hashes (excluding the parent hash).
             // TODO(daniel & brecht):
             //    we can move this to circuits to free L2 blockspace.
-            bytes32[256] memory inputs;
+            bytes32[257] memory inputs;
             uint256 n = block.number;
             uint256 m; // parent block height
 
@@ -104,7 +104,12 @@ contract TaikoL2 is EssentialContract, IXchainSync {
                     inputs[j % 255] = blockhash(j);
                 }
             }
+
+            // All block properties mentioned in
+            // https://docs.soliditylang.org/en/v0.8.17/units-and-global-variables.html
+            // but not part of a L2 block header shall be added to the list.
             inputs[255] = bytes32(block.chainid);
+            inputs[256] = bytes32(block.basefee);
 
             if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
@@ -156,10 +161,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      **********************/
 
     function _hashInputs(
-        bytes32[256] memory inputs
+        bytes32[257] memory inputs
     ) private pure returns (bytes32 hash) {
         assembly {
-            hash := keccak256(inputs, mul(256, 32))
+            hash := keccak256(inputs, mul(257, 32))
         }
     }
 }

@@ -63,7 +63,7 @@ library LibProposing {
         // add salt to this random number as L2 mixHash
         uint256 mixHash;
         unchecked {
-            mixHash = block.prevrandao * state.nextBlockId;
+            mixHash = block.difficulty * state.nextBlockId;
         }
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
