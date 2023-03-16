@@ -57,7 +57,9 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
-        inputs[256] = bytes32(block.basefee);
+        // TODO(daniel): uncomment the next line when London
+        // fork (including EIP-1559) is enabled on L2.
+        // inputs[256] = bytes32(block.basefee);
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
@@ -117,7 +119,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             // https://docs.soliditylang.org/en/v0.8.17/units-and-global-variables.html
             // but not part of a L2 block header shall be added to the list.
             inputs[255] = bytes32(block.chainid);
-            inputs[256] = bytes32(block.basefee);
+
+            // TODO(daniel): uncomment the next line when London
+            // fork (including EIP-1559) is enabled on L2.
+            // inputs[256] = bytes32(block.basefee);
 
             if (_publicInputHash != _hashInputs(inputs))
                 revert L2_PUBLIC_INPUT_HASH_MISMATCH();
