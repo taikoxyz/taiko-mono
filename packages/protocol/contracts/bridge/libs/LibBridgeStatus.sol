@@ -43,11 +43,7 @@ library LibBridgeStatus {
     ) internal {
         if (getMessageStatus(msgHash) != status) {
             _setMessageStatus(msgHash, status);
-            emit LibBridgeStatus.MessageStatusChanged(
-                msgHash,
-                status,
-                msg.sender
-            );
+            emit MessageStatusChanged(msgHash, status, msg.sender);
         }
     }
 
