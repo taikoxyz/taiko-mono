@@ -6,7 +6,7 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract BridgeCustomErrors {
+abstract contract BridgeErrors {
     error B_CANNOT_RECEIVE();
     error B_DENIED();
     error B_ERC20_CANNOT_RECEIVE();
