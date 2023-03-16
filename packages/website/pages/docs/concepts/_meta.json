@@ -1,12 +1,12 @@
 {
-  "block-proposal-and-verification": {
-    "title": "Block proposal & verification"
+  "overview": {
+    "title": "Overview"
+  },
+  "creating-l2-blocks": {
+    "title": "Creating L2 blocks"
   },
   "bridging": {
     "title": "Bridging"
-  },
-  "intrinsic-validity-checks": {
-    "title": "Intrinsic validity checks"
   },
   "taiko-nodes": {
     "title": "Taiko nodes"

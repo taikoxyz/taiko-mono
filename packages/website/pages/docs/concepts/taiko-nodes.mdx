@@ -1,9 +1,13 @@
 # Overview
-There are two parts to a Taiko node, which are connected over the engine API: `taiko-geth` and `taiko-client`.
+There are two parts to a Taiko node, which are connected over the engine API:
+- `taiko-geth`
+- `taiko-client`
+
+![taiko nodes diagram](/images/diagrams/taiko-nodes.png)
 
 ## Taiko geth
 
-`taiko-geth` is a fork of go-ethereum with some changes according to Taiko protocol, it serves as a L2 execution engine, which needs to be coupled to a consensus client (in Taiko network, this will be the taiko client's driver software), like L1 ethereum execution engines, it will listen to new L2 transactions broadcasted in the L2 network, executes them in EVM, and holds the latest state and database of all current L2 data.
+The [taiko-geth](https://github.com/taikoxyz/taiko-geth) repo is a fork of [go-ethereum](https://github.com/ethereum/go-ethereum) with some changes according to Taiko protocol, it serves as a L2 execution engine, which needs to be coupled to a consensus client (in Taiko network, this will be the taiko client's driver software), like L1 ethereum execution engines, it will listen to new L2 transactions broadcasted in the L2 network, executes them in EVM, and holds the latest state and database of all current L2 data.
 
 ## Taiko client
 
@@ -14,6 +18,8 @@ The compiled binary `bin/taiko-client` is the main entrypoint which includes thr
 - `prover`: request ZK proofs from the zkEVM, and send transactions to prove the proposed blocks are valid or invalid.
 
 ### Driver
+
+Taiko client's driver software serves as an L2 consensus client. It will listen for new L2 blocks from the Taiko layer 1 protocol contract, then direct the connected L2 execution engine to insert them into its local chain through the Engine API.
 
 #### Engine API
 
@@ -49,6 +55,8 @@ If the txList is **invalid**:
 > NOTE: For more detailed information about the `TaikoL2.anchor` transaction and proposed block's determination, please see `5.4.1 Construction of Anchor Transactions` in the white paper.
 
 ### Proposer
+
+Taiko client's proposer software will fetch pending transactions in a L2 execution engine's mempool intervally, then try to propose them to the Taiko layer 1 protocol contract.
 
 #### Proposing strategy
 
