@@ -15,7 +15,7 @@
     toChain as toChainStore,
   } from '../store/chain';
   import { BridgeType } from '../domain/bridge';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
@@ -35,8 +35,21 @@
   let loading: boolean;
 
   let processable: boolean = false;
+
+  let interval;
+
   onMount(async () => {
     processable = await isProcessable();
+
+    if (transaction.status !== MessageStatus.Done) {
+      interval = startInterval();
+    }
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
   });
 
   async function switchChainAndSetSigner(chain: Chain) {
@@ -144,45 +157,50 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
-  const interval = setInterval(async () => {
-    processable = await isProcessable();
-    const contract = new ethers.Contract(
-      chains[transaction.toChainId].bridgeAddress,
-      Bridge,
-      $providers.get(chains[transaction.message.destChainId.toNumber()].id),
-    );
+  function startInterval() {
+    return setInterval(async () => {
+      processable = await isProcessable();
+      const contract = new ethers.Contract(
+        chains[transaction.toChainId].bridgeAddress,
+        Bridge,
+        $providers.get(chains[transaction.message.destChainId.toNumber()].id),
+      );
 
-    transaction.status = await contract.getMessageStatus(transaction.msgHash);
-    if (transaction.status === MessageStatus.Failed) {
-      if (transaction.message.data !== '0x') {
-        const srcTokenVaultContract = new ethers.Contract(
-          $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-          TokenVault,
-          $providers.get(chains[transaction.message.srcChainId.toNumber()].id),
-        );
-        const { token, amount } = await srcTokenVaultContract.messageDeposits(
-          transaction.msgHash,
-        );
-        if (token === ethers.constants.AddressZero && amount.eq(0)) {
-          transaction.status = MessageStatus.FailedReleased;
-        }
-      } else {
-        const srcBridgeContract = new ethers.Contract(
-          chains[transaction.fromChainId].bridgeAddress,
-          Bridge,
-          $providers.get(chains[transaction.message.srcChainId.toNumber()].id),
-        );
-        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
-          transaction.msgHash,
-        );
-        if (isFailedMessageResolved) {
-          transaction.status = MessageStatus.FailedReleased;
+      transaction.status = await contract.getMessageStatus(transaction.msgHash);
+      if (transaction.status === MessageStatus.Failed) {
+        if (transaction.message.data !== '0x') {
+          const srcTokenVaultContract = new ethers.Contract(
+            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+            TokenVault,
+            $providers.get(
+              chains[transaction.message.srcChainId.toNumber()].id,
+            ),
+          );
+          const { token, amount } = await srcTokenVaultContract.messageDeposits(
+            transaction.msgHash,
+          );
+          if (token === ethers.constants.AddressZero && amount.eq(0)) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
+        } else {
+          const srcBridgeContract = new ethers.Contract(
+            chains[transaction.fromChainId].bridgeAddress,
+            Bridge,
+            $providers.get(
+              chains[transaction.message.srcChainId.toNumber()].id,
+            ),
+          );
+          const isFailedMessageResolved =
+            await srcBridgeContract.isEtherReleased(transaction.msgHash);
+          if (isFailedMessageResolved) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
         }
       }
-    }
-    transaction = transaction;
-    if (transaction.status === MessageStatus.Done) clearInterval(interval);
-  }, 20 * 1000);
+      transaction = transaction;
+      if (transaction.status === MessageStatus.Done) clearInterval(interval);
+    }, 20 * 1000);
+  }
 </script>
 
 <tr class="text-transaction-table">

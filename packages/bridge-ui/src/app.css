@@ -79,6 +79,11 @@ input[type='number'] {
   display: none;
 }
 
+.pagination .btn-active {
+  color: white;
+  background-color: hsla(var(--af) / var(--tw-bg-opacity, 1));
+}
+
 [data-theme='dark'] .taiko-logo {
   display: inline;
 }

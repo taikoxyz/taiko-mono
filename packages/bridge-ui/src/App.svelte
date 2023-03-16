@@ -51,8 +51,13 @@
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
+  import { DEFAULT_PAGE, MAX_PAGE_SIZE } from './domain/relayerApi';
   import type { RelayerAPI } from './domain/relayerApi';
-  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import {
+    paginationResponse,
+    relayerApi,
+    relayerBlockInfoMap,
+  } from './store/relayerApi';
 
   const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
     number,
@@ -144,23 +149,18 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
+      const { txs: apiTxs, paginationResponse: pagination } =
+        await $relayerApi.GetAllByAddress(userAddress, {
+          page: DEFAULT_PAGE,
+          size: MAX_PAGE_SIZE,
+        });
+
+      paginationResponse.set(pagination);
 
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
-
-      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
-      //   return [tx.hash, tx];
-      // }))
-
-      // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   if (apiTxs.find((apiTx) => apiTx.hash.toLowerCase() === tx.hash)) {
-      //     return false;
-      //   }
-      //   return true;
-      // });
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         const blockInfo = blockInfoMap.get(tx.fromChainId);

@@ -9,7 +9,12 @@ import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction } from '../domain/transactions';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
-import type { RelayerAPI, RelayerBlockInfo } from 'src/domain/relayerApi';
+import type {
+  GetAllByAddressResponse,
+  PaginationParams,
+  RelayerAPI,
+  RelayerBlockInfo,
+} from '../domain/relayerApi';
 
 export class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
@@ -25,14 +30,16 @@ export class RelayerAPIService implements RelayerAPI {
 
   async GetAllByAddress(
     address: string,
+    paginationParams: PaginationParams,
     chainID?: number,
-  ): Promise<BridgeTransaction[]> {
+  ): Promise<GetAllByAddressResponse> {
     if (!address) {
       throw new Error('Address need to passed to fetch transactions');
     }
     const params = {
       address,
       chainID,
+      ...paginationParams,
     };
 
     const requestURL = `${this.baseUrl}events`;
@@ -40,7 +47,17 @@ export class RelayerAPIService implements RelayerAPI {
     const { data } = await axios.get(requestURL, { params });
 
     if (data?.items?.length === 0) {
-      return [];
+      return {
+        txs: [],
+        paginationResponse: {
+          size: data.size,
+          page: data.page,
+          maxPage: data.max_page,
+          totalPages: data.total_pages,
+          first: data.first,
+          last: data.last,
+        },
+      };
     }
 
     const txs: BridgeTransaction[] = data.items.map((tx) => {
@@ -67,6 +84,7 @@ export class RelayerAPIService implements RelayerAPI {
         toChainId: tx.data.Message.DestChainId,
         hash: tx.data.Raw.transactionHash,
         from: tx.data.Message.Owner,
+        msgHash: tx.msgHash,
       };
     });
 
@@ -175,7 +193,17 @@ export class RelayerAPIService implements RelayerAPI {
 
     bridgeTxs.reverse();
     bridgeTxs.sort((tx) => (tx.status === MessageStatus.New ? -1 : 1));
-    return bridgeTxs;
+    return {
+      txs: bridgeTxs,
+      paginationResponse: {
+        size: data.size,
+        page: data.page,
+        maxPage: data.max_page,
+        totalPages: data.total_pages,
+        first: data.first,
+        last: data.last,
+      },
+    };
   }
 
   async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
