@@ -1,0 +1,17 @@
+{
+  "L1": {
+    "title": "L1"
+  },
+  "L2": {
+    "title": "L2"
+  },
+  "common": {
+    "title": "Common"
+  },
+  "signal": {
+    "title": "Signal"
+  },
+  "bridge": {
+    "title": "Bridge"
+  }
+}
