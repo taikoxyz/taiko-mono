@@ -154,6 +154,12 @@ error L1_ID()
 error L1_INPUT_SIZE()
 ```
 
+### L1_INVALID_CONFIG
+
+```solidity
+error L1_INVALID_CONFIG()
+```
+
 ### L1_INVALID_PARAM
 
 ```solidity
