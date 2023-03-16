@@ -4,14 +4,15 @@
   import { truncateString } from '../utils/truncateString';
   import Modal from './modals/Modal.svelte';
   import { chains } from '../domain/chain';
-  import { showTransactionDetails } from '../store/transactions';
-  export let transaction;
+  import type { BridgeTransaction } from '../domain/transactions';
+
+  // TODO: can we always guarantee that this object is defined?
+  //       in which case we need to guard => transaction?.prop
+  export let transaction: BridgeTransaction;
+  export let onClose: () => void;
 </script>
 
-<Modal
-  onClose={() => ($showTransactionDetails = null)}
-  isOpen={!!transaction}
-  title="Transaction Details">
+<Modal {onClose} isOpen={!!transaction} title="Transaction Details">
   <table
     class="table table-normal w-full md:w-2/3 m-auto table-fixed border-spacing-0 text-sm md:text-base">
     <tr>

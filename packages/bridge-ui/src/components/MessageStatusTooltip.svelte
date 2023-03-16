@@ -1,9 +1,10 @@
 <script lang="ts">
   import TooltipModal from './modals/TooltipModal.svelte';
-  import { showMessageStatusTooltip } from '../store/transactions';
+
+  export let show: boolean;
 </script>
 
-<TooltipModal title="Message Status" bind:isOpen={$showMessageStatusTooltip}>
+<TooltipModal title="Message Status" bind:isOpen={show}>
   <span slot="body">
     <div class="text-left">
       A bridge message will pass through various states:
