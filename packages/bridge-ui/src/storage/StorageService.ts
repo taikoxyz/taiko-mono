@@ -1,12 +1,12 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
 import Bridge from '../constants/abi/Bridge';
-import { chains } from '../domain/chain';
 import TokenVault from '../constants/abi/TokenVault';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import ERC20 from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
+import { chainsRecord } from '../chain/chains';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
@@ -53,9 +53,9 @@ export class StorageService implements Transactioner {
 
           tx.receipt = receipt;
 
-          const destBridgeAddress = chains[destChainId].bridgeAddress;
+          const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
 
-          const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
+          const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
 
           const destContract: Contract = new Contract(
             destBridgeAddress,

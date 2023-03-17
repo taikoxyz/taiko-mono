@@ -1,9 +1,10 @@
 import { BigNumber, BigNumberish, ethers } from 'ethers';
-import { TKO } from '../domain/token';
-import { CHAIN_ID_MAINNET, CHAIN_ID_TAIKO } from '../domain/chain';
 import { MessageStatus } from '../domain/message';
 import { StorageService } from './StorageService';
 import type { BridgeTransaction } from '../domain/transactions';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import { TKOToken } from '../token/tokens';
+
 const mockStorage = {
   getItem: jest.fn(),
 };
@@ -35,11 +36,11 @@ const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
 >();
 
 providerMap.set(
-  CHAIN_ID_MAINNET,
+  L1_CHAIN_ID,
   mockProvider as unknown as ethers.providers.JsonRpcProvider,
 );
 providerMap.set(
-  CHAIN_ID_TAIKO,
+  L2_CHAIN_ID,
   mockProvider as unknown as ethers.providers.JsonRpcProvider,
 );
 
@@ -47,8 +48,8 @@ const mockTx: BridgeTransaction = {
   hash: '0x123',
   from: '0x123',
   status: MessageStatus.New,
-  fromChainId: CHAIN_ID_MAINNET,
-  toChainId: CHAIN_ID_TAIKO,
+  fromChainId: L1_CHAIN_ID,
+  toChainId: L2_CHAIN_ID,
 };
 
 const mockTxs: BridgeTransaction[] = [mockTx];
@@ -101,12 +102,12 @@ describe('storage tests', () => {
     });
 
     mockContract.symbol.mockImplementation(() => {
-      return TKO.symbol;
+      return TKOToken.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_TAIKO);
+    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
 
     expect(addresses).toEqual([]);
   });
@@ -125,20 +126,20 @@ describe('storage tests', () => {
     });
 
     mockContract.symbol.mockImplementation(() => {
-      return TKO.symbol;
+      return TKOToken.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
         from: '0x123',
         hash: '0x123',
-        fromChainId: CHAIN_ID_MAINNET,
+        fromChainId: L1_CHAIN_ID,
         status: 0,
-        toChainId: CHAIN_ID_TAIKO,
+        toChainId: L2_CHAIN_ID,
       },
     ]);
   });
@@ -161,23 +162,23 @@ describe('storage tests', () => {
     });
 
     mockContract.symbol.mockImplementation(() => {
-      return TKO.symbol;
+      return TKOToken.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
         from: '0x123',
         hash: '0x123',
-        fromChainId: CHAIN_ID_MAINNET,
+        fromChainId: L1_CHAIN_ID,
         receipt: {
           blockNumber: 1,
         },
         status: 0,
-        toChainId: CHAIN_ID_TAIKO,
+        toChainId: L2_CHAIN_ID,
       },
     ]);
   });
@@ -206,12 +207,12 @@ describe('storage tests', () => {
     );
 
     mockContract.symbol.mockImplementation(() => {
-      return TKO.symbol;
+      return TKOToken.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_MAINNET);
+    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -226,15 +227,15 @@ describe('storage tests', () => {
         },
         msgHash: '0x456',
         status: 0,
-        fromChainId: CHAIN_ID_MAINNET,
-        toChainId: CHAIN_ID_TAIKO,
+        fromChainId: L1_CHAIN_ID,
+        toChainId: L2_CHAIN_ID,
         symbol: 'TKO',
       },
     ]);
   });
 
   it('gets all transactions by address, CHAIN_TKO', async () => {
-    mockTx.toChainId = CHAIN_ID_TAIKO;
+    mockTx.toChainId = L2_CHAIN_ID;
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
@@ -258,12 +259,12 @@ describe('storage tests', () => {
     );
 
     mockContract.symbol.mockImplementation(() => {
-      return TKO.symbol;
+      return TKOToken.symbol;
     });
 
     const svc = new StorageService(mockStorage as any, providerMap);
 
-    const addresses = await svc.GetAllByAddress('0x123', CHAIN_ID_TAIKO);
+    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -279,8 +280,8 @@ describe('storage tests', () => {
         msgHash: '0x456',
         status: 0,
         symbol: 'TKO',
-        fromChainId: CHAIN_ID_MAINNET,
-        toChainId: CHAIN_ID_TAIKO,
+        fromChainId: L1_CHAIN_ID,
+        toChainId: L2_CHAIN_ID,
       },
     ]);
   });

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { chains } from '../domain/chain';
   import { transactions } from '../store/transactions';
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import type { BridgeTransaction } from '../domain/transactions';
+  import { chainsRecord } from '../chain/chains';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
@@ -31,8 +31,8 @@
             onShowTransactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
-            toChain={chains[transaction.toChainId]}
-            fromChain={chains[transaction.fromChainId]}
+            toChain={chainsRecord[transaction.toChainId]}
+            fromChain={chainsRecord[transaction.fromChainId]}
             {transaction} />
         {/each}
       </tbody>

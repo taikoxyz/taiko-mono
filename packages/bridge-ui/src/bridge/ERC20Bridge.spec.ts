@@ -1,13 +1,8 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import {
-  CHAIN_ID_MAINNET,
-  CHAIN_ID_TAIKO,
-  mainnet,
-  taiko,
-} from '../domain/chain';
 import type { ApproveOpts, Bridge, BridgeOpts } from '../domain/bridge';
 import { ERC20Bridge } from './ERC20Bridge';
 import { Message, MessageStatus } from '../domain/message';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 
 const mockSigner = {
   getAddress: jest.fn(),
@@ -48,8 +43,8 @@ const opts: BridgeOpts = {
   amountInWei: BigNumber.from(1),
   signer: wallet,
   tokenAddress: '0xtoken',
-  fromChainId: mainnet.id,
-  toChainId: taiko.id,
+  fromChainId: L1_CHAIN_ID,
+  toChainId: L2_CHAIN_ID,
   tokenVaultAddress: '0x456',
   processingFeeInWei: BigNumber.from(2),
   memo: 'memo',
@@ -226,8 +221,8 @@ describe('bridge tests', () => {
       amountInWei: BigNumber.from(1),
       signer: wallet,
       tokenAddress: '0xtoken',
-      fromChainId: mainnet.id,
-      toChainId: taiko.id,
+      fromChainId: L1_CHAIN_ID,
+      toChainId: L2_CHAIN_ID,
       tokenVaultAddress: '0x456',
       to: await wallet.getAddress(),
     };
@@ -261,8 +256,8 @@ describe('bridge tests', () => {
     await expect(
       bridge.Claim({
         message: {
-          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+          srcChainId: BigNumber.from(L2_CHAIN_ID),
+          destChainId: BigNumber.from(L1_CHAIN_ID),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
         msgHash: '0x',
@@ -285,8 +280,8 @@ describe('bridge tests', () => {
     await expect(
       bridge.Claim({
         message: {
-          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+          srcChainId: BigNumber.from(L2_CHAIN_ID),
+          destChainId: BigNumber.from(L1_CHAIN_ID),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
         msgHash: '0x',
@@ -314,8 +309,8 @@ describe('bridge tests', () => {
       bridge.Claim({
         message: {
           owner: '0x',
-          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+          srcChainId: BigNumber.from(L2_CHAIN_ID),
+          destChainId: BigNumber.from(L1_CHAIN_ID),
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
         msgHash: '0x',
@@ -348,8 +343,8 @@ describe('bridge tests', () => {
     await bridge.Claim({
       message: {
         owner: '0x',
-        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        srcChainId: BigNumber.from(L2_CHAIN_ID),
+        destChainId: BigNumber.from(L1_CHAIN_ID),
         sender: '0x01',
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
@@ -384,8 +379,8 @@ describe('bridge tests', () => {
     await bridge.Claim({
       message: {
         owner: '0x',
-        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        srcChainId: BigNumber.from(L2_CHAIN_ID),
+        destChainId: BigNumber.from(L1_CHAIN_ID),
         sender: '0x01',
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
@@ -421,8 +416,8 @@ describe('bridge tests', () => {
       bridge.ReleaseTokens({
         message: {
           owner: '0x',
-          srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-          destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+          srcChainId: BigNumber.from(L2_CHAIN_ID),
+          destChainId: BigNumber.from(L1_CHAIN_ID),
           sender: '0x01',
           gasLimit: BigNumber.from(1),
         } as unknown as Message,
@@ -456,8 +451,8 @@ describe('bridge tests', () => {
     await bridge.ReleaseTokens({
       message: {
         owner: '0x',
-        srcChainId: BigNumber.from(CHAIN_ID_TAIKO),
-        destChainId: BigNumber.from(CHAIN_ID_MAINNET),
+        srcChainId: BigNumber.from(L2_CHAIN_ID),
+        destChainId: BigNumber.from(L1_CHAIN_ID),
         sender: '0x01',
         gasLimit: BigNumber.from(1),
       } as unknown as Message,
