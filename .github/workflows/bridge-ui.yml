@@ -11,7 +11,7 @@ on:
 
 jobs:
   check:
-    name: Run various checks
+    name: Check Bridge UI
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
@@ -27,7 +27,7 @@ jobs:
 
       - name: Svelte Check
         working-directory: ./packages/bridge-ui
-        run: pnpm lint
+        run: pnpm check
 
       - name: Linter
         working-directory: ./packages/bridge-ui
