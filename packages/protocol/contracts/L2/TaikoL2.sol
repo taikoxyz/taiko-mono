@@ -32,6 +32,19 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Events and Errors  *
      **********************/
 
+    // Captures all block variables mentioned in
+    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    event BlockVars(
+        uint256 number,
+        bytes32 parentHash,
+        uint256 timestamp,
+        uint256 basefee,
+        uint256 prevrandao,
+        address coinbase,
+        uint256 gaslimit,
+        uint256 chainid
+    );
+
     error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
@@ -43,6 +56,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     function init(address _addressManager) external initializer {
         if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
         if (block.number > 1) revert L2_TOO_LATE();
+
         EssentialContract._init(_addressManager);
 
         bytes32[256] memory inputs;
@@ -56,6 +70,8 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
+
         _publicInputHash = _hashInputs(inputs);
 
         _l2Hashes[n - 1] = blockhash(n - 1);
@@ -87,40 +103,54 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        {
-            // Check the latest 256 block hashes (excluding the parent hash).
-            // TODO(daniel & brecht):
-            //    we can move this to circuits to free L2 blockspace.
-            bytes32[256] memory inputs;
-            uint256 n = block.number;
-            uint256 m; // parent block height
+        uint256 n = block.number;
+        uint256 m; // parent block height
+        unchecked {
+            m = n - 1;
+        }
 
+        // Check blockhash[n-256]...blockhash[n-2], not including the parentHash
+        bytes32[256] memory inputs;
+        unchecked {
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
-            unchecked {
-                m = n - 1;
-                for (uint256 i; i < 255 && n >= i + 2; ++i) {
-                    uint j = n - i - 2;
-                    inputs[j % 255] = blockhash(j);
-                }
+            for (uint256 i; i < 255 && n >= i + 2; ++i) {
+                uint j = n - i - 2;
+                inputs[j % 255] = blockhash(j);
             }
-            inputs[255] = bytes32(block.chainid);
-
-            if (_publicInputHash != _hashInputs(inputs))
-                revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-
-            // replace the oldest block hash with the parent's blockhash
-            inputs[m % 255] = blockhash(m);
-            _publicInputHash = _hashInputs(inputs);
-
-            _l2Hashes[m] = blockhash(m);
         }
+
+        inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
+
+        if (_publicInputHash != _hashInputs(inputs))
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+
+        // replace the oldest block hash with the parent's blockhash
+        bytes32 parentHash = blockhash(m);
+        inputs[m % 255] = parentHash;
+        _publicInputHash = _hashInputs(inputs);
+        _l2Hashes[m] = parentHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
 
         emit XchainSynced(l1Height, chainData);
+
+        // We emit this event so circuits can grab its data to verify block variables.
+        // If plonk lookup table already has all these data, we can still use this
+        // event for debugging purpose.
+        emit BlockVars({
+            number: block.number,
+            parentHash: parentHash,
+            timestamp: block.timestamp,
+            basefee: 0, //block.basefee,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            gaslimit: block.gaslimit,
+            chainid: block.chainid
+        });
     }
 
     /**********************
