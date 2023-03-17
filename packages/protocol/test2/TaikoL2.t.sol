@@ -16,17 +16,15 @@ contract ReadBlockhashVsCalldata is Test {
 
     function testAnchorTxs() external {
         for (uint256 i = 0; i < 1000; i++) {
-            bytes32 parentHash = blockhash(block.number - 1);
-            L2.anchor(12345, keccak256("a"), keccak256("b"), parentHash);
+            L2.anchor(12345, keccak256("a"), keccak256("b"));
             vm.roll(block.number + 1);
         }
     }
 
     // calling anchor in the same block more than once should fail
     function testAnchorTxsFailInTheSameBlock() external {
-        bytes32 parentHash = blockhash(block.number - 1);
-        L2.anchor(12345, keccak256("a"), keccak256("b"), parentHash);
+        L2.anchor(12345, keccak256("a"), keccak256("b"));
         vm.expectRevert();
-        L2.anchor(12345, keccak256("a"), keccak256("b"), parentHash);
+        L2.anchor(12345, keccak256("a"), keccak256("b"));
     }
 }

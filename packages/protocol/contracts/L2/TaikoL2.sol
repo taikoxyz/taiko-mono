@@ -32,8 +32,20 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Events and Errors  *
      **********************/
 
+    // Captures all block variables mentioned in
+    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    event BlockVars(
+        uint256 number,
+        bytes32 parentHash,
+        uint256 timestamp,
+        uint256 basefee,
+        uint256 prevrandao,
+        address coinbase,
+        uint256 gaslimit,
+        uint256 chainid
+    );
+
     error L2_INVALID_CHAIN_ID();
-    error L2_PARENT_HASH_MISMATCH();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -44,6 +56,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     function init(address _addressManager) external initializer {
         if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
         if (block.number > 1) revert L2_TOO_LATE();
+
         EssentialContract._init(_addressManager);
 
         bytes32[257] memory inputs;
@@ -87,60 +100,68 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
-     * @param l2parentHash The expected parent hash.
      */
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
-        bytes32 l1SignalRoot,
-        bytes32 l2parentHash
+        bytes32 l1SignalRoot
     ) external {
-        {
-            uint256 n = block.number;
-            uint256 m; // parent block height
-            unchecked {
-                m = n - 1;
-            }
-
-            if (l2parentHash != blockhash(m)) revert L2_PARENT_HASH_MISMATCH();
-
-            // Check the latest 256 block hashes (excluding the parent hash).
-            // TODO(daniel & brecht):
-            //    we can move this to circuits to free L2 blockspace.
-            bytes32[257] memory inputs;
-            unchecked {
-                // put the previous 255 blockhashes (excluding the parent's) into a
-                // ring buffer.
-                for (uint256 i; i < 255 && n >= i + 2; ++i) {
-                    uint j = n - i - 2;
-                    inputs[j % 255] = blockhash(j);
-                }
-            }
-
-            // All block properties mentioned in
-            // https://docs.soliditylang.org/en/v0.8.17/units-and-global-variables.html
-            // but not part of a L2 block header shall be added to the list.
-            inputs[255] = bytes32(block.chainid);
-
-            // TODO(daniel): uncomment the next line when London
-            // fork (including EIP-1559) is enabled on L2.
-            // inputs[256] = bytes32(block.basefee);
-
-            if (_publicInputHash != _hashInputs(inputs))
-                revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-
-            // replace the oldest block hash with the parent's blockhash
-            inputs[m % 255] = l2parentHash;
-            _publicInputHash = _hashInputs(inputs);
-
-            _l2Hashes[m] = l2parentHash;
+        uint256 n = block.number;
+        uint256 m; // parent block height
+        unchecked {
+            m = n - 1;
         }
+
+        // Check the latest 256 block hashes (excluding the parent hash).
+        // TODO(daniel & brecht):
+        //    we can move this to circuits to free L2 blockspace.
+        bytes32[257] memory inputs;
+        unchecked {
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && n >= i + 2; ++i) {
+                uint j = n - i - 2;
+                inputs[j % 255] = blockhash(j);
+            }
+        }
+
+        // All block properties mentioned in
+        // https://docs.soliditylang.org/en/v0.8.17/units-and-global-variables.html
+        // but not part of a L2 block header shall be added to the list.
+        inputs[255] = bytes32(block.chainid);
+
+        // TODO(daniel): uncomment the next line when London
+        // fork (including EIP-1559) is enabled on L2.
+        // inputs[256] = bytes32(block.basefee);
+
+        if (_publicInputHash != _hashInputs(inputs))
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+
+        // replace the oldest block hash with the parent's blockhash
+        bytes32 parentHash = blockhash(m);
+        inputs[m % 255] = parentHash;
+        _publicInputHash = _hashInputs(inputs);
+        _l2Hashes[m] = parentHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
 
         emit XchainSynced(l1Height, chainData);
+
+        // We emit this event so circuits can grab them to verify data integrity.
+        // If plonk lookup table already has all these data, we can still use this
+        // event for debugging purpose.
+        emit BlockVars({
+            number: block.number,
+            parentHash: parentHash,
+            timestamp: block.timestamp,
+            basefee: 0, //block.basefee,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            gaslimit: block.gaslimit,
+            chainid: block.chainid
+        });
     }
 
     /**********************

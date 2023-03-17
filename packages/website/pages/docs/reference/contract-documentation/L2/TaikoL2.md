@@ -10,6 +10,12 @@ title: TaikoL2
 uint256 latestSyncedL1Height
 ```
 
+### BlockVars
+
+```solidity
+event BlockVars(uint256 number, bytes32 parentHash, uint256 timestamp, uint256 basefee, uint256 prevrandao, address coinbase, uint256 gaslimit, uint256 chainid)
+```
+
 ### L2_INVALID_CHAIN_ID
 
 ```solidity
