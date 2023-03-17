@@ -10,7 +10,6 @@ This documentation site is your one-stop shop for all things Taiko:
 
 - **Concepts**: Concepts about how Taiko works
 - **Guides**: Easy to follow guides to use Taiko
-- **Tutorials**: Easy to follow tutorials to build on Taiko
 - **Reference**: Quick reference documentation about the network (e.g., contract addresses, protocol configurations)
 - **Resources**: Additional resources for your knowledge
 
@@ -22,7 +21,10 @@ Check out these resources to get started learning more about Taiko:
 - [The Type 1 ZK-EVM](https://mirror.xyz/labs.taiko.eth/w7NSKDeKfJoEy0p89I9feixKfdK-20JgWF9HZzxfeBo)
 - [Whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf)
 - [Contract documentation](/docs/reference/contract-documentation/)
-- [Frequently Asked Questions (FAQs)](/docs/resources/faqs/)
+
+## Contribute
+
+Contributions are very welcome, check out the [contributing guide](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md) to get started!
 
 ## What does "Taiko" mean?
 
