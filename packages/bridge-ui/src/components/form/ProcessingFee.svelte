@@ -1,14 +1,14 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { processingFee } from '../../store/fee';
-  import { ProcessingFeeMethod, PROCESSING_FEE_META } from '../../domain/fee';
+  import { ProcessingFeeMethod } from '../../domain/fee';
   import { toChain, fromChain } from '../../store/chain';
   import { token } from '../../store/token';
   import { signer } from '../../store/signer';
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
-  import Tooltip from '../Tooltip.svelte';
   import TooltipModal from '../modals/TooltipModal.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import { processingFeeMap } from '../../fee/processingFee';
 
   export let customFee: string;
   export let recommendedFee: string = '0';
@@ -60,7 +60,7 @@
   {/if}
 
   <div class="flex mt-2 space-x-2">
-    {#each Array.from(PROCESSING_FEE_META) as fee}
+    {#each Array.from(processingFeeMap) as fee}
       <button
         class="{$processingFee === fee[0]
           ? 'border-accent hover:border-accent'

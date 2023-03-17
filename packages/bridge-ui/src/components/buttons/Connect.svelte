@@ -13,7 +13,6 @@
     getAccount,
   } from '@wagmi/core';
 
-  import { CHAIN_MAINNET, CHAIN_TKO } from '../../domain/chain';
   import { fromChain, toChain } from '../../store/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import { errorToast, successToast } from '../../utils/toast';
@@ -23,16 +22,17 @@
   import WalletConnect from '../icons/WalletConnect.svelte';
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
+  import { mainnetChain, taikoChain } from '../../chain/chains';
 
   export let isConnectWalletModalOpen = false;
 
   const changeChain = async (chainId: number) => {
-    if (chainId === CHAIN_TKO.id) {
-      fromChain.set(CHAIN_TKO);
-      toChain.set(CHAIN_MAINNET);
-    } else if (chainId === CHAIN_MAINNET.id) {
-      fromChain.set(CHAIN_MAINNET);
-      toChain.set(CHAIN_TKO);
+    if (chainId === taikoChain.id) {
+      fromChain.set(taikoChain);
+      toChain.set(mainnetChain);
+    } else if (chainId === mainnetChain.id) {
+      fromChain.set(mainnetChain);
+      toChain.set(taikoChain);
     } else {
       isSwitchEthereumChainModalOpen.set(true);
     }

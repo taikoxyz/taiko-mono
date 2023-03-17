@@ -1,4 +1,4 @@
-type Block = {
+export type Block = {
   number: number;
   hash: string;
   parentHash: string;
@@ -22,7 +22,7 @@ type Block = {
   mixHash: string;
 };
 
-type BlockHeader = {
+export type BlockHeader = {
   parentHash: string;
   ommersHash: string;
   beneficiary: string;
@@ -40,5 +40,3 @@ type BlockHeader = {
   nonce: number;
   baseFeePerGas: number;
 };
-
-export { Block, BlockHeader };

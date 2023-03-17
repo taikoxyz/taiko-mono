@@ -1,9 +1,7 @@
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
-/// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_L1_RPC_URL: string;
   readonly VITE_L1_RPC_URL: string;
   readonly VITE_L2_RPC_URL: string;
   readonly VITE_L1_EXPLORER_URL: string;
