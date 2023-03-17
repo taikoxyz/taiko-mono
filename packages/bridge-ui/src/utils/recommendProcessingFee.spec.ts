@@ -4,18 +4,19 @@ jest.mock('../store/bridge', () => ({
 }));
 
 import { BigNumber, ethers, Signer } from 'ethers';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
+
+import { mainnetChain, taikoChain } from '../chain/chains';
 import { ProcessingFeeMethod } from '../domain/fee';
+import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { signer } from '../store/signer';
+import { ETHToken, testERC20Tokens } from '../token/tokens';
 import {
   erc20DeployedGasLimit,
   erc20NotDeployedGasLimit,
   ethGasLimit,
   recommendProcessingFee,
 } from './recommendProcessingFee';
-import { mainnetChain, taikoChain } from '../chain/chains';
-import { ETHToken, testERC20Tokens } from '../token/tokens';
 
 const mockGet = jest.fn();
 

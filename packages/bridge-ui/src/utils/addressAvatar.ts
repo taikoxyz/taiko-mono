@@ -1,5 +1,5 @@
-import Identicon from 'identicon.js';
 import { ethers } from 'ethers';
+import Identicon from 'identicon.js';
 
 export const DEFAULT_IDENTICON = new Identicon(
   'c157a79031e1c40f85931829bc5fc552',

@@ -1,8 +1,9 @@
 import { BigNumber, ethers, Wallet } from 'ethers';
-import type { Bridge, BridgeOpts } from '../domain/bridge';
-import { ETHBridge } from './ETHBridge';
-import { Message, MessageStatus } from '../domain/message';
+
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import type { Bridge, BridgeOpts } from '../domain/bridge';
+import { Message, MessageStatus } from '../domain/message';
+import { ETHBridge } from './ETHBridge';
 
 const mockSigner = {
   getAddress: jest.fn(),

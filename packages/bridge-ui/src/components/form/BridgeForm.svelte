@@ -1,44 +1,42 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import { fetchFeeData } from '@wagmi/core';
+  import { BigNumber, Contract, ethers, Signer } from 'ethers';
+  import { Funnel } from 'svelte-heros-v2';
+  import { _ } from 'svelte-i18n';
 
-  import { token } from '../../store/token';
-  import { processingFee } from '../../store/fee';
-  import { fromChain, toChain } from '../../store/chain';
+  import { chainsRecord } from '../../chain/chains';
+  import ERC20 from '../../constants/abi/ERC20';
+  import TokenVault from '../../constants/abi/TokenVault';
+  import type { BridgeOpts, BridgeType } from '../../domain/bridge';
+  import type { Chain } from '../../domain/chain';
+  import { ProcessingFeeMethod } from '../../domain/fee';
+  import { MessageStatus } from '../../domain/message';
+  import type { Token } from '../../domain/token';
+  import type { BridgeTransaction } from '../../domain/transactions';
   import {
     activeBridge,
-    chainIdToTokenVaultAddress,
     bridgeType,
+    chainIdToTokenVaultAddress,
   } from '../../store/bridge';
+  import { fromChain, toChain } from '../../store/chain';
+  import { processingFee } from '../../store/fee';
+  import { providers } from '../../store/providers';
   import { signer } from '../../store/signer';
-  import { BigNumber, Contract, ethers, Signer } from 'ethers';
-  import ProcessingFee from './ProcessingFee.svelte';
-  import SelectToken from '../buttons/SelectToken.svelte';
-
-  import type { Token } from '../../domain/token';
-  import type { BridgeOpts, BridgeType } from '../../domain/bridge';
-
-  import type { Chain } from '../../domain/chain';
-  import { truncateString } from '../../utils/truncateString';
+  import { token } from '../../store/token';
   import {
     pendingTransactions,
     transactions as transactionsStore,
   } from '../../store/transactions';
-  import { ProcessingFeeMethod } from '../../domain/fee';
-  import Memo from './Memo.svelte';
-  import { errorToast, successToast } from '../../utils/toast';
-  import ERC20 from '../../constants/abi/ERC20';
-  import TokenVault from '../../constants/abi/TokenVault';
-  import type { BridgeTransaction } from '../../domain/transactions';
-  import { MessageStatus } from '../../domain/message';
-  import { Funnel } from 'svelte-heros-v2';
-  import FaucetModal from '../modals/FaucetModal.svelte';
-  import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
-  import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
-  import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
-  import { chainsRecord } from '../../chain/chains';
+  import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
+  import { errorToast, successToast } from '../../utils/toast';
+  import { truncateString } from '../../utils/truncateString';
+  import SelectToken from '../buttons/SelectToken.svelte';
+  import FaucetModal from '../modals/FaucetModal.svelte';
+  import Memo from './Memo.svelte';
+  import ProcessingFee from './ProcessingFee.svelte';
+  import To from './To.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;

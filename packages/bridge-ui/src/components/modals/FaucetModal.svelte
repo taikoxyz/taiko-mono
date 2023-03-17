@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { BigNumber, ethers } from 'ethers';
-  import { pendingTransactions } from '../../store/transactions';
-  import { signer } from '../../store/signer';
-  import { errorToast, successToast } from '../../utils/toast';
-  import { _ } from 'svelte-i18n';
-  import MintableERC20 from '../../constants/abi/MintableERC20';
-  import { fromChain } from '../../store/chain';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import Modal from './Modal.svelte';
+  import { BigNumber, ethers } from 'ethers';
   import { onMount } from 'svelte';
-  import { token } from '../../store/token';
+  import { _ } from 'svelte-i18n';
+
+  import MintableERC20 from '../../constants/abi/MintableERC20';
   import { L1_CHAIN_ID } from '../../constants/envVars';
+  import { fromChain } from '../../store/chain';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { pendingTransactions } from '../../store/transactions';
+  import { errorToast, successToast } from '../../utils/toast';
+  import Modal from './Modal.svelte';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;

@@ -1,19 +1,20 @@
 <script lang="ts">
+  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { disconnect as wagmiDisconnect } from '@wagmi/core';
+  import { ethers, Signer } from 'ethers';
   import { onMount } from 'svelte';
+  import { slide } from 'svelte/transition';
+  import { ClipboardDocument, Power } from 'svelte-heros-v2';
+  import { ChevronDown } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
-  import { addressSubsection } from '../utils/addressSubsection';
+
+  import { fromChain } from '../store/chain';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { ethers, Signer } from 'ethers';
+  import { addressSubsection } from '../utils/addressSubsection';
   import { errorToast, successToast } from '../utils/toast';
-  import { ClipboardDocument, Power } from 'svelte-heros-v2';
-  import { slide } from 'svelte/transition';
-  import { fromChain } from '../store/chain';
   import { truncateString } from '../utils/truncateString';
-  import { ChevronDown } from 'svelte-heros-v2';
 
   let address: string = '';
   let addressAvatarImgData: string = '';

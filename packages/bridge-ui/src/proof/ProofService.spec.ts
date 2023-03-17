@@ -1,4 +1,5 @@
 import { BigNumber, ethers } from 'ethers';
+
 import type { EthGetProofResponse } from '../domain/proof';
 import { ProofService } from './ProofService';
 

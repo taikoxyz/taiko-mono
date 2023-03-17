@@ -1,12 +1,13 @@
-import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import Bridge from '../constants/abi/Bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
-import ERC20 from '../constants/abi/ERC20';
-import { MessageStatus } from '../domain/message';
+
 import { chainsRecord } from '../chain/chains';
+import Bridge from '../constants/abi/Bridge';
+import ERC20 from '../constants/abi/ERC20';
+import TokenVault from '../constants/abi/TokenVault';
+import { MessageStatus } from '../domain/message';
+import type { BridgeTransaction, Transactioner } from '../domain/transactions';
+import { chainIdToTokenVaultAddress } from '../store/bridge';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;

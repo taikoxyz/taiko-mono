@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
-  import { fromChain, toChain } from '../store/chain';
-  import type { Chain } from '../domain/chain';
-  import { ethers } from 'ethers';
-  import { signer } from '../store/signer';
   import { switchNetwork } from '@wagmi/core';
+  import { ethers } from 'ethers';
   import { ChevronDown, ExclamationTriangle } from 'svelte-heros-v2';
+  import { _ } from 'svelte-i18n';
+
   import { mainnetChain, taikoChain } from '../chain/chains';
+  import type { Chain } from '../domain/chain';
+  import { fromChain, toChain } from '../store/chain';
+  import { signer } from '../store/signer';
 
   const changeChain = async (chain: Chain) => {
     await switchNetwork({

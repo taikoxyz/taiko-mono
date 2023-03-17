@@ -1,7 +1,7 @@
 <script lang="ts">
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import TooltipModal from '../modals/TooltipModal.svelte';
   import Tooltip from '../Tooltip.svelte';
-  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
 
   export let memo: string = '';
   let showMemo: boolean = false;

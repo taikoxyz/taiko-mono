@@ -1,10 +1,11 @@
 <script lang="ts">
   import { ethers } from 'ethers';
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
+
+  import { chainsRecord } from '../chain/chains';
+  import type { BridgeTransaction } from '../domain/transactions';
   import { truncateString } from '../utils/truncateString';
   import Modal from './modals/Modal.svelte';
-  import type { BridgeTransaction } from '../domain/transactions';
-  import { chainsRecord } from '../chain/chains';
 
   // TODO: can we always guarantee that this object is defined?
   //       in which case we need to guard => transaction?.prop

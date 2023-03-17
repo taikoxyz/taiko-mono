@@ -1,13 +1,14 @@
 <script lang="ts">
-  import Connect from './buttons/Connect.svelte';
-  import TaikoLogo from './icons/TaikoLogo.svelte';
-  import TaikoLight from './icons/TaikoLight.svelte';
+  import { fly } from 'svelte/transition';
+  import { Moon, Sun } from 'svelte-heros-v2';
+
   import { signer } from '../store/signer';
   import AddressDropdown from './AddressDropdown.svelte';
+  import Connect from './buttons/Connect.svelte';
   import ChainDropdown from './ChainDropdown.svelte';
+  import TaikoLight from './icons/TaikoLight.svelte';
+  import TaikoLogo from './icons/TaikoLogo.svelte';
   import TaikoLogoFluo from './icons/TaikoLogoFluo.svelte';
-  import { Sun, Moon } from 'svelte-heros-v2';
-  import { fly } from 'svelte/transition';
 
   let isDarkMode = localStorage.getItem('theme') === 'dark';
 

@@ -1,12 +1,13 @@
 import { Contract, ethers } from 'ethers';
 import { RLP } from 'ethers/lib/utils.js';
+
 import HeaderSync from '../constants/abi/HeaderSync';
 import type { Block, BlockHeader } from '../domain/block';
 import type {
-  Prover,
-  GenerateProofOpts,
   EthGetProofResponse,
+  GenerateProofOpts,
   GenerateReleaseProofOpts,
+  Prover,
 } from '../domain/proof';
 
 export class ProofService implements Prover {

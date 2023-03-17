@@ -1,19 +1,20 @@
 <script lang="ts">
   import { getProvider } from '@wagmi/core';
-  import { token } from '../../store/token';
-  import { bridgeType } from '../../store/bridge';
-  import type { Token } from '../../domain/token';
-  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
-  import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
-  import { errorToast, successToast } from '../../utils/toast';
   import { ethers } from 'ethers';
+  import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
+
   import ERC20_ABI from '../../constants/abi/ERC20';
-  import { signer } from '../../store/signer';
-  import { userTokens, tokenService } from '../../store/userToken';
+  import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
+  import type { Token } from '../../domain/token';
+  import { bridgeType } from '../../store/bridge';
   import { fromChain, toChain } from '../../store/chain';
-  import Erc20 from '../icons/ERC20.svelte';
-  import AddCustomErc20 from '../form/AddCustomERC20.svelte';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { tokenService, userTokens } from '../../store/userToken';
   import { ETHToken, tokens } from '../../token/tokens';
+  import { errorToast, successToast } from '../../utils/toast';
+  import AddCustomErc20 from '../form/AddCustomERC20.svelte';
+  import Erc20 from '../icons/ERC20.svelte';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;

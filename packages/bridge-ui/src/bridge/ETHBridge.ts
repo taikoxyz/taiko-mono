@@ -1,5 +1,9 @@
-import { BigNumber, Contract } from 'ethers';
 import type { Transaction } from 'ethers';
+import { BigNumber, Contract } from 'ethers';
+
+import { chainsRecord } from '../chain/chains';
+import BridgeABI from '../constants/abi/Bridge';
+import TokenVault from '../constants/abi/TokenVault';
 import type {
   ApproveOpts,
   Bridge,
@@ -7,11 +11,8 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import BridgeABI from '../constants/abi/Bridge';
-import { chainsRecord } from '../chain/chains';
+import type { Prover } from '../domain/proof';
 
 export class ETHBridge implements Bridge {
   private readonly prover: Prover;

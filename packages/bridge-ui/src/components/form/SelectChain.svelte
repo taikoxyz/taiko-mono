@@ -1,11 +1,12 @@
 <script>
   import { switchNetwork } from '@wagmi/core';
+  import { ethers } from 'ethers';
   import { ArrowRight } from 'svelte-heros-v2';
+
+  import { mainnetChain, taikoChain } from '../../chain/chains';
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
-  import { ethers } from 'ethers';
   import { errorToast, successToast } from '../../utils/toast';
-  import { mainnetChain, taikoChain } from '../../chain/chains';
 
   const toggleChains = async () => {
     try {

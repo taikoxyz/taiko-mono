@@ -1,5 +1,5 @@
-import { toast } from '@zerodevx/svelte-toast';
 import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
+import { toast } from '@zerodevx/svelte-toast';
 
 export const errorOpts: SvelteToastOptions = {
   theme: {

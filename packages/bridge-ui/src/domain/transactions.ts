@@ -1,4 +1,5 @@
 import type { BigNumber, ethers } from 'ethers';
+
 import type { Message, MessageStatus } from './message';
 
 export type BridgeTransaction = {

@@ -1,17 +1,18 @@
 <script lang="ts">
+  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { getProvider } from '@wagmi/core';
+  import { ethers } from 'ethers';
   import { Trash } from 'svelte-heros-v2';
+
+  import ERC20 from '../../constants/abi/ERC20';
   import type { Token, TokenDetails } from '../../domain/token';
   import { signer } from '../../store/signer';
   import { token as tokenStore } from '../../store/token';
-  import { userTokens, tokenService } from '../../store/userToken';
+  import { tokenService, userTokens } from '../../store/userToken';
+  import { ETHToken } from '../../token/tokens';
+  import { errorToast } from '../../utils/toast';
   import Erc20 from '../icons/ERC20.svelte';
   import Modal from '../modals/Modal.svelte';
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import { ethers } from 'ethers';
-  import ERC20 from '../../constants/abi/ERC20';
-  import { errorToast } from '../../utils/toast';
-  import { ETHToken } from '../../token/tokens';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;

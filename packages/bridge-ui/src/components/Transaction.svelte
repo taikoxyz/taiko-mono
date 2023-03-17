@@ -1,29 +1,29 @@
 <script lang="ts">
-  import type { BridgeTransaction } from '../domain/transactions';
-  import type { Chain } from '../domain/chain';
-  import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
-  import { MessageStatus } from '../domain/message';
+  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import { fetchSigner, switchNetwork } from '@wagmi/core';
   import { Contract, ethers } from 'ethers';
-  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
-  import { signer } from '../store/signer';
-  import { pendingTransactions } from '../store/transactions';
-  import { errorToast, successToast } from '../utils/toast';
+  import { onMount } from 'svelte';
+  import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { _ } from 'svelte-i18n';
+
+  import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
+  import Bridge from '../constants/abi/Bridge';
+  import HeaderSync from '../constants/abi/HeaderSync';
+  import TokenVault from '../constants/abi/TokenVault';
+  import { BridgeType } from '../domain/bridge';
+  import type { Chain } from '../domain/chain';
+  import { MessageStatus } from '../domain/message';
+  import type { BridgeTransaction } from '../domain/transactions';
+  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
   import {
     fromChain as fromChainStore,
     toChain as toChainStore,
   } from '../store/chain';
-  import { BridgeType } from '../domain/bridge';
-  import { onMount } from 'svelte';
-
-  import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import HeaderSync from '../constants/abi/HeaderSync';
   import { providers } from '../store/providers';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import Bridge from '../constants/abi/Bridge';
+  import { signer } from '../store/signer';
+  import { pendingTransactions } from '../store/transactions';
+  import { errorToast, successToast } from '../utils/toast';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
-  import TokenVault from '../constants/abi/TokenVault';
-  import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;

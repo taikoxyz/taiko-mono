@@ -7,7 +7,7 @@ jest.mock('@zerodevx/svelte-toast', () => ({
   },
 }));
 
-import { successToast, errorToast, successOpts, errorOpts } from './toast';
+import { errorOpts, errorToast, successOpts, successToast } from './toast';
 describe('toasts', function () {
   beforeEach(() => {
     jest.resetAllMocks();

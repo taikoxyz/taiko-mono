@@ -1,14 +1,15 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { processingFee } from '../../store/fee';
+
   import { ProcessingFeeMethod } from '../../domain/fee';
-  import { toChain, fromChain } from '../../store/chain';
-  import { token } from '../../store/token';
-  import { signer } from '../../store/signer';
-  import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
-  import TooltipModal from '../modals/TooltipModal.svelte';
-  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
   import { processingFeeMap } from '../../fee/processingFee';
+  import { fromChain, toChain } from '../../store/chain';
+  import { processingFee } from '../../store/fee';
+  import { signer } from '../../store/signer';
+  import { token } from '../../store/token';
+  import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
+  import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
+  import TooltipModal from '../modals/TooltipModal.svelte';
 
   export let customFee: string;
   export let recommendedFee: string = '0';

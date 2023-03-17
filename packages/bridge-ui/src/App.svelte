@@ -1,60 +1,61 @@
 <script lang="ts">
-  import { wrap } from 'svelte-spa-router/wrap';
-  import QueryProvider from './components/providers/QueryProvider.svelte';
-  import Router from 'svelte-spa-router';
-  import { SvelteToast } from '@zerodevx/svelte-toast';
-  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
   import { configureChains, createClient } from '@wagmi/core';
-  import { publicProvider } from '@wagmi/core/providers/public';
-  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
   import { CoinbaseWalletConnector } from '@wagmi/core/connectors/coinbaseWallet';
-  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
   import { MetaMaskConnector } from '@wagmi/core/connectors/metaMask';
+  import { WalletConnectConnector } from '@wagmi/core/connectors/walletConnect';
+  import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
+  import { publicProvider } from '@wagmi/core/providers/public';
+  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
+  import { SvelteToast } from '@zerodevx/svelte-toast';
+  import Router from 'svelte-spa-router';
+  import { wrap } from 'svelte-spa-router/wrap';
 
-  import Home from './pages/home/Home.svelte';
-  import { setupI18n } from './i18n';
-  import { BridgeType } from './domain/bridge';
-  import { ETHBridge } from './bridge/ETHBridge';
   import { ERC20Bridge } from './bridge/ERC20Bridge';
+  import { ETHBridge } from './bridge/ETHBridge';
+  import Navbar from './components/Navbar.svelte';
+  import QueryProvider from './components/providers/QueryProvider.svelte';
+  import { BridgeType } from './domain/bridge';
+  import type { BridgeTransaction, Transactioner } from './domain/transactions';
+  import { setupI18n } from './i18n';
+  import Home from './pages/home/Home.svelte';
   import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
+  import { signer } from './store/signer';
   import {
     pendingTransactions,
     transactioner,
     transactions,
   } from './store/transactions';
-  import Navbar from './components/Navbar.svelte';
-  import { signer } from './store/signer';
-  import type { BridgeTransaction, Transactioner } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
 
   setupI18n({ withLocale: 'en' });
-  import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
-  import type { Prover } from './domain/proof';
-  import { successToast } from './utils/toast';
-  import { StorageService } from './storage/StorageService';
-  import { MessageStatus } from './domain/message';
-  import BridgeABI from './constants/abi/Bridge';
-  import { providers } from './store/providers';
+
+  import {
+    chainsRecord,
+    mainnetWagmiChain,
+    taikoWagmiChain,
+  } from './chain/chains';
   import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
-  import type { TokenService } from './domain/token';
-  import { CustomTokenService } from './storage/CustomTokenService';
-  import { userTokens, tokenService } from './store/userToken';
-  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
-  import type { RelayerAPI } from './domain/relayerApi';
-  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
+  import BridgeABI from './constants/abi/Bridge';
   import {
     L1_CHAIN_ID,
     L1_TOKEN_VAULT_ADDRESS,
     L2_CHAIN_ID,
     L2_TOKEN_VAULT_ADDRESS,
   } from './constants/envVars';
-  import {
-    chainsRecord,
-    mainnetWagmiChain,
-    taikoWagmiChain,
-  } from './chain/chains';
+  import { MessageStatus } from './domain/message';
+  import type { Prover } from './domain/proof';
+  import type { RelayerAPI } from './domain/relayerApi';
+  import type { TokenService } from './domain/token';
+  import { ProofService } from './proof/ProofService';
+  import { RelayerAPIService } from './relayer-api/RelayerAPIService';
+  import { CustomTokenService } from './storage/CustomTokenService';
+  import { StorageService } from './storage/StorageService';
+  import { providers } from './store/providers';
+  import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
+  import { tokenService, userTokens } from './store/userToken';
+  import { successToast } from './utils/toast';
 
   const providerMap = new Map<number, ethers.providers.JsonRpcProvider>();
 

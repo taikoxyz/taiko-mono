@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { chainsRecord } from '../chain/chains';
+  import type { BridgeTransaction } from '../domain/transactions';
   import { transactions } from '../store/transactions';
+  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
-  import MessageStatusTooltip from './MessageStatusTooltip.svelte';
-  import type { BridgeTransaction } from '../domain/transactions';
-  import { chainsRecord } from '../chain/chains';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;

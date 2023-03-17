@@ -1,5 +1,10 @@
-import { BigNumber, Contract, Signer } from 'ethers';
 import type { Transaction } from 'ethers';
+import { BigNumber, Contract, Signer } from 'ethers';
+
+import { chainsRecord } from '../chain/chains';
+import BridgeABI from '../constants/abi/Bridge';
+import ERC20 from '../constants/abi/ERC20';
+import TokenVault from '../constants/abi/TokenVault';
 import type {
   ApproveOpts,
   Bridge,
@@ -7,12 +12,8 @@ import type {
   ClaimOpts,
   ReleaseOpts,
 } from '../domain/bridge';
-import TokenVault from '../constants/abi/TokenVault';
-import ERC20 from '../constants/abi/ERC20';
-import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
-import BridgeABI from '../constants/abi/Bridge';
-import { chainsRecord } from '../chain/chains';
+import type { Prover } from '../domain/proof';
 
 export class ERC20Bridge implements Bridge {
   private readonly prover: Prover;

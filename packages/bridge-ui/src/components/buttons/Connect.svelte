@@ -1,28 +1,28 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { signer } from '../../store/signer';
-  import { _ } from 'svelte-i18n';
   import {
     connect as wagmiConnect,
     Connector,
+    ConnectorNotFoundError,
     fetchSigner,
+    getAccount,
+    getNetwork,
     watchAccount,
     watchNetwork,
-    ConnectorNotFoundError,
-    getNetwork,
-    getAccount,
   } from '@wagmi/core';
+  import { onMount } from 'svelte';
+  import { _ } from 'svelte-i18n';
 
+  import { mainnetChain, taikoChain } from '../../chain/chains';
   import { fromChain, toChain } from '../../store/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
-  import { errorToast, successToast } from '../../utils/toast';
-  import Modal from '../modals/Modal.svelte';
+  import { signer } from '../../store/signer';
+  import { transactioner, transactions } from '../../store/transactions';
   import { wagmiClient } from '../../store/wagmi';
+  import { errorToast, successToast } from '../../utils/toast';
+  import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import MetaMask from '../icons/MetaMask.svelte';
   import WalletConnect from '../icons/WalletConnect.svelte';
-  import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
-  import { transactioner, transactions } from '../../store/transactions';
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import Modal from '../modals/Modal.svelte';
 
   export let isConnectWalletModalOpen = false;
 

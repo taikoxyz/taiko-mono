@@ -1,6 +1,7 @@
 import { derived, writable } from 'svelte/store';
-import { BridgeType } from '../domain/bridge';
+
 import type { Bridge } from '../domain/bridge';
+import { BridgeType } from '../domain/bridge';
 
 export const bridgeType = writable<BridgeType>(BridgeType.ETH);
 

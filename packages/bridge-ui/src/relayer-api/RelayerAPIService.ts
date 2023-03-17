@@ -1,15 +1,15 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
+import { get } from 'svelte/store';
+
+import { chainsRecord } from '../chain/chains';
 import Bridge from '../constants/abi/Bridge';
 import ERC20 from '../constants/abi/ERC20';
 import TokenVault from '../constants/abi/TokenVault';
 import { MessageStatus } from '../domain/message';
-
+import type { RelayerAPI, RelayerBlockInfo } from '../domain/relayerApi';
 import type { BridgeTransaction } from '../domain/transactions';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { get } from 'svelte/store';
-import type { RelayerAPI, RelayerBlockInfo } from '../domain/relayerApi';
-import { chainsRecord } from '../chain/chains';
 
 export class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;

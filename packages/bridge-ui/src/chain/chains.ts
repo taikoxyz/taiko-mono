@@ -1,4 +1,7 @@
 import type { Chain as WagmiChain } from '@wagmi/core';
+
+import Eth from '../components/icons/ETH.svelte';
+import Taiko from '../components/icons/TKO.svelte';
 import {
   L1_BRIDGE_ADDRESS,
   L1_CHAIN_ID,
@@ -16,8 +19,6 @@ import {
   L2_SIGNAL_SERVICE_ADDRESS,
 } from '../constants/envVars';
 import type { Chain } from '../domain/chain';
-import Eth from '../components/icons/ETH.svelte';
-import Taiko from '../components/icons/TKO.svelte';
 
 export const mainnetChain: Chain = {
   id: L1_CHAIN_ID,

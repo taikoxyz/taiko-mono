@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
+  import { _ } from 'svelte-i18n';
+
+  import { mainnetChain, taikoChain } from '../../chain/chains';
   import type { Chain } from '../../domain/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
-  import Modal from './Modal.svelte';
   import { signer } from '../../store/signer';
   import { errorToast, successToast } from '../../utils/toast';
-  import { mainnetChain, taikoChain } from '../../chain/chains';
+  import Modal from './Modal.svelte';
 
   const switchChain = async (chain: Chain) => {
     try {

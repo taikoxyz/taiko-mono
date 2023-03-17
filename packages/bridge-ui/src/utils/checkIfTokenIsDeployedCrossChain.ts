@@ -1,8 +1,9 @@
 import { ethers } from 'ethers';
-import { ETHToken } from '../token/tokens';
+
 import TokenVault from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { Token } from '../domain/token';
+import { ETHToken } from '../token/tokens';
 
 export const checkIfTokenIsDeployedCrossChain = async (
   token: Token,

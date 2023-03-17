@@ -1,10 +1,11 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
   import { link, location } from 'svelte-spa-router';
-  import { transactions } from '../../store/transactions';
+
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
   import Transactions from '../../components/Transactions.svelte';
+  import { transactions } from '../../store/transactions';
 
   let bridgeWidth: number;
   let bridgeHeight: number;
