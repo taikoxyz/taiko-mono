@@ -248,7 +248,7 @@
           address: string
         ) => {
           const stateVars = await getStateVariables(provider, address);
-          return stateVars.avgProofTime.toNumber();
+          return `${stateVars.avgProofTime.toNumber()} seconds`;
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
