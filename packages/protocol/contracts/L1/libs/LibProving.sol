@@ -115,25 +115,32 @@ library LibProving {
                     false
                 );
 
-                bytes32[8] memory inputs;
+                address taikoL2 = resolver.resolve(
+                    config.chainId,
+                    "taiko_l2",
+                    false
+                );
+
+                bytes32[9] memory inputs;
                 // for checking anchor tx
                 inputs[0] = bytes32(uint256(uint160(l1SignalService)));
                 // for checking signalRoot
                 inputs[1] = bytes32(uint256(uint160(l2SignalService)));
-                inputs[2] = evidence.parentHash;
-                inputs[3] = evidence.blockHash;
-                inputs[4] = evidence.signalRoot;
-                inputs[5] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[6] = proposal.metaHash;
+                inputs[2] = bytes32(uint256(uint160(taikoL2)));
+                inputs[3] = evidence.parentHash;
+                inputs[4] = evidence.blockHash;
+                inputs[5] = evidence.signalRoot;
+                inputs[6] = bytes32(uint256(uint160(evidence.prover)));
+                inputs[7] = proposal.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
                 // in to the circuit code, but if we upgrade the protocol
                 // and the gas limit changes, then having it here may be handy.
-                inputs[7] = bytes32(config.anchorTxGasLimit);
+                inputs[8] = bytes32(config.anchorTxGasLimit);
 
                 assembly {
-                    instance := keccak256(inputs, mul(32, 8))
+                    instance := keccak256(inputs, mul(32, 9))
                 }
             }
 
