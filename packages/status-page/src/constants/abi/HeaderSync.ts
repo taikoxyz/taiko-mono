@@ -5,12 +5,6 @@ export default [
       {
         indexed: true,
         internalType: "uint256",
-        name: "height",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "uint256",
         name: "srcHeight",
         type: "uint256",
       },
