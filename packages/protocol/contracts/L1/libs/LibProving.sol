@@ -63,7 +63,7 @@ library LibProving {
             meta.id % config.maxNumBlocks
         ];
 
-        if (proposal.metaHash != keccak256(abi.encode(meta)))
+        if (proposal.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
         TaikoData.ForkChoice storage fc = state.forkChoices[
@@ -115,7 +115,7 @@ library LibProving {
                     false
                 );
 
-                bytes32[11] memory inputs;
+                bytes32[8] memory inputs;
                 // for checking anchor tx
                 inputs[0] = bytes32(uint256(uint160(l1SignalService)));
                 // for checking signalRoot
@@ -124,19 +124,16 @@ library LibProving {
                 inputs[3] = evidence.blockHash;
                 inputs[4] = evidence.signalRoot;
                 inputs[5] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[6] = bytes32(uint256(evidence.meta.id));
-                inputs[7] = bytes32(evidence.meta.l1Height);
-                inputs[8] = evidence.meta.l1Hash;
-                inputs[9] = evidence.meta.txListHash;
+                inputs[6] = proposal.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
                 // in to the circuit code, but if we upgrade the protocol
                 // and the gas limit changes, then having it here may be handy.
-                inputs[10] = bytes32(config.anchorTxGasLimit);
+                inputs[7] = bytes32(config.anchorTxGasLimit);
 
                 assembly {
-                    instance := keccak256(inputs, mul(32, 11))
+                    instance := keccak256(inputs, mul(32, 8))
                 }
             }
 
@@ -157,8 +154,11 @@ library LibProving {
                     )
                 );
 
-            if (!verified || ret.length != 32 || bytes32(ret) != keccak256("taiko"))
-                revert L1_INVALID_PROOF();
+            if (
+                !verified ||
+                ret.length != 32 ||
+                bytes32(ret) != keccak256("taiko")
+            ) revert L1_INVALID_PROOF();
         }
 
         state.forkChoiceIds[blockId][evidence.parentHash] = proposal
