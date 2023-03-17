@@ -13,10 +13,7 @@
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
-  import { BridgeType } from './domain/bridge';
-  import { ETHBridge } from './bridge/ETHBridge';
-  import { ERC20Bridge } from './bridge/ERC20Bridge';
-  import { bridges, chainIdToTokenVaultAddress } from './store/bridge';
+  import { chainIdToTokenVaultAddress } from './store/bridge';
   import {
     pendingTransactions,
     transactioner,
@@ -29,14 +26,11 @@
 
   setupI18n({ withLocale: 'en' });
   import SwitchEthereumChainModal from './components/modals/SwitchEthereumChainModal.svelte';
-  import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
-  import type { Prover } from './domain/proof';
   import { successToast } from './utils/toast';
   import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import { providers } from './store/providers';
   import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
@@ -55,18 +49,7 @@
     mainnetWagmiChain,
     taikoWagmiChain,
   } from './chain/chains';
-
-  const providerMap = new Map<number, ethers.providers.JsonRpcProvider>();
-
-  providerMap.set(
-    L1_CHAIN_ID,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L1_RPC_URL),
-  );
-  providerMap.set(
-    L2_CHAIN_ID,
-    new ethers.providers.JsonRpcProvider(import.meta.env.VITE_L2_RPC_URL),
-  );
-  providers.set(providerMap);
+  import { providersMap } from './provider/providers';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -74,7 +57,7 @@
       publicProvider(),
       jsonRpcProvider({
         rpc: (chain) => ({
-          http: providerMap.get(chain.id).connection.url,
+          http: providersMap.get(chain.id).connection.url,
         }),
       }),
     ],
@@ -102,17 +85,6 @@
     ],
   });
 
-  const prover: Prover = new ProofService(providerMap);
-
-  const ethBridge = new ETHBridge(prover);
-  const erc20Bridge = new ERC20Bridge(prover);
-
-  bridges.update((store) => {
-    store.set(BridgeType.ETH, ethBridge);
-    store.set(BridgeType.ERC20, erc20Bridge);
-    return store;
-  });
-
   chainIdToTokenVaultAddress.update((store) => {
     store.set(L2_CHAIN_ID, L2_TOKEN_VAULT_ADDRESS);
     store.set(L1_CHAIN_ID, L1_TOKEN_VAULT_ADDRESS);
@@ -121,11 +93,11 @@
 
   const storageTransactioner: Transactioner = new StorageService(
     window.localStorage,
-    providerMap,
+    providersMap,
   );
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
-    providerMap,
+    providersMap,
     import.meta.env.VITE_RELAYER_URL,
   );
 
@@ -204,7 +176,7 @@
         }
 
         if (tx.status === MessageStatus.New) {
-          const provider = providerMap.get(tx.toChainId);
+          const provider = providersMap.get(tx.toChainId);
 
           const interval = setInterval(async () => {
             const txInterval = transactionToIntervalMap.get(tx.hash);

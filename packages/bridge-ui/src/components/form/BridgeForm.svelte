@@ -34,11 +34,11 @@
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
   import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
   import { chainsRecord } from '../../chain/chains';
+  import { providersMap } from '../../provider/providers';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -230,7 +230,7 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = $providers.get($toChain.id);
+      const provider = providersMap.get($toChain.id);
       const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
         $toChain.id,
       );

@@ -5,8 +5,8 @@ import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { providers } from '../store/providers';
 import { ETHToken } from '../token/tokens';
+import { providersMap } from '../provider/providers';
 
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
@@ -20,8 +20,7 @@ export async function recommendProcessingFee(
   signer: Signer,
 ): Promise<string> {
   if (!toChain || !fromChain || !token || !signer || !feeType) return '0';
-  const p = get(providers);
-  const provider = p.get(toChain.id);
+  const provider = providersMap.get(toChain.id);
   const gasPrice = await provider.getGasPrice();
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.
