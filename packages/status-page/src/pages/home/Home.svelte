@@ -227,9 +227,12 @@
           onEvent: (value: Status) => void
         ) => {
           const contract = new Contract(address, TaikoL1, provider);
-          contract.on("BlockProven", (id, parentHash, blockHash, timestamp) => {
-            onEvent(new Date(timestamp.toNumber() * 1000).toString());
-          });
+          contract.on(
+            "BlockProven",
+            (id, parentHash, blockHash, prover, provenAt) => {
+              onEvent(new Date(provenAt.toNumber() * 1000).toString());
+            }
+          );
         },
         colorFunc: function (status: Status) {
           return "green"; // todo: whats green, yellow, red?
