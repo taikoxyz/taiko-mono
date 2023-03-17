@@ -110,6 +110,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         // Check the latest 256 block hashes (excluding the parent hash).
+        // Check blockhash[n-256]...blockhash[n-2], not including the parentHash
         bytes32[256] memory inputs;
         unchecked {
             // put the previous 255 blockhashes (excluding the parent's) into a
@@ -138,7 +139,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         emit XchainSynced(l1Height, chainData);
 
-        // We emit this event so circuits can grab them to verify data integrity.
+        // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
         // event for debugging purpose.
         emit BlockVars({
