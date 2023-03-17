@@ -1,6 +1,6 @@
 ## Anchor Transaction
 
-The first transaction in every Taiko L2 block to perform data validation and L1-to-L2 communication.
+The first transaction in every Taiko L2 block to perform data validation and enable L1-to-L2 communication.
 
 ## Bridge
 
@@ -28,7 +28,7 @@ A contract that holds some huge amount of ETHs on L2 and is able to authorize th
 
 ## Fork Choice
 
-Because blocks can be proven in parallel, the Taiko smart contract can receive a proof for a block for which it doesn’t know the correct pre-state for. The smart contract thus accepts all valid proofs using different pre-states, once the smart contract know the correct pre-state as proofs for all parent blocks come in, the correct pre-state can be selected together with its corresponding post-state to advance the verified chain. 
+Because blocks can be proven in parallel, the Taiko smart contract can receive a proof for a block for which it doesn’t know the correct pre-state for. The smart contract thus accepts all valid proofs using different pre-states, once the smart contract know the correct pre-state as proofs for all parent blocks come in, the correct pre-state can be selected together with its corresponding post-state to advance the verified chain.
 
 ## Golden Touch Address
 
@@ -68,7 +68,7 @@ A standard for data transfer between nodes in a space-efficient manner.
 
 ## Signal Service
 
-A smart contract that can be used to exchange [cross-chain messages](#Cross-chain-communication-(messaging)) between L1 ↔ L2 and L2 ↔ L2 that any dapp developer can use.
+A smart contract that can be used to exchange [cross-chain messages](<#Cross-chain-communication-(messaging)>) between L1 ↔ L2 and L2 ↔ L2 that any dapp developer can use.
 
 ## Slot-availability multipliers
 
