@@ -4,6 +4,7 @@
 package tokenvault
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 
 // Reference imports to suppress errors if they are not otherwise used.
 var (
+	_ = errors.New
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
@@ -24,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // IBridgeMessage is an auto generated low-level Go binding around an user-defined struct.
@@ -52,8 +55,14 @@ type TokenVaultCanonicalERC20 struct {
 	Name     string
 }
 
+// TokenVaultMetaData contains all meta data concerning the TokenVault contract.
+var TokenVaultMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"name\":\"RESOLVER_DENIED\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RESOLVER_INVALID_ADDR\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_AMOUNT\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_CALL_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_OWNER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_SENDER\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_SRC_CHAIN_ID\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_TO\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_TOKEN\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_INVALID_VALUE\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TOKENVAULT_MESSAGE_NOT_FAILED\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"canonicalToken\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"bridgedToken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"canonicalTokenSymbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"canonicalTokenName\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"canonicalTokenDecimal\",\"type\":\"uint8\"}],\"name\":\"BridgedERC20Deployed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Received\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Released\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Sent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"EtherSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"bridgedAddress\",\"type\":\"address\"}],\"name\":\"bridgedToCanonical\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"canonicalAddress\",\"type\":\"address\"}],\"name\":\"canonicalToBridged\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"bridgedAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddress\",\"type\":\"address\"}],\"name\":\"isBridgedToken\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isBridged\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"}],\"name\":\"messageDeposits\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structTokenVault.CanonicalERC20\",\"name\":\"canonicalToken\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"receiveERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"depositValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"callValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"releaseERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"name\":\"sendERC20\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"name\":\"sendEther\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+}
+
 // TokenVaultABI is the input ABI used to generate the binding from.
-const TokenVaultABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"canonicalToken\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"bridgedToken\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"canonicalTokenSymbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"canonicalTokenName\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"canonicalTokenDecimal\",\"type\":\"uint8\"}],\"name\":\"BridgedERC20Deployed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Received\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Released\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ERC20Sent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"msgHash\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"EtherSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"version\",\"type\":\"uint8\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"addressManager\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"bridgedToCanonical\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"canonicalToBridged\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addressManager\",\"type\":\"address\"}],\"name\":\"init\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isBridgedToken\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"messageDeposits\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"}],\"internalType\":\"structTokenVault.CanonicalERC20\",\"name\":\"canonicalToken\",\"type\":\"tuple\"},{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"receiveERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"srcChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"depositValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"callValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"internalType\":\"structIBridge.Message\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"proof\",\"type\":\"bytes\"}],\"name\":\"releaseERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"chainId\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"bool\",\"name\":\"allowZeroAddress\",\"type\":\"bool\"}],\"name\":\"resolve\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"name\":\"sendERC20\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"processingFee\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"refundAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"memo\",\"type\":\"string\"}],\"name\":\"sendEther\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
+// Deprecated: Use TokenVaultMetaData.ABI instead.
+var TokenVaultABI = TokenVaultMetaData.ABI
 
 // TokenVault is an auto generated Go binding around an Ethereum contract.
 type TokenVault struct {
@@ -152,11 +161,11 @@ func NewTokenVaultFilterer(address common.Address, filterer bind.ContractFiltere
 
 // bindTokenVault binds a generic wrapper to an already deployed contract.
 func bindTokenVault(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(TokenVaultABI))
+	parsed, err := TokenVaultMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -230,8 +239,8 @@ func (_TokenVault *TokenVaultCallerSession) AddressManager() (common.Address, er
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
-func (_TokenVault *TokenVaultCaller) BridgedToCanonical(opts *bind.CallOpts, arg0 common.Address) (struct {
+// Solidity: function bridgedToCanonical(address bridgedAddress) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
+func (_TokenVault *TokenVaultCaller) BridgedToCanonical(opts *bind.CallOpts, bridgedAddress common.Address) (struct {
 	ChainId  *big.Int
 	Addr     common.Address
 	Decimals uint8
@@ -239,7 +248,7 @@ func (_TokenVault *TokenVaultCaller) BridgedToCanonical(opts *bind.CallOpts, arg
 	Name     string
 }, error) {
 	var out []interface{}
-	err := _TokenVault.contract.Call(opts, &out, "bridgedToCanonical", arg0)
+	err := _TokenVault.contract.Call(opts, &out, "bridgedToCanonical", bridgedAddress)
 
 	outstruct := new(struct {
 		ChainId  *big.Int
@@ -264,36 +273,36 @@ func (_TokenVault *TokenVaultCaller) BridgedToCanonical(opts *bind.CallOpts, arg
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
-func (_TokenVault *TokenVaultSession) BridgedToCanonical(arg0 common.Address) (struct {
+// Solidity: function bridgedToCanonical(address bridgedAddress) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
+func (_TokenVault *TokenVaultSession) BridgedToCanonical(bridgedAddress common.Address) (struct {
 	ChainId  *big.Int
 	Addr     common.Address
 	Decimals uint8
 	Symbol   string
 	Name     string
 }, error) {
-	return _TokenVault.Contract.BridgedToCanonical(&_TokenVault.CallOpts, arg0)
+	return _TokenVault.Contract.BridgedToCanonical(&_TokenVault.CallOpts, bridgedAddress)
 }
 
 // BridgedToCanonical is a free data retrieval call binding the contract method 0x9aa8605c.
 //
-// Solidity: function bridgedToCanonical(address ) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
-func (_TokenVault *TokenVaultCallerSession) BridgedToCanonical(arg0 common.Address) (struct {
+// Solidity: function bridgedToCanonical(address bridgedAddress) view returns(uint256 chainId, address addr, uint8 decimals, string symbol, string name)
+func (_TokenVault *TokenVaultCallerSession) BridgedToCanonical(bridgedAddress common.Address) (struct {
 	ChainId  *big.Int
 	Addr     common.Address
 	Decimals uint8
 	Symbol   string
 	Name     string
 }, error) {
-	return _TokenVault.Contract.BridgedToCanonical(&_TokenVault.CallOpts, arg0)
+	return _TokenVault.Contract.BridgedToCanonical(&_TokenVault.CallOpts, bridgedAddress)
 }
 
 // CanonicalToBridged is a free data retrieval call binding the contract method 0x67090ccf.
 //
-// Solidity: function canonicalToBridged(uint256 , address ) view returns(address)
-func (_TokenVault *TokenVaultCaller) CanonicalToBridged(opts *bind.CallOpts, arg0 *big.Int, arg1 common.Address) (common.Address, error) {
+// Solidity: function canonicalToBridged(uint256 chainId, address canonicalAddress) view returns(address bridgedAddress)
+func (_TokenVault *TokenVaultCaller) CanonicalToBridged(opts *bind.CallOpts, chainId *big.Int, canonicalAddress common.Address) (common.Address, error) {
 	var out []interface{}
-	err := _TokenVault.contract.Call(opts, &out, "canonicalToBridged", arg0, arg1)
+	err := _TokenVault.contract.Call(opts, &out, "canonicalToBridged", chainId, canonicalAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -307,24 +316,24 @@ func (_TokenVault *TokenVaultCaller) CanonicalToBridged(opts *bind.CallOpts, arg
 
 // CanonicalToBridged is a free data retrieval call binding the contract method 0x67090ccf.
 //
-// Solidity: function canonicalToBridged(uint256 , address ) view returns(address)
-func (_TokenVault *TokenVaultSession) CanonicalToBridged(arg0 *big.Int, arg1 common.Address) (common.Address, error) {
-	return _TokenVault.Contract.CanonicalToBridged(&_TokenVault.CallOpts, arg0, arg1)
+// Solidity: function canonicalToBridged(uint256 chainId, address canonicalAddress) view returns(address bridgedAddress)
+func (_TokenVault *TokenVaultSession) CanonicalToBridged(chainId *big.Int, canonicalAddress common.Address) (common.Address, error) {
+	return _TokenVault.Contract.CanonicalToBridged(&_TokenVault.CallOpts, chainId, canonicalAddress)
 }
 
 // CanonicalToBridged is a free data retrieval call binding the contract method 0x67090ccf.
 //
-// Solidity: function canonicalToBridged(uint256 , address ) view returns(address)
-func (_TokenVault *TokenVaultCallerSession) CanonicalToBridged(arg0 *big.Int, arg1 common.Address) (common.Address, error) {
-	return _TokenVault.Contract.CanonicalToBridged(&_TokenVault.CallOpts, arg0, arg1)
+// Solidity: function canonicalToBridged(uint256 chainId, address canonicalAddress) view returns(address bridgedAddress)
+func (_TokenVault *TokenVaultCallerSession) CanonicalToBridged(chainId *big.Int, canonicalAddress common.Address) (common.Address, error) {
+	return _TokenVault.Contract.CanonicalToBridged(&_TokenVault.CallOpts, chainId, canonicalAddress)
 }
 
 // IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_TokenVault *TokenVaultCaller) IsBridgedToken(opts *bind.CallOpts, arg0 common.Address) (bool, error) {
+// Solidity: function isBridgedToken(address tokenAddress) view returns(bool isBridged)
+func (_TokenVault *TokenVaultCaller) IsBridgedToken(opts *bind.CallOpts, tokenAddress common.Address) (bool, error) {
 	var out []interface{}
-	err := _TokenVault.contract.Call(opts, &out, "isBridgedToken", arg0)
+	err := _TokenVault.contract.Call(opts, &out, "isBridgedToken", tokenAddress)
 
 	if err != nil {
 		return *new(bool), err
@@ -338,27 +347,27 @@ func (_TokenVault *TokenVaultCaller) IsBridgedToken(opts *bind.CallOpts, arg0 co
 
 // IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_TokenVault *TokenVaultSession) IsBridgedToken(arg0 common.Address) (bool, error) {
-	return _TokenVault.Contract.IsBridgedToken(&_TokenVault.CallOpts, arg0)
+// Solidity: function isBridgedToken(address tokenAddress) view returns(bool isBridged)
+func (_TokenVault *TokenVaultSession) IsBridgedToken(tokenAddress common.Address) (bool, error) {
+	return _TokenVault.Contract.IsBridgedToken(&_TokenVault.CallOpts, tokenAddress)
 }
 
 // IsBridgedToken is a free data retrieval call binding the contract method 0xc287e578.
 //
-// Solidity: function isBridgedToken(address ) view returns(bool)
-func (_TokenVault *TokenVaultCallerSession) IsBridgedToken(arg0 common.Address) (bool, error) {
-	return _TokenVault.Contract.IsBridgedToken(&_TokenVault.CallOpts, arg0)
+// Solidity: function isBridgedToken(address tokenAddress) view returns(bool isBridged)
+func (_TokenVault *TokenVaultCallerSession) IsBridgedToken(tokenAddress common.Address) (bool, error) {
+	return _TokenVault.Contract.IsBridgedToken(&_TokenVault.CallOpts, tokenAddress)
 }
 
 // MessageDeposits is a free data retrieval call binding the contract method 0x780b64f0.
 //
-// Solidity: function messageDeposits(bytes32 ) view returns(address token, uint256 amount)
-func (_TokenVault *TokenVaultCaller) MessageDeposits(opts *bind.CallOpts, arg0 [32]byte) (struct {
+// Solidity: function messageDeposits(bytes32 msgHash) view returns(address token, uint256 amount)
+func (_TokenVault *TokenVaultCaller) MessageDeposits(opts *bind.CallOpts, msgHash [32]byte) (struct {
 	Token  common.Address
 	Amount *big.Int
 }, error) {
 	var out []interface{}
-	err := _TokenVault.contract.Call(opts, &out, "messageDeposits", arg0)
+	err := _TokenVault.contract.Call(opts, &out, "messageDeposits", msgHash)
 
 	outstruct := new(struct {
 		Token  common.Address
@@ -377,22 +386,22 @@ func (_TokenVault *TokenVaultCaller) MessageDeposits(opts *bind.CallOpts, arg0 [
 
 // MessageDeposits is a free data retrieval call binding the contract method 0x780b64f0.
 //
-// Solidity: function messageDeposits(bytes32 ) view returns(address token, uint256 amount)
-func (_TokenVault *TokenVaultSession) MessageDeposits(arg0 [32]byte) (struct {
+// Solidity: function messageDeposits(bytes32 msgHash) view returns(address token, uint256 amount)
+func (_TokenVault *TokenVaultSession) MessageDeposits(msgHash [32]byte) (struct {
 	Token  common.Address
 	Amount *big.Int
 }, error) {
-	return _TokenVault.Contract.MessageDeposits(&_TokenVault.CallOpts, arg0)
+	return _TokenVault.Contract.MessageDeposits(&_TokenVault.CallOpts, msgHash)
 }
 
 // MessageDeposits is a free data retrieval call binding the contract method 0x780b64f0.
 //
-// Solidity: function messageDeposits(bytes32 ) view returns(address token, uint256 amount)
-func (_TokenVault *TokenVaultCallerSession) MessageDeposits(arg0 [32]byte) (struct {
+// Solidity: function messageDeposits(bytes32 msgHash) view returns(address token, uint256 amount)
+func (_TokenVault *TokenVaultCallerSession) MessageDeposits(msgHash [32]byte) (struct {
 	Token  common.Address
 	Amount *big.Int
 }, error) {
-	return _TokenVault.Contract.MessageDeposits(&_TokenVault.CallOpts, arg0)
+	return _TokenVault.Contract.MessageDeposits(&_TokenVault.CallOpts, msgHash)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
