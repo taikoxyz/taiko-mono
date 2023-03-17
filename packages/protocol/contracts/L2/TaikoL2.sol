@@ -109,7 +109,6 @@ contract TaikoL2 is EssentialContract, IXchainSync {
             m = n - 1;
         }
 
-        // Check the latest 256 block hashes (excluding the parent hash).
         // Check blockhash[n-256]...blockhash[n-2], not including the parentHash
         bytes32[256] memory inputs;
         unchecked {
