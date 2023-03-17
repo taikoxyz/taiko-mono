@@ -8,10 +8,11 @@
   "use-the-bridge": {
     "title": "Use the bridge"
   },
+  "run-a-node": {
+    "title": "Run a Taiko node"
+  },
   "deploy-a-contract": {
     "title": "Deploy a basic contract"
   },
-  "run-a-node": {
-    "title": "Run a Taiko node"
-  }
+  "signal-service-tutorial": "Build a dapp with Taiko's signal service"
 }
