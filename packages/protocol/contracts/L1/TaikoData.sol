@@ -64,14 +64,14 @@ library TaikoData {
     }
 
     struct BlockMetadata {
-        uint256 id;
-        uint256 l1Height;
+        uint64 id;
+        uint64 gasLimit;
+        uint64 timestamp;
+        uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         address beneficiary;
-        uint64 gasLimit;
-        uint64 timestamp;
     }
 
     struct ZKProof {
