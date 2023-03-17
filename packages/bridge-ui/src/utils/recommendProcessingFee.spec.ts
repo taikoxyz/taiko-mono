@@ -1,10 +1,4 @@
-// TODO: ??, feels like it's here to make the tests pass. Look into it
-jest.mock('../store/bridge', () => ({
-  chainIdToTokenVaultAddress: jest.fn(),
-}));
-
 import { BigNumber, ethers, Signer } from 'ethers';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import { ProcessingFeeMethod } from '../domain/fee';
 import { signer } from '../store/signer';
@@ -16,13 +10,15 @@ import {
 } from './recommendProcessingFee';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
+import { providersMap } from '../provider/providers';
 
-const mockGet = jest.fn();
-
+// TODO: this will disappear the moment we make
+//       chainIdToTokenVaultAddres a service
 jest.mock('svelte/store', () => ({
   ...jest.requireActual('svelte/store'),
   get: function () {
-    return mockGet();
+    // chainIdToTokenVaultAddress
+    return new Map<number, string>().set(mainnetChain.id, '0x12345');
   },
 }));
 
@@ -31,18 +27,18 @@ const mockContract = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Contract: function () {
     return mockContract;
   },
 }));
 
 const gasPrice = 2;
+const mockGetGasPrice = async () => BigNumber.from(gasPrice);
 
-const mockProvider = {
-  getGasPrice: () => gasPrice,
-} as unknown as ethers.providers.JsonRpcProvider;
+// Mocking providers to return the desired gasPrice
+providersMap.get(mainnetChain.id).getGasPrice = mockGetGasPrice;
+providersMap.get(taikoChain.id).getGasPrice = mockGetGasPrice;
 
 const mockSigner = {} as Signer;
 
@@ -104,19 +100,12 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses ethGasLimit if the token is ETH', async () => {
-    mockGet.mockImplementationOnce(() =>
-      new Map<number, ethers.providers.JsonRpcProvider>().set(
-        taikoChain.id,
-        mockProvider,
-      ),
-    );
-
     const fee = await recommendProcessingFee(
       taikoChain,
       mainnetChain,
       ProcessingFeeMethod.RECOMMENDED,
       ETHToken,
-      mockSigner as unknown as Signer,
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
@@ -127,16 +116,6 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(mainnetChain.id, '0x12345');
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          taikoChain.id,
-          mockProvider,
-        );
-      }
-    });
     mockContract.canonicalToBridged.mockImplementationOnce(
       () => ethers.constants.AddressZero,
     );
@@ -157,17 +136,6 @@ describe('recommendProcessingFee()', () => {
   });
 
   it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(mainnetChain.id, '0x12345');
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          taikoChain.id,
-          mockProvider,
-        );
-      }
-    });
-
     mockContract.canonicalToBridged.mockImplementationOnce(() => '0x123');
 
     const fee = await recommendProcessingFee(
