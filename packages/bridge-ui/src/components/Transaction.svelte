@@ -24,7 +24,7 @@
   import TokenVault from '../constants/abi/TokenVault';
   import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
   import { providersMap } from '../provider/providers';
-  import { bridgesMap } from '../bridge/birdges';
+  import { bridgesMap } from '../bridge/bridges';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
