@@ -41,7 +41,7 @@ If the txList is **valid**:
 
 4. Assemble a deterministic `TaikoL2.anchor` transaction based on the rules defined in the protocol, and put it as the first transaction in the proposed txList.
 5. Use this txList and the decoded block metadata to assemble a deterministic L2 block.
-6. Direct L2 execution engine to insert this assembled block and set it as the current chain's head via the Engine API.
+6. Direct L2 execution engine to insert this assembled block and set it as the current canonical chain's head via the Engine API.
 
 If the txList is **invalid**:
 
