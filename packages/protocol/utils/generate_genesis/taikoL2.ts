@@ -274,13 +274,14 @@ async function generateContractConfigs(
                 _publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[257]"],
                     [
-                        new Array(255).fill(ethers.constants.HashZero).concat([
-                            ethers.utils.hexZeroPad(
-                                ethers.utils.hexlify(chainId),
-                                32
-                            ),
-                            ethers.constants.HashZero, // basefee
-                        ]),
+                        new Array(255)
+                            .fill(ethers.constants.HashZero)
+                            .concat([
+                                ethers.utils.hexZeroPad(
+                                    ethers.utils.hexlify(chainId),
+                                    32
+                                ),
+                            ]),
                     ]
                 )}`,
             },

@@ -59,7 +59,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
         EssentialContract._init(_addressManager);
 
-        bytes32[257] memory inputs;
+        bytes32[256] memory inputs;
         uint256 n = block.number;
 
         unchecked {
@@ -110,7 +110,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         }
 
         // Check the latest 256 block hashes (excluding the parent hash).
-        bytes32[257] memory inputs;
+        bytes32[256] memory inputs;
         unchecked {
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
@@ -186,10 +186,10 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      **********************/
 
     function _hashInputs(
-        bytes32[257] memory inputs
+        bytes32[256] memory inputs
     ) private pure returns (bytes32 hash) {
         assembly {
-            hash := keccak256(inputs, mul(257, 32))
+            hash := keccak256(inputs, mul(256, 32))
         }
     }
 }
