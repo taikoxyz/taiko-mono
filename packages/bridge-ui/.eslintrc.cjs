@@ -12,9 +12,11 @@ module.exports = {
     sourceType: 'module',
     extraFileExtensions: ['.svelte'],
   },
-  plugins: ['svelte3', '@typescript-eslint'],
+  plugins: ['svelte3', '@typescript-eslint', 'simple-import-sort'],
   rules: {
     'linebreak-style': ['error', 'unix'],
+    'simple-import-sort/imports': 'error',
+    'simple-import-sort/exports': 'error',
     semi: ['error', 'always'],
   },
   ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package
