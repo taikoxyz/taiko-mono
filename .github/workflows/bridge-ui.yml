@@ -25,15 +25,15 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Svelte Check
+      - name: Svelte check
         working-directory: ./packages/bridge-ui
         run: pnpm check
 
-      - name: Linter
+      - name: Linting
         working-directory: ./packages/bridge-ui
         run: pnpm lint
 
-      - name: Unit Tests
+      - name: Unit tests
         working-directory: ./packages/bridge-ui
         run: pnpm test
 
