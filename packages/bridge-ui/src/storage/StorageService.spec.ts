@@ -4,14 +4,19 @@ import { StorageService } from './StorageService';
 import type { BridgeTransaction } from '../domain/transactions';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { TKOToken } from '../token/tokens';
+import { providersMap } from '../provider/providers';
 
 const mockStorage = {
   getItem: jest.fn(),
+  setItem: jest.fn(),
 };
 
 const mockProvider = {
   getTransactionReceipt: jest.fn(),
 };
+
+providersMap.set(L1_CHAIN_ID, mockProvider as any);
+providersMap.set(L2_CHAIN_ID, mockProvider as any);
 
 const mockContract = {
   queryFilter: jest.fn(),
@@ -23,26 +28,11 @@ const mockContract = {
 };
 
 jest.mock('ethers', () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual('ethers') as object),
+  ...jest.requireActual('ethers'),
   Contract: function () {
     return mockContract;
   },
 }));
-
-const providerMap: Map<number, ethers.providers.JsonRpcProvider> = new Map<
-  number,
-  ethers.providers.JsonRpcProvider
->();
-
-providerMap.set(
-  L1_CHAIN_ID,
-  mockProvider as unknown as ethers.providers.JsonRpcProvider,
-);
-providerMap.set(
-  L2_CHAIN_ID,
-  mockProvider as unknown as ethers.providers.JsonRpcProvider,
-);
 
 const mockTx: BridgeTransaction = {
   hash: '0x123',
@@ -105,7 +95,7 @@ describe('storage tests', () => {
       return TKOToken.symbol;
     });
 
-    const svc = new StorageService(mockStorage as any, providerMap);
+    const svc = new StorageService(mockStorage as any, providersMap);
 
     const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
 
@@ -129,7 +119,7 @@ describe('storage tests', () => {
       return TKOToken.symbol;
     });
 
-    const svc = new StorageService(mockStorage as any, providerMap);
+    const svc = new StorageService(mockStorage as any, providersMap);
 
     const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
@@ -165,7 +155,7 @@ describe('storage tests', () => {
       return TKOToken.symbol;
     });
 
-    const svc = new StorageService(mockStorage as any, providerMap);
+    const svc = new StorageService(mockStorage as any, providersMap);
 
     const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
@@ -210,7 +200,7 @@ describe('storage tests', () => {
       return TKOToken.symbol;
     });
 
-    const svc = new StorageService(mockStorage as any, providerMap);
+    const svc = new StorageService(mockStorage as any, providersMap);
 
     const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
 
@@ -262,7 +252,7 @@ describe('storage tests', () => {
       return TKOToken.symbol;
     });
 
-    const svc = new StorageService(mockStorage as any, providerMap);
+    const svc = new StorageService(mockStorage as any, providersMap);
 
     const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
 
@@ -284,5 +274,23 @@ describe('storage tests', () => {
         toChainId: L2_CHAIN_ID,
       },
     ]);
+  });
+
+  it('updates storage by address', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return JSON.stringify(mockTxs);
+    });
+
+    const svc = new StorageService(mockStorage as any, providersMap);
+
+    const newTx = { ...mockTx } as BridgeTransaction;
+    newTx.status = MessageStatus.Done;
+
+    svc.UpdateStorageByAddress('0x123', [newTx]);
+
+    expect(mockStorage.setItem).toHaveBeenCalledWith(
+      'transactions-0x123',
+      JSON.stringify([newTx]),
+    );
   });
 });
