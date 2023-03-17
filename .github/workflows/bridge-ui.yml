@@ -10,7 +10,8 @@ on:
       - "packages/bridge-ui/**"
 
 jobs:
-  build:
+  check:
+    name: Run various checks
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
@@ -24,11 +25,19 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Bridge UI - Unit Tests
+      - name: Svelte Check
+        working-directory: ./packages/bridge-ui
+        run: pnpm lint
+
+      - name: Linter
+        working-directory: ./packages/bridge-ui
+        run: pnpm lint
+
+      - name: Unit Tests
         working-directory: ./packages/bridge-ui
         run: pnpm test
 
-      - name: Bridge UI - Upload coverage to Codecov
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           directory: ./packages/bridge-ui/coverage
