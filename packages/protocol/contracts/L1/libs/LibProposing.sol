@@ -68,7 +68,7 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
-            l1Height: block.number - 1,
+            l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
             beneficiary: input.beneficiary,
             txListHash: input.txListHash,
@@ -106,7 +106,7 @@ library LibProposing {
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: keccak256(abi.encode(meta)),
+            metaHash: LibUtils.hashMetadata(meta),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp,

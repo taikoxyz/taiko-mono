@@ -82,7 +82,7 @@ abstract contract TaikoL1TestBase is Test {
         }
 
         meta.id = variables.nextBlockId;
-        meta.l1Height = block.number - 1;
+        meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.beneficiary = proposer;
         meta.txListHash = keccak256(txList);
