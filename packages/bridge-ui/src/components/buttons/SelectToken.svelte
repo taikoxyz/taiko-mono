@@ -2,7 +2,6 @@
   import { getProvider } from '@wagmi/core';
   import { token } from '../../store/token';
   import { bridgeType } from '../../store/bridge';
-  import { ETH, tokens } from '../../domain/token';
   import type { Token } from '../../domain/token';
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
@@ -14,6 +13,7 @@
   import { fromChain, toChain } from '../../store/chain';
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
+  import { ETHToken, tokens } from '../../token/tokens';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;
@@ -24,7 +24,7 @@
 
     token.set(t);
 
-    if (t.symbol.toLowerCase() === ETH.symbol.toLowerCase()) {
+    if (t.symbol.toLowerCase() === ETHToken.symbol.toLowerCase()) {
       bridgeType.set(BridgeType.ETH);
     } else {
       bridgeType.set(BridgeType.ERC20);

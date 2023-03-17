@@ -3,8 +3,8 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { truncateString } from '../utils/truncateString';
   import Modal from './modals/Modal.svelte';
-  import { chains } from '../domain/chain';
   import type { BridgeTransaction } from '../domain/transactions';
+  import { chainsRecord } from '../chain/chains';
 
   // TODO: can we always guarantee that this object is defined?
   //       in which case we need to guard => transaction?.prop
@@ -22,7 +22,7 @@
           class="link flex items-center justify-end"
           target="_blank"
           rel="noreferrer"
-          href={`${chains[transaction.fromChainId].explorerUrl}/tx/${
+          href={`${chainsRecord[transaction.fromChainId].explorerUrl}/tx/${
             transaction.hash
           }`}>
           <span class="mr-2">{truncateString(transaction.hash)}</span>
