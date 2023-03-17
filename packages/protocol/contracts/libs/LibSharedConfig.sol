@@ -35,7 +35,7 @@ library LibSharedConfig {
                 feeMaxPeriodPctg: 400, // owner:daniel - 400%
                 blockTimeCap: 60 seconds, // owner:daniel
                 proofTimeCap: 30 minutes, // owner:daniel
-                bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
+                bootstrapDiscountHalvingPeriod: 0 seconds, // owner:daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,
                 enableAnchorValidation: true
