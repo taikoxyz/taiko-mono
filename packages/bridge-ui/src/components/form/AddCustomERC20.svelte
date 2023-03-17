@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { ETH } from '../../domain/token';
-  import type { Token, TokenDetails } from '../../domain/token';
+  import { getProvider } from '@wagmi/core';
   import { Trash } from 'svelte-heros-v2';
+  import type { Token, TokenDetails } from '../../domain/token';
   import { signer } from '../../store/signer';
   import { token as tokenStore } from '../../store/token';
   import { userTokens, tokenService } from '../../store/userToken';
@@ -11,7 +11,7 @@
   import { ethers } from 'ethers';
   import ERC20 from '../../constants/abi/ERC20';
   import { errorToast } from '../../utils/toast';
-  import { getProvider } from '@wagmi/core';
+  import { ETHToken } from '../../token/tokens';
 
   export let showAddressField: boolean = false;
   export let addERC20: (event: SubmitEvent) => Promise<void>;
@@ -28,7 +28,7 @@
     const address = await $signer.getAddress();
     const updatedTokensList = $tokenService.RemoveToken(token, address);
     userTokens.set(updatedTokensList);
-    tokenStore.set(ETH);
+    tokenStore.set(ETHToken);
   }
 
   $: onAddressChange(tokenAddress);

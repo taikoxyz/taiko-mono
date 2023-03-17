@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BigNumber, ethers, Signer } from 'ethers';
+  import { BigNumber, ethers } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
   import { errorToast, successToast } from '../../utils/toast';
@@ -7,10 +7,10 @@
   import MintableERC20 from '../../constants/abi/MintableERC20';
   import { fromChain } from '../../store/chain';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import { CHAIN_MAINNET } from '../../domain/chain';
   import Modal from './Modal.svelte';
   import { onMount } from 'svelte';
   import { token } from '../../store/token';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;
@@ -49,7 +49,7 @@
     try {
       if ($fromChain.id !== $token.addresses[0].chainId) {
         await switchNetwork({
-          chainId: CHAIN_MAINNET.id,
+          chainId: L1_CHAIN_ID,
         });
         const wagmiSigner = await fetchSigner();
 
