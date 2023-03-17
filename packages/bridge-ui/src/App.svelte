@@ -267,10 +267,6 @@
 </QueryProvider>
 
 <style global lang="postcss">
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
-
   main {
     font-family: 'Inter', sans-serif;
   }
