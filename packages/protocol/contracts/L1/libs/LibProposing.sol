@@ -58,8 +58,8 @@ library LibProposing {
 
         uint64 _now = uint64(block.timestamp);
         uint32 _size = uint32(txList.length);
-
         bool _txListCached;
+
         if (_size == 0) {
             // This blob shall have been submitted earlier
             TaikoData.TxListInfo memory info = state.txListInfo[
