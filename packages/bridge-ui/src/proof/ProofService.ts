@@ -67,7 +67,10 @@ export class ProofService implements Prover {
     blockHeader: BlockHeader,
   ) {
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = RLP.encode(proof.storageProof[0].proof);
+    const encodedProof = ethers.utils.defaultAbiCoder.encode(
+      ['bytes', 'bytes'],
+      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
+    );
 
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
