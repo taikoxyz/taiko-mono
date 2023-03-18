@@ -115,6 +115,7 @@ library TaikoData {
         uint64 validSince;
         uint64 size;
     }
+
     struct State {
         mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
