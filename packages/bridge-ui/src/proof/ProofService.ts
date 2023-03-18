@@ -17,7 +17,6 @@ export class ProofService implements Prover {
   }
 
   private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
-    console.log(opts.sender, opts.msgHash);
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ['address', 'bytes32'],
@@ -60,6 +59,7 @@ export class ProofService implements Prover {
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
       withdrawalsRoot: block.withdrawalsRoot ?? ethers.constants.HashZero,
     };
+
     return { block, blockHeader };
   }
 
@@ -68,10 +68,7 @@ export class ProofService implements Prover {
     blockHeader: BlockHeader,
   ) {
     // RLP encode the proof together for LibTrieProof to decode
-    const encodedProof = ethers.utils.defaultAbiCoder.encode(
-      ['bytes', 'bytes'],
-      [RLP.encode(proof.accountProof), RLP.encode(proof.storageProof[0].proof)],
-    );
+    const encodedProof = RLP.encode(proof.storageProof[0].proof);
 
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
