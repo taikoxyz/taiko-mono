@@ -37,7 +37,6 @@
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
   import { providers } from './store/providers';
-  import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
@@ -254,7 +253,6 @@
 
 <QueryProvider>
   <main>
-    <HeaderAnnouncement />
     <Navbar />
     <Router {routes} />
   </main>
