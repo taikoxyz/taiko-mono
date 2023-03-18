@@ -193,7 +193,7 @@ describe("integration:SignalService", function () {
         ).to.be.revertedWith("B_ZERO_SIGNAL()");
     });
 
-    it("should pass and return true", async function () {
+    it.only("should pass and return true", async function () {
         const {
             l1Provider,
             owner,

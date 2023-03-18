@@ -17,6 +17,7 @@ export class ProofService implements Prover {
   }
 
   private static getKey(opts: GenerateProofOpts | GenerateReleaseProofOpts) {
+    console.log(opts.sender, opts.msgHash);
     const key = ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ['address', 'bytes32'],
@@ -57,8 +58,8 @@ export class ProofService implements Prover {
       mixHash: block.mixHash,
       nonce: block.nonce,
       baseFeePerGas: block.baseFeePerGas ? parseInt(block.baseFeePerGas) : 0,
+      withdrawalsRoot: block.withdrawalsRoot ?? ethers.constants.HashZero,
     };
-
     return { block, blockHeader };
   }
 
@@ -75,7 +76,7 @@ export class ProofService implements Prover {
     // encode the SignalProof struct from LibBridgeSignal
     const signalProof = ethers.utils.defaultAbiCoder.encode(
       [
-        'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas) header, bytes proof)',
+        'tuple(tuple(bytes32 parentHash, bytes32 ommersHash, address beneficiary, bytes32 stateRoot, bytes32 transactionsRoot, bytes32 receiptsRoot, bytes32[8] logsBloom, uint256 difficulty, uint128 height, uint64 gasLimit, uint64 gasUsed, uint64 timestamp, bytes extraData, bytes32 mixHash, uint64 nonce, uint256 baseFeePerGas, bytes32 withdrawalsRoot) header, bytes proof)',
       ],
       [{ header: blockHeader, proof: encodedProof }],
     );
@@ -110,7 +111,8 @@ export class ProofService implements Prover {
       throw Error('invalid proof');
     }
 
-    return ProofService.getSignalProof(proof, blockHeader);
+    const p = ProofService.getSignalProof(proof, blockHeader);
+    return p;
   }
 
   async GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string> {
