@@ -35,20 +35,8 @@ library LibUtils {
         return state.l2ChainDatas[_number % blockHashHistory];
     }
 
-    function getLastProposedAt(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
-    ) internal view returns (uint64) {
-        uint256 parentId;
-        unchecked {
-            parentId = state.nextBlockId - 1;
-        }
-        return state.proposedBlocks[parentId % config.maxNumBlocks].proposedAt;
-    }
-
     function getStateVariables(
-        TaikoData.State storage state,
-        TaikoData.Config memory config
+        TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
         return
             TaikoData.StateVariables({
@@ -56,7 +44,7 @@ library LibUtils {
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
                 nextBlockId: state.nextBlockId,
-                lastProposedAt: getLastProposedAt(state, config),
+                lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastBlockId: state.lastBlockId,
                 avgProofTime: state.avgProofTime
