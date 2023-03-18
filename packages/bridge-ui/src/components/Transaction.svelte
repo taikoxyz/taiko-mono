@@ -59,8 +59,8 @@
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (fromChain.id !== bridgeTx.message.destChainId.toNumber()) {
-        const chain = chainsRecord[bridgeTx.message.destChainId.toNumber()];
+      if (fromChain.id !== bridgeTx.toChainId) {
+        const chain = chainsRecord[bridgeTx.toChainId];
         await switchChainAndSetSigner(chain);
       }
       const tx = await $bridges
@@ -69,10 +69,8 @@
           signer: $signer,
           message: bridgeTx.message,
           msgHash: bridgeTx.msgHash,
-          destBridgeAddress:
-            chainsRecord[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
-          srcBridgeAddress:
-            chainsRecord[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
+          destBridgeAddress: chainsRecord[bridgeTx.toChainId].bridgeAddress,
+          srcBridgeAddress: chainsRecord[bridgeTx.fromChainId].bridgeAddress,
         });
 
       pendingTransactions.update((store) => {
@@ -92,8 +90,8 @@
   async function releaseTokens(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (fromChain.id !== bridgeTx.message.srcChainId.toNumber()) {
-        const chain = chainsRecord[bridgeTx.message.srcChainId.toNumber()];
+      if (fromChain.id !== bridgeTx.fromChainId) {
+        const chain = chainsRecord[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
       const tx = await $bridges
@@ -102,13 +100,11 @@
           signer: $signer,
           message: bridgeTx.message,
           msgHash: bridgeTx.msgHash,
-          destBridgeAddress:
-            chainsRecord[bridgeTx.message.destChainId.toNumber()].bridgeAddress,
-          srcBridgeAddress:
-            chainsRecord[bridgeTx.message.srcChainId.toNumber()].bridgeAddress,
-          destProvider: $providers.get(bridgeTx.message.destChainId.toNumber()),
+          destBridgeAddress: chainsRecord[bridgeTx.toChainId].bridgeAddress,
+          srcBridgeAddress: chainsRecord[bridgeTx.fromChainId].bridgeAddress,
+          destProvider: $providers.get(bridgeTx.toChainId),
           srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(
-            bridgeTx.message.srcChainId.toNumber(),
+            bridgeTx.fromChainId,
           ),
         });
 
@@ -132,18 +128,14 @@
     if (transaction.status !== MessageStatus.New) return true;
 
     const contract = new Contract(
-      chainsRecord[
-        transaction.message.destChainId.toNumber()
-      ].headerSyncAddress,
+      chainsRecord[transaction.toChainId].headerSyncAddress,
       HeaderSync,
-      $providers.get(
-        chainsRecord[transaction.message.destChainId.toNumber()].id,
-      ),
+      $providers.get(chainsRecord[transaction.toChainId].id),
     );
 
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
     const srcBlock = await $providers
-      .get(chainsRecord[transaction.message.srcChainId.toNumber()].id)
+      .get(chainsRecord[transaction.fromChainId].id)
       .getBlock(latestSyncedHeader);
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
@@ -153,9 +145,7 @@
     const contract = new ethers.Contract(
       chainsRecord[transaction.toChainId].bridgeAddress,
       Bridge,
-      $providers.get(
-        chainsRecord[transaction.message.destChainId.toNumber()].id,
-      ),
+      $providers.get(chainsRecord[transaction.toChainId].id),
     );
 
     transaction.status = await contract.getMessageStatus(transaction.msgHash);
@@ -164,9 +154,7 @@
         const srcTokenVaultContract = new ethers.Contract(
           $chainIdToTokenVaultAddress.get(transaction.fromChainId),
           TokenVault,
-          $providers.get(
-            chainsRecord[transaction.message.srcChainId.toNumber()].id,
-          ),
+          $providers.get(chainsRecord[transaction.fromChainId].id),
         );
         const { token, amount } = await srcTokenVaultContract.messageDeposits(
           transaction.msgHash,
@@ -178,9 +166,7 @@
         const srcBridgeContract = new ethers.Contract(
           chainsRecord[transaction.fromChainId].bridgeAddress,
           Bridge,
-          $providers.get(
-            chainsRecord[transaction.message.srcChainId.toNumber()].id,
-          ),
+          $providers.get(chainsRecord[transaction.fromChainId].id),
         );
         const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
           transaction.msgHash,
