@@ -145,9 +145,9 @@ library LibProposing {
             unchecked {
                 time = (meta.timestamp - time) * 1000;
             }
-            state.avgBlockTimeRT = LibUtils
+            state.avgBlockTime = LibUtils
                 .movingAverage({
-                    maValue: state.avgBlockTimeRT,
+                    maValue: state.avgBlockTime,
                     newValue: time,
                     maf: config.proposingConfig.avgTimeMAF
                 })
