@@ -8,7 +8,13 @@ import { MessageStatus } from '../domain/message';
 import type { BridgeTransaction } from '../domain/transactions';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
-import type { RelayerAPI, RelayerBlockInfo } from '../domain/relayerApi';
+import type {
+  APIRequestParams,
+  APIResponse,
+  APIResponseTransaction,
+  RelayerAPI,
+  RelayerBlockInfo,
+} from '../domain/relayerApi';
 import { chainsRecord } from '../chain/chains';
 
 export class RelayerAPIService implements RelayerAPI {
@@ -23,31 +29,50 @@ export class RelayerAPIService implements RelayerAPI {
     this.baseUrl = baseUrl;
   }
 
-  async GetAllByAddress(
+  async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
+    const requestURL = `${this.baseUrl}events`;
+
+    const response = await axios.get<APIResponse>(requestURL, { params });
+
+    return response.data;
+  }
+
+  async GetAllBridgeTransactionByAddress(
     address: string,
     chainID?: number,
   ): Promise<BridgeTransaction[]> {
     if (!address) {
       throw new Error('Address need to passed to fetch transactions');
     }
+
     const params = {
       address,
       chainID,
+      event: 'MessageSent',
     };
 
-    const requestURL = `${this.baseUrl}events`;
+    const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
-    const { data } = await axios.get(requestURL, { params });
-
-    if (data?.items?.length === 0) {
+    if (apiTxs?.items?.length === 0) {
       return [];
     }
 
-    const txs: BridgeTransaction[] = data.items.map((tx) => {
+    const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
       return {
         status: tx.status,
+        amountInWei: BigNumber.from(tx.amount),
+        symbol: tx.canonicalTokenSymbol,
+        hash: tx.data.Raw.transactionHash,
+        from: tx.messageOwner,
+        fromChainId: tx.data.Message.SrcChainId,
+        toChainId: tx.data.Message.DestChainId,
+        msgHash: tx.msgHash,
+        canonicalTokenAddress: tx.canonicalTokenAddress,
+        canonicalTokenSymbol: tx.canonicalTokenSymbol,
+        canonicalTokenName: tx.canonicalTokenName,
+        canonicalTokenDecimals: tx.canonicalTokenDecimals,
         message: {
-          id: tx.data.Message.Id,
+          id: tx.data.id,
           to: tx.data.Message.To,
           data: tx.data.Message.Data,
           memo: tx.data.Message.Memo,
@@ -61,19 +86,12 @@ export class RelayerAPIService implements RelayerAPI {
           processingFee: BigNumber.from(`${tx.data.Message.ProcessingFee}`),
           refundAddress: tx.data.Message.RefundAddress,
         },
-        amountInWei: tx.amount,
-        symbol: tx.canonicalTokenSymbol,
-        fromChainId: tx.data.Message.SrcChainId,
-        toChainId: tx.data.Message.DestChainId,
-        hash: tx.data.Raw.transactionHash,
-        from: tx.data.Message.Owner,
       };
     });
 
     const bridgeTxs: BridgeTransaction[] = await Promise.all(
       (txs || []).map(async (tx) => {
-        if (tx.message.owner.toLowerCase() !== address.toLowerCase()) return;
-
+        if (tx.from.toLowerCase() !== address.toLowerCase()) return;
         const destChainId = tx.toChainId;
         const destProvider = this.providerMap.get(destChainId);
 
@@ -89,47 +107,21 @@ export class RelayerAPIService implements RelayerAPI {
 
         const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
 
-        const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
-
         const destContract: Contract = new Contract(
           destBridgeAddress,
           Bridge,
           destProvider,
         );
 
-        const srcContract: Contract = new Contract(
-          srcBridgeAddress,
-          Bridge,
-          srcProvider,
-        );
-
-        const events = await srcContract.queryFilter(
-          'MessageSent',
-          receipt.blockNumber,
-          receipt.blockNumber,
-        );
-
-        // A block could have multiple events being triggered so we need to find this particular tx
-        const event = events.find(
-          (e) =>
-            e.args.message.owner.toLowerCase() === address.toLowerCase() &&
-            e.args.message.depositValue.eq(tx.message.depositValue) &&
-            e.args.msgHash === tx.msgHash,
-        );
-
-        if (!event) {
-          return tx;
-        }
-
-        const msgHash = event.args.msgHash;
+        const msgHash = tx.msgHash;
 
         const messageStatus: number = await destContract.getMessageStatus(
           msgHash,
         );
 
-        let amountInWei: BigNumber;
+        let amountInWei: BigNumber = tx.amountInWei;
         let symbol: string;
-        if (event.args.message.data !== '0x') {
+        if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
           const tokenVaultContract = new Contract(
             get(chainIdToTokenVaultAddress).get(tx.fromChainId),
             TokenVault,
@@ -157,9 +149,9 @@ export class RelayerAPIService implements RelayerAPI {
         }
 
         const bridgeTx: BridgeTransaction = {
-          message: event.args.message,
+          message: tx.message,
           receipt: receipt,
-          msgHash: event.args.msgHash,
+          msgHash: tx.msgHash,
           status: messageStatus,
           amountInWei: amountInWei,
           symbol: symbol,

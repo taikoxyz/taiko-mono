@@ -140,13 +140,13 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
-
+      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+        userAddress,
+      );
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
-
       // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
       //   return [tx.hash, tx];
       // }))

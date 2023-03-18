@@ -270,11 +270,11 @@
       // tx.chainId is not set immediately but we need it later. set it
       // manually.
       tx.chainId = $fromChain.id;
-      const storageKey = `transactions-${await (
+      const storageKey = `transactions-${(
         await $signer.getAddress()
       ).toLowerCase()}`;
       let transactions: BridgeTransaction[] = JSON.parse(
-        await window.localStorage.getItem(storageKey),
+        window.localStorage.getItem(storageKey),
       );
 
       const bridgeTransaction: BridgeTransaction = {
@@ -412,7 +412,7 @@
   </label>
 </div>
 
-{#if $signer && tokenBalance && ethers.utils
+{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
     .parseUnits(tokenBalance, $token.decimals)
     .eq(BigNumber.from(0))}
   <div class="flex" style="flex-direction:row-reverse">
