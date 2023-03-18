@@ -75,7 +75,7 @@ export class RelayerAPIService implements RelayerAPI {
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data: tx.data.Message.Data === '' ? '0x' : tx.data.Message.Data,
+          data: tx.data.Message.Data === '' ? '0x' : tx.data.Message.Data, // ethers does not allow "" for empty bytes value
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
