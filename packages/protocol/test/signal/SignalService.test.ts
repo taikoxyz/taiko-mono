@@ -40,6 +40,17 @@ describe("SignalService", function () {
 
             await expect(slot1).to.be.not.equal(slot2);
         });
+        it.only("should return expected slot", async () => {
+            const want =
+                "0x9b11525774df15071344c44c56f02418dd56a9050effcc5de3912e88ccf1b95d";
+
+            const slot = await signalService.getSignalSlot(
+                "0x2aB7C0ab9AB47fcF370d13058BfEE28f2Ec0940c",
+                "0xf697cc0b80c778b40a4e863d2d2a723cc707bcdf2ba463bb1cd28aa2c888b229"
+            );
+
+            await expect(slot).to.be.equal(want);
+        });
     });
 
     describe("isSignalSent()", function () {
