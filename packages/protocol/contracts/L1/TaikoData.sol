@@ -62,8 +62,8 @@ library TaikoData {
         bytes32 txListHash;
         address beneficiary;
         uint64 gasLimit;
-        uint32 txStartIdx;
-        uint32 txEndIdx;
+        uint32 txListStart;
+        uint32 txListEnd;
         uint8 cacheTxListInfo; // non-zero = True
     }
 
@@ -76,8 +76,8 @@ library TaikoData {
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
-        uint32 txStartIdx;
-        uint32 txEndIdx;
+        uint32 txListStart;
+        uint32 txListEnd;
         address beneficiary;
     }
 
@@ -113,7 +113,7 @@ library TaikoData {
     // This struct takes 9 slots.
     struct TxListInfo {
         uint64 validSince;
-        uint64 size;
+        uint32 size;
     }
 
     struct State {

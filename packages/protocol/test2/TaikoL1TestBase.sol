@@ -75,8 +75,8 @@ abstract contract TaikoL1TestBase is Test {
                 beneficiary: proposer,
                 gasLimit: gasLimit,
                 txListHash: keccak256(blob),
-                txStartIdx: 0,
-                txEndIdx: blobSize,
+                txListStart: 0,
+                txListEnd: blobSize,
                 cacheTxListInfo: 0
             });
 

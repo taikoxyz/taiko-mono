@@ -18,7 +18,7 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    uint public constant BLOB_CACHE_EXPIRY = 60 minutes;
+    uint public constant BLOB_CACHE_EXPIRY = 24 * 60 minutes; // 1 day
 
     event TxListInfoCached(bytes32 txListHash, uint64 validSince);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
@@ -48,7 +48,7 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.txEndIdx <= input.txStartIdx) revert L1_BLOB_RANGE();
+        if (input.txListEnd <= input.txListStart) revert L1_BLOB_RANGE();
 
         if (
             input.beneficiary == address(0) ||
@@ -67,10 +67,10 @@ library LibProposing {
             if (info.size == 0 || info.validSince + BLOB_CACHE_EXPIRY < _now)
                 revert L1_BLOB_NOT_EXIST();
 
-            if (input.txEndIdx > info.size) revert L1_BLOB_RANGE();
+            if (input.txListEnd > info.size) revert L1_BLOB_RANGE();
         } else {
             if (_size > config.maxBytesPerTxList) revert L1_BLOB();
-            if (input.txEndIdx > _size) revert L1_BLOB_RANGE();
+            if (input.txListEnd > _size) revert L1_BLOB_RANGE();
             if (input.txListHash != keccak256(txList)) revert L1_BLOB_HASH();
 
             if (input.cacheTxListInfo != 0) {
@@ -102,8 +102,8 @@ library LibProposing {
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
             txListHash: input.txListHash,
-            txStartIdx: input.txStartIdx,
-            txEndIdx: input.txEndIdx,
+            txListStart: input.txListStart,
+            txListEnd: input.txListEnd,
             beneficiary: input.beneficiary
         });
 
