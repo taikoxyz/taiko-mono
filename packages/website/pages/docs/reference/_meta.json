@@ -5,6 +5,9 @@
   "contract-addresses": {
     "title": "Contract addresses"
   },
+  "protocol-constants": {
+    "title": "Protocol constants"
+  },
   "rpc-configuration": {
     "title": "RPC configuration"
   }
