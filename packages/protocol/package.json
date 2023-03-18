@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "compile": "pnpm hardhat compile",
+    "compile:foundry": "forge build",
     "compile:yul": "LOG_LEVEL=debug pnpm hardhat compile_yul",
     "export:abi": "pnpm hardhat clear-abi && pnpm hardhat export-abi",
     "export:docs": "pnpm hardhat docgen && pnpm prettier --write ../website/pages/docs/reference/contract-documentation/**/*.md",
@@ -14,6 +15,7 @@
     "test": "./scripts/download_solc.sh && pnpm hardhat test --grep '^[^integration]'",
     "coverage": "pnpm hardhat coverage --solcoverjs ./.solcover.js --show-stack-traces",
     "test:coverage": "pnpm coverage",
+    "test:foundry": "forge test -vvv --gas-report",
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "test:genesis": "./test/genesis/generate_genesis.test.sh",
     "test:bridge": "TEST_TYPE=integrationbridge ./test/test_integration.sh",

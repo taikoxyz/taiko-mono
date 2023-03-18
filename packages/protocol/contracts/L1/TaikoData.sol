@@ -9,6 +9,15 @@ pragma solidity ^0.8.18;
 import {ChainData} from "../common/IXchainSync.sol";
 
 library TaikoData {
+    struct FeeConfig {
+        uint16 avgTimeMAF;
+        uint64 avgTimeCap; // miliseconds
+        uint16 gracePeriodPctg;
+        uint16 maxPeriodPctg;
+        // extra fee/reward on top of baseFee
+        uint16 multiplerPctg;
+    }
+
     struct Config {
         uint256 chainId;
         // up to 2048 pending blocks
@@ -21,28 +30,24 @@ library TaikoData {
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
-        uint256 anchorTxGasLimit;
         uint256 slotSmoothingFactor;
+        uint256 anchorTxGasLimit;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
         // Moving average factors
         uint256 feeBaseMAF;
-        uint256 blockTimeMAF;
-        uint256 proofTimeMAF;
-        uint64 rewardMultiplierPctg;
-        uint64 feeGracePeriodPctg;
-        uint64 feeMaxPeriodPctg;
-        uint64 blockTimeCap;
-        uint64 proofTimeCap;
         uint64 bootstrapDiscountHalvingPeriod;
+        uint64 constantFeeRewardBlocks;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
         bool skipZKPVerification;
+        FeeConfig proposingConfig;
+        FeeConfig provingConfig;
     }
 
     struct StateVariables {
-        uint256 feeBase;
+        uint64 feeBaseTwei;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 nextBlockId;
@@ -59,14 +64,14 @@ library TaikoData {
     }
 
     struct BlockMetadata {
-        uint256 id;
-        uint256 l1Height;
+        uint64 id;
+        uint64 gasLimit;
+        uint64 timestamp;
+        uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         address beneficiary;
-        uint64 gasLimit;
-        uint64 timestamp;
     }
 
     struct ZKProof {
@@ -124,7 +129,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
-        uint64 feeBaseSzabo;
+        uint64 feeBaseTwei;
         // Reserved
         uint256[42] __gap;
     }

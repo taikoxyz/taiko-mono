@@ -1,0 +1,10 @@
+[profile.default]
+src = 'contracts'
+out = 'out'
+test = 'test2'
+libs = ['lib']
+optimizer = true
+optimizer_runs = 200
+gas_reports = ["TaikoL1", "TaikoL1WithConfig", "TaikoL2",  "GasComparision", "SignalService", "Bridge", "BridgedERC20", "TaikoToken", "EtherVault", "TokenVault"]
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

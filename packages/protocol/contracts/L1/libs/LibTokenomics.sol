@@ -17,19 +17,26 @@ import {TaikoToken} from "../TaikoToken.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
-    uint256 private constant SZABO_TO_WEI = 1E12;
+    uint256 private constant TWEI_TO_WEI = 1E12;
+
+    error L1_INSUFFICIENT_TOKEN();
+    error L1_INVALID_PARAM();
 
     function withdraw(
         TaikoData.State storage state,
-        AddressResolver resolver
+        AddressResolver resolver,
+        uint256 amount
     ) internal {
         uint256 balance = state.balances[msg.sender];
-        if (balance <= 1) return;
+        if (balance <= amount) revert L1_INSUFFICIENT_TOKEN();
 
-        state.balances[msg.sender] = 1;
+        unchecked {
+            state.balances[msg.sender] -= amount;
+        }
+
         TaikoToken(resolver.resolve("taiko_token", false)).mint(
             msg.sender,
-            balance - 1
+            amount
         );
     }
 
@@ -38,11 +45,32 @@ library LibTokenomics {
         AddressResolver resolver,
         uint256 amount
     ) internal {
-        TaikoToken(resolver.resolve("taiko_token", false)).burn(
-            msg.sender,
-            amount
-        );
-        state.balances[msg.sender] += amount;
+        if (amount > 0) {
+            TaikoToken(resolver.resolve("taiko_token", false)).burn(
+                msg.sender,
+                amount
+            );
+            state.balances[msg.sender] += amount;
+        }
+    }
+
+    function fromTwei(uint64 amount) internal pure returns (uint256) {
+        if (amount == 0) {
+            return TWEI_TO_WEI;
+        } else {
+            return amount * TWEI_TO_WEI;
+        }
+    }
+
+    function toTwei(uint256 amount) internal pure returns (uint64) {
+        uint256 _twei = amount / TWEI_TO_WEI;
+        if (_twei > type(uint64).max) {
+            return type(uint64).max;
+        } else if (_twei == 0) {
+            return uint64(1);
+        } else {
+            return uint64(_twei);
+        }
     }
 
     function getBlockFee(
@@ -53,23 +81,40 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
-        (newFeeBase, ) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-            isProposal: true,
-            tNow: block.timestamp * 1000,
-            tLast: state.lastProposedAt * 1000,
-            tAvg: state.avgBlockTime,
-            tTimeCap: config.blockTimeCap
-        });
-        fee = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: true,
-            feeBase: newFeeBase
-        });
-        fee = LibTokenomics.getBootstrapDiscountedFee(state, config, fee);
-        depositAmount = (fee * config.proposerDepositPctg) / 100;
+        uint256 feeBase = fromTwei(state.feeBaseTwei);
+        if (state.nextBlockId <= config.constantFeeRewardBlocks) {
+            fee = feeBase;
+            newFeeBase = feeBase;
+        } else {
+            (newFeeBase, ) = getTimeAdjustedFee({
+                feeConfig: config.proposingConfig,
+                feeBase: feeBase,
+                isProposal: true,
+                tNow: block.timestamp,
+                tLast: state.lastProposedAt,
+                tAvg: state.avgBlockTime
+            });
+            fee = getSlotsAdjustedFee({
+                state: state,
+                config: config,
+                isProposal: true,
+                feeBase: newFeeBase
+            });
+        }
+
+        if (config.bootstrapDiscountHalvingPeriod > 0) {
+            unchecked {
+                uint256 halves = uint256(
+                    block.timestamp - state.genesisTimestamp
+                ) / config.bootstrapDiscountHalvingPeriod;
+                uint256 gamma = 1024 - (1024 >> (1 + halves));
+                fee = (fee * gamma) / 1024;
+            }
+        }
+
+        unchecked {
+            depositAmount = (fee * config.proposerDepositPctg) / 100;
+        }
     }
 
     function getProofReward(
@@ -82,22 +127,32 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp)
     {
-        (newFeeBase, tRelBp) = LibTokenomics.getTimeAdjustedFee({
-            config: config,
-            feeBase: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-            isProposal: false,
-            tNow: provenAt * 1000,
-            tLast: proposedAt * 1000,
-            tAvg: state.avgProofTime,
-            tTimeCap: config.proofTimeCap
-        });
-        reward = LibTokenomics.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
-        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+        if (proposedAt > provenAt) revert L1_INVALID_PARAM();
+
+        uint256 feeBase = fromTwei(state.feeBaseTwei);
+        if (state.lastBlockId <= config.constantFeeRewardBlocks) {
+            reward = feeBase;
+            newFeeBase = feeBase;
+            // tRelBp = 0;
+        } else {
+            (newFeeBase, tRelBp) = getTimeAdjustedFee({
+                feeConfig: config.provingConfig,
+                feeBase: feeBase,
+                isProposal: false,
+                tNow: provenAt,
+                tLast: proposedAt,
+                tAvg: state.avgProofTime
+            });
+            reward = getSlotsAdjustedFee({
+                state: state,
+                config: config,
+                isProposal: false,
+                feeBase: newFeeBase
+            });
+        }
+        unchecked {
+            reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
+        }
     }
 
     // Implement "Slot-availability Multipliers", see the whitepaper.
@@ -107,79 +162,45 @@ library LibTokenomics {
         bool isProposal,
         uint256 feeBase
     ) internal view returns (uint256) {
-        uint256 m;
-        uint256 n;
-        uint256 k;
-        // m is the `n'` in the whitepaper
         unchecked {
-            m = 1000 * (config.maxNumBlocks - 1) + config.slotSmoothingFactor;
+            // m is the `n'` in the whitepaper
+            uint256 m = 1000 *
+                (config.maxNumBlocks - 1) +
+                config.slotSmoothingFactor;
             // n is the number of unverified blocks
-            n = 1000 * (state.nextBlockId - state.lastBlockId - 1);
-
+            uint256 n = 1000 * (state.nextBlockId - state.lastBlockId - 1);
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
-            k = isProposal ? m - n - 1000 : m - n + 1000;
+            uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
+            return (feeBase * (m - 1000) * m) / (m - n) / k;
         }
-        return (feeBase * (m - 1000) * m) / (m - n) / k;
-    }
-
-    // Implement "Bootstrap Discount Multipliers", see the whitepaper.
-    function getBootstrapDiscountedFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 feeBase
-    ) internal view returns (uint256) {
-        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.bootstrapDiscountHalvingPeriod;
-        uint256 gamma = 1024 - (1024 >> halves);
-        return (feeBase * gamma) / 1024;
     }
 
     // Implement "Incentive Multipliers", see the whitepaper.
     function getTimeAdjustedFee(
-        TaikoData.Config memory config,
+        TaikoData.FeeConfig memory feeConfig,
         uint256 feeBase,
         bool isProposal,
-        uint256 tNow, // milliseconds
-        uint256 tLast, // milliseconds
-        uint256 tAvg, // milliseconds
-        uint256 tTimeCap // milliseconds
+        uint256 tNow, // seconds
+        uint256 tLast, // seconds
+        uint256 tAvg // milliseconds
     ) internal pure returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (tAvg == 0) {
-            newFeeBase = feeBase;
-            // tRelBp = 0;
-        } else {
-            uint256 _tAvg = tAvg > tTimeCap ? tTimeCap : tAvg;
-            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 a = tLast + (config.feeGracePeriodPctg * _tAvg) / 100;
-            a = tNow > a ? tNow - a : 0;
-            tRelBp = (a.min(tMax) * 10000) / tMax; // [0 - 10000]
-            uint256 alpha = 10000 +
-                ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                100;
+        if (tAvg == 0 || tNow == tLast) {
+            return (feeBase, 0);
+        }
+
+        unchecked {
+            tAvg = tAvg.min(feeConfig.avgTimeCap);
+            uint256 max = (feeConfig.maxPeriodPctg * tAvg) / 100;
+            uint256 grace = (feeConfig.gracePeriodPctg * tAvg) / 100;
+            uint256 t = ((tNow - tLast) * 1000).max(grace).min(max);
+            tRelBp = (10000 * (t - grace)) / (max - grace); // [0-10000]
+            uint256 alpha = 10000 + (tRelBp * feeConfig.multiplerPctg) / 100;
+
             if (isProposal) {
                 newFeeBase = (feeBase * 10000) / alpha; // fee
             } else {
                 newFeeBase = (feeBase * alpha) / 10000; // reward
             }
-        }
-    }
-
-    function fromSzabo(uint64 amount) internal pure returns (uint256) {
-        if (amount == 0) {
-            return SZABO_TO_WEI;
-        } else {
-            return amount * SZABO_TO_WEI;
-        }
-    }
-
-    function toSzabo(uint256 amount) internal pure returns (uint64) {
-        uint256 _szabo = amount / SZABO_TO_WEI;
-        if (_szabo > type(uint64).max) {
-            return type(uint64).max;
-        } else if (_szabo == 0) {
-            return uint64(1);
-        } else {
-            return uint64(_szabo);
         }
     }
 }

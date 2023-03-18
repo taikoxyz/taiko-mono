@@ -25,24 +25,34 @@ contract TestTaikoL1EnableTokenomics is TaikoL1 {
         config.maxVerificationsPerTx = 0; // dont verify blocks automatically
         config.blockMaxGasLimit = 30000000;
         config.maxTransactionsPerBlock = 20;
+        config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
-        config.anchorTxGasLimit = 250000;
         config.slotSmoothingFactor = 590000;
+        config.anchorTxGasLimit = 180000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 
         // Moving average factors
         config.feeBaseMAF = 1024;
-        config.blockTimeMAF = 64;
-        config.proofTimeMAF = 64;
 
-        config.rewardMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds * 1000;
-        config.proofTimeCap = 5 seconds * 1000;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = true;
         config.skipZKPVerification = true;
+
+        config.proposingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 48 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 300
+        });
+
+        config.provingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 5 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 300
+        });
     }
 }

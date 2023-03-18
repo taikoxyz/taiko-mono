@@ -20,54 +20,61 @@ contract TaikoL2 is EssentialContract, IXchainSync {
 
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
-    uint256 public l1ChainId;
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
 
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     /**********************
      * Events and Errors  *
      **********************/
 
-    event BlockInvalidated(bytes32 indexed txListHash);
+    // Captures all block variables mentioned in
+    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    event BlockVars(
+        uint256 number,
+        bytes32 parentHash,
+        uint256 timestamp,
+        uint256 basefee,
+        uint256 prevrandao,
+        address coinbase,
+        uint256 gaslimit,
+        uint256 chainid
+    );
 
     error L2_INVALID_CHAIN_ID();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_TOO_LATE();
 
     /**********************
      * Constructor         *
      **********************/
 
-    function init(
-        address _addressManager,
-        uint256 _l1ChainId
-    ) external initializer {
+    function init(address _addressManager) external initializer {
+        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
+        if (block.number > 1) revert L2_TOO_LATE();
+
         EssentialContract._init(_addressManager);
-        l1ChainId = _l1ChainId;
 
-        if (block.chainid == 0 || block.chainid == _l1ChainId) {
-            revert L2_INVALID_CHAIN_ID();
-        }
+        bytes32[256] memory inputs;
+        uint256 n = block.number;
 
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ) {
-            ancestors[i] = blockhash(number - i - 2);
-            unchecked {
-                ++i;
+        unchecked {
+            for (uint256 i; i < 255 && n >= i + 1; ++i) {
+                uint j = n - i - 1;
+                inputs[j % 255] = blockhash(j);
             }
         }
 
-        _publicInputHash = _hashPublicInputs({
-            chainId: block.chainid,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
+        inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
+
+        _publicInputHash = _hashInputs(inputs);
+
+        _l2Hashes[n - 1] = blockhash(n - 1);
     }
 
     /**********************
@@ -80,7 +87,12 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * certain block-level global variables because they are not part of the
      * Trie structure.
      *
-     * Note: This transaction shall be the first transaction in every L2 block.
+     * A circuit will verify the integratity among:
+     * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
+     * -  (l1Hash and l1SignalServiceAddress) are both hased into of the
+     *    ZKP's instance.
+     *
+     * This transaction shall be the first transaction in every L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
@@ -91,18 +103,54 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
-        _checkPublicInputs();
+        uint256 n = block.number;
+        uint256 m; // parent block height
+        unchecked {
+            m = n - 1;
+        }
+
+        // Check blockhash[n-256]...blockhash[n-2], not including the parentHash
+        bytes32[256] memory inputs;
+        unchecked {
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && n >= i + 2; ++i) {
+                uint j = n - i - 2;
+                inputs[j % 255] = blockhash(j);
+            }
+        }
+
+        inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
+
+        if (_publicInputHash != _hashInputs(inputs))
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+
+        // replace the oldest block hash with the parent's blockhash
+        bytes32 parentHash = blockhash(m);
+        inputs[m % 255] = parentHash;
+        _publicInputHash = _hashInputs(inputs);
+        _l2Hashes[m] = parentHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
         _l1ChainData[l1Height] = chainData;
 
-        // A circuit will verify the integratity among:
-        // l1Hash, l1SignalRoot, and l1SignalServiceAddress
-        // (l1Hash and l1SignalServiceAddress) are both hased into of the ZKP's
-        // instance.
-
         emit XchainSynced(l1Height, chainData);
+
+        // We emit this event so circuits can grab its data to verify block variables.
+        // If plonk lookup table already has all these data, we can still use this
+        // event for debugging purpose.
+        emit BlockVars({
+            number: block.number,
+            parentHash: parentHash,
+            timestamp: block.timestamp,
+            basefee: 0, //block.basefee,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            gaslimit: block.gaslimit,
+            chainid: block.chainid
+        });
     }
 
     /**********************
@@ -137,59 +185,11 @@ contract TaikoL2 is EssentialContract, IXchainSync {
      * Private Functions  *
      **********************/
 
-    function _checkPublicInputs() private {
-        // Check the latest 256 block hashes (excluding the parent hash).
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        uint256 chainId = block.chainid;
-
-        // put the previous 255 blockhashes (excluding the parent's) into a
-        // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ) {
-            ancestors[(number - i) % 255] = blockhash(number - i);
-            unchecked {
-                ++i;
-            }
+    function _hashInputs(
+        bytes32[256] memory inputs
+    ) private pure returns (bytes32 hash) {
+        assembly {
+            hash := keccak256(inputs, mul(256, 32))
         }
-
-        uint256 parentHeight = number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
-
-        if (
-            _publicInputHash !=
-            _hashPublicInputs({
-                chainId: chainId,
-                number: parentHeight,
-                baseFee: 0,
-                ancestors: ancestors
-            })
-        ) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        }
-
-        // replace the oldest block hash with the parent's blockhash
-        ancestors[parentHeight % 255] = parentHash;
-        _publicInputHash = _hashPublicInputs({
-            chainId: chainId,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
-
-        _l2Hashes[parentHeight] = parentHash;
-    }
-
-    function _hashPublicInputs(
-        uint256 chainId,
-        uint256 number,
-        uint256 baseFee,
-        bytes32[255] memory ancestors
-    ) private pure returns (bytes32) {
-        bytes memory extra = bytes.concat(
-            bytes32(chainId),
-            bytes32(number),
-            bytes32(baseFee)
-        );
-        return keccak256(abi.encodePacked(extra, ancestors));
     }
 }

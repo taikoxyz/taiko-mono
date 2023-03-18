@@ -4,6 +4,18 @@ title: TaikoData
 
 ## TaikoData
 
+### FeeConfig
+
+```solidity
+struct FeeConfig {
+  uint16 avgTimeMAF;
+  uint64 avgTimeCap;
+  uint16 gracePeriodPctg;
+  uint16 maxPeriodPctg;
+  uint16 multiplerPctg;
+}
+```
+
 ### Config
 
 ```solidity
@@ -16,23 +28,19 @@ struct Config {
   uint256 maxTransactionsPerBlock;
   uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
-  uint256 anchorTxGasLimit;
   uint256 slotSmoothingFactor;
+  uint256 anchorTxGasLimit;
   uint256 rewardBurnBips;
   uint256 proposerDepositPctg;
   uint256 feeBaseMAF;
-  uint256 blockTimeMAF;
-  uint256 proofTimeMAF;
-  uint64 rewardMultiplierPctg;
-  uint64 feeGracePeriodPctg;
-  uint64 feeMaxPeriodPctg;
-  uint64 blockTimeCap;
-  uint64 proofTimeCap;
   uint64 bootstrapDiscountHalvingPeriod;
+  uint64 constantFeeRewardBlocks;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
   bool skipZKPVerification;
+  struct TaikoData.FeeConfig proposingConfig;
+  struct TaikoData.FeeConfig provingConfig;
 }
 ```
 
@@ -40,7 +48,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint256 feeBase;
+  uint64 feeBaseTwei;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 nextBlockId;
@@ -65,14 +73,14 @@ struct BlockMetadataInput {
 
 ```solidity
 struct BlockMetadata {
-  uint256 id;
-  uint256 l1Height;
+  uint64 id;
+  uint64 gasLimit;
+  uint64 timestamp;
+  uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
   address beneficiary;
-  uint64 gasLimit;
-  uint64 timestamp;
 }
 ```
 
@@ -140,7 +148,7 @@ struct State {
   uint64 __reserved4;
   uint64 lastBlockId;
   uint64 avgProofTime;
-  uint64 feeBaseSzabo;
+  uint64 feeBaseTwei;
   uint256[42] __gap;
 }
 ```

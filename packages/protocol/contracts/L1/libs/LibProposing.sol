@@ -34,7 +34,7 @@ library LibProposing {
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
-    ) internal returns (bytes32 metaHash) {
+    ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
         // the tokenomics.
@@ -61,7 +61,6 @@ library LibProposing {
         // from the beacon chain. Since multiple Taiko blocks
         // can be proposed in one Ethereum block, we need to
         // add salt to this random number as L2 mixHash
-
         uint256 mixHash;
         unchecked {
             mixHash = block.prevrandao * state.nextBlockId;
@@ -69,7 +68,7 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
-            l1Height: block.number - 1,
+            l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
             beneficiary: input.beneficiary,
             txListHash: input.txListHash,
@@ -95,33 +94,38 @@ library LibProposing {
                 state.balances[msg.sender] -= burnAmount;
             }
             // Update feeBase and avgBlockTime
-            state.feeBaseSzabo = LibTokenomics.toSzabo(
-                LibUtils.movingAverage({
-                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-                    newValue: newFeeBase,
+            state.feeBaseTwei = LibUtils
+                .movingAverage({
+                    maValue: state.feeBaseTwei,
+                    newValue: LibTokenomics.toTwei(newFeeBase),
                     maf: config.feeBaseMAF
                 })
-            );
+                .toUint64();
         }
 
-        metaHash = keccak256(abi.encode(meta));
         state.proposedBlocks[
             state.nextBlockId % config.maxNumBlocks
         ] = TaikoData.ProposedBlock({
-            metaHash: metaHash,
+            metaHash: LibUtils.hashMetadata(meta),
             deposit: deposit,
             proposer: msg.sender,
             proposedAt: meta.timestamp,
             nextForkChoiceId: 1
         });
 
-        state.avgBlockTime = LibUtils
-            .movingAverage({
-                maValue: state.avgBlockTime,
-                newValue: (meta.timestamp - state.lastProposedAt) * 1000,
-                maf: config.blockTimeMAF
-            })
-            .toUint64();
+        if (state.lastProposedAt > 0) {
+            uint256 blockTime;
+            unchecked {
+                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
+            }
+            state.avgBlockTime = LibUtils
+                .movingAverage({
+                    maValue: state.avgBlockTime,
+                    newValue: blockTime,
+                    maf: config.proposingConfig.avgTimeMAF
+                })
+                .toUint64();
+        }
 
         state.lastProposedAt = meta.timestamp;
 

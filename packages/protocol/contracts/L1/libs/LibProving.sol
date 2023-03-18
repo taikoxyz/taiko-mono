@@ -15,7 +15,13 @@ import {TaikoData} from "../../L1/TaikoData.sol";
 library LibProving {
     using LibUtils for TaikoData.State;
 
-    event BlockProven(uint256 indexed id, bytes32 parentHash);
+    event BlockProven(
+        uint256 indexed id,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 signalRoot,
+        address prover
+    );
 
     error L1_ALREADY_PROVEN();
     error L1_CONFLICT_PROOF();
@@ -57,7 +63,7 @@ library LibProving {
             meta.id % config.maxNumBlocks
         ];
 
-        if (proposal.metaHash != keccak256(abi.encode(meta)))
+        if (proposal.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
         TaikoData.ForkChoice storage fc = state.forkChoices[
@@ -96,13 +102,6 @@ library LibProving {
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
-            address verifier = resolver.resolve(
-                string(
-                    abi.encodePacked("verifier_", evidence.zkproof.circuitId)
-                ),
-                false
-            );
-
             bytes32 instance;
             {
                 // otherwise: stack too deep
@@ -116,36 +115,51 @@ library LibProving {
                     false
                 );
 
-                bytes memory buffer = bytes.concat(
-                    // for checking anchor tx
-                    bytes32(uint256(uint160(l1SignalService))),
-                    // for checking signalRoot
-                    bytes32(uint256(uint160(l2SignalService))),
-                    evidence.parentHash,
-                    evidence.blockHash,
-                    evidence.signalRoot
-                );
-                buffer = bytes.concat(
-                    buffer,
-                    bytes32(uint256(uint160(evidence.prover))),
-                    bytes32(uint256(evidence.meta.id)),
-                    bytes32(evidence.meta.l1Height),
-                    evidence.meta.l1Hash,
-                    evidence.meta.txListHash
+                address taikoL2 = resolver.resolve(
+                    config.chainId,
+                    "taiko_l2",
+                    false
                 );
 
-                instance = keccak256(buffer);
+                bytes32[9] memory inputs;
+                // for checking anchor tx
+                inputs[0] = bytes32(uint256(uint160(l1SignalService)));
+                // for checking signalRoot
+                inputs[1] = bytes32(uint256(uint160(l2SignalService)));
+                inputs[2] = bytes32(uint256(uint160(taikoL2)));
+                inputs[3] = evidence.parentHash;
+                inputs[4] = evidence.blockHash;
+                inputs[5] = evidence.signalRoot;
+                inputs[6] = bytes32(uint256(uint160(evidence.prover)));
+                inputs[7] = proposal.metaHash;
+
+                // Circuits shall use this value to check anchor gas limit.
+                // Note that this value is not necessary and can be hard-coded
+                // in to the circuit code, but if we upgrade the protocol
+                // and the gas limit changes, then having it here may be handy.
+                inputs[8] = bytes32(config.anchorTxGasLimit);
+
+                assembly {
+                    instance := keccak256(inputs, mul(32, 9))
+                }
             }
 
-            (bool verified, bytes memory ret) = verifier.staticcall(
-                bytes.concat(
-                    bytes16(0),
-                    bytes16(instance), // left 16 bytes of the given instance
-                    bytes16(0),
-                    bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
-                    evidence.zkproof.data
-                )
+            bytes memory verifierId = abi.encodePacked(
+                "verifier_",
+                evidence.zkproof.circuitId
             );
+
+            (bool verified, bytes memory ret) = resolver
+                .resolve(string(verifierId), false)
+                .staticcall(
+                    bytes.concat(
+                        bytes16(0),
+                        bytes16(instance), // left 16 bytes of the given instance
+                        bytes16(0),
+                        bytes16(uint128(uint256(instance))), // right 16 bytes of the given instance
+                        evidence.zkproof.data
+                    )
+                );
 
             if (
                 !verified ||
@@ -156,10 +170,17 @@ library LibProving {
 
         state.forkChoiceIds[blockId][evidence.parentHash] = proposal
             .nextForkChoiceId;
+
         unchecked {
             ++proposal.nextForkChoiceId;
         }
-        emit BlockProven({id: blockId, parentHash: evidence.parentHash});
+        emit BlockProven({
+            id: blockId,
+            parentHash: evidence.parentHash,
+            blockHash: evidence.blockHash,
+            signalRoot: evidence.signalRoot,
+            prover: evidence.prover
+        });
     }
 
     function getForkChoice(

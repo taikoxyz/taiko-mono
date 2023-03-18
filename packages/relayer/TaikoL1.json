@@ -694,7 +694,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "rewardMultiplierPctg",
+            "name": "feeMultiplierPctg",
             "type": "uint64"
           },
           {
@@ -704,7 +704,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "feeMaxPeriodPctg",
+            "name": "feeMaxPctg",
             "type": "uint64"
           },
           {

@@ -4,22 +4,16 @@ title: TaikoL2
 
 ## TaikoL2
 
-### l1ChainId
-
-```solidity
-uint256 l1ChainId
-```
-
 ### latestSyncedL1Height
 
 ```solidity
 uint256 latestSyncedL1Height
 ```
 
-### BlockInvalidated
+### BlockVars
 
 ```solidity
-event BlockInvalidated(bytes32 txListHash)
+event BlockVars(uint256 number, bytes32 parentHash, uint256 timestamp, uint256 basefee, uint256 prevrandao, address coinbase, uint256 gaslimit, uint256 chainid)
 ```
 
 ### L2_INVALID_CHAIN_ID
@@ -34,10 +28,16 @@ error L2_INVALID_CHAIN_ID()
 error L2_PUBLIC_INPUT_HASH_MISMATCH()
 ```
 
+### L2_TOO_LATE
+
+```solidity
+error L2_TOO_LATE()
+```
+
 ### init
 
 ```solidity
-function init(address _addressManager, uint256 _l1ChainId) external
+function init(address _addressManager) external
 ```
 
 ### anchor
@@ -51,7 +51,13 @@ message verification (eg. bridging). This function will also check
 certain block-level global variables because they are not part of the
 Trie structure.
 
-Note: This transaction shall be the first transaction in every L2 block.
+A circuit will verify the integratity among:
+
+- l1Hash, l1SignalRoot, and l1SignalServiceAddress
+- (l1Hash and l1SignalServiceAddress) are both hased into of the
+  ZKP's instance.
+
+This transaction shall be the first transaction in every L2 block.
 
 #### Parameters
 

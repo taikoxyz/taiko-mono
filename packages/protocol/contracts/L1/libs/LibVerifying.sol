@@ -19,25 +19,28 @@ library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, ChainData chainData);
+    error L1_INVALID_CONFIG();
+
+    event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
 
     function init(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 feeBaseSzabo
+        uint64 feeBaseTwei
     ) internal {
+        _checkConfig(config);
+
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBaseSzabo = feeBaseSzabo;
+        state.feeBaseTwei = feeBaseTwei;
         state.nextBlockId = 1;
-        state.lastProposedAt = uint64(block.timestamp);
 
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
         state.l2ChainDatas[0] = chainData;
 
-        emit BlockVerified(0, chainData);
-        emit XchainSynced(0, chainData);
+        emit BlockVerified(0, genesisBlockHash);
     }
 
     function verifyBlocks(
@@ -81,7 +84,7 @@ library LibVerifying {
                 proposal: proposal
             });
 
-            emit BlockVerified(i, chainData);
+            emit BlockVerified(i, chainData.blockHash);
 
             unchecked {
                 ++i;
@@ -113,59 +116,59 @@ library LibVerifying {
         TaikoData.ProposedBlock storage proposal
     ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                // otherwise: stack too deep
-                uint256 reward;
-                uint256 tRelBp; // [0-10000], see the whitepaper
-                (newFeeBase, reward, tRelBp) = LibTokenomics.getProofReward({
+            (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
+                .getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
                     proposedAt: proposal.proposedAt
                 });
 
-                // reward the prover
-                if (reward > 0) {
-                    if (state.balances[fc.prover] == 0) {
-                        // Reduce reward to 1 wei as a penalty if the prover
-                        // has 0 TKO outstanding balance.
-                        state.balances[fc.prover] = 1;
-                    } else {
-                        state.balances[fc.prover] += reward;
-                    }
-                }
-
-                // refund proposer deposit for valid blocks
-                uint256 refund;
-                unchecked {
-                    refund = (proposal.deposit * (10000 - tRelBp)) / 10000;
-                }
-                if (refund > 0) {
-                    if (state.balances[proposal.proposer] == 0) {
-                        // Reduce refund to 1 wei as a penalty if the proposer
-                        // has 0 TKO outstanding balance.
-                        state.balances[proposal.proposer] = 1;
-                    } else {
-                        state.balances[proposal.proposer] += refund;
-                    }
+            // reward the prover
+            if (amount > 0) {
+                if (state.balances[fc.prover] == 0) {
+                    // Reduce reward to 1 wei as a penalty if the prover
+                    // has 0 TKO outstanding balance.
+                    state.balances[fc.prover] = 1;
+                } else {
+                    state.balances[fc.prover] += amount;
                 }
             }
+
+            // refund proposer deposit for valid blocks
+            unchecked {
+                // tRelBp in [0-10000]
+                amount = (proposal.deposit * (10000 - tRelBp)) / 10000;
+            }
+            if (amount > 0) {
+                if (state.balances[proposal.proposer] == 0) {
+                    // Reduce refund to 1 wei as a penalty if the proposer
+                    // has 0 TKO outstanding balance.
+                    state.balances[proposal.proposer] = 1;
+                } else {
+                    state.balances[proposal.proposer] += amount;
+                }
+            }
+
             // Update feeBase and avgProofTime
-            state.feeBaseSzabo = LibTokenomics.toSzabo(
-                LibUtils.movingAverage({
-                    maValue: LibTokenomics.fromSzabo(state.feeBaseSzabo),
-                    newValue: newFeeBase,
+            state.feeBaseTwei = LibUtils
+                .movingAverage({
+                    maValue: state.feeBaseTwei,
+                    newValue: LibTokenomics.toTwei(newFeeBase),
                     maf: config.feeBaseMAF
                 })
-            );
+                .toUint64();
         }
 
+        uint proofTime;
+        unchecked {
+            proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
+        }
         state.avgProofTime = LibUtils
             .movingAverage({
                 maValue: state.avgProofTime,
-                newValue: (fc.provenAt - proposal.proposedAt) * 1000,
-                maf: config.proofTimeMAF
+                newValue: proofTime,
+                maf: config.provingConfig.avgTimeMAF
             })
             .toUint64();
 
@@ -174,11 +177,37 @@ library LibVerifying {
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        unchecked {
-            fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
-            fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
-            fc.provenAt = 1; // none-zero placeholder
-            fc.prover = address(0);
-        }
+        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
+        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.provenAt = 1; // none-zero placeholder
+        fc.prover = address(0);
+    }
+
+    function _checkConfig(TaikoData.Config memory config) private pure {
+        if (
+            config.chainId <= 1 ||
+            config.maxNumBlocks <= 1 ||
+            config.blockHashHistory == 0 ||
+            config.blockMaxGasLimit == 0 ||
+            config.maxTransactionsPerBlock == 0 ||
+            config.maxBytesPerTxList == 0 ||
+            config.minTxGasLimit == 0 ||
+            config.slotSmoothingFactor == 0 ||
+            config.anchorTxGasLimit == 0 ||
+            config.rewardBurnBips >= 10000
+        ) revert L1_INVALID_CONFIG();
+
+        _checkFeeConfig(config.proposingConfig);
+        _checkFeeConfig(config.provingConfig);
+    }
+
+    function _checkFeeConfig(
+        TaikoData.FeeConfig memory feeConfig
+    ) private pure {
+        if (
+            feeConfig.avgTimeMAF <= 1 ||
+            feeConfig.avgTimeCap == 0 ||
+            feeConfig.gracePeriodPctg > feeConfig.maxPeriodPctg
+        ) revert L1_INVALID_CONFIG();
     }
 }

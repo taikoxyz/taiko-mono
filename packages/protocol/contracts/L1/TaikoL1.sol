@@ -34,13 +34,14 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _feeBaseSzabo
+        uint64 _feeBaseTwei
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
+            config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            feeBaseSzabo: _feeBaseSzabo
+            feeBaseTwei: _feeBaseTwei
         });
     }
 
@@ -123,18 +124,23 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         LibTokenomics.deposit(state, AddressResolver(this), amount);
     }
 
-    function withdraw() external nonReentrant {
-        LibTokenomics.withdraw(state, AddressResolver(this));
+    function withdraw(uint256 amount) external nonReentrant {
+        LibTokenomics.withdraw(state, AddressResolver(this), amount);
     }
 
     function getBalance(address addr) public view returns (uint256) {
         return state.balances[addr];
     }
 
-    function getBlockFee() public view returns (uint256) {
-        (, uint256 feeAmount, uint256 depositAmount) = LibTokenomics
-            .getBlockFee(state, getConfig());
-        return feeAmount + depositAmount;
+    function getBlockFee()
+        public
+        view
+        returns (uint256 feeAmount, uint256 depositAmount)
+    {
+        (, feeAmount, depositAmount) = LibTokenomics.getBlockFee(
+            state,
+            getConfig()
+        );
     }
 
     function getProofReward(
