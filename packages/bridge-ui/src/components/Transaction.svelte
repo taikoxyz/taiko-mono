@@ -59,12 +59,20 @@
   async function claim(bridgeTx: BridgeTransaction) {
     try {
       loading = true;
-      if (fromChain.id !== bridgeTx.toChainId) {
+      // if the current "from chain", ie, the chain youre connected to, is not the destination
+      // of the bridge transaction, we need to change chains so your wallet is pointed
+      // to the right network.
+      if ($fromChainStore.id !== bridgeTx.toChainId) {
         const chain = chainsRecord[bridgeTx.toChainId];
         await switchChainAndSetSigner(chain);
       }
+
       const tx = await $bridges
-        .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
+        .get(
+          bridgeTx.message.data === '0x' || !bridgeTx.message.data
+            ? BridgeType.ETH
+            : BridgeType.ERC20,
+        )
         .Claim({
           signer: $signer,
           message: bridgeTx.message,
@@ -150,7 +158,7 @@
 
     transaction.status = await contract.getMessageStatus(transaction.msgHash);
     if (transaction.status === MessageStatus.Failed) {
-      if (transaction.message.data !== '0x') {
+      if (transaction.message?.data !== '0x') {
         const srcTokenVaultContract = new ethers.Contract(
           $chainIdToTokenVaultAddress.get(transaction.fromChainId),
           TokenVault,
