@@ -4,10 +4,10 @@ title: TaikoEvents
 
 ## TaikoEvents
 
-### BlobInfoCached
+### TxListInfoCached
 
 ```solidity
-event BlobInfoCached(bytes32 blobHash, uint64 validSince)
+event TxListInfoCached(bytes32 txListHash, uint64 validSince)
 ```
 
 ### BlockProposed

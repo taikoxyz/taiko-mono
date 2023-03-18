@@ -74,10 +74,10 @@ abstract contract TaikoL1TestBase is Test {
             .BlockMetadataInput({
                 beneficiary: proposer,
                 gasLimit: gasLimit,
-                blobHash: keccak256(blob),
-                blobStart: 0,
-                blobEnd: blobSize,
-                cacheBlobInfo: 0
+                txListHash: keccak256(blob),
+                txStartIdx: 0,
+                txEndIdx: blobSize,
+                cacheTxListInfo: 0
             });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
@@ -91,7 +91,7 @@ abstract contract TaikoL1TestBase is Test {
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.beneficiary = proposer;
-        meta.blobHash = keccak256(blob);
+        meta.txListHash = keccak256(blob);
         meta.mixHash = bytes32(_mixHash);
         meta.gasLimit = gasLimit;
         meta.timestamp = uint64(block.timestamp);

@@ -75,7 +75,7 @@ library LibUtils {
 
         inputs[1] = meta.l1Hash;
         inputs[2] = meta.mixHash;
-        inputs[3] = meta.blobHash;
+        inputs[3] = meta.txListHash;
         inputs[4] = bytes32(uint256(uint160(meta.beneficiary)));
 
         assembly {

@@ -26,7 +26,7 @@ struct Config {
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
-  uint256 maxBlobSize;
+  uint256 maxBytesPerTxList;
   uint256 minTxGasLimit;
   uint256 slotSmoothingFactor;
   uint256 anchorTxGasLimit;
@@ -63,12 +63,12 @@ struct StateVariables {
 
 ```solidity
 struct BlockMetadataInput {
-  bytes32 blobHash;
+  bytes32 txListHash;
   address beneficiary;
   uint64 gasLimit;
-  uint32 blobStart;
-  uint32 blobEnd;
-  uint8 cacheBlobInfo;
+  uint32 txStartIdx;
+  uint32 txEndIdx;
+  uint8 cacheTxListInfo;
 }
 ```
 
@@ -82,9 +82,9 @@ struct BlockMetadata {
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
-  bytes32 blobHash;
-  uint32 blobStart;
-  uint32 blobEnd;
+  bytes32 txListHash;
+  uint32 txStartIdx;
+  uint32 txEndIdx;
   address beneficiary;
 }
 ```
@@ -133,10 +133,10 @@ struct ProposedBlock {
 }
 ```
 
-### BlobInfo
+### TxListInfo
 
 ```solidity
-struct BlobInfo {
+struct TxListInfo {
   uint64 validSince;
   uint64 size;
 }
@@ -151,7 +151,7 @@ struct State {
   mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
-  mapping(bytes32 => struct TaikoData.BlobInfo) blobs;
+  mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;

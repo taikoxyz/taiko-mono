@@ -50,15 +50,15 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param input An abi-encoded BlockMetadataInput that the actual L2
      *        block header must satisfy.
-     * @param blob A list of transactions in this block, encoded with RLP.
+     * @param txList A list of transactions in this block, encoded with RLP.
      *        Note, in the corresponding L2 block an _anchor transaction_
      *        will be the first transaction in the block -- if there are
-     *        `n` transactions in `blob`, then there will be up to `n + 1`
+     *        `n` transactions in `txList`, then there will be up to `n + 1`
      *        transactions in the L2 block.
      */
     function proposeBlock(
         bytes calldata input,
-        bytes calldata blob
+        bytes calldata txList
     ) external onlyFromEOA nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
@@ -66,7 +66,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             input: abi.decode(input, (TaikoData.BlockMetadataInput)),
-            blob: blob
+            txList: txList
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({

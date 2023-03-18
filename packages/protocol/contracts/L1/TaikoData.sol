@@ -28,7 +28,7 @@ library TaikoData {
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
-        uint256 maxBlobSize;
+        uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 slotSmoothingFactor;
         uint256 anchorTxGasLimit;
@@ -59,12 +59,12 @@ library TaikoData {
 
     // 3 slots
     struct BlockMetadataInput {
-        bytes32 blobHash;
+        bytes32 txListHash;
         address beneficiary;
         uint64 gasLimit;
-        uint32 blobStart;
-        uint32 blobEnd;
-        uint8 cacheBlobInfo; // non-zero = True
+        uint32 txStartIdx;
+        uint32 txEndIdx;
+        uint8 cacheTxListInfo; // non-zero = True
     }
 
     // 5 slots
@@ -75,9 +75,9 @@ library TaikoData {
         uint64 l1Height;
         bytes32 l1Hash;
         bytes32 mixHash;
-        bytes32 blobHash;
-        uint32 blobStart;
-        uint32 blobEnd;
+        bytes32 txListHash;
+        uint32 txStartIdx;
+        uint32 txEndIdx;
         address beneficiary;
     }
 
@@ -111,7 +111,7 @@ library TaikoData {
     }
 
     // This struct takes 9 slots.
-    struct BlobInfo {
+    struct TxListInfo {
         uint64 validSince;
         uint64 size;
     }
@@ -124,7 +124,7 @@ library TaikoData {
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 outstandingReward) balances;
-        mapping(bytes32 blobHash => BlobInfo info) blobs;
+        mapping(bytes32 txListHash => TxListInfo info) txListInfo;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;

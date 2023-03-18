@@ -20,7 +20,7 @@ library LibProposing {
 
     uint public constant BLOB_CACHE_EXPIRY = 60 minutes;
 
-    event BlobInfoCached(bytes32 blobHash, uint64 validSince);
+    event TxListInfoCached(bytes32 txListHash, uint64 validSince);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
     error L1_BLOB_NOT_EXIST();
@@ -38,7 +38,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
-        bytes calldata blob
+        bytes calldata txList
     ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
@@ -48,7 +48,7 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.blobEnd <= input.blobStart) revert L1_BLOB_RANGE();
+        if (input.txEndIdx <= input.txStartIdx) revert L1_BLOB_RANGE();
 
         if (
             input.beneficiary == address(0) ||
@@ -56,26 +56,29 @@ library LibProposing {
         ) revert L1_INVALID_METADATA();
 
         uint64 _now = uint64(block.timestamp);
+        uint32 _size = uint32(txList.length);
 
-        if (blob.length == 0) {
+        if (_size == 0) {
             // This blob shall have been submitted earlier
-            TaikoData.BlobInfo memory info = state.blobs[input.blobHash];
+            TaikoData.TxListInfo memory info = state.txListInfo[
+                input.txListHash
+            ];
 
             if (info.size == 0 || info.validSince + BLOB_CACHE_EXPIRY < _now)
                 revert L1_BLOB_NOT_EXIST();
 
-            if (input.blobEnd > info.size) revert L1_BLOB_RANGE();
+            if (input.txEndIdx > info.size) revert L1_BLOB_RANGE();
         } else {
-            if (blob.length > config.maxBlobSize) revert L1_BLOB();
-            if (input.blobEnd > blob.length) revert L1_BLOB_RANGE();
-            if (input.blobHash != keccak256(blob)) revert L1_BLOB_HASH();
+            if (_size > config.maxBytesPerTxList) revert L1_BLOB();
+            if (input.txEndIdx > _size) revert L1_BLOB_RANGE();
+            if (input.txListHash != keccak256(txList)) revert L1_BLOB_HASH();
 
-            if (input.cacheBlobInfo != 0) {
-                state.blobs[input.blobHash] = TaikoData.BlobInfo({
+            if (input.cacheTxListInfo != 0) {
+                state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
                     validSince: _now,
-                    size: uint64(blob.length)
+                    size: _size
                 });
-                emit BlobInfoCached(input.blobHash, _now);
+                emit TxListInfoCached(input.txListHash, _now);
             }
         }
 
@@ -98,9 +101,9 @@ library LibProposing {
             l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
-            blobHash: input.blobHash,
-            blobStart: input.blobStart,
-            blobEnd: input.blobEnd,
+            txListHash: input.txListHash,
+            txStartIdx: input.txStartIdx,
+            txEndIdx: input.txEndIdx,
             beneficiary: input.beneficiary
         });
 

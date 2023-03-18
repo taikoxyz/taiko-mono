@@ -18,7 +18,7 @@ const buildProposeBlockInputs = (
 const proposeBlock = async (
     taikoL1: TaikoL1,
     block: ethers.providers.Block,
-    blobHash: string,
+    txListHash: string,
     gasLimit: BigNumber,
     beneficiary: string
 ) => {
@@ -27,7 +27,7 @@ const proposeBlock = async (
         l1Height: 0,
         l1Hash: ethers.constants.HashZero,
         beneficiary,
-        blobHash: blobHash,
+        txListHash: txListHash,
         mixHash: ethers.constants.HashZero,
         extraData: ethers.utils.hexlify(ethers.utils.randomBytes(32)),
         gasLimit: gasLimit,
