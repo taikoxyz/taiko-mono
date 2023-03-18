@@ -412,7 +412,7 @@
   </label>
 </div>
 
-{#if $signer && tokenBalance && ethers.utils
+{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
     .parseUnits(tokenBalance, $token.decimals)
     .eq(BigNumber.from(0))}
   <div class="flex" style="flex-direction:row-reverse">
