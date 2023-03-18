@@ -18,8 +18,11 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event TxListInfoCached(bytes32 txListHash, uint64 validSince);
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(
+        uint256 indexed id,
+        TaikoData.BlockMetadata meta,
+        bool txListCached
+    );
 
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
@@ -56,6 +59,7 @@ library LibProposing {
         uint64 _now = uint64(block.timestamp);
         uint32 _size = uint32(txList.length);
 
+        bool _txListCached;
         if (_size == 0) {
             // This blob shall have been submitted earlier
             TaikoData.TxListInfo memory info = state.txListInfo[
@@ -78,7 +82,7 @@ library LibProposing {
                     validSince: _now,
                     size: _size
                 });
-                emit TxListInfoCached(input.txListHash, _now);
+                _txListCached = true;
             }
         }
 
@@ -159,7 +163,7 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId, meta);
+        emit BlockProposed(state.nextBlockId, meta, _txListCached);
         unchecked {
             ++state.nextBlockId;
         }
