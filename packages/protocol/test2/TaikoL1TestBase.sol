@@ -66,17 +66,17 @@ abstract contract TaikoL1TestBase is Test {
 
     function proposeBlock(
         address proposer,
-        uint32 blobSize
+        uint32 txListSize
     ) internal returns (TaikoData.BlockMetadata memory meta) {
         uint64 gasLimit = 1000000;
-        bytes memory blob = new bytes(blobSize);
+        bytes memory blob = new bytes(txListSize);
         TaikoData.BlockMetadataInput memory input = TaikoData
             .BlockMetadataInput({
                 beneficiary: proposer,
                 gasLimit: gasLimit,
                 txListHash: keccak256(blob),
                 txListStart: 0,
-                txListEnd: blobSize,
+                txListEnd: txListSize,
                 cacheTxListInfo: 0
             });
 
