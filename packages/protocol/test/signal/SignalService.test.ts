@@ -40,7 +40,7 @@ describe("SignalService", function () {
 
             await expect(slot1).to.be.not.equal(slot2);
         });
-        it.only("should return expected slot", async () => {
+        it("should return expected slot", async () => {
             const want =
                 "0x9b11525774df15071344c44c56f02418dd56a9050effcc5de3912e88ccf1b95d";
 
