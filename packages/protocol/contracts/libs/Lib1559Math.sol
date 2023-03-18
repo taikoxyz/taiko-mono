@@ -20,20 +20,20 @@ library Lib1559Math {
      *
      * @param prevTarget The previous round's target value.
      * @param prevMeasured The previous round's measured value. It must be in the same unit as `T`.
-     * @param T The base target value. It must be in the same unit as `prevMeasured`.
-     * @param A The adjustment factor. Bigger values change the next round's target more slowly.
+     * @param t The base target value. It must be in the same unit as `prevMeasured`.
+     * @param a The adjustment factor. Bigger values change the next round's target more slowly.
      * @return nextTarget The next round's target value.
      */
     function adjustTarget(
         uint256 prevTarget,
         uint256 prevMeasured,
-        uint256 T,
-        uint256 A
+        uint256 t,
+        uint256 a
     ) internal pure returns (uint256 nextTarget) {
-        assert(prevTarget != 0 && T != 0 && A > 1);
+        assert(prevTarget != 0 && t != 0 && a > 1);
 
-        uint256 x = prevTarget * ((A - 1) * T + prevMeasured);
-        uint256 y = A * T;
+        uint256 x = prevTarget * ((a - 1) * t + prevMeasured);
+        uint256 y = a * t;
         nextTarget = x / y;
 
         if (nextTarget == 0) {
@@ -50,20 +50,20 @@ library Lib1559Math {
      *
      * @param prevTarget The previous round's target value.
      * @param prevMeasured The previous round's measured value. It must be in the same unit as `T`.
-     * @param T The base target value. It must be in the same unit as `prevMeasured`.
-     * @param A The adjustment factor. Bigger values change the next round's target more slowly.
+     * @param t The base target value. It must be in the same unit as `prevMeasured`.
+     * @param a The adjustment factor. Bigger values change the next round's target more slowly.
      * @return nextTarget The next round's target value.
      */
     function adjustTargetReverse(
         uint256 prevTarget,
         uint256 prevMeasured,
-        uint256 T,
-        uint256 A
+        uint256 t,
+        uint256 a
     ) internal pure returns (uint256 nextTarget) {
-        assert(prevTarget != 0 && T != 0 && A > 1);
+        assert(prevTarget != 0 && t != 0 && a > 1);
 
-        uint256 x = prevTarget * A * T;
-        uint256 y = (A - 1) * T + prevMeasured;
+        uint256 x = prevTarget * a * t;
+        uint256 y = (a - 1) * t + prevMeasured;
         nextTarget = x / y;
 
         if (nextTarget == 0) {

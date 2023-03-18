@@ -1,11 +1,6 @@
 node_modules/
-contracts/aux/tokens/ERC20Upgradeable.sol
+lib/
 contracts/test/TestLibRLPReader.sol
 contracts/test/TestLibRLPWriter.sol
-contracts/libs/Lib1559Math.sol
-contracts/libs/LibAddress.sol
-contracts/libs/LibMath.sol
-contracts/libs/LibUint512Math.sol
-contracts/L1/TaikoConfig.sol
 **/contracts/thirdparty/**/*.sol
 test2/GasComparison.t.sol
