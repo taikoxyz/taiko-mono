@@ -104,19 +104,6 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal
     ) public pure returns (bytes32 signalSlot) {
-        assembly {
-            // Load the free memory pointer and allocate memory for the concatenated arguments
-            let input := mload(0x40)
-
-            // Store the app address and signal bytes32 value in the allocated memory
-            mstore(input, app)
-            mstore(add(input, 0x20), signal)
-
-            // Calculate the hash of the concatenated arguments using keccak256
-            signalSlot := keccak256(input, 0x40)
-
-            // Free the memory allocated for the input
-            mstore(0x40, add(input, 0x60))
-        }
+        signalSlot = keccak256(abi.encodePacked(app, signal));
     }
 }

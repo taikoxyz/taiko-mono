@@ -1,6 +1,206 @@
 export default [
   {
     inputs: [],
+    name: 'B_CANNOT_RECEIVE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_DENIED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_DENIED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_ERC20_CANNOT_RECEIVE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_ETHER_RELEASED_ALREADY',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_ETHER_RELEASED_ALREADY',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_EV_DO_NOT_BURN',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_EV_NOT_AUTHORIZED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_EV_PARAM',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_FAILED_TRANSFER',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_FAILED_TRANSFER',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_FORBIDDEN',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_FORBIDDEN',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_GAS_LIMIT',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_GAS_LIMIT',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_INCORRECT_VALUE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_INCORRECT_VALUE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_INIT_PARAM_ERROR',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_HASH_NULL',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_HASH_NULL',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_NON_RETRIABLE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_NON_RETRIABLE',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_NOT_FAILED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_MSG_NOT_FAILED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_NULL_APP_ADDR',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_OWNER_IS_NULL',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_OWNER_IS_NULL',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_OWNER_IS_NULL',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_SIGNAL_NOT_RECEIVED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_SIGNAL_NOT_RECEIVED',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_STATUS_MISMTACH',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_STATUS_MISMTACH',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_CHAIN_ID',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_CHAIN_ID',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_CHAIN_ID',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_CHAIN_ID',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_CHAIN_ID',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_TO_ADDRESS',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_WRONG_TO_ADDRESS',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'B_ZERO_SIGNAL',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'RESOLVER_DENIED',
     type: 'error',
   },
