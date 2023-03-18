@@ -69,7 +69,7 @@
 
       const tx = await $bridges
         .get(
-          bridgeTx.message.data === '0x' || !bridgeTx.message.data
+          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
             ? BridgeType.ETH
             : BridgeType.ERC20,
         )
@@ -88,7 +88,7 @@
 
       successToast($_('toast.transactionSent'));
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -103,7 +103,11 @@
         await switchChainAndSetSigner(chain);
       }
       const tx = await $bridges
-        .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
+        .get(
+          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
+            ? BridgeType.ETH
+            : BridgeType.ERC20,
+        )
         .ReleaseTokens({
           signer: $signer,
           message: bridgeTx.message,
@@ -199,10 +203,10 @@
     <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
   </td>
   <td>
-    {transaction.message?.data === '0x' || !transaction.message.data
+    {transaction.message?.data === '0x' || !transaction.message?.data
       ? ethers.utils.formatEther(transaction.message.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message.data && transaction.message.data !== '0x'
+    {transaction.message?.data && transaction.message?.data !== '0x'
       ? transaction.symbol
       : 'ETH'}
   </td>
