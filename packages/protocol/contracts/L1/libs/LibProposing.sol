@@ -18,8 +18,6 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    uint public constant BLOB_CACHE_EXPIRY = 24 * 60 minutes; // 1 day
-
     event TxListInfoCached(bytes32 txListHash, uint64 validSince);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
@@ -64,8 +62,10 @@ library LibProposing {
                 input.txListHash
             ];
 
-            if (info.size == 0 || info.validSince + BLOB_CACHE_EXPIRY < _now)
-                revert L1_TX_LIST_NOT_EXIST();
+            if (
+                info.size == 0 ||
+                info.validSince + config.txListCacheExpiry < _now
+            ) revert L1_TX_LIST_NOT_EXIST();
 
             if (input.txListEnd > info.size) revert L1_TX_LIST_RANGE();
         } else {
@@ -73,7 +73,7 @@ library LibProposing {
             if (input.txListEnd > _size) revert L1_TX_LIST_RANGE();
             if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
-            if (input.cacheTxListInfo != 0) {
+            if (config.txListCacheExpiry > 0 && input.cacheTxListInfo != 0) {
                 state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
                     validSince: _now,
                     size: _size

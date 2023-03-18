@@ -23,6 +23,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.enableTokenomics = true;
         config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
+        config.txListCacheExpiry = 5 minutes;
         config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;

@@ -35,6 +35,7 @@ struct Config {
   uint256 feeBaseMAF;
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 constantFeeRewardBlocks;
+  uint64 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
