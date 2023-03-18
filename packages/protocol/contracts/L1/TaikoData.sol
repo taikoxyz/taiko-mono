@@ -63,8 +63,8 @@ library TaikoData {
         bytes32 txListHash;
         address beneficiary;
         uint64 gasLimit;
-        uint32 txListStart;
-        uint32 txListEnd;
+        uint32 txListStart; // byte-wise start index (inclusive)
+        uint32 txListEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
     }
 
