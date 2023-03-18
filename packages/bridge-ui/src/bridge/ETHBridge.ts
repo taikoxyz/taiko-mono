@@ -133,6 +133,7 @@ export class ETHBridge implements Bridge {
       };
 
       const proof = await this.prover.GenerateProof(proofOpts);
+      console.log(opts.message);
       return await contract.processMessage(opts.message, proof);
     } else {
       return await contract.retryMessage(opts.message, true);

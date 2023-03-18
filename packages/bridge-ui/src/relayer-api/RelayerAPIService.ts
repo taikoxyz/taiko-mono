@@ -58,6 +58,7 @@ export class RelayerAPIService implements RelayerAPI {
     }
 
     const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+      console.log(tx);
       return {
         status: tx.status,
         amountInWei: BigNumber.from(tx.amount),
@@ -72,9 +73,9 @@ export class RelayerAPIService implements RelayerAPI {
         canonicalTokenName: tx.canonicalTokenName,
         canonicalTokenDecimals: tx.canonicalTokenDecimals,
         message: {
-          id: tx.data.id,
+          id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data: tx.data.Message.Data,
+          data: tx.data.Message.Data === '' ? '0x' : tx.data.Message.Data,
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
@@ -160,6 +161,8 @@ export class RelayerAPIService implements RelayerAPI {
           hash: tx.hash,
           from: tx.from,
         };
+
+        console.log('converted', bridgeTx);
 
         return bridgeTx;
       }),
