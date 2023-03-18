@@ -25,6 +25,7 @@
   export let l1ExplorerUrl: string;
   export let l2ExplorerUrl: string;
   export let feeTokenSymbol: string;
+  export let oracleProverAddress: string;
 
   let statusIndicators: StatusIndicatorProp[] = [
     {
@@ -230,7 +231,10 @@
           contract.on(
             "BlockProven",
             (id, parentHash, blockHash, prover, provenAt) => {
-              onEvent(new Date(provenAt.toNumber() * 1000).toString());
+              // ignore oracle prover
+              if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
+                onEvent(new Date(provenAt.toNumber()).toString());
+              }
             }
           );
         },
