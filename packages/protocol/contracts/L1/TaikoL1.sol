@@ -198,7 +198,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         view
         returns (TaikoData.StateVariables memory)
     {
-        return state.getStateVariables(getConfig());
+        return state.getStateVariables();
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

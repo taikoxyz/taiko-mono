@@ -40,8 +40,6 @@ library LibVerifying {
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
         state.l2ChainDatas[0] = chainData;
 
-        state.proposedBlocks[0].proposedAt = uint64(block.timestamp);
-
         emit BlockVerified(0, genesisBlockHash);
     }
 
@@ -79,19 +77,11 @@ library LibVerifying {
                 break;
             }
 
-            uint64 parentProposedAt;
-            unchecked {
-                parentProposedAt = state
-                    .proposedBlocks[(i - 1) % config.maxNumBlocks]
-                    .proposedAt;
-            }
-
             chainData = _markBlockVerified({
                 state: state,
                 config: config,
                 fc: fc,
-                proposal: proposal,
-                parentProposedAt: parentProposedAt
+                proposal: proposal
             });
 
             emit BlockVerified(i, chainData.blockHash);
@@ -123,8 +113,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage proposal,
-        uint64 parentProposedAt
+        TaikoData.ProposedBlock storage proposal
     ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
@@ -171,35 +160,17 @@ library LibVerifying {
                 .toUint64();
         }
 
-        {
-            // update avgBlockTime
-            uint256 blockTime;
-            unchecked {
-                blockTime = (proposal.proposedAt - parentProposedAt) * 1000;
-            }
-            state.avgBlockTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgBlockTime,
-                    newValue: blockTime,
-                    maf: config.proposingConfig.avgTimeMAF
-                })
-                .toUint64();
+        uint proofTime;
+        unchecked {
+            proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
         }
-
-        {
-            // update avgProofTime
-            uint256 proofTime;
-            unchecked {
-                proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
-            }
-            state.avgProofTime = LibUtils
-                .movingAverage({
-                    maValue: state.avgProofTime,
-                    newValue: proofTime,
-                    maf: config.provingConfig.avgTimeMAF
-                })
-                .toUint64();
-        }
+        state.avgProofTime = LibUtils
+            .movingAverage({
+                maValue: state.avgProofTime,
+                newValue: proofTime,
+                maf: config.provingConfig.avgTimeMAF
+            })
+            .toUint64();
 
         chainData = fc.chainData;
         proposal.nextForkChoiceId = 1;
@@ -220,7 +191,7 @@ library LibVerifying {
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBlobSize == 0 ||
-            config.maxBlobSize > 128000 || // EIP-484 blob size
+            config.maxBlobSize > 128000 || // EIP-4844 block size up to 128K
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
             config.anchorTxGasLimit == 0 ||
