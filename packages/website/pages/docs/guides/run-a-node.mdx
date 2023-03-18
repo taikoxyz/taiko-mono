@@ -1,249 +1,116 @@
-import { Tab, Tabs } from 'nextra-theme-docs'
-
-## Summary
+import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 Taiko's network is fully decentralized and relies on the community to run nodes. This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node), the easiest way to get started operating a Taiko node. With simple-taiko-node you can:
+
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
 - Run a Taiko node regularly or as a prover.
 - View a [Grafana](https://grafana.com/) dashboard which displays the node's status.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/engine/install/) is installed and running.
+- [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
 - [Git](https://github.com/git-guides/install-git/) is installed.
-- Will need some ETH on the Layer 1 (L1) network. To receive Ethereum A1 ETH (L1), follow the Directions in [Request from faucet](/docs/guides/request-from-faucet).
-    
-> Note: On Windows, Docker may also require step 4 and 5 if using the [WSL 2 backend](https://learn.microsoft.com/nl-nl/windows/wsl/install-manual#step-4---download-the-linux-kernel-update-package)
-
-### System requirements
-
-Because we use a fork of geth, you can consult the [geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), which are outlined below.
-
-**Minimum:**
-
-- CPU with 2+ cores
-- 4GB RAM
-- 1TB free storage space to sync the Mainnet
-    - (**only ~50GB for Testnet**)
-- 8 MBit/sec download Internet service
-
-**Recommended:**
-
-- Fast CPU with 4+ cores
-- 16GB+ RAM
-- High-performance SSD with at least 1TB of free space
-- 25+ MBit/sec download Internet service
+- Should have some ETH on the Sepolia network (see [request from faucet](/docs/guides/request-from-faucet)) if running a prover.
+- Because we use a fork of geth, you can consult the [geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), with the exception of 1TB of free space, as the Taiko rollup state is much smaller.
+  - If you are running a prover, 32GB of RAM and 8 cores is recommended.
 
 ## Steps
 
-### Setup and Configure Node
+<Steps>
+  ### Clone simple-taiko-node
+  ```sh
+  git clone https://github.com/taikoxyz/simple-taiko-node.git
+  cd simple-taiko-node
+  ```
 
-<Tabs items={['Windows', 'Mac', 'Linux']} defaultIndex="0">
-  <Tab>
-    **Steps - Windows**
-    
-    1. Open the git bash terminal
+### Configure your node as a prover (optional)
 
-    - Start a git bash terminal by searching for git bash in the Start menu.
-    - Enter the following commands in the sections below. If copy and pasting does not work, please try pasting with SHIFT + INSERT , otherwise it will need to be typed out.
-    
-    2. Clone this repository
-    
-    ```sh
-    git clone https://github.com/taikoxyz/simple-taiko-node.git
-    cd simple-taiko-node
-    ```
-    
-    3. Configure your node
-    
-    Copy `.env.sample` to `.env`.
-    
-    ```sh
-    cp .env.sample .env
-    ```
-    
-    Run the following commands to assure the files work
-    
-    ```sh
-    dos2unix docker-compose.yml
-    cd script
-    dos2unix start-proposer.sh
-    ```
-    
-    To go back to the node folder (/simple-taiko-node), use the following command
-    ```sh
-    cd ..
-    ```
-    
-    4. Configure node as proposer (optional)
-    
-    To run your node as a proposer, configure the optional environment variables in this `.env` file:
-    
-    The `.evn` file can be edited in Notepad by running the command.
-    ```sh
-    notepad .env
-    ```
-    
-    - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
-    -   Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key
-        - The wallet will need a A1 ETH balance on layer 1 to propose blocks. 
-        - If using MetaMask, follow these directions to retrieve the [MetaMask Private Key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key).
-    - Set `L2_SUGGESTED_FEE_RECIPIENT` to the layer 2 address you want to receive the tx fees from the block.
-    
-    ```javascript
-    ENABLE_PROPOSER=true
-    L1_PROPOSER_PRIVATE_KEY=your private key from a test wallet
-    L2_SUGGESTED_FEE_RECIPIENT=your test wallets address (starts with 0x...)
-    ```
-    
-    Finally, save the `.env` and start proposing by starting up your node again.
+First, copy the `.env.sample` to a new file `.env`:
 
-  </Tab>
-  <Tab>
-    **Steps - Mac**
-    
-    1. Open the terminal
-    
-    - Start the Terminal. The Spotlight search field can be brought up with Command+Spacebar and search for the Terminal.
-    - Enter the following commands below into the Terminal
-    
-    2. Clone this repository
-    
-    ```sh
-    git clone https://github.com/taikoxyz/simple-taiko-node.git
-    cd simple-taiko-node
-    ```
-    
-    3. Configure your node
-    
-    Copy `.env.sample` to `.env`.
-    
-    ```sh
-    cp .env.sample .env
-    ```
+```sh
+cp .env.sample .env
+```
 
-    4. Configure node as proposer (optional)
-    
-    To run your node as a proposer, configure the optional environment variables in this `.env` file:
-    
-    The `.evn` file can be edited in TextEdit by running the command.
-    ```sh
-    open .env
-    ```
-    
-    - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
-    -   Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key 
-        - The wallet will need a A1 ETH balance on layer 1 to propose blocks. 
-        - If using MetaMask, follow these directions to retrieve the [MetaMask Private Key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key).
-    - Set `L2_SUGGESTED_FEE_RECIPIENT` to the layer 2 address you want to receive the tx fees from the block.
-    
-    ```javascript
-    ENABLE_PROPOSER=true
-    L1_PROPOSER_PRIVATE_KEY=your private key from a test wallet
-    L2_SUGGESTED_FEE_RECIPIENT=your test wallets address (starts with 0x...)
-    ```
-    
-    Finally, save the `.env` and start proposing by starting up your node again.
+Then, open the `.env` file in your preferred text editor:
 
-  </Tab>
-  <Tab>
-    **Steps - Linux**
-    
-    1. Open the terminal. 
-    
-    - This can be brought up by Pressing Ctrl+Alt+T
-    - Enter the following commands below into the Terminal
-    
-    2. Clone this repository
-    
-    ```sh
-    git clone https://github.com/taikoxyz/simple-taiko-node.git
-    cd simple-taiko-node
-    ```
-    
-    3. Configure your node
-    
-    Copy `.env.sample` to `.env`.
-    
-    ```sh
-    cp .env.sample .env
-    ```
-    
-    4. Configure node as proposer (optional)
-    
-    To run your node as a proposer, configure the optional environment variables in this `.env` file:
-    
-    The `.evn` file can be edited in the terminal by running the command.
-    ```sh
-    nano .env
-    ```
-    
-    - Set `ENABLE_PROPOSER` to `true` (replacing the default `false` with `true`).
-    -   Set `L1_PROPOSER_PRIVATE_KEY` to that of your wallet's private key 
-        - The wallet will need a A1 ETH balance on layer 1 to propose blocks. 
-        - If using MetaMask, follow these directions to retrieve the [MetaMask Private Key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key).
-    - Set `L2_SUGGESTED_FEE_RECIPIENT` to the layer 2 address you want to receive the tx fees from the block.
-    
-    ```javascript
-    ENABLE_PROPOSER=true
-    L1_PROPOSER_PRIVATE_KEY=your private key from a test wallet
-    L2_SUGGESTED_FEE_RECIPIENT=your test wallets address (starts with 0x...)
-    ```
-
-    Finally, save the `.env` and start proposing by starting up your node again.
-  </Tab>
+{" "}
+<Tabs items={["Mac", "Linux", "Windows"]} defaultIndex="0">
+  <Tab>```sh nano .env ```</Tab>
+  <Tab>```sh vim .env ```</Tab>
+  <Tab>```sh notepad .env ```</Tab>
 </Tabs>
 
+Finally, set the following environment variables to configure your node: 
+    - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). 
+    - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+
 ### Start a node
+
+<Callout>
+If this is the first time starting the node, it may take some time to synchronize from the genesis block. You can monitor this progress through logs, or in the local grafana dashboard and see the latest L2 chain status in the [Taiko Alpha-2 L2 block explorer](https://l2explorer.a2.taiko.xyz/).
+</Callout>
+
+Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
 
 ```sh
 docker compose up
 ```
 
-This command starts the configured node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
+To run the node in the background (detached mode), use the `-d` flag:
 
-If this is the first time you start the node, it will synchronize from the genesis to the present, which may take some time. You can monitor this progress through logs, or in the local grafana dashboard and see the latest L2 chain status in [Taiko Alpha-1 L2 block explorer](https://l2explorer.a1.taiko.xyz/).
-
- If you get an error that the `daemon docker is not running` or `Cannot connect to the Docker daemon`, you need to start the Docker Desktop by searching for the Docker Desktop in the Start menu (or Spotlight/Finder for Mac) and run. Then rerun the command in the terminal `docker compose up -d`
+```sh
+docker compose up -d
+```
 
 ### Stop a node
+
+This command shuts down the node, but will keep all volumes, so next time you restart the node, it won't need to synchronize from the genesis again.
 
 ```sh
 docker compose down
 ```
 
-This command shuts down the node, but will keep all volumes, so next time you restart the node, it won't need to synchronize from the genesis again.
-
 ### View the node's logs
 
 To view the Docker logs, the following commands can be ran:
 
-All Logs
+**View all logs**
+
 ```sh
 docker compose logs -f
 ```
 
-The proposer image's logs
+**View the prover image's logs
+
 ```sh
-docker compose logs -f taiko_client_proposer
+docker compose logs -f taiko_client_prover
 ```
 
-L2 execution engine Logs
+**View the L2 execution engine logs**
+
 ```sh
 docker compose logs -f l2_execution_engine
 ```
 
-Stats (CPU/MEM USAGE %)
+**View the live data streams of your running containers (CPU/MEM USAGE %), and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)**
+
 ```sh
 docker stats
 ```
-This command will show you live data streams of your running containers (CPU/MEM USAGE %), and consumption of your machine's resources. Add prefix "`docker stats -a`" to display all containers.
+
 
 ### View the node's status dashboard
 
 A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://prometheus.io/) datasource is also included to display the L2 execution engine's real time status. You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s](http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s).
 
-<img width="2556" alt="image" src="https://user-images.githubusercontent.com/104078303/207779788-65d28e44-828e-491a-86a1-d8d9fc2ba81b.png" />
+{" "}
+<img
+  width="2556"
+  alt="image"
+  src="https://user-images.githubusercontent.com/104078303/207779788-65d28e44-828e-491a-86a1-d8d9fc2ba81b.png"
+/>
+
+</Steps>
 
 ## Troubleshooting
 
@@ -260,46 +127,14 @@ These commands completely remove the node by removing all volumes used by each c
 
 When running a node it's normal for the node to run into errors. This doesn't mean that your node isn't working correctly, as most of the time the node resolves the errors. Some errors are there for the developers to easily debug if something goes wrong, but can be ignored by users. The following table explains some error messages a bit more.
 
-| Error message                                                                                | Explanation                                                                                             |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `Proposing operation error` <br></br> `error="failed to propose transactions: transaction reverted`      | There are other proposers competing for the limited block space. The node will try again after a while. |
-| `Unhandled trie error: missing trie node`                                                    | You can ignore this error, it doesn't affect you and goes away after a while.                                                       |
-| `Block batch iterator callback error` <br></br> `error="failed to fetch L2 parent block: not found` | You can ignore this error.                                                                                                    |
-| `Proposing operation error` <br></br> `error="failed to propose transactions: insufficient funds for gas * price + value"` | Your L1 wallet has ran out of funds to cover the fees. Please add funds to L1.                                                                                                 |
-| `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use` | The port is already in use by another service. You can either shut down the other program or change the port in the .env file. |
-| `error parsing HTTP 403 response body: invalid character '<' looking for beginning of value` | Your IP address is being geo-blocked due to sanctions lists. Google seems to be accidentally blocking users from Germany for some reason as well. If you're affected, try changing hosting locations or utilize a VPN to change your IP address. |
-| `Skip an invalid proposed transaction: hash=2a0330..576dd2 reason="nonce too low: address` | This is a common error. This one is okay to ignore. |
-| `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_serivce 'pull_policy'` | Your docker installation is out of date. You need to update your docker compose installation https://docs.docker.com/compose/install/ |
-|`daemon docker is not running` <br></br> `Cannot connect to the Docker daemon` | Need to start the Docker Desktop. Search for the Docker Desktop in the Start menu (or Spotlight/Finder for Mac) and run. Then rerun the command in the terminal `docker compose up -d` |
-
-
-**Node Not Proposing Blocks**
-
-First, check that you have updated the optional environment variables in `.env` file correctly and are using the latest docker images (you can manually update local images with `docker compose down && docker compose pull`).
-
-Next, check the proposer image's log (`docker compose logs -f taiko_client_proposer`) to figure out what could be wrong. It's probably because:
-
-- Your local node is still catching up with the latest chain head.
-- Your L1 proposer account ran out of ETH (needed to propose tx's). Please refer to [Request from faucet](/docs/guides/request-from-faucet).
-- There is no available block slot to propose in the Taiko L1 smart contract, so you must wait for one to become available (you can check the protocol smart contract's status with [`TaikoL1.getStateVariables`](https://taiko.xyz/docs/smart-contracts/L1/TaikoL1#getstatevariables)).
-
-If the above does not work, please try resyncing the images and start over
-
-```sh
-docker compose down -v
-git pull
-docker compose pull
-docker compose up -d
-```
-
-The commands below will redo *Configure node as proposer (optional)* (found in the section **Steps**-Setup and Configure Node).
-
-```sh
-rm .env
-cp .env.sample .env
-update 3 lines in .env with true, a new private key and new account
-docker compose up -d
-```
+| Error message                                                                                                                 | Explanation                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Unhandled trie error: missing trie node`                                                                                     | You can ignore this error, it doesn't affect you and goes away after a while.                                                                                                                                                                    |
+| `Block batch iterator callback error` <br></br> `error="failed to fetch L2 parent block: not found`                           | You can ignore this error.                                                                                                                                                                                                                       |
+| `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use`                                                 | The port is already in use by another service. You can either shut down the other program or change the port in the .env file.                                                                                                                   |
+| `error parsing HTTP 403 response body: invalid character '<' looking for beginning of value`                                  | Your IP address is being geo-blocked due to sanctions lists. If you're affected, try changing hosting locations or utilize a VPN to change your IP address. |
+| `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_serivce 'pull_policy'` | Your docker installation is out of date. You need to update your docker compose installation https://docs.docker.com/compose/install/                                                                                                            |
+| `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`                                                | Need to start the Docker Desktop. Search for the Docker Desktop in the Start menu (or Spotlight/Finder for Mac) and run. Then rerun the command in the terminal `docker compose up -d`                                                           |
 
 **Unclean Shutdown**
 
@@ -307,15 +142,11 @@ When running a Node, you will need to ensure a clean shutdown by running the com
 
 If the node is being ran with `docker compose up` (without the `-d` flag) and the logs are displaying in the terminal, then Press CTRL+C to allow Docker to clean up the resources.
 
-Please try running the following
+Please try running the following:
+
 ```sh
 docker compose down -v
 git pull
 docker compose pull
 docker compose up -d
 ```
-
-## Community guides
-
-- Video instructions [How to run a Taiko node on Windows](https://www.youtube.com/watch?v=JuvtSGoRw1I)
-- Video instructions [How to run a Taiko node on Linux](https://www.youtube.com/watch?v=ZKH58vM8czc)
