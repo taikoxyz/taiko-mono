@@ -28,7 +28,7 @@ library TaikoConfig {
                 feeBaseMAF: 1024,
                 bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
                 constantFeeRewardBlocks: 1024, // owner:daniel
-                txListCacheExpiry: 24 hours, // owner: daniel
+                txListCacheExpiry: 1 days, // owner: daniel
                 enableSoloProposer: true,
                 enableOracleProver: true,
                 enableTokenomics: true,
