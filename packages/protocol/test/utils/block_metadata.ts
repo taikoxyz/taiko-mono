@@ -5,7 +5,7 @@ type BlockMetadata = {
     l1Height: number;
     l1Hash: string;
     beneficiary: string;
-    txListHash: string;
+    blobHash: string;
     mixHash: string;
     extraData: string;
     gasLimit: BigNumberish;

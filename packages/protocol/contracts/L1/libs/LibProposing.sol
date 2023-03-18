@@ -26,12 +26,12 @@ library LibProposing {
     error L1_BLOB_NOT_EXIST();
     error L1_BLOB_HASH();
     error L1_BLOB_RANGE();
+    error L1_BLOB();
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST();
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -66,7 +66,7 @@ library LibProposing {
 
             if (input.blobEnd > info.size) revert L1_BLOB_RANGE();
         } else {
-            if (blob.length > config.maxBlobSize) revert L1_TX_LIST();
+            if (blob.length > config.maxBlobSize) revert L1_BLOB();
             if (input.blobEnd > blob.length) revert L1_BLOB_RANGE();
             if (input.blobHash != keccak256(blob)) revert L1_BLOB_HASH();
 
