@@ -14,7 +14,6 @@ import {
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
 
 library LibTokenomics {
     using LibMath for uint256;
@@ -92,7 +91,7 @@ library LibTokenomics {
                 feeBase: feeBase,
                 isProposal: true,
                 tNow: block.timestamp,
-                tLast: LibUtils.getLastProposedAt(state, config),
+                tLast: state.lastProposedAt,
                 tAvg: state.avgBlockTime
             });
             fee = getSlotsAdjustedFee({
