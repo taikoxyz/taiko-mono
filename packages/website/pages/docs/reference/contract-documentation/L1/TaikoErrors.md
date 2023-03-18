@@ -82,12 +82,6 @@ error L1_INVALID_PARAM()
 error L1_INVALID_PROOF()
 ```
 
-### L1_NO_VERIFIABLE_BLOCK
-
-```solidity
-error L1_NO_VERIFIABLE_BLOCK()
-```
-
 ### L1_NOT_ORACLE_PROVER
 
 ```solidity
