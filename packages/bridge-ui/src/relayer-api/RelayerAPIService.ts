@@ -109,13 +109,7 @@ export class RelayerAPIService implements RelayerAPI {
           receipt.blockNumber,
         );
 
-        // A block could have multiple events being triggered so we need to find this particular tx
-        const event = events.find(
-          (e) =>
-            e.args.message.owner.toLowerCase() === address.toLowerCase() &&
-            e.args.message.depositValue.eq(tx.message.depositValue) &&
-            e.args.msgHash === tx.msgHash,
-        );
+        const event = events.find((e) => e.transactionHash === tx.hash);
 
         if (!event) {
           return tx;
