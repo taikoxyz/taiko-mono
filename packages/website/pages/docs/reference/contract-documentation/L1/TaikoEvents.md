@@ -4,16 +4,10 @@ title: TaikoEvents
 
 ## TaikoEvents
 
-### TxListInfoCached
-
-```solidity
-event TxListInfoCached(bytes32 txListHash, uint64 validSince)
-```
-
 ### BlockProposed
 
 ```solidity
-event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta)
+event BlockProposed(uint256 id, struct TaikoData.BlockMetadata meta, bool txListCached)
 ```
 
 ### BlockProven

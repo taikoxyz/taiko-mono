@@ -20,6 +20,7 @@ library LibVerifying {
     using LibUtils for TaikoData.State;
 
     error L1_INVALID_CONFIG();
+    error L1_NO_VERIFIABLE_BLOCK();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
     event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
@@ -92,21 +93,21 @@ library LibVerifying {
             }
         }
 
-        if (processed > 0) {
-            unchecked {
-                state.lastBlockId += processed;
-            }
+        if (processed == 0) revert L1_NO_VERIFIABLE_BLOCK();
 
-            // Note: Not all L2 hashes are stored on L1, only the last
-            // verified one in a batch. This is sufficient because the last
-            // verified hash is the only one needed checking the existence
-            // of a cross-chain message with a merkle proof.
-            state.l2ChainDatas[
-                state.lastBlockId % config.blockHashHistory
-            ] = chainData;
-
-            emit XchainSynced(state.lastBlockId, chainData);
+        unchecked {
+            state.lastBlockId += processed;
         }
+
+        // Note: Not all L2 hashes are stored on L1, only the last
+        // verified one in a batch. This is sufficient because the last
+        // verified hash is the only one needed checking the existence
+        // of a cross-chain message with a merkle proof.
+        state.l2ChainDatas[
+            state.lastBlockId % config.blockHashHistory
+        ] = chainData;
+
+        emit XchainSynced(state.lastBlockId, chainData);
     }
 
     function _markBlockVerified(
