@@ -33,7 +33,7 @@ contract ReadBlockhashVsCalldata is Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function testAnchorTxsFailByNonGoldenTouchSigner() external {
+    function testAnchorTxsFailByNonTaikoL2Signer() external {
         vm.expectRevert();
         L2.anchor(12345, keccak256("a"), keccak256("b"));
     }

@@ -8,9 +8,9 @@ pragma solidity ^0.8.18;
 
 import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
-import {GoldenTouchSigner} from "./GoldenTouchSigner.sol";
+import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 
-contract TaikoL2 is EssentialContract, GoldenTouchSigner, IXchainSync {
+contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
