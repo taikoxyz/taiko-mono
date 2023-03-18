@@ -8,8 +8,9 @@ pragma solidity ^0.8.18;
 
 import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {GoldenTouchSigner} from "./GoldenTouchSigner.sol";
 
-contract TaikoL2 is EssentialContract, IXchainSync {
+contract TaikoL2 is EssentialContract, GoldenTouchSigner, IXchainSync {
     /**********************
      * State Variables    *
      **********************/
@@ -46,6 +47,7 @@ contract TaikoL2 is EssentialContract, IXchainSync {
     );
 
     error L2_INVALID_CHAIN_ID();
+    error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
@@ -103,6 +105,8 @@ contract TaikoL2 is EssentialContract, IXchainSync {
         bytes32 l1Hash,
         bytes32 l1SignalRoot
     ) external {
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
         uint256 n = block.number;
         uint256 m; // parent block height
         unchecked {
