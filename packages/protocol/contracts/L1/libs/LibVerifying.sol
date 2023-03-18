@@ -219,7 +219,8 @@ library LibVerifying {
             config.blockHashHistory == 0 ||
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
-            config.maxBytesPerTxList == 0 ||
+            config.maxBlobSize == 0 ||
+            config.maxBlobSize > 128000 || // EIP-484 blob size
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
             config.anchorTxGasLimit == 0 ||

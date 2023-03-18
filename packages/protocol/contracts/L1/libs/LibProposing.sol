@@ -18,14 +18,19 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
+    uint public constant BLOB_CACHE_EXPIRY = 60 minutes;
+
+    event BlobInfoCached(bytes32 blobHash, uint64 validSince);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
+    error L1_BLOB_NOT_EXIST();
+    error L1_BLOB_HASH();
+    error L1_BLOB_RANGE();
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 
     function proposeBlock(
@@ -33,7 +38,7 @@ library LibProposing {
         TaikoData.Config memory config,
         AddressResolver resolver,
         TaikoData.BlockMetadataInput memory input,
-        bytes calldata txList
+        bytes calldata blob
     ) internal {
         // For alpha-2 testnet, the network only allows an special address
         // to propose but anyone to prove. This is the first step of testing
@@ -43,16 +48,36 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
+        if (input.blobEnd <= input.blobStart) revert L1_BLOB_RANGE();
 
         if (
             input.beneficiary == address(0) ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
-        // We need txListHash as with EIP-4844, txList is no longer
-        // accssible to EVM.
-        if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
+        uint64 _now = uint64(block.timestamp);
+
+        if (blob.length == 0) {
+            // This blob shall have been submitted earlier
+            TaikoData.BlobInfo memory info = state.blobs[input.blobHash];
+
+            if (info.size == 0 || info.validSince + BLOB_CACHE_EXPIRY < _now)
+                revert L1_BLOB_NOT_EXIST();
+
+            if (input.blobEnd > info.size) revert L1_BLOB_RANGE();
+        } else {
+            if (blob.length > config.maxBlobSize) revert L1_TX_LIST();
+            if (input.blobEnd > blob.length) revert L1_BLOB_RANGE();
+            if (input.blobHash != keccak256(blob)) revert L1_BLOB_HASH();
+
+            if (input.cacheBlobInfo != 0) {
+                state.blobs[input.blobHash] = TaikoData.BlobInfo({
+                    validSince: _now,
+                    size: uint64(blob.length)
+                });
+                emit BlobInfoCached(input.blobHash, _now);
+            }
+        }
 
         if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
             revert L1_TOO_MANY_BLOCKS();
@@ -68,13 +93,15 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
+            gasLimit: input.gasLimit,
+            timestamp: _now,
             l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
-            beneficiary: input.beneficiary,
-            txListHash: input.txListHash,
             mixHash: bytes32(mixHash),
-            gasLimit: input.gasLimit,
-            timestamp: uint64(block.timestamp)
+            blobHash: input.blobHash,
+            blobStart: input.blobStart,
+            blobEnd: input.blobEnd,
+            beneficiary: input.beneficiary
         });
 
         uint256 deposit;

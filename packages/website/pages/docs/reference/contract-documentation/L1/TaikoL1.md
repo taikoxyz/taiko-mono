@@ -25,17 +25,17 @@ function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBas
 ### proposeBlock
 
 ```solidity
-function proposeBlock(bytes input, bytes txList) external
+function proposeBlock(bytes input, bytes blob) external
 ```
 
 Propose a Taiko L2 block.
 
 #### Parameters
 
-| Name   | Type  | Description                                                                                                                                                                                                                                                                 |
-| ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| input  | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                             |
-| txList | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `txList`, then there will be up to `n + 1` transactions in the L2 block. |
+| Name  | Type  | Description                                                                                                                                                                                                                                                               |
+| ----- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| input | bytes | An abi-encoded BlockMetadataInput that the actual L2 block header must satisfy.                                                                                                                                                                                           |
+| blob  | bytes | A list of transactions in this block, encoded with RLP. Note, in the corresponding L2 block an _anchor transaction_ will be the first transaction in the block -- if there are `n` transactions in `blob`, then there will be up to `n + 1` transactions in the L2 block. |
 
 ### proveBlock
 

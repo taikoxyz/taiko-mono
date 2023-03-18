@@ -69,7 +69,9 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            txListHash: bytes32(uint256(1)),
+            blobHash: bytes32(uint256(1)),
+            blobStart: 0,
+            blobEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
@@ -82,7 +84,9 @@ contract FooBar {
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
-            txListHash: bytes32(uint256(1)),
+            blobHash: bytes32(uint256(1)),
+            blobStart: 0,
+            blobEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1

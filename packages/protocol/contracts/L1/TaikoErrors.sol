@@ -11,6 +11,9 @@ import {ChainData} from "../common/IXchainSync.sol";
 abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_ALREADY_PROVEN();
+    error L1_BLOB_NOT_EXIST();
+    error L1_BLOB_HASH();
+    error L1_BLOB_RANGE();
     error L1_BLOCK_NUMBER();
     error L1_CONFLICT_PROOF();
     error L1_CONTRACT_NOT_ALLOWED();
@@ -26,6 +29,5 @@ abstract contract TaikoErrors {
     error L1_NOT_ORACLE_PROVER();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
-    error L1_TX_LIST_HASH();
     error L1_TX_LIST();
 }

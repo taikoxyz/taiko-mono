@@ -4,6 +4,12 @@ title: TaikoEvents
 
 ## TaikoEvents
 
+### BlobInfoCached
+
+```solidity
+event BlobInfoCached(bytes32 blobHash, uint64 validSince)
+```
+
 ### BlockProposed
 
 ```solidity
