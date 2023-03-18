@@ -1,8 +1,8 @@
 ---
-title: GoldenTouchSigner
+title: TaikoL2Signer
 ---
 
-## GoldenTouchSigner
+## TaikoL2Signer
 
 ### GOLDEN_TOUCH_ADDRESS
 
