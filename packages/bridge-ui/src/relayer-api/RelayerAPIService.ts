@@ -58,7 +58,6 @@ export class RelayerAPIService implements RelayerAPI {
     }
 
     const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
-      console.log(tx);
       return {
         status: tx.status,
         amountInWei: BigNumber.from(tx.amount),
@@ -161,9 +160,6 @@ export class RelayerAPIService implements RelayerAPI {
           hash: tx.hash,
           from: tx.from,
         };
-
-        console.log('converted', bridgeTx);
-
         return bridgeTx;
       }),
     );
