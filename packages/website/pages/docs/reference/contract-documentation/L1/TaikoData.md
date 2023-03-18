@@ -138,7 +138,7 @@ struct ProposedBlock {
 ```solidity
 struct TxListInfo {
   uint64 validSince;
-  uint64 size;
+  uint32 size;
 }
 ```
 

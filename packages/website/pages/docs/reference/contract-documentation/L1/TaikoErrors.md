@@ -10,30 +10,6 @@ title: TaikoErrors
 error L1_ALREADY_PROVEN()
 ```
 
-### L1_BLOB_NOT_EXIST
-
-```solidity
-error L1_BLOB_NOT_EXIST()
-```
-
-### L1_BLOB_HASH
-
-```solidity
-error L1_BLOB_HASH()
-```
-
-### L1_BLOB_RANGE
-
-```solidity
-error L1_BLOB_RANGE()
-```
-
-### L1_BLOB
-
-```solidity
-error L1_BLOB()
-```
-
 ### L1_BLOCK_NUMBER
 
 ```solidity
@@ -122,4 +98,28 @@ error L1_NOT_SOLO_PROPOSER()
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
+```
+
+### L1_TX_LIST_NOT_EXIST
+
+```solidity
+error L1_TX_LIST_NOT_EXIST()
+```
+
+### L1_TX_LIST_HASH
+
+```solidity
+error L1_TX_LIST_HASH()
+```
+
+### L1_TX_LIST_RANGE
+
+```solidity
+error L1_TX_LIST_RANGE()
+```
+
+### L1_TX_LIST
+
+```solidity
+error L1_TX_LIST()
 ```

@@ -23,15 +23,15 @@ library LibProposing {
     event TxListInfoCached(bytes32 txListHash, uint64 validSince);
     event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
 
-    error L1_BLOB_NOT_EXIST();
-    error L1_BLOB_HASH();
-    error L1_BLOB_RANGE();
-    error L1_BLOB();
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TX_LIST_NOT_EXIST();
+    error L1_TX_LIST_HASH();
+    error L1_TX_LIST_RANGE();
+    error L1_TX_LIST();
 
     function proposeBlock(
         TaikoData.State storage state,
@@ -48,7 +48,7 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.txListEnd <= input.txListStart) revert L1_BLOB_RANGE();
+        if (input.txListEnd <= input.txListStart) revert L1_TX_LIST_RANGE();
 
         if (
             input.beneficiary == address(0) ||
@@ -65,13 +65,13 @@ library LibProposing {
             ];
 
             if (info.size == 0 || info.validSince + BLOB_CACHE_EXPIRY < _now)
-                revert L1_BLOB_NOT_EXIST();
+                revert L1_TX_LIST_NOT_EXIST();
 
-            if (input.txListEnd > info.size) revert L1_BLOB_RANGE();
+            if (input.txListEnd > info.size) revert L1_TX_LIST_RANGE();
         } else {
-            if (_size > config.maxBytesPerTxList) revert L1_BLOB();
-            if (input.txListEnd > _size) revert L1_BLOB_RANGE();
-            if (input.txListHash != keccak256(txList)) revert L1_BLOB_HASH();
+            if (_size > config.maxBytesPerTxList) revert L1_TX_LIST();
+            if (input.txListEnd > _size) revert L1_TX_LIST_RANGE();
+            if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
             if (input.cacheTxListInfo != 0) {
                 state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
