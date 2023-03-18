@@ -11,17 +11,7 @@ export default [
   },
   {
     inputs: [],
-    name: 'B_DENIED',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'B_ERC20_CANNOT_RECEIVE',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_ETHER_RELEASED_ALREADY',
     type: 'error',
   },
   {
@@ -51,32 +41,12 @@ export default [
   },
   {
     inputs: [],
-    name: 'B_FAILED_TRANSFER',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_FORBIDDEN',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'B_FORBIDDEN',
     type: 'error',
   },
   {
     inputs: [],
     name: 'B_GAS_LIMIT',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_GAS_LIMIT',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_INCORRECT_VALUE',
     type: 'error',
   },
   {
@@ -96,22 +66,7 @@ export default [
   },
   {
     inputs: [],
-    name: 'B_MSG_HASH_NULL',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'B_MSG_NON_RETRIABLE',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_MSG_NON_RETRIABLE',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_MSG_NOT_FAILED',
     type: 'error',
   },
   {
@@ -131,21 +86,6 @@ export default [
   },
   {
     inputs: [],
-    name: 'B_OWNER_IS_NULL',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_OWNER_IS_NULL',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_SIGNAL_NOT_RECEIVED',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'B_SIGNAL_NOT_RECEIVED',
     type: 'error',
   },
@@ -156,37 +96,7 @@ export default [
   },
   {
     inputs: [],
-    name: 'B_STATUS_MISMTACH',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'B_WRONG_CHAIN_ID',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_WRONG_CHAIN_ID',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_WRONG_CHAIN_ID',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_WRONG_CHAIN_ID',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_WRONG_CHAIN_ID',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'B_WRONG_TO_ADDRESS',
     type: 'error',
   },
   {
