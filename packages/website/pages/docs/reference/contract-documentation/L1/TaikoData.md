@@ -157,13 +157,13 @@ struct State {
   uint64 __reserved1;
   uint64 __reserved2;
   uint64 nextBlockId;
-  uint64 avgBlockTimeRT;
+  uint64 lastProposedAt;
+  uint64 avgBlockTime;
   uint64 __reserved3;
   uint64 __reserved4;
   uint64 lastBlockId;
-  uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 feeBaseTwei;
-  uint256[41] __gap;
+  uint256[42] __gap;
 }
 ```

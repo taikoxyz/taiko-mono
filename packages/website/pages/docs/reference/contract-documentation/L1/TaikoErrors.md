@@ -28,6 +28,12 @@ error L1_BLOB_HASH()
 error L1_BLOB_RANGE()
 ```
 
+### L1_BLOB
+
+```solidity
+error L1_BLOB()
+```
+
 ### L1_BLOCK_NUMBER
 
 ```solidity
@@ -116,10 +122,4 @@ error L1_NOT_SOLO_PROPOSER()
 
 ```solidity
 error L1_TOO_MANY_BLOCKS()
-```
-
-### L1_TX_LIST
-
-```solidity
-error L1_TX_LIST()
 ```
