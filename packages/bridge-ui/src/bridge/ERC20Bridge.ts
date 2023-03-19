@@ -186,7 +186,7 @@ export class ERC20Bridge implements Bridge {
 
       if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
         return await contract.processMessage(opts.message, proof, {
-          gasLimit: BigNumber.from(5000000),
+          gasLimit: opts.message.gasLimit,
         });
       }
 
