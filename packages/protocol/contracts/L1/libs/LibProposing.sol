@@ -49,7 +49,8 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.txListEnd <= input.txListStart) revert L1_TX_LIST_RANGE();
+        if (input.txListByteEnd <= input.txListByteStart)
+            revert L1_TX_LIST_RANGE();
 
         if (
             input.beneficiary == address(0) ||
@@ -71,10 +72,10 @@ library LibProposing {
                 info.validSince + config.txListCacheExpiry < _now
             ) revert L1_TX_LIST_NOT_EXIST();
 
-            if (input.txListEnd > info.size) revert L1_TX_LIST_RANGE();
+            if (input.txListByteEnd > info.size) revert L1_TX_LIST_RANGE();
         } else {
             if (_size > config.maxBytesPerTxList) revert L1_TX_LIST();
-            if (input.txListEnd > _size) revert L1_TX_LIST_RANGE();
+            if (input.txListByteEnd > _size) revert L1_TX_LIST_RANGE();
             if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
 
             if (config.txListCacheExpiry > 0 && input.cacheTxListInfo != 0) {
@@ -106,8 +107,8 @@ library LibProposing {
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
             txListHash: input.txListHash,
-            txListStart: input.txListStart,
-            txListEnd: input.txListEnd,
+            txListByteStart: input.txListByteStart,
+            txListByteEnd: input.txListByteEnd,
             beneficiary: input.beneficiary
         });
 

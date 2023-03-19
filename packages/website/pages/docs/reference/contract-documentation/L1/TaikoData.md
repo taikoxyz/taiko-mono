@@ -67,8 +67,8 @@ struct BlockMetadataInput {
   bytes32 txListHash;
   address beneficiary;
   uint64 gasLimit;
-  uint32 txListStart;
-  uint32 txListEnd;
+  uint24 txListByteStart;
+  uint24 txListByteEnd;
   uint8 cacheTxListInfo;
 }
 ```
@@ -84,8 +84,8 @@ struct BlockMetadata {
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
-  uint32 txListStart;
-  uint32 txListEnd;
+  uint24 txListByteStart;
+  uint24 txListByteEnd;
   address beneficiary;
 }
 ```
