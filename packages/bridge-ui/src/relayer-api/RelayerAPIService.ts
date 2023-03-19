@@ -58,6 +58,14 @@ export class RelayerAPIService implements RelayerAPI {
     }
 
     const txs = apiTxs.items.map((tx: APIResponseTransaction) => {
+      let data = tx.data.Message.Data;
+      if (data === '') {
+        data = '0x'; // ethers does not allow "" for empty bytes value
+      } else if (data !== '0x') {
+        const buffer = Buffer.from(data, 'base64');
+        data = `0x${buffer.toString('hex')}`;
+      }
+
       return {
         status: tx.status,
         amountInWei: BigNumber.from(tx.amount),
@@ -74,7 +82,7 @@ export class RelayerAPIService implements RelayerAPI {
         message: {
           id: tx.data.Message.Id,
           to: tx.data.Message.To,
-          data: tx.data.Message.Data === '' ? '0x' : tx.data.Message.Data, // ethers does not allow "" for empty bytes value
+          data,
           memo: tx.data.Message.Memo,
           owner: tx.data.Message.Owner,
           sender: tx.data.Message.Sender,
@@ -102,8 +110,6 @@ export class RelayerAPIService implements RelayerAPI {
         if (!receipt) {
           return tx;
         }
-
-        tx.receipt = receipt;
 
         const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
 

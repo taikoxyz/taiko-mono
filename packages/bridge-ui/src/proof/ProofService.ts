@@ -142,6 +142,7 @@ export class ProofService implements Prover {
       throw Error('invalid proof');
     }
 
-    return ProofService.getSignalProof(proof, blockHeader);
+    const p = ProofService.getSignalProof(proof, blockHeader);
+    return p;
   }
 }
