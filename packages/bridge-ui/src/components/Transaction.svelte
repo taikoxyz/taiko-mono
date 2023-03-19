@@ -14,7 +14,7 @@
     toChain as toChainStore,
   } from '../store/chain';
   import { BridgeType } from '../domain/bridge';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
@@ -35,8 +35,17 @@
   let loading: boolean;
 
   let processable: boolean = false;
+  let interval;
+
   onMount(async () => {
     processable = await isProcessable();
+    interval = startInterval();
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
   });
 
   async function switchChainAndSetSigner(chain: Chain) {
@@ -152,45 +161,51 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
-  const interval = setInterval(async () => {
-    processable = await isProcessable();
-    const contract = new ethers.Contract(
-      chainsRecord[transaction.toChainId].bridgeAddress,
-      Bridge,
-      $providers.get(chainsRecord[transaction.toChainId].id),
-    );
+  function startInterval() {
+    return setInterval(async () => {
+      processable = await isProcessable();
+      const contract = new ethers.Contract(
+        chainsRecord[transaction.toChainId].bridgeAddress,
+        Bridge,
+        $providers.get(chainsRecord[transaction.toChainId].id),
+      );
 
-    transaction.status = await contract.getMessageStatus(transaction.msgHash);
-    if (transaction.status === MessageStatus.Failed) {
-      if (transaction.message?.data !== '0x') {
-        const srcTokenVaultContract = new ethers.Contract(
-          $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-          TokenVault,
-          $providers.get(chainsRecord[transaction.fromChainId].id),
-        );
-        const { token, amount } = await srcTokenVaultContract.messageDeposits(
-          transaction.msgHash,
-        );
-        if (token === ethers.constants.AddressZero && amount.eq(0)) {
-          transaction.status = MessageStatus.FailedReleased;
-        }
-      } else {
-        const srcBridgeContract = new ethers.Contract(
-          chainsRecord[transaction.fromChainId].bridgeAddress,
-          Bridge,
-          $providers.get(chainsRecord[transaction.fromChainId].id),
-        );
-        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
-          transaction.msgHash,
-        );
-        if (isFailedMessageResolved) {
-          transaction.status = MessageStatus.FailedReleased;
+      transaction.status = await contract.getMessageStatus(transaction.msgHash);
+
+      if (transaction.status === MessageStatus.Failed) {
+        if (transaction.message?.data !== '0x') {
+          const srcTokenVaultContract = new ethers.Contract(
+            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+            TokenVault,
+            $providers.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const { token, amount } = await srcTokenVaultContract.messageDeposits(
+            transaction.msgHash,
+          );
+          if (token === ethers.constants.AddressZero && amount.eq(0)) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
+        } else {
+          const srcBridgeContract = new ethers.Contract(
+            chainsRecord[transaction.fromChainId].bridgeAddress,
+            Bridge,
+            $providers.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const isFailedMessageResolved =
+            await srcBridgeContract.isEtherReleased(transaction.msgHash);
+          if (isFailedMessageResolved) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
         }
       }
-    }
-    transaction = transaction;
-    if (transaction.status === MessageStatus.Done) clearInterval(interval);
-  }, 20 * 1000);
+      if (
+        [MessageStatus.Done, MessageStatus.FailedReleased].includes(
+          transaction.status,
+        )
+      )
+        clearInterval(interval);
+    }, 20 * 1000);
+  }
 </script>
 
 <tr class="text-transaction-table">
@@ -207,9 +222,7 @@
     (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(transaction.message?.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message?.data && transaction.message?.data !== '0x'
-      ? transaction.symbol
-      : 'ETH'}
+    {transaction.symbol ?? 'ETH'}
   </td>
 
   <td>
