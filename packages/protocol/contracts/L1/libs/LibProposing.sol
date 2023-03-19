@@ -58,7 +58,7 @@ library LibProposing {
         ) revert L1_INVALID_METADATA();
 
         uint64 _now = uint64(block.timestamp);
-        uint32 _size = uint32(txList.length);
+        uint24 _size = uint24(txList.length);
         bool _txListCached;
 
         if (_size == 0) {

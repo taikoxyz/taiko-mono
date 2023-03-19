@@ -66,7 +66,7 @@ struct StateVariables {
 struct BlockMetadataInput {
   bytes32 txListHash;
   address beneficiary;
-  uint64 gasLimit;
+  uint32 gasLimit;
   uint24 txListByteStart;
   uint24 txListByteEnd;
   uint8 cacheTxListInfo;
@@ -78,7 +78,7 @@ struct BlockMetadataInput {
 ```solidity
 struct BlockMetadata {
   uint64 id;
-  uint64 gasLimit;
+  uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
   bytes32 l1Hash;
@@ -130,7 +130,7 @@ struct ProposedBlock {
   uint256 deposit;
   address proposer;
   uint64 proposedAt;
-  uint32 nextForkChoiceId;
+  uint24 nextForkChoiceId;
 }
 ```
 
@@ -139,7 +139,7 @@ struct ProposedBlock {
 ```solidity
 struct TxListInfo {
   uint64 validSince;
-  uint32 size;
+  uint24 size;
 }
 ```
 
@@ -165,6 +165,6 @@ struct State {
   uint64 lastBlockId;
   uint64 avgProofTime;
   uint64 feeBaseTwei;
-  uint256[42] __gap;
+  uint256[41] __gap;
 }
 ```
