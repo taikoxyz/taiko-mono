@@ -62,7 +62,7 @@ library TaikoData {
     struct BlockMetadataInput {
         bytes32 txListHash;
         address beneficiary;
-        uint64 gasLimit;
+        uint32 gasLimit;
         uint24 txListByteStart; // byte-wise start index (inclusive)
         uint24 txListByteEnd; // byte-wise end index (exclusive)
         uint8 cacheTxListInfo; // non-zero = True
@@ -71,7 +71,7 @@ library TaikoData {
     // 5 slots
     struct BlockMetadata {
         uint64 id;
-        uint64 gasLimit;
+        uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
         bytes32 l1Hash;
@@ -108,13 +108,13 @@ library TaikoData {
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
-        uint32 nextForkChoiceId;
+        uint24 nextForkChoiceId;
     }
 
     // This struct takes 9 slots.
     struct TxListInfo {
         uint64 validSince;
-        uint32 size;
+        uint24 size;
     }
 
     struct State {
