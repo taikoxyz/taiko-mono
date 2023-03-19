@@ -203,7 +203,8 @@
     <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
   </td>
   <td>
-    {transaction.message?.data === '0x' || !transaction.message?.data
+    {transaction.message &&
+    (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(transaction.message?.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.message?.data && transaction.message?.data !== '0x'
