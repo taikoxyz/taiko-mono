@@ -143,7 +143,7 @@ library LibProving {
 
             bytes memory verifierId = abi.encodePacked(
                 "verifier_",
-                evidence.zkproof.circuitId
+                evidence.zkproof.verifierId
             );
 
             (bool verified, bytes memory ret) = resolver
