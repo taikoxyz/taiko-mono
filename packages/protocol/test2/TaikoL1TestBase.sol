@@ -109,7 +109,7 @@ abstract contract TaikoL1TestBase is Test {
     ) internal {
         TaikoData.ZKProof memory zkproof = TaikoData.ZKProof({
             data: new bytes(100),
-            circuitId: 100
+            verifierId: 100
         });
 
         TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({

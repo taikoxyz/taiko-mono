@@ -65,7 +65,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     function setUp() public override {
         TaikoL1TestBase.setUp();
         _registerAddress(
-            string(abi.encodePacked("verifier_", uint256(100))),
+            string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())
         );
     }

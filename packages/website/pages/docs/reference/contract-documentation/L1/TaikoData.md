@@ -95,7 +95,7 @@ struct BlockMetadata {
 ```solidity
 struct ZKProof {
   bytes data;
-  uint256 circuitId;
+  uint16 verifierId;
 }
 ```
 
