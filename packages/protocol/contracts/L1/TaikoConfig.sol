@@ -26,7 +26,7 @@ library TaikoConfig {
                 proposerDepositPctg: 25, // owner:daniel - 25%
                 // Moving average factors
                 feeBaseMAF: 1024,
-                bootstrapDiscountHalvingPeriod: 30 days, // owner:daniel
+                bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024, // owner:daniel
                 enableSoloProposer: true,
                 enableOracleProver: true,
