@@ -37,7 +37,7 @@ export default function Hero() {
   }
 
   return (
-    <div className="mx-auto max-w-[90rem]">
+    <div className="mx-auto max-w-[90rem] px-6">
       <div className="relative bg-neutral-50 dark:bg-neutral-900 mt-3">
         <main className="lg:relative">
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
@@ -54,7 +54,7 @@ export default function Hero() {
                     href="/docs/"
                     className="inline-flex items-center rounded-md border border-transparent bg-[#e30ead] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#bd0b90] hover:no-underline hover:text-white"
                   >
-                    Get started
+                    Get started ✨
                   </a>
                 </div>
               </div>

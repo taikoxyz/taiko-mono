@@ -6,19 +6,19 @@ import {
 
 const features = [
   {
-    name: "Type 1",
+    name: "Type 1 (Ethereum-equivalent)",
     description:
       "A Type 1 (Ethereum-equivalent) ZK-EVM aims for maximum compatibility. This results in a seamless developer experience.",
     icon: ArrowPathIcon,
   },
   {
-    name: "Open Source",
+    name: "Fully open source",
     description:
-      "Taiko's code is open source and available on GitHub. “Open source” means free to view and modify the source code.",
+      "Taiko's code is open source and available on GitHub. Free to use and modify the source code with the permissive license.",
     icon: ScaleIcon,
   },
   {
-    name: "Decentralized",
+    name: "Fully decentralized",
     description:
       "Fully decentralized and permissionless nodes, proposers, and provers. Anyone can participate in Taiko.",
     icon: GlobeAltIcon,
