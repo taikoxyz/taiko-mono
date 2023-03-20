@@ -1,10 +1,10 @@
-type StorageEntry = {
+export type StorageEntry = {
   key: string;
   value: string;
   proof: string[]; // Array of rlp-serialized MerkleTree-Nodes, starting with the storageHash-Node,
 };
 
-type EthGetProofResponse = {
+export type EthGetProofResponse = {
   balance: string;
   codeHash: string;
   nonce: string;
@@ -13,7 +13,7 @@ type EthGetProofResponse = {
   storageProof: StorageEntry[];
 };
 
-type GenerateProofOpts = {
+export type GenerateProofOpts = {
   msgHash: string;
   sender: string;
   srcBridgeAddress: string;
@@ -23,7 +23,7 @@ type GenerateProofOpts = {
   srcSignalServiceAddress: string;
 };
 
-type GenerateReleaseProofOpts = {
+export type GenerateReleaseProofOpts = {
   msgHash: string;
   sender: string;
   destBridgeAddress: string;
@@ -33,15 +33,7 @@ type GenerateReleaseProofOpts = {
   srcChain: number;
 };
 
-interface Prover {
+export interface Prover {
   GenerateProof(opts: GenerateProofOpts): Promise<string>;
   GenerateReleaseProof(opts: GenerateReleaseProofOpts): Promise<string>;
 }
-
-export {
-  GenerateProofOpts,
-  Prover,
-  StorageEntry,
-  EthGetProofResponse,
-  GenerateReleaseProofOpts,
-};

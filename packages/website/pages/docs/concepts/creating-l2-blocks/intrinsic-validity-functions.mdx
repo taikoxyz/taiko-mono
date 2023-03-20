@@ -1,0 +1,63 @@
+The Ethereum yellow paper has a well defined set of rules to compute the state transition. We use these same rules to take a proposed block, and compute the post-block state on Taiko. A proposed block on Taiko has two parts:
+
+- The block metadata
+- A list of transactions (stored in a blob, and the block metadata stores the hash to this blob)
+
+We divide the yellow paper validity checks into two parts:
+
+- **Proposed block** intrinsic validity function
+- **Transaction list** intrinsic validity function
+
+A proposed block must pass these two checks in order to construct an L2 block on Taiko. If a block passes the proposed block validity function but later fails the transaction list validity function, it will be proven as invalid.
+
+## Proposed block intrinsic validity function
+
+The formal specification of the proposed block intrinsic can be found in the [whitepaper](/docs/resources/whitepaper), but on a high level, the proposed block intrinsic validity function checks that the block is valid except for transaction list validity checks. This is separated because on TaikoL1, the transaction list is not known and stored as a data blob. It would also be too expensive to do these checks on L1.
+
+| Name                    | Symbol            | Meaning                                                                                                  |
+| ----------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| **Block Metadata**      | $C$               | The block metadata.                                                                                      |
+| **id**                  | $C_i$             | A value equal to the number of proposed blocks. The genesis block has an id of zero.                     |
+| **beneficiary**         | $C_c$             | The 20-byte address to which all transaction fees in the block will be transferred.                      |
+| **timestamp**           | $C_s$             | The timestamp used in the block, set to the enclosing L1 timestamp.                                      |
+| **mixHash**             | $C_m$             | The mixHash value used in the block, set to the enclosing L1 mixHash.                                    |
+| **txListHash**          | $C_t$             | The Keccak-256 hash of this block’s txList (KZG commitment after EIP-4844).                              |
+| **l1Height**            | $C_a$             | The enclosing L1 block’s parent block number.                                                            |
+| **l1Hash**              | $C_h$             | The enclosing L1 block’s parent block hash.                                                              |
+| **TaikoL1**             | $R$               | The TaikoL1 contract.                                                                                    |
+| **numProposedBlocks**   | $R_i$             | The current number of proposed blocks (the `id` for the next proposed block is `numProposedBlocks + 1`). |
+| **lastVerifiedBlockId** | $R_f$             | The last verified block id.                                                                              |
+| **txList**              | $L$               | The list of transactions in a proposed block.                                                            |
+| **txListSizeInBytes**   | $\lVert L \rVert$ | The transaction list size in bytes.                                                                      |
+
+The proposed block intrinsic validity function checks that all these conditions are met:
+
+1. $R_i \le R_f + K_{MaxNumBlocks}$ (the block id is not too far ahead)
+2. $\lVert L \rVert \gt 0$ (transaction list is not empty)
+3. $\lVert L \rVert \le K_{MaxTxListSizeInBytes}$ (transaction list does not exceed the maximum size)
+4. $C_c \ne 0$ (beneficiary is not zero)
+5. $C_i = R_i$ (block id is correct)
+6. $C_s = \text{TIMESTAMP}$ (timestamp is correct)
+7. $C_m = \text{DIFFICULTY}$ (mixHash is correct)
+8. $C_t \ne 0$ (txListHash is not zero)
+9. $C_a = \text{NUMBER} - 1$ (l1Height is correct)
+10. $C_h = \text{BLOCKHASH}(C_a)$ (l1Hash is correct)
+
+## Transaction list intrinsic validity function
+
+The transaction list intrinsic validity function checks that the transaction list is valid and each transaction in the list is valid.
+
+A transaction list is valid if and only if:
+
+1. The transaction list is well-formed RLP, with no additional trailing bytes (rule #1 in Ethereum yellow paper).
+2. The transaction list is no larger than than $K_{TxListMaxBytes}$.
+3. The sum of all transactions' gas limit is no larger than the protocol constant $K_{BlockMaxGasLimit}$.
+4. The total number of transactions is no larger than the protocol constant $K_{BlockMaxTxs}$.
+
+A transaction is valid if and only if:
+
+1. The transaction is well-formed RLP, with no additional trailing bytes (rule #1 in the Ethereum yellow paper).
+2. The transaction's signature is valid (rule #2 in Ethereum yellow paper).
+3. The transaction's gas limit is no smaller than the intrinsic gas $K_{TxMinGasLimit}$ (rule #5 in the Ethereum yellow paper).
+
+If any of these fails, a throwaway block will instead be created on L2 whose first transaction is `invalidateBlock`, and this will prove the proposed block as invalid on TaikoL1.

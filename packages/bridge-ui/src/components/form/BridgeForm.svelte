@@ -13,12 +13,10 @@
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee.svelte';
-  import { ETH } from '../../domain/token';
   import SelectToken from '../buttons/SelectToken.svelte';
 
   import type { Token } from '../../domain/token';
   import type { BridgeOpts, BridgeType } from '../../domain/bridge';
-  import { chains } from '../../domain/chain';
 
   import type { Chain } from '../../domain/chain';
   import { truncateString } from '../../utils/truncateString';
@@ -39,6 +37,8 @@
   import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
+  import { ETHToken } from '../../token/tokens';
+  import { chainsRecord } from '../../chain/chains';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -60,7 +60,7 @@
     let addr = $token.addresses.find(
       (t) => t.chainId === $fromChain.id,
     ).address;
-    if ($token.symbol !== ETH.symbol && (!addr || addr === '0x00')) {
+    if ($token.symbol !== ETHToken.symbol && (!addr || addr === '0x00')) {
       const srcChainAddr = $token.addresses.find(
         (t) => t.chainId === $toChain.id,
       ).address;
@@ -86,7 +86,7 @@
     fromChain: Chain,
   ) {
     if (signer && token) {
-      if (token.symbol == ETH.symbol) {
+      if (token.symbol == ETHToken.symbol) {
         const userBalance = await signer.getBalance('latest');
         tokenBalance = ethers.utils.formatEther(userBalance);
       } else {
@@ -147,7 +147,7 @@
     if (!signer) return true;
     if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
-    if (!chainId || !chains[chainId.toString()]) return true;
+    if (!chainId || !chainsRecord[chainId.toString()]) return true;
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
@@ -208,7 +208,7 @@
 
       let balanceAvailableForTx = userBalance;
 
-      if ($token.symbol === ETH.symbol) {
+      if ($token.symbol === ETHToken.symbol) {
         balanceAvailableForTx = userBalance.sub(
           ethers.utils.parseEther(amount),
         );
@@ -318,7 +318,7 @@
   }
 
   async function useFullAmount() {
-    if ($token.symbol === ETH.symbol) {
+    if ($token.symbol === ETHToken.symbol) {
       try {
         const feeData = await fetchFeeData();
         const gasEstimate = await $activeBridge.EstimateGas({

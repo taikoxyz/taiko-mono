@@ -1,12 +1,12 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
+import { get } from 'svelte/store';
 import TokenVault from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { ETH } from '../domain/token';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { providers } from '../store/providers';
-import { get } from 'svelte/store';
+import { ETHToken } from '../token/tokens';
 
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
@@ -26,7 +26,7 @@ export async function recommendProcessingFee(
   // gasLimit for processMessage call for ETH is about ~800k.
   // to make it enticing, we say 900k.
   let gasLimit = ethGasLimit;
-  if (token.symbol.toLowerCase() !== ETH.symbol.toLowerCase()) {
+  if (token.symbol.toLowerCase() !== ETHToken.symbol.toLowerCase()) {
     let srcChainAddr = token.addresses.find(
       (t) => t.chainId === fromChain.id,
     ).address;

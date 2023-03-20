@@ -135,7 +135,7 @@ type TaikoL1Filterer struct {
 // TaikoL1Session is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
 type TaikoL1Session struct {
-	Contract     *TaikoL1    // Generic contract binding to set the session for
+	Contract     *TaikoL1          // Generic contract binding to set the session for
 	CallOpts     bind.CallOpts     // Call options to use throughout this session
 	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
@@ -144,14 +144,14 @@ type TaikoL1Session struct {
 // with pre-set call options.
 type TaikoL1CallerSession struct {
 	Contract *TaikoL1Caller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts        // Call options to use throughout this session
+	CallOpts bind.CallOpts  // Call options to use throughout this session
 }
 
 // TaikoL1TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
 type TaikoL1TransactorSession struct {
 	Contract     *TaikoL1Transactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts        // Transaction auth options to use throughout this session
+	TransactOpts bind.TransactOpts  // Transaction auth options to use throughout this session
 }
 
 // TaikoL1Raw is an auto generated low-level Go binding around an Ethereum contract.

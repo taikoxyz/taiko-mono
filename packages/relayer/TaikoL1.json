@@ -6,7 +6,7 @@
   },
   {
     "inputs": [],
-    "name": "L1_ALREADY_CLAIMED",
+    "name": "L1_0_FEE_BASE",
     "type": "error"
   },
   {
@@ -81,11 +81,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_BLOCK_NOT_CLAIMED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_BLOCK_NUMBER",
     "type": "error"
   },
@@ -97,26 +92,6 @@
   {
     "inputs": [],
     "name": "L1_CANNOT_BE_FIRST_PROVER",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_CLAIM_AUCTION_DELAY_PASSED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_CLAIM_AUCTION_DELAY_PASSED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_CLAIM_AUCTION_WINDOW_PASSED",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "L1_CLAIM_AUCTION_WINDOW_PASSED",
     "type": "error"
   },
   {
@@ -161,22 +136,17 @@
   },
   {
     "inputs": [],
-    "name": "L1_ID",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_INPUT_SIZE",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_CLAIM_DEPOSIT",
+    "name": "L1_INVALID_CONFIG",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "L1_INVALID_CLAIM_DEPOSIT",
+    "name": "L1_INVALID_CONFIG",
     "type": "error"
   },
   {
@@ -221,11 +191,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_TOO_EARLY",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_TOO_MANY_BLOCKS",
     "type": "error"
   },
@@ -248,37 +213,6 @@
     "inputs": [],
     "name": "RESOLVER_INVALID_ADDR",
     "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "claimer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "refundedAt",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "refund",
-        "type": "uint256"
-      }
-    ],
-    "name": "BidRefunded",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -437,37 +371,6 @@
       {
         "indexed": true,
         "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "claimer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "claimedAt",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "deposit",
-        "type": "uint256"
-      }
-    ],
-    "name": "ClaimBlockBid",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
         "name": "srcHeight",
         "type": "uint256"
       },
@@ -521,55 +424,6 @@
         "internalType": "address",
         "name": "",
         "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "claimBlock",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "claimForProposedBlock",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "claimedAt",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "claimer",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "deposit",
-            "type": "uint256"
-          }
-        ],
-        "internalType": "struct TaikoData.Claim",
-        "name": "claim",
-        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -736,31 +590,6 @@
             "internalType": "bool",
             "name": "enableAnchorValidation",
             "type": "bool"
-          },
-          {
-            "internalType": "uint64",
-            "name": "baseClaimHoldTimeInSeconds",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint256",
-            "name": "baseClaimDepositInWei",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "minimumClaimBidIncreaseInWei",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint64",
-            "name": "claimAuctionWindowInSeconds",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "claimAuctionDelayInSeconds",
-            "type": "uint64"
           }
         ],
         "internalType": "struct TaikoData.Config",
@@ -836,23 +665,13 @@
         "internalType": "uint64",
         "name": "proposedAt",
         "type": "uint64"
-      },
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
       }
     ],
     "name": "getProofReward",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "eth",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "token",
+        "name": "reward",
         "type": "uint256"
       }
     ],
@@ -1019,44 +838,6 @@
     "name": "init",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isClaimForProposedBlockStillValid",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "blockId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isClaimedBlockProvable",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
