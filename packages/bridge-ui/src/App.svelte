@@ -159,7 +159,7 @@
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         const blockInfo = blockInfoMap.get(tx.fromChainId);
-        if (blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
+        if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
           return false;
         }
         return true;
