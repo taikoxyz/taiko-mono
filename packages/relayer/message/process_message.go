@@ -55,12 +55,13 @@ func (p *Processor) ProcessMessage(
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
-		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v",
+		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
 			event.Message.SrcChainId,
 			event.Message.DestChainId,
 			event.Raw.TxHash.Hex(),
 			common.Hash(event.MsgHash).Hex(),
 			event.Message.Owner.Hex(),
+			err,
 		)
 
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -78,7 +79,15 @@ func (p *Processor) ProcessMessage(
 
 	// message will fail when we try to process it
 	if !received {
-		log.Warnf("msgHash %v not received on dest chain", common.Hash(event.MsgHash).Hex())
+		log.Warnf(
+			"msgHash: %v, srcChainId: %v, encodedSignalProof: %v not received on dest chain",
+			common.Hash(event.MsgHash).Hex(),
+			event.Message.SrcChainId,
+			hex.EncodeToString(encodedSignalProof),
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
 		return errors.New("message not received")
 	}
 
@@ -107,7 +116,12 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
-	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
+	log.Infof(
+		"updating message status to: %v for txHash: %v, processed in txHash: %v",
+		relayer.EventStatus(messageStatus).String(),
+		event.Raw.TxHash.Hex(),
+		hex.EncodeToString(tx.Hash().Bytes()),
+	)
 
 	if messageStatus == uint8(relayer.EventStatusRetriable) {
 		relayer.RetriableEvents.Inc()
