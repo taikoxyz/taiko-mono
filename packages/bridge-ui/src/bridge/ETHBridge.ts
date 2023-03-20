@@ -41,7 +41,7 @@ export class ETHBridge implements Bridge {
       callValue: 0,
       processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(900000)
+        ? BigNumber.from(140000)
         : BigNumber.from(0),
       memo: opts.memo ?? '',
     };
