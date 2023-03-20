@@ -55,6 +55,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 			}
 
 			log.Infof("transaction receipt found for txHash %v", txHash.Hex())
+
 			return receipt, nil
 		}
 	}
