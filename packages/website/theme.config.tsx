@@ -7,9 +7,8 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a href="https://twitter.com/taikoxyz/" target="_blank">
-        📌 The alpha-1 testnet (Snæfellsjökull) has been shut down, with the
-        alpha-2 testnet coming soon. Follow us to stay updated →
+      <a href="https://taiko.xyz/docs" target="_blank">
+        🌋 Askja testnet is here! Read the full blog post →
       </a>
     ),
   },

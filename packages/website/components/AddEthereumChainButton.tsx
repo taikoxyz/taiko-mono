@@ -17,15 +17,15 @@ async function addEthereumChain() {
   }
 
   const taikoParams: AddEthereumChainParameter = {
-    chainId: "0x28C5A",
-    chainName: "Taiko Hackathon Testnet",
+    chainId: "0x28C5C",
+    chainName: "Taiko (Alpha-2 Testnet)",
     nativeCurrency: {
       name: "ETH",
       symbol: "eth",
       decimals: 18,
     },
-    rpcUrls: ["https://l2rpc.hackathon.taiko.xyz"],
-    blockExplorerUrls: ["https://l2explorer.hackathon.taiko.xyz/"],
+    rpcUrls: ["https://rpc.a2.taiko.xyz"],
+    blockExplorerUrls: ["https://explorer.a2.taiko.xyz/"],
     iconUrls: [],
   };
 

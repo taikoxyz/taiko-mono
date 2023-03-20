@@ -1,30 +1,18 @@
-## What is Taiko?
+## Welcome to Taiko!
 
-Taiko is a fully decentralized, Ethereum-equivalent ZK-Rollup (a [Type 1 ZK-EVM](https://mirror.xyz/labs.taiko.eth/w7NSKDeKfJoEy0p89I9feixKfdK-20JgWF9HZzxfeBo)). Taiko's full decentralization and Ethereum-equivalence are two big differentiators when compared to other ZK-EVMs.
+Taiko is a fully decentralized, Ethereum-equivalent ZK-Rollup ([Type 1 ZK-EVM](https://mirror.xyz/labs.taiko.eth/w7NSKDeKfJoEy0p89I9feixKfdK-20JgWF9HZzxfeBo)). Taiko is working on the full Ethereum [ZK-EVM circuits](https://github.com/privacy-scaling-explorations/zkevm-circuits) as part of a community effort led by the EF's PSE team.
 
-Taiko is working on the full Ethereum [ZK-EVM circuits](https://github.com/privacy-scaling-explorations/zkevm-circuits) as part of a community effort led by the EF's PSE team.
+## Use the Askja testnet
 
-## Navigating the site
+All the fun tasks can be found under [guides](/docs/guides).
 
-This documentation site is your one-stop shop for all things Taiko:
+## Contribute to Taiko
 
-- **Concepts**: Concepts about how Taiko works
-- **Guides**: Easy to follow guides to use Taiko
-- **Reference**: Quick reference documentation about the network (e.g., contract addresses, protocol configurations)
-- **Resources**: Additional resources for your knowledge
+Taiko is a fully open source and community driven project, check out the [contributing guide](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md) to get started as a contributor!
 
-## Resources to get started
+## Join the Discord
 
-Check out these resources to get started learning more about Taiko:
-
-- [Introduction to Taiko](https://mirror.xyz/labs.taiko.eth/oRy3ZZ_4-6IEQcuLCMMlxvdH6E-T3_H7UwYVzGDsgf4)
-- [The Type 1 ZK-EVM](https://mirror.xyz/labs.taiko.eth/w7NSKDeKfJoEy0p89I9feixKfdK-20JgWF9HZzxfeBo)
-- [Whitepaper](https://taikoxyz.github.io/taiko-mono/taiko-whitepaper.pdf)
-- [Contract documentation](/docs/reference/contract-documentation/)
-
-## Contribute
-
-Contributions are very welcome, check out the [contributing guide](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md) to get started!
+We're vibing out on Discord, come [join the community](https://discord.gg/taikoxyz)!
 
 ## What does "Taiko" mean?
 
