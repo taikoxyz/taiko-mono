@@ -192,7 +192,7 @@ library LibVerifying {
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||
             // EIP-4844 blob size up to 128K
-            config.maxBytesPerTxList > 128*1024 ||
+            config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
             config.anchorTxGasLimit == 0 ||
