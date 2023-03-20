@@ -38,6 +38,7 @@ library TaikoData {
         uint256 feeBaseMAF;
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
+        uint64 snapshotInterval;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -55,6 +56,7 @@ library TaikoData {
         uint64 avgBlockTime;
         uint64 avgProofTime;
         uint64 lastProposedAt;
+        uint64 lastSnapshotId;
     }
 
     struct BlockMetadataInput {
@@ -124,7 +126,7 @@ library TaikoData {
         uint64 avgBlockTime; // miliseconds
         uint64 __reserved3;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
+        uint64 lastSnapshotId;
         uint64 lastBlockId;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.

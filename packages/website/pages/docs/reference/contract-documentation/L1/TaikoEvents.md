@@ -19,5 +19,5 @@ event BlockProven(uint256 id, bytes32 parentHash, bytes32 blockHash, bytes32 sig
 ### BlockVerified
 
 ```solidity
-event BlockVerified(uint256 id, bytes32 blockHash)
+event BlockVerified(uint256 id, bytes32 blockHash, bool snapshotted)
 ```

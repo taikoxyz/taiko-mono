@@ -47,7 +47,8 @@ library LibUtils {
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
                 lastBlockId: state.lastBlockId,
-                avgProofTime: state.avgProofTime
+                avgProofTime: state.avgProofTime,
+                lastSnapshotId: state.lastSnapshotId
             });
     }
 
