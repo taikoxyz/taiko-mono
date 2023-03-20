@@ -4,7 +4,11 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
+  import {
+    activeBridge,
+    bridges,
+    chainIdToTokenVaultAddress,
+  } from '../store/bridge';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
@@ -14,12 +18,12 @@
     toChain as toChainStore,
   } from '../store/chain';
   import { BridgeType } from '../domain/bridge';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
   import { providers } from '../store/providers';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
+  import { fetchFeeData, fetchSigner, switchNetwork } from '@wagmi/core';
   import Bridge from '../constants/abi/Bridge';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
   import TokenVault from '../constants/abi/TokenVault';
@@ -29,14 +33,23 @@
   export let fromChain: Chain;
   export let toChain: Chain;
 
-  export let onTooltipClick: () => void;
+  export let onTooltipClick: (showInsufficientBalanceMessage: boolean) => void;
   export let onShowTransactionDetailsClick: () => void;
 
   let loading: boolean;
 
   let processable: boolean = false;
+  let interval;
+
   onMount(async () => {
     processable = await isProcessable();
+    interval = startInterval();
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
   });
 
   async function switchChainAndSetSigner(chain: Chain) {
@@ -67,6 +80,14 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
+      // TODO: estimate Claim transaction
+      const userBalance = await $signer.getBalance('latest');
+      if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
+        onTooltipClick(true);
+        return;
+      }
+
       const tx = await $bridges
         .get(
           bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
@@ -87,6 +108,7 @@
       });
 
       successToast($_('toast.transactionSent'));
+      transaction.status = MessageStatus.ClaimInProgress;
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
@@ -152,45 +174,51 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
-  const interval = setInterval(async () => {
-    processable = await isProcessable();
-    const contract = new ethers.Contract(
-      chainsRecord[transaction.toChainId].bridgeAddress,
-      Bridge,
-      $providers.get(chainsRecord[transaction.toChainId].id),
-    );
+  function startInterval() {
+    return setInterval(async () => {
+      processable = await isProcessable();
+      const contract = new ethers.Contract(
+        chainsRecord[transaction.toChainId].bridgeAddress,
+        Bridge,
+        $providers.get(chainsRecord[transaction.toChainId].id),
+      );
 
-    transaction.status = await contract.getMessageStatus(transaction.msgHash);
-    if (transaction.status === MessageStatus.Failed) {
-      if (transaction.message?.data !== '0x') {
-        const srcTokenVaultContract = new ethers.Contract(
-          $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-          TokenVault,
-          $providers.get(chainsRecord[transaction.fromChainId].id),
-        );
-        const { token, amount } = await srcTokenVaultContract.messageDeposits(
-          transaction.msgHash,
-        );
-        if (token === ethers.constants.AddressZero && amount.eq(0)) {
-          transaction.status = MessageStatus.FailedReleased;
-        }
-      } else {
-        const srcBridgeContract = new ethers.Contract(
-          chainsRecord[transaction.fromChainId].bridgeAddress,
-          Bridge,
-          $providers.get(chainsRecord[transaction.fromChainId].id),
-        );
-        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
-          transaction.msgHash,
-        );
-        if (isFailedMessageResolved) {
-          transaction.status = MessageStatus.FailedReleased;
+      transaction.status = await contract.getMessageStatus(transaction.msgHash);
+
+      if (transaction.status === MessageStatus.Failed) {
+        if (transaction.message?.data !== '0x') {
+          const srcTokenVaultContract = new ethers.Contract(
+            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+            TokenVault,
+            $providers.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const { token, amount } = await srcTokenVaultContract.messageDeposits(
+            transaction.msgHash,
+          );
+          if (token === ethers.constants.AddressZero && amount.eq(0)) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
+        } else {
+          const srcBridgeContract = new ethers.Contract(
+            chainsRecord[transaction.fromChainId].bridgeAddress,
+            Bridge,
+            $providers.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const isFailedMessageResolved =
+            await srcBridgeContract.isEtherReleased(transaction.msgHash);
+          if (isFailedMessageResolved) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
         }
       }
-    }
-    transaction = transaction;
-    if (transaction.status === MessageStatus.Done) clearInterval(interval);
-  }, 20 * 1000);
+      if (
+        [MessageStatus.Done, MessageStatus.FailedReleased].includes(
+          transaction.status,
+        )
+      )
+        clearInterval(interval);
+    }, 20 * 1000);
+  }
 </script>
 
 <tr class="text-transaction-table">
@@ -203,16 +231,15 @@
     <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
   </td>
   <td>
-    {transaction.message?.data === '0x' || !transaction.message?.data
+    {transaction.message &&
+    (transaction.message?.data === '0x' || !transaction.message?.data)
       ? ethers.utils.formatEther(transaction.message?.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message?.data && transaction.message?.data !== '0x'
-      ? transaction.symbol
-      : 'ETH'}
+    {transaction.symbol ?? 'ETH'}
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={onTooltipClick}>
+    <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -229,10 +256,11 @@
               width={26}
               controlsLayout={[]} />
           </div>
-        {:else if transaction.receipt && transaction.status === MessageStatus.New}
+        {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
           <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-            on:click={async () => await claim(transaction)}>
+            class="cursor-pointer border rounded p-1 btn btn-sm border-white disabled:border-gray-800"
+            on:click={async () => await claim(transaction)}
+            disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
           </button>
         {:else if transaction.status === MessageStatus.Retriable}
