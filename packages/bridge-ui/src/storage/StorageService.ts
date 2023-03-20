@@ -1,7 +1,7 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
 import BridgeABI from '../constants/abi/Bridge';
-import TokenVault from '../constants/abi/TokenVault';
+import TokenVaultABI from '../constants/abi/TokenVault';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import ERC20 from '../constants/abi/ERC20';
@@ -95,7 +95,7 @@ export class StorageService implements Transactioner {
           if (event.args.message.data !== '0x') {
             const tokenVaultContract = new Contract(
               get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-              TokenVault,
+              TokenVaultABI,
               srcProvider,
             );
             const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
@@ -210,7 +210,7 @@ export class StorageService implements Transactioner {
     if (event.args.message.data !== '0x') {
       const tokenVaultContract = new Contract(
         get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-        TokenVault,
+        TokenVaultABI,
         srcProvider,
       );
       const filter = tokenVaultContract.filters.ERC20Sent(msgHash);
