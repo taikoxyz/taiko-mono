@@ -49,7 +49,7 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.txListByteEnd <= input.txListByteStart)
+        if (input.txListByteEnd < input.txListByteStart)
             revert L1_TX_LIST_RANGE();
 
         if (
