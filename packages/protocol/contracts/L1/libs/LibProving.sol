@@ -153,7 +153,7 @@ library LibProving {
                 .resolve(string(verifierId), false)
                 .staticcall(
                     bytes.concat(
-                        // splic instance into two bytes32 so they are both
+                        // split instance into two bytes32 so they are both
                         // smaller than the max ZKP field element.
                         (instance >> 128), // left 128 bits
                         (instance << 128) >> 128, // right 128 bits
