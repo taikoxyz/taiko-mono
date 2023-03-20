@@ -1,4 +1,4 @@
-import { BigNumber, Contract } from 'ethers';
+import { BigNumber, Contract, ethers } from 'ethers';
 import type { Transaction } from 'ethers';
 import type {
   ApproveOpts,
@@ -41,7 +41,7 @@ export class ETHBridge implements Bridge {
       callValue: 0,
       processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: opts.processingFeeInWei
-        ? BigNumber.from(140000)
+        ? BigNumber.from(900000)
         : BigNumber.from(0),
       memo: opts.memo ?? '',
     };
@@ -133,7 +133,23 @@ export class ETHBridge implements Bridge {
       };
 
       const proof = await this.prover.GenerateProof(proofOpts);
-      return await contract.processMessage(opts.message, proof);
+      let processMessageTx;
+      try {
+        processMessageTx = await contract.processMessage(opts.message, proof);
+      } catch (error) {
+        if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
+          processMessageTx = await contract.processMessage(
+            opts.message,
+            proof,
+            {
+              gasLimit: 1e6,
+            },
+          );
+        } else {
+          throw new Error(error);
+        }
+      }
+      return processMessageTx;
     } else {
       return await contract.retryMessage(opts.message, true);
     }
