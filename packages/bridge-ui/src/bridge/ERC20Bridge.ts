@@ -1,4 +1,4 @@
-import { BigNumber, Contract, Signer } from 'ethers';
+import { BigNumber, Contract, ethers, Signer } from 'ethers';
 import type { Transaction } from 'ethers';
 import type {
   ApproveOpts,
@@ -190,7 +190,23 @@ export class ERC20Bridge implements Bridge {
         });
       }
 
-      return await contract.processMessage(opts.message, proof);
+      let processMessageTx;
+      try {
+        processMessageTx = await contract.processMessage(opts.message, proof);
+      } catch (error) {
+        if (error.code === ethers.errors.UNPREDICTABLE_GAS_LIMIT) {
+          processMessageTx = await contract.processMessage(
+            opts.message,
+            proof,
+            {
+              gasLimit: 1e6,
+            },
+          );
+        } else {
+          throw new Error(error);
+        }
+      }
+      return processMessageTx;
     } else {
       return await contract.retryMessage(opts.message, false);
     }
