@@ -4,7 +4,11 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { bridges, chainIdToTokenVaultAddress } from '../store/bridge';
+  import {
+    activeBridge,
+    bridges,
+    chainIdToTokenVaultAddress,
+  } from '../store/bridge';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
@@ -19,7 +23,7 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
   import { providers } from '../store/providers';
-  import { fetchSigner, switchNetwork } from '@wagmi/core';
+  import { fetchFeeData, fetchSigner, switchNetwork } from '@wagmi/core';
   import Bridge from '../constants/abi/Bridge';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
   import TokenVault from '../constants/abi/TokenVault';
@@ -29,7 +33,7 @@
   export let fromChain: Chain;
   export let toChain: Chain;
 
-  export let onTooltipClick: () => void;
+  export let onTooltipClick: (showInsufficientBalanceMessage: boolean) => void;
   export let onShowTransactionDetailsClick: () => void;
 
   let loading: boolean;
@@ -76,6 +80,14 @@
         await switchChainAndSetSigner(chain);
       }
 
+      // For now just handling this case for when the user has 0 balance during their first bridge transaction to L2
+      // TODO: estimate Claim transaction
+      const userBalance = await $signer.getBalance('latest');
+      if (!userBalance.gt(0)) {
+        onTooltipClick(true);
+        return;
+      }
+
       const tx = await $bridges
         .get(
           bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
@@ -96,6 +108,7 @@
       });
 
       successToast($_('toast.transactionSent'));
+      transaction.status = MessageStatus.ClaimInProgress;
     } catch (e) {
       console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
@@ -226,7 +239,7 @@
   </td>
 
   <td>
-    <ButtonWithTooltip onClick={onTooltipClick}>
+    <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
         {#if !processable}
           Pending
@@ -243,10 +256,11 @@
               width={26}
               controlsLayout={[]} />
           </div>
-        {:else if transaction.receipt && transaction.status === MessageStatus.New}
+        {:else if transaction.receipt && [MessageStatus.New, MessageStatus.ClaimInProgress].includes(transaction.status)}
           <button
-            class="cursor-pointer border rounded p-1 btn btn-sm border-white"
-            on:click={async () => await claim(transaction)}>
+            class="cursor-pointer border rounded p-1 btn btn-sm border-white disabled:border-gray-800"
+            on:click={async () => await claim(transaction)}
+            disabled={transaction.status === MessageStatus.ClaimInProgress}>
             Claim
           </button>
         {:else if transaction.status === MessageStatus.Retriable}
