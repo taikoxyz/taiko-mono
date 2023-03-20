@@ -105,13 +105,13 @@ library TaikoData {
 
     // This struct takes 9 slots.
     struct State {
-        mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
+        mapping(uint256 blockId => ProposedBlock) proposedBlocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockNumber => ChainData) l2ChainDatas;
-        mapping(address prover => uint256 outstandingReward) balances;
+        mapping(address prover => uint256 balance) balances;
         // Never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
