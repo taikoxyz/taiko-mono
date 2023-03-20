@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -59,7 +60,10 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 // WaitConfirmations won't return before N blocks confirmations have been seen
 // on destination chain.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
-	ticker := time.NewTicker(time.Second)
+	log.Infof("txHash %v beginning waiting for confirmations", txHash.Hex())
+
+	ticker := time.NewTicker(10 * time.Second)
+
 	defer ticker.Stop()
 
 	for {
@@ -73,6 +77,8 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 					continue
 				}
 
+				log.Errorf("txHash: %v encounterd error getting receipt: %v", txHash.Hex(), err)
+
 				return err
 			}
 
@@ -81,9 +87,20 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 				return err
 			}
 
+			want := receipt.BlockNumber.Uint64() + confirmations
+			log.Infof(
+				"txHash: %v waiting for %v confirmations which will happen in block number: %v, latestBlockNumber: %v",
+				txHash.Hex(),
+				confirmations,
+				want,
+				latest,
+			)
+
 			if latest < receipt.BlockNumber.Uint64()+confirmations {
 				continue
 			}
+
+			log.Infof("done waiting for txHash %v", txHash.Hex(), want, latest)
 
 			return nil
 		}
