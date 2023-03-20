@@ -35,6 +35,7 @@ struct Config {
   uint256 feeBaseMAF;
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 constantFeeRewardBlocks;
+  uint64 snapshotInterval;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -56,6 +57,7 @@ struct StateVariables {
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
+  uint64 lastSnapshotId;
 }
 ```
 
@@ -145,7 +147,7 @@ struct State {
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 __reserved3;
-  uint64 __reserved4;
+  uint64 lastSnapshotId;
   uint64 lastBlockId;
   uint64 avgProofTime;
   uint64 feeBaseTwei;

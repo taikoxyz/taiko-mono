@@ -20,5 +20,9 @@ abstract contract TaikoEvents {
         address prover
     );
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
+    event BlockVerified(
+        uint256 indexed id,
+        bytes32 blockHash,
+        bool snapshotted
+    );
 }
