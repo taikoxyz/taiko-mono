@@ -49,46 +49,57 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (input.txListByteEnd < input.txListByteStart)
-            revert L1_TX_LIST_RANGE();
-
         if (
             input.beneficiary == address(0) ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
-        uint64 _now = uint64(block.timestamp);
-        uint24 _size = uint24(txList.length);
-        bool _txListCached;
-
-        if (_size == 0) {
-            // This blob shall have been submitted earlier
-            TaikoData.TxListInfo memory info = state.txListInfo[
-                input.txListHash
-            ];
-
-            if (
-                info.size == 0 ||
-                info.validSince + config.txListCacheExpiry < _now
-            ) revert L1_TX_LIST_NOT_EXIST();
-
-            if (input.txListByteEnd > info.size) revert L1_TX_LIST_RANGE();
-        } else {
-            if (_size > config.maxBytesPerTxList) revert L1_TX_LIST();
-            if (input.txListByteEnd > _size) revert L1_TX_LIST_RANGE();
-            if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
-
-            if (config.txListCacheExpiry > 0 && input.cacheTxListInfo != 0) {
-                state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
-                    validSince: _now,
-                    size: _size
-                });
-                _txListCached = true;
-            }
-        }
-
         if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
             revert L1_TOO_MANY_BLOCKS();
+
+        uint64 _now = uint64(block.timestamp);
+        bool _txListCached;
+
+        // hanlding txList
+        {
+            uint24 _size = uint24(txList.length);
+            if (_size > config.maxBytesPerTxList) revert L1_TX_LIST();
+
+            if (input.txListByteStart > input.txListByteEnd)
+                revert L1_TX_LIST_RANGE();
+
+            if (config.txListCacheExpiry == 0) {
+                // caching is disabled
+                if (input.txListByteStart != 0 || input.txListByteEnd != _size)
+                    revert L1_TX_LIST_RANGE();
+            } else {
+                // caching is enabled
+                if (_size == 0) {
+                    // This blob shall have been submitted earlier
+                    TaikoData.TxListInfo memory info = state.txListInfo[
+                        input.txListHash
+                    ];
+
+                    if (input.txListByteEnd > info.size)
+                        revert L1_TX_LIST_RANGE();
+
+                    if (
+                        info.size == 0 ||
+                        info.validSince + config.txListCacheExpiry < _now
+                    ) revert L1_TX_LIST_NOT_EXIST();
+                } else {
+                    if (input.txListByteEnd > _size) revert L1_TX_LIST_RANGE();
+                    if (input.txListHash != keccak256(txList))
+                        revert L1_TX_LIST_HASH();
+
+                    if (input.cacheTxListInfo != 0) {
+                        state.txListInfo[input.txListHash] = TaikoData
+                            .TxListInfo({validSince: _now, size: _size});
+                        _txListCached = true;
+                    }
+                }
+            }
+        }
 
         // After The Merge, L1 mixHash contains the prevrandao
         // from the beacon chain. Since multiple Taiko blocks
