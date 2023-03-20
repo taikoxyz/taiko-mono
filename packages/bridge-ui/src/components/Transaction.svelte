@@ -80,10 +80,10 @@
         await switchChainAndSetSigner(chain);
       }
 
-      // For now just handling this case for when the user has 0 balance during their first bridge transaction to L2
+      // For now just handling this case for when the user has near 0 balance during their first bridge transaction to L2
       // TODO: estimate Claim transaction
       const userBalance = await $signer.getBalance('latest');
-      if (!userBalance.gt(0)) {
+      if (!userBalance.gt(ethers.utils.parseEther('0.0001'))) {
         onTooltipClick(true);
         return;
       }
