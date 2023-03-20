@@ -1,6 +1,6 @@
 import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
-import Bridge from '../constants/abi/Bridge';
+import BridgeABI from '../constants/abi/Bridge';
 import TokenVault from '../constants/abi/TokenVault';
 import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
@@ -59,13 +59,13 @@ export class StorageService implements Transactioner {
 
           const destContract: Contract = new Contract(
             destBridgeAddress,
-            Bridge,
+            BridgeABI,
             destProvider,
           );
 
           const srcContract: Contract = new Contract(
             srcBridgeAddress,
-            Bridge,
+            BridgeABI,
             srcProvider,
           );
 
@@ -177,13 +177,13 @@ export class StorageService implements Transactioner {
 
     const destContract: Contract = new Contract(
       destBridgeAddress,
-      Bridge,
+      BridgeABI,
       destProvider,
     );
 
     const srcContract: Contract = new Contract(
       srcBridgeAddress,
-      Bridge,
+      BridgeABI,
       srcProvider,
     );
 

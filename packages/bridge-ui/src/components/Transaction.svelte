@@ -19,7 +19,7 @@
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
-  import Bridge from '../constants/abi/Bridge';
+  import BridgeABI from '../constants/abi/Bridge';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
   import TokenVault from '../constants/abi/TokenVault';
   import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
@@ -168,7 +168,7 @@
       processable = await isProcessable();
       const contract = new ethers.Contract(
         chainsRecord[transaction.toChainId].bridgeAddress,
-        Bridge,
+        BridgeABI,
         providersMap.get(chainsRecord[transaction.toChainId].id),
       );
 
@@ -190,7 +190,7 @@
         } else {
           const srcBridgeContract = new ethers.Contract(
             chainsRecord[transaction.fromChainId].bridgeAddress,
-            Bridge,
+            BridgeABI,
             providersMap.get(chainsRecord[transaction.fromChainId].id),
           );
           const isFailedMessageResolved =
