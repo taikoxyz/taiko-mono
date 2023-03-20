@@ -98,8 +98,6 @@ func (p *Processor) ProcessMessage(
 
 	relayer.EventsProcessed.Inc()
 
-	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
-
 	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "relayer.WaitReceipt")

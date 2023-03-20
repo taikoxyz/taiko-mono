@@ -38,6 +38,8 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	log.Infof("waiting for transaction receipt for txHash %v", txHash.Hex())
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,6 +54,7 @@ func WaitReceipt(ctx context.Context, confirmer confirmer, txHash common.Hash) (
 				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
 			}
 
+			log.Infof("transaction receipt found for txHash %v", txHash.Hex())
 			return receipt, nil
 		}
 	}
@@ -100,7 +103,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 				continue
 			}
 
-			log.Infof("done waiting for txHash %v", txHash.Hex())
+			log.Infof("txHash %v received %v confirmations, done", txHash.Hex(), confirmations)
 
 			return nil
 		}
