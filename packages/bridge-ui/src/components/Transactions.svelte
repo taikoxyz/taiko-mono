@@ -3,11 +3,13 @@
   import Transaction from './Transaction.svelte';
   import TransactionDetail from './TransactionDetail.svelte';
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
+  import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
   import type { BridgeTransaction } from '../domain/transactions';
   import { chainsRecord } from '../chain/chains';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
+  let showInsufficientBalance: boolean;
 </script>
 
 <div class="my-4 md:px-4">
@@ -25,8 +27,12 @@
       <tbody class="text-sm md:text-base">
         {#each $transactions as transaction}
           <Transaction
-            onTooltipClick={() => {
-              showMessageStatusTooltip = true;
+            onTooltipClick={(showInsufficientBalanceMessage = false) => {
+              if (showInsufficientBalanceMessage) {
+                showInsufficientBalance = true;
+              } else {
+                showMessageStatusTooltip = true;
+              }
             }}
             onShowTransactionDetailsClick={() => {
               selectedTransaction = transaction;
@@ -47,5 +53,6 @@
       onClose={() => (selectedTransaction = null)} />
   {/if}
 
-  <MessageStatusTooltip show={showMessageStatusTooltip} />
+  <MessageStatusTooltip bind:show={showMessageStatusTooltip} />
+  <InsufficientBalanceTooltip bind:show={showInsufficientBalance} />
 </div>
