@@ -100,7 +100,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 				continue
 			}
 
-			log.Infof("done waiting for txHash %v", txHash.Hex(), want, latest)
+			log.Infof("done waiting for txHash %v", txHash.Hex())
 
 			return nil
 		}
