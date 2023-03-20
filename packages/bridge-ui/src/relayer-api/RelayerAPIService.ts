@@ -26,11 +26,14 @@ export class RelayerAPIService implements RelayerAPI {
     baseUrl: string,
   ) {
     this.providerMap = providerMap;
-    this.baseUrl = baseUrl;
+
+    // In case there is trailing slash in the env var
+    // we need to remove it by grabbing the origin
+    this.baseUrl = new URL(baseUrl).origin;
   }
 
   async getTransactionsFromAPI(params: APIRequestParams): Promise<APIResponse> {
-    const requestURL = `${this.baseUrl}events`;
+    const requestURL = `${this.baseUrl}/events`;
 
     const response = await axios.get<APIResponse>(requestURL, { params });
 
@@ -176,7 +179,7 @@ export class RelayerAPIService implements RelayerAPI {
   }
 
   async GetBlockInfo(): Promise<Map<number, RelayerBlockInfo>> {
-    const requestURL = `${this.baseUrl}blockInfo`;
+    const requestURL = `${this.baseUrl}/blockInfo`;
     const { data } = await axios.get(requestURL);
     const blockInfoMap: Map<number, RelayerBlockInfo> = new Map();
     if (data?.data.length > 0) {
