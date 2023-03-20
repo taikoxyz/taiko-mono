@@ -151,7 +151,15 @@ library LibProving {
 
             (bool verified, bytes memory ret) = resolver
                 .resolve(string(verifierId), false)
-                .staticcall(bytes.concat(instance, evidence.zkproof.data));
+                .staticcall(
+                    bytes.concat(
+                        // splic instance into two bytes32 so they are both
+                        // smaller than the max ZKP field element.
+                        (instance >> 128), // left 128 bits
+                        (instance << 128) >> 128, // right 128 bits
+                        evidence.zkproof.data
+                    )
+                );
 
             if (
                 !verified ||
