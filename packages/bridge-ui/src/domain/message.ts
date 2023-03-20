@@ -6,6 +6,7 @@ export enum MessageStatus {
   Done,
   Failed,
   FailedReleased,
+  ClaimInProgress,
 }
 
 export type Message = {
