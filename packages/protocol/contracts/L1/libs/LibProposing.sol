@@ -57,24 +57,24 @@ library LibProposing {
         if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
             revert L1_TOO_MANY_BLOCKS();
 
-        uint64 _now = uint64(block.timestamp);
-        bool _txListCached;
+        uint64 timeNow = uint64(block.timestamp);
+        bool txListCached;
 
         // hanlding txList
         {
-            uint24 _size = uint24(txList.length);
-            if (_size > config.maxBytesPerTxList) revert L1_TX_LIST();
+            uint24 size = uint24(txList.length);
+            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
 
             if (input.txListByteStart > input.txListByteEnd)
                 revert L1_TX_LIST_RANGE();
 
             if (config.txListCacheExpiry == 0) {
                 // caching is disabled
-                if (input.txListByteStart != 0 || input.txListByteEnd != _size)
+                if (input.txListByteStart != 0 || input.txListByteEnd != size)
                     revert L1_TX_LIST_RANGE();
             } else {
                 // caching is enabled
-                if (_size == 0) {
+                if (size == 0) {
                     // This blob shall have been submitted earlier
                     TaikoData.TxListInfo memory info = state.txListInfo[
                         input.txListHash
@@ -85,17 +85,17 @@ library LibProposing {
 
                     if (
                         info.size == 0 ||
-                        info.validSince + config.txListCacheExpiry < _now
+                        info.validSince + config.txListCacheExpiry < timeNow
                     ) revert L1_TX_LIST_NOT_EXIST();
                 } else {
-                    if (input.txListByteEnd > _size) revert L1_TX_LIST_RANGE();
+                    if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
                     if (input.txListHash != keccak256(txList))
                         revert L1_TX_LIST_HASH();
 
                     if (input.cacheTxListInfo != 0) {
                         state.txListInfo[input.txListHash] = TaikoData
-                            .TxListInfo({validSince: _now, size: _size});
-                        _txListCached = true;
+                            .TxListInfo({validSince: timeNow, size: size});
+                        txListCached = true;
                     }
                 }
             }
@@ -113,7 +113,7 @@ library LibProposing {
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
             gasLimit: input.gasLimit,
-            timestamp: _now,
+            timestamp: timeNow,
             l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
@@ -175,7 +175,7 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId, meta, _txListCached);
+        emit BlockProposed(state.nextBlockId, meta, txListCached);
         unchecked {
             ++state.nextBlockId;
         }
