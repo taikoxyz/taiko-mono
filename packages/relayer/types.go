@@ -77,7 +77,7 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 					continue
 				}
 
-				log.Errorf("txHash: %v encounterd error getting receipt: %v", txHash.Hex(), err)
+				log.Errorf("txHash: %v encountered error getting receipt: %v", txHash.Hex(), err)
 
 				return err
 			}
