@@ -12,7 +12,7 @@
       <ul class="list-disc ml-4">
         <li class="mb-2">
           <strong>Pending</strong>: Your asset is not ready to be bridged. Taiko
-          A1 => {import.meta.env
+          A2 => {import.meta.env
             ? import.meta.env.VITE_MAINNET_CHAIN_NAME
             : 'Ethereum A2'} bridging can take several hours before being ready.
           {import.meta.env

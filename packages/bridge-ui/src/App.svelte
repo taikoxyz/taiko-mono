@@ -31,7 +31,6 @@
   import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
-  import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
@@ -112,7 +111,9 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
+      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+        userAddress,
+      );
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
@@ -224,7 +225,6 @@
 
 <QueryProvider>
   <main>
-    <HeaderAnnouncement />
     <Navbar />
     <Router {routes} />
   </main>

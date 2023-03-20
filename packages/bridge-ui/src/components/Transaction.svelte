@@ -14,7 +14,7 @@
     toChain as toChainStore,
   } from '../store/chain';
   import { BridgeType } from '../domain/bridge';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import HeaderSync from '../constants/abi/HeaderSync';
@@ -36,8 +36,17 @@
   let loading: boolean;
 
   let processable: boolean = false;
+  let interval: ReturnType<typeof setInterval>;
+
   onMount(async () => {
     processable = await isProcessable();
+    interval = startInterval();
+  });
+
+  onDestroy(() => {
+    if (interval) {
+      clearInterval(interval);
+    }
   });
 
   async function switchChainAndSetSigner(chain: Chain) {
@@ -70,7 +79,7 @@
 
       const tx = await bridgesMap
         .get(
-          bridgeTx.message.data === '0x' || !bridgeTx.message.data
+          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
             ? BridgeType.ETH
             : BridgeType.ERC20,
         )
@@ -89,7 +98,7 @@
 
       successToast($_('toast.transactionSent'));
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -104,7 +113,11 @@
         await switchChainAndSetSigner(chain);
       }
       const tx = await bridgesMap
-        .get(bridgeTx.message.data === '0x' ? BridgeType.ETH : BridgeType.ERC20)
+        .get(
+          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
+            ? BridgeType.ETH
+            : BridgeType.ERC20,
+        )
         .ReleaseTokens({
           signer: $signer,
           message: bridgeTx.message,
@@ -150,49 +163,51 @@
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
-  const interval = setInterval(async () => {
-    processable = await isProcessable();
-    const contract = new ethers.Contract(
-      chainsRecord[transaction.toChainId].bridgeAddress,
-      Bridge,
-      providersMap.get(chainsRecord[transaction.toChainId].id),
-    );
+  function startInterval() {
+    return setInterval(async () => {
+      processable = await isProcessable();
+      const contract = new ethers.Contract(
+        chainsRecord[transaction.toChainId].bridgeAddress,
+        Bridge,
+        providersMap.get(chainsRecord[transaction.toChainId].id),
+      );
 
-    transaction.status = await contract.getMessageStatus(transaction.msgHash);
-    if (transaction.status === MessageStatus.Failed) {
-      if (transaction.message?.data !== '0x') {
-        const srcTokenVaultContract = new ethers.Contract(
-          $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-          TokenVault,
-          providersMap.get(chainsRecord[transaction.fromChainId].id),
-        );
+      transaction.status = await contract.getMessageStatus(transaction.msgHash);
 
-        const { token, amount } = await srcTokenVaultContract.messageDeposits(
-          transaction.msgHash,
-        );
-
-        if (token === ethers.constants.AddressZero && amount.eq(0)) {
-          transaction.status = MessageStatus.FailedReleased;
-        }
-      } else {
-        const srcBridgeContract = new ethers.Contract(
-          chainsRecord[transaction.fromChainId].bridgeAddress,
-          Bridge,
-          providersMap.get(chainsRecord[transaction.fromChainId].id),
-        );
-
-        const isFailedMessageResolved = await srcBridgeContract.isEtherReleased(
-          transaction.msgHash,
-        );
-
-        if (isFailedMessageResolved) {
-          transaction.status = MessageStatus.FailedReleased;
+      if (transaction.status === MessageStatus.Failed) {
+        if (transaction.message?.data !== '0x') {
+          const srcTokenVaultContract = new ethers.Contract(
+            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+            TokenVault,
+            providersMap.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const { token, amount } = await srcTokenVaultContract.messageDeposits(
+            transaction.msgHash,
+          );
+          if (token === ethers.constants.AddressZero && amount.eq(0)) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
+        } else {
+          const srcBridgeContract = new ethers.Contract(
+            chainsRecord[transaction.fromChainId].bridgeAddress,
+            Bridge,
+            providersMap.get(chainsRecord[transaction.fromChainId].id),
+          );
+          const isFailedMessageResolved =
+            await srcBridgeContract.isEtherReleased(transaction.msgHash);
+          if (isFailedMessageResolved) {
+            transaction.status = MessageStatus.FailedReleased;
+          }
         }
       }
-    }
-    transaction = transaction;
-    if (transaction.status === MessageStatus.Done) clearInterval(interval);
-  }, 20 * 1000);
+      if (
+        [MessageStatus.Done, MessageStatus.FailedReleased].includes(
+          transaction.status,
+        )
+      )
+        clearInterval(interval);
+    }, 20 * 1000);
+  }
 </script>
 
 <tr class="text-transaction-table">
@@ -205,10 +220,11 @@
     <span class="ml-2 hidden md:inline-block">{toChain.name}</span>
   </td>
   <td>
-    {transaction.message?.data === '0x'
-      ? ethers.utils.formatEther(transaction.message.depositValue)
+    {transaction.message &&
+    (transaction.message?.data === '0x' || !transaction.message?.data)
+      ? ethers.utils.formatEther(transaction.message?.depositValue)
       : ethers.utils.formatUnits(transaction.amountInWei)}
-    {transaction.message?.data !== '0x' ? transaction.symbol : 'ETH'}
+    {transaction.symbol ?? 'ETH'}
   </td>
 
   <td>
