@@ -111,6 +111,7 @@ contract SignalService is ISignalService, EssentialContract {
         address app,
         bytes32 signal
     ) public pure returns (bytes32 signalSlot) {
+        // Equivilance to `keccak256(abi.encodePacked(app, signal))`
         assembly {
             // Load the free memory pointer and allocate memory for the concatenated arguments
             let ptr := mload(0x40)
