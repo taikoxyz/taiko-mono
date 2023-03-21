@@ -22,7 +22,6 @@ library TaikoData {
         uint256 chainId;
         // up to 2048 pending blocks
         uint256 maxNumBlocks;
-        uint256 blockHashHistory;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
@@ -113,6 +112,7 @@ library TaikoData {
 
     struct Block {
         BlockSpec spec;
+        ChainData chainData;
         mapping(uint256 index => ForkChoice) forkChoices;
     }
 
@@ -128,7 +128,7 @@ library TaikoData {
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         // mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        mapping(uint256 blockNumber => ChainData) l2ChainDatas;
+        // mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed

@@ -22,17 +22,17 @@ library LibUtils {
     function getL2ChainData(
         TaikoData.State storage state,
         uint256 number,
-        uint256 blockHashHistory
+        uint256 maxNumBlocks
     ) internal view returns (ChainData storage) {
         uint256 _number = number;
         if (_number == 0) {
             _number = state.lastBlockId;
         } else if (
-            _number + blockHashHistory <= state.lastBlockId ||
+            _number + maxNumBlocks <= state.lastBlockId ||
             _number > state.lastBlockId
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2ChainDatas[_number % blockHashHistory];
+        return state.blocks[_number % maxNumBlocks].chainData;
     }
 
     function getStateVariables(

@@ -38,7 +38,7 @@ library LibVerifying {
         state.nextBlockId = 1;
 
         ChainData memory chainData = ChainData(genesisBlockHash, 0);
-        state.l2ChainDatas[0] = chainData;
+        state.blocks[0].chainData = chainData;
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -48,9 +48,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        ChainData memory chainData = state.l2ChainDatas[
-            state.lastBlockId % config.blockHashHistory
-        ];
+        ChainData memory chainData = state
+            .blocks[state.lastBlockId % config.maxNumBlocks]
+            .chainData;
 
         uint64 processed;
         uint256 i;
@@ -97,9 +97,9 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            state.l2ChainDatas[
-                state.lastBlockId % config.blockHashHistory
-            ] = chainData;
+            state
+                .blocks[state.lastBlockId % config.maxNumBlocks]
+                .chainData = chainData;
 
             emit XchainSynced(state.lastBlockId, chainData);
         }
@@ -182,7 +182,6 @@ library LibVerifying {
         if (
             config.chainId <= 1 ||
             config.maxNumBlocks <= 1 ||
-            config.blockHashHistory == 0 ||
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||
