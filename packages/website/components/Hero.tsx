@@ -37,7 +37,7 @@ export default function Hero() {
   }
 
   return (
-    <div className="mx-auto max-w-[90rem] px-6">
+    <div className="mx-auto max-w-[90rem] px-3">
       <div className="relative bg-neutral-50 dark:bg-neutral-900 mt-3">
         <main className="lg:relative">
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
