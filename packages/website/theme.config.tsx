@@ -27,7 +27,6 @@ export default {
   footer: {
     component: Footer,
   },
-  gitTimestamp: false,
   head: () => {
     const { asPath } = useRouter();
     const { frontMatter } = useConfig();
