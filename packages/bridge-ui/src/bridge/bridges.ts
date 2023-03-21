@@ -10,10 +10,11 @@ const prover: Prover = new ProofService(providers);
 const ethBridge = new ETHBridge(prover);
 const erc20Bridge = new ERC20Bridge(prover);
 
-/**
- * Maps bridge type: ETH, ERC20 => Bridge
- */
-export const bridges = {
+export const bridges: Record<BridgeType, Bridge> = {
   [BridgeType.ETH]: ethBridge,
   [BridgeType.ERC20]: erc20Bridge,
+
+  // TODO
+  [BridgeType.ERC721]: null,
+  [BridgeType.ERC1155]: null,
 };

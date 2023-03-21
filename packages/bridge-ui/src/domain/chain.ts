@@ -1,7 +1,9 @@
 import type { ComponentType } from 'svelte';
 
+export type ChainID = number;
+
 export type Chain = {
-  id: number;
+  id: ChainID;
   name: string;
   rpc: string;
   enabled?: boolean;

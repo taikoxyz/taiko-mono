@@ -1,6 +1,7 @@
 import { type ProcessingFeeDetails, ProcessingFeeMethod } from '../domain/fee';
 
-export const processingFeeMap: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
+// Order is important, and the reason to use a Map
+export const processingFees: Map<ProcessingFeeMethod, ProcessingFeeDetails> =
   new Map([
     [
       ProcessingFeeMethod.RECOMMENDED,
