@@ -15,7 +15,7 @@ library TaikoConfig {
                 chainId: 167,
                 // maxNumBlocks-1 is the max number of pending blocks.
                 maxNumBlocks: 2049,
-                blockHashHistory: 40,
+                blockHashHistory: 2049,
                 //Each time one more block is verified, there will be ~20k
                 // more gas cost.
                 maxVerificationsPerTx: 10,
