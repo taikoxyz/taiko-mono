@@ -28,7 +28,7 @@ library LibTokenomics {
         uint256 amount
     ) internal {
         uint256 balance = state.balances[msg.sender];
-        if (balance <= amount) revert L1_INSUFFICIENT_TOKEN();
+        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
 
         unchecked {
             state.balances[msg.sender] -= amount;
