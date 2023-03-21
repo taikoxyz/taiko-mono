@@ -20,6 +20,7 @@ library TaikoData {
         uint256 chainId;
         // up to 2048 pending blocks
         uint256 maxNumBlocks;
+        uint256 blockHashHistory;
         // This number is calculated from maxNumBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;

@@ -18,6 +18,23 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
+function getL2ChainData(
+        TaikoData.State storage state,
+        uint256 blockId,
+        uint256 blockHashHistory
+    ) internal view returns (TaikoData.ChainData storage chainData) {
+        uint256 _blockId = blockId;
+        if (_blockId == 0) {
+            _blockId = state.lastBlockId;
+        } else if (
+            _blockId + blockHashHistory <= state.lastBlockId ||
+            _blockId > state.lastBlockId
+        ) revert L1_BLOCK_NUMBER();
+
+        chainData = state.chainData[_blockId % blockHashHistory];
+        if (chainData.blockId != blockId) revert L1_BLOCK_NUMBER();
+    }
+
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {
