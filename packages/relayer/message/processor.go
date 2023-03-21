@@ -97,6 +97,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrInvalidConfirmations
 	}
 
+	if opts.ConfirmationsTimeoutInSeconds == 0 {
+		return nil, relayer.ErrInvalidConfirmationsTimeoutInSeconds
+	}
+
 	return &Processor{
 		eventRepo: opts.EventRepo,
 		prover:    opts.Prover,
