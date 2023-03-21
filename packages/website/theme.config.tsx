@@ -21,9 +21,6 @@ export default {
   editLink: {
     text: "Edit this page on GitHub ↗",
   },
-  feedback: {
-    content: null,
-  },
   footer: {
     component: Footer,
   },
