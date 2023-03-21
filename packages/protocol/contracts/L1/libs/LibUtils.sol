@@ -23,7 +23,7 @@ library LibUtils {
         TaikoData.State storage state,
         uint256 number,
         uint256 blockHashHistory
-    ) internal view returns (ChainData storage) {
+    ) internal view returns (ChainData storage chainData) {
         uint256 _number = number;
         if (_number == 0) {
             _number = state.lastBlockId;
@@ -32,7 +32,9 @@ library LibUtils {
             _number > state.lastBlockId
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2ChainDatas[_number % blockHashHistory];
+        // TODO(daniel): check the ChainData is actually for the
+        // given block number (this is not possible now).
+        chainData = state.l2ChainDatas[_number % blockHashHistory];
     }
 
     function getStateVariables(

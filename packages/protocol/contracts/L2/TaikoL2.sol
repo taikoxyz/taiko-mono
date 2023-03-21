@@ -22,7 +22,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
     // A hash to check te integrity of public inputs.
-    bytes32 private _publicInputHash;
+    bytes32 private publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
@@ -61,22 +61,11 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         EssentialContract._init(_addressManager);
 
-        bytes32[256] memory inputs;
-        uint256 n = block.number;
-
-        unchecked {
-            for (uint256 i; i < 255 && n >= i + 1; ++i) {
-                uint j = n - i - 1;
-                inputs[j % 255] = blockhash(j);
-            }
+        (publicInputHash, ) = _calcPublicInputHash(block.number);
+        if (block.number > 0) {
+            uint m = block.number - 1;
+            _l2Hashes[m] = blockhash(m);
         }
-
-        inputs[255] = bytes32(block.chainid);
-        // inputs[256] = bytes32(block.basefee);
-
-        _publicInputHash = _hashInputs(inputs);
-
-        _l2Hashes[n - 1] = blockhash(n - 1);
     }
 
     /**********************
@@ -100,6 +89,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      * @param l1Hash The latest L1 block hash when this block was proposed.
      * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
+
     function anchor(
         uint256 l1Height,
         bytes32 l1Hash,
@@ -107,34 +97,19 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     ) external {
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        uint256 n = block.number;
-        uint256 m; // parent block height
-        unchecked {
-            m = n - 1;
-        }
+        uint256 parentHeight = block.number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
 
-        // Check blockhash[n-256]...blockhash[n-2], not including the parentHash
-        bytes32[256] memory inputs;
-        unchecked {
-            // put the previous 255 blockhashes (excluding the parent's) into a
-            // ring buffer.
-            for (uint256 i; i < 255 && n >= i + 2; ++i) {
-                uint j = n - i - 2;
-                inputs[j % 255] = blockhash(j);
-            }
-        }
+        (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
 
-        inputs[255] = bytes32(block.chainid);
-        // inputs[256] = bytes32(block.basefee);
-
-        if (_publicInputHash != _hashInputs(inputs))
+        if (publicInputHash != prevPIH) {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
 
         // replace the oldest block hash with the parent's blockhash
-        bytes32 parentHash = blockhash(m);
-        inputs[m % 255] = parentHash;
-        _publicInputHash = _hashInputs(inputs);
-        _l2Hashes[m] = parentHash;
+
+        publicInputHash = currPIH;
+        _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
         ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
@@ -189,11 +164,29 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      * Private Functions  *
      **********************/
 
-    function _hashInputs(
-        bytes32[256] memory inputs
-    ) private pure returns (bytes32 hash) {
+    function _calcPublicInputHash(
+        uint256 m
+    ) private returns (bytes32 prevPIH, bytes32 currPIH) {
+        bytes32[256] memory inputs;
+        unchecked {
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && m >= i + 1; ++i) {
+                uint j = m - i - 1;
+                inputs[j % 255] = blockhash(j);
+            }
+        }
+
+        inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
+
         assembly {
-            hash := keccak256(inputs, mul(256, 32))
+            prevPIH := keccak256(inputs, mul(256, 32))
+        }
+
+        inputs[m % 255] = blockhash(m);
+        assembly {
+            currPIH := keccak256(inputs, mul(256, 32))
         }
     }
 }
