@@ -120,7 +120,7 @@ contract SignalService is ISignalService, EssentialContract {
             mstore(add(ptr, 32), signal)
 
             // Calculate the hash of the concatenated arguments using keccak256
-            signalSlot := keccak256(ptr, 64)
+            signalSlot := keccak256(add(ptr, 12), 52)
 
             // Update free memory pointer
             mstore(0x40, add(ptr, 64))
