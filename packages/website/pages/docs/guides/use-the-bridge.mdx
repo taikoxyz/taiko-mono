@@ -1,20 +1,28 @@
-import { Callout } from 'nextra-theme-docs'
+import { Callout, Steps } from "nextra-theme-docs";
+
+<Callout type="warning" emoji="⚠️">
+  The BLL token should succeed when _minting_ from the faucet, and when _bridging_ it to Sepolia or Taiko. However, it will intentionally fail ~50% of the time when _claiming_ on Sepolia—this is so we can test the error handling.
+</Callout>
+
 
 The bridge is a set of smart contracts that allow you to send testnet ETH and ERC-20 tokens between Sepolia and Taiko. This bridge is just one possible implementation built on top of Taiko's core protocol—you can read more about how bridging works [here](/docs/concepts/bridging).
 
 ## Prerequisites
 
-- A wallet with some testnet ETH on either Sepolia or Taiko (you can [request from faucet](/docs/guides/request-from-faucet))
+- A wallet with some testnet ETH on either Sepolia or Taiko (you can [receive tokens](/docs/guides/receive-tokens))
 
 ## Steps
 
-1. Visit the [bridge](https://bridge.a2.taiko.xyz/) and follow through the UI to bridge your tokens.
-2. Transfer some ETH from Sepolia to Taiko
-3. Receive some HORSE on Sepolia
-4. Transfer some HORSE from Sepolia to Taiko
-5. Receive some BLL on Sepolia
-6. Transfer some BLL from Sepolia to Taiko
-7. Transfer any tokens from Taiko to Sepolia
+<Steps>
+    ### Visit the bridge
+    Visit the [bridge](https://bridge.a2.taiko.xyz/) and the UI should be intuitive.
+
+    ### Bridge tokens from Sepolia to Taiko
+    Try bridging ETH, HORSE, and/or BLL from Sepolia to Taiko. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
+
+    ### Bridge tokens from Taiko to Sepolia
+    Try bridging ETH, HORSE, and/or BLL from Taiko to Sepolia. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
+</Steps>
 
 ## Troubleshooting
 
