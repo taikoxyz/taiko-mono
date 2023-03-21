@@ -112,13 +112,7 @@ library TaikoData {
 
     struct Block {
         BlockSpec spec;
-        mapping(uint256 index => ForkChoice) forkChoices;
-    }
-
-    // This struct takes 9 slots.
-    struct TxListInfo {
-        uint64 validSince;
-        uint24 size;
+        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
     }
 
     struct ChainData {
@@ -127,12 +121,20 @@ library TaikoData {
         bytes32 signalRoot;
     }
 
+    // This struct takes 9 slots.
+    struct TxListInfo {
+        uint64 validSince;
+        uint24 size;
+    }
+
     struct State {
+        // Ring buffer for proposed but unverified blocks
         mapping(uint256 blockId_mode_maxNumBlocks => Block) blocks;
-        mapping(uint256 blockId => ChainData) chainData;
+        // Ring buffer big enough to cache the last verified block's hash and
+        // signal root for long enough.
+        mapping(uint256 blockId_mode_blockHashHistory => ChainData) chainData;
         // solhint-disable-next-line max-line-length
-        mapping(bytes32 parentHash => mapping(uint256 blockId => uint256 forkChoiceId)) forkChoiceIds;
-        // solhint-disable-next-line max-line-length
+        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed
