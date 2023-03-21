@@ -146,24 +146,24 @@
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
-      // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
-      //   return [tx.hash, tx];
-      // }))
+      const hashToApiTxsMap = new Map(
+        apiTxs.map((tx) => {
+          return [tx.hash.toLowerCase(), 1];
+        }),
+      );
+
+      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
+        console.log(tx.hash, hashToApiTxsMap.has(tx.hash.toLowerCase()));
+        return !hashToApiTxsMap.has(tx.hash.toLowerCase());
+      });
 
       // const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-      //   if (apiTxs.find((apiTx) => apiTx.hash.toLowerCase() === tx.hash)) {
+      //   const blockInfo = blockInfoMap.get(tx.fromChainId);
+      //   if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
       //     return false;
       //   }
       //   return true;
       // });
-
-      const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        const blockInfo = blockInfoMap.get(tx.fromChainId);
-        if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
-          return false;
-        }
-        return true;
-      });
 
       $transactioner.UpdateStorageByAddress(userAddress, updatedStorageTxs);
 

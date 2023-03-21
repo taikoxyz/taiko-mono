@@ -457,7 +457,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full mt-4"
+    class="btn btn-accent approve-btn w-full mt-4"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
@@ -471,5 +471,15 @@
     -webkit-appearance: none;
     margin: 0;
     -moz-appearance: textfield !important;
+  }
+
+  .btn.btn-accent.approve-btn {
+    background-color: #4c1d95;
+    border-color: #4c1d95;
+  }
+
+  .btn.btn-accent.approve-btn:hover {
+    background-color: #5b21b6;
+    border-color: #5b21b6;
   }
 </style>
