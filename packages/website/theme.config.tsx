@@ -7,8 +7,8 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a href="https://taiko.xyz/docs" target="_blank">
-        🌋 Askja testnet is here! Read the full blog post →
+      <a href="#" target="_blank">
+        🌋 Askja testnet is here! Learn more →
       </a>
     ),
   },
