@@ -10,13 +10,16 @@
   let bridgeWidth: number;
   let bridgeHeight: number;
 
-  // Tab's name <=> route association
+  // List of tab's name <=> route association
+  // TODO: add this into a general configuration.
   const tabsRoute = [
     { name: 'bridge', href: '/' },
     { name: 'transactions', href: '/transactions' },
     // Add more tabs if needed
   ];
 
+  // TODO: we're assuming we have only two tabs here.
+  //       Change strategy if needed.
   $: activeTab = $location === '/' ? tabsRoute[0].name : tabsRoute[1].name;
 
   // TODO: do we really need all these tricks to style containers
