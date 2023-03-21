@@ -18,7 +18,7 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
-function getL2ChainData(
+    function getL2ChainData(
         TaikoData.State storage state,
         uint256 blockId,
         uint256 blockHashHistory

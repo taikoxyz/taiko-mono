@@ -123,12 +123,12 @@ library TaikoData {
 
     struct ChainData {
         uint64 blockId;
-    bytes32 blockHash;
-    bytes32 signalRoot;
-}
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
 
     struct State {
-        mapping(uint256 blockId /* % maxNumBlocks */ => Block) blocks;
+        mapping(uint256 blockId_mode_maxNumBlocks => Block) blocks;
         mapping(uint256 blockId => ChainData) chainData;
         // solhint-disable-next-line max-line-length
         mapping(bytes32 parentHash => mapping(uint256 blockId => uint256 forkChoiceId)) forkChoiceIds;

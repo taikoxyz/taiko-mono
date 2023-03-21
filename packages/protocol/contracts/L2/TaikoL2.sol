@@ -11,15 +11,13 @@ import {IXchainSync} from "../common/IXchainSync.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
-
-        struct ChainData {
-    bytes32 blockHash;
-    bytes32 signalRoot;
-}
+    struct ChainData {
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
     /**********************
      * State Variables    *
      **********************/
-
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.

@@ -21,7 +21,11 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event XchainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot);
+    event XchainSynced(
+        uint256 indexed srcHeight,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
 
     function init(
         TaikoData.State storage state,
@@ -46,7 +50,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        bytes32 blockHash = state.chainData[state.lastBlockId % config.blockHashHistory].blockHash;
+        bytes32 blockHash = state
+            .chainData[state.lastBlockId % config.blockHashHistory]
+            .blockHash;
 
         bytes32 signalRoot;
         uint64 processed;
@@ -94,10 +100,11 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            state.chainData[state.lastBlockId % config.blockHashHistory] =
-                TaikoData.ChainData(state.lastBlockId, blockHash, signalRoot);
+            state.chainData[
+                state.lastBlockId % config.blockHashHistory
+            ] = TaikoData.ChainData(state.lastBlockId, blockHash, signalRoot);
 
-            emit XchainSynced(state.lastBlockId, blockHash,signalRoot);
+            emit XchainSynced(state.lastBlockId, blockHash, signalRoot);
         }
     }
 
