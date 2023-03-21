@@ -157,7 +157,7 @@ library LibProving {
             ) revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[blockId][evidence.parentHash] = blk
+        state.forkChoiceIds[evidence.parentHash][blockId] = blk
             .spec
             .nextForkChoiceId;
 
@@ -184,7 +184,7 @@ library LibProving {
         }
 
         TaikoData.Block storage blk = state.blocks[id % maxNumBlocks];
-        uint256 fcId = state.forkChoiceIds[id][parentHash];
+        uint256 fcId = state.forkChoiceIds[parentHash][id];
         if (fcId >= blk.spec.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
 
         return blk.forkChoices[fcId];

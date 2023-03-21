@@ -61,7 +61,7 @@ library LibVerifying {
         while (i < state.nextBlockId && processed < maxBlocks) {
             TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
 
-            uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
+            uint256 fcId = state.forkChoiceIds[chainData.blockHash][i];
 
             if (blk.spec.nextForkChoiceId <= fcId) {
                 break;
