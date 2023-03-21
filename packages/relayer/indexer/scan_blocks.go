@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,8 +18,12 @@ func scanBlocks(ctx context.Context, ethClient ethClient, chainID *big.Int) {
 
 	for {
 		select {
-		case err := <-sub.Err():
-			log.Fatal(err)
+		case <-sub.Err():
+			relayer.BlocksScannedError.Inc()
+
+			scanBlocks(ctx, ethClient, chainID)
+
+			return
 		case <-headers:
 			relayer.BlocksScanned.Inc()
 		}

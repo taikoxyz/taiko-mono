@@ -18,6 +18,10 @@ var (
 		Name: "blocks_scanned_ops_total",
 		Help: "The total number of scanned blocks. Acts as heartbeat metric.",
 	})
+	BlocksScannedError = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "blocks_scanned_error_ops_total",
+		Help: "The total number of scanned block errors.",
+	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
 		Help: "The total number of processed events that ended up in Retriable status",
