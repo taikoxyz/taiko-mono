@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {ChainData} from "../common/IXchainSync.sol";
-
 library TaikoData {
     struct FeeConfig {
         uint16 avgTimeMAF;
@@ -97,18 +95,30 @@ library TaikoData {
     }
 
     struct ForkChoice {
-        ChainData chainData;
+        bytes32 blockHash;
+        bytes32 signalRoot;
         address prover;
         uint64 provenAt;
     }
 
     // 3 slots
-    struct ProposedBlock {
+    struct BlockSpec {
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
         uint24 nextForkChoiceId;
+    }
+
+    struct Block {
+        BlockSpec spec;
+        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+    }
+
+    struct ChainData {
+        uint64 blockId;
+        bytes32 blockHash;
+        bytes32 signalRoot;
     }
 
     // This struct takes 9 slots.
@@ -118,13 +128,14 @@ library TaikoData {
     }
 
     struct State {
-        mapping(uint256 blockId => ProposedBlock) blocks;
+        // Ring buffer for proposed but unverified blocks
+        mapping(uint256 blockId_mode_maxNumBlocks => Block) blocks;
+        // Ring buffer big enough to cache the last verified block's hash and
+        // signal root for long enough.
+        mapping(uint256 blockId_mode_blockHashHistory => ChainData) chainData;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
-        mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
-        // solhint-disable-next-line max-line-length
-        mapping(uint256 blockNumber => ChainData) l2ChainDatas;
-        mapping(address prover => uint256 balance) balances;
+        mapping(address account => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed
         uint64 genesisHeight;

@@ -10,12 +10,6 @@ title: TaikoL1
 struct TaikoData.State state
 ```
 
-### onlyFromEOA
-
-```solidity
-modifier onlyFromEOA()
-```
-
 ### init
 
 ```solidity
@@ -40,7 +34,7 @@ Propose a Taiko L2 block.
 ### proveBlock
 
 ```solidity
-function proveBlock(uint256 blockId, bytes evidence) external
+function proveBlock(uint256 blockId, bytes input) external
 ```
 
 Prove a block is valid with a zero-knowledge proof, a transaction
@@ -48,10 +42,10 @@ merkel proof, and a receipt merkel proof.
 
 #### Parameters
 
-| Name     | Type    | Description                                                                                    |
-| -------- | ------- | ---------------------------------------------------------------------------------------------- |
-| blockId  | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
-| evidence | bytes   | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
+| Name    | Type    | Description                                                                                    |
+| ------- | ------- | ---------------------------------------------------------------------------------------------- |
+| blockId | uint256 | The index of the block to prove. This is also used to select the right implementation version. |
+| input   | bytes   | An abi-encoded TaikoData.ValidBlockEvidence object.                                            |
 
 ### verifyBlocks
 
@@ -97,10 +91,10 @@ function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAm
 function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
 ```
 
-### getProposedBlock
+### getBlock
 
 ```solidity
-function getProposedBlock(uint256 id) public view returns (struct TaikoData.ProposedBlock)
+function getBlock(uint256 id) public view returns (struct TaikoData.BlockSpec)
 ```
 
 ### getForkChoice
@@ -112,43 +106,14 @@ function getForkChoice(uint256 id, bytes32 parentHash) public view returns (stru
 ### getXchainBlockHash
 
 ```solidity
-function getXchainBlockHash(uint256 number) public view returns (bytes32)
+function getXchainBlockHash(uint256 blockId) public view returns (bytes32)
 ```
-
-Returns the cross-chain block hash at the given block number.
-
-#### Parameters
-
-| Name   | Type    | Description                                   |
-| ------ | ------- | --------------------------------------------- |
-| number | uint256 | The block number. Use 0 for the latest block. |
-
-#### Return Values
-
-| Name | Type    | Description                 |
-| ---- | ------- | --------------------------- |
-| [0]  | bytes32 | The cross-chain block hash. |
 
 ### getXchainSignalRoot
 
 ```solidity
-function getXchainSignalRoot(uint256 number) public view returns (bytes32)
+function getXchainSignalRoot(uint256 blockId) public view returns (bytes32)
 ```
-
-Returns the cross-chain signal service storage root at the given
-block number.
-
-#### Parameters
-
-| Name   | Type    | Description                                   |
-| ------ | ------- | --------------------------------------------- |
-| number | uint256 | The block number. Use 0 for the latest block. |
-
-#### Return Values
-
-| Name | Type    | Description                                  |
-| ---- | ------- | -------------------------------------------- |
-| [0]  | bytes32 | The cross-chain signal service storage root. |
 
 ### getStateVariables
 

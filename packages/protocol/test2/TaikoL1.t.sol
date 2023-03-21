@@ -20,6 +20,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         returns (TaikoData.Config memory config)
     {
         config = TaikoConfig.getConfig();
+
         config.enableTokenomics = true;
         config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
@@ -29,6 +30,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
         config.maxNumBlocks = 11;
+        config.blockHashHistory = 40;
         // this value must be changed if `maxNumBlocks` is changed.
         config.slotSmoothingFactor = 4160;
         config.anchorTxGasLimit = 180000;

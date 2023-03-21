@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {
@@ -21,18 +20,19 @@ library LibUtils {
 
     function getL2ChainData(
         TaikoData.State storage state,
-        uint256 number,
+        uint256 blockId,
         uint256 blockHashHistory
-    ) internal view returns (ChainData storage) {
-        uint256 _number = number;
-        if (_number == 0) {
-            _number = state.lastBlockId;
+    ) internal view returns (TaikoData.ChainData storage chainData) {
+        uint256 _blockId = blockId;
+        if (_blockId == 0) {
+            _blockId = state.lastBlockId;
         } else if (
-            _number + blockHashHistory <= state.lastBlockId ||
-            _number > state.lastBlockId
+            _blockId + blockHashHistory <= state.lastBlockId ||
+            _blockId > state.lastBlockId
         ) revert L1_BLOCK_NUMBER();
 
-        return state.l2ChainDatas[_number % blockHashHistory];
+        chainData = state.chainData[_blockId % blockHashHistory];
+        if (chainData.blockId != blockId) revert L1_BLOCK_NUMBER();
     }
 
     function getStateVariables(

@@ -25,12 +25,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     TaikoData.State public state;
     uint256[100] private __gap;
 
-    modifier onlyFromEOA() {
-        // solhint-disable-next-line avoid-tx-origin
-        if (msg.sender != tx.origin) revert L1_CONTRACT_NOT_ALLOWED();
-        _;
-    }
-
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
@@ -59,7 +53,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external onlyFromEOA nonReentrant {
+    ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -83,20 +77,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param evidence An abi-encoded TaikoData.ValidBlockEvidence object.
+     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
         uint256 blockId,
-        bytes calldata evidence
-    ) external onlyFromEOA nonReentrant {
+        bytes calldata input
+    ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
             state: state,
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: abi.decode(evidence, (TaikoData.BlockEvidence))
+            evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
@@ -111,7 +105,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      * Verify up to N blocks.
      * @param maxBlocks Max number of blocks to verify.
      */
-    function verifyBlocks(uint256 maxBlocks) external onlyFromEOA nonReentrant {
+    function verifyBlocks(uint256 maxBlocks) external nonReentrant {
         if (maxBlocks == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks({
             state: state,
@@ -157,7 +151,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getBlock(
         uint256 id
-    ) public view returns (TaikoData.ProposedBlock memory) {
+    ) public view returns (TaikoData.BlockSpec memory) {
         return LibProposing.getBlock(state, getConfig().maxNumBlocks, id);
     }
 
@@ -175,20 +169,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getXchainBlockHash(
-        uint256 number
+        uint256 blockId
     ) public view override returns (bytes32) {
         return
-            state
-                .getL2ChainData(number, getConfig().blockHashHistory)
+            LibUtils
+                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
                 .blockHash;
     }
 
     function getXchainSignalRoot(
-        uint256 number
+        uint256 blockId
     ) public view override returns (bytes32) {
         return
-            state
-                .getL2ChainData(number, getConfig().blockHashHistory)
+            LibUtils
+                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
                 .signalRoot;
     }
 

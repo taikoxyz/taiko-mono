@@ -4,6 +4,15 @@ title: TaikoL2
 
 ## TaikoL2
 
+### ChainData
+
+```solidity
+struct ChainData {
+  bytes32 blockHash;
+  bytes32 signalRoot;
+}
+```
+
 ### latestSyncedL1Height
 
 ```solidity

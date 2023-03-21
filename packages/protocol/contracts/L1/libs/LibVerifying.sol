@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -22,7 +21,11 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
+    event XchainSynced(
+        uint256 indexed srcHeight,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
 
     function init(
         TaikoData.State storage state,
@@ -37,8 +40,7 @@ library LibVerifying {
         state.feeBaseTwei = feeBaseTwei;
         state.nextBlockId = 1;
 
-        ChainData memory chainData = ChainData(genesisBlockHash, 0);
-        state.l2ChainDatas[0] = chainData;
+        state.chainData[0].blockHash = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -48,10 +50,11 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        ChainData memory chainData = state.l2ChainDatas[
-            state.lastBlockId % config.blockHashHistory
-        ];
+        bytes32 blockHash = state
+            .chainData[state.lastBlockId % config.blockHashHistory]
+            .blockHash;
 
+        bytes32 signalRoot;
         uint64 processed;
         uint256 i;
         unchecked {
@@ -59,32 +62,28 @@ library LibVerifying {
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.ProposedBlock storage proposal = state.blocks[
-                i % config.maxNumBlocks
-            ];
+            TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
 
-            uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
+            uint256 fcId = state.forkChoiceIds[i][blockHash];
 
-            if (proposal.nextForkChoiceId <= fcId) {
+            if (blk.spec.nextForkChoiceId <= fcId) {
                 break;
             }
 
-            TaikoData.ForkChoice storage fc = state.forkChoices[
-                i % config.maxNumBlocks
-            ][fcId];
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
             if (fc.prover == address(0)) {
                 break;
             }
 
-            chainData = _markBlockVerified({
+            (blockHash, signalRoot) = _markBlockVerified({
                 state: state,
                 config: config,
                 fc: fc,
-                proposal: proposal
+                spec: blk.spec
             });
 
-            emit BlockVerified(i, chainData.blockHash);
+            emit BlockVerified(i, blockHash);
 
             unchecked {
                 ++i;
@@ -101,11 +100,11 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            state.l2ChainDatas[
+            state.chainData[
                 state.lastBlockId % config.blockHashHistory
-            ] = chainData;
+            ] = TaikoData.ChainData(state.lastBlockId, blockHash, signalRoot);
 
-            emit XchainSynced(state.lastBlockId, chainData);
+            emit XchainSynced(state.lastBlockId, blockHash, signalRoot);
         }
     }
 
@@ -113,15 +112,15 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage proposal
-    ) private returns (ChainData memory chainData) {
+        TaikoData.BlockSpec storage spec
+    ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
                 .getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
-                    proposedAt: proposal.proposedAt
+                    proposedAt: spec.proposedAt
                 });
 
             // reward the prover
@@ -130,9 +129,9 @@ library LibVerifying {
             // refund proposer deposit for valid blocks
             unchecked {
                 // tRelBp in [0-10000]
-                amount = (proposal.deposit * (10000 - tRelBp)) / 10000;
+                amount = (spec.deposit * (10000 - tRelBp)) / 10000;
             }
-            _addToBalance(state, proposal.proposer, amount);
+            _addToBalance(state, spec.proposer, amount);
 
             // Update feeBase and avgProofTime
             state.feeBaseTwei = LibUtils
@@ -146,7 +145,7 @@ library LibVerifying {
 
         uint proofTime;
         unchecked {
-            proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
+            proofTime = (fc.provenAt - spec.proposedAt) * 1000;
         }
         state.avgProofTime = LibUtils
             .movingAverage({
@@ -156,13 +155,15 @@ library LibVerifying {
             })
             .toUint64();
 
-        chainData = fc.chainData;
-        proposal.nextForkChoiceId = 1;
+        blockHash = fc.blockHash;
+        signalRoot = fc.signalRoot;
+
+        spec.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
-        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.blockHash = bytes32(uint256(1)); // none-zero placeholder
+        fc.signalRoot = bytes32(uint256(1)); // none-zero placeholder
         fc.provenAt = 1; // none-zero placeholder
         fc.prover = address(0);
     }
