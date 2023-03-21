@@ -12,16 +12,6 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
 import { providersMap } from '../provider/providers';
 
-// TODO: this will disappear the moment we make
-//       chainIdToTokenVaultAddres a service
-jest.mock('svelte/store', () => ({
-  ...jest.requireActual('svelte/store'),
-  get: function () {
-    // chainIdToTokenVaultAddress
-    return new Map<number, string>().set(mainnetChain.id, '0x12345');
-  },
-}));
-
 const mockContract = {
   canonicalToBridged: jest.fn(),
 };

@@ -5,11 +5,7 @@
   import { token } from '../../store/token';
   import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    activeBridge,
-    chainIdToTokenVaultAddress,
-    bridgeType,
-  } from '../../store/bridge';
+  import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee.svelte';
@@ -29,7 +25,7 @@
   import Memo from './Memo.svelte';
   import { errorToast, successToast } from '../../utils/toast';
   import ERC20 from '../../constants/abi/ERC20';
-  import TokenVault from '../../constants/abi/TokenVault';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
@@ -40,6 +36,7 @@
   import { ETHToken } from '../../token/tokens';
   import { chainsRecord } from '../../chain/chains';
   import { providersMap } from '../../provider/providers';
+  import { tokenVaultsMap } from '../../vault/tokenVaults';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -67,8 +64,8 @@
       ).address;
 
       const tokenVault = new Contract(
-        $chainIdToTokenVaultAddress.get($fromChain.id),
-        TokenVault,
+        tokenVaultsMap.get($fromChain.id),
+        TokenVaultABI,
         $signer,
       );
 
@@ -132,7 +129,7 @@
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
-      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
+      spenderAddress: tokenVaultsMap.get(fromChain.id),
     });
     return allowance;
   }
@@ -175,7 +172,7 @@
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
-        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        spenderAddress: tokenVaultsMap.get($fromChain.id),
       });
 
       pendingTransactions.update((store) => {
@@ -232,9 +229,7 @@
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = providersMap.get($toChain.id);
-      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
-        $toChain.id,
-      );
+      const destTokenVaultAddress = tokenVaultsMap.get($toChain.id);
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -250,7 +245,7 @@
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        tokenVaultAddress: tokenVaultsMap.get($fromChain.id),
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -328,7 +323,7 @@
           tokenAddress: await addrForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
-          tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+          tokenVaultAddress: tokenVaultsMap.get($fromChain.id),
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),

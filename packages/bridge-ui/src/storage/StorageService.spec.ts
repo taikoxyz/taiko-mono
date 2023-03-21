@@ -70,10 +70,6 @@ const mockQuery = [mockEvent];
 
 const mockErc20Query = [mockErc20Event];
 
-jest.mock('../store/bridge', () => ({
-  chainIdToTokenVaultAddress: jest.fn(),
-}));
-
 jest.mock('svelte/store', () => ({
   get: function () {
     return {

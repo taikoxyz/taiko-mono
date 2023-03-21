@@ -4,7 +4,6 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
-  import { chainIdToTokenVaultAddress } from '../store/bridge';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
@@ -25,6 +24,7 @@
   import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
   import { providersMap } from '../provider/providers';
   import { bridgesMap } from '../bridge/bridges';
+  import { tokenVaultsMap } from '../vault/tokenVaults';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
@@ -135,9 +135,7 @@
           destBridgeAddress: chainsRecord[bridgeTx.toChainId].bridgeAddress,
           srcBridgeAddress: chainsRecord[bridgeTx.fromChainId].bridgeAddress,
           destProvider: providersMap.get(bridgeTx.toChainId),
-          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(
-            bridgeTx.fromChainId,
-          ),
+          srcTokenVaultAddress: tokenVaultsMap.get(bridgeTx.fromChainId),
         });
 
       pendingTransactions.update((store) => {
@@ -187,7 +185,7 @@
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
-            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
+            tokenVaultsMap.get(transaction.fromChainId),
             TokenVaultABI,
             providersMap.get(chainsRecord[transaction.fromChainId].id),
           );

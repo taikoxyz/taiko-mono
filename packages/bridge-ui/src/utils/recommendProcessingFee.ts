@@ -1,12 +1,11 @@
 import { BigNumber, Contract, ethers, Signer } from 'ethers';
-import { get } from 'svelte/store';
-import TokenVault from '../constants/abi/TokenVault';
+import TokenVaultABI from '../constants/abi/TokenVault';
 import type { Chain } from '../domain/chain';
 import type { ProcessingFeeMethod } from '../domain/fee';
 import type { Token } from '../domain/token';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { ETHToken } from '../token/tokens';
 import { providersMap } from '../provider/providers';
+import { tokenVaultsMap } from '../vault/tokenVaults';
 
 export const ethGasLimit = 900000;
 export const erc20NotDeployedGasLimit = 3100000;
@@ -36,10 +35,9 @@ export async function recommendProcessingFee(
       ).address;
     }
 
-    const chainIdsToTokenVault = get(chainIdToTokenVaultAddress);
     const tokenVault = new Contract(
-      chainIdsToTokenVault.get(fromChain.id),
-      TokenVault,
+      tokenVaultsMap.get(fromChain.id),
+      TokenVaultABI,
       signer,
     );
 

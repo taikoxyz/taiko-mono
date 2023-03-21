@@ -13,7 +13,6 @@
 
   import Home from './pages/home/Home.svelte';
   import { setupI18n } from './i18n';
-  import { chainIdToTokenVaultAddress } from './store/bridge';
   import {
     pendingTransactions,
     transactioner,
@@ -37,12 +36,6 @@
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
-  import {
-    L1_CHAIN_ID,
-    L1_TOKEN_VAULT_ADDRESS,
-    L2_CHAIN_ID,
-    L2_TOKEN_VAULT_ADDRESS,
-  } from './constants/envVars';
   import {
     chainsRecord,
     mainnetWagmiChain,
@@ -82,12 +75,6 @@
         },
       }),
     ],
-  });
-
-  chainIdToTokenVaultAddress.update((store) => {
-    store.set(L2_CHAIN_ID, L2_TOKEN_VAULT_ADDRESS);
-    store.set(L1_CHAIN_ID, L1_TOKEN_VAULT_ADDRESS);
-    return store;
   });
 
   const storageTransactioner: Transactioner = new StorageService(

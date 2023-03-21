@@ -2,12 +2,10 @@ import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
 import Bridge from '../constants/abi/Bridge';
 import ERC20 from '../constants/abi/ERC20';
-import TokenVault from '../constants/abi/TokenVault';
+import TokenVaultABI from '../constants/abi/TokenVault';
 import { MessageStatus } from '../domain/message';
 
 import type { BridgeTransaction } from '../domain/transactions';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
-import { get } from 'svelte/store';
 import type {
   APIRequestParams,
   APIResponse,
@@ -16,6 +14,7 @@ import type {
   RelayerBlockInfo,
 } from '../domain/relayerApi';
 import { chainsRecord } from '../chain/chains';
+import { tokenVaultsMap } from '../vault/tokenVaults';
 
 export class RelayerAPIService implements RelayerAPI {
   private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
@@ -132,8 +131,8 @@ export class RelayerAPIService implements RelayerAPI {
         let symbol: string;
         if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
           const tokenVaultContract = new Contract(
-            get(chainIdToTokenVaultAddress).get(tx.fromChainId),
-            TokenVault,
+            tokenVaultsMap.get(tx.fromChainId),
+            TokenVaultABI,
             srcProvider,
           );
           const filter = tokenVaultContract.filters.ERC20Sent(msgHash);

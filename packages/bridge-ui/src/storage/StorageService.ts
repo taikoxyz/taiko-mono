@@ -2,11 +2,11 @@ import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
 import BridgeABI from '../constants/abi/Bridge';
 import TokenVaultABI from '../constants/abi/TokenVault';
-import { chainIdToTokenVaultAddress } from '../store/bridge';
 import { get } from 'svelte/store';
 import ERC20 from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
 import { chainsRecord } from '../chain/chains';
+import { tokenVaultsMap } from '../vault/tokenVaults';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
@@ -94,7 +94,7 @@ export class StorageService implements Transactioner {
           let symbol: string;
           if (event.args.message.data !== '0x') {
             const tokenVaultContract = new Contract(
-              get(chainIdToTokenVaultAddress).get(tx.fromChainId),
+              tokenVaultsMap.get(tx.fromChainId),
               TokenVaultABI,
               srcProvider,
             );
@@ -209,7 +209,7 @@ export class StorageService implements Transactioner {
     let symbol: string;
     if (event.args.message.data !== '0x') {
       const tokenVaultContract = new Contract(
-        get(chainIdToTokenVaultAddress).get(tx.fromChainId),
+        tokenVaultsMap.get(tx.fromChainId),
         TokenVaultABI,
         srcProvider,
       );
