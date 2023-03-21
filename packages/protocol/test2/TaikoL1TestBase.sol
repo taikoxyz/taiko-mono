@@ -75,18 +75,17 @@ abstract contract TaikoL1TestBase is Test {
     function proposeBlock(
         address proposer,
         uint24 txListSize
-    ) internal returns (TaikoData.BlockMetadata memory meta) {
+    ) internal returns (TaikoData.Metadata memory meta) {
         uint32 gasLimit = 1000000;
         bytes memory txList = new bytes(txListSize);
-        TaikoData.BlockMetadataInput memory input = TaikoData
-            .BlockMetadataInput({
-                beneficiary: proposer,
-                gasLimit: gasLimit,
-                txListHash: keccak256(txList),
-                txListByteStart: 0,
-                txListByteEnd: txListSize,
-                cacheTxListInfo: 0
-            });
+        TaikoData.MetadataInput memory input = TaikoData.MetadataInput({
+            beneficiary: proposer,
+            gasLimit: gasLimit,
+            txListHash: keccak256(txList),
+            txListByteStart: 0,
+            txListByteEnd: txListSize,
+            cacheTxListInfo: 0
+        });
 
         TaikoData.StateVariables memory variables = L1.getStateVariables();
 
@@ -110,7 +109,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.Metadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 signalRoot
@@ -120,7 +119,7 @@ abstract contract TaikoL1TestBase is Test {
             verifierId: 100
         });
 
-        TaikoData.BlockEvidence memory evidence = TaikoData.BlockEvidence({
+        TaikoData.Evidence memory evidence = TaikoData.Evidence({
             meta: meta,
             zkproof: zkproof,
             parentHash: parentHash,

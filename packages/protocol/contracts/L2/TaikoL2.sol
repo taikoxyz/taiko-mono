@@ -17,9 +17,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     // Mapping from L2 block numbers to their block hashes.
     // All L2 block hashes will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
+    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
 
-    mapping(uint256 blockNumber => ChainData) private _l1ChainData;
+    mapping(uint256 blockId => ChainData) private _l1ChainData;
 
     // A hash to check te integrity of public inputs.
     bytes32 private _publicInputHash;

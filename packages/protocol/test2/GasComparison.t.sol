@@ -15,19 +15,19 @@ struct MyStruct {
 }
 
 contract FooBar {
-    function loadBlockMetadata_1(bytes memory data) public {
+    function loadMetadata_1(bytes memory data) public {
         MyStruct memory meta = abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_2(bytes calldata data) public {
+    function loadMetadata_2(bytes calldata data) public {
         MyStruct memory meta = abi.decode(data, (MyStruct));
     }
 
-    function loadBlockMetadata_3(MyStruct memory data) public {}
+    function loadMetadata_3(MyStruct memory data) public {}
 
-    function loadBlockMetadata_4(MyStruct calldata data) public {}
+    function loadMetadata_4(MyStruct calldata data) public {}
 
-    function loadBlockMetadata_5(bytes calldata data) public {
+    function loadMetadata_5(bytes calldata data) public {
         MyStruct memory meta;
         meta.id = uint256(bytes32(data[0:32]));
         meta.l1Height = uint256(bytes32(data[32:64]));
@@ -36,7 +36,7 @@ contract FooBar {
         meta.timestamp = uint64(bytes8(data[104:112]));
     }
 
-    function loadBlockMetadata_6() public {
+    function loadMetadata_6() public {
         MyStruct memory meta;
         uint256 a;
         assembly {
@@ -63,8 +63,8 @@ contract FooBar {
         meta.timestamp = uint64(uint256((a << (128 + 64)) >> (128 + 64)));
     }
 
-    function return_1() public returns (TaikoData.BlockMetadata memory meta) {
-        meta = TaikoData.BlockMetadata({
+    function return_1() public returns (TaikoData.Metadata memory meta) {
+        meta = TaikoData.Metadata({
             id: 1,
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
@@ -79,7 +79,7 @@ contract FooBar {
     }
 
     function return_2() public {
-        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
+        TaikoData.Metadata memory meta = TaikoData.Metadata({
             id: 1,
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
@@ -235,10 +235,10 @@ contract GasComparisonTest is Test {
         });
         {
             bytes memory b = abi.encode(meta);
-            foobar.loadBlockMetadata_1(b);
-            foobar.loadBlockMetadata_2(b);
-            foobar.loadBlockMetadata_3(meta);
-            foobar.loadBlockMetadata_4(meta); // best
+            foobar.loadMetadata_1(b);
+            foobar.loadMetadata_2(b);
+            foobar.loadMetadata_3(meta);
+            foobar.loadMetadata_4(meta); // best
         }
         {
             bytes memory b = bytes.concat(
@@ -249,12 +249,9 @@ contract GasComparisonTest is Test {
                 bytes8(meta.timestamp)
             );
 
-            foobar.loadBlockMetadata_5(b);
+            foobar.loadMetadata_5(b);
 
-            bytes memory c = bytes.concat(
-                FooBar.loadBlockMetadata_6.selector,
-                b
-            );
+            bytes memory c = bytes.concat(FooBar.loadMetadata_6.selector, b);
 
             address(foobar).call(c);
         }

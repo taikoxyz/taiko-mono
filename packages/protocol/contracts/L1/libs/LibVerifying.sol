@@ -61,9 +61,9 @@ library LibVerifying {
         while (i < state.nextBlockId && processed < maxBlocks) {
             TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
 
-            uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
+            uint256 fcId = state.forkChoiceIds[chainData.blockHash][i];
 
-            if (blk.spec.nextForkChoiceId <= fcId) {
+            if (blk.provision.nextForkChoiceId <= fcId) {
                 break;
             }
 
@@ -77,7 +77,7 @@ library LibVerifying {
                 state: state,
                 config: config,
                 fc: fc,
-                spec: blk.spec
+                spec: blk.provision
             });
 
             emit BlockVerified(i, chainData.blockHash);
@@ -109,7 +109,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.BlockSpec storage spec
+        TaikoData.Provision storage spec
     ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
