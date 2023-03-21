@@ -68,7 +68,7 @@ library TaikoData {
 
     // 5 slots
     struct BlockMetadata {
-        uint64 blockId;
+        uint64 id;
         uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;

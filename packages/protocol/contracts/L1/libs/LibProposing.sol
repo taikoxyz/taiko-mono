@@ -111,7 +111,7 @@ library LibProposing {
         }
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
-            blockId: state.nextBlockId,
+            id: state.nextBlockId,
             gasLimit: input.gasLimit,
             timestamp: timeNow,
             l1Height: uint64(block.number - 1),

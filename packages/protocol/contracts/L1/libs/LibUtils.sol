@@ -68,7 +68,7 @@ library LibUtils {
     ) internal pure returns (bytes32 hash) {
         bytes32[5] memory inputs;
         inputs[0] =
-            bytes32(uint256(meta.blockId) << 192) |
+            bytes32(uint256(meta.id) << 192) |
             bytes32(uint256(meta.gasLimit) << 128) |
             bytes32(uint256(meta.timestamp) << 64) |
             bytes32(uint256(meta.l1Height));
