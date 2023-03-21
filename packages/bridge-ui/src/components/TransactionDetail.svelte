@@ -5,6 +5,7 @@
   import Modal from './modals/Modal.svelte';
   import type { BridgeTransaction } from '../domain/transactions';
   import { chainsRecord } from '../chain/chains';
+  import { addressSubsection } from '../utils/addressSubsection';
 
   // TODO: can we always guarantee that this object is defined?
   //       in which case we need to guard => transaction?.prop
@@ -25,7 +26,7 @@
           href={`${chainsRecord[transaction.fromChainId].explorerUrl}/tx/${
             transaction.hash
           }`}>
-          <span class="mr-2">{truncateString(transaction.hash)}</span>
+          <span class="mr-1">{addressSubsection(transaction.hash)}</span>
           <ArrowTopRightOnSquare />
         </a>
       </td>
@@ -34,19 +35,19 @@
       <tr>
         <td>Sender</td>
         <td class="text-right">
-          {truncateString(transaction.message.sender)}
+          {addressSubsection(transaction.message.sender)}
         </td>
       </tr>
       <tr>
         <td>Owner</td>
         <td class="text-right">
-          {truncateString(transaction.message.owner)}
+          {addressSubsection(transaction.message.owner)}
         </td>
       </tr>
       <tr>
         <td>Refund Address</td>
         <td class="text-right">
-          {truncateString(transaction.message.refundAddress)}
+          {addressSubsection(transaction.message.refundAddress)}
         </td>
       </tr>
       {#if transaction.message.callValue}
