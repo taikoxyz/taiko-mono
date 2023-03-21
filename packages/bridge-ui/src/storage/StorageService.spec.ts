@@ -11,6 +11,7 @@ const mockStorage = {
 
 const mockProvider = {
   getTransactionReceipt: jest.fn(),
+  waitForTransaction: jest.fn(),
 };
 
 const mockContract = {
@@ -284,5 +285,58 @@ describe('storage tests', () => {
         toChainId: L2_CHAIN_ID,
       },
     ]);
+  });
+
+  it('get transaction by hash', async () => {
+    mockStorage.getItem.mockImplementation(() => {
+      return JSON.stringify(mockTxs);
+    });
+
+    mockProvider.getTransactionReceipt.mockImplementation(() => {
+      return mockTxReceipt;
+    });
+
+    mockProvider.waitForTransaction.mockImplementation(() => {
+      return;
+    });
+
+    mockContract.getMessageStatus.mockImplementation(() => {
+      return MessageStatus.New;
+    });
+
+    mockContract.queryFilter.mockImplementation(
+      (name: string, from: BigNumberish, to: BigNumberish) => {
+        if (name === 'ERC20Sent') {
+          return mockErc20Query;
+        }
+
+        return mockQuery;
+      },
+    );
+
+    mockContract.symbol.mockImplementation(() => {
+      return TKOToken.symbol;
+    });
+
+    const svc = new StorageService(mockStorage as any, providerMap);
+
+    const addresses = await svc.GetTransactionByHash('0x123', mockTx.hash);
+
+    expect(addresses).toEqual({
+      amountInWei: BigNumber.from(0x64),
+      hash: '0x123',
+      from: '0x123',
+      message: {
+        owner: '0x123',
+      },
+      receipt: {
+        blockNumber: 1,
+      },
+      msgHash: '0x456',
+      status: 0,
+      fromChainId: L1_CHAIN_ID,
+      toChainId: L2_CHAIN_ID,
+      symbol: 'TKO',
+    });
   });
 });

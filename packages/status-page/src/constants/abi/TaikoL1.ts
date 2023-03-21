@@ -1,17 +1,226 @@
 export default [
   {
+    inputs: [],
+    name: "L1_0_FEE_BASE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_0_FEE_BASE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ALREADY_PROVEN",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_CALLDATA",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_DEST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_GAS_LIMIT",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_ADDR",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_DATA",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_LOGS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_STATUS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_RECEIPT_TOPICS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_SIG_R",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_SIG_S",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_TX_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ANCHOR_TYPE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_BLOCK_NUMBER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_BLOCK_NUMBER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_CANNOT_BE_FIRST_PROVER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_COMMITTED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_CONFLICT_PROOF",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_CONTRACT_NOT_ALLOWED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_DUP_PROVERS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_EXTRA_DATA",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_GAS_LIMIT",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ID",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ID",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INPUT_SIZE",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_CONFIG",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_CONFIG",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_INVALID_PARAM",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_METADATA_FIELD",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_META_MISMATCH",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_NOT_COMMITTED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_NOT_ORACLE_PROVER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_PROOF_LENGTH",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_PROVER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_SOLO_PROPOSER",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TOO_MANY_BLOCKS",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_TX_LIST",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "L1_ZKP",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "RESOLVER_DENIED",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "RESOLVER_INVALID_ADDR",
+    type: "error",
+  },
+  {
     anonymous: false,
     inputs: [
       {
         indexed: false,
         internalType: "uint64",
         name: "commitSlot",
-        type: "uint64",
-      },
-      {
-        indexed: false,
-        internalType: "uint64",
-        name: "commitHeight",
         type: "uint64",
       },
       {
@@ -123,21 +332,15 @@ export default [
       },
       {
         indexed: false,
-        internalType: "uint64",
-        name: "timestamp",
-        type: "uint64",
+        internalType: "address",
+        name: "prover",
+        type: "address",
       },
       {
         indexed: false,
         internalType: "uint64",
         name: "provenAt",
         type: "uint64",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "prover",
-        type: "address",
       },
     ],
     name: "BlockProven",
@@ -165,25 +368,6 @@ export default [
   {
     anonymous: false,
     inputs: [
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "halted",
-        type: "bool",
-      },
-    ],
-    name: "Halted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "height",
-        type: "uint256",
-      },
       {
         indexed: true,
         internalType: "uint256",
@@ -299,22 +483,12 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "zkProofsPerBlock",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
             name: "maxVerificationsPerTx",
             type: "uint256",
           },
           {
             internalType: "uint256",
             name: "commitConfirmations",
-            type: "uint256",
-          },
-          {
-            internalType: "uint256",
-            name: "maxProofsPerForkChoice",
             type: "uint256",
           },
           {
@@ -344,7 +518,7 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "feePremiumLamda",
+            name: "slotSmoothingFactor",
             type: "uint256",
           },
           {
@@ -403,11 +577,6 @@ export default [
             type: "uint64",
           },
           {
-            internalType: "uint64",
-            name: "initialUncleDelay",
-            type: "uint64",
-          },
-          {
             internalType: "bool",
             name: "enableTokenomics",
             type: "bool",
@@ -420,11 +589,6 @@ export default [
           {
             internalType: "bool",
             name: "enableAnchorValidation",
-            type: "bool",
-          },
-          {
-            internalType: "bool",
-            name: "enableOracleProver",
             type: "bool",
           },
         ],
@@ -459,14 +623,14 @@ export default [
             type: "bytes32",
           },
           {
+            internalType: "address",
+            name: "prover",
+            type: "address",
+          },
+          {
             internalType: "uint64",
             name: "provenAt",
             type: "uint64",
-          },
-          {
-            internalType: "address[]",
-            name: "provers",
-            type: "address[]",
           },
         ],
         internalType: "struct TaikoData.ForkChoice",
@@ -556,11 +720,35 @@ export default [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "addr",
+        type: "address",
+      },
+    ],
+    name: "getRewardBalance",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "getStateVariables",
     outputs: [
       {
         components: [
+          {
+            internalType: "uint256",
+            name: "feeBase",
+            type: "uint256",
+          },
           {
             internalType: "uint64",
             name: "genesisHeight",
@@ -570,16 +758,6 @@ export default [
             internalType: "uint64",
             name: "genesisTimestamp",
             type: "uint64",
-          },
-          {
-            internalType: "uint64",
-            name: "statusBits",
-            type: "uint64",
-          },
-          {
-            internalType: "uint256",
-            name: "feeBase",
-            type: "uint256",
           },
           {
             internalType: "uint64",
@@ -642,38 +820,6 @@ export default [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-    ],
-    name: "getUncleProofDelay",
-    outputs: [
-      {
-        internalType: "uint64",
-        name: "",
-        type: "uint64",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bool",
-        name: "toHalt",
-        type: "bool",
-      },
-    ],
-    name: "halt",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "address",
         name: "_addressManager",
         type: "address",
@@ -698,30 +844,6 @@ export default [
     inputs: [
       {
         internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-      {
-        internalType: "bytes32",
-        name: "parentHash",
-        type: "bytes32",
-      },
-    ],
-    name: "isBlockVerifiable",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
         name: "commitSlot",
         type: "uint256",
       },
@@ -737,19 +859,6 @@ export default [
       },
     ],
     name: "isCommitValid",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "isHalted",
     outputs: [
       {
         internalType: "bool",
@@ -937,7 +1046,7 @@ export default [
       },
       {
         internalType: "uint64",
-        name: "statusBits",
+        name: "__reservedA2",
         type: "uint64",
       },
       {
@@ -1011,6 +1120,13 @@ export default [
       },
     ],
     name: "verifyBlocks",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "withdrawBalance",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

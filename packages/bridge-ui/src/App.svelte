@@ -37,7 +37,6 @@
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
   import { providers } from './store/providers';
-  import HeaderAnnouncement from './components/HeaderAnnouncement.svelte';
   import type { TokenService } from './domain/token';
   import { CustomTokenService } from './storage/CustomTokenService';
   import { userTokens, tokenService } from './store/userToken';
@@ -140,13 +139,13 @@
     if (store) {
       const userAddress = await store.getAddress();
 
-      const apiTxs = await $relayerApi.GetAllByAddress(userAddress);
-
+      const apiTxs = await $relayerApi.GetAllBridgeTransactionByAddress(
+        userAddress,
+      );
       const blockInfoMap = await $relayerApi.GetBlockInfo();
       relayerBlockInfoMap.set(blockInfoMap);
 
       const txs = await $transactioner.GetAllByAddress(userAddress);
-
       // const hashToApiTxsMap = new Map(apiTxs.map((tx) => {
       //   return [tx.hash, tx];
       // }))
@@ -160,7 +159,7 @@
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
         const blockInfo = blockInfoMap.get(tx.fromChainId);
-        if (blockInfo?.latestProcessedBlock >= tx.receipt.blockNumber) {
+        if (blockInfo?.latestProcessedBlock >= tx.receipt?.blockNumber) {
           return false;
         }
         return true;
@@ -254,7 +253,6 @@
 
 <QueryProvider>
   <main>
-    <HeaderAnnouncement />
     <Navbar />
     <Router {routes} />
   </main>

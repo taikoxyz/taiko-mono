@@ -22,7 +22,7 @@ func (svc *Service) handleEvent(
 ) error {
 	raw := event.Raw
 
-	log.Infof("event found for msgHash: %v", common.Hash(event.MsgHash).Hex())
+	log.Infof("event found for msgHash: %v, txHash: %v", common.Hash(event.MsgHash).Hex(), event.Raw.TxHash.Hex())
 
 	// handle chain re-org by checking Removed property, no need to
 	// return error, just continue and do not process.

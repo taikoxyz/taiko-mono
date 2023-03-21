@@ -20,6 +20,7 @@ export type Block = {
   uncles: string[];
   baseFeePerGas?: string;
   mixHash: string;
+  withdrawalsRoot?: string;
 };
 
 export type BlockHeader = {
@@ -39,4 +40,5 @@ export type BlockHeader = {
   mixHash: string;
   nonce: number;
   baseFeePerGas: number;
+  withdrawalsRoot: string;
 };
