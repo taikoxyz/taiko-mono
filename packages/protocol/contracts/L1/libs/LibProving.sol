@@ -59,16 +59,16 @@ library LibProving {
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
-        TaikoData.ProposedBlock storage proposal = state.blocks[
+        TaikoData.Block storage proposal = state.blocks[
             meta.id % config.maxNumBlocks
         ];
 
-        if (proposal.metaHash != LibUtils.hashMetadata(meta))
+        if (proposal.spec.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
         TaikoData.ForkChoice storage fc = state.forkChoices[
             blockId % config.maxNumBlocks
-        ][proposal.nextForkChoiceId];
+        ][proposal.spec.nextForkChoiceId];
 
         bool oracleProving;
         if (uint256(fc.chainData.blockHash) <= 1) {
@@ -128,7 +128,7 @@ library LibProving {
                 inputs[4] = evidence.blockHash;
                 inputs[5] = evidence.signalRoot;
                 inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = proposal.metaHash;
+                inputs[7] = proposal.spec.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
@@ -158,10 +158,11 @@ library LibProving {
         }
 
         state.forkChoiceIds[blockId][evidence.parentHash] = proposal
+            .spec
             .nextForkChoiceId;
 
         unchecked {
-            ++proposal.nextForkChoiceId;
+            ++proposal.spec.nextForkChoiceId;
         }
         emit BlockProven({
             id: blockId,
@@ -182,11 +183,9 @@ library LibProving {
             revert L1_ID();
         }
 
-        TaikoData.ProposedBlock storage proposal = state.blocks[
-            id % maxNumBlocks
-        ];
+        TaikoData.BlockSpec storage spec = state.blocks[id % maxNumBlocks].spec;
         uint256 fcId = state.forkChoiceIds[id][parentHash];
-        if (fcId >= proposal.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+        if (fcId >= spec.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
 
         return state.forkChoices[id % maxNumBlocks][fcId];
     }

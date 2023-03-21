@@ -151,7 +151,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getBlock(
         uint256 id
-    ) public view returns (TaikoData.ProposedBlock memory) {
+    ) public view returns (TaikoData.BlockSpec memory) {
         return LibProposing.getBlock(state, getConfig().maxNumBlocks, id);
     }
 

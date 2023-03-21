@@ -59,13 +59,13 @@ library LibVerifying {
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.ProposedBlock storage proposal = state.blocks[
-                i % config.maxNumBlocks
-            ];
+            TaikoData.BlockSpec storage spec = state
+                .blocks[i % config.maxNumBlocks]
+                .spec;
 
             uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
 
-            if (proposal.nextForkChoiceId <= fcId) {
+            if (spec.nextForkChoiceId <= fcId) {
                 break;
             }
 
@@ -81,7 +81,7 @@ library LibVerifying {
                 state: state,
                 config: config,
                 fc: fc,
-                proposal: proposal
+                spec: spec
             });
 
             emit BlockVerified(i, chainData.blockHash);
@@ -113,7 +113,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage proposal
+        TaikoData.BlockSpec storage spec
     ) private returns (ChainData memory chainData) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
@@ -121,7 +121,7 @@ library LibVerifying {
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
-                    proposedAt: proposal.proposedAt
+                    proposedAt: spec.proposedAt
                 });
 
             // reward the prover
@@ -130,9 +130,9 @@ library LibVerifying {
             // refund proposer deposit for valid blocks
             unchecked {
                 // tRelBp in [0-10000]
-                amount = (proposal.deposit * (10000 - tRelBp)) / 10000;
+                amount = (spec.deposit * (10000 - tRelBp)) / 10000;
             }
-            _addToBalance(state, proposal.proposer, amount);
+            _addToBalance(state, spec.proposer, amount);
 
             // Update feeBase and avgProofTime
             state.feeBaseTwei = LibUtils
@@ -146,7 +146,7 @@ library LibVerifying {
 
         uint proofTime;
         unchecked {
-            proofTime = (fc.provenAt - proposal.proposedAt) * 1000;
+            proofTime = (fc.provenAt - spec.proposedAt) * 1000;
         }
         state.avgProofTime = LibUtils
             .movingAverage({
@@ -157,7 +157,7 @@ library LibVerifying {
             .toUint64();
 
         chainData = fc.chainData;
-        proposal.nextForkChoiceId = 1;
+        spec.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
