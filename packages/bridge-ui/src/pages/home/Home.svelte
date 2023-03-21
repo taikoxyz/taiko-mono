@@ -10,12 +10,17 @@
   let bridgeWidth: number;
   let bridgeHeight: number;
 
-  $: activeTab = $location.replace('/', '').startsWith('transactions')
-    ? 'transactions'
-    : 'bridge';
+  // TODO: think about a more general approach here.
+  //       We're assuming we have two tabs. The base location
+  //       corresponds with `bridge` tab => `/`, otherwise we're
+  //       opening the second tab `transactions` => `/transactions`.
+  //       What if we add a new tab?. Also, routes are coupled to
+  //       tab's name. We might want to have this configuration
+  //       somewhere.
+  $: activeTab = $location === '/' ? 'bridge' : 'transactions';
 
   // TODO: do we really need all these tricks to style containers
-  //       Rethink this part: fluid, fixing on small screens
+  //       Rethink this part: fluid, fixing on bigger screens
   $: isBridge = activeTab === 'bridge';
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
