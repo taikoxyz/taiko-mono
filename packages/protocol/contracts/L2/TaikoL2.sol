@@ -22,7 +22,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     mapping(uint256 blockNumber => ChainData) private _l1ChainData;
 
     // A hash to check te integrity of public inputs.
-    bytes32 private publicInputHash;
+    bytes32 public publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
