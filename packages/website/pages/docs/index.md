@@ -14,7 +14,7 @@ Taiko is a fully open source and community driven project, check out the [contri
 
 We're vibing out on Discord, come [join the community](https://discord.gg/taikoxyz)!
 
-## What does "Taiko" mean?
+## But what does "Taiko" mean?
 
 The word "Taiko" comes from an old Chinese saying 一鼓作气 (Yīgǔzuòqì). The literal meaning of the saying is that the first drum beat arouses courage. The implied meaning of the idiom is to accomplish a task or goal in one intense effort.
 

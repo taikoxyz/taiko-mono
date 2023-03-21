@@ -23,14 +23,14 @@
 ## ERC-20 token contracts
 
 **Sepolia**
-| Symbol | Contract address                                                                                                              |
-|--------|-------------------------------------------------------------------------------------------------------------------------------|
-| BULL   | [0x5B9fEDd37f0B92E7E282B19cEbCF06F57B77C604](https://sepolia.etherscan.io/address/0x5B9fEDd37f0B92E7E282B19cEbCF06F57B77C604) |
-| HORSE  | [0x1E8C104D068F22D351859cdBfE41A697A98E6EA2](https://sepolia.etherscan.io/address/0x1E8C104D068F22D351859cdBfE41A697A98E6EA2) |
-| TTKO   | [0xcFB226eE6071aadd9B39460434957FBD4B32Af79](https://sepolia.etherscan.io/address/0xcFB226eE6071aadd9B39460434957FBD4B32Af79) |
+| Name        | Symbol | Contract address                                                                                                              |
+|-------------|--------|-------------------------------------------------------------------------------------------------------------------------------|
+| Bull token  | BLL    | [0x5B9fEDd37f0B92E7E282B19cEbCF06F57B77C604](https://sepolia.etherscan.io/address/0x5B9fEDd37f0B92E7E282B19cEbCF06F57B77C604) |
+| Horse token | HORSE  | [0x1E8C104D068F22D351859cdBfE41A697A98E6EA2](https://sepolia.etherscan.io/address/0x1E8C104D068F22D351859cdBfE41A697A98E6EA2) |
+| Taiko token | TTKO   | [0xcFB226eE6071aadd9B39460434957FBD4B32Af79](https://sepolia.etherscan.io/address/0xcFB226eE6071aadd9B39460434957FBD4B32Af79) |
 
 **Taiko**
-| Symbol | Contract address                                                                                                               |
-|--------|--------------------------------------------------------------------------------------------------------------------------------|
-| BULL   | [0x6048e5ca54c021D39Cd33b63A44980132bcFA66d](https://explorer.a2.taiko.xyz/address/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d) |
-| HORSE  | [0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f](https://explorer.a2.taiko.xyz/address/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f) |
+| Name        | Symbol | Contract address                                                                                                               |
+|-------------|--------|--------------------------------------------------------------------------------------------------------------------------------|
+| Bull token  | BLL    | [0x6048e5ca54c021D39Cd33b63A44980132bcFA66d](https://explorer.a2.taiko.xyz/address/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d) |
+| Horse token | HORSE  | [0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f](https://explorer.a2.taiko.xyz/address/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f) |
