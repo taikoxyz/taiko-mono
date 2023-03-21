@@ -7,14 +7,15 @@ import ERC20 from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
+import type { ChainID } from '../domain/chain';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
-  private readonly providers: Record<string, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
 
   constructor(
     storage: Storage,
-    providers: Record<string, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
   ) {
     this.storage = storage;
     this.providers = providers;

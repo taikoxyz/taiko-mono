@@ -15,14 +15,15 @@ import type {
 } from '../domain/relayerApi';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
+import type { ChainID } from '../domain/chain';
 
 export class RelayerAPIService implements RelayerAPI {
-  private readonly providers: Record<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<ChainID, ethers.providers.JsonRpcProvider>;
   private readonly baseUrl: string;
 
   constructor(
     baseUrl: string,
-    providers: Record<number, ethers.providers.JsonRpcProvider>,
+    providers: Record<ChainID, ethers.providers.JsonRpcProvider>,
   ) {
     this.providers = providers;
     this.baseUrl = baseUrl;
