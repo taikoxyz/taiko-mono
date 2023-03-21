@@ -63,17 +63,9 @@ contract SignalService is ISignalService, EssentialContract {
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool) {
-        if (srcChainId == block.chainid) {
-            revert B_WRONG_CHAIN_ID();
-        }
-
-        if (app == address(0)) {
-            revert B_NULL_APP_ADDR();
-        }
-
-        if (signal == 0) {
-            revert B_ZERO_SIGNAL();
-        }
+        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (app == address(0)) revert B_NULL_APP_ADDR();
+        if (signal == 0) revert B_ZERO_SIGNAL();
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
 
