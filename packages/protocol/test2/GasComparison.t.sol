@@ -176,6 +176,19 @@ contract FooBar {
     ) public view returns (bytes32) {
         return keccak256(abi.encodePacked(chainId, name));
     }
+
+    // ------
+    function send0Ether_check(address to, uint256 amount) public {
+        if (amount > 0) {
+            (bool success, ) = payable(to).call{value: amount}("");
+            require(success, "ETH transfer failed");
+        }
+    }
+
+    function send0Ether_noCheck(address to, uint256 amount) public {
+        (bool success, ) = payable(to).call{value: amount}("");
+        require(success, "ETH transfer failed");
+    }
 }
 
 contract GasComparisonTest is Test {
@@ -242,6 +255,12 @@ contract GasComparisonTest is Test {
             );
 
             address(foobar).call(c);
+        }
+
+        {
+            address to = 0x50081b12838240B1bA02b3177153Bca678a86078;
+            foobar.send0Ether_check(to, 0);
+            foobar.send0Ether_noCheck(to, 0);
         }
     }
 }
