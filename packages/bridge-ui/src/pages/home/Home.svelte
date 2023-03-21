@@ -10,18 +10,18 @@
   let bridgeWidth: number;
   let bridgeHeight: number;
 
-  // TODO: think about a more general approach here.
-  //       We're assuming we have two tabs. The base location
-  //       corresponds with `bridge` tab => `/`, otherwise we're
-  //       opening the second tab `transactions` => `/transactions`.
-  //       What if we add a new tab?. Also, routes are coupled to
-  //       tab's name. We might want to have this configuration
-  //       somewhere.
-  $: activeTab = $location === '/' ? 'bridge' : 'transactions';
+  // Tab's name <=> route association
+  const tabsRoute = [
+    { name: 'bridge', href: '/' },
+    { name: 'transactions', href: '/transactions' },
+    // Add more tabs if needed
+  ];
+
+  $: activeTab = $location === '/' ? tabsRoute[0].name : tabsRoute[1].name;
 
   // TODO: do we really need all these tricks to style containers
   //       Rethink this part: fluid, fixing on bigger screens
-  $: isBridge = activeTab === 'bridge';
+  $: isBridge = activeTab === tabsRoute[0].name;
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
   $: styleInner =
@@ -39,21 +39,24 @@
     class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
     style={styleInner}
     bind:activeTab>
+    {@const tab1 = tabsRoute[0]}
+    {@const tab2 = tabsRoute[1]}
+
     <TabList class="block mb-4">
-      <Tab name="bridge" href="/">Bridge</Tab>
-      <Tab name="transactions" href="/transactions">
+      <Tab name={tab1.name} href={tab1.href}>Bridge</Tab>
+      <Tab name={tab2.name} href={tab2.href}>
         Transactions ({$transactions.length})
       </Tab>
     </TabList>
 
-    <TabPanel tab="bridge">
+    <TabPanel tab={tab1.name}>
       <TaikoBanner />
       <div class="px-4">
         <BridgeForm />
       </div>
     </TabPanel>
 
-    <TabPanel tab="transactions">
+    <TabPanel tab={tab2.name}>
       <Transactions />
     </TabPanel>
   </Tabs>
