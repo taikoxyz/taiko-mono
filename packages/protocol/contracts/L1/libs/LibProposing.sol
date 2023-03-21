@@ -180,7 +180,7 @@ library LibProposing {
         }
     }
 
-    function getProposedBlock(
+    function getBlock(
         TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id

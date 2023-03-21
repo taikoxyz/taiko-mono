@@ -67,10 +67,10 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
         chan.close();
     });
 
-    describe("getProposedBlock()", function () {
+    describe("getBlock()", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
             await readShouldRevertWithCustomError(
-                taikoL1.getProposedBlock(123),
+                taikoL1.getBlock(123),
                 "L1_ID()"
             );
         });
@@ -83,7 +83,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
             );
             expect(proposedEvent).not.to.be.undefined;
 
-            const proposedBlock = await taikoL1.getProposedBlock(
+            const proposedBlock = await taikoL1.getBlock(
                 proposedEvent.args.meta.id
             );
             expect(proposedBlock).not.to.be.undefined;

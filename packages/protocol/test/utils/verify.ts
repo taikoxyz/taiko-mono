@@ -111,7 +111,7 @@ async function proposeProveAndVerify(
     const { args } = provedEvent;
     const { blockHash, id: blockId, parentHash } = args;
 
-    const proposedBlock = await taikoL1.getProposedBlock(
+    const proposedBlock = await taikoL1.getBlock(
         proposedEvent.args.id.toNumber()
     );
 
