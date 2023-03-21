@@ -1,11 +1,12 @@
 <script lang="ts">
   import { getContext } from 'svelte';
+  import type { Writable } from 'svelte/store';
 
   export let tab: string = '';
 
-  const activeTab = getContext('activeTab');
+  const activeTab = getContext<Writable<string>>('activeTab');
 
-  $: selected = tab === activeTab;
+  $: selected = tab === $activeTab;
   $: classes = `${$$restProps.class || ''} ${!selected ? 'hidden' : ''}`;
 </script>
 

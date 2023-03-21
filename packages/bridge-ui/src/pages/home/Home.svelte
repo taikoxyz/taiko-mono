@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n';
-  import { link, location } from 'svelte-spa-router';
+  import { location } from 'svelte-spa-router';
   import { transactions } from '../../store/transactions';
   import BridgeForm from '../../components/form/BridgeForm.svelte';
   import TaikoBanner from '../../components/TaikoBanner.svelte';
@@ -13,6 +13,7 @@
   $: activeTab = $location.replace('/', '').startsWith('transactions')
     ? 'transactions'
     : 'bridge';
+
   $: isBridge = activeTab === 'bridge';
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
@@ -27,34 +28,9 @@
   style={styleContainer}
   bind:clientWidth={bridgeWidth}
   bind:clientHeight={bridgeHeight}>
-  <!-- <div
-    class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
-    style={styleInner}> -->
-  <!-- TODO: extract this tab component into a general one? -->
-  <!-- <div class="tabs block mb-4">
-      <a
-        class="tab tab-bordered {isBridge ? 'tab-active' : ''}"
-        href="/"
-        use:link>Bridge</a>
-      <a
-        class="tab tab-bordered {!isBridge ? 'tab-active' : ''}"
-        href="/transactions"
-        use:link>Transactions ({$transactions.length})</a>
-    </div> -->
-
-  <!-- {#if activeTab === 'bridge'}
-      <TaikoBanner />
-      <div class="px-4">
-        <BridgeForm />
-      </div>
-    {:else}
-      <Transactions />
-    {/if} -->
-  <!-- </div> -->
-
   <Tabs
     class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
-    activeTab="bridge">
+    bind:activeTab>
     <TabList class="block mb-4">
       <Tab name="bridge" href="/">Bridge</Tab>
       <Tab name="transactions" href="/transactions">
