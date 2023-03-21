@@ -37,9 +37,9 @@ library LibProving {
         TaikoData.Config memory config,
         AddressResolver resolver,
         uint256 blockId,
-        TaikoData.Evidence memory evidence
+        TaikoData.BlockEvidence memory evidence
     ) internal {
-        TaikoData.Metadata memory meta = evidence.meta;
+        TaikoData.BlockMetadata memory meta = evidence.meta;
         if (
             meta.id != blockId ||
             meta.id <= state.lastBlockId ||
@@ -63,11 +63,11 @@ library LibProving {
             meta.id % config.maxNumBlocks
         ];
 
-        if (blk.provision.metaHash != LibUtils.hashMetadata(meta))
+        if (blk.spec.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
         TaikoData.ForkChoice storage fc = blk.forkChoices[
-            blk.provision.nextForkChoiceId
+            blk.spec.nextForkChoiceId
         ];
 
         bool oracleProving;
@@ -128,7 +128,7 @@ library LibProving {
                 inputs[4] = evidence.blockHash;
                 inputs[5] = evidence.signalRoot;
                 inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = blk.provision.metaHash;
+                inputs[7] = blk.spec.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
@@ -157,12 +157,12 @@ library LibProving {
             ) revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[evidence.parentHash][blockId] = blk
-            .provision
+        state.forkChoiceIds[blockId][evidence.parentHash] = blk
+            .spec
             .nextForkChoiceId;
 
         unchecked {
-            ++blk.provision.nextForkChoiceId;
+            ++blk.spec.nextForkChoiceId;
         }
         emit BlockProven({
             id: blockId,
@@ -184,8 +184,8 @@ library LibProving {
         }
 
         TaikoData.Block storage blk = state.blocks[id % maxNumBlocks];
-        uint256 fcId = state.forkChoiceIds[parentHash][id];
-        if (fcId >= blk.provision.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+        uint256 fcId = state.forkChoiceIds[id][parentHash];
+        if (fcId >= blk.spec.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
 
         return blk.forkChoices[fcId];
     }

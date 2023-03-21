@@ -80,7 +80,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
             printVariables("before propose");
-            TaikoData.Metadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
             mine(1);
 
@@ -102,7 +102,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
-            TaikoData.Metadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
@@ -122,7 +122,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint blockId = 1; blockId <= conf.maxNumBlocks - 1; blockId++) {
             printVariables("before propose");
-            TaikoData.Metadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1E10 + blockId);
@@ -146,7 +146,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
             printVariables("before propose");
-            TaikoData.Metadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);
@@ -172,7 +172,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
-            TaikoData.Metadata memory meta = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
 
             bytes32 blockHash = bytes32(1E10 + blockId);

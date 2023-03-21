@@ -20,7 +20,7 @@ library LibProposing {
 
     event BlockProposed(
         uint256 indexed id,
-        TaikoData.Metadata meta,
+        TaikoData.BlockMetadata meta,
         bool txListCached
     );
 
@@ -38,7 +38,7 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         AddressResolver resolver,
-        TaikoData.MetadataInput memory input,
+        TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
         // For alpha-2 testnet, the network only allows an special address
@@ -110,7 +110,7 @@ library LibProposing {
             mixHash = block.prevrandao * state.nextBlockId;
         }
 
-        TaikoData.Metadata memory meta = TaikoData.Metadata({
+        TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
             gasLimit: input.gasLimit,
             timestamp: timeNow,
@@ -153,7 +153,7 @@ library LibProposing {
             state.nextBlockId % config.maxNumBlocks
         ];
 
-        blk.provision = TaikoData.Provision({
+        blk.spec = TaikoData.BlockSpec({
             metaHash: LibUtils.hashMetadata(meta),
             deposit: deposit,
             proposer: msg.sender,
@@ -187,11 +187,11 @@ library LibProposing {
         TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id
-    ) internal view returns (TaikoData.Provision storage) {
+    ) internal view returns (TaikoData.BlockSpec storage) {
         if (id <= state.lastBlockId || id >= state.nextBlockId) {
             revert L1_ID();
         }
 
-        return state.blocks[id % maxNumBlocks].provision;
+        return state.blocks[id % maxNumBlocks].spec;
     }
 }

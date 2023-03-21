@@ -58,7 +58,7 @@ library TaikoData {
     }
 
     // 3 slots
-    struct MetadataInput {
+    struct BlockMetadataInput {
         bytes32 txListHash;
         address beneficiary;
         uint32 gasLimit;
@@ -68,7 +68,7 @@ library TaikoData {
     }
 
     // 5 slots
-    struct Metadata {
+    struct BlockMetadata {
         uint64 id;
         uint32 gasLimit;
         uint64 timestamp;
@@ -86,8 +86,8 @@ library TaikoData {
         uint16 verifierId;
     }
 
-    struct Evidence {
-        TaikoData.Metadata meta;
+    struct BlockEvidence {
+        TaikoData.BlockMetadata meta;
         ZKProof zkproof;
         bytes32 parentHash;
         bytes32 blockHash;
@@ -102,7 +102,7 @@ library TaikoData {
     }
 
     // 3 slots
-    struct Provision {
+    struct BlockSpec {
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
@@ -111,7 +111,7 @@ library TaikoData {
     }
 
     struct Block {
-        Provision provision;
+        BlockSpec spec;
         ChainData chainData;
         mapping(uint256 index => ForkChoice) forkChoices;
     }
@@ -125,10 +125,10 @@ library TaikoData {
     struct State {
         mapping(uint256 blockId => Block) blocks;
         // solhint-disable-next-line max-line-length
-        mapping(bytes32 parentHash => mapping(uint256 blockId => uint256 forkChoiceId)) forkChoiceIds;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         // mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
         // solhint-disable-next-line max-line-length
-        // mapping(uint256 blockId => ChainData) l2ChainDatas;
+        // mapping(uint256 blockNumber => ChainData) l2ChainDatas;
         mapping(address prover => uint256 balance) balances;
         mapping(bytes32 txListHash => TxListInfo) txListInfo;
         // Never or rarely changed

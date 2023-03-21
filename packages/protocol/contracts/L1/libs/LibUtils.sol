@@ -64,7 +64,7 @@ library LibUtils {
     }
 
     function hashMetadata(
-        TaikoData.Metadata memory meta
+        TaikoData.BlockMetadata memory meta
     ) internal pure returns (bytes32 hash) {
         bytes32[5] memory inputs;
         inputs[0] =

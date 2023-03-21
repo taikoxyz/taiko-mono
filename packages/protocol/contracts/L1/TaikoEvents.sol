@@ -12,7 +12,7 @@ abstract contract TaikoEvents {
     // The following events must match the definitions in corresponding L1 libraries.
     event BlockProposed(
         uint256 indexed id,
-        TaikoData.Metadata meta,
+        TaikoData.BlockMetadata meta,
         bool txListCached
     );
 

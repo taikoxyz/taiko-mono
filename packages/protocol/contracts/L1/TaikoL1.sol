@@ -42,7 +42,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     /**
      * Propose a Taiko L2 block.
      *
-     * @param input An abi-encoded MetadataInput that the actual L2
+     * @param input An abi-encoded BlockMetadataInput that the actual L2
      *        block header must satisfy.
      * @param txList A list of transactions in this block, encoded with RLP.
      *        Note, in the corresponding L2 block an _anchor transaction_
@@ -59,7 +59,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: config,
             resolver: AddressResolver(this),
-            input: abi.decode(input, (TaikoData.MetadataInput)),
+            input: abi.decode(input, (TaikoData.BlockMetadataInput)),
             txList: txList
         });
         if (config.maxVerificationsPerTx > 0) {
@@ -77,7 +77,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param input An abi-encoded TaikoData.ValidEvidence object.
+     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
@@ -90,7 +90,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: abi.decode(input, (TaikoData.Evidence))
+            evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
@@ -151,7 +151,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getBlock(
         uint256 id
-    ) public view returns (TaikoData.Provision memory) {
+    ) public view returns (TaikoData.BlockSpec memory) {
         return LibProposing.getBlock(state, getConfig().maxNumBlocks, id);
     }
 
