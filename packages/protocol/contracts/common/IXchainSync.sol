@@ -11,13 +11,12 @@ pragma solidity ^0.8.18;
  * the methods needed to access the block hashes of the other chain.
  */
 
-struct ChainData {
-    bytes32 blockHash;
-    bytes32 signalRoot;
-}
-
 interface IXchainSync {
-    event XchainSynced(uint256 indexed srcHeight, ChainData srcChainData);
+    event XchainSynced(
+        uint256 indexed srcHeight,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
 
     /**
      * @notice Returns the cross-chain block hash at the given block number.

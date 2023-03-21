@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -59,19 +58,19 @@ library LibProving {
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
-        TaikoData.ProposedBlock storage proposal = state.blocks[
+        TaikoData.Block storage blk = state.blocks[
             meta.id % config.maxNumBlocks
         ];
 
-        if (proposal.metaHash != LibUtils.hashMetadata(meta))
+        if (blk.spec.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
-        TaikoData.ForkChoice storage fc = state.forkChoices[
-            blockId % config.maxNumBlocks
-        ][proposal.nextForkChoiceId];
+        TaikoData.ForkChoice storage fc = blk.forkChoices[
+            blk.spec.nextForkChoiceId
+        ];
 
         bool oracleProving;
-        if (uint256(fc.chainData.blockHash) <= 1) {
+        if (uint256(fc.blockHash) <= 1) {
             // 0 or 1 (placeholder) indicate this block has not been proven
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
@@ -80,7 +79,8 @@ library LibProving {
                 oracleProving = true;
             }
 
-            fc.chainData = ChainData(evidence.blockHash, evidence.signalRoot);
+            fc.blockHash = evidence.blockHash;
+            fc.signalRoot = evidence.signalRoot;
 
             if (oracleProving) {
                 // make sure we reset the prover address to indicate it is
@@ -93,8 +93,8 @@ library LibProving {
         } else {
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
             if (
-                fc.chainData.blockHash != evidence.blockHash ||
-                fc.chainData.signalRoot != evidence.signalRoot
+                fc.blockHash != evidence.blockHash ||
+                fc.signalRoot != evidence.signalRoot
             ) revert L1_CONFLICT_PROOF();
 
             fc.prover = evidence.prover;
@@ -128,7 +128,7 @@ library LibProving {
                 inputs[4] = evidence.blockHash;
                 inputs[5] = evidence.signalRoot;
                 inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = proposal.metaHash;
+                inputs[7] = blk.spec.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
@@ -157,11 +157,12 @@ library LibProving {
             ) revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[blockId][evidence.parentHash] = proposal
+        state.forkChoiceIds[blockId][evidence.parentHash] = blk
+            .spec
             .nextForkChoiceId;
 
         unchecked {
-            ++proposal.nextForkChoiceId;
+            ++blk.spec.nextForkChoiceId;
         }
         emit BlockProven({
             id: blockId,
@@ -182,12 +183,10 @@ library LibProving {
             revert L1_ID();
         }
 
-        TaikoData.ProposedBlock storage proposal = state.blocks[
-            id % maxNumBlocks
-        ];
+        TaikoData.Block storage blk = state.blocks[id % maxNumBlocks];
         uint256 fcId = state.forkChoiceIds[id][parentHash];
-        if (fcId >= proposal.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+        if (fcId >= blk.spec.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
 
-        return state.forkChoices[id % maxNumBlocks][fcId];
+        return blk.forkChoices[fcId];
     }
 }
