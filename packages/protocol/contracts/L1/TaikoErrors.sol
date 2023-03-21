@@ -6,7 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {ChainData} from "../common/IXchainSync.sol";
 
 abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
