@@ -35,6 +35,7 @@ struct Config {
   uint256 feeBaseMAF;
   uint64 bootstrapDiscountHalvingPeriod;
   uint64 constantFeeRewardBlocks;
+  uint64 txListCacheExpiry;
   bool enableSoloProposer;
   bool enableOracleProver;
   bool enableTokenomics;
@@ -65,7 +66,10 @@ struct StateVariables {
 struct BlockMetadataInput {
   bytes32 txListHash;
   address beneficiary;
-  uint64 gasLimit;
+  uint32 gasLimit;
+  uint24 txListByteStart;
+  uint24 txListByteEnd;
+  uint8 cacheTxListInfo;
 }
 ```
 
@@ -74,12 +78,14 @@ struct BlockMetadataInput {
 ```solidity
 struct BlockMetadata {
   uint64 id;
-  uint64 gasLimit;
+  uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
+  uint24 txListByteStart;
+  uint24 txListByteEnd;
   address beneficiary;
 }
 ```
@@ -89,7 +95,7 @@ struct BlockMetadata {
 ```solidity
 struct ZKProof {
   bytes data;
-  uint256 circuitId;
+  uint16 verifierId;
 }
 ```
 
@@ -124,7 +130,16 @@ struct ProposedBlock {
   uint256 deposit;
   address proposer;
   uint64 proposedAt;
-  uint32 nextForkChoiceId;
+  uint24 nextForkChoiceId;
+}
+```
+
+### TxListInfo
+
+```solidity
+struct TxListInfo {
+  uint64 validSince;
+  uint24 size;
 }
 ```
 
@@ -137,6 +152,7 @@ struct State {
   mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
+  mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 __reserved1;
@@ -149,6 +165,6 @@ struct State {
   uint64 lastBlockId;
   uint64 avgProofTime;
   uint64 feeBaseTwei;
-  uint256[42] __gap;
+  uint256[41] __gap;
 }
 ```

@@ -23,6 +23,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.enableTokenomics = true;
         config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
+        config.txListCacheExpiry = 5 minutes;
         config.proposerDepositPctg = 0;
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
@@ -64,7 +65,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     function setUp() public override {
         TaikoL1TestBase.setUp();
         _registerAddress(
-            string(abi.encodePacked("verifier_", uint256(100))),
+            string(abi.encodePacked("verifier_", uint16(100))),
             address(new Verifier())
         );
     }

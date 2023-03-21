@@ -114,7 +114,6 @@ library LibProving {
                     "signal_service",
                     false
                 );
-
                 address taikoL2 = resolver.resolve(
                     config.chainId,
                     "taiko_l2",
@@ -122,9 +121,7 @@ library LibProving {
                 );
 
                 bytes32[9] memory inputs;
-                // for checking anchor tx
                 inputs[0] = bytes32(uint256(uint160(l1SignalService)));
-                // for checking signalRoot
                 inputs[1] = bytes32(uint256(uint160(l2SignalService)));
                 inputs[2] = bytes32(uint256(uint160(taikoL2)));
                 inputs[3] = evidence.parentHash;
@@ -146,7 +143,7 @@ library LibProving {
 
             bytes memory verifierId = abi.encodePacked(
                 "verifier_",
-                evidence.zkproof.circuitId
+                evidence.zkproof.verifierId
             );
 
             (bool verified, bytes memory ret) = resolver

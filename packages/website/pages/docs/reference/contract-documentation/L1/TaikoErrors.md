@@ -100,10 +100,22 @@ error L1_NOT_SOLO_PROPOSER()
 error L1_TOO_MANY_BLOCKS()
 ```
 
+### L1_TX_LIST_NOT_EXIST
+
+```solidity
+error L1_TX_LIST_NOT_EXIST()
+```
+
 ### L1_TX_LIST_HASH
 
 ```solidity
 error L1_TX_LIST_HASH()
+```
+
+### L1_TX_LIST_RANGE
+
+```solidity
+error L1_TX_LIST_RANGE()
 ```
 
 ### L1_TX_LIST

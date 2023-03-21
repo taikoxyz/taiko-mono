@@ -191,9 +191,13 @@ library LibVerifying {
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||
+            // EIP-4844 blob size up to 128K
+            config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
             config.anchorTxGasLimit == 0 ||
+            // EIP-4844 blob deleted after 30 days
+            config.txListCacheExpiry > 30 * 24 hours ||
             config.rewardBurnBips >= 10000
         ) revert L1_INVALID_CONFIG();
 

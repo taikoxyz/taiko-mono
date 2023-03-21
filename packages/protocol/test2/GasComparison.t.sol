@@ -70,6 +70,8 @@ contract FooBar {
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
             txListHash: bytes32(uint256(1)),
+            txListByteStart: 0,
+            txListByteEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1
@@ -83,6 +85,8 @@ contract FooBar {
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
             txListHash: bytes32(uint256(1)),
+            txListByteStart: 0,
+            txListByteEnd: 1000,
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1

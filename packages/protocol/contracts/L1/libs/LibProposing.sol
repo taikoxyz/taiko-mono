@@ -18,14 +18,20 @@ library LibProposing {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockProposed(uint256 indexed id, TaikoData.BlockMetadata meta);
+    event BlockProposed(
+        uint256 indexed id,
+        TaikoData.BlockMetadata meta,
+        bool txListCached
+    );
 
     error L1_ID();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
     error L1_TOO_MANY_BLOCKS();
+    error L1_TX_LIST_NOT_EXIST();
     error L1_TX_LIST_HASH();
+    error L1_TX_LIST_RANGE();
     error L1_TX_LIST();
 
     function proposeBlock(
@@ -43,19 +49,57 @@ library LibProposing {
             msg.sender != resolver.resolve("solo_proposer", false)
         ) revert L1_NOT_SOLO_PROPOSER();
 
-        if (txList.length > config.maxBytesPerTxList) revert L1_TX_LIST();
-
         if (
             input.beneficiary == address(0) ||
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
-        // We need txListHash as with EIP-4844, txList is no longer
-        // accssible to EVM.
-        if (input.txListHash != keccak256(txList)) revert L1_TX_LIST_HASH();
-
         if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
             revert L1_TOO_MANY_BLOCKS();
+
+        uint64 timeNow = uint64(block.timestamp);
+        bool txListCached;
+
+        // hanlding txList
+        {
+            uint24 size = uint24(txList.length);
+            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
+
+            if (input.txListByteStart > input.txListByteEnd)
+                revert L1_TX_LIST_RANGE();
+
+            if (config.txListCacheExpiry == 0) {
+                // caching is disabled
+                if (input.txListByteStart != 0 || input.txListByteEnd != size)
+                    revert L1_TX_LIST_RANGE();
+            } else {
+                // caching is enabled
+                if (size == 0) {
+                    // This blob shall have been submitted earlier
+                    TaikoData.TxListInfo memory info = state.txListInfo[
+                        input.txListHash
+                    ];
+
+                    if (input.txListByteEnd > info.size)
+                        revert L1_TX_LIST_RANGE();
+
+                    if (
+                        info.size == 0 ||
+                        info.validSince + config.txListCacheExpiry < timeNow
+                    ) revert L1_TX_LIST_NOT_EXIST();
+                } else {
+                    if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
+                    if (input.txListHash != keccak256(txList))
+                        revert L1_TX_LIST_HASH();
+
+                    if (input.cacheTxListInfo != 0) {
+                        state.txListInfo[input.txListHash] = TaikoData
+                            .TxListInfo({validSince: timeNow, size: size});
+                        txListCached = true;
+                    }
+                }
+            }
+        }
 
         // After The Merge, L1 mixHash contains the prevrandao
         // from the beacon chain. Since multiple Taiko blocks
@@ -68,13 +112,15 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.nextBlockId,
+            gasLimit: input.gasLimit,
+            timestamp: timeNow,
             l1Height: uint64(block.number - 1),
             l1Hash: blockhash(block.number - 1),
-            beneficiary: input.beneficiary,
-            txListHash: input.txListHash,
             mixHash: bytes32(mixHash),
-            gasLimit: input.gasLimit,
-            timestamp: uint64(block.timestamp)
+            txListHash: input.txListHash,
+            txListByteStart: input.txListByteStart,
+            txListByteEnd: input.txListByteEnd,
+            beneficiary: input.beneficiary
         });
 
         uint256 deposit;
@@ -129,7 +175,7 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId, meta);
+        emit BlockProposed(state.nextBlockId, meta, txListCached);
         unchecked {
             ++state.nextBlockId;
         }

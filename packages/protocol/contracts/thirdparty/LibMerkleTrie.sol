@@ -55,24 +55,24 @@ library LibMerkleTrie {
      **********************/
 
     // TREE_RADIX determines the number of elements per branch node.
-    uint8 constant TREE_RADIX = 16;
+    uint8 private constant TREE_RADIX = 16;
     // Branch nodes have TREE_RADIX elements plus an additional `value` slot.
-    uint8 constant BRANCH_NODE_LENGTH = TREE_RADIX + 1;
+    uint8 private constant BRANCH_NODE_LENGTH = TREE_RADIX + 1;
     // Leaf nodes and extension nodes always have two elements, a `path` and a `value`.
-    uint8 constant LEAF_OR_EXTENSION_NODE_LENGTH = 2;
+    uint8 private constant LEAF_OR_EXTENSION_NODE_LENGTH = 2;
 
     // Prefixes are prepended to the `path` within a leaf or extension node and
     // allow us to differentiate between the two node types. `ODD` or `EVEN` is
     // determined by the number of nibbles within the unprefixed `path`. If the
     // number of nibbles if even, we need to insert an extra padding nibble so
     // the resulting prefixed `path` has an even number of nibbles.
-    uint8 constant PREFIX_EXTENSION_EVEN = 0;
-    uint8 constant PREFIX_EXTENSION_ODD = 1;
-    uint8 constant PREFIX_LEAF_EVEN = 2;
-    uint8 constant PREFIX_LEAF_ODD = 3;
+    uint8 private constant PREFIX_EXTENSION_EVEN = 0;
+    uint8 private constant PREFIX_EXTENSION_ODD = 1;
+    uint8 private constant PREFIX_LEAF_EVEN = 2;
+    uint8 private constant PREFIX_LEAF_ODD = 3;
 
     // Just a utility constant. RLP represents `NULL` as 0x80.
-    bytes1 constant RLP_NULL = bytes1(0x80);
+    bytes1 private constant RLP_NULL = bytes1(0x80);
 
     /**********************
      * Internal Functions *
