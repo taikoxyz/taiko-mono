@@ -2,11 +2,12 @@
   import { link } from 'svelte-spa-router';
   import { getContext } from 'svelte';
   import type { Writable } from 'svelte/store';
+  import { key } from './Tabs.svelte';
 
   export let href: string = '';
   export let name: string = '';
 
-  const activeTab = getContext<Writable<string>>('activeTab');
+  const activeTab = getContext<Writable<string>>(key);
 
   $: selected = name === $activeTab;
   $: tabActiveCls = selected ? 'tab-active' : '';
