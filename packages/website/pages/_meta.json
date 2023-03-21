@@ -20,43 +20,41 @@
     }
   },
   "blog": {
-    "title": "Blog",
+    "title": "Blog ↗",
     "type": "page",
     "href": "https://mirror.xyz/labs.taiko.eth",
     "newWindow": true
   },
-  "testnet-links": {
-    "title": "Askja Testnet Links",
+  "bridge": {
+    "title": "Bridge ↗",
+    "type": "page",
+    "href": "https://bridge.a2.taiko.xyz",
+    "newWindow": true
+  },
+  "uniswap": {
+    "title": "Swap ↗",
+    "type": "page",
+    "href": "https://uniswap.a2.taiko.xyz",
+    "newWindow": true
+  },
+  "status": {
+    "title": "Status ↗",
+    "type": "page",
+    "href": "https://status.a2.taiko.xyz",
+    "newWindow": true
+  },
+  "explorers": {
+    "title": "Block explorers",
     "type": "menu",
     "items": {
-      "bridge": {
-        "title": "Bridge",
-        "href": "https://bridge.a2.taiko.xyz",
-        "newWindow": true
-      },
-      "uniswap": {
-        "title": "Uniswap",
-        "href": "https://uniswap.a2.taiko.xyz",
-        "newWindow": true
-      },
       "l1-block-explorer": {
-        "title": "L1 Block Explorer (Sepolia)",
+        "title": "L1 Block Explorer (Sepolia) ↗",
         "href": "https://sepolia.etherscan.io",
         "newWindow": true
       },
       "l2-block-explorer": {
-        "title": "L2 Block Explorer (Taiko)",
+        "title": "L2 Block Explorer (Taiko) ↗",
         "href": "https://explorer.a2.taiko.xyz",
-        "newWindow": true
-      },
-      "taiko-protocol-status": {
-        "title": "Taiko Protocol Status",
-        "href": "https://status.a2.taiko.xyz",
-        "newWindow": true
-      },
-      "feedback": {
-        "title": "Feedback Form",
-        "href": "https://forms.gle/RZsweAPy5RhQSP6j7",
         "newWindow": true
       }
     }
