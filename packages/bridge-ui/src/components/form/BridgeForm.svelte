@@ -457,7 +457,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full mt-4"
+    class="btn btn-accent approve-btn w-full mt-4"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
