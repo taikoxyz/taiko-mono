@@ -119,7 +119,9 @@ export async function deployContracts(hre: any) {
         await TaikoToken.init(
             AddressManager.address,
             "Test Taiko Token",
-            "TTKO"
+            "TTKO",
+            [],
+            []
         )
     );
     await utils.waitTx(

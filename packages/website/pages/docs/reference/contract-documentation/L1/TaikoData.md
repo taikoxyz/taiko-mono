@@ -147,7 +147,7 @@ struct TxListInfo {
 
 ```solidity
 struct State {
-  mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
+  mapping(uint256 => struct TaikoData.ProposedBlock) blocks;
   mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
   mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
   mapping(uint256 => struct ChainData) l2ChainDatas;

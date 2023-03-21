@@ -10,12 +10,6 @@ title: TaikoL1
 struct TaikoData.State state
 ```
 
-### onlyFromEOA
-
-```solidity
-modifier onlyFromEOA()
-```
-
 ### init
 
 ```solidity
@@ -97,10 +91,10 @@ function getBlockFee() public view returns (uint256 feeAmount, uint256 depositAm
 function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns (uint256 reward)
 ```
 
-### getProposedBlock
+### getBlock
 
 ```solidity
-function getProposedBlock(uint256 id) public view returns (struct TaikoData.ProposedBlock)
+function getBlock(uint256 id) public view returns (struct TaikoData.ProposedBlock)
 ```
 
 ### getForkChoice

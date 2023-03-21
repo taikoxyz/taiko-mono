@@ -46,12 +46,12 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     ///      amountMintToDAO and amountMintToDev shall be set to ~150,000,000.
     function init(
         address _addressManager,
-        string memory _name,
-        string memory _symbol,
-        address[] calldata premintRecipients,
-        uint[] calldata premintAmounts
+        string calldata _name,
+        string calldata _symbol,
+        address[] calldata _premintRecipients,
+        uint256[] calldata _premintAmounts
     ) external initializer {
-        if (premintRecipients.length != premintAmounts.length)
+        if (_premintRecipients.length != _premintAmounts.length)
             revert TKO_INVALID_PREMINT_PARAMS();
 
         EssentialContract._init(_addressManager);
@@ -61,8 +61,8 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
             decimals_: 18
         });
 
-        for (uint i = 0; i < premintRecipients.length; ++i) {
-            _mint(premintRecipients[i], premintAmounts[i]);
+        for (uint i = 0; i < _premintRecipients.length; ++i) {
+            _mint(_premintRecipients[i], _premintAmounts[i]);
         }
     }
 
