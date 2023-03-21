@@ -59,19 +59,15 @@ library LibVerifying {
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.BlockSpec storage spec = state
-                .blocks[i % config.maxNumBlocks]
-                .spec;
+            TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
 
             uint256 fcId = state.forkChoiceIds[i][chainData.blockHash];
 
-            if (spec.nextForkChoiceId <= fcId) {
+            if (blk.spec.nextForkChoiceId <= fcId) {
                 break;
             }
 
-            TaikoData.ForkChoice storage fc = state.forkChoices[
-                i % config.maxNumBlocks
-            ][fcId];
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
             if (fc.prover == address(0)) {
                 break;
@@ -81,7 +77,7 @@ library LibVerifying {
                 state: state,
                 config: config,
                 fc: fc,
-                spec: spec
+                spec: blk.spec
             });
 
             emit BlockVerified(i, chainData.blockHash);
