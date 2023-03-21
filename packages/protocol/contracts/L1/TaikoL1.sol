@@ -77,12 +77,12 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
      *
      * @param blockId The index of the block to prove. This is also used
      *        to select the right implementation version.
-     * @param evidence An abi-encoded TaikoData.ValidBlockEvidence object.
+     * @param input An abi-encoded TaikoData.ValidBlockEvidence object.
      */
 
     function proveBlock(
         uint256 blockId,
-        bytes calldata evidence
+        bytes calldata input
     ) external nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProving.proveBlock({
@@ -90,7 +90,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             config: config,
             resolver: AddressResolver(this),
             blockId: blockId,
-            evidence: abi.decode(evidence, (TaikoData.BlockEvidence))
+            evidence: abi.decode(input, (TaikoData.BlockEvidence))
         });
         if (config.maxVerificationsPerTx > 0) {
             LibVerifying.verifyBlocks({
