@@ -64,7 +64,7 @@ export const L2_EXPLORER_URL =
   'https://l2explorer.internal.taiko.xyz';
 
 export const RELAYER_URL =
-  import.meta.env?.VITE_RELAYER_URL ?? 'https://relayer.internal.taiko.xyz';
+  import.meta.env?.VITE_RELAYER_URL ?? 'https://relayer.internal.taiko.xyz/';
 
 export const TEST_ERC20 = JSON.parse(
   import.meta.env?.VITE_TEST_ERC20 ??
