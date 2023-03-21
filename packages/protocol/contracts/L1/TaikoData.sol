@@ -96,7 +96,8 @@ library TaikoData {
     }
 
     struct ForkChoice {
-        ChainData chainData;
+        bytes32 blockHash;
+        bytes32 signalRoot;
         address prover;
         uint64 provenAt;
     }
@@ -112,7 +113,6 @@ library TaikoData {
 
     struct Block {
         BlockSpec spec;
-        ChainData chainData;
         mapping(uint256 index => ForkChoice) forkChoices;
     }
 
@@ -124,6 +124,7 @@ library TaikoData {
 
     struct State {
         mapping(uint256 blockId => Block) blocks;
+        mapping(uint256 blockId => ChainData) chainData;
         // solhint-disable-next-line max-line-length
         mapping(bytes32 parentHash => mapping(uint256 blockId => uint256 forkChoiceId)) forkChoiceIds;
         // solhint-disable-next-line max-line-length

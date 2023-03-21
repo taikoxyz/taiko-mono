@@ -71,7 +71,7 @@ library LibProving {
         ];
 
         bool oracleProving;
-        if (uint256(fc.chainData.blockHash) <= 1) {
+        if (uint256(fc.blockHash) <= 1) {
             // 0 or 1 (placeholder) indicate this block has not been proven
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
@@ -80,7 +80,8 @@ library LibProving {
                 oracleProving = true;
             }
 
-            fc.chainData = ChainData(evidence.blockHash, evidence.signalRoot);
+            fc.blockHash = evidence.blockHash;
+            fc.signalRoot = evidence.signalRoot;
 
             if (oracleProving) {
                 // make sure we reset the prover address to indicate it is
@@ -93,8 +94,8 @@ library LibProving {
         } else {
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
             if (
-                fc.chainData.blockHash != evidence.blockHash ||
-                fc.chainData.signalRoot != evidence.signalRoot
+                fc.blockHash != evidence.blockHash ||
+                fc.signalRoot != evidence.signalRoot
             ) revert L1_CONFLICT_PROOF();
 
             fc.prover = evidence.prover;

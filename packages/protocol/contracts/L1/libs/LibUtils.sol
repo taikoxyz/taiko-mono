@@ -19,22 +19,6 @@ library LibUtils {
 
     error L1_BLOCK_NUMBER();
 
-    function getL2ChainData(
-        TaikoData.State storage state,
-        uint256 number,
-        uint256 maxNumBlocks
-    ) internal view returns (ChainData storage) {
-        uint256 _number = number;
-        if (_number == 0) {
-            _number = state.lastBlockId;
-        } else if (
-            _number + maxNumBlocks <= state.lastBlockId ||
-            _number > state.lastBlockId
-        ) revert L1_BLOCK_NUMBER();
-
-        return state.blocks[_number % maxNumBlocks].chainData;
-    }
-
     function getStateVariables(
         TaikoData.State storage state
     ) internal view returns (TaikoData.StateVariables memory) {

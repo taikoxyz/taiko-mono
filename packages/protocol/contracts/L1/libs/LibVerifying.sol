@@ -37,8 +37,7 @@ library LibVerifying {
         state.feeBaseTwei = feeBaseTwei;
         state.nextBlockId = 1;
 
-        ChainData memory chainData = ChainData(genesisBlockHash, 0);
-        state.blocks[0].chainData = chainData;
+        state.chainData[0].blockHash = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -48,10 +47,9 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        ChainData memory chainData = state
-            .blocks[state.lastBlockId % config.maxNumBlocks]
-            .chainData;
+        bytes32 blockHash = state.chainData[state.lastBlockId].blockHash;
 
+        bytes32 signalRoot;
         uint64 processed;
         uint256 i;
         unchecked {
@@ -61,7 +59,7 @@ library LibVerifying {
         while (i < state.nextBlockId && processed < maxBlocks) {
             TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
 
-            uint256 fcId = state.forkChoiceIds[chainData.blockHash][i];
+            uint256 fcId = state.forkChoiceIds[blockHash][i];
 
             if (blk.spec.nextForkChoiceId <= fcId) {
                 break;
@@ -73,14 +71,14 @@ library LibVerifying {
                 break;
             }
 
-            chainData = _markBlockVerified({
+            (blockHash, signalRoot) = _markBlockVerified({
                 state: state,
                 config: config,
                 fc: fc,
                 spec: blk.spec
             });
 
-            emit BlockVerified(i, chainData.blockHash);
+            emit BlockVerified(i, blockHash);
 
             unchecked {
                 ++i;
@@ -97,11 +95,10 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            state
-                .blocks[state.lastBlockId % config.maxNumBlocks]
-                .chainData = chainData;
+            ChainData memory cd = ChainData(blockHash, signalRoot);
+            state.chainData[state.lastBlockId] = cd;
 
-            emit XchainSynced(state.lastBlockId, chainData);
+            emit XchainSynced(state.lastBlockId, cd);
         }
     }
 
@@ -110,7 +107,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
         TaikoData.BlockSpec storage spec
-    ) private returns (ChainData memory chainData) {
+    ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
                 .getProofReward({
@@ -152,13 +149,15 @@ library LibVerifying {
             })
             .toUint64();
 
-        chainData = fc.chainData;
+        blockHash = fc.blockHash;
+        signalRoot = fc.signalRoot;
+
         spec.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
-        fc.chainData.blockHash = bytes32(uint256(1)); // none-zero placeholder
-        fc.chainData.signalRoot = bytes32(uint256(1)); // none-zero placeholder
+        fc.blockHash = bytes32(uint256(1)); // none-zero placeholder
+        fc.signalRoot = bytes32(uint256(1)); // none-zero placeholder
         fc.provenAt = 1; // none-zero placeholder
         fc.prover = address(0);
     }
