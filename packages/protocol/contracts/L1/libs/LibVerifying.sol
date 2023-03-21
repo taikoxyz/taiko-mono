@@ -59,7 +59,7 @@ library LibVerifying {
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+            TaikoData.ProposedBlock storage proposal = state.blocks[
                 i % config.maxNumBlocks
             ];
 

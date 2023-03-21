@@ -59,7 +59,7 @@ library LibProving {
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
-        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+        TaikoData.ProposedBlock storage proposal = state.blocks[
             meta.id % config.maxNumBlocks
         ];
 
@@ -182,7 +182,7 @@ library LibProving {
             revert L1_ID();
         }
 
-        TaikoData.ProposedBlock storage proposal = state.proposedBlocks[
+        TaikoData.ProposedBlock storage proposal = state.blocks[
             id % maxNumBlocks
         ];
         uint256 fcId = state.forkChoiceIds[id][parentHash];

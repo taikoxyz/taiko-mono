@@ -118,7 +118,7 @@ library TaikoData {
     }
 
     struct State {
-        mapping(uint256 blockId => ProposedBlock) proposedBlocks;
+        mapping(uint256 blockId => ProposedBlock) blocks;
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(uint256 blockId => mapping(uint256 index => ForkChoice)) forkChoices;
