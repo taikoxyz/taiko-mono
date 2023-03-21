@@ -20,6 +20,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         returns (TaikoData.Config memory config)
     {
         config = TaikoConfig.getConfig();
+
         config.enableTokenomics = true;
         config.bootstrapDiscountHalvingPeriod = 0;
         config.constantFeeRewardBlocks = 0;
