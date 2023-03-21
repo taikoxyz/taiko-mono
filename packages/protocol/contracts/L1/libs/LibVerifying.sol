@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
@@ -22,7 +21,7 @@ library LibVerifying {
     error L1_INVALID_CONFIG();
 
     event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event XchainSynced(uint256 indexed srcHeight, ChainData chainData);
+    event XchainSynced(uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot);
 
     function init(
         TaikoData.State storage state,
@@ -95,10 +94,10 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            ChainData memory cd = ChainData(blockHash, signalRoot);
-            state.chainData[state.lastBlockId] = cd;
+            state.chainData[state.lastBlockId] =
+                TaikoData.ChainData(state.lastBlockId, blockHash, signalRoot);
 
-            emit XchainSynced(state.lastBlockId, cd);
+            emit XchainSynced(state.lastBlockId, blockHash,signalRoot);
         }
     }
 

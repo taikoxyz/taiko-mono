@@ -6,8 +6,6 @@
 
 pragma solidity ^0.8.18;
 
-import {ChainData} from "../common/IXchainSync.sol";
-
 library TaikoData {
     struct FeeConfig {
         uint16 avgTimeMAF;
@@ -69,7 +67,7 @@ library TaikoData {
 
     // 5 slots
     struct BlockMetadata {
-        uint64 id;
+        uint64 blockId;
         uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
@@ -121,6 +119,12 @@ library TaikoData {
         uint64 validSince;
         uint24 size;
     }
+
+    struct ChainData {
+        uint64 blockId;
+    bytes32 blockHash;
+    bytes32 signalRoot;
+}
 
     struct State {
         mapping(uint256 blockId /* % maxNumBlocks */ => Block) blocks;

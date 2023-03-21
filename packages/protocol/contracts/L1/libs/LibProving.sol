@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
@@ -41,9 +40,9 @@ library LibProving {
     ) internal {
         TaikoData.BlockMetadata memory meta = evidence.meta;
         if (
-            meta.id != blockId ||
-            meta.id <= state.lastBlockId ||
-            meta.id >= state.nextBlockId
+            meta.blockId != blockId ||
+            meta.blockId <= state.lastBlockId ||
+            meta.blockId >= state.nextBlockId
         ) revert L1_ID();
 
         if (
@@ -60,7 +59,7 @@ library LibProving {
         ) revert L1_INVALID_EVIDENCE();
 
         TaikoData.Block storage blk = state.blocks[
-            meta.id % config.maxNumBlocks
+            meta.blockId % config.maxNumBlocks
         ];
 
         if (blk.spec.metaHash != LibUtils.hashMetadata(meta))

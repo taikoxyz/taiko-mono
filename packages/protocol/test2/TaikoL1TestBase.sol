@@ -95,7 +95,7 @@ abstract contract TaikoL1TestBase is Test {
             _mixHash = block.prevrandao * variables.nextBlockId;
         }
 
-        meta.id = variables.nextBlockId;
+        meta.blockId = variables.nextBlockId;
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.beneficiary = proposer;
@@ -130,7 +130,7 @@ abstract contract TaikoL1TestBase is Test {
         });
 
         vm.prank(prover, prover);
-        L1.proveBlock(meta.id, abi.encode(evidence));
+        L1.proveBlock(meta.blockId, abi.encode(evidence));
     }
 
     function verifyBlock(address verifier, uint256 count) internal {

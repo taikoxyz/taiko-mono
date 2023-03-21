@@ -65,7 +65,7 @@ contract FooBar {
 
     function return_1() public returns (TaikoData.BlockMetadata memory meta) {
         meta = TaikoData.BlockMetadata({
-            id: 1,
+            blockId: 1,
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
@@ -80,7 +80,7 @@ contract FooBar {
 
     function return_2() public {
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
-            id: 1,
+            blockId: 1,
             l1Height: 1,
             l1Hash: bytes32(uint256(1)),
             beneficiary: address(this),
