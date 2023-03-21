@@ -27,6 +27,8 @@ func (svc *Service) FilterThenSubscribe(
 		return errors.Wrap(err, "svc.ethClient.ChainID()")
 	}
 
+	go scanBlocks(ctx, svc.ethClient, chainID)
+
 	// if subscribing to new events, skip filtering and subscribe
 	if watchMode == relayer.SubscribeWatchMode {
 		return svc.subscribe(ctx, chainID)

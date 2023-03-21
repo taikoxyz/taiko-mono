@@ -30,6 +30,8 @@ func (svc *Service) subscribe(ctx context.Context, chainID *big.Int) error {
 			log.Info("context finished")
 			return nil
 		case err := <-errChan:
+			relayer.ErrorsEncounteredDuringSubscription.Inc()
+
 			return errors.Wrap(err, "errChan")
 		}
 	}
@@ -42,6 +44,8 @@ func (svc *Service) subscribeMessageSent(ctx context.Context, chainID *big.Int, 
 		if err != nil {
 			log.Errorf("svc.bridge.WatchMessageSent: %v", err)
 		}
+
+		log.Info("resubscribing to WatchMessageSent events")
 
 		return svc.bridge.WatchMessageSent(&bind.WatchOpts{
 			Context: ctx,
@@ -96,6 +100,7 @@ func (svc *Service) subscribeMessageStatusChanged(ctx context.Context, chainID *
 		if err != nil {
 			log.Errorf("svc.bridge.WatchMessageStatusChanged: %v", err)
 		}
+		log.Info("resubscribing to WatchMessageStatusChanged events")
 
 		return svc.bridge.WatchMessageStatusChanged(&bind.WatchOpts{
 			Context: ctx,

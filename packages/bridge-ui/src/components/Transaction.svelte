@@ -17,11 +17,11 @@
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import HeaderSync from '../constants/abi/HeaderSync';
+  import HeaderSyncABI from '../constants/abi/HeaderSync';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import BridgeABI from '../constants/abi/Bridge';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
-  import TokenVault from '../constants/abi/TokenVault';
+  import TokenVaultABI from '../constants/abi/TokenVault';
   import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
   import { providersMap } from '../provider/providers';
   import { bridgesMap } from '../bridge/bridges';
@@ -121,6 +121,7 @@
         const chain = chainsRecord[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
+
       const tx = await bridgesMap
         .get(
           bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
@@ -160,7 +161,7 @@
 
     const contract = new Contract(
       chainsRecord[transaction.toChainId].headerSyncAddress,
-      HeaderSync,
+      HeaderSyncABI,
       providersMap.get(chainsRecord[transaction.toChainId].id),
     );
 
@@ -187,7 +188,7 @@
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
             $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-            TokenVault,
+            TokenVaultABI,
             providersMap.get(chainsRecord[transaction.fromChainId].id),
           );
           const { token, amount } = await srcTokenVaultContract.messageDeposits(
