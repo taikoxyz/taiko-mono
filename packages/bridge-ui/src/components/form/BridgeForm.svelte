@@ -34,9 +34,9 @@
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
-  import { chainsRecord } from '../../chain/chains';
-  import { providersMap } from '../../provider/providers';
-  import { tokenVaultsMap } from '../../vault/tokenVaults';
+  import { chains } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { tokenVaults } from '../../vault/tokenVaults';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -64,7 +64,7 @@
       ).address;
 
       const tokenVault = new Contract(
-        tokenVaultsMap.get($fromChain.id),
+        tokenVaults[$fromChain.id],
         TokenVaultABI,
         $signer,
       );
@@ -129,7 +129,7 @@
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
-      spenderAddress: tokenVaultsMap.get(fromChain.id),
+      spenderAddress: tokenVaults[fromChain.id],
     });
     return allowance;
   }
@@ -145,7 +145,7 @@
     if (!signer) return true;
     if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
-    if (!chainId || !chainsRecord[chainId.toString()]) return true;
+    if (!chainId || !chains[chainId.toString()]) return true;
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
@@ -172,7 +172,7 @@
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
-        spenderAddress: tokenVaultsMap.get($fromChain.id),
+        spenderAddress: tokenVaults[$fromChain.id],
       });
 
       pendingTransactions.update((store) => {
@@ -228,8 +228,8 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = providersMap.get($toChain.id);
-      const destTokenVaultAddress = tokenVaultsMap.get($toChain.id);
+      const provider = providers[$toChain.id];
+      const destTokenVaultAddress = tokenVaults[$toChain.id];
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -245,7 +245,7 @@
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaultsMap.get($fromChain.id),
+        tokenVaultAddress: tokenVaults[$fromChain.id],
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -323,7 +323,7 @@
           tokenAddress: await addrForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
-          tokenVaultAddress: tokenVaultsMap.get($fromChain.id),
+          tokenVaultAddress: tokenVaults[$fromChain.id],
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),

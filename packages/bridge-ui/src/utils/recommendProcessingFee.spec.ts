@@ -10,7 +10,7 @@ import {
 } from './recommendProcessingFee';
 import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
-import { providersMap } from '../provider/providers';
+import { providers } from '../provider/providers';
 
 const mockContract = {
   canonicalToBridged: jest.fn(),
@@ -27,8 +27,8 @@ const gasPrice = 2;
 const mockGetGasPrice = async () => BigNumber.from(gasPrice);
 
 // Mocking providers to return the desired gasPrice
-providersMap.get(mainnetChain.id).getGasPrice = mockGetGasPrice;
-providersMap.get(taikoChain.id).getGasPrice = mockGetGasPrice;
+providers[mainnetChain.id].getGasPrice = mockGetGasPrice;
+providers[taikoChain.id].getGasPrice = mockGetGasPrice;
 
 const mockSigner = {} as Signer;
 

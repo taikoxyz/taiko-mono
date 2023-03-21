@@ -13,18 +13,18 @@ import type {
   RelayerAPI,
   RelayerBlockInfo,
 } from '../domain/relayerApi';
-import { chainsRecord } from '../chain/chains';
-import { tokenVaultsMap } from '../vault/tokenVaults';
+import { chains } from '../chain/chains';
+import { tokenVaults } from '../vault/tokenVaults';
 
 export class RelayerAPIService implements RelayerAPI {
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<number, ethers.providers.JsonRpcProvider>;
   private readonly baseUrl: string;
 
   constructor(
-    providerMap: Map<number, ethers.providers.JsonRpcProvider>,
     baseUrl: string,
+    providers: Record<number, ethers.providers.JsonRpcProvider>,
   ) {
-    this.providerMap = providerMap;
+    this.providers = providers;
     this.baseUrl = baseUrl;
   }
 
@@ -99,18 +99,17 @@ export class RelayerAPIService implements RelayerAPI {
     const bridgeTxs: BridgeTransaction[] = await Promise.all(
       (txs || []).map(async (tx) => {
         if (tx.from.toLowerCase() !== address.toLowerCase()) return;
+
         const destChainId = tx.toChainId;
-        const destProvider = this.providerMap.get(destChainId);
-
-        const srcProvider = this.providerMap.get(tx.fromChainId);
-
+        const destProvider = this.providers[destChainId];
+        const srcProvider = this.providers[tx.fromChainId];
         const receipt = await srcProvider.getTransactionReceipt(tx.hash);
 
         if (!receipt) {
           return tx;
         }
 
-        const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
+        const destBridgeAddress = chains[destChainId].bridgeAddress;
 
         const destContract: Contract = new Contract(
           destBridgeAddress,
@@ -128,7 +127,7 @@ export class RelayerAPIService implements RelayerAPI {
         let symbol: string;
         if (tx.canonicalTokenAddress !== ethers.constants.AddressZero) {
           const tokenVaultContract = new Contract(
-            tokenVaultsMap.get(tx.fromChainId),
+            tokenVaults[tx.fromChainId],
             TokenVaultABI,
             srcProvider,
           );

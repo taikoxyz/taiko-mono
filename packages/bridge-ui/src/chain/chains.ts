@@ -43,7 +43,10 @@ export const taikoChain: Chain = {
   signalServiceAddress: L2_SIGNAL_SERVICE_ADDRESS,
 };
 
-export const chainsRecord: Record<number, Chain> = {
+/**
+ * Maps chain ID => Chain
+ */
+export const chains: Record<number, Chain> = {
   [L1_CHAIN_ID]: mainnetChain,
   [L2_CHAIN_ID]: taikoChain,
 };

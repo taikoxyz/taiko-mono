@@ -36,12 +36,9 @@
   import { RelayerAPIService } from './relayer-api/RelayerAPIService';
   import type { RelayerAPI } from './domain/relayerApi';
   import { relayerApi, relayerBlockInfoMap } from './store/relayerApi';
-  import {
-    chainsRecord,
-    mainnetWagmiChain,
-    taikoWagmiChain,
-  } from './chain/chains';
-  import { providersMap } from './provider/providers';
+  import { chains, mainnetWagmiChain, taikoWagmiChain } from './chain/chains';
+  import { providers } from './provider/providers';
+  import { RELAYER_URL } from './constants/envVars';
 
   const { chains: wagmiChains, provider } = configureChains(
     [mainnetWagmiChain, taikoWagmiChain],
@@ -49,7 +46,7 @@
       publicProvider(),
       jsonRpcProvider({
         rpc: (chain) => ({
-          http: providersMap.get(chain.id).connection.url,
+          http: providers[chain.id].connection.url,
         }),
       }),
     ],
@@ -79,12 +76,12 @@
 
   const storageTransactioner: Transactioner = new StorageService(
     window.localStorage,
-    providersMap,
+    providers,
   );
 
   const relayerApiService: RelayerAPI = new RelayerAPIService(
-    providersMap,
-    import.meta.env.VITE_RELAYER_URL,
+    RELAYER_URL,
+    providers,
   );
 
   const tokenStore: TokenService = new CustomTokenService(window.localStorage);
@@ -162,7 +159,7 @@
         }
 
         if (tx.status === MessageStatus.New) {
-          const provider = providersMap.get(tx.toChainId);
+          const provider = providers[tx.toChainId];
 
           const interval = setInterval(async () => {
             const txInterval = transactionToIntervalMap.get(tx.hash);
@@ -175,7 +172,7 @@
             if (!tx.msgHash) return;
 
             const contract = new ethers.Contract(
-              chainsRecord[tx.toChainId].bridgeAddress,
+              chains[tx.toChainId].bridgeAddress,
               BridgeABI,
               provider,
             );

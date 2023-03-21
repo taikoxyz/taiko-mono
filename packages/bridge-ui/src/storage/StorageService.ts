@@ -5,19 +5,19 @@ import TokenVaultABI from '../constants/abi/TokenVault';
 import { get } from 'svelte/store';
 import ERC20 from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
-import { chainsRecord } from '../chain/chains';
-import { tokenVaultsMap } from '../vault/tokenVaults';
+import { chains } from '../chain/chains';
+import { tokenVaults } from '../vault/tokenVaults';
 
 export class StorageService implements Transactioner {
   private readonly storage: Storage;
-  private readonly providerMap: Map<number, ethers.providers.JsonRpcProvider>;
+  private readonly providers: Record<string, ethers.providers.JsonRpcProvider>;
 
   constructor(
     storage: Storage,
-    providerMap: Map<number, ethers.providers.JsonRpcProvider>,
+    providers: Record<string, ethers.providers.JsonRpcProvider>,
   ) {
     this.storage = storage;
-    this.providerMap = providerMap;
+    this.providers = providers;
   }
 
   async GetAllByAddress(
@@ -35,9 +35,9 @@ export class StorageService implements Transactioner {
         .map(async (tx) => {
           if (tx.from.toLowerCase() !== address.toLowerCase()) return;
           const destChainId = tx.toChainId;
-          const destProvider = this.providerMap.get(destChainId);
+          const destProvider = this.providers[destChainId];
 
-          const srcProvider = this.providerMap.get(tx.fromChainId);
+          const srcProvider = this.providers[tx.fromChainId];
 
           // Ignore transactions from chains not supported by the bridge
           if (!srcProvider) {
@@ -53,9 +53,9 @@ export class StorageService implements Transactioner {
 
           tx.receipt = receipt;
 
-          const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
+          const destBridgeAddress = chains[destChainId].bridgeAddress;
 
-          const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
+          const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
           const destContract: Contract = new Contract(
             destBridgeAddress,
@@ -94,7 +94,7 @@ export class StorageService implements Transactioner {
           let symbol: string;
           if (event.args.message.data !== '0x') {
             const tokenVaultContract = new Contract(
-              tokenVaultsMap.get(tx.fromChainId),
+              tokenVaults[tx.fromChainId],
               TokenVaultABI,
               srcProvider,
             );
@@ -154,9 +154,9 @@ export class StorageService implements Transactioner {
 
     if (tx.from.toLowerCase() !== address.toLowerCase()) return;
     const destChainId = tx.toChainId;
-    const destProvider = this.providerMap.get(destChainId);
+    const destProvider = this.providers[destChainId];
 
-    const srcProvider = this.providerMap.get(tx.fromChainId);
+    const srcProvider = this.providers[tx.fromChainId];
 
     // Ignore transactions from chains not supported by the bridge
     if (!srcProvider) {
@@ -171,9 +171,9 @@ export class StorageService implements Transactioner {
 
     tx.receipt = receipt;
 
-    const destBridgeAddress = chainsRecord[destChainId].bridgeAddress;
+    const destBridgeAddress = chains[destChainId].bridgeAddress;
 
-    const srcBridgeAddress = chainsRecord[tx.fromChainId].bridgeAddress;
+    const srcBridgeAddress = chains[tx.fromChainId].bridgeAddress;
 
     const destContract: Contract = new Contract(
       destBridgeAddress,
@@ -209,7 +209,7 @@ export class StorageService implements Transactioner {
     let symbol: string;
     if (event.args.message.data !== '0x') {
       const tokenVaultContract = new Contract(
-        tokenVaultsMap.get(tx.fromChainId),
+        tokenVaults[tx.fromChainId],
         TokenVaultABI,
         srcProvider,
       );
