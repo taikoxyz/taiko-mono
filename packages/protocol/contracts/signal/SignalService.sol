@@ -16,7 +16,7 @@ contract SignalService is ISignalService, EssentialContract {
     using LibBlockHeader for BlockHeader;
 
     struct SignalProof {
-        BlockHeader header;
+        uint256 height;
         bytes proof;
     }
 
@@ -83,17 +83,12 @@ contract SignalService is ISignalService, EssentialContract {
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
         IXchainSync chainSync = IXchainSync(resolve("taiko", false));
 
-        bytes32 syncedHeaderHash = chainSync.getXchainBlockHash(
-            sp.header.height
-        );
+        bytes32 syncedHeaderHash = chainSync.getXchainBlockHash(sp.height);
 
-        bytes32 syncedSignalRoot = chainSync.getXchainSignalRoot(
-            sp.header.height
-        );
+        bytes32 syncedSignalRoot = chainSync.getXchainSignalRoot(sp.height);
 
         return
             syncedHeaderHash != 0 &&
-            syncedHeaderHash == sp.header.hashBlockHeader() &&
             LibTrieProof.verify({
                 slot: getSignalSlot(app, signal),
                 value: bytes32(uint256(1)),
