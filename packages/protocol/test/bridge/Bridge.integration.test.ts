@@ -251,7 +251,7 @@ describe("integrationbridge:Bridge", function () {
 
             await l2XchainSync.setXchainBlockHeader(ethers.constants.HashZero);
 
-            const { signalProof } = await getSignalProof(
+            const signalProof = await getSignalProofWithAccountProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 await l1SignalService.getSignalSlot(l1Bridge.address, msgHash),
@@ -302,7 +302,7 @@ describe("integrationbridge:Bridge", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000001"
             );
 
-            const { signalProof } = await getSignalProof(
+            const signalProof = await getSignalProofWithAccountProof(
                 hre.ethers.provider,
                 l1SignalService.address,
                 slot,
@@ -572,7 +572,7 @@ describe("integrationbridge:Bridge", function () {
 
             const slot = await l1Bridge.getMessageStatusSlot(msgHash);
 
-            const { signalProof } = await getSignalProof(
+            const signalProof = await getSignalProofWithAccountProof(
                 l1Provider,
                 l1Bridge.address,
                 slot,
