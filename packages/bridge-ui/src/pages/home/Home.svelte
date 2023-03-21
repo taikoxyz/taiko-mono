@@ -14,13 +14,15 @@
     ? 'transactions'
     : 'bridge';
 
+  // TODO: do we really need all these tricks to style containers
+  //       Rethink this part: fluid, fixing on small screens
   $: isBridge = activeTab === 'bridge';
   $: styleContainer = isBridge ? '' : `min-width: ${bridgeWidth}px;`;
   $: fitClassContainer = isBridge ? 'max-w-fit' : 'w-fit';
-  // $: styleInner =
-  //   isBridge && $transactions.length > 0
-  //     ? ''
-  //     : `min-height: ${bridgeHeight}px;`;
+  $: styleInner =
+    isBridge && $transactions.length > 0
+      ? ''
+      : `min-height: ${bridgeHeight}px;`;
 </script>
 
 <div
@@ -30,6 +32,7 @@
   bind:clientHeight={bridgeHeight}>
   <Tabs
     class="rounded-3xl border-2 border-bridge-form border-solid p-2 md:p-6"
+    style={styleInner}
     bind:activeTab>
     <TabList class="block mb-4">
       <Tab name="bridge" href="/">Bridge</Tab>

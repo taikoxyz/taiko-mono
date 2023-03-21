@@ -8,6 +8,6 @@
   setContext('activeTab', writable(activeTab));
 </script>
 
-<div class={$$restProps.class}>
+<div class={$$restProps.class} style={$$restProps.style}>
   <slot />
 </div>
