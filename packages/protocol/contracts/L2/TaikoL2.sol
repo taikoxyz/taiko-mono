@@ -168,14 +168,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      **********************/
 
     function _calcPublicInputHash(
-        uint256 m
+        uint256 blockNumber
     ) private returns (bytes32 prevPIH, bytes32 currPIH) {
         bytes32[256] memory inputs;
         unchecked {
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
-            for (uint256 i; i < 255 && m >= i + 1; ++i) {
-                uint j = m - i - 1;
+            for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
+                uint j = blockNumber - i - 1;
                 inputs[j % 255] = blockhash(j);
             }
         }
@@ -187,7 +187,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             prevPIH := keccak256(inputs, mul(256, 32))
         }
 
-        inputs[m % 255] = blockhash(m);
+        inputs[blockNumber % 255] = blockhash(blockNumber);
         assembly {
             currPIH := keccak256(inputs, mul(256, 32))
         }
