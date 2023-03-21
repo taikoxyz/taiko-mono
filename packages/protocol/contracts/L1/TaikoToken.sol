@@ -35,6 +35,7 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     event Burn(address account, uint256 amount);
 
     error TKO_INVALID_ADDR();
+    error TKO_INVALID_PREMINT_PARAMS();
 
     /*********************
      * External Functions*
@@ -46,14 +47,23 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
     function init(
         address _addressManager,
         string memory _name,
-        string memory _symbol
+        string memory _symbol,
+        address[] calldata premintRecipients,
+        uint[] calldata premintAmounts
     ) external initializer {
+        if (premintRecipients.length != premintAmounts.length)
+            revert TKO_INVALID_PREMINT_PARAMS();
+
         EssentialContract._init(_addressManager);
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
             symbol_: _symbol,
             decimals_: 18
         });
+
+        for (uint i = 0; i < premintRecipients.length; ++i) {
+            mint(premintRecipients[i], premintAmounts[i]);
+        }
     }
 
     /*********************

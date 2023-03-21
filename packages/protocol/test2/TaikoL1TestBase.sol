@@ -45,7 +45,15 @@ abstract contract TaikoL1TestBase is Test {
         conf = L1.getConfig();
 
         tko = new TaikoToken();
-        tko.init(address(addressManager), "TaikoToken", "TKO");
+        address[] memory premintReceipints;
+        uint256[] memory premintAmounts;
+        tko.init(
+            address(addressManager),
+            "TaikoToken",
+            "TKO",
+            premintReceipints,
+            premintAmounts
+        );
 
         ss = new SignalService();
         ss.init(address(addressManager));
