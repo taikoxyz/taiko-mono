@@ -25,9 +25,3 @@ The bridge is a set of smart contracts that allow you to send testnet ETH and ER
     ### Bridge tokens from Taiko to Sepolia
     Try bridging ETH, HORSE, and/or BLL from Taiko to Sepolia. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
 </Steps>
-
-## Troubleshooting
-
-### Why is my Taiko -> Sepolia transfer taking so long?
-
-The transfer from Taiko to Sepolia can take a while because Taiko has a several hours delay in syncing block headers to allow uncle proof generation time, and we need the synced header to match so the Merkle proof of the message being sent on Taiko is valid on Sepolia.

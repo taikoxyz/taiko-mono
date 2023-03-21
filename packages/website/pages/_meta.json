@@ -44,16 +44,16 @@
     "newWindow": true
   },
   "explorers": {
-    "title": "Block explorers",
+    "title": "Explorers",
     "type": "menu",
     "items": {
       "l1-block-explorer": {
-        "title": "L1 Block Explorer (Sepolia) ↗",
+        "title": "Sepolia (Etherscan) ↗",
         "href": "https://sepolia.etherscan.io",
         "newWindow": true
       },
       "l2-block-explorer": {
-        "title": "L2 Block Explorer (Taiko) ↗",
+        "title": "Taiko (Blockscout) ↗",
         "href": "https://explorer.a2.taiko.xyz",
         "newWindow": true
       }
