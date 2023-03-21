@@ -24,7 +24,7 @@
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
   import { errorToast, successToast } from '../../utils/toast';
-  import ERC20 from '../../constants/abi/ERC20';
+  import ERC20_ABI from '../../constants/abi/ERC20';
   import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
@@ -93,7 +93,7 @@
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, ERC20, signer);
+        const contract = new Contract(addr, ERC20_ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }

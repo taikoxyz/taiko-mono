@@ -2,8 +2,7 @@ import type { BridgeTransaction, Transactioner } from '../domain/transactions';
 import { BigNumber, Contract, ethers } from 'ethers';
 import BridgeABI from '../constants/abi/Bridge';
 import TokenVaultABI from '../constants/abi/TokenVault';
-import { get } from 'svelte/store';
-import ERC20 from '../constants/abi/ERC20';
+import ERC20_ABI from '../constants/abi/ERC20';
 import { MessageStatus } from '../domain/message';
 import { chains } from '../chain/chains';
 import { tokenVaults } from '../vault/tokenVaults';
@@ -113,7 +112,7 @@ export class StorageService implements Transactioner {
 
             const erc20Contract = new Contract(
               erc20Event.args.token,
-              ERC20,
+              ERC20_ABI,
               srcProvider,
             );
             symbol = await erc20Contract.symbol();
@@ -228,7 +227,7 @@ export class StorageService implements Transactioner {
 
       const erc20Contract = new Contract(
         erc20Event.args.token,
-        ERC20,
+        ERC20_ABI,
         srcProvider,
       );
       symbol = await erc20Contract.symbol();
