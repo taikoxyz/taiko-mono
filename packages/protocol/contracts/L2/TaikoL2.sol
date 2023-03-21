@@ -67,8 +67,8 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         (publicInputHash, ) = _calcPublicInputHash(block.number);
         if (block.number > 0) {
-            uint m = block.number - 1;
-            _l2Hashes[m] = blockhash(m);
+            uint parentHeight = block.number - 1;
+            _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
     }
 
