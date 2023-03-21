@@ -9,13 +9,13 @@
   const activeTab = getContext<Writable<string>>('activeTab');
 
   $: selected = name === $activeTab;
-  $: tabActive = selected ? 'tab-active' : '';
+  $: tabActiveCls = selected ? 'tab-active' : '';
 </script>
 
 <a
   role="tab"
   aria-selected={selected}
-  class="tab tab-bordered {tabActive}"
+  class="tab tab-bordered {tabActiveCls}"
   on:click={() => ($activeTab = name)}
   {href}
   use:link>
