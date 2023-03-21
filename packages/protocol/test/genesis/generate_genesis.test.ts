@@ -142,37 +142,6 @@ action("Generate Genesis", function () {
             );
         });
 
-        it("TaikoL2", async function () {
-            const TaikoL2Alloc = getContractAlloc("TaikoL2");
-
-            const TaikoL2 = new hre.ethers.Contract(
-                TaikoL2Alloc.address,
-                require("../../artifacts/contracts/L2/TaikoL2.sol/TaikoL2.json").abi,
-                signer
-            );
-
-            let latestL1Height = 1;
-            for (let i = 0; i < 300; i++) {
-                const tx = await TaikoL2.anchor(
-                    latestL1Height++,
-                    ethers.utils.hexlify(ethers.utils.randomBytes(32)),
-                    ethers.utils.hexlify(ethers.utils.randomBytes(32)),
-                    { gasLimit: 1000000 }
-                );
-
-                const receipt = await tx.wait();
-
-                expect(receipt.status).to.be.equal(1);
-
-                if (i === 299) {
-                    console.log({
-                        message: "TaikoL2.anchor gas cost after 256 L2 blocks",
-                        gasUsed: receipt.gasUsed,
-                    });
-                }
-            }
-        });
-
         it("Bridge", async function () {
             const BridgeAlloc = getContractAlloc("Bridge");
             const Bridge = new hre.ethers.Contract(

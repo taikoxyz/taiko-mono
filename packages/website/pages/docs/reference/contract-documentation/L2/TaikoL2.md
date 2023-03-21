@@ -22,6 +22,12 @@ event BlockVars(uint256 number, bytes32 parentHash, uint256 timestamp, uint256 b
 error L2_INVALID_CHAIN_ID()
 ```
 
+### L2_INVALID_SENDER
+
+```solidity
+error L2_INVALID_SENDER()
+```
+
 ### L2_PUBLIC_INPUT_HASH_MISMATCH
 
 ```solidity
