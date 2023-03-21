@@ -7,7 +7,6 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
-import {ChainData} from "../../common/IXchainSync.sol";
 import {LibMath} from "../../libs/LibMath.sol";
 import {
     SafeCastUpgradeable

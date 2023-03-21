@@ -77,7 +77,7 @@ struct BlockMetadataInput {
 
 ```solidity
 struct BlockMetadata {
-  uint64 id;
+  uint64 blockId;
   uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
@@ -116,21 +116,41 @@ struct BlockEvidence {
 
 ```solidity
 struct ForkChoice {
-  struct ChainData chainData;
+  bytes32 blockHash;
+  bytes32 signalRoot;
   address prover;
   uint64 provenAt;
 }
 ```
 
-### ProposedBlock
+### BlockSpec
 
 ```solidity
-struct ProposedBlock {
+struct BlockSpec {
   bytes32 metaHash;
   uint256 deposit;
   address proposer;
   uint64 proposedAt;
   uint24 nextForkChoiceId;
+}
+```
+
+### Block
+
+```solidity
+struct Block {
+  struct TaikoData.BlockSpec spec;
+  mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+}
+```
+
+### ChainData
+
+```solidity
+struct ChainData {
+  uint64 blockId;
+  bytes32 blockHash;
+  bytes32 signalRoot;
 }
 ```
 
@@ -147,10 +167,9 @@ struct TxListInfo {
 
 ```solidity
 struct State {
-  mapping(uint256 => struct TaikoData.ProposedBlock) blocks;
+  mapping(uint256 => struct TaikoData.Block) blocks;
+  mapping(uint256 => struct TaikoData.ChainData) chainData;
   mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
-  mapping(uint256 => mapping(uint256 => struct TaikoData.ForkChoice)) forkChoices;
-  mapping(uint256 => struct ChainData) l2ChainDatas;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
   uint64 genesisHeight;

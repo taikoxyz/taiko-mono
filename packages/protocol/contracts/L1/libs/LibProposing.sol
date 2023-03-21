@@ -149,14 +149,17 @@ library LibProposing {
                 .toUint64();
         }
 
-        state.blocks[state.nextBlockId % config.maxNumBlocks] = TaikoData
-            .ProposedBlock({
-                metaHash: LibUtils.hashMetadata(meta),
-                deposit: deposit,
-                proposer: msg.sender,
-                proposedAt: meta.timestamp,
-                nextForkChoiceId: 1
-            });
+        TaikoData.Block storage blk = state.blocks[
+            state.nextBlockId % config.maxNumBlocks
+        ];
+
+        blk.spec = TaikoData.BlockSpec({
+            metaHash: LibUtils.hashMetadata(meta),
+            deposit: deposit,
+            proposer: msg.sender,
+            proposedAt: meta.timestamp,
+            nextForkChoiceId: 1
+        });
 
         if (state.lastProposedAt > 0) {
             uint256 blockTime;
@@ -184,11 +187,11 @@ library LibProposing {
         TaikoData.State storage state,
         uint256 maxNumBlocks,
         uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
+    ) internal view returns (TaikoData.BlockSpec storage) {
         if (id <= state.lastBlockId || id >= state.nextBlockId) {
             revert L1_ID();
         }
 
-        return state.blocks[id % maxNumBlocks];
+        return state.blocks[id % maxNumBlocks].spec;
     }
 }

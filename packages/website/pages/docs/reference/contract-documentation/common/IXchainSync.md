@@ -1,22 +1,16 @@
-## ChainData
-
-```solidity
-struct ChainData {
-  bytes32 blockHash;
-  bytes32 signalRoot;
-}
-```
-
+---
+title: IXchainSync
 ---
 
-## title: IXchainSync
-
 ## IXchainSync
+
+Interface implemented by both the TaikoL1 and TaikoL2 contracts. It exposes
+the methods needed to access the block hashes of the other chain.
 
 ### XchainSynced
 
 ```solidity
-event XchainSynced(uint256 srcHeight, struct ChainData srcChainData)
+event XchainSynced(uint256 srcHeight, bytes32 blockHash, bytes32 signalRoot)
 ```
 
 ### getXchainBlockHash

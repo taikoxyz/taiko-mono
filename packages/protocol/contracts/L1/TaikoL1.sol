@@ -151,7 +151,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getBlock(
         uint256 id
-    ) public view returns (TaikoData.ProposedBlock memory) {
+    ) public view returns (TaikoData.BlockSpec memory) {
         return LibProposing.getBlock(state, getConfig().maxNumBlocks, id);
     }
 
@@ -169,20 +169,20 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getXchainBlockHash(
-        uint256 number
+        uint256 blockId
     ) public view override returns (bytes32) {
         return
-            state
-                .getL2ChainData(number, getConfig().blockHashHistory)
+            LibUtils
+                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
                 .blockHash;
     }
 
     function getXchainSignalRoot(
-        uint256 number
+        uint256 blockId
     ) public view override returns (bytes32) {
         return
-            state
-                .getL2ChainData(number, getConfig().blockHashHistory)
+            LibUtils
+                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
                 .signalRoot;
     }
 

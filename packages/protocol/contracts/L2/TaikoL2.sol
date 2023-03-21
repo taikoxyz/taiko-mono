@@ -6,11 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import {ChainData, IXchainSync} from "../common/IXchainSync.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+    struct ChainData {
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
     /**********************
      * State Variables    *
      **********************/
@@ -137,10 +141,9 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         _l2Hashes[m] = parentHash;
 
         latestSyncedL1Height = l1Height;
-        ChainData memory chainData = ChainData(l1Hash, l1SignalRoot);
-        _l1ChainData[l1Height] = chainData;
+        _l1ChainData[l1Height] = ChainData(l1Hash, l1SignalRoot);
 
-        emit XchainSynced(l1Height, chainData);
+        emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
         // We emit this event so circuits can grab its data to verify block variables.
         // If plonk lookup table already has all these data, we can still use this
