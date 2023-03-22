@@ -1,21 +1,27 @@
-import { Callout } from 'nextra-theme-docs'
+import { Callout, Steps } from "nextra-theme-docs";
 
-<Callout type="info">
-  The bridge is currently not deployed on the Taiko hackathon testnet, but you can build bridges with the Signal Service cross-chain messaging.
+<Callout type="warning" emoji="⚠️">
+  The BLL token should succeed when **minting** from the faucet, and when **sending the bridge message** to Sepolia or Taiko. However, it will fail about 50% of the time when **claiming** on Sepolia—this is intentionally done so we can test the error handling.
 </Callout>
 
-These steps will help you to use the bridge to transfer assets between Ethereum A1 and Taiko A1. All the bridge contracts can be found [here](/docs/reference/contract-addresses).
+
+This guide will help you use the bridge to send tokens between Sepolia and Taiko (Askja testnet). You can read more about how bridging works [here](/docs/concepts/bridging#what-is-the-taiko-bridge).
 
 ## Prerequisites
 
-- Have some ETH or HORSE on either Ethereum A1 or Taiko A1. If you don't have any, you can [request from faucet](/docs/guides/request-from-faucet).
+- A wallet with some testnet ETH on Sepolia and/or Taiko (you can [receive tokens here](/docs/guides/receive-tokens)).
 
 ## Steps
 
-1. Visit the [bridge](https://bridge.a1.taiko.xyz/) and follow through the UI to bridge your tokens.
+<Steps>
+    ### Visit the bridge
+    Visit the [bridge](https://bridge.a2.taiko.xyz/) and the UI should be intuitive.
 
-## Troubleshooting
+    ### Bridge tokens from Sepolia to Taiko
+    Try bridging ETH, HORSE, and/or BLL from Sepolia to Taiko. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
 
-### Why is my L2 -> L1 transfer taking so long?
+    ![bridge claim](/images/guides/bridge-claim.png)
 
-The transfer from L2 to L1 can take a while because Taiko has a several hours delay in syncing block headers to allow uncle proof generation time, and we need the synced header to match so the Merkle proof of the message being sent on L2 is valid on L1.
+    ### Bridge tokens from Taiko to Sepolia
+    Try bridging ETH, HORSE, and/or BLL from Taiko to Sepolia. You can also try manually claiming the transfer yourself by clicking the "Claim" button under the "Transactions" tab.
+</Steps>

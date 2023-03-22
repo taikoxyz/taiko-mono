@@ -7,9 +7,8 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a href="https://twitter.com/taikoxyz/" target="_blank">
-        📌 The alpha-1 testnet (Snæfellsjökull) has been shut down, with the
-        alpha-2 testnet coming soon. Follow us to stay updated →
+      <a href="#" target="_blank">
+        🌋 Askja testnet is here! Learn more →
       </a>
     ),
   },
@@ -20,7 +19,7 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page on GitHub ↗",
+    text: "Improve this page on GitHub ↗",
   },
   feedback: {
     content: null,
@@ -28,7 +27,6 @@ export default {
   footer: {
     component: Footer,
   },
-  gitTimestamp: false,
   head: () => {
     const { asPath } = useRouter();
     const { frontMatter } = useConfig();
