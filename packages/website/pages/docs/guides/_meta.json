@@ -12,7 +12,10 @@
     "title": "🔀 Swap tokens"
   },
   "run-a-node": {
-    "title": "🌐 Run a node (and prover)"
+    "title": "🌐 Run a node"
+  },
+  "enable-a-prover": {
+    "title": "🔐 Enable a prover"
   },
   "deploy-a-contract": {
     "title": "🧙 Deploy a contract"
