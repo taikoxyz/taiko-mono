@@ -61,6 +61,9 @@ Set the following environment variables to enable your node as a prover: - Set `
   logs, or in the local grafana dashboard and see the latest L2 chain status in
   the [Taiko alpha-2 block explorer](https://explorer.a2.taiko.xyz/).
 </Callout>
+<Callout>
+  If you ran an alpha-1 testnet node make sure to first run a `docker compose down -v` to remove the old volumes.
+</Callout>
 
 Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
 
