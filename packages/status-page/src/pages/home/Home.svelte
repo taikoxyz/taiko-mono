@@ -232,8 +232,9 @@
             "BlockProven",
             (id, parentHash, blockHash, prover, provenAt) => {
               // ignore oracle prover
+              console.log(provenAt);
               if (prover.toLowerCase() !== oracleProverAddress.toLowerCase()) {
-                onEvent(new Date(provenAt.toNumber()).toString());
+                onEvent(new Date(provenAt.toNumber() * 1000).toString());
               }
             }
           );
