@@ -74,7 +74,7 @@ library LibProving {
             unchecked {
                 ++blk.nextForkChoiceId;
             }
-        } else if (fcId < blk.nextForkChoiceId) {
+        } else if (fcId >= blk.nextForkChoiceId) {
             revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
         }
 
