@@ -271,7 +271,7 @@ async function generateContractConfigs(
             variables: {
                 // TaikoL2
                 // keccak256(abi.encodePacked(block.chainid, basefee, ancestors))
-                _publicInputHash: `${ethers.utils.solidityKeccak256(
+                publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
                     [
                         new Array(255)

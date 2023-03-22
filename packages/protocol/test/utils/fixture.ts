@@ -121,7 +121,7 @@ async function initIntegrationFixture(
     const proposer = new Proposer(
         taikoL1.connect(proposerSigner),
         l2Provider,
-        config.maxNumBlocks.toNumber(),
+        config.maxNumProposedBlocks.toNumber(),
         0,
         proposerSigner
     );

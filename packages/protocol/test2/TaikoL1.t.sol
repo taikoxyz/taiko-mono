@@ -29,9 +29,9 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
-        config.maxNumBlocks = 11;
-        config.blockHashHistory = 40;
-        // this value must be changed if `maxNumBlocks` is changed.
+        config.maxNumProposedBlocks = 11;
+        config.maxNumVerifiedBlocks = 40;
+        // this value must be changed if `maxNumProposedBlocks` is changed.
         config.slotSmoothingFactor = 4160;
         config.anchorTxGasLimit = 180000;
 
@@ -72,7 +72,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         );
     }
 
-    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumBlocks'
+    /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_more_blocks_than_ring_buffer_size() external {
         _depositTaikoToken(Alice, 1E6, 100);
         _depositTaikoToken(Bob, 1E6, 100);
@@ -80,7 +80,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
+        for (
+            uint blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
@@ -122,7 +126,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint blockId = 1; blockId <= conf.maxNumBlocks - 1; blockId++) {
+        for (
+            uint blockId = 1;
+            blockId <= conf.maxNumProposedBlocks - 1;
+            blockId++
+        ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
@@ -132,9 +140,9 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
             parentHash = blockHash;
         }
-        verifyBlock(Alice, conf.maxNumBlocks - 2);
+        verifyBlock(Alice, conf.maxNumProposedBlocks - 2);
         printVariables("after verify");
-        verifyBlock(Alice, conf.maxNumBlocks);
+        verifyBlock(Alice, conf.maxNumProposedBlocks);
         printVariables("after verify");
     }
 
@@ -146,7 +154,11 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint blockId = 1; blockId < conf.maxNumBlocks * 10; blockId++) {
+        for (
+            uint blockId = 1;
+            blockId < conf.maxNumProposedBlocks * 10;
+            blockId++
+        ) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);
@@ -170,7 +182,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        uint total = conf.maxNumBlocks * 10;
+        uint total = conf.maxNumProposedBlocks * 10;
 
         for (uint blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");

@@ -21,8 +21,8 @@ struct FeeConfig {
 ```solidity
 struct Config {
   uint256 chainId;
-  uint256 maxNumBlocks;
-  uint256 blockHashHistory;
+  uint256 maxNumProposedBlocks;
+  uint256 maxNumVerifiedBlocks;
   uint256 maxVerificationsPerTx;
   uint256 blockMaxGasLimit;
   uint256 maxTransactionsPerBlock;
@@ -77,7 +77,7 @@ struct BlockMetadataInput {
 
 ```solidity
 struct BlockMetadata {
-  uint64 blockId;
+  uint64 id;
   uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
@@ -123,31 +123,23 @@ struct ForkChoice {
 }
 ```
 
-### BlockSpec
+### ProposedBlock
 
 ```solidity
-struct BlockSpec {
+struct ProposedBlock {
   bytes32 metaHash;
   uint256 deposit;
   address proposer;
   uint64 proposedAt;
   uint24 nextForkChoiceId;
-}
-```
-
-### Block
-
-```solidity
-struct Block {
-  struct TaikoData.BlockSpec spec;
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
 }
 ```
 
-### ChainData
+### VerifiedBlock
 
 ```solidity
-struct ChainData {
+struct VerifiedBlock {
   uint64 blockId;
   bytes32 blockHash;
   bytes32 signalRoot;
@@ -167,8 +159,8 @@ struct TxListInfo {
 
 ```solidity
 struct State {
-  mapping(uint256 => struct TaikoData.Block) blocks;
-  mapping(uint256 => struct TaikoData.ChainData) chainData;
+  mapping(uint256 => struct TaikoData.ProposedBlock) proposedBlocks;
+  mapping(uint256 => struct TaikoData.VerifiedBlock) verifiedBlocks;
   mapping(uint256 => mapping(bytes32 => uint256)) forkChoiceIds;
   mapping(address => uint256) balances;
   mapping(bytes32 => struct TaikoData.TxListInfo) txListInfo;
@@ -184,6 +176,6 @@ struct State {
   uint64 lastBlockId;
   uint64 avgProofTime;
   uint64 feeBaseTwei;
-  uint256[41] __gap;
+  uint256[42] __gap;
 }
 ```

@@ -13,9 +13,10 @@ library TaikoConfig {
         return
             TaikoData.Config({
                 chainId: 167,
-                // maxNumBlocks-1 is the max number of pending blocks.
-                maxNumBlocks: 120961, // two weeks if avg block time is 10 seconds
-                blockHashHistory: 10240,
+                // maxNumProposedBlocks-1 is actually the max number of pending blocks.
+                // two weeks if avg block time is 10 seconds
+                maxNumProposedBlocks: 120961,
+                maxNumVerifiedBlocks: 4096,
                 //Each time one more block is verified, there will be ~20k
                 // more gas cost.
                 maxVerificationsPerTx: 10,

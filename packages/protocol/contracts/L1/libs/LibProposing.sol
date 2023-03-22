@@ -54,8 +54,9 @@ library LibProposing {
             input.gasLimit > config.blockMaxGasLimit
         ) revert L1_INVALID_METADATA();
 
-        if (state.nextBlockId >= state.lastBlockId + config.maxNumBlocks)
-            revert L1_TOO_MANY_BLOCKS();
+        if (
+            state.nextBlockId >= state.lastBlockId + config.maxNumProposedBlocks
+        ) revert L1_TOO_MANY_BLOCKS();
 
         uint64 timeNow = uint64(block.timestamp);
         bool txListCached;
@@ -149,17 +150,15 @@ library LibProposing {
                 .toUint64();
         }
 
-        TaikoData.Block storage blk = state.blocks[
-            state.nextBlockId % config.maxNumBlocks
+        TaikoData.ProposedBlock storage blk = state.proposedBlocks[
+            state.nextBlockId % config.maxNumProposedBlocks
         ];
 
-        blk.spec = TaikoData.BlockSpec({
-            metaHash: LibUtils.hashMetadata(meta),
-            deposit: deposit,
-            proposer: msg.sender,
-            proposedAt: meta.timestamp,
-            nextForkChoiceId: 1
-        });
+        blk.metaHash = LibUtils.hashMetadata(meta);
+        blk.deposit = deposit;
+        blk.proposer = msg.sender;
+        blk.proposedAt = meta.timestamp;
+        blk.nextForkChoiceId = 1;
 
         if (state.lastProposedAt > 0) {
             uint256 blockTime;
@@ -185,13 +184,13 @@ library LibProposing {
 
     function getBlock(
         TaikoData.State storage state,
-        uint256 maxNumBlocks,
+        uint256 maxNumProposedBlocks,
         uint256 id
-    ) internal view returns (TaikoData.BlockSpec storage) {
+    ) internal view returns (TaikoData.ProposedBlock storage) {
         if (id <= state.lastBlockId || id >= state.nextBlockId) {
             revert L1_ID();
         }
 
-        return state.blocks[id % maxNumBlocks].spec;
+        return state.proposedBlocks[id % maxNumProposedBlocks];
     }
 }

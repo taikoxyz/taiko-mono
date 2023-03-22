@@ -473,12 +473,12 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "maxNumBlocks",
+            name: "maxNumProposedBlocks",
             type: "uint256",
           },
           {
             internalType: "uint256",
-            name: "blockHashHistory",
+            name: "maxNumVerifiedBlocks",
             type: "uint256",
           },
           {
