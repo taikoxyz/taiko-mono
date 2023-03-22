@@ -1,7 +1,6 @@
 import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
-Taiko's network is fully decentralized and relies on the community to run nodes. This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node), the easiest way to get started operating a Taiko node. With simple-taiko-node you can:
-
+This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node). You will be able to:
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
 - Run a Taiko node regularly or as a prover.
 - View a [Grafana](https://grafana.com/) dashboard which displays the node's status.
@@ -10,9 +9,10 @@ Taiko's network is fully decentralized and relies on the community to run nodes.
 
 - [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
 - [Git](https://github.com/git-guides/install-git/) is installed.
-- Should have some ETH on the Sepolia network (see [receive tokens](/docs/guides/receive-tokens)) if running a prover.
-- Because we use a fork of geth, you can consult the [geth minimum requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), with the exception of 1TB of free space, as the Taiko rollup state is much smaller.
-  - If you are running a prover, 32GB of RAM and 8 cores is recommended.
+- Consult the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements), with the exception of 1TB of free space (you won't need much, even ~50GB should suffice).
+- If running a prover:
+  - Must have some ETH on Sepolia (see [receive tokens](/docs/guides/receive-tokens)).
+  - Should have 8/16 core CPU and 32GB of RAM.
 
 ## Steps
 
