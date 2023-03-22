@@ -23,7 +23,7 @@ git clone https://github.com/taikoxyz/simple-taiko-node.git
 cd simple-taiko-node
 ```
 
-### Configure your node as a prover (optional)
+### Configure your node (required)
 
 First, copy the `.env.sample` to a new file `.env`:
 
@@ -31,7 +31,7 @@ First, copy the `.env.sample` to a new file `.env`:
 cp .env.sample .env
 ```
 
-Then, open the `.env` file in your preferred text editor:
+And open the `.env` file in your preferred text editor:
 
 {" "}
 <Tabs items={["Mac", "Linux", "Windows"]} defaultIndex="0">
@@ -40,7 +40,15 @@ Then, open the `.env` file in your preferred text editor:
   <Tab>```sh notepad .env ```</Tab>
 </Tabs>
 
-Finally, set the following environment variables to configure your node: 
+Finally, set the following environment variables:
+  - L1_ENDPOINT_HTTP
+  - L1_ENDPOINT_WS
+
+> **Note:** You can get a Sepolia L1 endpoint from a few places, [Alchemy](https://www.alchemy.com/) is one popular example.
+
+### Enable your node as a prover (optional)
+
+Set the following environment variables to enable your node as a prover: 
     - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). 
     - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
 

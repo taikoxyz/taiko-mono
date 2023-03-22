@@ -83,15 +83,6 @@ export default function Footer() {
               </li>
               <li className="mb-4">
                 <a
-                  href="https://www.reddit.com/r/taiko_xyz/"
-                  className="hover:underline"
-                  target={"_blank"}
-                >
-                  Reddit
-                </a>
-              </li>
-              <li className="mb-4">
-                <a
                   href="https://twitter.com/taikoxyz"
                   className="hover:underline"
                   target={"_blank"}

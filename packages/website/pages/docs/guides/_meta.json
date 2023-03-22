@@ -11,8 +11,8 @@
   "swap-tokens": {
     "title": "🔀 Swap tokens"
   },
-  "run-a-taiko-node": {
-    "title": "🌐 Run a Taiko node"
+  "run-a-node": {
+    "title": "🌐 Run a node"
   },
   "deploy-a-contract": {
     "title": "🧙 Deploy a contract"
