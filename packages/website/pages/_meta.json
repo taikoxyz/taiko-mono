@@ -34,7 +34,7 @@
   "uniswap": {
     "title": "Swap ↗",
     "type": "page",
-    "href": "https://uniswap.a2.taiko.xyz",
+    "href": "https://swap.a2.taiko.xyz",
     "newWindow": true
   },
   "status": {
@@ -58,5 +58,11 @@
         "newWindow": true
       }
     }
+  },
+  "feedback": {
+    "title": "Feedback ↗",
+    "type": "page",
+    "href": "https://forms.gle/RZsweAPy5RhQSP6j7",
+    "newWindow": true
   }
 }
