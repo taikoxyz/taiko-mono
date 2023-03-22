@@ -31,6 +31,9 @@
     duration: 4000,
     pausable: false,
   };
+
+  // TODO: props to control its possition:
+  //       top, bottom, left, right...
 </script>
 
 <div class="toast">
