@@ -123,3 +123,9 @@ error L1_TX_LIST_RANGE()
 ```solidity
 error L1_TX_LIST()
 ```
+
+### L1_UNEXPECTED_FORK_CHOICE_ID
+
+```solidity
+error L1_UNEXPECTED_FORK_CHOICE_ID()
+```

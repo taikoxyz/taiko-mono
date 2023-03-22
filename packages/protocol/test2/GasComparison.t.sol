@@ -130,23 +130,23 @@ contract FooBar {
 
     //------
 
-    function increment_1(uint count) public {
-        uint a;
-        for (uint i = 0; i < count; i++) {
+    function increment_1(uint256 count) public {
+        uint256 a;
+        for (uint256 i = 0; i < count; i++) {
             a += i;
         }
     }
 
-    function increment_2(uint count) public {
-        uint a;
-        for (uint i = 0; i < count; ++i) {
+    function increment_2(uint256 count) public {
+        uint256 a;
+        for (uint256 i = 0; i < count; ++i) {
             a += i;
         }
     }
 
-    function increment_3(uint count) public {
-        uint a;
-        for (uint i = 0; i < count; ) {
+    function increment_3(uint256 count) public {
+        uint256 a;
+        for (uint256 i = 0; i < count; ) {
             a += i;
             unchecked {
                 i++;
@@ -154,9 +154,9 @@ contract FooBar {
         }
     }
 
-    function increment_4(uint count) public {
-        uint a;
-        for (uint i = 0; i < count; ) {
+    function increment_4(uint256 count) public {
+        uint256 a;
+        for (uint256 i = 0; i < count; ) {
             a += i;
             unchecked {
                 ++i;
@@ -166,14 +166,14 @@ contract FooBar {
 
     // ------
     function hashKey_1(
-        uint chainId,
+        uint256 chainId,
         string memory name
     ) public view returns (bytes32) {
         return keccak256(bytes(string.concat(Strings.toString(chainId), name)));
     }
 
     function hashKey_2(
-        uint chainId,
+        uint256 chainId,
         string memory name
     ) public view returns (bytes32) {
         return keccak256(abi.encodePacked(chainId, name));
@@ -200,7 +200,7 @@ contract GasComparisonTest is Test {
         foobar = new FooBar();
     }
 
-    function testCompareHashString(uint count) external {
+    function testCompareHashString(uint256 count) external {
         vm.assume(count > 10 && count < 1000);
         string memory str = string(new bytes(count));
         assertEq(

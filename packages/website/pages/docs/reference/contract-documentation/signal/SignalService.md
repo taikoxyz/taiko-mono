@@ -8,7 +8,7 @@ title: SignalService
 
 ```solidity
 struct SignalProof {
-  struct BlockHeader header;
+  uint256 height;
   bytes proof;
 }
 ```

@@ -81,7 +81,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint blockId = 1;
+            uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
@@ -106,7 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint blockId = 1; blockId <= 2; blockId++) {
+        for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             printVariables("after propose");
@@ -127,7 +127,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint blockId = 1;
+            uint256 blockId = 1;
             blockId <= conf.maxNumProposedBlocks - 1;
             blockId++
         ) {
@@ -155,7 +155,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (
-            uint blockId = 1;
+            uint256 blockId = 1;
             blockId < conf.maxNumProposedBlocks * 10;
             blockId++
         ) {
@@ -182,9 +182,9 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        uint total = conf.maxNumProposedBlocks * 10;
+        uint256 total = conf.maxNumProposedBlocks * 10;
 
-        for (uint blockId = 1; blockId < total; blockId++) {
+        for (uint256 blockId = 1; blockId < total; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, 1024);
             mine(1);

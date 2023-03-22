@@ -149,7 +149,7 @@ library LibVerifying {
                 .toUint64();
         }
 
-        uint proofTime;
+        uint256 proofTime;
         unchecked {
             proofTime = (fc.provenAt - blk.proposedAt) * 1000;
         }

@@ -67,7 +67,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
         (publicInputHash, ) = _calcPublicInputHash(block.number);
         if (block.number > 0) {
-            uint parentHeight = block.number - 1;
+            uint256 parentHeight = block.number - 1;
             _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
     }
@@ -175,7 +175,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
             // put the previous 255 blockhashes (excluding the parent's) into a
             // ring buffer.
             for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
-                uint j = blockNumber - i - 1;
+                uint256 j = blockNumber - i - 1;
                 inputs[j % 255] = blockhash(j);
             }
         }

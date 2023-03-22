@@ -153,7 +153,7 @@ abstract contract TaikoL1TestBase is Test {
     function _depositTaikoToken(
         address who,
         uint256 amountTko,
-        uint amountEth
+        uint256 amountEth
     ) internal {
         vm.deal(who, amountEth * 1 ether);
         tko.transfer(who, amountTko * 1 ether);
