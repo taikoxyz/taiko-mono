@@ -51,6 +51,8 @@ Finally, set the following environment variables:
 
 ### Enable your node as a prover (optional)
 
+> **NOTE:**: Only the first prover can get the reward, and others will be rejected by the protocol smart contract (with a custom error: L1_ID() or L1_ALREADY_PROVEN()). `💰 Your block proof was accepted` means you are the first prover and receive the reward. `✅ Valid block proven` means a proposed block was successfully proved on TaikoL1.
+
 Set the following environment variables to enable your node as a prover: - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
 
 ### Start a node
