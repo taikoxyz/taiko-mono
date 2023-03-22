@@ -12,5 +12,7 @@ export const getProofReward = async (
     ~~(new Date().getTime() / 1000),
     state.lastProposedAt
   );
-  return truncateString(ethers.utils.formatEther(fee), 8);
+  return `${truncateString(ethers.utils.formatEther(fee), 8)} ${
+    import.meta.env.VITE_FEE_TOKEN_SYMBOL ?? "TKO"
+  }`;
 };
