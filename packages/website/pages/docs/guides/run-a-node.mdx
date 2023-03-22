@@ -111,26 +111,26 @@ docker compose pull
 
 To view the Docker logs, the following commands can be ran:
 
-**View all logs**
+###### View all logs
 
 ```sh
 docker compose logs -f
 ```
 
-\*\*View the prover image's logs
+###### View the prover image's logs
 
 ```sh
 docker compose logs -f taiko_client_prover
 ```
 
-**View the L2 execution engine logs**
+###### View the L2 execution engine logs
 
 ```sh
 docker compose logs -f l2_execution_engine
 ```
 
-**View the live data streams of your running containers (CPU/MEM USAGE %), and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)**
-
+###### View the live data streams of your running containers 
+This shows the CPU/MEM USAGE % and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)
 ```sh
 docker stats
 ```
