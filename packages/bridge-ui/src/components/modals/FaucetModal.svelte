@@ -16,6 +16,7 @@
   export let onMint: () => Promise<void>;
 
   let disabled: boolean = true;
+  let errorReason: string;
 
   async function shouldEnableButton() {
     if (!$signer || !$token) {
@@ -33,6 +34,14 @@
       MintableERC20,
       $signer,
     );
+
+    const userHasAlreadyClaimed = await contract.minters(address);
+
+    if (userHasAlreadyClaimed) {
+      disabled = true;
+      errorReason = 'You have already claimed';
+      return;
+    }
 
     const gas = await contract.estimateGas.mint(address);
     const gasPrice = await $signer.getGasPrice();
@@ -106,7 +115,7 @@
       await mint();
     }}>
     {#if disabled}
-      Insufficient ETH
+      {errorReason ?? 'Insufficient ETH'}
     {:else}
       Mint
     {/if}
