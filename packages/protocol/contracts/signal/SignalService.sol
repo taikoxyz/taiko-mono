@@ -9,14 +9,11 @@ pragma solidity ^0.8.18;
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {ISignalService} from "./ISignalService.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
-import {LibBlockHeader, BlockHeader} from "../libs/LibBlockHeader.sol";
 import {LibTrieProof} from "../libs/LibTrieProof.sol";
 
 contract SignalService is ISignalService, EssentialContract {
-    using LibBlockHeader for BlockHeader;
-
     struct SignalProof {
-        BlockHeader header;
+        uint256 height;
         bytes proof;
     }
 
@@ -66,34 +63,17 @@ contract SignalService is ISignalService, EssentialContract {
         bytes32 signal,
         bytes calldata proof
     ) public view returns (bool) {
-        if (srcChainId == block.chainid) {
-            revert B_WRONG_CHAIN_ID();
-        }
-
-        if (app == address(0)) {
-            revert B_NULL_APP_ADDR();
-        }
-
-        if (signal == 0) {
-            revert B_ZERO_SIGNAL();
-        }
+        if (srcChainId == block.chainid) revert B_WRONG_CHAIN_ID();
+        if (app == address(0)) revert B_NULL_APP_ADDR();
+        if (signal == 0) revert B_ZERO_SIGNAL();
 
         SignalProof memory sp = abi.decode(proof, (SignalProof));
 
         // Resolve the TaikoL1 or TaikoL2 contract if on Ethereum or Taiko.
-        IXchainSync chainSync = IXchainSync(resolve("taiko", false));
-
-        bytes32 syncedHeaderHash = chainSync.getXchainBlockHash(
-            sp.header.height
-        );
-
-        bytes32 syncedSignalRoot = chainSync.getXchainSignalRoot(
-            sp.header.height
-        );
+        bytes32 syncedSignalRoot = IXchainSync(resolve("taiko", false))
+            .getXchainSignalRoot(sp.height);
 
         return
-            syncedHeaderHash != 0 &&
-            syncedHeaderHash == sp.header.hashBlockHeader() &&
             LibTrieProof.verify({
                 slot: getSignalSlot(app, signal),
                 value: bytes32(uint256(1)),
