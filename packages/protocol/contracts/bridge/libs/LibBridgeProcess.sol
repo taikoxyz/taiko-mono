@@ -97,9 +97,7 @@ library LibBridgeProcess {
         }
         // We send the Ether before the message call in case the call will
         // actually consume Ether.
-        if (message.depositValue > 0) {
-            message.owner.sendEther(message.depositValue);
-        }
+        message.owner.sendEther(message.depositValue);
 
         LibBridgeStatus.MessageStatus status;
         uint256 refundAmount;
@@ -129,7 +127,7 @@ library LibBridgeProcess {
                 status = LibBridgeStatus.MessageStatus.DONE;
             } else {
                 status = LibBridgeStatus.MessageStatus.RETRIABLE;
-                if (ethVault != address(0) && message.callValue > 0) {
+                if (ethVault != address(0)) {
                     ethVault.sendEther(message.callValue);
                 }
             }
@@ -145,19 +143,13 @@ library LibBridgeProcess {
         // if sender is the refundAddress
         if (msg.sender == refundAddress) {
             uint256 amount = message.processingFee + refundAmount;
-            if (amount > 0) {
-                refundAddress.sendEther(amount);
-            }
+            refundAddress.sendEther(amount);
         } else {
             // if sender is another address (eg. the relayer)
             // First attempt relayer is rewarded the processingFee
             // message.owner has to eat the cost
-            if (message.processingFee > 0) {
-                msg.sender.sendEther(message.processingFee);
-            }
-            if (refundAmount > 0) {
-                refundAddress.sendEther(refundAmount);
-            }
+            msg.sender.sendEther(message.processingFee);
+            refundAddress.sendEther(refundAmount);
         }
     }
 }
