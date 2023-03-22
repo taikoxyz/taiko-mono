@@ -30,6 +30,7 @@ library LibProving {
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
+    error L1_UNEXPECTED_FORK_CHOICE_ID();
 
     function proveBlock(
         TaikoData.State storage state,
@@ -73,9 +74,10 @@ library LibProving {
             unchecked {
                 ++blk.nextForkChoiceId;
             }
+        } else if (fcId < blk.nextForkChoiceId) {
+            revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
         }
 
-        // assert(fcId < blk.nextForkChoiceId)
         TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
         bool oracleProving;
