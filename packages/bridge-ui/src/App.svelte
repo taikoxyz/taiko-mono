@@ -198,6 +198,7 @@
     pausable: false,
   };
 
+  // TODO: Not found route
   const routes = {
     '/:tab?': wrap({
       component: Home,
