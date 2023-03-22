@@ -74,9 +74,7 @@ library LibBridgeSend {
         // store it here on the Bridge. Processing will release Ether from the
         // EtherVault or the Bridge on the destination chain.
         address ethVault = resolver.resolve("ether_vault", true);
-        if (ethVault != address(0)) {
-            ethVault.sendEther(expectedAmount);
-        }
+        ethVault.sendEther(expectedAmount);
 
         message.id = state.nextMessageId++;
         message.sender = msg.sender;

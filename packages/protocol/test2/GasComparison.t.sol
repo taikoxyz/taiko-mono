@@ -196,9 +196,8 @@ contract FooBar {
 
     // ------
     function send0Ether_CheckOutside(address to, uint256 amount) public {
-        if (amount > 0) {
-            LibAddress2.sendEther(to, amount);
-        }
+        if (amount == 0 || to == address(0)) return;
+        LibAddress2.sendEther(to, amount);
     }
 
     function send0Ether_CheckInside(address to, uint256 amount) public {

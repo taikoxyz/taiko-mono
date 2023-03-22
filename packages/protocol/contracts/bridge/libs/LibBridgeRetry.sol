@@ -91,7 +91,7 @@ library LibBridgeRetry {
                 : message.refundAddress;
 
             refundAddress.sendEther(message.callValue);
-        } else if (ethVault != address(0)) {
+        } else {
             ethVault.sendEther(message.callValue);
         }
     }
