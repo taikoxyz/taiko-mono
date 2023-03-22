@@ -27,7 +27,6 @@
   } from '../../store/transactions';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
-  import { errorToast, successToast } from '../../utils/toast';
   import ERC20 from '../../constants/abi/ERC20';
   import TokenVault from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
@@ -40,6 +39,7 @@
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
   import { chainsRecord } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   let amount: string;
   let amountInput: HTMLInputElement;
