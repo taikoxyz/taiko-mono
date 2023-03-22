@@ -48,21 +48,27 @@ Finally, set the following environment variables:
 - L1_ENDPOINT_WS
 
 <Callout>
- You can get a Sepolia L1 endpoint from a few places, [Alchemy](https://www.alchemy.com/) is one popular example.
+  You can get a Sepolia L1 endpoint from a few places,
+  [Alchemy](https://www.alchemy.com/) is one popular example.
 </Callout>
 
 ### Enable your node as a prover (optional)
 
 <Callout>
- Only the first prover can get the reward, and others will be rejected by the protocol smart contract (with a custom error: L1_ID() or L1_ALREADY_PROVEN()). `💰 Your block proof was accepted` means you are the first prover and receive the reward. `✅ Valid block proven` means a proposed block was successfully proved on TaikoL1.
+  Only the first prover can get the reward, and others will be rejected by the
+  protocol smart contract (with a custom error: L1_ID() or L1_ALREADY_PROVEN()).
+  `💰 Your block proof was accepted` means you are the first prover and receive
+  the reward. `✅ Valid block proven` means a proposed block was successfully
+  proved on TaikoL1.
 </Callout>
 <Callout>
   Keep in mind the additional prover requirements laid out in the prerequisites.
 </Callout>
 
-Set the following environment variables to enable your node as a prover: 
-  - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). 
-  - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+Set the following environment variables to enable your node as a prover:
+
+- Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`).
+- Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
 
 ### Start a node
 
@@ -73,7 +79,8 @@ Set the following environment variables to enable your node as a prover:
   the [Taiko alpha-2 block explorer](https://explorer.a2.taiko.xyz/).
 </Callout>
 <Callout>
-  If you ran an alpha-1 testnet node make sure to first run a `docker compose down -v` to remove the old volumes.
+  If you ran an alpha-1 testnet node make sure to first run a `docker compose
+  down -v` to remove the old volumes.
 </Callout>
 
 Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
@@ -155,6 +162,8 @@ When running a node it's normal for the node to run into errors. This doesn't me
 
 | Error message                                                                                                                 | Explanation                                                                                                                                                 |
 | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error: L1_ID`                                                                                                                | The block that you want to prove has already been verified, you can ignore this.                                                                            |
+| `error: L1_ALREADY_PROVEN`                                                                                                    | This block has been proven by someone else, but its not verified yet, you can ignore it.                                                                    |
 | `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`                                      | Try to remove the node with `docker compose down -v` and then try again.                                                                                    |
 | `Unhandled trie error: missing trie node`                                                                                     | You can ignore this error, it doesn't affect you and goes away after a while.                                                                               |
 | `Block batch iterator callback error` <br></br> `error="failed to fetch L2 parent block: not found`                           | You can ignore this error.                                                                                                                                  |
