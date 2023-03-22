@@ -23,10 +23,6 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/bridge-ui.yml?branch=main&label=Bridge%20UI&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/bridge-ui.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/taikoxyz/taiko-mono/website.yml?branch=main&label=Website&logo=github)](https://github.com/taikoxyz/taiko-mono/actions/workflows/website.yml)
 
-[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=protocol&label=Protocol&logo=codecov&token=E468X2PTJC)](https://app.codecov.io/gh/taikoxyz/taiko-mono/tree/main/packages/protocol)
-[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=relayer&label=Relayer&logo=codecov&token=E468X2PTJC)](https://app.codecov.io/gh/taikoxyz/taiko-mono/tree/main/packages/relayer)
-[![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono?flag=bridge-ui&label=Bridge%20UI&logo=codecov&token=E468X2PTJC)](https://app.codecov.io/gh/taikoxyz/taiko-mono/tree/main/packages/bridge-ui)
-
 </div>
 
 ## Documentation

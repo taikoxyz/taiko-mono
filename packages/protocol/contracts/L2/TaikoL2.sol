@@ -6,22 +6,15 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    ReentrancyGuard
-} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {IXchainSync} from "../common/IXchainSync.sol";
+import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 
-import {AddressResolver} from "../common/AddressResolver.sol";
-import {IHeaderSync} from "../common/IHeaderSync.sol";
-import {LibAnchorSignature} from "../libs/LibAnchorSignature.sol";
-import {LibInvalidTxList} from "../libs/LibInvalidTxList.sol";
-import {LibSharedConfig} from "../libs/LibSharedConfig.sol";
-import {LibTxDecoder} from "../libs/LibTxDecoder.sol";
-import {TaikoData} from "../L1/TaikoData.sol";
-
-contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
-    using LibTxDecoder for bytes;
-
+contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
+    struct VerifiedBlock {
+        bytes32 blockHash;
+        bytes32 signalRoot;
+    }
     /**********************
      * State Variables    *
      **********************/
@@ -30,13 +23,10 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    // Mapping from L1 block numbers to their block hashes.
-    // Note that only hashes of L1 blocks where at least one L2
-    // block has been proposed will be saved in this mapping.
-    mapping(uint256 blockNumber => bytes32 blockHash) private _l1Hashes;
+    mapping(uint256 blockNumber => VerifiedBlock) private _l1VerifiedBlocks;
 
     // A hash to check te integrity of public inputs.
-    bytes32 private _publicInputHash;
+    bytes32 public publicInputHash;
 
     // The latest L1 block where a L2 block has been proposed.
     uint256 public latestSyncedL1Height;
@@ -47,33 +37,39 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Events and Errors  *
      **********************/
 
-    event BlockInvalidated(bytes32 indexed txListHash);
+    // Captures all block variables mentioned in
+    // https://docs.soliditylang.org/en/v0.8.18/units-and-global-variables.html
+    event BlockVars(
+        uint256 number,
+        bytes32 parentHash,
+        uint256 timestamp,
+        uint256 basefee,
+        uint256 prevrandao,
+        address coinbase,
+        uint256 gaslimit,
+        uint256 chainid
+    );
 
-    error L2_INVALID_SENDER();
     error L2_INVALID_CHAIN_ID();
-    error L2_INVALID_GAS_PRICE();
+    error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
+    error L2_TOO_LATE();
 
     /**********************
      * Constructor         *
      **********************/
 
-    constructor(address _addressManager) {
-        if (block.chainid == 0) revert L2_INVALID_CHAIN_ID();
-        AddressResolver._init(_addressManager);
+    function init(address _addressManager) external initializer {
+        if (block.chainid <= 1) revert L2_INVALID_CHAIN_ID();
+        if (block.number > 1) revert L2_TOO_LATE();
 
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        for (uint256 i; i < 255 && number >= i + 2; ++i) {
-            ancestors[i] = blockhash(number - i - 2);
+        EssentialContract._init(_addressManager);
+
+        (publicInputHash, ) = _calcPublicInputHash(block.number);
+        if (block.number > 0) {
+            uint parentHeight = block.number - 1;
+            _l2Hashes[parentHeight] = blockhash(parentHeight);
         }
-
-        _publicInputHash = _hashPublicInputs({
-            chainId: block.chainid,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
     }
 
     /**********************
@@ -86,77 +82,75 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * certain block-level global variables because they are not part of the
      * Trie structure.
      *
-     * Note: This transaction shall be the first transaction in every L2 block.
+     * A circuit will verify the integratity among:
+     * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
+     * -  (l1Hash and l1SignalServiceAddress) are both hased into of the
+     *    ZKP's instance.
+     *
+     * This transaction shall be the first transaction in every L2 block.
      *
      * @param l1Height The latest L1 block height when this block was proposed.
      * @param l1Hash The latest L1 block hash when this block was proposed.
+     * @param l1SignalRoot The latest value of the L1 "signal service storage root".
      */
-    function anchor(uint256 l1Height, bytes32 l1Hash) external {
-        TaikoData.Config memory config = getConfig();
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
+
+    function anchor(
+        uint256 l1Height,
+        bytes32 l1Hash,
+        bytes32 l1SignalRoot
+    ) external {
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        uint256 parentHeight = block.number - 1;
+        bytes32 parentHash = blockhash(parentHeight);
+
+        (bytes32 prevPIH, bytes32 currPIH) = _calcPublicInputHash(parentHeight);
+
+        if (publicInputHash != prevPIH) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
+
+        // replace the oldest block hash with the parent's blockhash
+
+        publicInputHash = currPIH;
+        _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
-        _l1Hashes[l1Height] = l1Hash;
-        emit HeaderSynced(l1Height, l1Hash);
-    }
+        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
-    /**
-     * Invalidate a L2 block by verifying its txList is not intrinsically valid.
-     *
-     * @param txList The L2 block's txlist.
-     * @param hint A hint for this method to invalidate the txList.
-     * @param txIdx If the hint is for a specific transaction in txList,
-     *        txIdx specifies which transaction to check.
-     */
-    function invalidateBlock(
-        bytes calldata txList,
-        LibInvalidTxList.Hint hint,
-        uint256 txIdx
-    ) external {
-        if (msg.sender != LibAnchorSignature.K_GOLDEN_TOUCH_ADDRESS)
-            revert L2_INVALID_SENDER();
+        emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
-        if (tx.gasprice != 0) revert L2_INVALID_GAS_PRICE();
-
-        TaikoData.Config memory config = getConfig();
-        LibInvalidTxList.verifyTxListInvalid({
-            config: config,
-            encoded: txList,
-            hint: hint,
-            txIdx: txIdx
+        // We emit this event so circuits can grab its data to verify block variables.
+        // If plonk lookup table already has all these data, we can still use this
+        // event for debugging purpose.
+        emit BlockVars({
+            number: block.number,
+            parentHash: parentHash,
+            timestamp: block.timestamp,
+            basefee: 0, //block.basefee,
+            prevrandao: block.prevrandao,
+            coinbase: block.coinbase,
+            gaslimit: block.gaslimit,
+            chainid: block.chainid
         });
-
-        if (config.enablePublicInputsCheck) {
-            _checkPublicInputs();
-        }
-
-        emit BlockInvalidated(txList.hashTxList());
     }
 
     /**********************
      * Public Functions   *
      **********************/
 
-    function getConfig()
-        public
-        view
-        virtual
-        returns (TaikoData.Config memory config)
-    {
-        config = LibSharedConfig.getConfig();
-        config.chainId = block.chainid;
-    }
-
-    function getSyncedHeader(
+    function getXchainBlockHash(
         uint256 number
     ) public view override returns (bytes32) {
-        return _l1Hashes[number];
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1VerifiedBlocks[_number].blockHash;
     }
 
-    function getLatestSyncedHeader() public view override returns (bytes32) {
-        return _l1Hashes[latestSyncedL1Height];
+    function getXchainSignalRoot(
+        uint256 number
+    ) public view override returns (bytes32) {
+        uint256 _number = number == 0 ? latestSyncedL1Height : number;
+        return _l1VerifiedBlocks[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
@@ -173,51 +167,29 @@ contract TaikoL2 is AddressResolver, ReentrancyGuard, IHeaderSync {
      * Private Functions  *
      **********************/
 
-    function _checkPublicInputs() private {
-        // Check the latest 256 block hashes (excluding the parent hash).
-        bytes32[255] memory ancestors;
-        uint256 number = block.number;
-        uint256 chainId = block.chainid;
-
-        // put the previous 255 blockhashes (excluding the parent's) into a
-        // ring buffer.
-        for (uint256 i = 2; i <= 256 && number >= i; ++i) {
-            ancestors[(number - i) % 255] = blockhash(number - i);
+    function _calcPublicInputHash(
+        uint256 blockNumber
+    ) private view returns (bytes32 prevPIH, bytes32 currPIH) {
+        bytes32[256] memory inputs;
+        unchecked {
+            // put the previous 255 blockhashes (excluding the parent's) into a
+            // ring buffer.
+            for (uint256 i; i < 255 && blockNumber >= i + 1; ++i) {
+                uint j = blockNumber - i - 1;
+                inputs[j % 255] = blockhash(j);
+            }
         }
 
-        uint256 parentHeight = number - 1;
-        bytes32 parentHash = blockhash(parentHeight);
+        inputs[255] = bytes32(block.chainid);
+        // inputs[256] = bytes32(block.basefee);
 
-        if (
-            _publicInputHash !=
-            _hashPublicInputs({
-                chainId: chainId,
-                number: parentHeight,
-                baseFee: 0,
-                ancestors: ancestors
-            })
-        ) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        assembly {
+            prevPIH := keccak256(inputs, mul(256, 32))
         }
 
-        // replace the oldest block hash with the parent's blockhash
-        ancestors[parentHeight % 255] = parentHash;
-        _publicInputHash = _hashPublicInputs({
-            chainId: chainId,
-            number: number,
-            baseFee: 0,
-            ancestors: ancestors
-        });
-
-        _l2Hashes[parentHeight] = parentHash;
-    }
-
-    function _hashPublicInputs(
-        uint256 chainId,
-        uint256 number,
-        uint256 baseFee,
-        bytes32[255] memory ancestors
-    ) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(chainId, number, baseFee, ancestors));
+        inputs[blockNumber % 255] = blockhash(blockNumber);
+        assembly {
+            currPIH := keccak256(inputs, mul(256, 32))
+        }
     }
 }

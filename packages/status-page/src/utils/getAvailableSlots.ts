@@ -8,7 +8,7 @@ export const getAvailableSlots = async (
   const contract: Contract = new Contract(contractAddress, TaikoL1, provider);
   const stateVariables = await contract.getStateVariables();
   const nextBlockId = stateVariables.nextBlockId;
-  const latestVerifiedId = stateVariables.latestVerifiedId;
-  const pendingBlocks = nextBlockId - latestVerifiedId - 1;
+  const lastBlockId = stateVariables.lastBlockId;
+  const pendingBlocks = nextBlockId - lastBlockId - 1;
   return Math.abs(pendingBlocks - 2048);
 };

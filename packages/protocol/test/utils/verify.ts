@@ -68,7 +68,7 @@ async function verifyBlockAndAssert(
     }
 
     // latest synced header should be our just-verified block hash.
-    const latestHash = await taikoL1.getLatestSyncedHeader();
+    const latestHash = await taikoL1.getXchainBlockHash(0);
     expect(latestHash).to.be.eq(block.blockHash);
 
     // fork choice should be nullified via _cleanUp in LibVerifying
@@ -82,7 +82,7 @@ async function verifyBlockAndAssert(
     return { newProofReward };
 }
 
-async function commitProposeProveAndVerify(
+async function proposeProveAndVerify(
     taikoL1: TaikoL1,
     l2Provider: ethersLib.providers.JsonRpcProvider,
     blockNumber: number,
@@ -111,7 +111,7 @@ async function commitProposeProveAndVerify(
     const { args } = provedEvent;
     const { blockHash, id: blockId, parentHash } = args;
 
-    const proposedBlock = await taikoL1.getProposedBlock(
+    const proposedBlock = await taikoL1.getBlock(
         proposedEvent.args.id.toNumber()
     );
 
@@ -132,4 +132,4 @@ async function commitProposeProveAndVerify(
     return { verifyEvent, proposedEvent, provedEvent, proposedBlock };
 }
 
-export { verifyBlocks, verifyBlockAndAssert, commitProposeProveAndVerify };
+export { verifyBlocks, verifyBlockAndAssert, proposeProveAndVerify };

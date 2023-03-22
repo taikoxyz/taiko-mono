@@ -6,11 +6,10 @@
 
 pragma solidity ^0.8.18;
 
-import {IProofVerifier} from "../../L1/ProofVerifier.sol";
 import {TaikoL1} from "../../L1/TaikoL1.sol";
 import {TaikoData} from "../../L1/TaikoData.sol";
 
-contract TestTaikoL1 is TaikoL1, IProofVerifier {
+contract TestTaikoL1 is TaikoL1 {
     function getConfig()
         public
         pure
@@ -19,50 +18,39 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
     {
         config.chainId = 167;
         // up to 2048 pending blocks
-        config.maxNumBlocks = 4;
-        config.blockHashHistory = 3;
-        // This number is calculated from maxNumBlocks to make
+        config.maxNumProposedBlocks = 4;
+        config.maxNumVerifiedBlocks = 3;
+        // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0;
-        config.commitConfirmations = 1;
-        config.blockMaxGasLimit = 30000000; // TODO
-        config.maxTransactionsPerBlock = 20; // TODO
-        config.maxBytesPerTxList = 10240; // TODO
-        config.minTxGasLimit = 21000; // TODO
-        config.anchorTxGasLimit = 250000;
+        config.blockMaxGasLimit = 30000000;
+        config.maxTransactionsPerBlock = 20;
+        config.maxBytesPerTxList = 120000;
+        config.minTxGasLimit = 21000;
         config.slotSmoothingFactor = 590000;
+        config.anchorTxGasLimit = 180000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 
-        // Moving average factors
-        config.feeBaseMAF = 1024;
-        config.blockTimeMAF = 64;
-        config.proofTimeMAF = 64;
-
-        config.rewardMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 4 seconds;
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = false;
-        config.enablePublicInputsCheck = false;
-    }
+        config.skipZKPVerification = true;
+        config.feeBaseMAF = 1024;
 
-    function verifyZKP(
-        string memory /*verifierId*/,
-        bytes calldata /*zkproof*/,
-        bytes32 /*instance*/
-    ) public pure override returns (bool) {
-        return true;
-    }
+        config.proposingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 48 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 300
+        });
 
-    function verifyMKP(
-        bytes memory /*key*/,
-        bytes memory /*value*/,
-        bytes memory /*proof*/,
-        bytes32 /*root*/
-    ) public pure override returns (bool) {
-        return true;
+        config.provingConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 64,
+            avgTimeCap: 4 seconds * 1000,
+            gracePeriodPctg: 125,
+            maxPeriodPctg: 375,
+            multiplerPctg: 300
+        });
     }
 }

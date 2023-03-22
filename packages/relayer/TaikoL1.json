@@ -473,12 +473,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "maxNumBlocks",
+            "name": "maxNumProposedBlocks",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "blockHashHistory",
+            "name": "maxNumVerifiedBlocks",
             "type": "uint256"
           },
           {
@@ -548,7 +548,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "rewardMultiplierPctg",
+            "name": "feeMultiplierPctg",
             "type": "uint64"
           },
           {
@@ -558,7 +558,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "feeMaxPeriodPctg",
+            "name": "feeMaxPctg",
             "type": "uint64"
           },
           {
@@ -727,7 +727,7 @@
         "type": "address"
       }
     ],
-    "name": "getRewardBalance",
+    "name": "getBalance",
     "outputs": [
       {
         "internalType": "uint256",
@@ -781,7 +781,7 @@
           },
           {
             "internalType": "uint64",
-            "name": "latestVerifiedId",
+            "name": "lastBlockId",
             "type": "uint64"
           },
           {
@@ -1081,7 +1081,7 @@
       },
       {
         "internalType": "uint64",
-        "name": "latestVerifiedId",
+        "name": "lastBlockId",
         "type": "uint64"
       },
       {

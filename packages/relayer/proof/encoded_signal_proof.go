@@ -77,20 +77,10 @@ func (p *Prover) encodedStorageProof(
 		return nil, errors.New("proof will not be valid, expected storageProof to be 1 but was not")
 	}
 
-	rlpEncodedAccountProof, err := rlp.EncodeToBytes(ethProof.AccountProof)
-	if err != nil {
-		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.AccountProof")
-	}
-
 	rlpEncodedStorageProof, err := rlp.EncodeToBytes(ethProof.StorageProof[0].Proof)
 	if err != nil {
 		return nil, errors.Wrap(err, "rlp.EncodeToBytes(proof.StorageProof[0].Proof")
 	}
 
-	encodedStorageProof, err := encoding.EncodeStorageProof(rlpEncodedAccountProof, rlpEncodedStorageProof)
-	if err != nil {
-		return nil, errors.Wrap(err, "encoding.EncodeStorageProof")
-	}
-
-	return encodedStorageProof, nil
+	return rlpEncodedStorageProof, nil
 }

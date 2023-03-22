@@ -473,12 +473,12 @@ export default [
           },
           {
             internalType: "uint256",
-            name: "maxNumBlocks",
+            name: "maxNumProposedBlocks",
             type: "uint256",
           },
           {
             internalType: "uint256",
-            name: "blockHashHistory",
+            name: "maxNumVerifiedBlocks",
             type: "uint256",
           },
           {
@@ -548,7 +548,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "rewardMultiplierPctg",
+            name: "feeMultiplierPctg",
             type: "uint64",
           },
           {
@@ -558,7 +558,7 @@ export default [
           },
           {
             internalType: "uint64",
-            name: "feeMaxPeriodPctg",
+            name: "feeMaxPctg",
             type: "uint64",
           },
           {

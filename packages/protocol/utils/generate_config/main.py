@@ -38,5 +38,5 @@ if __name__ == "__main__":
     # print(1.0*(f+n*1000)*(f+n*1000-1000)/((f+1000)*f))
 
     print("---------")
-    print("maxNumBlocks:", max_num_slots)
+    print("maxNumProposedBlocks:", max_num_slots)
     print("slotSmoothingFactor:", fee_smoothing_factor)

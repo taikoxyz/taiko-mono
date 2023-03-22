@@ -9,6 +9,7 @@
     "no-inline-assembly": "off",
     "not-rely-on-time": "off",
     "ordering": "warn",
-    "payable-fallback": "off"
+    "payable-fallback": "off",
+    "no-console": "off"
   }
 }

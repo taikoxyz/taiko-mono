@@ -5,7 +5,7 @@ import {
     Bridge,
     SignalService,
     EtherVault,
-    TestHeaderSync,
+    TestXchainSync,
     LibTrieProof,
 } from "../../typechain";
 import { MessageStatusChangedEvent } from "../../typechain/LibBridgeStatus";
@@ -94,7 +94,7 @@ async function processMessage(
     l2Bridge: Bridge,
     signal: string,
     provider: ethers.providers.JsonRpcProvider,
-    headerSync: TestHeaderSync,
+    xchainSync: TestXchainSync,
     message: Message
 ): Promise<{
     tx: ethers.ContractTransaction;
@@ -109,15 +109,17 @@ async function processMessage(
 
     const { block, blockHeader } = await getBlockHeader(provider);
 
-    await headerSync.setSyncedHeader(block.hash);
+    await xchainSync.setXchainBlockHeader(block.hash);
 
-    const signalProof = await getSignalProof(
+    const { signalProof, signalRoot } = await getSignalProof(
         provider,
         l1SignalService.address,
         slot,
         block.number,
         blockHeader
     );
+
+    await xchainSync.setXchainSignalRoot(signalRoot);
 
     const tx = await l2Bridge.processMessage(message, signalProof);
     const receipt = await tx.wait(1);
@@ -129,7 +131,7 @@ async function processMessage(
 
 async function sendAndProcessMessage(
     provider: ethers.providers.JsonRpcProvider,
-    headerSync: TestHeaderSync,
+    xchainSync: TestXchainSync,
     m: Message,
     l1SignalService: SignalService,
     l1Bridge: Bridge,
@@ -147,7 +149,7 @@ async function sendAndProcessMessage(
         l2Bridge,
         msgHash,
         provider,
-        headerSync,
+        xchainSync,
         message
     );
     return { tx, msgHash, message, signalProof };

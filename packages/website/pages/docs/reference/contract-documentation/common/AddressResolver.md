@@ -92,6 +92,12 @@ Returns the AddressManager's address.
 | ---- | ------- | ----------------------------- |
 | [0]  | address | The AddressManager's address. |
 
+### keyForName
+
+```solidity
+function keyForName(uint256 chainId, string name) public pure returns (string key)
+```
+
 ### \_init
 
 ```solidity

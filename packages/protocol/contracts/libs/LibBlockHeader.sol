@@ -29,7 +29,7 @@ struct BlockHeader {
 }
 
 library LibBlockHeader {
-    bytes32 private constant EMPTY_OMMERS_HASH =
+    bytes32 public constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
     function hashBlockHeader(
@@ -80,18 +80,5 @@ library LibBlockHeader {
             // EIP-4895 transaction
             list[16] = LibRLPWriter.writeHash(header.withdrawalsRoot);
         }
-    }
-
-    function isPartiallyValidForTaiko(
-        uint256 blockMaxGasLimit,
-        BlockHeader calldata header
-    ) internal pure returns (bool) {
-        return
-            header.parentHash != 0 &&
-            header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= blockMaxGasLimit &&
-            header.extraData.length <= 32 &&
-            header.difficulty == 0 &&
-            header.nonce == 0;
     }
 }

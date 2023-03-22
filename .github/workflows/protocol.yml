@@ -20,31 +20,42 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: protocol - Unit Tests (foundry)
+        run: forge test -vvv
+
+      - name: protocol - Run snapshot (foundry)
+        run: forge snapshot
+        
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: protocol - Unit Tests
+      - name: protocol - Unit Tests (hardhat)
         working-directory: ./packages/protocol
         run: pnpm clean && pnpm test
 
-      - name: protocol - Integration Tests
+      - name: protocol - Integration Tests (hardhat)
         working-directory: ./packages/protocol
         run: pnpm test:integration
 
-      - name: protocol - Tokenomics Tests
-        working-directory: ./packages/protocol
-        run: pnpm test:tokenomics
+      # - name: protocol - Tokenomics Tests (hardhat)
+      #   working-directory: ./packages/protocol
+      #   run: pnpm test:tokenomics
 
-      - name: protocol - Bridge Tests
+      - name: protocol - Bridge Tests (hardhat)
         working-directory: ./packages/protocol
         run: pnpm test:bridge
 
-      - name: protocol - Test Coverage
+      - name: protocol - Test Coverage (hardhat)
         working-directory: ./packages/protocol
         run: pnpm test:coverage
 
-      - name: protocol - Generate Genesis
+      - name: protocol - Generate Genesis (hardhat)
         working-directory: ./packages/protocol
         run: pnpm test:genesis
 

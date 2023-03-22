@@ -7,12 +7,10 @@ const deployTaikoToken = async (
     addressManager: AddressManager,
     protoBroker: string
 ) => {
-    const token = await (
-        await hardhatEthers.getContractFactory("TestTaikoToken")
-    )
+    const token = await (await hardhatEthers.getContractFactory("TaikoToken"))
         .connect(signer)
         .deploy();
-    await token.init("Taiko Token", "TKO", addressManager.address);
+    await token.init(addressManager.address, "Taiko Token", "TKO", [], []);
 
     const network = await signer.provider?.getNetwork();
 
