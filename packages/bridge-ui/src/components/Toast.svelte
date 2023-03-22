@@ -14,7 +14,7 @@
   export const successToast = (msg: string) => {
     toast.push(msg, {
       theme: {
-        '--toastBarBackground': '#fc0fc0',
+        '--toastBarBackground': '#FC0FC0',
         '--toastBackground': '#4d4d4d',
       },
     });
