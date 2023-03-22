@@ -75,6 +75,7 @@ library LibProving {
             }
         }
 
+        // assert(fcId < blk.nextForkChoiceId)
         TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
         bool oracleProving;
