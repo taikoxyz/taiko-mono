@@ -2,8 +2,11 @@
   "overview": {
     "title": "Overview"
   },
-  "creating-l2-blocks": {
-    "title": "Creating L2 blocks"
+  "creating-taiko-blocks": {
+    "title": "Creating Taiko blocks"
+  },
+  "proving-taiko-blocks": {
+    "title": "Proving Taiko blocks"
   },
   "bridging": {
     "title": "Bridging"
