@@ -65,7 +65,17 @@ library LibProving {
         if (blk.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
-        TaikoData.ForkChoice storage fc = blk.forkChoices[blk.nextForkChoiceId];
+        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
+        if (fcId == 0) {
+            fcId = blk.nextForkChoiceId;
+            state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
+
+            unchecked {
+                ++blk.nextForkChoiceId;
+            }
+        }
+
+        TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
 
         bool oracleProving;
         if (uint256(fc.blockHash) <= 1) {
@@ -155,12 +165,6 @@ library LibProving {
             ) revert L1_INVALID_PROOF();
         }
 
-        state.forkChoiceIds[blockId][evidence.parentHash] = blk
-            .nextForkChoiceId;
-
-        unchecked {
-            ++blk.nextForkChoiceId;
-        }
         emit BlockProven({
             id: blockId,
             parentHash: evidence.parentHash,
