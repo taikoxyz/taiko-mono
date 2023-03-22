@@ -75,7 +75,7 @@
       <tr>
         <td>Data</td>
         <td class="!p-0 border-x-4 tx-data text-center">
-          <div class="h-[50px] leading-[50px] overflow-auto">
+          <div class="h-[50px] leading-[50px] overflow-x-auto">
             {transaction.message.data}
           </div>
         </td>
