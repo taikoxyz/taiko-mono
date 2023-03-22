@@ -4,8 +4,8 @@
   import { fromChain, toChain } from '../../store/chain';
   import { signer } from '../../store/signer';
   import { ethers } from 'ethers';
-  import { errorToast, successToast } from '../../utils/toast';
   import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   const toggleChains = async () => {
     try {

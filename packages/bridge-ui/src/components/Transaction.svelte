@@ -11,7 +11,6 @@
   } from '../store/bridge';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
-  import { errorToast, successToast } from '../utils/toast';
   import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,
@@ -28,6 +27,7 @@
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
   import TokenVault from '../constants/abi/TokenVault';
   import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
+  import { errorToast, successToast } from './Toast.svelte';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
