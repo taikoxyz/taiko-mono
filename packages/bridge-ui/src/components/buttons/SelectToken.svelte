@@ -5,7 +5,6 @@
   import type { Token } from '../../domain/token';
   import { BridgeType, type HTMLBridgeForm } from '../../domain/bridge';
   import { ChevronDown, PlusCircle } from 'svelte-heros-v2';
-  import { errorToast, successToast } from '../../utils/toast';
   import { ethers } from 'ethers';
   import ERC20_ABI from '../../constants/abi/ERC20';
   import { signer } from '../../store/signer';
@@ -14,6 +13,7 @@
   import Erc20 from '../icons/ERC20.svelte';
   import AddCustomErc20 from '../form/AddCustomERC20.svelte';
   import { ETHToken, tokens } from '../../token/tokens';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   let dropdownElement: HTMLDivElement;
   let showAddressField = false;

@@ -2,8 +2,6 @@
   import { wrap } from 'svelte-spa-router/wrap';
   import QueryProvider from './components/providers/QueryProvider.svelte';
   import Router from 'svelte-spa-router';
-  import { SvelteToast } from '@zerodevx/svelte-toast';
-  import type { SvelteToastOptions } from '@zerodevx/svelte-toast';
   import { configureChains, createClient } from '@wagmi/core';
   import { publicProvider } from '@wagmi/core/providers/public';
   import { jsonRpcProvider } from '@wagmi/core/providers/jsonRpc';
@@ -23,6 +21,7 @@
     transactions,
   } from './store/transactions';
   import Navbar from './components/Navbar.svelte';
+  import Toast, { successToast } from './components/Toast.svelte';
   import { signer } from './store/signer';
   import type { BridgeTransaction, Transactioner } from './domain/transactions';
   import { wagmiClient } from './store/wagmi';
@@ -32,7 +31,6 @@
   import { ProofService } from './proof/ProofService';
   import { ethers } from 'ethers';
   import type { Prover } from './domain/proof';
-  import { successToast } from './utils/toast';
   import { StorageService } from './storage/StorageService';
   import { MessageStatus } from './domain/message';
   import BridgeABI from './constants/abi/Bridge';
@@ -236,12 +234,6 @@
     }
   });
 
-  const toastOptions: SvelteToastOptions = {
-    dismissable: false,
-    duration: 4000,
-    pausable: false,
-  };
-
   const routes = {
     '/:tab?': wrap({
       component: Home,
@@ -256,11 +248,11 @@
     <Navbar />
     <Router {routes} />
   </main>
-  <SvelteToast options={toastOptions} />
+  <Toast />
   <SwitchEthereumChainModal />
 </QueryProvider>
 
-<style global lang="postcss">
+<style>
   main {
     font-family: 'Inter', sans-serif;
   }
