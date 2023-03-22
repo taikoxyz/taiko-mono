@@ -6,7 +6,7 @@
   export const errorToast = (msg: string) => {
     toast.push(msg, {
       theme: {
-        '--toastBackground': '#FF0000',
+        '--toastBackground': '#D32F2F',
       },
     });
   };
