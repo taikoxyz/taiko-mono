@@ -1,0 +1,22 @@
+The Taiko protocol's design, specifically its Ethereum-equivalency enables secure cross-chain messaging. Let's see how it works by simply using merkle proofs.
+
+### Taiko stores block hashes of each chain
+
+Taiko deploys two smart contracts which store the hashes of the other chain:
+
+- TaikoL1 stores a blockNumber->blockHash mapping `l2Hashes` (deployed on Ethereum)
+- TaikoL2 stores a blockNumber->blockHash mapping `l1Hashes` (deployed on Taiko)
+
+Every time an L2 block is created on Taiko, the hash of the enclosing block on L1 is stored in the TaikoL2 contract. And every time an L1 block is verified, the L2 hash is stored in the TaikoL1 contract (only the latest one, if multiple ones are verified at once).
+
+### Merkle trees enable verifying values exist on the other chain
+
+Merkle trees are a data storage structure that allows a lot of data to be fingerprinted with a single hash, called the root hash. The way that they are structured enables one to verify that some value exists within this large data structure, without actually needing to have access to the entire merkle tree. To do this, the verifier would need:
+
+- The root hash, this represents the root of the merkle tree
+- The value, this is the value we are checking is inside the root hash
+- A list of intermediate sibling hashes, these are the hashes that enable the verifier to re-calculate the root hash
+
+A verifier will take the value, which is a leaf in the merkle tree, and using the sibling hashes will recalculate the merkle root. A simple way to think of this is that it checks if the calculated root hash matches the one we were provided. If it does, it means we have proved that this exists in the root hash.
+
+If we assume that each chain correctly maintains the latest hashes of the other chain, we can verify on one chain that a message was sent on the other chain.

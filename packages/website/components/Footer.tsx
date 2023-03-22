@@ -1,7 +1,7 @@
 export default function Footer() {
   return (
     <footer className="bg-neutral-100 dark:bg-neutral-900">
-      <div className="mx-auto max-w-[90rem]">
+      <div className="mx-auto max-w-[90rem] pl-3">
         <div className="grid grid-cols-2 pl-[max(env(safe-area-inset-left),1.5rem)] pr-[max(env(safe-area-inset-right),1.5rem)] py-8 md:grid-cols-3">
           <div>
             <h2 className="mb-6 text-sm font-semibold text-neutral-500 uppercase dark:text-neutral-300 pt-3">
