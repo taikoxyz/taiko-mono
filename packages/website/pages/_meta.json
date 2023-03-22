@@ -37,7 +37,7 @@
     "href": "https://bridge.a2.taiko.xyz",
     "newWindow": true
   },
-  "uniswap": {
+  "swap": {
     "title": "Swap ↗",
     "type": "page",
     "href": "https://swap.a2.taiko.xyz",
