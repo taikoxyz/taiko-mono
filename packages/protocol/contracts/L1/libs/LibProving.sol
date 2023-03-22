@@ -188,7 +188,8 @@ library LibProving {
             id % maxNumProposedBlocks
         ];
         uint256 fcId = state.forkChoiceIds[id][parentHash];
-        if (fcId >= blk.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+        if (fcId == 0 || fcId >= blk.nextForkChoiceId)
+            revert L1_FORK_CHOICE_ID();
 
         return blk.forkChoices[fcId];
     }
