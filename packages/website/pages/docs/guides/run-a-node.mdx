@@ -57,7 +57,8 @@ Finally, set the following environment variables:
 - L1_ENDPOINT_WS
 
 <Callout>
- You can get a Sepolia L1 endpoint from a few places, [Alchemy](https://www.alchemy.com/) is one popular example.
+  You can get a Sepolia L1 endpoint from a few places,
+  [Alchemy](https://www.alchemy.com/) is one popular example.
 </Callout>
 
 ### Enable your node as a prover (optional)
@@ -111,26 +112,26 @@ docker compose pull
 
 To view the Docker logs, the following commands can be ran:
 
-**View all logs**
+###### View all logs
 
 ```sh
 docker compose logs -f
 ```
 
-\*\*View the prover image's logs
+###### View the prover image's logs
 
 ```sh
 docker compose logs -f taiko_client_prover
 ```
 
-**View the L2 execution engine logs**
+###### View the L2 execution engine logs
 
 ```sh
 docker compose logs -f l2_execution_engine
 ```
 
-**View the live data streams of your running containers (CPU/MEM USAGE %), and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)**
-
+###### View the live data streams of your running containers 
+This shows the CPU/MEM USAGE % and consumption of your machine's resources (add prefix "`docker stats -a`" to display all containers)
 ```sh
 docker stats
 ```
@@ -155,6 +156,13 @@ A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://promethe
 You can ignore any WARN logs.
 
 ### Node error logs 
+
+#### `error: L1_ID`
+The block that you want to prove has already been verified, you can ignore this.
+
+#### `error: L1_ALREADY_PROVEN`
+This block has been proven by someone else, but its not verified yet, you can ignore it.
+
 #### `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`
 Try to remove the node with `docker compose down -v` and then try again. 
 
