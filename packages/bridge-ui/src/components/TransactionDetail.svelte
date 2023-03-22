@@ -74,8 +74,7 @@
       </tr>
       <tr>
         <td>Data</td>
-        <td
-          class="text-center overflow-auto bg-black !px-1 border-x-4 border-black">
+        <td class="text-center overflow-auto !px-1 border-x-4 tx-data">
           {transaction.message.data}
         </td>
       </tr>
