@@ -41,6 +41,11 @@
     <span class="md:hidden">
       <TaikoLogoFluo width={50} />
     </span>
+    <a
+      class="pl-5 text-lg hover:text-[#fc0fc0]"
+      href="https://taiko.xyz/docs/guides/use-the-bridge"
+      target="_blank"
+      rel="noreferrer">Docs ↗</a>
   </div>
   <div class="flex-none">
     {#if $signer}
