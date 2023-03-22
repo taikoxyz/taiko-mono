@@ -18,10 +18,9 @@ library TaikoData {
 
     struct Config {
         uint256 chainId;
-        // up to 2048 pending blocks
-        uint256 maxNumBlocks;
-        uint256 blockHashHistory;
-        // This number is calculated from maxNumBlocks to make
+        uint256 maxNumProposedBlocks;
+        uint256 maxNumVerifiedBlocks;
+        // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
         uint256 blockMaxGasLimit;
@@ -101,21 +100,19 @@ library TaikoData {
         uint64 provenAt;
     }
 
-    // 3 slots
-    struct BlockSpec {
+    // 4 slots
+    struct ProposedBlock {
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
         uint24 nextForkChoiceId;
-    }
-
-    struct Block {
-        BlockSpec spec;
+        // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
     }
 
-    struct ChainData {
+    // 3 slots
+    struct VerifiedBlock {
         uint64 blockId;
         bytes32 blockHash;
         bytes32 signalRoot;
@@ -128,11 +125,14 @@ library TaikoData {
     }
 
     struct State {
-        // Ring buffer for proposed but unverified blocks
-        mapping(uint256 blockId_mode_maxNumBlocks => Block) blocks;
-        // Ring buffer big enough to cache the last verified block's hash and
-        // signal root for long enough.
-        mapping(uint256 blockId_mode_blockHashHistory => ChainData) chainData;
+        // Ring buffer for proposed but unverified blocks.
+        mapping(uint256 blockId_mode_maxNumProposedBlocks => ProposedBlock) proposedBlocks;
+        // Ring buffer for recent verified blocks.
+        // It shall be big enough to cache the last verified block's hash and
+        // signal root for long enough so signals can be verified anytime within
+        // 30 minutes.
+        mapping(uint256 blockId_mode_maxNumVerifiedBlocks => VerifiedBlock) verifiedBlocks;
+        // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
         mapping(address account => uint256 balance) balances;
@@ -156,6 +156,6 @@ library TaikoData {
         uint64 avgProofTime; // miliseconds
         uint64 feeBaseTwei;
         // Reserved
-        uint256[41] __gap;
+        uint256[42] __gap;
     }
 }

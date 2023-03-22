@@ -40,7 +40,7 @@ library LibVerifying {
         state.feeBaseTwei = feeBaseTwei;
         state.nextBlockId = 1;
 
-        state.chainData[0].blockHash = genesisBlockHash;
+        state.verifiedBlocks[0].blockHash = genesisBlockHash;
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -51,7 +51,7 @@ library LibVerifying {
         uint256 maxBlocks
     ) internal {
         bytes32 blockHash = state
-            .chainData[state.lastBlockId % config.blockHashHistory]
+            .verifiedBlocks[state.lastBlockId % config.maxNumVerifiedBlocks]
             .blockHash;
 
         bytes32 signalRoot;
@@ -62,11 +62,13 @@ library LibVerifying {
         }
 
         while (i < state.nextBlockId && processed < maxBlocks) {
-            TaikoData.Block storage blk = state.blocks[i % config.maxNumBlocks];
+            TaikoData.ProposedBlock storage blk = state.proposedBlocks[
+                i % config.maxNumProposedBlocks
+            ];
 
             uint256 fcId = state.forkChoiceIds[i][blockHash];
 
-            if (blk.spec.nextForkChoiceId <= fcId) {
+            if (blk.nextForkChoiceId <= fcId) {
                 break;
             }
 
@@ -80,7 +82,7 @@ library LibVerifying {
                 state: state,
                 config: config,
                 fc: fc,
-                spec: blk.spec
+                blk: blk
             });
 
             emit BlockVerified(i, blockHash);
@@ -100,9 +102,13 @@ library LibVerifying {
             // verified one in a batch. This is sufficient because the last
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
-            state.chainData[
-                state.lastBlockId % config.blockHashHistory
-            ] = TaikoData.ChainData(state.lastBlockId, blockHash, signalRoot);
+            state.verifiedBlocks[
+                state.lastBlockId % config.maxNumVerifiedBlocks
+            ] = TaikoData.VerifiedBlock(
+                state.lastBlockId,
+                blockHash,
+                signalRoot
+            );
 
             emit XchainSynced(state.lastBlockId, blockHash, signalRoot);
         }
@@ -112,7 +118,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         TaikoData.ForkChoice storage fc,
-        TaikoData.BlockSpec storage spec
+        TaikoData.ProposedBlock storage blk
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
@@ -120,7 +126,7 @@ library LibVerifying {
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
-                    proposedAt: spec.proposedAt
+                    proposedAt: blk.proposedAt
                 });
 
             // reward the prover
@@ -129,9 +135,9 @@ library LibVerifying {
             // refund proposer deposit for valid blocks
             unchecked {
                 // tRelBp in [0-10000]
-                amount = (spec.deposit * (10000 - tRelBp)) / 10000;
+                amount = (blk.deposit * (10000 - tRelBp)) / 10000;
             }
-            _addToBalance(state, spec.proposer, amount);
+            _addToBalance(state, blk.proposer, amount);
 
             // Update feeBase and avgProofTime
             state.feeBaseTwei = LibUtils
@@ -145,7 +151,7 @@ library LibVerifying {
 
         uint proofTime;
         unchecked {
-            proofTime = (fc.provenAt - spec.proposedAt) * 1000;
+            proofTime = (fc.provenAt - blk.proposedAt) * 1000;
         }
         state.avgProofTime = LibUtils
             .movingAverage({
@@ -158,7 +164,7 @@ library LibVerifying {
         blockHash = fc.blockHash;
         signalRoot = fc.signalRoot;
 
-        spec.nextForkChoiceId = 1;
+        blk.nextForkChoiceId = 1;
 
         // Clean up the fork choice but keep non-zeros if possible to be
         // reused.
@@ -186,8 +192,8 @@ library LibVerifying {
     function _checkConfig(TaikoData.Config memory config) private pure {
         if (
             config.chainId <= 1 ||
-            config.maxNumBlocks <= 1 ||
-            config.blockHashHistory == 0 ||
+            config.maxNumProposedBlocks <= 1 ||
+            config.maxNumVerifiedBlocks == 0 ||
             config.blockMaxGasLimit == 0 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||

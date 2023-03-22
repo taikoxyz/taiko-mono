@@ -4,13 +4,19 @@ title: TaikoL2
 
 ## TaikoL2
 
-### ChainData
+### VerifiedBlock
 
 ```solidity
-struct ChainData {
+struct VerifiedBlock {
   bytes32 blockHash;
   bytes32 signalRoot;
 }
+```
+
+### publicInputHash
+
+```solidity
+bytes32 publicInputHash
 ```
 
 ### latestSyncedL1Height

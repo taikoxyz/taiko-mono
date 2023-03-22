@@ -7,7 +7,7 @@ import sleep from "./sleep";
 class Proposer {
     private readonly taikoL1: TaikoL1;
     private readonly l2Provider: ethers.providers.JsonRpcProvider;
-    private readonly maxNumBlocks: number;
+    private readonly maxNumProposedBlocks: number;
     private signer: ethers.Wallet;
 
     private proposingMutex: boolean = false;
@@ -15,12 +15,12 @@ class Proposer {
     constructor(
         taikoL1: TaikoL1,
         l2Provider: ethers.providers.JsonRpcProvider,
-        maxNumBlocks: number,
+        maxNumProposedBlocks: number,
         signer: ethers.Wallet
     ) {
         this.taikoL1 = taikoL1;
         this.l2Provider = l2Provider;
-        this.maxNumBlocks = maxNumBlocks;
+        this.maxNumProposedBlocks = maxNumProposedBlocks;
         this.signer = signer;
     }
 

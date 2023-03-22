@@ -94,7 +94,7 @@ function getProofReward(uint64 provenAt, uint64 proposedAt) public view returns 
 ### getBlock
 
 ```solidity
-function getBlock(uint256 id) public view returns (struct TaikoData.BlockSpec)
+function getBlock(uint256 id) public view returns (bytes32 _metaHash, uint256 _deposit, address _proposer, uint64 _proposedAt)
 ```
 
 ### getForkChoice

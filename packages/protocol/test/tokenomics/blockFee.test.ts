@@ -89,7 +89,7 @@ describe("tokenomics: blockFee", function () {
             for await (const blockNumber of chan) {
                 if (
                     blockNumber >
-                    genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+                    genesisHeight + (config.maxNumProposedBlocks.toNumber() - 1)
                 ) {
                     break;
                 }

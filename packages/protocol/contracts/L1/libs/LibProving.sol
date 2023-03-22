@@ -58,16 +58,14 @@ library LibProving {
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
-        TaikoData.Block storage blk = state.blocks[
-            meta.id % config.maxNumBlocks
+        TaikoData.ProposedBlock storage blk = state.proposedBlocks[
+            meta.id % config.maxNumProposedBlocks
         ];
 
-        if (blk.spec.metaHash != LibUtils.hashMetadata(meta))
+        if (blk.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
-        TaikoData.ForkChoice storage fc = blk.forkChoices[
-            blk.spec.nextForkChoiceId
-        ];
+        TaikoData.ForkChoice storage fc = blk.forkChoices[blk.nextForkChoiceId];
 
         bool oracleProving;
         if (uint256(fc.blockHash) <= 1) {
@@ -128,7 +126,7 @@ library LibProving {
                 inputs[4] = evidence.blockHash;
                 inputs[5] = evidence.signalRoot;
                 inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = blk.spec.metaHash;
+                inputs[7] = blk.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
                 // Note that this value is not necessary and can be hard-coded
@@ -158,11 +156,10 @@ library LibProving {
         }
 
         state.forkChoiceIds[blockId][evidence.parentHash] = blk
-            .spec
             .nextForkChoiceId;
 
         unchecked {
-            ++blk.spec.nextForkChoiceId;
+            ++blk.nextForkChoiceId;
         }
         emit BlockProven({
             id: blockId,
@@ -175,7 +172,7 @@ library LibProving {
 
     function getForkChoice(
         TaikoData.State storage state,
-        uint256 maxNumBlocks,
+        uint256 maxNumProposedBlocks,
         uint256 id,
         bytes32 parentHash
     ) internal view returns (TaikoData.ForkChoice storage) {
@@ -183,9 +180,11 @@ library LibProving {
             revert L1_ID();
         }
 
-        TaikoData.Block storage blk = state.blocks[id % maxNumBlocks];
+        TaikoData.ProposedBlock storage blk = state.proposedBlocks[
+            id % maxNumProposedBlocks
+        ];
         uint256 fcId = state.forkChoiceIds[id][parentHash];
-        if (fcId >= blk.spec.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
+        if (fcId >= blk.nextForkChoiceId) revert L1_FORK_CHOICE_ID();
 
         return blk.forkChoices[fcId];
     }

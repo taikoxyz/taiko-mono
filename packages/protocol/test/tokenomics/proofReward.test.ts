@@ -46,7 +46,7 @@ describe("tokenomics: proofReward", function () {
     });
 
     it(`single prover, single proposer.
-    propose blocks, wait til maxNumBlocks is filled.
+    propose blocks, wait til maxNumProposedBlocks is filled.
     proverReward should decline should increase as blocks are proved then verified.
     the provers TKO balance should increase as the blocks are verified and
     they receive the proofReward.
@@ -61,7 +61,7 @@ describe("tokenomics: proofReward", function () {
         for await (const blockNumber of chan) {
             if (
                 blockNumber >
-                genesisHeight + (config.maxNumBlocks.toNumber() - 1)
+                genesisHeight + (config.maxNumProposedBlocks.toNumber() - 1)
             ) {
                 break;
             }

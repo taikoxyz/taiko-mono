@@ -11,7 +11,7 @@ import {IXchainSync} from "../common/IXchainSync.sol";
 import {TaikoL2Signer} from "./TaikoL2Signer.sol";
 
 contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
-    struct ChainData {
+    struct VerifiedBlock {
         bytes32 blockHash;
         bytes32 signalRoot;
     }
@@ -23,7 +23,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
     // All L2 block hashes will be saved in this mapping.
     mapping(uint256 blockNumber => bytes32 blockHash) private _l2Hashes;
 
-    mapping(uint256 blockNumber => ChainData) private _l1ChainData;
+    mapping(uint256 blockNumber => VerifiedBlock) private _l1VerifiedBlocks;
 
     // A hash to check te integrity of public inputs.
     bytes32 public publicInputHash;
@@ -116,7 +116,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         _l2Hashes[parentHeight] = parentHash;
 
         latestSyncedL1Height = l1Height;
-        _l1ChainData[l1Height] = ChainData(l1Hash, l1SignalRoot);
+        _l1VerifiedBlocks[l1Height] = VerifiedBlock(l1Hash, l1SignalRoot);
 
         emit XchainSynced(l1Height, l1Hash, l1SignalRoot);
 
@@ -143,14 +143,14 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1ChainData[_number].blockHash;
+        return _l1VerifiedBlocks[_number].blockHash;
     }
 
     function getXchainSignalRoot(
         uint256 number
     ) public view override returns (bytes32) {
         uint256 _number = number == 0 ? latestSyncedL1Height : number;
-        return _l1ChainData[_number].signalRoot;
+        return _l1VerifiedBlocks[_number].signalRoot;
     }
 
     function getBlockHash(uint256 number) public view returns (bytes32) {
@@ -169,7 +169,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
 
     function _calcPublicInputHash(
         uint256 blockNumber
-    ) private returns (bytes32 prevPIH, bytes32 currPIH) {
+    ) private view returns (bytes32 prevPIH, bytes32 currPIH) {
         bytes32[256] memory inputs;
         unchecked {
             // put the previous 255 blockhashes (excluding the parent's) into a

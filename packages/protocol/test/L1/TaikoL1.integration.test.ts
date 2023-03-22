@@ -53,7 +53,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
         proposer = new Proposer(
             taikoL1.connect(proposerSigner),
             l2Provider,
-            config.maxNumBlocks.toNumber(),
+            config.maxNumProposedBlocks.toNumber(),
             0,
             proposerSigner
         );
@@ -167,16 +167,16 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
     });
 
     describe("getXchainBlockHash(0)", function () {
-        it("iterates through blockHashHistory length and asserts getXchainBlockHash(0) returns correct value", async function () {
+        it("iterates through maxNumVerifiedBlocks length and asserts getXchainBlockHash(0) returns correct value", async function () {
             l2Provider.on("block", blockListener(chan, genesisHeight));
 
             let blocks: number = 0;
-            // iterate through blockHashHistory twice and try to get latest synced header each time.
-            // we modulo the header height by blockHashHistory in the protocol, so
+            // iterate through maxNumVerifiedBlocks twice and try to get latest synced header each time.
+            // we modulo the header height by maxNumVerifiedBlocks in the protocol, so
             // this test ensures that logic is sound.
             /* eslint-disable-next-line */
             for await (const blockNumber of chan) {
-                if (blocks > config.blockHashHistory.toNumber() * 2 + 1) {
+                if (blocks > config.maxNumVerifiedBlocks.toNumber() * 2 + 1) {
                     chan.close();
                     return;
                 }
@@ -208,7 +208,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
             for await (const blockNumber of chan) {
                 if (
                     blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
+                    genesisHeight + config.maxNumProposedBlocks.toNumber() - 1
                 ) {
                     break;
                 }
@@ -253,7 +253,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
             for await (const blockNumber of chan) {
                 if (
                     blockNumber >
-                    genesisHeight + config.maxNumBlocks.toNumber() - 1
+                    genesisHeight + config.maxNumProposedBlocks.toNumber() - 1
                 ) {
                     break;
                 }

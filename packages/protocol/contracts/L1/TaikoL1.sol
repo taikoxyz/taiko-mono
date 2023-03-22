@@ -151,8 +151,25 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
 
     function getBlock(
         uint256 id
-    ) public view returns (TaikoData.BlockSpec memory) {
-        return LibProposing.getBlock(state, getConfig().maxNumBlocks, id);
+    )
+        public
+        view
+        returns (
+            bytes32 _metaHash,
+            uint256 _deposit,
+            address _proposer,
+            uint64 _proposedAt
+        )
+    {
+        TaikoData.ProposedBlock storage blk = LibProposing.getBlock(
+            state,
+            getConfig().maxNumProposedBlocks,
+            id
+        );
+        _metaHash = blk.metaHash;
+        _deposit = blk.deposit;
+        _proposer = blk.proposer;
+        _proposedAt = blk.proposedAt;
     }
 
     function getForkChoice(
@@ -162,7 +179,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return
             LibProving.getForkChoice(
                 state,
-                getConfig().maxNumBlocks,
+                getConfig().maxNumProposedBlocks,
                 id,
                 parentHash
             );
@@ -173,7 +190,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     ) public view override returns (bytes32) {
         return
             LibUtils
-                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
+                .getL2ChainData(
+                    state,
+                    blockId,
+                    getConfig().maxNumVerifiedBlocks
+                )
                 .blockHash;
     }
 
@@ -182,7 +203,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     ) public view override returns (bytes32) {
         return
             LibUtils
-                .getL2ChainData(state, blockId, getConfig().blockHashHistory)
+                .getL2ChainData(
+                    state,
+                    blockId,
+                    getConfig().maxNumVerifiedBlocks
+                )
                 .signalRoot;
     }
 
