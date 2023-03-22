@@ -19,7 +19,7 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page on GitHub ↗",
+    text: "Improve this page on GitHub ↗",
   },
   feedback: {
     content: null,
