@@ -74,16 +74,16 @@
       </tr>
       <tr>
         <td>Data</td>
-        <td class="!px-1 border-x-4 tx-data">
-          <div class="text-center overflow-auto">
+        <td class="!p-0 border-x-4 tx-data text-center">
+          <div class="h-[50px] leading-[50px] overflow-auto">
             {transaction.message.data}
           </div>
         </td>
       </tr>
       <tr>
         <td>Memo</td>
-        <td>
-          <div class="text-right overflow-auto">
+        <td class="text-right">
+          <div class="overflow-auto">
             {transaction.message.memo}
           </div>
         </td>
