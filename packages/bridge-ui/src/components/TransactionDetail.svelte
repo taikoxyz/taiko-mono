@@ -74,14 +74,18 @@
       </tr>
       <tr>
         <td>Data</td>
-        <td class="text-center overflow-auto !px-1 border-x-4 tx-data">
-          {transaction.message.data}
+        <td class="!px-1 border-x-4 tx-data">
+          <div class="text-center overflow-auto">
+            {transaction.message.data}
+          </div>
         </td>
       </tr>
       <tr>
         <td>Memo</td>
-        <td class="text-right overflow-auto">
-          {transaction.message.memo}
+        <td>
+          <div class="text-right overflow-auto">
+            {transaction.message.memo}
+          </div>
         </td>
       </tr>
     {/if}
