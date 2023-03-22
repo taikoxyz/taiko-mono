@@ -7,7 +7,10 @@ export default {
   banner: {
     key: "banner",
     text: (
-      <a href="https://taiko.xyz/docs" target="_blank">
+      <a
+        href="https://mirror.xyz/labs.taiko.eth/A6G6TNN-CXDAhl42k_bNHg_20fyGcT0xH-LBBSOPNzU"
+        target="_blank"
+      >
         🌋 Askja testnet is here! Learn more →
       </a>
     ),
