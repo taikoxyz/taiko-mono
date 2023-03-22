@@ -7,7 +7,6 @@
     toast.push(msg, {
       theme: {
         '--toastBackground': '#FF0000',
-        '--toastColor': '#e3e3e3',
       },
     });
   };
@@ -17,7 +16,6 @@
       theme: {
         '--toastBarBackground': '#fc0fc0',
         '--toastBackground': '#4d4d4d',
-        '--toastColor': '#e3e3e3',
       },
     });
   };
@@ -26,6 +24,7 @@
 <script lang="ts">
   import { SvelteToast, type SvelteToastOptions } from '@zerodevx/svelte-toast';
 
+  // TODO: props
   const toastOptions: SvelteToastOptions = {
     dismissable: false,
     duration: 4000,
@@ -43,13 +42,14 @@
 <style>
   /* TODO: Small devices. We need design!! */
   .toast {
-    --toastContainerRight: 0.5rem;
+    --toastContainerRight: 1rem;
     --toastContainerBottom: auto;
-    --toastContainerLeft: 0.5rem;
+    --toastContainerTop: 5rem;
     --toastWidth: 100%;
     --toastMinHeight: 2rem;
     --toastPadding: 0 0.5rem;
     --toastBorderRadius: 0.4rem;
+    --toastColor: #e3e3e3;
   }
 
   /* 
@@ -58,8 +58,6 @@
    */
   @media (min-width: 640px) {
     .toast {
-      --toastContainerRight: auto;
-      --toastContainerLeft: calc(50vw - 8rem);
       --toastWidth: 16rem;
     }
   }
