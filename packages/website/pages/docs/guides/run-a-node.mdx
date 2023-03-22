@@ -1,6 +1,7 @@
 import { Callout, Steps, Tab, Tabs } from "nextra-theme-docs";
 
 This guide will walk you through the process of operating a Taiko node via [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node). You will be able to:
+
 - Run a Taiko node easily from the command line on Windows, Mac, and Linux.
 - Run a Taiko node regularly or as a prover.
 - View a [Grafana](https://grafana.com/) dashboard which displays the node's status.
@@ -34,6 +35,7 @@ cp .env.sample .env
 And open the `.env` file in your preferred text editor:
 
 {" "}
+
 <Tabs items={["Mac", "Linux", "Windows"]} defaultIndex="0">
   <Tab>```sh nano .env ```</Tab>
   <Tab>```sh vim .env ```</Tab>
@@ -41,21 +43,23 @@ And open the `.env` file in your preferred text editor:
 </Tabs>
 
 Finally, set the following environment variables:
-  - L1_ENDPOINT_HTTP
-  - L1_ENDPOINT_WS
+
+- L1_ENDPOINT_HTTP
+- L1_ENDPOINT_WS
 
 > **Note:** You can get a Sepolia L1 endpoint from a few places, [Alchemy](https://www.alchemy.com/) is one popular example.
 
 ### Enable your node as a prover (optional)
 
-Set the following environment variables to enable your node as a prover: 
-    - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). 
-    - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
+Set the following environment variables to enable your node as a prover: - Set `ENABLE_PROVER` to `true` (replacing the default `false` with `true`). - Set `L1_PROVER_PRIVATE_KEY` to that of your wallet's private key; it will need some balance on Sepolia to prove blocks (if using MetaMask, follow these directions to [retrieve the private key](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key)).
 
 ### Start a node
 
 <Callout>
-If this is the first time starting the node, it may take some time to synchronize from the genesis block. You can monitor this progress through logs, or in the local grafana dashboard and see the latest L2 chain status in the [Taiko alpha-2 block explorer](https://explorer.a2.taiko.xyz/).
+  If this is the first time starting the node, it may take some time to
+  synchronize from the genesis block. You can monitor this progress through
+  logs, or in the local grafana dashboard and see the latest L2 chain status in
+  the [Taiko alpha-2 block explorer](https://explorer.a2.taiko.xyz/).
 </Callout>
 
 Make sure Docker is running and then run the following command to start the node. If you want to run it in the background, please add the `-d` flag (`docker compose up -d`).
@@ -88,7 +92,7 @@ To view the Docker logs, the following commands can be ran:
 docker compose logs -f
 ```
 
-**View the prover image's logs
+\*\*View the prover image's logs
 
 ```sh
 docker compose logs -f taiko_client_prover
@@ -106,12 +110,12 @@ docker compose logs -f l2_execution_engine
 docker stats
 ```
 
-
 ### View the node's status dashboard
 
 A [Grafana](https://grafana.com/) dashboard with a [Prometheus](https://prometheus.io/) datasource is also included to display the L2 execution engine's real time status. You can visit it at [http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s](http://localhost:3000/d/L2ExecutionEngine/l2-execution-engine-overview?orgId=1&refresh=10s).
 
 {" "}
+
 <img
   width="2556"
   alt="image"
@@ -135,14 +139,15 @@ These commands completely remove the node by removing all volumes used by each c
 
 When running a node it's normal for the node to run into errors. This doesn't mean that your node isn't working correctly, as most of the time the node resolves the errors. Some errors are there for the developers to easily debug if something goes wrong, but can be ignored by users. The following table explains some error messages a bit more.
 
-| Error message                                                                                                                 | Explanation                                                                                                                                                                                                                                      |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Unhandled trie error: missing trie node`                                                                                     | You can ignore this error, it doesn't affect you and goes away after a while.                                                                                                                                                                    |
-| `Block batch iterator callback error` <br></br> `error="failed to fetch L2 parent block: not found`                           | You can ignore this error.                                                                                                                                                                                                                       |
-| `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use`                                                 | The port is already in use by another service. You can either shut down the other program or change the port in the .env file.                                                                                                                   |
+| Error message                                                                                                                 | Explanation                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Fatal: Failed to register the Ethereum service: database contains incompatible genesis`                                      | Try to remove the node with `docker compose down -v` and then try again.                                                                                    |
+| `Unhandled trie error: missing trie node`                                                                                     | You can ignore this error, it doesn't affect you and goes away after a while.                                                                               |
+| `Block batch iterator callback error` <br></br> `error="failed to fetch L2 parent block: not found`                           | You can ignore this error.                                                                                                                                  |
+| `Error starting ...: listen tcp4 0.0.0.0:{port} bind: address already in use`                                                 | The port is already in use by another service. You can either shut down the other program or change the port in the .env file.                              |
 | `error parsing HTTP 403 response body: invalid character '<' looking for beginning of value`                                  | Your IP address is being geo-blocked due to sanctions lists. If you're affected, try changing hosting locations or utilize a VPN to change your IP address. |
-| `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_serivce 'pull_policy'` | Your docker installation is out of date. You need to update your docker compose installation https://docs.docker.com/compose/install/                                                                                                            |
-| `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`                                                | Need to start the Docker Desktop. Search for the Docker Desktop in the Start menu (or Spotlight/Finder for Mac) and run. Then rerun the command in the terminal `docker compose up -d`                                                           |
+| `ERROR: The Compose file './docker-compose.yml' is invalid because: Unsupported config option for some_serivce 'pull_policy'` | Your docker installation is out of date. You need to update your docker compose installation: https://docs.docker.com/compose/install/.                     |
+| `daemon docker is not running` <br></br> `Cannot connect to the Docker daemon`                                                | Need to start the Docker before running the commands.                                                                                                       |
 
 **Unclean Shutdown**
 
