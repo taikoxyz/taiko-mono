@@ -251,6 +251,7 @@
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
         tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        bridgeAddress: chainsRecord[$fromChain.id].bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
