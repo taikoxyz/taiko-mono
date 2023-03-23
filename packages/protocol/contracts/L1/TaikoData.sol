@@ -94,6 +94,7 @@ library TaikoData {
         address prover;
     }
 
+    // 3 slots
     struct ForkChoice {
         bytes32 blockHash;
         bytes32 signalRoot;

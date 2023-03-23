@@ -65,7 +65,6 @@ library LibVerifying {
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
 
         bytes32 signalRoot;
-
         uint64 processed;
         unchecked {
             ++i;
@@ -177,7 +176,7 @@ library LibVerifying {
     function _checkConfig(TaikoData.Config memory config) private pure {
         if (
             config.chainId <= 1 ||
-            config.maxNumProposedBlocks < 1 ||
+            config.maxNumProposedBlocks == 1 ||
             config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
             config.maxNumVerifiedBlocks == 0 ||
             config.blockMaxGasLimit == 0 ||
