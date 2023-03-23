@@ -185,7 +185,7 @@
 
       transaction.status = await contract.getMessageStatus(transaction.msgHash);
 
-      if (transaction.receipt.status !== 1) {
+      if (transaction.receipt && transaction.receipt.status !== 1) {
         clearInterval(interval);
         return;
       }
