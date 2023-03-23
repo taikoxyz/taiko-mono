@@ -92,10 +92,10 @@ abstract contract TaikoL1TestBase is Test {
 
         uint256 _mixHash;
         unchecked {
-            _mixHash = block.prevrandao * variables.nextBlockId;
+            _mixHash = block.prevrandao * variables.numBlocks;
         }
 
-        meta.id = variables.nextBlockId;
+        meta.id = variables.numBlocks;
         meta.l1Height = uint64(block.number - 1);
         meta.l1Hash = blockhash(block.number - 1);
         meta.beneficiary = proposer;
@@ -168,9 +168,9 @@ abstract contract TaikoL1TestBase is Test {
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",
-            Strings.toString(vars.lastBlockId),
+            Strings.toString(vars.lastVerifiedBlockId),
             unicode"→",
-            Strings.toString(vars.nextBlockId),
+            Strings.toString(vars.numBlocks),
             "] feeBase(twei):",
             Strings.toString(vars.feeBaseTwei),
             " fee(twei):",

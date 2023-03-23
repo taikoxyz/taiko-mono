@@ -25,10 +25,10 @@ library LibUtils {
     ) internal view returns (TaikoData.VerifiedBlock storage verifiedBlock) {
         uint256 _blockId = blockId;
         if (_blockId == 0) {
-            _blockId = state.lastBlockId;
+            _blockId = state.lastVerifiedBlockId;
         } else if (
-            _blockId + maxNumVerifiedBlocks <= state.lastBlockId ||
-            _blockId > state.lastBlockId
+            _blockId + maxNumVerifiedBlocks <= state.lastVerifiedBlockId ||
+            _blockId > state.lastVerifiedBlockId
         ) revert L1_BLOCK_NUMBER();
 
         verifiedBlock = state.verifiedBlocks[_blockId % maxNumVerifiedBlocks];
@@ -43,10 +43,10 @@ library LibUtils {
                 feeBaseTwei: state.feeBaseTwei,
                 genesisHeight: state.genesisHeight,
                 genesisTimestamp: state.genesisTimestamp,
-                nextBlockId: state.nextBlockId,
+                numBlocks: state.numBlocks,
                 lastProposedAt: state.lastProposedAt,
                 avgBlockTime: state.avgBlockTime,
-                lastBlockId: state.lastBlockId,
+                lastVerifiedBlockId: state.lastVerifiedBlockId,
                 avgProofTime: state.avgProofTime
             });
     }

@@ -81,7 +81,7 @@ library LibTokenomics {
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
         uint256 feeBase = fromTwei(state.feeBaseTwei);
-        if (state.nextBlockId <= config.constantFeeRewardBlocks) {
+        if (state.numBlocks <= config.constantFeeRewardBlocks) {
             fee = feeBase;
             newFeeBase = feeBase;
         } else {
@@ -129,7 +129,7 @@ library LibTokenomics {
         if (proposedAt > provenAt) revert L1_INVALID_PARAM();
 
         uint256 feeBase = fromTwei(state.feeBaseTwei);
-        if (state.lastBlockId <= config.constantFeeRewardBlocks) {
+        if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
             reward = feeBase;
             newFeeBase = feeBase;
             // tRelBp = 0;
@@ -167,7 +167,8 @@ library LibTokenomics {
                 (config.maxNumProposedBlocks - 1) +
                 config.slotSmoothingFactor;
             // n is the number of unverified blocks
-            uint256 n = 1000 * (state.nextBlockId - state.lastBlockId - 1);
+            uint256 n = 1000 *
+                (state.numBlocks - state.lastVerifiedBlockId - 1);
             // k is `m − n + 1` or `m − n - 1`in the whitepaper
             uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
             return (feeBase * (m - 1000) * m) / (m - n) / k;

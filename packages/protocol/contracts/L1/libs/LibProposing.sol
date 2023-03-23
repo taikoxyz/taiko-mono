@@ -55,7 +55,8 @@ library LibProposing {
         ) revert L1_INVALID_METADATA();
 
         if (
-            state.nextBlockId >= state.lastBlockId + config.maxNumProposedBlocks
+            state.numBlocks >=
+            state.lastVerifiedBlockId + config.maxNumProposedBlocks
         ) revert L1_TOO_MANY_BLOCKS();
 
         uint64 timeNow = uint64(block.timestamp);
@@ -108,11 +109,11 @@ library LibProposing {
         // add salt to this random number as L2 mixHash
         uint256 mixHash;
         unchecked {
-            mixHash = block.prevrandao * state.nextBlockId;
+            mixHash = block.prevrandao * state.numBlocks;
         }
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
-            id: state.nextBlockId,
+            id: state.numBlocks,
             gasLimit: input.gasLimit,
             timestamp: timeNow,
             l1Height: uint64(block.number - 1),
@@ -151,7 +152,7 @@ library LibProposing {
         }
 
         TaikoData.ProposedBlock storage blk = state.proposedBlocks[
-            state.nextBlockId % config.maxNumProposedBlocks
+            state.numBlocks % config.maxNumProposedBlocks
         ];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
@@ -176,9 +177,9 @@ library LibProposing {
 
         state.lastProposedAt = meta.timestamp;
 
-        emit BlockProposed(state.nextBlockId, meta, txListCached);
+        emit BlockProposed(state.numBlocks, meta, txListCached);
         unchecked {
-            ++state.nextBlockId;
+            ++state.numBlocks;
         }
     }
 
@@ -187,7 +188,7 @@ library LibProposing {
         uint256 maxNumProposedBlocks,
         uint256 id
     ) internal view returns (TaikoData.ProposedBlock storage) {
-        if (id <= state.lastBlockId || id >= state.nextBlockId) {
+        if (id <= state.lastVerifiedBlockId || id >= state.numBlocks) {
             revert L1_ID();
         }
 
