@@ -179,15 +179,11 @@ library LibProving {
         uint256 blockId,
         bytes32 parentHash
     ) internal view returns (TaikoData.ForkChoice storage) {
-        if (
-            blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks
-        ) {
-            revert L1_BLOCK_NUMBER();
-        }
-
         TaikoData.Block storage blk = state.blocks[
             blockId % config.ringBufferSize
         ];
+        if (blk.blockId != blockId) revert L1_BLOCK_NUMBER();
+
         uint256 fcId = state.forkChoiceIds[blockId][parentHash];
         if (fcId == 0 || fcId >= blk.nextForkChoiceId)
             revert L1_FORK_CHOICE_ID();
