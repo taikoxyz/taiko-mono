@@ -42,8 +42,8 @@ library LibProving {
         TaikoData.BlockMetadata memory meta = evidence.meta;
         if (
             meta.id != blockId ||
-            meta.id <= state.lastBlockId ||
-            meta.id >= state.nextBlockId
+            meta.id <= state.lastVerifiedBlockId ||
+            meta.id >= state.numBlocks
         ) revert L1_ID();
 
         if (
@@ -183,7 +183,7 @@ library LibProving {
         uint256 id,
         bytes32 parentHash
     ) internal view returns (TaikoData.ForkChoice storage) {
-        if (id <= state.lastBlockId || id >= state.nextBlockId) {
+        if (id <= state.lastVerifiedBlockId || id >= state.numBlocks) {
             revert L1_ID();
         }
 

@@ -38,7 +38,7 @@ library LibVerifying {
         state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
         state.feeBaseTwei = feeBaseTwei;
-        state.nextBlockId = 1;
+        state.numBlocks = 1;
 
         state.verifiedBlocks[0].blockHash = genesisBlockHash;
 
@@ -51,24 +51,26 @@ library LibVerifying {
         uint256 maxBlocks
     ) internal {
         bytes32 blockHash = state
-            .verifiedBlocks[state.lastBlockId % config.maxNumVerifiedBlocks]
+            .verifiedBlocks[
+                state.lastVerifiedBlockId % config.maxNumVerifiedBlocks
+            ]
             .blockHash;
 
         bytes32 signalRoot;
         uint64 processed;
         uint256 i;
         unchecked {
-            i = state.lastBlockId + 1;
+            i = state.lastVerifiedBlockId + 1;
         }
 
-        while (i < state.nextBlockId && processed < maxBlocks) {
+        while (i < state.numBlocks && processed < maxBlocks) {
             TaikoData.ProposedBlock storage blk = state.proposedBlocks[
                 i % config.maxNumProposedBlocks
             ];
 
             uint256 fcId = state.forkChoiceIds[i][blockHash];
 
-            if (blk.nextForkChoiceId <= fcId) {
+            if (fcId == 0) {
                 break;
             }
 
@@ -95,7 +97,7 @@ library LibVerifying {
 
         if (processed > 0) {
             unchecked {
-                state.lastBlockId += processed;
+                state.lastVerifiedBlockId += processed;
             }
 
             // Note: Not all L2 hashes are stored on L1, only the last
@@ -103,14 +105,14 @@ library LibVerifying {
             // verified hash is the only one needed checking the existence
             // of a cross-chain message with a merkle proof.
             state.verifiedBlocks[
-                state.lastBlockId % config.maxNumVerifiedBlocks
+                state.lastVerifiedBlockId % config.maxNumVerifiedBlocks
             ] = TaikoData.VerifiedBlock(
-                state.lastBlockId,
+                state.lastVerifiedBlockId,
                 blockHash,
                 signalRoot
             );
 
-            emit XchainSynced(state.lastBlockId, blockHash, signalRoot);
+            emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
 

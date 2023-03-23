@@ -52,8 +52,8 @@ struct StateVariables {
   uint64 feeBaseTwei;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
-  uint64 nextBlockId;
-  uint64 lastBlockId;
+  uint64 numBlocks;
+  uint64 lastVerifiedBlockId;
   uint64 avgBlockTime;
   uint64 avgProofTime;
   uint64 lastProposedAt;
@@ -168,12 +168,12 @@ struct State {
   uint64 genesisTimestamp;
   uint64 __reserved1;
   uint64 __reserved2;
-  uint64 nextBlockId;
+  uint64 numBlocks;
   uint64 lastProposedAt;
   uint64 avgBlockTime;
   uint64 __reserved3;
   uint64 __reserved4;
-  uint64 lastBlockId;
+  uint64 lastVerifiedBlockId;
   uint64 avgProofTime;
   uint64 feeBaseTwei;
   uint256[42] __gap;
