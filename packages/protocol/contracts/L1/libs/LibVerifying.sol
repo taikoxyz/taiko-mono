@@ -35,13 +35,19 @@ library LibVerifying {
     ) internal {
         _checkConfig(config);
 
-        state.genesisHeight = uint64(block.number);
-        state.genesisTimestamp = uint64(block.timestamp);
+        uint64 timeNow = uint64(block.number);
+        state.genesisHeight = timeNow;
+        state.genesisTimestamp = timeNow;
         state.feeBaseTwei = feeBaseTwei;
         state.numBlocks = 1;
 
-        state.blocks[0].forkChoices[1].blockHash = genesisBlockHash;
         state.blocks[0].verifiedForkChoiceId = 1;
+
+        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        fc.blockHash = genesisBlockHash;
+        fc.provenAt = timeNow;
+        // fc.signalRoot = 0;
+        // fc.prover = address(0);
 
         emit BlockVerified(0, genesisBlockHash);
     }
