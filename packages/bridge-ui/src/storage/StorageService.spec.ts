@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, ethers } from 'ethers';
+import { BigNumber, BigNumberish } from 'ethers';
 import { MessageStatus } from '../domain/message';
 import { StorageService } from './StorageService';
 import type { BridgeTransaction } from '../domain/transactions';

@@ -24,8 +24,8 @@ export class ETHBridge implements Bridge {
     opts: BridgeOpts,
   ): Promise<{ contract: Contract; message: any; owner: string }> {
     const contract: Contract = new Contract(
-      opts.tokenVaultAddress,
-      TokenVault,
+      opts.bridgeAddress,
+      BridgeABI,
       opts.signer,
     );
 
@@ -37,13 +37,21 @@ export class ETHBridge implements Bridge {
       owner: owner,
       to: opts.to,
       refundAddress: owner,
-      depositValue: opts.amountInWei,
-      callValue: 0,
+      depositValue:
+        opts.to.toLowerCase() === owner.toLowerCase()
+          ? opts.amountInWei
+          : BigNumber.from(0),
+      callValue:
+        opts.to.toLowerCase() === owner.toLowerCase()
+          ? BigNumber.from(0)
+          : opts.amountInWei,
       processingFee: opts.processingFeeInWei ?? BigNumber.from(0),
       gasLimit: opts.processingFeeInWei
         ? BigNumber.from(140000)
         : BigNumber.from(0),
       memo: opts.memo ?? '',
+      id: 1, // will be set in contract,
+      data: '0x',
     };
 
     return { contract, owner, message };
@@ -61,19 +69,11 @@ export class ETHBridge implements Bridge {
   async Bridge(opts: BridgeOpts): Promise<Transaction> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
-    const tx = await contract.sendEther(
-      message.destChainId,
-      message.to,
-      message.gasLimit,
-      message.processingFee,
-      message.refundAddress,
-      message.memo,
-      {
-        value: message.depositValue
-          .add(message.processingFee)
-          .add(message.callValue),
-      },
-    );
+    const tx = await contract.sendMessage(message, {
+      value: message.depositValue
+        .add(message.processingFee)
+        .add(message.callValue),
+    });
 
     return tx;
   }
@@ -81,19 +81,11 @@ export class ETHBridge implements Bridge {
   async EstimateGas(opts: BridgeOpts): Promise<BigNumber> {
     const { contract, message } = await ETHBridge.prepareTransaction(opts);
 
-    const gasEstimate = await contract.estimateGas.sendEther(
-      message.destChainId,
-      message.to,
-      message.gasLimit,
-      message.processingFee,
-      message.refundAddress,
-      message.memo,
-      {
-        value: message.depositValue
-          .add(message.processingFee)
-          .add(message.callValue),
-      },
-    );
+    const gasEstimate = await contract.estimateGas.sendMessage(message, {
+      value: message.depositValue
+        .add(message.processingFee)
+        .add(message.callValue),
+    });
 
     return gasEstimate;
   }
