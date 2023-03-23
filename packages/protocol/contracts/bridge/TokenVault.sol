@@ -140,6 +140,10 @@ contract TokenVault is EssentialContract {
     /**
      * Receives Ether and constructs a Bridge message. Sends the Ether and
      * message along to the Bridge.
+     *
+     * @dev This function doesn't' seem to belong here as it has nothing to
+     *      do with ERC20 tokens. It's added here only for convenience.
+     *
      * @param destChainId @custom:see IBridge.Message
      * @param to @custom:see IBridge.Message
      * @param gasLimit @custom:see IBridge.Message
