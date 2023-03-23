@@ -15,7 +15,7 @@ import {
   L2_RPC,
   L2_SIGNAL_SERVICE_ADDRESS,
 } from '../constants/envVars';
-import type { Chain } from '../domain/chain';
+import type { Chain, ChainID } from '../domain/chain';
 import Eth from '../components/icons/ETH.svelte';
 import Taiko from '../components/icons/TKO.svelte';
 
@@ -43,7 +43,7 @@ export const taikoChain: Chain = {
   signalServiceAddress: L2_SIGNAL_SERVICE_ADDRESS,
 };
 
-export const chainsRecord: Record<number, Chain> = {
+export const chains: Record<ChainID, Chain> = {
   [L1_CHAIN_ID]: mainnetChain,
   [L2_CHAIN_ID]: taikoChain,
 };

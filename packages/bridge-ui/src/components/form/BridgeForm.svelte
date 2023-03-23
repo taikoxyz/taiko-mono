@@ -5,11 +5,7 @@
   import { token } from '../../store/token';
   import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    activeBridge,
-    chainIdToTokenVaultAddress,
-    bridgeType,
-  } from '../../store/bridge';
+  import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee.svelte';
@@ -28,18 +24,19 @@
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
   import { errorToast, successToast } from '../../utils/toast';
-  import ERC20 from '../../constants/abi/ERC20';
-  import TokenVault from '../../constants/abi/TokenVault';
+  import ERC20_ABI from '../../constants/abi/ERC20';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
   import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
-  import { chainsRecord } from '../../chain/chains';
+  import { chains } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { tokenVaults } from '../../vault/tokenVaults';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -67,8 +64,8 @@
       ).address;
 
       const tokenVault = new Contract(
-        $chainIdToTokenVaultAddress.get($fromChain.id),
-        TokenVault,
+        tokenVaults[$fromChain.id],
+        TokenVaultABI,
         $signer,
       );
 
@@ -96,7 +93,7 @@
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, ERC20, signer);
+        const contract = new Contract(addr, ERC20_ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
@@ -132,7 +129,7 @@
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
-      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
+      spenderAddress: tokenVaults[fromChain.id],
     });
     return allowance;
   }
@@ -148,7 +145,7 @@
     if (!signer) return true;
     if (!tokenBalance) return true;
     const chainId = await signer.getChainId();
-    if (!chainId || !chainsRecord[chainId.toString()]) return true;
+    if (!chainId || !chains[chainId.toString()]) return true;
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
@@ -175,7 +172,7 @@
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
-        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        spenderAddress: tokenVaults[$fromChain.id],
       });
 
       pendingTransactions.update((store) => {
@@ -231,10 +228,8 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = $providers.get($toChain.id);
-      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
-        $toChain.id,
-      );
+      const provider = providers[$toChain.id];
+      const destTokenVaultAddress = tokenVaults[$toChain.id];
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -250,7 +245,7 @@
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        tokenVaultAddress: tokenVaults[$fromChain.id],
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -328,7 +323,7 @@
           tokenAddress: await addrForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
-          tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+          tokenVaultAddress: tokenVaults[$fromChain.id],
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),
