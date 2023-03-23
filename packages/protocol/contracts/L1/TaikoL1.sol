@@ -161,7 +161,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             uint64 _proposedAt
         )
     {
-        TaikoData.ProposedBlock storage blk = LibProposing.getBlock(
+        TaikoData.Block storage blk = LibProposing.getBlock(
             state,
             getConfig().maxNumProposedBlocks,
             id
@@ -179,7 +179,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return
             LibProving.getForkChoice(
                 state,
-                getConfig().maxNumProposedBlocks,
+                getConfig().ringBufferSize,
                 id,
                 parentHash
             );
@@ -188,27 +188,30 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function getXchainBlockHash(
         uint256 blockId
     ) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData(
+            state,
+            blockId,
+            getConfig().ringBufferSize
+        );
         return
-            LibUtils
-                .getL2ChainData(
-                    state,
-                    blockId,
-                    getConfig().maxNumVerifiedBlocks
-                )
-                .blockHash;
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+                : bytes32(0);
     }
 
     function getXchainSignalRoot(
         uint256 blockId
     ) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData(
+            state,
+            blockId,
+            getConfig().ringBufferSize
+        );
+
         return
-            LibUtils
-                .getL2ChainData(
-                    state,
-                    blockId,
-                    getConfig().maxNumVerifiedBlocks
-                )
-                .signalRoot;
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+                : bytes32(0);
     }
 
     function getStateVariables()

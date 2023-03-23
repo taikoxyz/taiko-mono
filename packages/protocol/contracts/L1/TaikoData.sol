@@ -19,6 +19,7 @@ library TaikoData {
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
+        uint256 ringBufferSize;
         uint256 maxNumVerifiedBlocks;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
@@ -100,20 +101,21 @@ library TaikoData {
         uint64 provenAt;
     }
 
-    // 4 slots
-    struct ProposedBlock {
+    // 5 slots
+    struct Block {
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
         uint64 proposedAt;
         uint24 nextForkChoiceId;
+        uint64 blockId;
+        uint24 verifiedForkChoiceId;
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
     }
 
     // 3 slots
     struct VerifiedBlock {
-        uint64 blockId;
         bytes32 blockHash;
         bytes32 signalRoot;
     }
@@ -125,13 +127,8 @@ library TaikoData {
     }
 
     struct State {
-        // Ring buffer for proposed but unverified blocks.
-        mapping(uint256 blockId_mode_maxNumProposedBlocks => ProposedBlock) proposedBlocks;
-        // Ring buffer for recent verified blocks.
-        // It shall be big enough to cache the last verified block's hash and
-        // signal root for long enough so signals can be verified anytime within
-        // 30 minutes.
-        mapping(uint256 blockId_mode_maxNumVerifiedBlocks => VerifiedBlock) verifiedBlocks;
+        // Ring buffer for proposed blocks.
+        mapping(uint256 blockId_mode_maxNumProposedBlocks => Block) blocks;
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;

@@ -59,8 +59,8 @@ library LibProving {
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
 
-        TaikoData.ProposedBlock storage blk = state.proposedBlocks[
-            meta.id % config.maxNumProposedBlocks
+        TaikoData.Block storage blk = state.blocks[
+            meta.id % config.ringBufferSize
         ];
 
         if (blk.metaHash != LibUtils.hashMetadata(meta))
@@ -179,7 +179,7 @@ library LibProving {
 
     function getForkChoice(
         TaikoData.State storage state,
-        uint256 maxNumProposedBlocks,
+        uint256 ringBufferSize,
         uint256 id,
         bytes32 parentHash
     ) internal view returns (TaikoData.ForkChoice storage) {
@@ -187,9 +187,7 @@ library LibProving {
             revert L1_ID();
         }
 
-        TaikoData.ProposedBlock storage blk = state.proposedBlocks[
-            id % maxNumProposedBlocks
-        ];
+        TaikoData.Block storage blk = state.blocks[id % ringBufferSize];
         uint256 fcId = state.forkChoiceIds[id][parentHash];
         if (fcId == 0 || fcId >= blk.nextForkChoiceId)
             revert L1_FORK_CHOICE_ID();

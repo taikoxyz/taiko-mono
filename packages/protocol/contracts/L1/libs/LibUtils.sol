@@ -21,18 +21,18 @@ library LibUtils {
     function getL2ChainData(
         TaikoData.State storage state,
         uint256 blockId,
-        uint256 maxNumVerifiedBlocks
-    ) internal view returns (TaikoData.VerifiedBlock storage verifiedBlock) {
+        uint256 ringBufferSize
+    ) internal view returns (bool found, TaikoData.Block storage blk) {
         uint256 _blockId = blockId;
         if (_blockId == 0) {
             _blockId = state.lastVerifiedBlockId;
         } else if (
-            _blockId + maxNumVerifiedBlocks <= state.lastVerifiedBlockId ||
+            _blockId + ringBufferSize <= state.lastVerifiedBlockId || // TODO?
             _blockId > state.lastVerifiedBlockId
         ) revert L1_BLOCK_NUMBER();
 
-        verifiedBlock = state.verifiedBlocks[_blockId % maxNumVerifiedBlocks];
-        if (verifiedBlock.blockId != blockId) revert L1_BLOCK_NUMBER();
+        blk = state.blocks[_blockId % ringBufferSize];
+        found = blk.blockId == blockId && blk.verifiedForkChoiceId != 0;
     }
 
     function getStateVariables(
