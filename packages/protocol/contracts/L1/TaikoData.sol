@@ -97,8 +97,8 @@ library TaikoData {
     struct ForkChoice {
         bytes32 blockHash;
         bytes32 signalRoot;
-        address prover;
         uint64 provenAt;
+        address prover;
     }
 
     // 5 slots

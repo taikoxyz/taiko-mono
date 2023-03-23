@@ -66,54 +66,43 @@ library LibProving {
         if (blk.metaHash != LibUtils.hashMetadata(meta))
             revert L1_EVIDENCE_MISMATCH();
 
-        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
         TaikoData.ForkChoice storage fc;
+        bool oracleProving;
+
+        uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
-            state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
-            fc = blk.forkChoices[fcId];
-            // clean up
-            fc.blockHash = bytes32(0);
-            fc.signalRoot = bytes32(0);
-            fc.prover = address(0);
-            fc.provenAt = uint64(0);
-
             unchecked {
                 ++blk.nextForkChoiceId;
             }
-        } else {
-            if (fcId >= blk.nextForkChoiceId)
-                revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
 
+            state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
             fc = blk.forkChoices[fcId];
-        }
 
-        bool oracleProving;
-        if (fc.blockHash == bytes32(0)) {
-            // 0 or 1 (placeholder) indicate this block has not been proven
+            fc.blockHash = evidence.blockHash;
+            fc.signalRoot = evidence.signalRoot;
+            fc.provenAt = uint64(block.timestamp);
+
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
 
+                fc.prover = address(0); // we are reusing storage slots
                 oracleProving = true;
-            }
-
-            fc.blockHash = evidence.blockHash;
-            fc.signalRoot = evidence.signalRoot;
-
-            if (!oracleProving) {
+            } else {
                 fc.prover = evidence.prover;
-                fc.provenAt = uint64(block.timestamp);
             }
         } else {
-            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+            if (fcId >= blk.nextForkChoiceId)
+                revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
+            fc = blk.forkChoices[fcId];
+
             if (
                 fc.blockHash != evidence.blockHash ||
                 fc.signalRoot != evidence.signalRoot
             ) revert L1_CONFLICT_PROOF();
 
-            fc.prover = evidence.prover;
-            fc.provenAt = uint64(block.timestamp);
+            if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
