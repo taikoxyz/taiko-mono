@@ -23,10 +23,10 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
+    error L1_BLOCK_NUMBER();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_ID();
-    error L1_ID();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
@@ -44,7 +44,7 @@ library LibProving {
             meta.id != blockId ||
             meta.id <= state.lastVerifiedBlockId ||
             meta.id >= state.numBlocks
-        ) revert L1_ID();
+        ) revert L1_BLOCK_NUMBER();
 
         if (
             // 0 and 1 (placeholder) are not allowed
@@ -190,7 +190,7 @@ library LibProving {
         if (
             blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks
         ) {
-            revert L1_ID();
+            revert L1_BLOCK_NUMBER();
         }
 
         TaikoData.Block storage blk = state.blocks[

@@ -71,7 +71,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
         it("should revert if block is out of range and not a valid proposed block", async function () {
             await readShouldRevertWithCustomError(
                 taikoL1.getBlock(123),
-                "L1_ID()"
+                "L1_BLOCK_NUMBER()"
             );
         });
 
@@ -240,7 +240,7 @@ describe("integ-----disabled-----ration:TaikoL1", function () {
                 await txShouldRevertWithCustomError(
                     txPromise,
                     l1Provider,
-                    "L1_ID()"
+                    "L1_BLOCK_NUMBER()"
                 );
             }
         });

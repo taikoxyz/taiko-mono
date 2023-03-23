@@ -24,7 +24,7 @@ library LibProposing {
         bool txListCached
     );
 
-    error L1_ID();
+    error L1_BLOCK_NOT_FOUND();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -189,13 +189,8 @@ library LibProposing {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
-    ) internal view returns (TaikoData.Block storage) {
-        if (
-            blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks
-        ) {
-            revert L1_ID();
-        }
-
-        return state.blocks[blockId % config.ringBufferSize];
+    ) internal view returns (TaikoData.Block storage blk) {
+        blk = state.blocks[blockId % config.ringBufferSize];
+        if (blk.blockId != blockId) revert L1_BLOCK_NOT_FOUND();
     }
 }
