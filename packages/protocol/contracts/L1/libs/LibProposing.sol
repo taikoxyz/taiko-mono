@@ -155,13 +155,13 @@ library LibProposing {
             state.numBlocks % config.ringBufferSize
         ];
 
+        blk.blockId = state.numBlocks;
+        blk.proposedAt = meta.timestamp;
+        blk.nextForkChoiceId = 1;
+        blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
         blk.deposit = deposit;
         blk.proposer = msg.sender;
-        blk.proposedAt = meta.timestamp;
-        blk.nextForkChoiceId = 1;
-        blk.blockId = state.numBlocks;
-        blk.verifiedForkChoiceId = 0;
 
         if (state.lastProposedAt > 0) {
             uint256 blockTime;

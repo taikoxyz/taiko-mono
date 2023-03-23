@@ -76,8 +76,9 @@ library LibVerifying {
             (blockHash, signalRoot) = _markBlockVerified({
                 state: state,
                 config: config,
-                fc: fc,
-                blk: blk
+                blk: blk,
+                forkChoiceId: uint24(forkChoiceId),
+                fc: fc
             });
 
             emit BlockVerified(i, blockHash);
@@ -93,16 +94,6 @@ library LibVerifying {
                 state.lastVerifiedBlockId += processed;
             }
 
-            // Note: Not all L2 hashes are stored on L1, only the last
-            // verified one in a batch. This is sufficient because the last
-            // verified hash is the only one needed checking the existence
-            // of a cross-chain message with a merkle proof.
-            blk = state.blocks[
-                state.lastVerifiedBlockId % config.ringBufferSize
-            ];
-            // blk.verifiedForkChoiceId = ???/
-            blk.verifiedForkChoiceId = uint24(forkChoiceId);
-
             emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
@@ -110,8 +101,9 @@ library LibVerifying {
     function _markBlockVerified(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        TaikoData.Block storage blk
+        uint24 forkChoiceId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
@@ -158,13 +150,7 @@ library LibVerifying {
         signalRoot = fc.signalRoot;
 
         blk.nextForkChoiceId = 1;
-
-        // Clean up the fork choice but keep non-zeros if possible to be
-        // reused.
-        fc.blockHash = bytes32(uint256(1)); // none-zero placeholder
-        fc.signalRoot = bytes32(uint256(1)); // none-zero placeholder
-        fc.provenAt = 1; // none-zero placeholder
-        fc.prover = address(0);
+        blk.verifiedForkChoiceId = forkChoiceId;
     }
 
     function _addToBalance(

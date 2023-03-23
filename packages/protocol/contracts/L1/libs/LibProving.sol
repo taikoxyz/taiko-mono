@@ -67,21 +67,29 @@ library LibProving {
             revert L1_EVIDENCE_MISMATCH();
 
         uint256 fcId = state.forkChoiceIds[blockId][evidence.parentHash];
+        TaikoData.ForkChoice storage fc;
         if (fcId == 0) {
             fcId = blk.nextForkChoiceId;
             state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
+            fc = blk.forkChoices[fcId];
+            // clean up
+            fc.blockHash = bytes32(0);
+            fc.signalRoot = bytes32(0);
+            fc.prover = address(0);
+            fc.provenAt = uint64(0);
 
             unchecked {
                 ++blk.nextForkChoiceId;
             }
-        } else if (fcId >= blk.nextForkChoiceId) {
-            revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
+        } else {
+            if (fcId >= blk.nextForkChoiceId)
+                revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
+
+            fc = blk.forkChoices[fcId];
         }
 
-        TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
-
         bool oracleProving;
-        if (uint256(fc.blockHash) <= 1) {
+        if (fc.blockHash == bytes32(0)) {
             // 0 or 1 (placeholder) indicate this block has not been proven
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
@@ -93,11 +101,7 @@ library LibProving {
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
 
-            if (oracleProving) {
-                // make sure we reset the prover address to indicate it is
-                // proven by the oracle prover
-                fc.prover = address(0);
-            } else {
+            if (!oracleProving) {
                 fc.prover = evidence.prover;
                 fc.provenAt = uint64(block.timestamp);
             }

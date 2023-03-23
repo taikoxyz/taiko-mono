@@ -103,21 +103,15 @@ library TaikoData {
 
     // 5 slots
     struct Block {
+        uint64 blockId;
+        uint64 proposedAt;
+        uint24 nextForkChoiceId;
+        uint24 verifiedForkChoiceId;
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
-        uint64 proposedAt;
-        uint24 nextForkChoiceId;
-        uint64 blockId;
-        uint24 verifiedForkChoiceId;
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
-    }
-
-    // 3 slots
-    struct VerifiedBlock {
-        bytes32 blockHash;
-        bytes32 signalRoot;
     }
 
     // This struct takes 9 slots.
@@ -127,8 +121,8 @@ library TaikoData {
     }
 
     struct State {
-        // Ring buffer for proposed blocks.
-        mapping(uint256 blockId_mode_maxNumProposedBlocks => Block) blocks;
+        // Ring buffer for proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
