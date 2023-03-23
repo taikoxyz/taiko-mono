@@ -93,7 +93,6 @@ library LibVerifying {
             unchecked {
                 state.lastVerifiedBlockId += processed;
             }
-
             emit XchainSynced(state.lastVerifiedBlockId, blockHash, signalRoot);
         }
     }
