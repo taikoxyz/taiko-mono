@@ -135,7 +135,7 @@
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-    const chainId = await signer.getChainId();
+    const chainId = $fromChain.id;
     if (!chainId || !chainsRecord[chainId.toString()]) return true;
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
@@ -490,6 +490,7 @@
   .btn.btn-accent.approve-btn {
     background-color: #4c1d95;
     border-color: #4c1d95;
+    color: #ffffff;
   }
 
   .btn.btn-accent.approve-btn:hover {

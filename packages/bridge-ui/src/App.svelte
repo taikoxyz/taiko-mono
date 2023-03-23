@@ -151,7 +151,6 @@
       );
 
       const updatedStorageTxs: BridgeTransaction[] = txs.filter((tx) => {
-        console.log(tx.hash, hashToApiTxsMap.has(tx.hash.toLowerCase()));
         return !hashToApiTxsMap.has(tx.hash.toLowerCase());
       });
 
