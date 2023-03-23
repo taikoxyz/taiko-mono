@@ -163,7 +163,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     {
         TaikoData.Block storage blk = LibProposing.getBlock(
             state,
-            getConfig().maxNumProposedBlocks,
+            getConfig().ringBufferSize,
             id
         );
         _metaHash = blk.metaHash;
