@@ -238,7 +238,11 @@
   <td>
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
-      ? ethers.utils.formatEther(transaction.message?.depositValue)
+      ? ethers.utils.formatEther(
+          transaction.message?.depositValue.eq(0)
+            ? transaction.message?.callValue.toString()
+            : transaction.message?.depositValue,
+        )
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
   </td>
