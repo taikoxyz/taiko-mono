@@ -1,6 +1,5 @@
 // TODO: think about a way to blow up the build if env var is missing
 //       dotenv-safe ?
-// TODO: does it make sense to provide with defaults?
 // TODO: explain each of these env vars
 
 import type { Token } from '../domain/token';

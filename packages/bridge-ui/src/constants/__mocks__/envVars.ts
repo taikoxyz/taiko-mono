@@ -42,6 +42,11 @@ export const RELAYER_URL = 'https://relayer.internal.taiko.xyz/';
 
 export const TEST_ERC20 = [
   {
+    address: '0x5B9fEDd37f0B92E7E282B19cEbCF06F57B77C604',
+    symbol: 'BLL',
+    name: 'Bull Token',
+  },
+  {
     address: '0xAED64948E0d09f4eb07d8B76A65Cd3d517c6Fb15',
     symbol: 'HORSE',
     name: 'Horse Token',
