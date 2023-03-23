@@ -47,14 +47,11 @@ library LibProving {
         ) revert L1_BLOCK_NUMBER();
 
         if (
-            // 0 and 1 (placeholder) are not allowed
-            uint256(evidence.parentHash) <= 1 ||
-            // 0 and 1 (placeholder) are not allowed
-            uint256(evidence.blockHash) <= 1 ||
+            evidence.parentHash == 0 ||
+            evidence.blockHash == 0 ||
             // cannot be the same hash
             evidence.blockHash == evidence.parentHash ||
-            // 0 and 1 (placeholder) are not allowed
-            uint256(evidence.signalRoot) <= 1 ||
+            evidence.signalRoot == 0 ||
             // prover must not be zero
             evidence.prover == address(0)
         ) revert L1_INVALID_EVIDENCE();
@@ -78,23 +75,26 @@ library LibProving {
 
             state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
             fc = blk.forkChoices[fcId];
-
             fc.blockHash = evidence.blockHash;
             fc.signalRoot = evidence.signalRoot;
-            fc.provenAt = uint64(block.timestamp);
 
             if (config.enableOracleProver) {
                 if (msg.sender != resolver.resolve("oracle_prover", false))
                     revert L1_NOT_ORACLE_PROVER();
 
-                fc.prover = address(0); // we are reusing storage slots
                 oracleProving = true;
+                // we are reusing storage slots, still need to reset the
+                // [provenAt+prover] slot.
+                fc.provenAt = uint64(1);
+                fc.prover = address(0);
             } else {
+                fc.provenAt = uint64(block.timestamp);
                 fc.prover = evidence.prover;
             }
         } else {
             if (fcId >= blk.nextForkChoiceId)
                 revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
+
             fc = blk.forkChoices[fcId];
 
             if (
@@ -103,6 +103,9 @@ library LibProving {
             ) revert L1_CONFLICT_PROOF();
 
             if (fc.prover != address(0)) revert L1_ALREADY_PROVEN();
+
+            fc.provenAt = uint64(block.timestamp);
+            fc.prover = evidence.prover;
         }
 
         if (!oracleProving && !config.skipZKPVerification) {
