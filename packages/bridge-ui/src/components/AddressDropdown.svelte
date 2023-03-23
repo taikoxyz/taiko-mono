@@ -8,12 +8,12 @@
   import { getAddressAvatarFromIdenticon } from '../utils/addressAvatar';
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
   import { ethers, Signer } from 'ethers';
-  import { errorToast, successToast } from '../utils/toast';
   import { ClipboardDocument, Power } from 'svelte-heros-v2';
   import { slide } from 'svelte/transition';
   import { fromChain } from '../store/chain';
   import { truncateString } from '../utils/truncateString';
   import { ChevronDown } from 'svelte-heros-v2';
+  import { errorToast, successToast } from './Toast.svelte';
 
   let address: string = '';
   let addressAvatarImgData: string = '';
