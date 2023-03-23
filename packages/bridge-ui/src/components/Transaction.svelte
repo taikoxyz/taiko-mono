@@ -185,6 +185,11 @@
 
       transaction.status = await contract.getMessageStatus(transaction.msgHash);
 
+      if (transaction.receipt.status !== 1) {
+        clearInterval(interval);
+        return;
+      }
+
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
@@ -241,7 +246,9 @@
   <td>
     <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
-        {#if !processable}
+        {#if transaction.receipt && transaction.receipt.status !== 1}
+          <span class="border border-transparent p-0">Failed</span>
+        {:else if !processable}
           Pending
         {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
           <div class="inline-block">
