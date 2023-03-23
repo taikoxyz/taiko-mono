@@ -54,7 +54,8 @@
         <tr>
           <td>Call value</td>
           <td class="text-right">
-            {ethers.utils.formatEther(transaction.message.callValue)} ETH
+            {ethers.utils.formatEther(transaction.message.callValue.toString())}
+            ETH
           </td>
         </tr>
       {/if}
