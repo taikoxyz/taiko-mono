@@ -44,6 +44,7 @@ taiko-mono
 ├── <a href="./packages">packages</a>
 │   ├── <a href="./packages/branding">branding</a>: Taiko branding materials
 │   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Taiko Bridge frontend UI
+│   ├── <a href="./packages/protocol">eventindexer</a>: Event indexer
 │   ├── <a href="./packages/protocol">protocol</a>: Taiko ZK-Rollup L2 Protocol and Taiko Bridge smart contracts
 │   ├── <a href="./packages/relayer">relayer</a>: Bridge relayer (backend)
 │   ├── <a href="./packages/status-page">status-page</a>: Taiko Protocol status page
