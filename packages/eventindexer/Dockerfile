@@ -2,7 +2,7 @@ FROM golang:1.19.3 as builder
 
 RUN apt install git curl
 
-RUN git clone https://github.com/taikoxyz/taiko-mono /taiko-mono
+RUN git clone --depth 1 https://github.com/taikoxyz/taiko-mono /taiko-mono
 
 WORKDIR /taiko-mono/packages/eventindexer
 

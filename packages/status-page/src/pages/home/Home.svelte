@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BigNumber, Contract, ethers } from "ethers";
+  import { BigNumber, Contract, ethers, providers } from "ethers";
   import { getLatestSyncedHeader } from "../../utils/getLatestSyncedHeader";
   import StatusIndicator from "../../components/StatusIndicator.svelte";
   import { watchHeaderSynced } from "../../utils/watchHeaderSynced";
@@ -18,6 +18,8 @@
   import { truncateString } from "../../utils/truncateString";
   import TaikoL1 from "../../constants/abi/TaikoL1";
   import { getNumProvers } from "../../utils/getNumProvers";
+  import DetailsModal from "../../components/DetailsModal.svelte";
+  import { addressSubsection } from "../../utils/addressSubsection";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -28,6 +30,8 @@
   export let feeTokenSymbol: string;
   export let oracleProverAddress: string;
   export let eventIndexerApiUrl: string;
+
+  let proverDetailsOpen: boolean = false;
 
   let statusIndicators: StatusIndicatorProp[] = [
     {
@@ -41,6 +45,9 @@
       intervalInMs: 0,
       colorFunc: (value: Status) => {
         return "green";
+      },
+      onClick: (value: Status) => {
+        proverDetailsOpen = true;
       },
       tooltip:
         "The numbe of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
@@ -348,3 +355,18 @@
     />
   {/each}
 </div>
+
+{#if proverDetailsOpen}
+  <DetailsModal title={"Prover Details"} bind:isOpen={proverDetailsOpen}>
+    <div class="grid grid-cols-2 gap-4 text-center my-10" slot="body">
+      {#await getNumProvers(eventIndexerApiUrl) then provers}
+        {#each provers.provers as prover}
+          <div>
+            {addressSubsection(prover.address)}
+          </div>
+          <div>{prover.count}</div>
+        {/each}
+      {/await}
+    </div>
+  </DetailsModal>
+{/if}

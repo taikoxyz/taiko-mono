@@ -14,10 +14,6 @@ var (
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",
 	})
-	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "blocks_scanned_ops_total",
-		Help: "The total number of scanned blocks. Acts as heartbeat metric.",
-	})
 	BlocksScannedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_scanned_error_ops_total",
 		Help: "The total number of scanned block errors.",
