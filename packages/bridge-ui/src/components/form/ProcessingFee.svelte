@@ -8,7 +8,7 @@
   import { recommendProcessingFee } from '../../utils/recommendProcessingFee';
   import TooltipModal from '../modals/TooltipModal.svelte';
   import ButtonWithTooltip from '../ButtonWithTooltip.svelte';
-  import { processingFeeMap } from '../../fee/processingFee';
+  import { processingFees } from '../../fee/processingFees';
 
   export let customFee: string;
   export let recommendedFee: string = '0';
@@ -60,7 +60,7 @@
   {/if}
 
   <div class="flex mt-2 space-x-2">
-    {#each Array.from(processingFeeMap) as fee}
+    {#each Array.from(processingFees) as fee}
       <button
         class="{$processingFee === fee[0]
           ? 'border-accent hover:border-accent'
