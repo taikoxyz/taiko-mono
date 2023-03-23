@@ -150,7 +150,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getBlock(
-        uint256 id
+        uint256 blockId
     )
         public
         view
@@ -161,11 +161,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             uint64 _proposedAt
         )
     {
-        TaikoData.Block storage blk = LibProposing.getBlock(
-            state,
-            getConfig().ringBufferSize,
-            id
-        );
+        TaikoData.Block storage blk = LibProposing.getBlock({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
         _metaHash = blk.metaHash;
         _deposit = blk.deposit;
         _proposer = blk.proposer;
@@ -173,26 +173,26 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getForkChoice(
-        uint256 id,
+        uint256 blockId,
         bytes32 parentHash
     ) public view returns (TaikoData.ForkChoice memory) {
         return
-            LibProving.getForkChoice(
-                state,
-                getConfig().ringBufferSize,
-                id,
-                parentHash
-            );
+            LibProving.getForkChoice({
+                state: state,
+                config: getConfig(),
+                blockId: blockId,
+                parentHash: parentHash
+            });
     }
 
     function getXchainBlockHash(
         uint256 blockId
     ) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData(
-            state,
-            blockId,
-            getConfig().ringBufferSize
-        );
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
         return
             found
                 ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
@@ -202,11 +202,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function getXchainSignalRoot(
         uint256 blockId
     ) public view override returns (bytes32) {
-        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData(
-            state,
-            blockId,
-            getConfig().ringBufferSize
-        );
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
 
         return
             found

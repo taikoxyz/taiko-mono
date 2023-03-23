@@ -183,16 +183,20 @@ library LibProving {
 
     function getForkChoice(
         TaikoData.State storage state,
-        uint256 ringBufferSize,
-        uint256 id,
+        TaikoData.Config memory config,
+        uint256 blockId,
         bytes32 parentHash
     ) internal view returns (TaikoData.ForkChoice storage) {
-        if (id <= state.lastVerifiedBlockId || id >= state.numBlocks) {
+        if (
+            blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks
+        ) {
             revert L1_ID();
         }
 
-        TaikoData.Block storage blk = state.blocks[id % ringBufferSize];
-        uint256 fcId = state.forkChoiceIds[id][parentHash];
+        TaikoData.Block storage blk = state.blocks[
+            blockId % config.ringBufferSize
+        ];
+        uint256 fcId = state.forkChoiceIds[blockId][parentHash];
         if (fcId == 0 || fcId >= blk.nextForkChoiceId)
             revert L1_FORK_CHOICE_ID();
 

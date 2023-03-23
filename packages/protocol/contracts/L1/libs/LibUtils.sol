@@ -20,18 +20,18 @@ library LibUtils {
 
     function getL2ChainData(
         TaikoData.State storage state,
-        uint256 blockId,
-        uint256 ringBufferSize
+        TaikoData.Config memory config,
+        uint256 blockId
     ) internal view returns (bool found, TaikoData.Block storage blk) {
         uint256 _blockId = blockId;
         if (_blockId == 0) {
             _blockId = state.lastVerifiedBlockId;
         } else if (
-            _blockId + ringBufferSize <= state.lastVerifiedBlockId || // TODO?
+            _blockId + config.ringBufferSize <= state.lastVerifiedBlockId || // TODO?
             _blockId > state.lastVerifiedBlockId
         ) revert L1_BLOCK_NUMBER();
 
-        blk = state.blocks[_blockId % ringBufferSize];
+        blk = state.blocks[_blockId % config.ringBufferSize];
         found = blk.blockId == blockId && blk.verifiedForkChoiceId != 0;
     }
 

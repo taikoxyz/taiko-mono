@@ -187,13 +187,15 @@ library LibProposing {
 
     function getBlock(
         TaikoData.State storage state,
-        uint256 ringBufferSize,
-        uint256 id
+        TaikoData.Config memory config,
+        uint256 blockId
     ) internal view returns (TaikoData.Block storage) {
-        if (id <= state.lastVerifiedBlockId || id >= state.numBlocks) {
+        if (
+            blockId <= state.lastVerifiedBlockId || blockId >= state.numBlocks
+        ) {
             revert L1_ID();
         }
 
-        return state.blocks[id % ringBufferSize];
+        return state.blocks[blockId % config.ringBufferSize];
     }
 }
