@@ -42,15 +42,13 @@ library LibVerifying {
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
-        blk.blockId = 0;
-        blk.verifiedForkChoiceId = 1;
+        blk.proposdAt = timeNow;
         blk.nextForkChoiceId = 2;
+        blk.verifiedForkChoiceId = 1;
 
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
-        fc.signalRoot = 0;
         fc.provenAt = timeNow;
-        fc.prover = address(0);
 
         emit BlockVerified(0, genesisBlockHash);
     }
