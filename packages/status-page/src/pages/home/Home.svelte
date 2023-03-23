@@ -35,7 +35,6 @@
         provider: ethers.providers.JsonRpcProvider,
         address: string
       ) => (await getNumProvers(eventIndexerApiUrl)).uniqueProvers,
-      watchStatusFunc: watchHeaderSynced,
       provider: l1Provider,
       contractAddress: l1TaikoAddress,
       header: "Unique Provers",
