@@ -33,13 +33,14 @@
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
-  import { fetchFeeData } from '@wagmi/core';
+  import { fetchFeeData, mainnet } from '@wagmi/core';
   import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
   import { chainsRecord } from '../../chain/chains';
   import { errorToast, successToast } from '../Toast.svelte';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -55,7 +56,8 @@
   let to: string = '';
   let showTo: boolean = false;
 
-  $: getUserBalance($signer, $token, $fromChain);
+  // TODO: too much going on here. We need to extract
+  //       logic and unit test the hell out of all this.
 
   async function addrForToken() {
     let addr = $token.addresses.find(
@@ -81,6 +83,7 @@
     }
     return addr;
   }
+
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -102,21 +105,6 @@
       }
     }
   }
-
-  $: isBtnDisabled(
-    $signer,
-    amount,
-    $token,
-    tokenBalance,
-    requiresAllowance,
-    memoError,
-  )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
-
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
 
   async function checkAllowance(
     amt: string,
@@ -374,6 +362,34 @@
       return BigNumber.from(ethers.utils.parseEther(recommendedFee));
     }
   }
+
+  $: getUserBalance($signer, $token, $fromChain);
+
+  $: isBtnDisabled(
+    $signer,
+    amount,
+    $token,
+    tokenBalance,
+    requiresAllowance,
+    memoError,
+  )
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.log(e));
+
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+    .then((a) => (requiresAllowance = a))
+    .catch((e) => console.log(e));
+
+  // TODO: we need to simplify this crazy condition
+  $: showFaucet =
+    $fromChain && // chain selected?
+    $fromChain.id === L1_CHAIN_ID && // are we in L1?
+    $token.symbol !== ETHToken.symbol && // bridging ERC20?
+    $signer && // wallet connected?
+    tokenBalance &&
+    ethers.utils
+      .parseUnits(tokenBalance, $token.decimals)
+      .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
 <div class="form-control my-4 md:my-8">
@@ -413,9 +429,7 @@
   </label>
 </div>
 
-{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
-    .parseUnits(tokenBalance, $token.decimals)
-    .eq(BigNumber.from(0))}
+{#if showFaucet}
   <div class="flex" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
