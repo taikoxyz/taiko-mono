@@ -10,10 +10,10 @@ title: TaikoErrors
 error L1_ALREADY_PROVEN()
 ```
 
-### L1_BLOCK_NUMBER
+### L1_BLOCK_ID
 
 ```solidity
-error L1_BLOCK_NUMBER()
+error L1_BLOCK_ID()
 ```
 
 ### L1_CONFLICT_PROOF
@@ -38,12 +38,6 @@ error L1_EVIDENCE_MISMATCH()
 
 ```solidity
 error L1_FORK_CHOICE_ID()
-```
-
-### L1_ID
-
-```solidity
-error L1_ID()
 ```
 
 ### L1_INSUFFICIENT_TOKEN
