@@ -96,7 +96,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
+    const addresses = await svc.getAllByAddress('0x123', L2_CHAIN_ID);
 
     expect(addresses).toEqual([]);
   });
@@ -120,7 +120,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.getAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -156,7 +156,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.getAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -201,7 +201,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L1_CHAIN_ID);
+    const addresses = await svc.getAllByAddress('0x123', L1_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -253,7 +253,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetAllByAddress('0x123', L2_CHAIN_ID);
+    const addresses = await svc.getAllByAddress('0x123', L2_CHAIN_ID);
 
     expect(addresses).toEqual([
       {
@@ -308,7 +308,7 @@ describe('storage tests', () => {
 
     const svc = new StorageService(mockStorage as any, providers);
 
-    const addresses = await svc.GetTransactionByHash('0x123', mockTx.hash);
+    const addresses = await svc.getTransactionByHash('0x123', mockTx.hash);
 
     expect(addresses).toEqual({
       amountInWei: BigNumber.from(0x64),
@@ -338,7 +338,7 @@ describe('storage tests', () => {
     const newTx = { ...mockTx } as BridgeTransaction;
     newTx.status = MessageStatus.Done;
 
-    svc.UpdateStorageByAddress('0x123', [newTx]);
+    svc.updateStorageByAddress('0x123', [newTx]);
 
     expect(mockStorage.setItem).toHaveBeenCalledWith(
       'transactions-0x123',

@@ -132,7 +132,7 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       };
 
-      const proof = await this.prover.GenerateProof(proofOpts);
+      const proof = await this.prover.generateProof(proofOpts);
       let processMessageTx;
       try {
         processMessageTx = await contract.processMessage(opts.message, proof);
@@ -188,7 +188,7 @@ export class ETHBridge implements Bridge {
           chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
       };
 
-      const proof = await this.prover.GenerateReleaseProof(proofOpts);
+      const proof = await this.prover.generateReleaseProof(proofOpts);
 
       const srcBridgeContract: Contract = new Contract(
         opts.srcBridgeAddress,

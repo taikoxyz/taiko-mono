@@ -52,7 +52,7 @@
     watchAccount(async () => {
       const s = await setSigner();
       transactions.set(
-        await $transactioner.GetAllByAddress(await s.getAddress()),
+        await $transactioner.getAllByAddress(await s.getAddress()),
       );
     });
   }

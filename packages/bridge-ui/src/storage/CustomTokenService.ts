@@ -7,7 +7,7 @@ export class CustomTokenService implements TokenService {
     this.storage = storage;
   }
 
-  async StoreToken(token: Token, address: string): Promise<Token[]> {
+  async storeToken(token: Token, address: string): Promise<Token[]> {
     const customTokens = this.storage.getItem(
       `custom-tokens-${address.toLowerCase()}`,
     );
@@ -28,7 +28,7 @@ export class CustomTokenService implements TokenService {
     return tokens;
   }
 
-  GetTokens(address: string): Token[] {
+  getTokens(address: string): Token[] {
     return (
       JSON.parse(
         this.storage.getItem(`custom-tokens-${address.toLowerCase()}`),
@@ -36,7 +36,7 @@ export class CustomTokenService implements TokenService {
     );
   }
 
-  RemoveToken(token: Token, address: string): Token[] {
+  removeToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(
       `custom-tokens-${address.toLowerCase()}`,
     );
