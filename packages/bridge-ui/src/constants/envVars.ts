@@ -2,7 +2,6 @@
 //       dotenv-safe ?
 // TODO: explain each of these env vars
 
-import type { Token } from '../domain/token';
 import type { Address, ChainID } from '../domain/chain';
 
 export const L1_RPC: string = import.meta.env?.VITE_L1_RPC_URL;
@@ -51,6 +50,8 @@ export const L2_EXPLORER_URL: string = import.meta.env?.VITE_L2_EXPLORER_URL;
 
 export const RELAYER_URL: string = import.meta.env?.VITE_RELAYER_URL;
 
-export const TEST_ERC20: Partial<Token>[] = JSON.parse(
-  import.meta.env?.VITE_TEST_ERC20,
-);
+export const TEST_ERC20: {
+  address: Address;
+  symbol: string;
+  name: string;
+}[] = JSON.parse(import.meta.env?.VITE_TEST_ERC20);
