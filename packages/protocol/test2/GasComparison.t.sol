@@ -4,7 +4,15 @@ pragma solidity ^0.8.18;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 import "../contracts/L1/TaikoData.sol";
+import "../contracts/libs/LibAddress.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
+library LibAddress2 {
+    function sendEther(address to, uint256 amount) internal {
+        (bool success, ) = payable(to).call{value: amount}("");
+        require(success, "ETH transfer failed");
+    }
+}
 
 struct MyStruct {
     uint256 id;
@@ -180,16 +188,13 @@ contract FooBar {
     }
 
     // ------
-    function send0Ether_check(address to, uint256 amount) public {
-        if (amount > 0) {
-            (bool success, ) = payable(to).call{value: amount}("");
-            require(success, "ETH transfer failed");
-        }
+    function send0Ether_CheckOutside(address to, uint256 amount) public {
+        if (amount == 0 || to == address(0)) return;
+        LibAddress2.sendEther(to, amount);
     }
 
-    function send0Ether_noCheck(address to, uint256 amount) public {
-        (bool success, ) = payable(to).call{value: amount}("");
-        require(success, "ETH transfer failed");
+    function send0Ether_CheckInside(address to, uint256 amount) public {
+        LibAddress.sendEther(to, amount);
     }
 }
 
@@ -261,8 +266,8 @@ contract GasComparisonTest is Test {
 
         {
             address to = 0x50081b12838240B1bA02b3177153Bca678a86078;
-            foobar.send0Ether_check(to, 0);
-            foobar.send0Ether_noCheck(to, 0);
+            foobar.send0Ether_CheckInside(to, 0);
+            foobar.send0Ether_CheckOutside(to, 0);
         }
     }
 }
