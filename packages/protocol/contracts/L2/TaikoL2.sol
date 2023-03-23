@@ -82,7 +82,7 @@ contract TaikoL2 is EssentialContract, TaikoL2Signer, IXchainSync {
      * certain block-level global variables because they are not part of the
      * Trie structure.
      *
-     * A circuit will verify the integratity among:
+     * A circuit will verify the integrity among:
      * -  l1Hash, l1SignalRoot, and l1SignalServiceAddress
      * -  (l1Hash and l1SignalServiceAddress) are both hased into of the
      *    ZKP's instance.
