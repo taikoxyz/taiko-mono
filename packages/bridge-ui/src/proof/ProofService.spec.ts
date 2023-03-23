@@ -113,9 +113,10 @@ const expectedProofWithBaseFee =
 const srcChain = 167001;
 const destChain = 31336;
 
-const map = new Map<number, ethers.providers.JsonRpcProvider>();
-map.set(srcChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
-map.set(destChain, mockProvider as unknown as ethers.providers.JsonRpcProvider);
+const map = {
+  [srcChain]: mockProvider,
+  [destChain]: mockProvider,
+} as unknown as Record<string, ethers.providers.JsonRpcProvider>;
 
 describe('prover tests', () => {
   beforeEach(() => {

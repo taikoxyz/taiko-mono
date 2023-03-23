@@ -11,7 +11,7 @@ import TokenVault from '../constants/abi/TokenVault';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
 import BridgeABI from '../constants/abi/Bridge';
-import { chainsRecord } from '../chain/chains';
+import { chains } from '../chain/chains';
 
 export class ETHBridge implements Bridge {
   private readonly prover: Prover;
@@ -119,9 +119,9 @@ export class ETHBridge implements Bridge {
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
-          chainsRecord[opts.message.destChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
         srcSignalServiceAddress:
-          chainsRecord[opts.message.srcChainId.toNumber()].signalServiceAddress,
+          chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       };
 
       const proof = await this.prover.GenerateProof(proofOpts);
@@ -175,9 +175,9 @@ export class ETHBridge implements Bridge {
         destBridgeAddress: opts.destBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
-          chainsRecord[opts.message.destChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
         srcHeaderSyncAddress:
-          chainsRecord[opts.message.srcChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
       };
 
       const proof = await this.prover.GenerateReleaseProof(proofOpts);

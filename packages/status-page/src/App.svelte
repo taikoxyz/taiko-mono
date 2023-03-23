@@ -36,7 +36,7 @@
 </script>
 
 <QueryProvider>
-  <main>
+  <main class="px-6">
     <Navbar />
     <Router {routes} />
   </main>

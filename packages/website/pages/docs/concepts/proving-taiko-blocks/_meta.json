@@ -1,0 +1,11 @@
+{
+  "provers": {
+    "title": "Provers"
+  },
+  "the-oracle-prover": {
+    "title": "The oracle prover"
+  },
+  "verified-blocks-and-parallel-proving": {
+    "title": "Verified blocks & parallel proving"
+  }
+}

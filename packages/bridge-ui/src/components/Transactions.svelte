@@ -5,7 +5,7 @@
   import MessageStatusTooltip from './MessageStatusTooltip.svelte';
   import InsufficientBalanceTooltip from './InsufficientBalanceTooltip.svelte';
   import type { BridgeTransaction } from '../domain/transactions';
-  import { chainsRecord } from '../chain/chains';
+  import { chains } from '../chain/chains';
 
   let selectedTransaction: BridgeTransaction;
   let showMessageStatusTooltip: boolean;
@@ -37,8 +37,8 @@
             onShowTransactionDetailsClick={() => {
               selectedTransaction = transaction;
             }}
-            toChain={chainsRecord[transaction.toChainId]}
-            fromChain={chainsRecord[transaction.fromChainId]}
+            toChain={chains[transaction.toChainId]}
+            fromChain={chains[transaction.fromChainId]}
             {transaction} />
         {/each}
       </tbody>

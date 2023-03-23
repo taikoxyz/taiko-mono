@@ -1,43 +1,43 @@
 const posts = [
   {
-    title: "Taiko Ambassador Program",
-    href: "https://mirror.xyz/labs.taiko.eth/BvcEyYeVIiHnjc-i5qf3zR4s67Jc6nz_R6OSGj5rzOE",
+    title: "ZK-Roller-Coaster #1",
+    href: "https://mirror.xyz/labs.taiko.eth/Tn1JX-DVJyjYTOn81o1n9ZgJdRT5BaWN3L0zxaGbI2I",
     description:
-      "Ethereum has come a long way in its seven-year life — changing the world, in our opinion — but it is only just getting started.",
-    date: "Jan 04, 2023",
-    datetime: "2023-01-04",
+      "This is the first edition of ZK-Roller-Coaster where we track and investigate the most exciting, meaningful, and crazy ZK-stuff of the prior two weeks.",
+    date: "Mar 20, 2023",
+    datetime: "2023-03-20",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/5Ed-TXJIB3LTC2HJdPuEN.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/RSqial9m7OhGBfPmOMb13.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "2 min",
     author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
   {
-    title: "Taiko Alpha-1 Testnet is Live",
-    href: "https://mirror.xyz/labs.taiko.eth/-lahy4KbGkeAcqhs0ETG3Up3oTVzZ0wLoE1eK_ao5h4",
+    title: "Taiko Roadmap",
+    href: "https://mirror.xyz/labs.taiko.eth/NfYQFzzkcEIy3jU9PTBo-nem2HlNiZre-3WwLnbGnwQ",
     description:
-      "Today, the Taiko Alpha-1 testnet (a1) is live - our first public testnet! We’ve codenamed this testnet, Snæfellsjökull.",
-    date: "Dec 27, 2022",
-    datetime: "2022-12-27",
+      "Ethereum’s commitment to rollups is strong and credible; rollups’ commitment to Ethereum ought to be the same.",
+    date: "Mar 09, 2023",
+    datetime: "2023-03-09",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/4qVW-dWhNmMQr61g91hGt.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/aAfT-Vi_yjEon2PQLAEk-.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "4 min",
     author: {
-      name: "finestone",
-      imageUrl: "https://avatars.githubusercontent.com/u/36642873?v=4",
+      name: "Lisa A.",
+      imageUrl: "https://avatars.githubusercontent.com/u/106527861?v=4",
     },
   },
   {
-    title: "Rollup Decentralization",
-    href: "https://mirror.xyz/labs.taiko.eth/sxR3iKyD-GvTuyI9moCg4_ggDI4E4CqnvhdwRq5yL0A",
+    title: "Taiko Community Update — Q4/2022",
+    href: "https://mirror.xyz/labs.taiko.eth/OBggtj2uy03WvbPmuWV9X9nKsRQt8I-CbWlqpkqqdyI",
     description:
-      "This post explores definitions and high-level ideas of rollup decentralization. It does not cover deep technical detail about decentralizing rollup implementations.",
-    date: "Dec 20, 2022",
-    datetime: "2022-12-20",
+      "Below is our brief summary of what happened in the fourth quarter of 2022. It was a super busy one to close out the year, and now we are excited to be writing from 2023...",
+    date: "Jan 23, 2023",
+    datetime: "2023-01-23",
     imageUrl:
-      "https://mirror-media.imgix.net/publication-images/NTeYUqYqHo4NqrRGJHvfO.png?height=512&width=1024&h=512&w=1024&auto=compress",
+      "https://mirror-media.imgix.net/publication-images/wKVMvOhXKwdzbOgTKCKqY.png?height=512&width=1024&h=512&w=1024&auto=compress",
     readingTime: "9 min",
     author: {
       name: "finestone",
@@ -60,7 +60,7 @@ export default function BlogSection() {
           <div className="mx-auto mt-3 max-w-2xl text-xl text-neutral-500 sm:mt-4 dark:text-neutral-300">
             Check out the full blog at{" "}
             <a href="https://mirror.xyz/labs.taiko.eth" target="_blank">
-              mirror.xyz
+              mirror.xyz ↗
             </a>
           </div>
         </div>

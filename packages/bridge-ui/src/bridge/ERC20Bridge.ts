@@ -12,7 +12,7 @@ import ERC20 from '../constants/abi/ERC20';
 import type { Prover } from '../domain/proof';
 import { MessageStatus } from '../domain/message';
 import BridgeABI from '../constants/abi/Bridge';
-import { chainsRecord } from '../chain/chains';
+import { chains } from '../chain/chains';
 
 export class ERC20Bridge implements Bridge {
   private readonly prover: Prover;
@@ -179,9 +179,9 @@ export class ERC20Bridge implements Bridge {
         srcBridgeAddress: opts.srcBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
-          chainsRecord[opts.message.destChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
         srcSignalServiceAddress:
-          chainsRecord[opts.message.srcChainId.toNumber()].signalServiceAddress,
+          chains[opts.message.srcChainId.toNumber()].signalServiceAddress,
       });
 
       if (opts.message.gasLimit.gt(BigNumber.from(2500000))) {
@@ -240,9 +240,9 @@ export class ERC20Bridge implements Bridge {
         destBridgeAddress: opts.destBridgeAddress,
         destChain: opts.message.destChainId.toNumber(),
         destHeaderSyncAddress:
-          chainsRecord[opts.message.destChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.destChainId.toNumber()].headerSyncAddress,
         srcHeaderSyncAddress:
-          chainsRecord[opts.message.srcChainId.toNumber()].headerSyncAddress,
+          chains[opts.message.srcChainId.toNumber()].headerSyncAddress,
       };
 
       const proof = await this.prover.GenerateReleaseProof(proofOpts);
