@@ -16,7 +16,7 @@ import {TaikoData} from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    error L1_BLOCK_NOT_FOUND();
+    error L1_BLOCK_ID();
 
     function getL2ChainData(
         TaikoData.State storage state,

@@ -26,7 +26,7 @@ describe("TaikoL1", function () {
     describe("getXchainBlockHash()", async function () {
         it("should revert because header number has not been synced", async function () {
             await expect(taikoL1.getXchainBlockHash(1)).to.be.revertedWith(
-                "L1_BLOCK_NOT_FOUND()"
+                "L1_BLOCK_ID()"
             );
         });
 
