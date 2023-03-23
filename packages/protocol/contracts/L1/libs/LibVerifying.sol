@@ -58,18 +58,17 @@ library LibVerifying {
         TaikoData.Config memory config,
         uint256 maxBlocks
     ) internal {
-        TaikoData.Block storage blk = state.blocks[
-            state.lastVerifiedBlockId & config.ringBufferSize
-        ];
+        uint256 i = state.lastVerifiedBlockId;
+        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+
         uint256 fcId = blk.verifiedForkChoiceId;
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
 
         bytes32 signalRoot;
 
         uint64 processed;
-        uint256 i;
         unchecked {
-            i = state.lastVerifiedBlockId + 1;
+            ++i;
         }
 
         while (i < state.numBlocks && processed < maxBlocks) {
