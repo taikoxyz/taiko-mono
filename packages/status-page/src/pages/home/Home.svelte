@@ -366,6 +366,8 @@
           </div>
           <div>{prover.count}</div>
         {/each}
+      {:catch error}
+        <p class="red">{error.message}</p>
       {/await}
     </div>
   </DetailsModal>
