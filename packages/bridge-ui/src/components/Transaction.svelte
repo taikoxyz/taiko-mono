@@ -4,11 +4,6 @@
   import { ArrowTopRightOnSquare } from 'svelte-heros-v2';
   import { MessageStatus } from '../domain/message';
   import { Contract, ethers } from 'ethers';
-  import {
-    activeBridge,
-    bridges,
-    chainIdToTokenVaultAddress,
-  } from '../store/bridge';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
   import { errorToast, successToast } from '../utils/toast';
@@ -21,13 +16,15 @@
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
-  import HeaderSync from '../constants/abi/HeaderSync';
-  import { providers } from '../store/providers';
-  import { fetchFeeData, fetchSigner, switchNetwork } from '@wagmi/core';
-  import Bridge from '../constants/abi/Bridge';
+  import HeaderSyncABI from '../constants/abi/HeaderSync';
+  import { fetchSigner, switchNetwork } from '@wagmi/core';
+  import BridgeABI from '../constants/abi/Bridge';
   import ButtonWithTooltip from './ButtonWithTooltip.svelte';
-  import TokenVault from '../constants/abi/TokenVault';
-  import { chainsRecord, mainnetChain, taikoChain } from '../chain/chains';
+  import TokenVaultABI from '../constants/abi/TokenVault';
+  import { chains, mainnetChain, taikoChain } from '../chain/chains';
+  import { providers } from '../provider/providers';
+  import { bridges } from '../bridge/bridges';
+  import { tokenVaults } from '../vault/tokenVaults';
 
   export let transaction: BridgeTransaction;
   export let fromChain: Chain;
@@ -39,7 +36,7 @@
   let loading: boolean;
 
   let processable: boolean = false;
-  let interval;
+  let interval: ReturnType<typeof setInterval>;
 
   onMount(async () => {
     processable = await isProcessable();
@@ -76,7 +73,7 @@
       // of the bridge transaction, we need to change chains so your wallet is pointed
       // to the right network.
       if ($fromChainStore.id !== bridgeTx.toChainId) {
-        const chain = chainsRecord[bridgeTx.toChainId];
+        const chain = chains[bridgeTx.toChainId];
         await switchChainAndSetSigner(chain);
       }
 
@@ -88,19 +85,17 @@
         return;
       }
 
-      const tx = await $bridges
-        .get(
-          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-            ? BridgeType.ETH
-            : BridgeType.ERC20,
-        )
-        .Claim({
-          signer: $signer,
-          message: bridgeTx.message,
-          msgHash: bridgeTx.msgHash,
-          destBridgeAddress: chainsRecord[bridgeTx.toChainId].bridgeAddress,
-          srcBridgeAddress: chainsRecord[bridgeTx.fromChainId].bridgeAddress,
-        });
+      const tx = await bridges[
+        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
+          ? BridgeType.ETH
+          : BridgeType.ERC20
+      ].Claim({
+        signer: $signer,
+        message: bridgeTx.message,
+        msgHash: bridgeTx.msgHash,
+        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
+        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
+      });
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -121,26 +116,23 @@
     try {
       loading = true;
       if (fromChain.id !== bridgeTx.fromChainId) {
-        const chain = chainsRecord[bridgeTx.fromChainId];
+        const chain = chains[bridgeTx.fromChainId];
         await switchChainAndSetSigner(chain);
       }
-      const tx = await $bridges
-        .get(
-          bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
-            ? BridgeType.ETH
-            : BridgeType.ERC20,
-        )
-        .ReleaseTokens({
-          signer: $signer,
-          message: bridgeTx.message,
-          msgHash: bridgeTx.msgHash,
-          destBridgeAddress: chainsRecord[bridgeTx.toChainId].bridgeAddress,
-          srcBridgeAddress: chainsRecord[bridgeTx.fromChainId].bridgeAddress,
-          destProvider: $providers.get(bridgeTx.toChainId),
-          srcTokenVaultAddress: $chainIdToTokenVaultAddress.get(
-            bridgeTx.fromChainId,
-          ),
-        });
+
+      const tx = await bridges[
+        bridgeTx.message?.data === '0x' || !bridgeTx.message?.data
+          ? BridgeType.ETH
+          : BridgeType.ERC20
+      ].ReleaseTokens({
+        signer: $signer,
+        message: bridgeTx.message,
+        msgHash: bridgeTx.msgHash,
+        destBridgeAddress: chains[bridgeTx.toChainId].bridgeAddress,
+        srcBridgeAddress: chains[bridgeTx.fromChainId].bridgeAddress,
+        destProvider: providers[bridgeTx.toChainId],
+        srcTokenVaultAddress: tokenVaults[bridgeTx.fromChainId],
+      });
 
       pendingTransactions.update((store) => {
         store.push(tx);
@@ -162,15 +154,16 @@
     if (transaction.status !== MessageStatus.New) return true;
 
     const contract = new Contract(
-      chainsRecord[transaction.toChainId].headerSyncAddress,
-      HeaderSync,
-      $providers.get(chainsRecord[transaction.toChainId].id),
+      chains[transaction.toChainId].headerSyncAddress,
+      HeaderSyncABI,
+      providers[chains[transaction.toChainId].id],
     );
 
     const latestSyncedHeader = await contract.getLatestSyncedHeader();
-    const srcBlock = await $providers
-      .get(chainsRecord[transaction.fromChainId].id)
-      .getBlock(latestSyncedHeader);
+    const srcBlock = await providers[
+      chains[transaction.fromChainId].id
+    ].getBlock(latestSyncedHeader);
+
     return transaction.receipt.blockNumber <= srcBlock.number;
   }
 
@@ -178,9 +171,9 @@
     return setInterval(async () => {
       processable = await isProcessable();
       const contract = new ethers.Contract(
-        chainsRecord[transaction.toChainId].bridgeAddress,
-        Bridge,
-        $providers.get(chainsRecord[transaction.toChainId].id),
+        chains[transaction.toChainId].bridgeAddress,
+        BridgeABI,
+        providers[chains[transaction.toChainId].id],
       );
 
       transaction.status = await contract.getMessageStatus(transaction.msgHash);
@@ -188,9 +181,9 @@
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
-            $chainIdToTokenVaultAddress.get(transaction.fromChainId),
-            TokenVault,
-            $providers.get(chainsRecord[transaction.fromChainId].id),
+            tokenVaults[transaction.fromChainId],
+            TokenVaultABI,
+            providers[chains[transaction.fromChainId].id],
           );
           const { token, amount } = await srcTokenVaultContract.messageDeposits(
             transaction.msgHash,
@@ -200,9 +193,9 @@
           }
         } else {
           const srcBridgeContract = new ethers.Contract(
-            chainsRecord[transaction.fromChainId].bridgeAddress,
-            Bridge,
-            $providers.get(chainsRecord[transaction.fromChainId].id),
+            chains[transaction.fromChainId].bridgeAddress,
+            BridgeABI,
+            providers[chains[transaction.fromChainId].id],
           );
           const isFailedMessageResolved =
             await srcBridgeContract.isEtherReleased(transaction.msgHash);
