@@ -17,6 +17,7 @@
   import { getStateVariables } from "../../utils/getStateVariables";
   import { truncateString } from "../../utils/truncateString";
   import TaikoL1 from "../../constants/abi/TaikoL1";
+  import { getNumProvers } from "../../utils/getNumProvers";
 
   export let l1Provider: ethers.providers.JsonRpcProvider;
   export let l1TaikoAddress: string;
@@ -26,8 +27,25 @@
   export let l2ExplorerUrl: string;
   export let feeTokenSymbol: string;
   export let oracleProverAddress: string;
+  export let eventIndexerApiUrl: string;
 
   let statusIndicators: StatusIndicatorProp[] = [
+    {
+      statusFunc: async (
+        provider: ethers.providers.JsonRpcProvider,
+        address: string
+      ) => (await getNumProvers(eventIndexerApiUrl)).uniqueProvers,
+      watchStatusFunc: watchHeaderSynced,
+      provider: l1Provider,
+      contractAddress: l1TaikoAddress,
+      header: "Unique Provers",
+      intervalInMs: 0,
+      colorFunc: (value: Status) => {
+        return "green";
+      },
+      tooltip:
+        "The numbe of unique provers who successfully submitted a proof to the TaikoL1 smart contract.",
+    },
     {
       statusFunc: getLatestSyncedHeader,
       watchStatusFunc: watchHeaderSynced,
