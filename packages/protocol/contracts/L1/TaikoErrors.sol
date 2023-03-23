@@ -10,7 +10,6 @@ abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_NOT_FOUND();
-    error L1_BLOCK_NUMBER();
     error L1_CONFLICT_PROOF();
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_EVIDENCE_MISMATCH();

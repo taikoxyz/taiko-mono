@@ -16,23 +16,16 @@ import {TaikoData} from "../TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    error L1_BLOCK_NUMBER();
+    error L1_BLOCK_NOT_FOUND();
 
     function getL2ChainData(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockId
     ) internal view returns (bool found, TaikoData.Block storage blk) {
-        uint256 _blockId = blockId;
-        if (_blockId == 0) {
-            _blockId = state.lastVerifiedBlockId;
-        } else if (
-            _blockId + config.ringBufferSize <= state.lastVerifiedBlockId || // TODO?
-            _blockId > state.lastVerifiedBlockId
-        ) revert L1_BLOCK_NUMBER();
-
-        blk = state.blocks[_blockId % config.ringBufferSize];
-        found = blk.blockId == blockId && blk.verifiedForkChoiceId != 0;
+        uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
+        blk = state.blocks[id % config.ringBufferSize];
+        found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
     }
 
     function getStateVariables(

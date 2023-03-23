@@ -23,7 +23,7 @@ library LibProving {
     );
 
     error L1_ALREADY_PROVEN();
-    error L1_BLOCK_NUMBER();
+    error L1_BLOCK_NOT_FOUND();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_ID();
@@ -44,7 +44,7 @@ library LibProving {
             meta.id != blockId ||
             meta.id <= state.lastVerifiedBlockId ||
             meta.id >= state.numBlocks
-        ) revert L1_BLOCK_NUMBER();
+        ) revert L1_BLOCK_NOT_FOUND();
 
         if (
             evidence.parentHash == 0 ||
@@ -182,7 +182,7 @@ library LibProving {
         TaikoData.Block storage blk = state.blocks[
             blockId % config.ringBufferSize
         ];
-        if (blk.blockId != blockId) revert L1_BLOCK_NUMBER();
+        if (blk.blockId != blockId) revert L1_BLOCK_NOT_FOUND();
 
         uint256 fcId = state.forkChoiceIds[blockId][parentHash];
         if (fcId == 0 || fcId >= blk.nextForkChoiceId)
