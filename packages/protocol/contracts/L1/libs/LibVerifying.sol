@@ -42,7 +42,7 @@ library LibVerifying {
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
-        blk.proposdAt = timeNow;
+        blk.proposedAt = timeNow;
         blk.nextForkChoiceId = 2;
         blk.verifiedForkChoiceId = 1;
 
@@ -61,10 +61,11 @@ library LibVerifying {
         TaikoData.Block storage blk = state.blocks[
             state.lastVerifiedBlockId & config.ringBufferSize
         ];
-        bytes32 blockHash = blk.forkChoices[blk.verifiedForkChoiceId].blockHash;
+        uint256 fcId = blk.verifiedForkChoiceId;
+        bytes32 blockHash = blk.forkChoices[fcId].blockHash;
 
         bytes32 signalRoot;
-        uint256 forkChoiceId;
+
         uint64 processed;
         uint256 i;
         unchecked {
@@ -74,17 +75,17 @@ library LibVerifying {
         while (i < state.numBlocks && processed < maxBlocks) {
             blk = state.blocks[i % config.ringBufferSize];
 
-            forkChoiceId = state.forkChoiceIds[i][blockHash];
-            if (forkChoiceId == 0) break;
+            fcId = state.forkChoiceIds[i][blockHash];
+            if (fcId == 0) break;
 
-            TaikoData.ForkChoice storage fc = blk.forkChoices[forkChoiceId];
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
             if (fc.prover == address(0)) break;
 
             (blockHash, signalRoot) = _markBlockVerified({
                 state: state,
                 config: config,
                 blk: blk,
-                forkChoiceId: uint24(forkChoiceId),
+                fcId: uint24(fcId),
                 fc: fc
             });
 
@@ -109,7 +110,7 @@ library LibVerifying {
         TaikoData.Config memory config,
         TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        uint24 forkChoiceId
+        uint24 fcId
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
             (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
@@ -156,7 +157,7 @@ library LibVerifying {
         signalRoot = fc.signalRoot;
 
         blk.nextForkChoiceId = 1;
-        blk.verifiedForkChoiceId = forkChoiceId;
+        blk.verifiedForkChoiceId = fcId;
     }
 
     function _addToBalance(
