@@ -110,6 +110,7 @@ abstract contract TaikoL1TestBase is Test {
 
     function proveBlock(
         address prover,
+        uint64 gasUsed,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
@@ -126,7 +127,8 @@ abstract contract TaikoL1TestBase is Test {
             parentHash: parentHash,
             blockHash: blockHash,
             signalRoot: signalRoot,
-            prover: prover
+            prover: prover,
+            gasUsed: gasUsed
         });
 
         vm.prank(prover, prover);

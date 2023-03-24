@@ -87,6 +87,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
+        uint64 gasUsed;
     }
 
     struct ForkChoice {
