@@ -6,6 +6,8 @@ import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 import { TKOToken } from '../token/tokens';
 import { providers } from '../provider/providers';
 
+jest.mock('../constants/envVars');
+
 const mockStorage = {
   getItem: jest.fn(),
   setItem: jest.fn(),
