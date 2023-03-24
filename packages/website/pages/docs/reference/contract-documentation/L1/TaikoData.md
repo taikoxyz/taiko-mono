@@ -9,10 +9,7 @@ title: TaikoData
 ```solidity
 struct FeeConfig {
   uint16 avgTimeMAF;
-  uint64 avgTimeCap;
-  uint16 gracePeriodPctg;
-  uint16 maxPeriodPctg;
-  uint16 multiplerPctg;
+  uint16 startBips;
 }
 ```
 

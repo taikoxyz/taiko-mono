@@ -16,30 +16,278 @@ contract TaikoL1WithConfig is Test {
         uint64 multiplerPctg;
     }
 
-    function test_getTimeAdjustedFee() public {
-        uint256 feeBase = 10 ether;
-        uint256 tLast = 100000;
-        uint256 tAvg = 40;
-        uint256 tNow = tLast + tAvg;
-
-        TaikoData.FeeConfig memory feeConfig = TaikoData.FeeConfig({
-            avgTimeMAF: 1024,
-            avgTimeCap: uint16(tAvg * 1000),
-            gracePeriodPctg: 100,
-            maxPeriodPctg: 400,
-            multiplerPctg: 200
+    function testTokenomicsFeeCalcWithNonZeroStartBips() public {
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 0 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 140 ether,
+            expectedPreimumRate: 0
         });
 
-        (uint256 newFeeBase, uint256 tRelBp) = LibTokenomics.getTimeAdjustedFee(
-            feeConfig,
-            feeBase,
-            true,
-            tNow, // seconds
-            tLast, // seconds
-            (tAvg * 1000) // miliseconds
-        );
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 20 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 120 ether,
+            expectedPreimumRate: 0
+        });
 
-        assertEq(newFeeBase, feeBase);
-        assertEq(tRelBp, 0);
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 40 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 60 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 80 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 80 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 60 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 81 seconds,
+            isProposal: true,
+            startBips: 4000, // 40%
+            expectedFeeBase: 60 ether,
+            expectedPreimumRate: 0
+        });
+    }
+
+    function testTokenomicsFeeCalcWithZeroStartBips() public {
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 0 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 20 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 40 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 60 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 80 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 81 seconds,
+            isProposal: true,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+    }
+
+    function testTokenomicsRewardCalcWithNonZeroStartBips() public {
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 0 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 60 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 20 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 80 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 40 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 60 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 120 ether,
+            expectedPreimumRate: 5000
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 80 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 140 ether,
+            expectedPreimumRate: 10000
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 81 seconds,
+            isProposal: false,
+            startBips: 4000, // 40%
+            expectedFeeBase: 140 ether,
+            expectedPreimumRate: 10000
+        });
+    }
+
+    function testTokenomicsRewardCalcWithZeroStartBips() public {
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 0 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 20 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 40 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 60 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 80 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+
+        _oneTest({
+            feeBase: 100 ether,
+            timeAverageSec: 40 seconds,
+            timeUsedSec: 81 seconds,
+            isProposal: false,
+            startBips: 0, // 0%
+            expectedFeeBase: 100 ether,
+            expectedPreimumRate: 0
+        });
+    }
+
+    function _oneTest(
+        uint256 feeBase,
+        uint256 timeAverageSec,
+        uint256 timeUsedSec,
+        bool isProposal,
+        uint16 startBips,
+        uint256 expectedFeeBase,
+        uint256 expectedPreimumRate
+    ) internal {
+        TaikoData.FeeConfig memory feeConfig = TaikoData.FeeConfig({
+            avgTimeMAF: 1024,
+            startBips: startBips
+        });
+
+        (uint256 _feeBase, uint256 _premiumRate) = LibTokenomics
+            .getTimeAdjustedFee(
+                feeConfig,
+                feeBase,
+                isProposal,
+                timeUsedSec,
+                timeAverageSec * 1000
+            );
+
+        assertEq(_premiumRate, expectedPreimumRate);
+        assertEq(_feeBase, expectedFeeBase);
     }
 }

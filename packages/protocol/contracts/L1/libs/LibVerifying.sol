@@ -123,8 +123,11 @@ library LibVerifying {
         TaikoData.ProposedBlock storage blk
     ) private returns (bytes32 blockHash, bytes32 signalRoot) {
         if (config.enableTokenomics) {
-            (uint256 newFeeBase, uint256 amount, uint256 tRelBp) = LibTokenomics
-                .getProofReward({
+            (
+                uint256 newFeeBase,
+                uint256 amount,
+                uint256 premiumRate
+            ) = LibTokenomics.getProofReward({
                     state: state,
                     config: config,
                     provenAt: fc.provenAt,
@@ -134,10 +137,9 @@ library LibVerifying {
             // reward the prover
             _addToBalance(state, fc.prover, amount);
 
-            // refund proposer deposit for valid blocks
             unchecked {
-                // tRelBp in [0-10000]
-                amount = (blk.deposit * (10000 - tRelBp)) / 10000;
+                // premiumRate in [0-10000]
+                amount = (blk.deposit * (10000 - premiumRate)) / 10000;
             }
             _addToBalance(state, blk.proposer, amount);
 
@@ -216,10 +218,7 @@ library LibVerifying {
     function _checkFeeConfig(
         TaikoData.FeeConfig memory feeConfig
     ) private pure {
-        if (
-            feeConfig.avgTimeMAF <= 1 ||
-            feeConfig.avgTimeCap == 0 ||
-            feeConfig.gracePeriodPctg > feeConfig.maxPeriodPctg
-        ) revert L1_INVALID_CONFIG();
+        if (feeConfig.avgTimeMAF <= 1 || feeConfig.startBips > 10000)
+            revert L1_INVALID_CONFIG();
     }
 }

@@ -37,18 +37,12 @@ contract TaikoL1WithConfig is TaikoL1 {
 
         config.proposingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
-            avgTimeCap: 10 minutes * 1000,
-            gracePeriodPctg: 100,
-            maxPeriodPctg: 400,
-            multiplerPctg: 400
+            startBips: 5000
         });
 
         config.provingConfig = TaikoData.FeeConfig({
             avgTimeMAF: 64,
-            avgTimeCap: 10 minutes * 1000,
-            gracePeriodPctg: 100,
-            maxPeriodPctg: 400,
-            multiplerPctg: 400
+            startBips: 5000
         });
     }
 }
