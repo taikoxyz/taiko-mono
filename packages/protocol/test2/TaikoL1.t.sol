@@ -79,7 +79,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint64 gasUsed = 1000000;
+        uint32 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -106,7 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint64 gasUsed = 1000000;
+        uint32 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
@@ -124,10 +124,10 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 1giex00 ether);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint64 gasUsed = 1000000;
+        uint32 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -156,7 +156,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint64 gasUsed = 1000000;
+        uint32 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -185,7 +185,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
-        uint64 gasUsed = 1000000;
+        uint32 gasUsed = 1000000;
 
         uint256 total = conf.maxNumProposedBlocks * 10;
 

@@ -114,9 +114,9 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.numBlocks,
-            gasLimit: input.gasLimit,
             timestamp: timeNow,
             l1Height: uint64(block.number - 1),
+            gasLimit: input.gasLimit,
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
             txListHash: input.txListHash,
@@ -156,10 +156,10 @@ library LibProposing {
         ];
 
         blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.deposit = deposit;
         blk.proposer = msg.sender;
-        blk.proposedAt = meta.timestamp;
+        blk.deposit = uint64(deposit);
         blk.nextForkChoiceId = 1;
+        blk.proposedAt = meta.timestamp;
 
         if (state.lastProposedAt > 0) {
             uint256 blockTime;
