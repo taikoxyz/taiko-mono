@@ -19,7 +19,7 @@
   let showAddressField = false;
   let loading = false;
 
-  async function select(t: Token) {
+  function select(t: Token) {
     if (t === $token) return;
 
     token.set(t);
@@ -84,10 +84,7 @@
         logoComponent: null,
       } as Token;
 
-      const updateTokensList = await $tokenService.StoreToken(
-        token,
-        userAddress,
-      );
+      const updateTokensList = $tokenService.StoreToken(token, userAddress);
 
       select(token);
 
@@ -126,9 +123,7 @@
     class="token-dropdown dropdown-content menu my-2 shadow-xl bg-dark-2 rounded-box p-2">
     {#each tokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5 rounded-none">
-        <button
-          on:click={async () => await select(t)}
-          class="flex hover:bg-dark-5 p-4">
+        <button on:click={() => select(t)} class="flex hover:bg-dark-5 p-4">
           <svelte:component this={t.logoComponent} height={22} width={22} />
           <span class="text-sm font-medium bg-transparent px-2"
             >{t.symbol.toUpperCase()}</span>
@@ -137,9 +132,7 @@
     {/each}
     {#each $userTokens as t}
       <li class="cursor-pointer w-full hover:bg-dark-5">
-        <button
-          on:click={async () => await select(t)}
-          class="flex hover:bg-dark-5 p-4">
+        <button on:click={() => select(t)} class="flex hover:bg-dark-5 p-4">
           <Erc20 height={22} width={22} />
           <span class="text-sm font-medium bg-transparent px-2"
             >{t.symbol.toUpperCase()}</span>

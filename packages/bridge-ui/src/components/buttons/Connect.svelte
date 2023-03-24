@@ -26,7 +26,7 @@
 
   export let isConnectWalletModalOpen = false;
 
-  const changeChain = async (chainId: number) => {
+  const changeChain = (chainId: number) => {
     if (chainId === taikoChain.id) {
       fromChain.set(taikoChain);
       toChain.set(mainnetChain);
@@ -47,13 +47,24 @@
   async function onConnect() {
     const { chain } = getNetwork();
     await setSigner();
-    await changeChain(chain.id);
-    watchNetwork(async (network) => await changeChain(network.chain.id));
+
+    changeChain(chain.id);
+
+    watchNetwork((network) => {
+      if (network.chain?.id) {
+        changeChain(network.chain.id);
+      }
+    });
+
     watchAccount(async () => {
-      const s = await setSigner();
-      transactions.set(
-        await $transactioner.GetAllByAddress(await s.getAddress()),
-      );
+      const wagmiSigner = await setSigner();
+      if (wagmiSigner) {
+        const signerAddress = await wagmiSigner.getAddress();
+        const signerTransactions = await $transactioner.GetAllByAddress(
+          signerAddress,
+        );
+        transactions.set(signerTransactions);
+      }
     });
   }
 

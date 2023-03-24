@@ -26,7 +26,7 @@ jest.mock('ethers', () => ({
 }));
 
 const gasPrice = 2;
-const mockGetGasPrice = async () => BigNumber.from(gasPrice);
+const mockGetGasPrice = async () => Promise.resolve(BigNumber.from(gasPrice));
 
 // Mocking providers to return the desired gasPrice
 providers[mainnetChain.id].getGasPrice = mockGetGasPrice;

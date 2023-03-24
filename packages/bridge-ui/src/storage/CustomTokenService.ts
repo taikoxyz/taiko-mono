@@ -7,7 +7,7 @@ export class CustomTokenService implements TokenService {
     this.storage = storage;
   }
 
-  async StoreToken(token: Token, address: string): Promise<Token[]> {
+  StoreToken(token: Token, address: string): Token[] {
     const customTokens = this.storage.getItem(
       `custom-tokens-${address.toLowerCase()}`,
     );
