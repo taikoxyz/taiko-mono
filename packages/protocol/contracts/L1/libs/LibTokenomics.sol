@@ -164,7 +164,7 @@ library LibTokenomics {
         unchecked {
             // m is the `n'` in the whitepaper
             uint256 m = 1000 *
-                (config.maxNumProposedBlocks - 1) +
+                config.maxNumProposedBlocks +
                 config.slotSmoothingFactor;
             // n is the number of unverified blocks
             uint256 n = 1000 *
