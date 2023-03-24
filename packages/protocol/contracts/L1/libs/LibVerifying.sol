@@ -62,7 +62,10 @@ library LibVerifying {
         TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
 
         uint256 fcId = blk.verifiedForkChoiceId;
+        assert(fcId > 0);
+
         bytes32 blockHash = blk.forkChoices[fcId].blockHash;
+        assert(blockHash != bytes32(0));
 
         bytes32 signalRoot;
         uint64 processed;
@@ -86,6 +89,8 @@ library LibVerifying {
                 fcId: uint24(fcId),
                 fc: fc
             });
+
+            assert(blockHash != bytes32(0));
 
             emit BlockVerified(i, blockHash);
 

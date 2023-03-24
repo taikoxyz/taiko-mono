@@ -73,6 +73,7 @@ library LibProving {
                 ++blk.nextForkChoiceId;
             }
 
+            assert(fcId > 0);
             state.forkChoiceIds[blockId][evidence.parentHash] = fcId;
             fc = blk.forkChoices[fcId];
             fc.blockHash = evidence.blockHash;
@@ -92,9 +93,7 @@ library LibProving {
                 fc.prover = evidence.prover;
             }
         } else {
-            if (fcId >= blk.nextForkChoiceId)
-                revert L1_UNEXPECTED_FORK_CHOICE_ID(); // this shall not happen
-
+            assert(fcId < blk.nextForkChoiceId);
             fc = blk.forkChoices[fcId];
 
             if (
