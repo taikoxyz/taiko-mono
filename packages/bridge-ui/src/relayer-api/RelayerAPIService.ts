@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { BigNumber, Contract, ethers } from 'ethers';
+import { Buffer } from 'buffer';
 import BridgeABI from '../constants/abi/Bridge';
 import ERC20_ABI from '../constants/abi/ERC20';
 import TokenVaultABI from '../constants/abi/TokenVault';

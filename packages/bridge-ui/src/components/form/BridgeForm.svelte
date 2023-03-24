@@ -122,7 +122,7 @@
     return allowance;
   }
 
-  async function isBtnDisabled(
+  function isBtnDisabled(
     signer: Signer,
     amount: string,
     token: Token,
@@ -364,16 +364,14 @@
 
   $: getUserBalance($signer, $token, $fromChain);
 
-  $: isBtnDisabled(
+  $: btnDisabled = isBtnDisabled(
     $signer,
     amount,
     $token,
     tokenBalance,
     requiresAllowance,
     memoError,
-  )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
+  );
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
     .then((a) => (requiresAllowance = a))

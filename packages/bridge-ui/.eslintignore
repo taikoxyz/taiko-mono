@@ -5,6 +5,3 @@ node_modules
 example
 LICENSES
 public
-.eslintignore
-.prettierignore
-.gitignore

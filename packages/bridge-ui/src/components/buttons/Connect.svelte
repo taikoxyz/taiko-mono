@@ -26,7 +26,7 @@
 
   export let isConnectWalletModalOpen = false;
 
-  const changeChain = async (chainId: number) => {
+  const changeChain = (chainId: number) => {
     if (chainId === taikoChain.id) {
       fromChain.set(taikoChain);
       toChain.set(mainnetChain);
@@ -47,8 +47,8 @@
   async function onConnect() {
     const { chain } = getNetwork();
     await setSigner();
-    await changeChain(chain.id);
-    watchNetwork(async (network) => await changeChain(network.chain.id));
+    changeChain(chain.id);
+    watchNetwork((network) => changeChain(network.chain.id));
     watchAccount(async () => {
       const s = await setSigner();
       transactions.set(

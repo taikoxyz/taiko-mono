@@ -122,7 +122,7 @@
 
       transactions.set([...updatedStorageTxs, ...apiTxs]);
 
-      const tokens = await $tokenService.GetTokens(userAddress);
+      const tokens = $tokenService.GetTokens(userAddress);
       userTokens.set(tokens);
     }
   });
@@ -131,9 +131,10 @@
     (async () => {
       const confirmedPendingTxIndex = await Promise.race(
         store.map((tx, index) => {
-          return new Promise<number>(async (resolve) => {
-            await $signer.provider.waitForTransaction(tx.hash, 1);
-            resolve(index);
+          return new Promise<number>((resolve) => {
+            $signer.provider
+              .waitForTransaction(tx.hash, 1)
+              .then(() => resolve(index));
           });
         }),
       );
@@ -148,7 +149,7 @@
 
   transactions.subscribe((store) => {
     if (store) {
-      store.forEach(async (tx) => {
+      store.forEach((tx) => {
         const txInterval = transactionToIntervalMap.get(tx.hash);
         if (txInterval) {
           clearInterval(txInterval);

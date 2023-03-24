@@ -328,7 +328,7 @@ describe('storage tests', () => {
     });
   });
 
-  it('updates storage by address', async () => {
+  it('updates storage by address', () => {
     mockStorage.getItem.mockImplementation(() => {
       return JSON.stringify(mockTxs);
     });
