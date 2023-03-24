@@ -78,9 +78,9 @@ struct BlockMetadataInput {
 ```solidity
 struct BlockMetadata {
   uint64 id;
-  uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
+  uint32 gasLimit;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
@@ -109,7 +109,7 @@ struct BlockEvidence {
   bytes32 blockHash;
   bytes32 signalRoot;
   address prover;
-  uint64 gasUsed;
+  uint32 gasUsed;
 }
 ```
 
@@ -128,12 +128,12 @@ struct ForkChoice {
 
 ```solidity
 struct ProposedBlock {
-  bytes32 metaHash;
-  uint256 deposit;
-  address proposer;
-  uint64 proposedAt;
-  uint24 nextForkChoiceId;
   mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+  bytes32 metaHash;
+  address proposer;
+  uint64 deposit;
+  uint24 nextForkChoiceId;
+  uint64 proposedAt;
 }
 ```
 
