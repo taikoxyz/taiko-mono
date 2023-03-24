@@ -150,7 +150,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getBlock(
-        uint256 id
+        uint256 blockId
     )
         public
         view
@@ -161,11 +161,11 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             uint64 _proposedAt
         )
     {
-        TaikoData.ProposedBlock storage blk = LibProposing.getBlock(
-            state,
-            getConfig().maxNumProposedBlocks,
-            id
-        );
+        TaikoData.Block storage blk = LibProposing.getBlock({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
         _metaHash = blk.metaHash;
         _deposit = blk.deposit;
         _proposer = blk.proposer;
@@ -173,42 +173,45 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function getForkChoice(
-        uint256 id,
+        uint256 blockId,
         bytes32 parentHash
     ) public view returns (TaikoData.ForkChoice memory) {
         return
-            LibProving.getForkChoice(
-                state,
-                getConfig().maxNumProposedBlocks,
-                id,
-                parentHash
-            );
+            LibProving.getForkChoice({
+                state: state,
+                config: getConfig(),
+                blockId: blockId,
+                parentHash: parentHash
+            });
     }
 
     function getXchainBlockHash(
         uint256 blockId
     ) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
         return
-            LibUtils
-                .getL2ChainData(
-                    state,
-                    blockId,
-                    getConfig().maxNumVerifiedBlocks
-                )
-                .blockHash;
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].blockHash
+                : bytes32(0);
     }
 
     function getXchainSignalRoot(
         uint256 blockId
     ) public view override returns (bytes32) {
+        (bool found, TaikoData.Block storage blk) = LibUtils.getL2ChainData({
+            state: state,
+            config: getConfig(),
+            blockId: blockId
+        });
+
         return
-            LibUtils
-                .getL2ChainData(
-                    state,
-                    blockId,
-                    getConfig().maxNumVerifiedBlocks
-                )
-                .signalRoot;
+            found
+                ? blk.forkChoices[blk.verifiedForkChoiceId].signalRoot
+                : bytes32(0);
     }
 
     function getStateVariables()
