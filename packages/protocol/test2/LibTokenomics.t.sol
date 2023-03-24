@@ -17,7 +17,7 @@ contract TaikoL1WithConfig is Test {
     }
 
     function testTokenomicsFeeCalcWithNonZeroStartBips() public {
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -27,7 +27,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -37,7 +37,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -47,7 +47,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -57,7 +57,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -67,7 +67,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -79,7 +79,7 @@ contract TaikoL1WithConfig is Test {
     }
 
     function testTokenomicsFeeCalcWithZeroStartBips() public {
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -89,7 +89,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -99,7 +99,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -109,7 +109,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -119,7 +119,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -129,7 +129,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -141,7 +141,7 @@ contract TaikoL1WithConfig is Test {
     }
 
     function testTokenomicsRewardCalcWithNonZeroStartBips() public {
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -151,7 +151,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -161,7 +161,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -171,7 +171,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -181,7 +181,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 5000
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -191,7 +191,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 10000
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -203,7 +203,7 @@ contract TaikoL1WithConfig is Test {
     }
 
     function testTokenomicsRewardCalcWithZeroStartBips() public {
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 0 seconds,
@@ -213,7 +213,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 20 seconds,
@@ -223,7 +223,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 40 seconds,
@@ -233,7 +233,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 60 seconds,
@@ -243,7 +243,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 80 seconds,
@@ -253,7 +253,7 @@ contract TaikoL1WithConfig is Test {
             expectedPreimumRate: 0
         });
 
-        _oneTest({
+        testTimeAdjustedFee({
             feeBase: 100 ether,
             timeAverageSec: 40 seconds,
             timeUsedSec: 81 seconds,
@@ -264,7 +264,7 @@ contract TaikoL1WithConfig is Test {
         });
     }
 
-    function _oneTest(
+    function testTimeAdjustedFee(
         uint256 feeBase,
         uint256 timeAverageSec,
         uint256 timeUsedSec,
@@ -272,7 +272,7 @@ contract TaikoL1WithConfig is Test {
         uint16 startBips,
         uint256 expectedFeeBase,
         uint256 expectedPreimumRate
-    ) internal {
+    ) private {
         TaikoData.FeeConfig memory feeConfig = TaikoData.FeeConfig({
             avgTimeMAF: 1024,
             startBips: startBips
