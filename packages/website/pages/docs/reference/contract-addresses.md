@@ -38,6 +38,6 @@
 ## Taiko's node addresses
 | Name                    | Address                                                                                                                       |
 |-------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| Taiko's personal prover | [0x1567cdab5f7a69154e61a16d8ff5ee6a3e991b39](https://sepolia.etherscan.io/address/0x1567cdab5f7a69154e61a16d8ff5ee6a3e991b39) |
-| Taiko's oracle prover   | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
+| Taiko's oracle prover   | [0x1567cdab5f7a69154e61a16d8ff5ee6a3e991b39](https://sepolia.etherscan.io/address/0x1567cdab5f7a69154e61a16d8ff5ee6a3e991b39) |
+| Taiko's personal prover | [0x6798639591530FbBAfd12c2826422B58bD2c5219](https://sepolia.etherscan.io/address/0x6798639591530FbBAfd12c2826422B58bD2c5219) |
 | Taiko's solo proposer   | [0xE09e4fF4353fbf984F99fa824524277F704e7475](https://sepolia.etherscan.io/address/0xE09e4fF4353fbf984F99fa824524277F704e7475) |
