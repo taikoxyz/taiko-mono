@@ -16,6 +16,12 @@
     "checkJs": true,
     "isolatedModules": false
   },
-  "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
+  "include": [
+    "vite.config.ts",
+    "src/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

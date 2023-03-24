@@ -12,6 +12,8 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
 import { providers } from '../provider/providers';
 
+jest.mock('../constants/envVars');
+
 const mockContract = {
   canonicalToBridged: jest.fn(),
 };
@@ -24,7 +26,7 @@ jest.mock('ethers', () => ({
 }));
 
 const gasPrice = 2;
-const mockGetGasPrice = async () => BigNumber.from(gasPrice);
+const mockGetGasPrice = async () => Promise.resolve(BigNumber.from(gasPrice));
 
 // Mocking providers to return the desired gasPrice
 providers[mainnetChain.id].getGasPrice = mockGetGasPrice;

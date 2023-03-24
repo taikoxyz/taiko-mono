@@ -141,7 +141,7 @@
 
       successToast($_('toast.transactionSent'));
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
