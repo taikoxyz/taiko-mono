@@ -4,6 +4,8 @@ import { ERC20Bridge } from './ERC20Bridge';
 import { Message, MessageStatus } from '../domain/message';
 import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
 
+jest.mock('../constants/envVars');
+
 const mockSigner = {
   getAddress: jest.fn(),
 };
