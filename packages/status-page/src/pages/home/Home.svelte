@@ -164,33 +164,32 @@
 
   onMount(async () => {
     try {
-      statusIndicators.push({
-        statusFunc: getBlockFee,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Block Fee",
-        intervalInMs: 15000,
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip:
-          "The current fee to propose a block to the TaikoL1 smart contract.",
-      });
-
-      statusIndicators.push({
-        statusFunc: getProofReward,
-        watchStatusFunc: null,
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Proof Reward",
-        intervalInMs: 15000,
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip:
-          "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
-      });
+      // statusIndicators.push({
+      //   statusFunc: getBlockFee,
+      //   watchStatusFunc: null,
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Block Fee",
+      //   intervalInMs: 15000,
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip:
+      //     "The current fee to propose a block to the TaikoL1 smart contract.",
+      // });
+      // statusIndicators.push({
+      //   statusFunc: getProofReward,
+      //   watchStatusFunc: null,
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Proof Reward",
+      //   intervalInMs: 15000,
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip:
+      //     "The current reward for successfully submitting a proof for a proposed block on the TaikoL1 smart contract.",
+      // });
     } catch (e) {
       console.error(e);
     }
@@ -282,26 +281,26 @@
           "The current average block time, updated when a block is successfully proposed.",
       });
 
-      statusIndicators.push({
-        provider: l1Provider,
-        contractAddress: l1TaikoAddress,
-        header: "Fee Base",
-        intervalInMs: 0,
-        statusFunc: async (
-          provider: ethers.providers.JsonRpcProvider,
-          address: string
-        ) => {
-          const stateVars = await getStateVariables(provider, address);
-          return `${truncateString(
-            ethers.utils.formatEther(stateVars.feeBase),
-            6
-          )} ${feeTokenSymbol}`;
-        },
-        colorFunc: function (status: Status) {
-          return "green"; // todo: whats green, yellow, red?
-        },
-        tooltip: "The current fee base for proposing and rewarding",
-      });
+      // statusIndicators.push({
+      //   provider: l1Provider,
+      //   contractAddress: l1TaikoAddress,
+      //   header: "Fee Base",
+      //   intervalInMs: 0,
+      //   statusFunc: async (
+      //     provider: ethers.providers.JsonRpcProvider,
+      //     address: string
+      //   ) => {
+      //     const stateVars = await getStateVariables(provider, address);
+      //     return `${truncateString(
+      //       ethers.utils.formatEther(stateVars.feeBase),
+      //       6
+      //     )} ${feeTokenSymbol}`;
+      //   },
+      //   colorFunc: function (status: Status) {
+      //     return "green"; // todo: whats green, yellow, red?
+      //   },
+      //   tooltip: "The current fee base for proposing and rewarding",
+      // });
     } catch (e) {
       console.error(e);
     }
