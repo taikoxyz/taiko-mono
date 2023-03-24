@@ -26,7 +26,7 @@ library LibProving {
     error L1_BLOCK_ID();
     error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
-    error L1_FORK_CHOICE_ID();
+    error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INVALID_PROOF();
     error L1_INVALID_EVIDENCE();
     error L1_NOT_ORACLE_PROVER();
@@ -184,8 +184,9 @@ library LibProving {
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
 
         uint256 fcId = state.forkChoiceIds[blockId][parentHash];
-        if (fcId == 0 || fcId >= blk.nextForkChoiceId)
-            revert L1_FORK_CHOICE_ID();
+        if (fcId == 0) revert L1_FORK_CHOICE_NOT_FOUND();
+
+        assert(fcId < blk.nextForkChoiceId);
 
         return blk.forkChoices[fcId];
     }

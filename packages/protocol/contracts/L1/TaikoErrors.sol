@@ -13,7 +13,7 @@ abstract contract TaikoErrors {
     error L1_CONFLICT_PROOF();
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_EVIDENCE_MISMATCH();
-    error L1_FORK_CHOICE_ID();
+    error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
     error L1_INVALID_EVIDENCE();
