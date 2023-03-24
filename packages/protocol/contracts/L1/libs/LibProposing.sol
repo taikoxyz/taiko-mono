@@ -154,7 +154,7 @@ library LibProposing {
         TaikoData.Block storage blk = state.blocks[
             state.numBlocks % config.ringBufferSize
         ];
-        
+
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
         blk.deposit = uint64(deposit);

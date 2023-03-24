@@ -127,6 +127,19 @@ struct ForkChoice {
 
 ### Block
 
+```solidity
+struct Block {
+  mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
+  uint64 blockId;
+  uint64 proposedAt;
+  uint64 deposit;
+  uint24 nextForkChoiceId;
+  uint24 verifiedForkChoiceId;
+  bytes32 metaHash;
+  address proposer;
+}
+```
+
 ### TxListInfo
 
 ```solidity
