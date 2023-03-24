@@ -2,7 +2,7 @@ FROM golang:1.19.3 as builder
 
 RUN apt install git curl
 
-RUN git clone --depth 1 https://github.com/taikoxyz/taiko-mono /taiko-mono
+COPY . .
 
 WORKDIR /taiko-mono/packages/relayer
 

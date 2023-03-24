@@ -61,12 +61,12 @@ func (svc *Service) FilterThenSubscribe(
 
 		blockProvenEvents, err := svc.taikol1.FilterBlockProven(filterOpts, nil)
 		if err != nil {
-			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+			return errors.Wrap(err, "svc.taikol1.FilterBlockProven")
 		}
 
 		err = svc.saveBlockProvenEvents(ctx, chainID, blockProvenEvents)
 		if err != nil {
-			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+			return errors.Wrap(err, "svc.saveBlockProvenEvents")
 		}
 
 		header, err := svc.ethClient.HeaderByNumber(ctx, big.NewInt(int64(end)))

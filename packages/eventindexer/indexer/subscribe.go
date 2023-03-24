@@ -39,7 +39,7 @@ func (svc *Service) subscribeBlockProven(ctx context.Context, chainID *big.Int, 
 
 	sub := event.ResubscribeErr(svc.subscriptionBackoff, func(ctx context.Context, err error) (event.Subscription, error) {
 		if err != nil {
-			log.Errorf("svc.bridge.WatchBlockProven: %v", err)
+			log.Errorf("svc.taikoL1.WatchBlockProven: %v", err)
 		}
 		log.Info("resubscribing to BlockProven events")
 
@@ -67,6 +67,7 @@ func (svc *Service) subscribeBlockProven(ctx context.Context, chainID *big.Int, 
 			block, err := svc.blockRepo.GetLatestBlockProcessed(chainID)
 			if err != nil {
 				log.Errorf("svc.subscribe, blockRepo.GetLatestBlockProcessed: %v", err)
+				continue
 			}
 
 			if block.Height < event.Raw.BlockNumber {

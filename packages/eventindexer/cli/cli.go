@@ -139,13 +139,6 @@ func Run(
 		}
 	}()
 
-	closeFunc := func() {
-		l1EthClient.Close()
-		l1RpcClient.Close()
-	}
-
-	defer closeFunc()
-
 	<-forever
 }
 

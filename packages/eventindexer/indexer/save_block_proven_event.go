@@ -23,6 +23,11 @@ func (svc *Service) saveBlockProvenEvents(
 
 	for {
 		event := events.Event
+
+		if event.Raw.Removed {
+			continue
+		}
+
 		log.Infof("blockProven by: %v", event.Prover.Hex())
 
 		if err := svc.saveBlockProvenEvent(ctx, chainID, event); err != nil {
