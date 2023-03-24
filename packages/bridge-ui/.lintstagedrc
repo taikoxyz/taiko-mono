@@ -1,4 +1,6 @@
 {
-  "**/*": "pnpm prettier:write",
-  "**/*.{js,ts,svelte}": "pnpm lint:fix"
+  "**/*.{js,ts,svelte}": [
+    "pnpm prettier:write",
+    "pnpm lint:fix"
+  ]
 }
