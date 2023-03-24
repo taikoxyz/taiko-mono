@@ -47,13 +47,24 @@
   async function onConnect() {
     const { chain } = getNetwork();
     await setSigner();
+
     changeChain(chain.id);
-    watchNetwork((network) => changeChain(network.chain.id));
+
+    watchNetwork((network) => {
+      if (network.chain?.id) {
+        changeChain(network.chain.id);
+      }
+    });
+
     watchAccount(async () => {
-      const s = await setSigner();
-      transactions.set(
-        await $transactioner.GetAllByAddress(await s.getAddress()),
-      );
+      const wagmiSigner = await setSigner();
+      if (wagmiSigner) {
+        const signerAddress = await wagmiSigner.getAddress();
+        const signerTransactions = await $transactioner.GetAllByAddress(
+          signerAddress,
+        );
+        transactions.set(signerTransactions);
+      }
     });
   }
 
