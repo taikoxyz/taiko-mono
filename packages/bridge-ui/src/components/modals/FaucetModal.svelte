@@ -84,7 +84,7 @@
 
       await onMint();
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     }
   }

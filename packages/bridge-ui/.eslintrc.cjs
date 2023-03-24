@@ -18,6 +18,7 @@ module.exports = {
     // 'simple-import-sort/imports': 'error',
     // 'simple-import-sort/exports': 'error',
     semi: ['error', 'always'],
+    'no-console': ['error', { allow: ['warn', 'error'] }],
   },
   ignorePatterns: ['node_modules'], // todo: lets lint that separately, or move it to its own package
   settings: {
@@ -35,7 +36,7 @@ module.exports = {
         tsconfigRootDir: __dirname,
       },
       rules: {
-        '@typescript-eslint/no-inferrable-types': 0,
+        '@typescript-eslint/no-inferrable-types': 'off',
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/no-empty-interface': 'off',
 

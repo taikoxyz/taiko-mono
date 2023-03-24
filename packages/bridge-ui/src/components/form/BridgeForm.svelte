@@ -176,7 +176,7 @@
 
       requiresAllowance = false;
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -298,7 +298,7 @@
       await $signer.provider.waitForTransaction(tx.hash, 1);
       memo = '';
     } catch (e) {
-      console.log(e);
+      console.error(e);
       errorToast($_('toast.errorSendingTransaction'));
     } finally {
       loading = false;
@@ -331,7 +331,7 @@
         amount = ethers.utils.formatEther(balanceAvailableForTx);
         amountInput.value = ethers.utils.formatEther(balanceAvailableForTx);
       } catch (error) {
-        console.log(error);
+        console.error(error);
 
         // In case of error default to using the full amount of ETH available.
         // The user would still not be able to make the restriction and will have to manually set the amount.
@@ -375,7 +375,7 @@
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
     .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
+    .catch((e) => console.error(e));
 
   // TODO: we need to simplify this crazy condition
   $: showFaucet =
