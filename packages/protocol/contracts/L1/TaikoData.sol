@@ -71,13 +71,11 @@ library TaikoData {
         uint64 timestamp;
         uint64 l1Height;
         uint32 gasLimit;
-        // uint32 __free
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
         uint24 txListByteStart;
         uint24 txListByteEnd;
-        // uint48 __free
         address beneficiary;
     }
 
@@ -94,7 +92,6 @@ library TaikoData {
         bytes32 signalRoot;
         address prover;
         uint32 gasUsed;
-        // uint64 __free
     }
 
     struct ForkChoice {
@@ -102,29 +99,21 @@ library TaikoData {
         bytes32 signalRoot;
         address prover;
         uint64 provenAt;
-        // uint32 __free
     }
 
     // 4 slots
     struct ProposedBlock {
-        // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         bytes32 metaHash;
         address proposer;
         uint64 deposit;
-        // uint32 __free
         uint24 nextForkChoiceId;
         uint64 proposedAt;
-        // uint64 __free
-        // uint64 __free
     }
 
     // 3 slots
     struct VerifiedBlock {
         uint64 blockId;
-        // uint64 __free
-        // uint64 __free
-        // uint64 __free
         bytes32 blockHash;
         bytes32 signalRoot;
     }
@@ -133,8 +122,6 @@ library TaikoData {
     struct TxListInfo {
         uint64 validSince;
         uint24 size;
-        // uint64 __free
-        // uint64 __free
     }
 
     struct State {
