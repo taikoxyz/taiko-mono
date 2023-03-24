@@ -121,7 +121,6 @@ contract TokenVault is EssentialContract {
 
     error TOKENVAULT_INVALID_TO();
     error TOKENVAULT_INVALID_VALUE();
-    error TOKENVAULT_INVALID_CALL_VALUE();
     error TOKENVAULT_INVALID_TOKEN();
     error TOKENVAULT_INVALID_AMOUNT();
     error TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND();
@@ -141,6 +140,10 @@ contract TokenVault is EssentialContract {
     /**
      * Receives Ether and constructs a Bridge message. Sends the Ether and
      * message along to the Bridge.
+     *
+     * @dev This function doesn't' seem to belong here as it has nothing to
+     *      do with ERC20 tokens. It's added here only for convenience.
+     *
      * @param destChainId @custom:see IBridge.Message
      * @param to @custom:see IBridge.Message
      * @param gasLimit @custom:see IBridge.Message
@@ -168,12 +171,10 @@ contract TokenVault is EssentialContract {
         message.to = to;
         message.gasLimit = gasLimit;
         message.processingFee = processingFee;
-        message.depositValue = msg.value - processingFee;
+        message.callValue = msg.value - processingFee;
         message.refundAddress = refundAddress;
         message.memo = memo;
-
-        // prevent future PRs from changing the callValue when it must be zero
-        if (message.callValue != 0) revert TOKENVAULT_INVALID_CALL_VALUE();
+        // message.depositValue = 0;
 
         bytes32 msgHash = IBridge(resolve("bridge", false)).sendMessage{
             value: msg.value
@@ -184,7 +185,7 @@ contract TokenVault is EssentialContract {
             from: message.owner,
             to: message.to,
             destChainId: destChainId,
-            amount: message.depositValue
+            amount: message.callValue
         });
     }
 
