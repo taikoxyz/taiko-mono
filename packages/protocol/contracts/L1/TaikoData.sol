@@ -30,11 +30,7 @@ library TaikoData {
         uint256 feeBaseMAF;
         uint256 blockTimeMAF;
         uint256 proofTimeMAF;
-        uint64 rewardMultiplierPctg;
-        uint64 feeGracePeriodPctg;
-        uint64 feeMaxPeriodPctg;
-        uint64 blockTimeCap;
-        uint64 proofTimeCap;
+        uint64 startBips;
         uint64 bootstrapDiscountHalvingPeriod;
         bool enableTokenomics;
         bool enablePublicInputsCheck;

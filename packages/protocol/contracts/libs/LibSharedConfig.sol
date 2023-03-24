@@ -30,11 +30,7 @@ library LibSharedConfig {
                 feeBaseMAF: 1024,
                 blockTimeMAF: 1024,
                 proofTimeMAF: 1024,
-                rewardMultiplierPctg: 400, //  owner:daniel - 400%
-                feeGracePeriodPctg: 200, // owner:daniel - 200%
-                feeMaxPeriodPctg: 400, // owner:daniel - 400%
-                blockTimeCap: 60 seconds, // owner:daniel
-                proofTimeCap: 30 minutes, // owner:daniel
+                startBips: 5000, //  owner:daniel - 50%
                 bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 enableTokenomics: true,
                 enablePublicInputsCheck: true,

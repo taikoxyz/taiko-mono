@@ -48,10 +48,7 @@ library LibVerifying {
             config.feeBaseMAF == 0 ||
             config.blockTimeMAF == 0 ||
             config.proofTimeMAF == 0 ||
-            config.blockTimeCap == 0 ||
-            config.proofTimeCap == 0 ||
-            config.feeGracePeriodPctg > config.feeMaxPeriodPctg ||
-            config.rewardMultiplierPctg < 100
+            config.startBips > 10000
         ) revert L1_INVALID_CONFIG();
 
         if (feeBase == 0) revert L1_0_FEE_BASE();
@@ -159,10 +156,8 @@ library LibVerifying {
             state: state,
             config: config,
             isProposal: false,
-            tNow: provenAt,
-            tLast: proposedAt,
-            tAvg: state.avgProofTime,
-            tCap: config.proofTimeCap
+            timeUsed: provenAt - proposedAt,
+            timeAverage: state.avgProofTime
         });
         reward = LibUtils.getSlotsAdjustedFee({
             state: state,

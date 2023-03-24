@@ -75,32 +75,23 @@ library LibUtils {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bool isProposal,
-        uint64 tNow,
-        uint64 tLast,
-        uint64 tAvg,
-        uint64 tCap
-    ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (
-            tCap == 0 ||
-            tAvg == 0 ||
-            config.feeMaxPeriodPctg <= config.feeGracePeriodPctg ||
-            config.rewardMultiplierPctg <= 100
-        ) {
-            newFeeBase = state.feeBase;
-            // tRelBp = 0;
-        } else {
-            uint256 _tAvg = uint256(tAvg).min(tCap);
-            uint256 grace = (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 max = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 t = uint256(tNow - tLast).max(grace).min(max);
-            tRelBp = ((t - grace) * 10000) / (max - grace); // [0 - 10000]
-            uint256 alpha = 10000 +
-                ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                100;
+        uint256 timeUsed, // seconds
+        uint256 timeAverage // seconds
+    ) internal view returns (uint256 newFeeBase, uint256 premiumRate) {
+        if (timeAverage == 0) {
+            return (state.feeBase, 0);
+        }
+        unchecked {
+            uint p = config.startBips; // [0-10000]
+            uint a = timeAverage;
+            uint t = timeUsed.min(a * 2);
+
+            newFeeBase = (state.feeBase * (10000 + (t * p) / a - p)) / 10000;
+
             if (isProposal) {
-                newFeeBase = (state.feeBase * 10000) / alpha; // fee
-            } else {
-                newFeeBase = (state.feeBase * alpha) / 10000; // reward
+                newFeeBase = (state.feeBase * 2) - newFeeBase;
+            } else if (p > 0) {
+                premiumRate = ((t.max(a) - a) * 10000) / a;
             }
         }
     }

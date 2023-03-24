@@ -40,11 +40,7 @@ contract TestTaikoL2 is TaikoL2 {
         config.blockTimeMAF = 64;
         config.proofTimeMAF = 64;
 
-        config.rewardMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 60 minutes;
+        config.startBips = 5000; // 50%
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = true;
         config.enablePublicInputsCheck = false;

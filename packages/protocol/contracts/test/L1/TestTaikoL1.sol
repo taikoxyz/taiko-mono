@@ -39,11 +39,7 @@ contract TestTaikoL1 is TaikoL1, IProofVerifier {
         config.blockTimeMAF = 64;
         config.proofTimeMAF = 64;
 
-        config.rewardMultiplierPctg = 400; // 400%
-        config.feeGracePeriodPctg = 125; // 125%
-        config.feeMaxPeriodPctg = 375; // 375%
-        config.blockTimeCap = 48 seconds;
-        config.proofTimeCap = 4 seconds;
+        config.startBips = 5000; // 40%
         config.bootstrapDiscountHalvingPeriod = 1 seconds;
         config.enableTokenomics = false;
         config.enablePublicInputsCheck = false;
