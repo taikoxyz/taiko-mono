@@ -218,7 +218,7 @@
         throw Error('Invalid custom recipient address');
       }
 
-      if (!isOnCorrectChain($signer, $fromChain.id)) {
+      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
