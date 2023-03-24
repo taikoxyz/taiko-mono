@@ -2,7 +2,6 @@
   import { BigNumber, ethers } from 'ethers';
   import { pendingTransactions } from '../../store/transactions';
   import { signer } from '../../store/signer';
-  import { errorToast, successToast } from '../../utils/toast';
   import { _ } from 'svelte-i18n';
   import MintableERC20 from '../../constants/abi/MintableERC20';
   import { fromChain } from '../../store/chain';
@@ -11,11 +10,13 @@
   import { onMount } from 'svelte';
   import { token } from '../../store/token';
   import { L1_CHAIN_ID } from '../../constants/envVars';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   export let isOpen: boolean = false;
   export let onMint: () => Promise<void>;
 
   let disabled: boolean = true;
+  let errorReason: string;
 
   async function shouldEnableButton() {
     if (!$signer || !$token) {
@@ -33,6 +34,14 @@
       MintableERC20,
       $signer,
     );
+
+    const userHasAlreadyClaimed = await contract.minters(address);
+
+    if (userHasAlreadyClaimed) {
+      disabled = true;
+      errorReason = 'You have already claimed';
+      return;
+    }
 
     const gas = await contract.estimateGas.mint(address);
     const gasPrice = await $signer.getGasPrice();
@@ -106,7 +115,7 @@
       await mint();
     }}>
     {#if disabled}
-      Insufficient ETH
+      {errorReason ?? 'Insufficient ETH'}
     {:else}
       Mint
     {/if}

@@ -4,7 +4,7 @@
 // TODO: explain each of these env vars
 
 export const L1_RPC =
-  import.meta.env?.VITE_L1_RPC_URL ?? 'https://l1rpc.internal.taiko.xyz/';
+  import.meta.env?.VITE_L1_RPC_URL ?? 'https://l1rpc.internal.taiko.xyz';
 
 export const L1_TOKEN_VAULT_ADDRESS =
   import.meta.env?.VITE_MAINNET_TOKEN_VAULT_ADDRESS ??
@@ -31,10 +31,10 @@ export const L1_CHAIN_NAME =
 
 export const L1_EXPLORER_URL =
   import.meta.env?.VITE_L1_EXPLORER_URL ??
-  'https://l1explorer.internal.taiko.xyz/';
+  'https://l1explorer.internal.taiko.xyz';
 
 export const L2_RPC =
-  import.meta.env?.VITE_L2_RPC_URL ?? 'https://l2rpc.internal.taiko.xyz/';
+  import.meta.env?.VITE_L2_RPC_URL ?? 'https://l2rpc.internal.taiko.xyz';
 
 export const L2_TOKEN_VAULT_ADDRESS =
   import.meta.env?.VITE_TAIKO_TOKEN_VAULT_ADDRESS ??
@@ -61,7 +61,7 @@ export const L2_CHAIN_NAME =
 
 export const L2_EXPLORER_URL =
   import.meta.env?.VITE_L2_EXPLORER_URL ??
-  'https://l2explorer.internal.taiko.xyz/';
+  'https://l2explorer.internal.taiko.xyz';
 
 export const RELAYER_URL =
   import.meta.env?.VITE_RELAYER_URL ?? 'https://relayer.internal.taiko.xyz/';

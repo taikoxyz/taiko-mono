@@ -91,6 +91,18 @@ input[type='number'] {
   display: none;
 }
 
+.tx-data {
+  border-left: 4px solid lightgray;
+  border-right: 4px solid lightgray;
+  background-color: lightgray;
+}
+
+[data-theme='dark'] .tx-data {
+  border-left-color: black;
+  border-right-color: black;
+  background-color: black;
+}
+
 [data-theme='light'] .switch-to-light-mode {
   display: none;
 }

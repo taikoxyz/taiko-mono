@@ -5,11 +5,7 @@
   import { token } from '../../store/token';
   import { processingFee } from '../../store/fee';
   import { fromChain, toChain } from '../../store/chain';
-  import {
-    activeBridge,
-    chainIdToTokenVaultAddress,
-    bridgeType,
-  } from '../../store/bridge';
+  import { activeBridge, bridgeType } from '../../store/bridge';
   import { signer } from '../../store/signer';
   import { BigNumber, Contract, ethers, Signer } from 'ethers';
   import ProcessingFee from './ProcessingFee.svelte';
@@ -27,19 +23,21 @@
   } from '../../store/transactions';
   import { ProcessingFeeMethod } from '../../domain/fee';
   import Memo from './Memo.svelte';
-  import { errorToast, successToast } from '../../utils/toast';
-  import ERC20 from '../../constants/abi/ERC20';
-  import TokenVault from '../../constants/abi/TokenVault';
+  import ERC20_ABI from '../../constants/abi/ERC20';
+  import TokenVaultABI from '../../constants/abi/TokenVault';
   import type { BridgeTransaction } from '../../domain/transactions';
   import { MessageStatus } from '../../domain/message';
   import { Funnel } from 'svelte-heros-v2';
   import FaucetModal from '../modals/FaucetModal.svelte';
+  import { errorToast, successToast } from '../Toast.svelte';
+  import { L1_CHAIN_ID } from '../../constants/envVars';
   import { fetchFeeData } from '@wagmi/core';
-  import { providers } from '../../store/providers';
   import { checkIfTokenIsDeployedCrossChain } from '../../utils/checkIfTokenIsDeployedCrossChain';
   import To from './To.svelte';
   import { ETHToken } from '../../token/tokens';
-  import { chainsRecord } from '../../chain/chains';
+  import { chains } from '../../chain/chains';
+  import { providers } from '../../provider/providers';
+  import { tokenVaults } from '../../vault/tokenVaults';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -55,7 +53,8 @@
   let to: string = '';
   let showTo: boolean = false;
 
-  $: getUserBalance($signer, $token, $fromChain);
+  // TODO: too much going on here. We need to extract
+  //       logic and unit test the hell out of all this.
 
   async function addrForToken() {
     let addr = $token.addresses.find(
@@ -67,8 +66,8 @@
       ).address;
 
       const tokenVault = new Contract(
-        $chainIdToTokenVaultAddress.get($fromChain.id),
-        TokenVault,
+        tokenVaults[$fromChain.id],
+        TokenVaultABI,
         $signer,
       );
 
@@ -81,6 +80,7 @@
     }
     return addr;
   }
+
   async function getUserBalance(
     signer: ethers.Signer,
     token: Token,
@@ -96,27 +96,12 @@
           tokenBalance = '0';
           return;
         }
-        const contract = new Contract(addr, ERC20, signer);
+        const contract = new Contract(addr, ERC20_ABI, signer);
         const userBalance = await contract.balanceOf(await signer.getAddress());
         tokenBalance = ethers.utils.formatUnits(userBalance, token.decimals);
       }
     }
   }
-
-  $: isBtnDisabled(
-    $signer,
-    amount,
-    $token,
-    tokenBalance,
-    requiresAllowance,
-    memoError,
-  )
-    .then((d) => (btnDisabled = d))
-    .catch((e) => console.log(e));
-
-  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
-    .then((a) => (requiresAllowance = a))
-    .catch((e) => console.log(e));
 
   async function checkAllowance(
     amt: string,
@@ -132,7 +117,7 @@
       amountInWei: ethers.utils.parseUnits(amt, token.decimals),
       signer: signer,
       contractAddress: addr,
-      spenderAddress: $chainIdToTokenVaultAddress.get(fromChain.id),
+      spenderAddress: tokenVaults[fromChain.id],
     });
     return allowance;
   }
@@ -147,11 +132,14 @@
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-    const chainId = await signer.getChainId();
-    if (!chainId || !chainsRecord[chainId.toString()]) return true;
+
+    const chainId = $fromChain.id;
+
+    if (!chainId || !chains[chainId.toString()]) return true;
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
+
     if (
       BigNumber.from(ethers.utils.parseUnits(tokenBalance, token.decimals)).lt(
         ethers.utils.parseUnits(amount, token.decimals),
@@ -175,7 +163,7 @@
         amountInWei: ethers.utils.parseUnits(amount, $token.decimals),
         signer: $signer,
         contractAddress: await addrForToken(),
-        spenderAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        spenderAddress: tokenVaults[$fromChain.id],
       });
 
       pendingTransactions.update((store) => {
@@ -231,10 +219,8 @@
 
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
-      const provider = $providers.get($toChain.id);
-      const destTokenVaultAddress = $chainIdToTokenVaultAddress.get(
-        $toChain.id,
-      );
+      const provider = providers[$toChain.id];
+      const destTokenVaultAddress = tokenVaults[$toChain.id];
       let isBridgedTokenAlreadyDeployed =
         await checkIfTokenIsDeployedCrossChain(
           $token,
@@ -250,7 +236,8 @@
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+        tokenVaultAddress: tokenVaults[$fromChain.id],
+        bridgeAddress: chains[$fromChain.id].bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
@@ -328,7 +315,7 @@
           tokenAddress: await addrForToken(),
           fromChainId: $fromChain.id,
           toChainId: $toChain.id,
-          tokenVaultAddress: $chainIdToTokenVaultAddress.get($fromChain.id),
+          tokenVaultAddress: tokenVaults[$fromChain.id],
           processingFeeInWei: getProcessingFee(),
           memo: memo,
           to: showTo && to ? to : await $signer.getAddress(),
@@ -374,6 +361,34 @@
       return BigNumber.from(ethers.utils.parseEther(recommendedFee));
     }
   }
+
+  $: getUserBalance($signer, $token, $fromChain);
+
+  $: isBtnDisabled(
+    $signer,
+    amount,
+    $token,
+    tokenBalance,
+    requiresAllowance,
+    memoError,
+  )
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.log(e));
+
+  $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
+    .then((a) => (requiresAllowance = a))
+    .catch((e) => console.log(e));
+
+  // TODO: we need to simplify this crazy condition
+  $: showFaucet =
+    $fromChain && // chain selected?
+    $fromChain.id === L1_CHAIN_ID && // are we in L1?
+    $token.symbol !== ETHToken.symbol && // bridging ERC20?
+    $signer && // wallet connected?
+    tokenBalance &&
+    ethers.utils
+      .parseUnits(tokenBalance, $token.decimals)
+      .eq(BigNumber.from(0)); // balance == 0?
 </script>
 
 <div class="form-control my-4 md:my-8">
@@ -413,9 +428,7 @@
   </label>
 </div>
 
-{#if $token.symbol !== ETHToken.symbol && $signer && tokenBalance && ethers.utils
-    .parseUnits(tokenBalance, $token.decimals)
-    .eq(BigNumber.from(0))}
+{#if showFaucet}
   <div class="flex" style="flex-direction:row-reverse">
     <div class="flex items-start">
       <button class="btn" on:click={() => (isFaucetModalOpen = true)}>
@@ -457,7 +470,7 @@
   </button>
 {:else}
   <button
-    class="btn btn-accent w-full mt-4"
+    class="btn btn-accent approve-btn w-full mt-4"
     on:click={approve}
     disabled={btnDisabled}>
     {$_('home.approve')}
@@ -471,5 +484,16 @@
     -webkit-appearance: none;
     margin: 0;
     -moz-appearance: textfield !important;
+  }
+
+  .btn.btn-accent.approve-btn {
+    background-color: #4c1d95;
+    border-color: #4c1d95;
+    color: #ffffff;
+  }
+
+  .btn.btn-accent.approve-btn:hover {
+    background-color: #5b21b6;
+    border-color: #5b21b6;
   }
 </style>

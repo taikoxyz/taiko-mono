@@ -21,6 +21,10 @@ var (
 		"ERR_INVALID_CONFIRMATIONS",
 		"Confirmations amount is invalid, must be numerical and > 0",
 	)
+	ErrInvalidConfirmationsTimeoutInSeconds = errors.Validation.NewWithKeyAndDetail(
+		"ERR_INVALID_CONFIRMATIONS_TIMEOUT_IN_SECONDS",
+		"ConfirmationsTimeoutInSeconds amount is invalid, must be numerical and > 0",
+	)
 	ErrInvalidMode  = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
 	ErrUnprofitable = errors.Validation.NewWithKeyAndDetail("ERR_UNPROFITABLE", "Transaction is unprofitable to process")
 	ErrNotReceived  = errors.BadRequest.NewWithKeyAndDetail(
