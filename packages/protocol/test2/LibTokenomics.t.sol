@@ -17,7 +17,7 @@ contract TaikoL1WithConfig is Test {
     }
 
     function test_getTimeAdjustedFee() public {
-        uint256 feeBase = 10 ether;
+        uint256 feeBase = 10 * 1E8;
         uint256 tLast = 100000;
         uint256 tAvg = 40;
         uint256 tNow = tLast + tAvg;

@@ -160,7 +160,7 @@ abstract contract TaikoL1TestBase is Test {
         vm.deal(who, amountEth * 1 ether);
         tko.transfer(who, amountTko * 1 ether);
         vm.prank(who, who);
-        L1.deposit(amountTko * 1 ether);
+        L1.deposit(amountTko * 1E8);
     }
 
     function printVariables(string memory comment) internal {
