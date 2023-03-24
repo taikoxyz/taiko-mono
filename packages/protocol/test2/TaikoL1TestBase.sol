@@ -21,7 +21,7 @@ abstract contract TaikoL1TestBase is Test {
 
     bytes32 public constant GENESIS_BLOCK_HASH =
         keccak256("GENESIS_BLOCK_HASH");
-    uint64 feeBase = 100000000; // 1 TKO
+    uint64 feeBase = 1E8; // 1 TKO
 
     address public constant L2SS = 0xa008AE5Ba00656a3Cc384de589579e3E52aC030C;
     address public constant L2TaikoL2 =
@@ -60,7 +60,7 @@ abstract contract TaikoL1TestBase is Test {
 
         // set proto_broker to this address to mint some TKO
         _registerAddress("proto_broker", address(this));
-        tko.mint(address(this), 1E12 ether);
+        tko.mint(address(this), 1E9 * 1E8);
 
         // register all addresses
         _registerAddress("taiko_token", address(tko));
@@ -157,16 +157,15 @@ abstract contract TaikoL1TestBase is Test {
         uint256 amountTko,
         uint256 amountEth
     ) internal {
-        vm.deal(who, amountEth * 1 ether);
-        tko.transfer(who, amountTko * 1 ether);
+        vm.deal(who, amountEth);
+        tko.transfer(who, amountTko);
         vm.prank(who, who);
-        L1.deposit(amountTko * 1E8);
+        L1.deposit(amountTko);
     }
 
     function printVariables(string memory comment) internal {
         TaikoData.StateVariables memory vars = L1.getStateVariables();
         (uint256 fee, ) = L1.getBlockFee();
-        fee /= 1E12;
         string memory str = string.concat(
             Strings.toString(logCount++),
             ":[",

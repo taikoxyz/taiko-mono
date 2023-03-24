@@ -74,9 +74,9 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test we can propose, prove, then verify more blocks than 'maxNumProposedBlocks'
     function test_more_blocks_than_ring_buffer_size() external {
-        _depositTaikoToken(Alice, 1E6, 100);
-        _depositTaikoToken(Bob, 1E6, 100);
-        _depositTaikoToken(Carol, 1E6, 100);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
@@ -103,7 +103,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_multiple_blocks_in_one_L1_block() external {
-        _depositTaikoToken(Alice, 1000, 1000);
+        _depositTaikoToken(Alice, 1000 * 1E8, 1000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
@@ -124,7 +124,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6, 100);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
@@ -151,9 +151,9 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test block timeincrease and fee shall decrease.
     function test_block_time_increases_but_fee_decreases() external {
-        _depositTaikoToken(Alice, 1E6, 100);
-        _depositTaikoToken(Bob, 1E6, 100);
-        _depositTaikoToken(Carol, 1E6, 100);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
@@ -180,9 +180,9 @@ contract TaikoL1Test is TaikoL1TestBase {
     /// @dev Test block time goes down lover time and the fee should remain
     // the same.
     function test_block_time_decreases_but_fee_remains() external {
-        _depositTaikoToken(Alice, 1E6, 100);
-        _depositTaikoToken(Bob, 1E6, 100);
-        _depositTaikoToken(Carol, 1E6, 100);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Bob, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Carol, 1E6 * 1E8, 100 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
