@@ -22,8 +22,16 @@ library LibProving {
         address prover
     );
 
+    event ConflictingProof(
+        uint64 blockId,
+        bytes32 parentHash,
+        bytes32 conflictingBlockHash,
+        bytes32 conflictingSignalRoot,
+        bytes32 blockHash,
+        bytes32 signalRoot
+    );
+
     error L1_ALREADY_PROVEN();
-    error L1_CONFLICT_PROOF();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_ID();
     error L1_ID();
@@ -106,7 +114,17 @@ library LibProving {
             if (
                 fc.blockHash != evidence.blockHash ||
                 fc.signalRoot != evidence.signalRoot
-            ) revert L1_CONFLICT_PROOF();
+            ) {
+                emit ConflictingProof({
+                    blockId: meta.id,
+                    parentHash: evidence.parentHash,
+                    conflictingBlockHash: evidence.blockHash,
+                    conflictingSignalRoot: evidence.signalRoot,
+                    blockHash: fc.blockHash,
+                    signalRoot: fc.signalRoot
+                });
+                return;
+            }
 
             fc.prover = evidence.prover;
             fc.provenAt = uint64(block.timestamp);
