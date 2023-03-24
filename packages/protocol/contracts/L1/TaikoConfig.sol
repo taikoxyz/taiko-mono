@@ -47,11 +47,11 @@ library TaikoConfig {
                 skipZKPVerification: false,
                 proposingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
-                    startBips: 5000
+                    startBips: 2500 // [125% -> 75%]
                 }),
                 provingConfig: TaikoData.FeeConfig({
                     avgTimeMAF: 1024,
-                    startBips: 5000
+                    startBips: 2500 // [75% -> 125%]
                 })
             });
     }
