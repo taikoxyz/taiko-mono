@@ -161,7 +161,7 @@ library LibProposing {
             state: state,
             config: config,
             isProposal: true,
-            timeUsed: uint64(block.timestamp - state.lastProposedAt),
+            timeUsed: block.timestamp - state.lastProposedAt,
             timeAverage: state.avgBlockTime
         });
         fee = LibUtils.getSlotsAdjustedFee({
