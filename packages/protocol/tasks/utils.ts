@@ -34,7 +34,7 @@ function compileYulContract(contractPath: string): string {
 
     if (!fs.existsSync(SOLC_COMMAND)) {
         throw new Error(
-            `sloc command not found in ${SOLC_COMMAND}, please run "./scripts/download_solc.sh".`
+            `sloc command not found in ${SOLC_COMMAND}, please run "./script/download_solc.sh".`
         );
     }
 
