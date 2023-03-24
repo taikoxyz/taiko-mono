@@ -58,7 +58,7 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
             symbol_: _symbol,
-            decimals_: 18
+            decimals_: 8
         });
 
         for (uint256 i = 0; i < _premintRecipients.length; ++i) {

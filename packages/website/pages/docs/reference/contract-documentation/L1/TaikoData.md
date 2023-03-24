@@ -49,7 +49,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 feeBaseTwei;
+  uint64 feeBase;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
@@ -109,6 +109,7 @@ struct BlockEvidence {
   bytes32 blockHash;
   bytes32 signalRoot;
   address prover;
+  uint64 gasUsed;
 }
 ```
 
@@ -175,7 +176,7 @@ struct State {
   uint64 __reserved4;
   uint64 lastVerifiedBlockId;
   uint64 avgProofTime;
-  uint64 feeBaseTwei;
+  uint64 feeBase;
   uint256[42] __gap;
 }
 ```

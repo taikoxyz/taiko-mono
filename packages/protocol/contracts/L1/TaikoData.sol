@@ -45,7 +45,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 feeBaseTwei;
+        uint64 feeBase;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -155,7 +155,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
-        uint64 feeBaseTwei;
+        uint64 feeBase;
         // Reserved
         uint256[42] __gap;
     }

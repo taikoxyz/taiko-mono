@@ -142,10 +142,10 @@ library LibProposing {
                 state.balances[msg.sender] -= burnAmount;
             }
             // Update feeBase and avgBlockTime
-            state.feeBaseTwei = LibUtils
+            state.feeBase = LibUtils
                 .movingAverage({
-                    maValue: state.feeBaseTwei,
-                    newValue: LibTokenomics.toTwei(newFeeBase),
+                    maValue: state.feeBase,
+                    newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })
                 .toUint64();
