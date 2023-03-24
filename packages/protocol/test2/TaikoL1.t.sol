@@ -124,7 +124,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_verifying_multiple_blocks_once() external {
-        _depositTaikoToken(Alice, 1E6 * 1E8, 100 ether);
+        _depositTaikoToken(Alice, 1E6 * 1E8, 1giex00 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint64 gasUsed = 1000000;
