@@ -139,7 +139,7 @@ library LibProving {
                 inputs[4] = evidence.blockHash;
                 inputs[5] = evidence.signalRoot;
                 inputs[6] = bytes32(uint256(uint160(evidence.prover)));
-                inputs[7] = bytes32(uint256(evidence.gasUsed)); // TODO(faniel): document this
+                inputs[7] = bytes32(uint256(evidence.gasUsed)); // TODO(daniel): document this
                 inputs[8] = blk.metaHash;
 
                 // Circuits shall use this value to check anchor gas limit.
