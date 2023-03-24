@@ -29,8 +29,8 @@ contract TaikoL1WithConfig is TaikoL1 {
         config.maxVerificationsPerTx = 0;
         config.enableSoloProposer = false;
         config.enableOracleProver = false;
-        config.maxNumProposedBlocks = 11;
-        config.maxNumVerifiedBlocks = 40;
+        config.maxNumProposedBlocks = 10;
+        config.ringBufferSize = 12;
         // this value must be changed if `maxNumProposedBlocks` is changed.
         config.slotSmoothingFactor = 4160;
         config.anchorTxGasLimit = 180000;
@@ -131,7 +131,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (
             uint256 blockId = 1;
-            blockId <= conf.maxNumProposedBlocks - 1;
+            blockId <= conf.maxNumProposedBlocks;
             blockId++
         ) {
             printVariables("before propose");
@@ -143,7 +143,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             proveBlock(Alice, gasUsed, meta, parentHash, blockHash, signalRoot);
             parentHash = blockHash;
         }
-        verifyBlock(Alice, conf.maxNumProposedBlocks - 2);
+        verifyBlock(Alice, conf.maxNumProposedBlocks - 1);
         printVariables("after verify");
         verifyBlock(Alice, conf.maxNumProposedBlocks);
         printVariables("after verify");
