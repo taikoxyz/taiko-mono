@@ -75,8 +75,5 @@
     "identicon.js": "^2.3.3",
     "svelte-i18n": "^3.5.1",
     "svelte-spa-router": "^3.2.0"
-  },
-  "lint-staged": {
-    "**/*": "pnpm prettier:write"
   }
 }

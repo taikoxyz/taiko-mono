@@ -1,0 +1,3 @@
+{
+  "**/*.{js,ts,svelte}": "pnpm prettier:write && pnpm lint:fix"
+}
