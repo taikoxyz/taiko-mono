@@ -4,6 +4,7 @@
   import { truncateString } from '../utils/truncateString';
   import Modal from './modals/Modal.svelte';
   import type { BridgeTransaction } from '../domain/transactions';
+  import { addressSubsection } from '../utils/addressSubsection';
   import { chains } from '../chain/chains';
 
   // TODO: can we always guarantee that this object is defined?
@@ -25,7 +26,7 @@
           href={`${chains[transaction.fromChainId].explorerUrl}/tx/${
             transaction.hash
           }`}>
-          <span class="mr-2">{truncateString(transaction.hash)}</span>
+          <span class="mr-1">{addressSubsection(transaction.hash)}</span>
           <ArrowTopRightOnSquare />
         </a>
       </td>
@@ -34,26 +35,27 @@
       <tr>
         <td>Sender</td>
         <td class="text-right">
-          {truncateString(transaction.message.sender)}
+          {addressSubsection(transaction.message.sender)}
         </td>
       </tr>
       <tr>
         <td>Owner</td>
         <td class="text-right">
-          {truncateString(transaction.message.owner)}
+          {addressSubsection(transaction.message.owner)}
         </td>
       </tr>
       <tr>
         <td>Refund Address</td>
         <td class="text-right">
-          {truncateString(transaction.message.refundAddress)}
+          {addressSubsection(transaction.message.refundAddress)}
         </td>
       </tr>
       {#if transaction.message.callValue}
         <tr>
           <td>Call value</td>
           <td class="text-right">
-            {ethers.utils.formatEther(transaction.message.callValue)} ETH
+            {ethers.utils.formatEther(transaction.message.callValue.toString())}
+            ETH
           </td>
         </tr>
       {/if}
@@ -72,16 +74,11 @@
         </td>
       </tr>
       <tr>
-        <td>Data</td>
-        <td
-          class="text-center overflow-auto bg-black !px-1 border-x-4 border-black">
-          {transaction.message.data}
-        </td>
-      </tr>
-      <tr>
         <td>Memo</td>
-        <td class="text-right overflow-auto">
-          {transaction.message.memo}
+        <td class="text-right">
+          <div class="overflow-auto">
+            {transaction.message.memo}
+          </div>
         </td>
       </tr>
     {/if}

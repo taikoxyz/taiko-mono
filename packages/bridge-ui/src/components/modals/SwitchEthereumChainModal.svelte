@@ -5,8 +5,8 @@
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
   import Modal from './Modal.svelte';
   import { signer } from '../../store/signer';
-  import { errorToast, successToast } from '../../utils/toast';
   import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   const switchChain = async (chain: Chain) => {
     try {

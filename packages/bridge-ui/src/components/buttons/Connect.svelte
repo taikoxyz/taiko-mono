@@ -15,7 +15,6 @@
 
   import { fromChain, toChain } from '../../store/chain';
   import { isSwitchEthereumChainModalOpen } from '../../store/modal';
-  import { errorToast, successToast } from '../../utils/toast';
   import Modal from '../modals/Modal.svelte';
   import { wagmiClient } from '../../store/wagmi';
   import MetaMask from '../icons/MetaMask.svelte';
@@ -23,6 +22,7 @@
   import CoinbaseWallet from '../icons/CoinbaseWallet.svelte';
   import { transactioner, transactions } from '../../store/transactions';
   import { mainnetChain, taikoChain } from '../../chain/chains';
+  import { errorToast, successToast } from '../Toast.svelte';
 
   export let isConnectWalletModalOpen = false;
 

@@ -21,7 +21,8 @@ export type BridgeOpts = {
   tokenAddress: string;
   fromChainId: number;
   toChainId: number;
-  tokenVaultAddress: string;
+  tokenVaultAddress?: string;
+  bridgeAddress?: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;

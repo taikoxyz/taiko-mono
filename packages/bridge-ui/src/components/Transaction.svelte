@@ -6,7 +6,6 @@
   import { Contract, ethers } from 'ethers';
   import { signer } from '../store/signer';
   import { pendingTransactions } from '../store/transactions';
-  import { errorToast, successToast } from '../utils/toast';
   import { _ } from 'svelte-i18n';
   import {
     fromChain as fromChainStore,
@@ -16,6 +15,7 @@
   import { onDestroy, onMount } from 'svelte';
 
   import { LottiePlayer } from '@lottiefiles/svelte-lottie-player';
+  import { errorToast, successToast } from './Toast.svelte';
   import HeaderSyncABI from '../constants/abi/HeaderSync';
   import { fetchSigner, switchNetwork } from '@wagmi/core';
   import BridgeABI from '../constants/abi/Bridge';
@@ -178,6 +178,11 @@
 
       transaction.status = await contract.getMessageStatus(transaction.msgHash);
 
+      if (transaction.receipt && transaction.receipt.status !== 1) {
+        clearInterval(interval);
+        return;
+      }
+
       if (transaction.status === MessageStatus.Failed) {
         if (transaction.message?.data !== '0x') {
           const srcTokenVaultContract = new ethers.Contract(
@@ -226,7 +231,11 @@
   <td>
     {transaction.message &&
     (transaction.message?.data === '0x' || !transaction.message?.data)
-      ? ethers.utils.formatEther(transaction.message?.depositValue)
+      ? ethers.utils.formatEther(
+          transaction.message?.depositValue.eq(0)
+            ? transaction.message?.callValue.toString()
+            : transaction.message?.depositValue,
+        )
       : ethers.utils.formatUnits(transaction.amountInWei)}
     {transaction.symbol ?? 'ETH'}
   </td>
@@ -234,7 +243,9 @@
   <td>
     <ButtonWithTooltip onClick={() => onTooltipClick(false)}>
       <span slot="buttonText">
-        {#if !processable}
+        {#if transaction.receipt && transaction.receipt.status !== 1}
+          <span class="border border-transparent p-0">Failed</span>
+        {:else if !processable}
           Pending
         {:else if (!transaction.receipt && transaction.status === MessageStatus.New) || loading}
           <div class="inline-block">
