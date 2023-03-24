@@ -15,6 +15,7 @@ library TaikoData {
     struct Config {
         uint256 chainId;
         uint256 maxNumProposedBlocks;
+        uint256 ringBufferSize;
         uint256 maxNumVerifiedBlocks;
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
@@ -90,29 +91,25 @@ library TaikoData {
         uint64 gasUsed;
     }
 
+    // 3 slots
     struct ForkChoice {
         bytes32 blockHash;
         bytes32 signalRoot;
-        address prover;
         uint64 provenAt;
+        address prover;
     }
 
-    // 4 slots
-    struct ProposedBlock {
+    // 5 slots
+    struct Block {
+        uint64 blockId;
+        uint64 proposedAt;
+        uint24 nextForkChoiceId;
+        uint24 verifiedForkChoiceId;
         bytes32 metaHash;
         uint256 deposit;
         address proposer;
-        uint64 proposedAt;
-        uint24 nextForkChoiceId;
         // ForkChoice storage are reusable
         mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
-    }
-
-    // 3 slots
-    struct VerifiedBlock {
-        uint64 blockId;
-        bytes32 blockHash;
-        bytes32 signalRoot;
     }
 
     // This struct takes 9 slots.
@@ -122,13 +119,8 @@ library TaikoData {
     }
 
     struct State {
-        // Ring buffer for proposed but unverified blocks.
-        mapping(uint256 blockId_mode_maxNumProposedBlocks => ProposedBlock) proposedBlocks;
-        // Ring buffer for recent verified blocks.
-        // It shall be big enough to cache the last verified block's hash and
-        // signal root for long enough so signals can be verified anytime within
-        // 30 minutes.
-        mapping(uint256 blockId_mode_maxNumVerifiedBlocks => VerifiedBlock) verifiedBlocks;
+        // Ring buffer for proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
         // A mapping from (blockId, parentHash) to a reusable ForkChoice storage pointer.
         // solhint-disable-next-line max-line-length
         mapping(uint256 blockId => mapping(bytes32 parentHash => uint256 forkChoiceId)) forkChoiceIds;
