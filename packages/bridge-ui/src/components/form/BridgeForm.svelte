@@ -217,6 +217,26 @@
         throw Error('Invalid custom recipient address');
       }
 
+      const signerChain = await $signer.getChainId();
+      if (signerChain !== $fromChain.id) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
+      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$fromChain.id];
+
+      const codeNotDeployed = [bridgeAddress, tokenVaultAddress].find(
+        async (a) => {
+          return (await $signer.provider.getCode(a)) === '0x';
+        },
+      );
+
+      if (codeNotDeployed) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = providers[$toChain.id];
@@ -236,8 +256,8 @@
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaults[$fromChain.id],
-        bridgeAddress: chains[$fromChain.id].bridgeAddress,
+        tokenVaultAddress: tokenVaultAddress,
+        bridgeAddress: bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
