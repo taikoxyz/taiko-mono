@@ -79,6 +79,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint64 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -92,7 +93,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, gasUsed, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Carol, 1);
             parentHash = blockHash;
         }
@@ -105,6 +106,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Alice, 1000, 1000);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint64 gasUsed = 1000000;
 
         for (uint256 blockId = 1; blockId <= 2; blockId++) {
             printVariables("before propose");
@@ -113,7 +115,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Alice, gasUsed, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Alice, 2);
             parentHash = blockHash;
         }
@@ -125,6 +127,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Alice, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint64 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -137,7 +140,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Alice, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Alice, gasUsed, meta, parentHash, blockHash, signalRoot);
             parentHash = blockHash;
         }
         verifyBlock(Alice, conf.maxNumProposedBlocks - 2);
@@ -153,6 +156,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint64 gasUsed = 1000000;
 
         for (
             uint256 blockId = 1;
@@ -165,7 +169,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, gasUsed, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Carol, 1);
             mine(blockId);
             parentHash = blockHash;
@@ -181,6 +185,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         _depositTaikoToken(Carol, 1E6, 100);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
+        uint64 gasUsed = 1000000;
 
         uint256 total = conf.maxNumProposedBlocks * 10;
 
@@ -191,7 +196,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
             bytes32 blockHash = bytes32(1E10 + blockId);
             bytes32 signalRoot = bytes32(1E9 + blockId);
-            proveBlock(Bob, meta, parentHash, blockHash, signalRoot);
+            proveBlock(Bob, gasUsed, meta, parentHash, blockHash, signalRoot);
             verifyBlock(Carol, 1);
             mine(total + 1 - blockId);
             parentHash = blockHash;
