@@ -38,6 +38,7 @@
   import { chains } from '../../chain/chains';
   import { providers } from '../../provider/providers';
   import { tokenVaults } from '../../vault/tokenVaults';
+  import { isOnCorrectChain } from '../../utils/isOnCorrectChain';
 
   let amount: string;
   let amountInput: HTMLInputElement;
@@ -217,6 +218,11 @@
         throw Error('Invalid custom recipient address');
       }
 
+      if (!isOnCorrectChain($signer, $fromChain.id)) {
+        errorToast('You are connected to the wrong chain in your wallet');
+        return;
+      }
+
       const amountInWei = ethers.utils.parseUnits(amount, $token.decimals);
 
       const provider = providers[$toChain.id];
@@ -230,14 +236,17 @@
           $fromChain,
         );
 
+      const bridgeAddress = chains[$fromChain.id].bridgeAddress;
+      const tokenVaultAddress = tokenVaults[$fromChain.id];
+
       const bridgeOpts: BridgeOpts = {
         amountInWei: amountInWei,
         signer: $signer,
         tokenAddress: await addrForToken(),
         fromChainId: $fromChain.id,
         toChainId: $toChain.id,
-        tokenVaultAddress: tokenVaults[$fromChain.id],
-        bridgeAddress: chains[$fromChain.id].bridgeAddress,
+        tokenVaultAddress: tokenVaultAddress,
+        bridgeAddress: bridgeAddress,
         processingFeeInWei: getProcessingFee(),
         memo: memo,
         isBridgedTokenAlreadyDeployed,
