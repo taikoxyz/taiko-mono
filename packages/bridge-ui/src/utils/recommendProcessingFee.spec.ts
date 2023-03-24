@@ -12,6 +12,8 @@ import { mainnetChain, taikoChain } from '../chain/chains';
 import { ETHToken, testERC20Tokens } from '../token/tokens';
 import { providers } from '../provider/providers';
 
+jest.mock('../constants/envVars');
+
 const mockContract = {
   canonicalToBridged: jest.fn(),
 };
