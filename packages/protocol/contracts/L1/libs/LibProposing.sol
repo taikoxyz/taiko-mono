@@ -78,17 +78,13 @@ library LibProposing {
 
         // L2 1559 fee calculation
         if (config.enableTokenomics) {
-            uint256 baseCharge1559;
-            (baseCharge1559, meta.basefee1559, state.gasExcess) = Lib1559
-                .get1559BurnAmountAndBasefee(
-                    config,
-                    state.gasExcess,
-                    input.gasLimit
-                );
+            uint256 ethToBurn;
+            (meta.basefee1559, ethToBurn, state.gasExcess) = Lib1559
+                .adjust1559Basefee(config, state.gasExcess, input.gasLimit);
 
-            if (msg.value < baseCharge1559) revert L1_INSUFFICIENT_ETHER_BURN();
+            if (msg.value < ethToBurn) revert L1_INSUFFICIENT_ETHER_BURN();
 
-            msg.sender.sendEther(msg.value - baseCharge1559);
+            msg.sender.sendEther(msg.value - ethToBurn);
 
             if (state.lastProposedHeight == block.number) {
                 state.gasSoldThisBlock += meta.gasLimit;

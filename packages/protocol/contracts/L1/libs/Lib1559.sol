@@ -14,24 +14,36 @@ library Lib1559 {
     using LibMath for uint256;
 
     function get1559BurnAmountAndBasefee(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        uint256 blockGasLimit
+    ) internal view returns (uint256 basefee, uint256 ethToBurn) {
+        (basefee, ethToBurn, ) = adjust1559Basefee(
+            config,
+            state.gasExcess,
+            blockGasLimit
+        );
+    }
+
+    function adjust1559Basefee(
         TaikoData.Config memory config,
         uint256 gasExcess,
         uint256 blockGasLimit
     )
         internal
         pure
-        returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
+        returns (uint256 basefee, uint256 ethToBurn, uint256 newGasExcess)
     {
         uint256 t = config.blockGasTarget;
         uint256 q = config.basefee1559AdjustmentQuotient;
         uint256 eq1 = exp(gasExcess / t / q);
         basefee = eq1 / t / q;
 
-        uint256 _gasExcess = gasExcess + blockGasLimit;
-        uint256 eq2 = exp(_gasExcess / t / q);
+        gasExcess += blockGasLimit;
+        uint256 eq2 = exp(gasExcess / t / q);
         ethToBurn = eq2 - eq1;
 
-        newExcessGasIssued = t.max(_gasExcess) - t;
+        newGasExcess = t.max(gasExcess) - t;
     }
 
     // Return `2.71828 ** x`.
