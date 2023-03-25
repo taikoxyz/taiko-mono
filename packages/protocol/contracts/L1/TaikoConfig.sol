@@ -37,8 +37,10 @@ library TaikoConfig {
                 bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
-                blockGasTarget: 1500000, // 1.5 million
-                blockGasThrottle: 30000000, // 30 million
+                // Set it to 6M, since its the upper limit of the Alpha-2
+                // testnet's circuits.
+                blockGasTarget: 3000000, // 3M as target, 6M max
+                blockGasThrottle: 60000000, // 60M max
                 basefeePerGasQuotient: 1023, // TODO
                 enableSoloProposer: false,
                 enableOracleProver: true,

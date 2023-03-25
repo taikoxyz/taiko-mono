@@ -29,7 +29,7 @@ library LibProposing {
 
     error L1_BLOCK_ID();
     error L1_INSUFFICIENT_BLOCKSPACE();
-    error L1_INSUFFICIENT_ETHER_BURN();
+    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
     error L1_NOT_SOLO_PROPOSER();
@@ -82,8 +82,7 @@ library LibProposing {
             (meta.basefeePerGas, gasPurchaseCost, state.gasExcess) = Lib1559
                 .purchaseGas(config, state.gasExcess, input.gasLimit);
 
-            if (msg.value < gasPurchaseCost)
-                revert L1_INSUFFICIENT_ETHER_BURN();
+            if (msg.value < gasPurchaseCost) revert L1_INSUFFICIENT_ETHER();
 
             unchecked {
                 if (state.lastProposedHeight == block.number) {

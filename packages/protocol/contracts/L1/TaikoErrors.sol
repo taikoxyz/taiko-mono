@@ -14,7 +14,7 @@ abstract contract TaikoErrors {
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
     error L1_INSUFFICIENT_BLOCKSPACE();
-    error L1_INSUFFICIENT_ETHER_BURN();
+    error L1_INSUFFICIENT_ETHER();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
     error L1_INVALID_EVIDENCE();
