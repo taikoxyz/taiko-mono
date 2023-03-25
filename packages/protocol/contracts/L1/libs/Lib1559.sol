@@ -23,7 +23,7 @@ library Lib1559 {
         returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
     {
         uint256 t = config.blockGasTarget;
-        uint256 q = config.gasFeeAdjustmentQuotient;
+        uint256 q = config.basefee1559AdjustmentQuotient;
         uint256 eq1 = exp(gasExcess / t / q);
         basefee = eq1 / t / q;
 
