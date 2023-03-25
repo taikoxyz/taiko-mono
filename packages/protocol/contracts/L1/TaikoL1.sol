@@ -29,7 +29,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint256 _excessGasIssued,
+        uint256 _gasExcess,
         uint64 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
@@ -37,7 +37,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            excessGasIssued: _excessGasIssued,
+            gasExcess: _gasExcess,
             feeBase: _feeBase
         });
     }
@@ -235,7 +235,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         return
             Lib1559.get1559BurnAmountAndBaseFee(
                 getConfig(),
-                state.excessGasIssued,
+                state.gasExcess,
                 blockGasLimit
             );
     }

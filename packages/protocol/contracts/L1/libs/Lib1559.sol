@@ -15,7 +15,7 @@ library Lib1559 {
 
     function get1559BurnAmountAndBaseFee(
         TaikoData.Config memory config,
-        uint256 excessGasIssued,
+        uint256 gasExcess,
         uint256 blockGasLimit
     )
         internal
@@ -24,14 +24,14 @@ library Lib1559 {
     {
         uint256 t = config.blockGasTarget;
         uint256 q = config.gasFeeAdjustmentQuotient;
-        uint256 eq1 = exp(excessGasIssued / t / q);
+        uint256 eq1 = exp(gasExcess / t / q);
         basefee = eq1 / t / q;
 
-        uint256 _excessGasIssued = excessGasIssued + blockGasLimit;
-        uint256 eq2 = exp(_excessGasIssued / t / q);
+        uint256 _gasExcess = gasExcess + blockGasLimit;
+        uint256 eq2 = exp(_gasExcess / t / q);
         ethToBurn = eq2 - eq1;
 
-        newExcessGasIssued = t.max(_excessGasIssued) - t;
+        newExcessGasIssued = t.max(_gasExcess) - t;
     }
 
     // Return `2.71828 ** x`.
