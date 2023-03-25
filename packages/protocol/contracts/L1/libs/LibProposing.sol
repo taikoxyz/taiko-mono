@@ -65,7 +65,7 @@ library LibProposing {
             txListByteStart: input.txListByteStart,
             txListByteEnd: input.txListByteEnd,
             beneficiary: input.beneficiary,
-            gasBasefee: 0 // will be initialized later
+            basefeePerGas: 0 // will be initialized later
         });
 
         // After The Merge, L1 mixHash contains the prevrandao
@@ -79,7 +79,7 @@ library LibProposing {
         // L2 1559 fee calculation
         if (config.enableTokenomics) {
             uint256 gasPurchaseCost;
-            (meta.gasBasefee, gasPurchaseCost, state.gasExcess) = Lib1559
+            (meta.basefeePerGas, gasPurchaseCost, state.gasExcess) = Lib1559
                 .purchaseGas(config, state.gasExcess, input.gasLimit);
 
             if (msg.value < gasPurchaseCost)

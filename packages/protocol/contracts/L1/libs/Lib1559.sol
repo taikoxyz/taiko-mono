@@ -21,12 +21,12 @@ library Lib1559 {
         internal
         view
         returns (
-            uint256 gasBasefee,
+            uint256 basefeePerGas,
             uint256 gasPurchaseCost,
             uint256 maxGasPurchaseAmount
         )
     {
-        (gasBasefee, gasPurchaseCost, ) = purchaseGas(
+        (basefeePerGas, gasPurchaseCost, ) = purchaseGas(
             config,
             state.gasExcess,
             gasPurchaseAmount
@@ -53,15 +53,15 @@ library Lib1559 {
         internal
         pure
         returns (
-            uint256 gasBasefee,
+            uint64 basefeePerGas,
             uint256 gasPurchaseCost,
             uint256 newGasExcess
         )
     {
         uint256 t = config.blockGasTarget;
-        uint256 q = config.gasBasefeeQuotient;
+        uint256 q = config.basefeePerGasQuotient;
         uint256 eq1 = exp(gasExcess / t / q);
-        gasBasefee = eq1 / t / q;
+        basefeePerGas = uint64(eq1 / t / q);
 
         gasExcess += gasPurchaseAmount;
         uint256 eq2 = exp(gasExcess / t / q);

@@ -39,7 +39,7 @@ library TaikoConfig {
                 txListCacheExpiry: 0,
                 blockGasTarget: 1500000, // 1.5 million
                 blockGasThrottle: 15000000, // 15 million
-                gasBasefeeQuotient: 1023, // TODO
+                basefeePerGasQuotient: 1023, // TODO
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,
