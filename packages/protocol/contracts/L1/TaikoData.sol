@@ -43,7 +43,7 @@ library TaikoData {
         // blockGasThrottle/blockGasTarget indicates how much we can scale
         // Ethereum as a single L2.
         uint32 blockGasThrottle;
-        uint32 baseGasFeeQuotient;
+        uint32 gasBasefeeQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;

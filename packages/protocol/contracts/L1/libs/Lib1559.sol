@@ -59,7 +59,7 @@ library Lib1559 {
         )
     {
         uint256 t = config.blockGasTarget;
-        uint256 q = config.baseGasFeeQuotient;
+        uint256 q = config.gasBasefeeQuotient;
         uint256 eq1 = exp(gasExcess / t / q);
         gasBasefee = eq1 / t / q;
 
