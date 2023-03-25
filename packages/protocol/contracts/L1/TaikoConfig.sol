@@ -37,8 +37,8 @@ library TaikoConfig {
                 bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
-                blockGasTarget: 3000000, // 3 million
-                blockGasThrottle: 30000000, // 30 million
+                blockGasTarget: 1500000, // 1.5 million
+                blockGasThrottle: 15000000, // 15 million
                 gasBasefeeQuotient: 1023, // TODO
                 enableSoloProposer: false,
                 enableOracleProver: true,
