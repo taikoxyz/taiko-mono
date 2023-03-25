@@ -7,9 +7,9 @@
 pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
+import {Lib1559} from "./Lib1559.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
-import {Lib1559} from "./Lib1559.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
