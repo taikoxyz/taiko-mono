@@ -231,7 +231,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         public
         view
         returns (
-            uint256 baseGasFee,
+            uint256 basefeePerGas,
             uint256 gasPurchaseCost,
             uint256 maxGasPurchaseAmount
         )

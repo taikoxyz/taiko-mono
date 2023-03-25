@@ -148,7 +148,7 @@ library TaikoData {
         uint256 gasExcess; // L2 1559 gas pool
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 lastProposedHeight;
+        uint64 lastProposedHeight; // Block number in which the last block is proposed.
         uint64 avgBlockTime; // miliseconds
         // Changed when a block is proven/finalized
         // Total L2 gas sold in the lastProposedHeight-th L1 block.
