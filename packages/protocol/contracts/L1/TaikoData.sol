@@ -150,9 +150,10 @@ library TaikoData {
         uint64 lastProposedHeight;
         uint64 avgBlockTime; // miliseconds
         // Changed when a block is proven/finalized
+        // Total L2 gas sold in the lastProposedHeight-th L1 block.
         uint32 gasSoldThisBlock;
         uint64 lastVerifiedBlockId;
-        // the proof time moving average, note that for each block, only the
+        // The proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;
