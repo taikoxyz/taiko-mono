@@ -60,12 +60,12 @@ library LibProposing {
             l1Height: uint64(block.number - 1),
             gasLimit: input.gasLimit,
             l1Hash: blockhash(block.number - 1),
-            mixHash: 0, // will be initialized later
+            mixHash: 0, // will be set later
             txListHash: input.txListHash,
             txListByteStart: input.txListByteStart,
             txListByteEnd: input.txListByteEnd,
             beneficiary: input.beneficiary,
-            basefeePerGas: 0 // will be initialized later
+            basefeePerGas: 0 // will be set later
         });
 
         // After The Merge, L1 mixHash contains the prevrandao
@@ -102,7 +102,7 @@ library LibProposing {
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
-        blk.deposit = 0; // will be initialized later
+        blk.deposit = 0; // will be set later
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
@@ -131,7 +131,7 @@ library LibProposing {
                 .toUint64();
         }
 
-        if (state.lastProposedAt > 0) {
+        {
             uint256 blockTime;
             unchecked {
                 blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
