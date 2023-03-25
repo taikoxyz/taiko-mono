@@ -36,10 +36,12 @@ library LibVerifying {
     ) internal {
         _checkConfig(config);
 
-        state.genesisHeight = uint64(block.number);
         state.genesisTimestamp = uint64(block.timestamp);
+        state.genesisHeight = uint64(block.number);
+
         state.lastProposedAt = uint64(block.timestamp);
         state.lastProposedHeight = uint64(block.number);
+
         state.gasExcess = gasExcess;
         state.feeBase = feeBase;
         state.numBlocks = 1;
