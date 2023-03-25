@@ -187,8 +187,8 @@ library LibVerifying {
             config.maxNumProposedBlocks == 1 ||
             config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
             config.maxNumVerifiedBlocks == 0 ||
-            config.gasTargetPerL2Block == 0 ||
-            config.gasTargetPerL1Block < config.gasTargetPerL2Block ||
+            config.blockGasTarget == 0 ||
+            config.blockGasCap < config.blockGasTarget ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||
             // EIP-4844 blob size up to 128K

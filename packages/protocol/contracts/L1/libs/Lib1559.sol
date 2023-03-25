@@ -22,7 +22,7 @@ library Lib1559 {
         pure
         returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
     {
-        uint256 t = config.gasTargetPerL2Block;
+        uint256 t = config.blockGasTarget;
         uint256 q = config.gasFeeAdjustmentQuotient;
         uint256 eq1 = exp(excessGasIssued / t / q);
         basefee = eq1 / t / q;

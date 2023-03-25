@@ -181,13 +181,12 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit > config.gasTargetPerL2Block * 2
+            input.gasLimit > config.blockGasTarget * 2
         ) revert L1_INVALID_METADATA();
 
         if (
             state.lastProposedHeight == block.number &&
-            input.gasLimit >
-            config.gasTargetPerL1Block * 2 - state.gasSoldThisBlock
+            input.gasLimit > config.blockGasCap * 2 - state.gasSoldThisBlock
         ) revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (

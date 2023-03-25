@@ -35,8 +35,12 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
-        uint32 gasTargetPerL2Block;
-        uint32 gasTargetPerL1Block;
+        // This is the L2 block target. The max block gasLimit
+        // is twice this value.
+        uint32 blockGasTarget;
+        // This is the max amount of gas that can be sold to all
+        // L2 blocks proposed within one L1 block.
+        uint32 blockGasCap;
         uint32 gasFeeAdjustmentQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
