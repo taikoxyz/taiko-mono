@@ -77,7 +77,7 @@ library LibProposing {
         }
 
         // L2 1559 fee calculation
-        if (config.enableTokenomics) {
+        {
             uint256 gasPurchaseCost;
             (meta.basefeePerGas, gasPurchaseCost, state.gasExcess) = Lib1559
                 .purchaseGas(config, state.gasExcess, input.gasLimit);
