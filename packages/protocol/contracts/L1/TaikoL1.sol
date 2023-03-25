@@ -226,7 +226,6 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     }
 
     function get1559BurnAmountAndBaseFee(
-        TaikoData.Config memory config,
         uint256 blockGasLimit
     )
         public

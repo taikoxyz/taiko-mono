@@ -45,70 +45,13 @@ library LibProposing {
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
-        // For alpha-2 testnet, the network only allows an special address
-        // to propose but anyone to prove. This is the first step of testing
-        // the tokenomics.
-        if (
-            config.enableSoloProposer &&
-            msg.sender != resolver.resolve("solo_proposer", false)
-        ) revert L1_NOT_SOLO_PROPOSER();
-
-        if (
-            input.beneficiary == address(0) ||
-            input.gasLimit > config.blockMaxGasLimit
-        ) revert L1_INVALID_METADATA();
-
-        if (
-            state.numBlocks >=
-            state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
-        ) revert L1_TOO_MANY_BLOCKS();
-
-        bool txListCached;
-
-        // hanlding txList
-        {
-            uint24 size = uint24(txList.length);
-            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
-
-            if (input.txListByteStart > input.txListByteEnd)
-                revert L1_TX_LIST_RANGE();
-
-            if (config.txListCacheExpiry == 0) {
-                // caching is disabled
-                if (input.txListByteStart != 0 || input.txListByteEnd != size)
-                    revert L1_TX_LIST_RANGE();
-            } else {
-                // caching is enabled
-                if (size == 0) {
-                    // This blob shall have been submitted earlier
-                    TaikoData.TxListInfo memory info = state.txListInfo[
-                        input.txListHash
-                    ];
-
-                    if (input.txListByteEnd > info.size)
-                        revert L1_TX_LIST_RANGE();
-
-                    if (
-                        info.size == 0 ||
-                        info.validSince + config.txListCacheExpiry <
-                        block.timestamp
-                    ) revert L1_TX_LIST_NOT_EXIST();
-                } else {
-                    if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
-                    if (input.txListHash != keccak256(txList))
-                        revert L1_TX_LIST_HASH();
-
-                    if (input.cacheTxListInfo != 0) {
-                        state.txListInfo[input.txListHash] = TaikoData
-                            .TxListInfo({
-                                validSince: uint64(block.timestamp),
-                                size: size
-                            });
-                        txListCached = true;
-                    }
-                }
-            }
-        }
+        bool txListCached = _validateBlock({
+            state: state,
+            config: config,
+            resolver: resolver,
+            input: input,
+            txList: txList
+        });
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.numBlocks,
@@ -211,5 +154,72 @@ library LibProposing {
     ) internal view returns (TaikoData.Block storage blk) {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    function _validateBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.BlockMetadataInput memory input,
+        bytes calldata txList
+    ) private returns (bool txListCached) {
+        // For alpha-2 testnet, the network only allows an special address
+        // to propose but anyone to prove. This is the first step of testing
+        // the tokenomics.
+        if (
+            config.enableSoloProposer &&
+            msg.sender != resolver.resolve("solo_proposer", false)
+        ) revert L1_NOT_SOLO_PROPOSER();
+
+        if (
+            input.beneficiary == address(0) ||
+            input.gasLimit > config.blockMaxGasLimit
+        ) revert L1_INVALID_METADATA();
+
+        if (
+            state.numBlocks >=
+            state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
+        ) revert L1_TOO_MANY_BLOCKS();
+
+        // hanlding txList
+
+        uint24 size = uint24(txList.length);
+        if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
+
+        if (input.txListByteStart > input.txListByteEnd)
+            revert L1_TX_LIST_RANGE();
+
+        if (config.txListCacheExpiry == 0) {
+            // caching is disabled
+            if (input.txListByteStart != 0 || input.txListByteEnd != size)
+                revert L1_TX_LIST_RANGE();
+        } else {
+            // caching is enabled
+            if (size == 0) {
+                // This blob shall have been submitted earlier
+                TaikoData.TxListInfo memory info = state.txListInfo[
+                    input.txListHash
+                ];
+
+                if (input.txListByteEnd > info.size) revert L1_TX_LIST_RANGE();
+
+                if (
+                    info.size == 0 ||
+                    info.validSince + config.txListCacheExpiry < block.timestamp
+                ) revert L1_TX_LIST_NOT_EXIST();
+            } else {
+                if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
+                if (input.txListHash != keccak256(txList))
+                    revert L1_TX_LIST_HASH();
+
+                if (input.cacheTxListInfo != 0) {
+                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                        validSince: uint64(block.timestamp),
+                        size: size
+                    });
+                    txListCached = true;
+                }
+            }
+        }
     }
 }
