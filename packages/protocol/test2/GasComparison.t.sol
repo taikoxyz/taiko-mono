@@ -83,7 +83,7 @@ contract FooBar {
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1,
-            basefee1559: 0
+            gasBasefee: 0
         });
     }
 
@@ -99,7 +99,7 @@ contract FooBar {
             gasLimit: 1,
             mixHash: bytes32(uint256(1)),
             timestamp: 1,
-            basefee1559: 0
+            gasBasefee: 0
         });
     }
 

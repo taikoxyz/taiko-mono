@@ -13,53 +13,59 @@ import {TaikoData} from "../TaikoData.sol";
 library Lib1559 {
     using LibMath for uint256;
 
-    function get1559FeeStatus(
+    function getGasFeeStatus(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 blockGasLimit
+        uint256 gasPurchaseAmount
     )
         internal
         view
-        returns (uint256 basefee, uint256 ethToBurn, uint256 availabGasForSale)
+        returns (
+            uint256 gasBasefee,
+            uint256 gasPurchaseCost,
+            uint256 maxGasPurchaseAmount
+        )
     {
-        (basefee, ethToBurn, ) = adjust1559Basefee(
+        (gasBasefee, gasPurchaseCost, ) = purchaseGas(
             config,
             state.gasExcess,
-            blockGasLimit
+            gasPurchaseAmount
         );
-        availabGasForSale = getAvailabGasForSale(state, config);
+        maxGasPurchaseAmount = getMaxGasPurchaseAmount(state, config);
     }
 
-    function getAvailabGasForSale(
+    function getMaxGasPurchaseAmount(
         TaikoData.State storage state,
         TaikoData.Config memory config
-    ) internal view returns (uint256) {
-        uint256 max = config.blockGasThrottle * 2;
+    ) internal view returns (uint256 amount) {
+        amount = config.blockGasThrottle * 2;
 
-        if (state.lastProposedHeight != block.number) {
-            return max;
-        } else {
-            return max - state.gasSoldThisBlock;
+        if (state.lastProposedHeight == block.number) {
+            amount -= state.gasSoldThisBlock;
         }
     }
 
-    function adjust1559Basefee(
+    function purchaseGas(
         TaikoData.Config memory config,
         uint256 gasExcess,
-        uint256 blockGasLimit
+        uint256 gasPurchaseAmount
     )
         internal
         pure
-        returns (uint256 basefee, uint256 ethToBurn, uint256 newGasExcess)
+        returns (
+            uint256 gasBasefee,
+            uint256 gasPurchaseCost,
+            uint256 newGasExcess
+        )
     {
         uint256 t = config.blockGasTarget;
-        uint256 q = config.basefee1559AdjustmentQuotient;
+        uint256 q = config.baseGasFeeQuotient;
         uint256 eq1 = exp(gasExcess / t / q);
-        basefee = eq1 / t / q;
+        gasBasefee = eq1 / t / q;
 
-        gasExcess += blockGasLimit;
+        gasExcess += gasPurchaseAmount;
         uint256 eq2 = exp(gasExcess / t / q);
-        ethToBurn = eq2 - eq1;
+        gasPurchaseCost = eq2 - eq1; // Queston: is this correct???
 
         newGasExcess = t.max(gasExcess) - t;
     }

@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
-import {LibEIP1559} from "./Lib1559.sol";
+import {Lib1559} from "./Lib1559.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -65,7 +65,7 @@ library LibProposing {
             txListByteStart: input.txListByteStart,
             txListByteEnd: input.txListByteEnd,
             beneficiary: input.beneficiary,
-            basefee1559: 0 // will be initialized later
+            gasBasefee: 0 // will be initialized later
         });
 
         // After The Merge, L1 mixHash contains the prevrandao
@@ -78,13 +78,13 @@ library LibProposing {
 
         // L2 1559 fee calculation
         if (config.enableTokenomics) {
-            uint256 ethToBurn;
-            (meta.basefee1559, ethToBurn, state.gasExcess) = Lib1559
-                .adjust1559Basefee(config, state.gasExcess, input.gasLimit);
+            uint256 gasPurchaseCost;
+            (meta.gasBasefee, gasPurchaseCost, state.gasExcess) = Lib1559
+                .purchaseGas(config, state.gasExcess, input.gasLimit);
 
-            if (msg.value < ethToBurn) revert L1_INSUFFICIENT_ETHER_BURN();
-
-            msg.sender.sendEther(msg.value - ethToBurn);
+            if (msg.value < gasPurchaseCost)
+                revert L1_INSUFFICIENT_ETHER_BURN();
+            msg.sender.sendEther(msg.value - gasPurchaseCost);
 
             if (state.lastProposedHeight == block.number) {
                 state.gasSoldThisBlock += meta.gasLimit;
@@ -180,7 +180,7 @@ library LibProposing {
             input.gasLimit > config.blockGasTarget * 2
         ) revert L1_INVALID_METADATA();
 
-        if (input.gasLimit > LibEIP1559.getAvailabGasForSale(state, config))
+        if (input.gasLimit > Lib1559.getMaxGasPurchaseAmount(state, config))
             revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (

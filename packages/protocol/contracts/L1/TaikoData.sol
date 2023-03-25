@@ -43,7 +43,7 @@ library TaikoData {
         // blockGasThrottle/blockGasTarget indicates how much we can scale
         // Ethereum as a single L2.
         uint32 blockGasThrottle;
-        uint32 basefee1559AdjustmentQuotient;
+        uint32 baseGasFeeQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -85,7 +85,7 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         address beneficiary;
-        uint256 basefee1559;
+        uint256 gasBasefee;
     }
 
     struct ZKProof {
