@@ -131,15 +131,11 @@ library LibProposing {
                 .toUint64();
         }
 
-        {
-            uint256 blockTime;
-            unchecked {
-                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
-            }
+        unchecked {
             state.avgBlockTime = LibUtils
                 .movingAverage({
                     maValue: state.avgBlockTime,
-                    newValue: blockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
                     maf: config.proposingConfig.avgTimeMAF
                 })
                 .toUint64();
