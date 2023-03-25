@@ -13,7 +13,7 @@ import {TaikoData} from "../TaikoData.sol";
 library Lib1559 {
     using LibMath for uint256;
 
-    function get1559Status(
+    function get1559FeeStatus(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockGasLimit
