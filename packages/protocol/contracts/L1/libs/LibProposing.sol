@@ -49,6 +49,13 @@ library LibProposing {
             txList: txList
         });
 
+        if (cacheTxList) {
+            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                validSince: uint64(block.timestamp),
+                size: uint24(txList.length)
+            });
+        }
+
         // After The Merge, L1 mixHash contains the prevrandao
         // from the beacon chain. Since multiple Taiko blocks
         // can be proposed in one Ethereum block, we need to
@@ -86,10 +93,12 @@ library LibProposing {
                 .getBlockFee(state, config);
 
             uint256 burnAmount = fee + deposit;
-            if (state.balances[msg.sender] <= burnAmount)
+            if (state.balances[msg.sender] < burnAmount)
                 revert L1_INSUFFICIENT_TOKEN();
 
-            state.balances[msg.sender] -= burnAmount;
+            unchecked {
+                state.balances[msg.sender] -= burnAmount;
+            }
 
             // Update feeBase and avgBlockTime
             state.feeBase = LibUtils
@@ -103,27 +112,15 @@ library LibProposing {
             blk.deposit = uint64(deposit);
         }
 
-        if (state.lastProposedAt > 0) {
-            uint256 blockTime;
-            unchecked {
-                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
-            }
+        unchecked {
             state.avgBlockTime = LibUtils
                 .movingAverage({
                     maValue: state.avgBlockTime,
-                    newValue: blockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
                     maf: config.proposingConfig.avgTimeMAF
                 })
                 .toUint64();
-        }
-
-        state.lastProposedAt = meta.timestamp;
-
-        if (cacheTxList) {
-            state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
-                validSince: uint64(block.timestamp),
-                size: uint24(txList.length)
-            });
+            state.lastProposedAt = meta.timestamp;
         }
 
         emit BlockProposed(state.numBlocks, meta, cacheTxList);
