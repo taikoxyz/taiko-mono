@@ -28,6 +28,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_BLOCKSPACE();
     error L1_INSUFFICIENT_ETHER_BURN();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
@@ -45,70 +46,13 @@ library LibProposing {
         TaikoData.BlockMetadataInput memory input,
         bytes calldata txList
     ) internal {
-        // For alpha-2 testnet, the network only allows an special address
-        // to propose but anyone to prove. This is the first step of testing
-        // the tokenomics.
-        if (
-            config.enableSoloProposer &&
-            msg.sender != resolver.resolve("solo_proposer", false)
-        ) revert L1_NOT_SOLO_PROPOSER();
-
-        if (
-            input.beneficiary == address(0) ||
-            input.gasLimit > config.blockMaxGasLimit
-        ) revert L1_INVALID_METADATA();
-
-        if (
-            state.numBlocks >=
-            state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
-        ) revert L1_TOO_MANY_BLOCKS();
-
-        bool txListCached;
-
-        // hanlding txList
-        {
-            uint24 size = uint24(txList.length);
-            if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
-
-            if (input.txListByteStart > input.txListByteEnd)
-                revert L1_TX_LIST_RANGE();
-
-            if (config.txListCacheExpiry == 0) {
-                // caching is disabled
-                if (input.txListByteStart != 0 || input.txListByteEnd != size)
-                    revert L1_TX_LIST_RANGE();
-            } else {
-                // caching is enabled
-                if (size == 0) {
-                    // This blob shall have been submitted earlier
-                    TaikoData.TxListInfo memory info = state.txListInfo[
-                        input.txListHash
-                    ];
-
-                    if (input.txListByteEnd > info.size)
-                        revert L1_TX_LIST_RANGE();
-
-                    if (
-                        info.size == 0 ||
-                        info.validSince + config.txListCacheExpiry <
-                        block.timestamp
-                    ) revert L1_TX_LIST_NOT_EXIST();
-                } else {
-                    if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
-                    if (input.txListHash != keccak256(txList))
-                        revert L1_TX_LIST_HASH();
-
-                    if (input.cacheTxListInfo != 0) {
-                        state.txListInfo[input.txListHash] = TaikoData
-                            .TxListInfo({
-                                validSince: uint64(block.timestamp),
-                                size: size
-                            });
-                        txListCached = true;
-                    }
-                }
-            }
-        }
+        bool txListCached = _validateBlock({
+            state: state,
+            config: config,
+            resolver: resolver,
+            input: input,
+            txList: txList
+        });
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.numBlocks,
@@ -116,12 +60,12 @@ library LibProposing {
             l1Height: uint64(block.number - 1),
             gasLimit: input.gasLimit,
             l1Hash: blockhash(block.number - 1),
-            mixHash: 0, // will be initialized later
+            mixHash: 0, // will be set later
             txListHash: input.txListHash,
             txListByteStart: input.txListByteStart,
             txListByteEnd: input.txListByteEnd,
             beneficiary: input.beneficiary,
-            basefee1559: 0 // will be initialized later
+            basefeePerGas: 0 // will be set later
         });
 
         // After The Merge, L1 mixHash contains the prevrandao
@@ -133,18 +77,23 @@ library LibProposing {
         }
 
         // L2 1559 fee calculation
-        if (config.enableTokenomics) {
-            uint256 baseCharge1559;
-            (baseCharge1559, meta.basefee1559, state.excessGasIssued) = Lib1559
-                .get1559BurnAmountAndBaseFee(
-                    config,
-                    state.excessGasIssued,
-                    input.gasLimit
-                );
+        {
+            uint256 gasPurchaseCost;
+            (meta.basefeePerGas, gasPurchaseCost, state.gasExcess) = Lib1559
+                .purchaseGas(config, state.gasExcess, input.gasLimit);
 
-            if (msg.value < baseCharge1559) revert L1_INSUFFICIENT_ETHER_BURN();
+            if (msg.value < gasPurchaseCost)
+                revert L1_INSUFFICIENT_ETHER_BURN();
 
-            msg.sender.sendEther(msg.value - baseCharge1559);
+            unchecked {
+                if (state.lastProposedHeight == block.number) {
+                    state.gasSoldThisBlock += meta.gasLimit;
+                } else {
+                    state.lastProposedHeight = uint64(block.number);
+                    state.gasSoldThisBlock = meta.gasLimit;
+                }
+                msg.sender.sendEther(msg.value - gasPurchaseCost);
+            }
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -153,7 +102,7 @@ library LibProposing {
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
-        blk.deposit = 0; // will be initialized later
+        blk.deposit = 0; // will be set later
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
@@ -182,15 +131,11 @@ library LibProposing {
                 .toUint64();
         }
 
-        if (state.lastProposedAt > 0) {
-            uint256 blockTime;
-            unchecked {
-                blockTime = (meta.timestamp - state.lastProposedAt) * 1000;
-            }
+        unchecked {
             state.avgBlockTime = LibUtils
                 .movingAverage({
                     maValue: state.avgBlockTime,
-                    newValue: blockTime,
+                    newValue: (meta.timestamp - state.lastProposedAt) * 1000,
                     maf: config.proposingConfig.avgTimeMAF
                 })
                 .toUint64();
@@ -211,5 +156,74 @@ library LibProposing {
     ) internal view returns (TaikoData.Block storage blk) {
         blk = state.blocks[blockId % config.ringBufferSize];
         if (blk.blockId != blockId) revert L1_BLOCK_ID();
+    }
+
+    function _validateBlock(
+        TaikoData.State storage state,
+        TaikoData.Config memory config,
+        AddressResolver resolver,
+        TaikoData.BlockMetadataInput memory input,
+        bytes calldata txList
+    ) private returns (bool txListCached) {
+        // For alpha-2 testnet, the network only allows an special address
+        // to propose but anyone to prove. This is the first step of testing
+        // the tokenomics.
+        if (
+            config.enableSoloProposer &&
+            msg.sender != resolver.resolve("solo_proposer", false)
+        ) revert L1_NOT_SOLO_PROPOSER();
+
+        if (
+            input.beneficiary == address(0) ||
+            input.gasLimit > config.blockGasTarget * 2
+        ) revert L1_INVALID_METADATA();
+
+        if (input.gasLimit > Lib1559.getMaxGasPurchaseAmount(state, config))
+            revert L1_INSUFFICIENT_BLOCKSPACE();
+
+        if (
+            state.numBlocks >=
+            state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
+        ) revert L1_TOO_MANY_BLOCKS();
+
+        // verify txList
+        uint24 size = uint24(txList.length);
+        if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
+
+        if (input.txListByteStart > input.txListByteEnd)
+            revert L1_TX_LIST_RANGE();
+
+        if (config.txListCacheExpiry == 0) {
+            // caching is disabled
+            if (input.txListByteStart != 0 || input.txListByteEnd != size)
+                revert L1_TX_LIST_RANGE();
+        } else {
+            // caching is enabled
+            if (size == 0) {
+                // This blob shall have been submitted earlier
+                TaikoData.TxListInfo memory info = state.txListInfo[
+                    input.txListHash
+                ];
+
+                if (input.txListByteEnd > info.size) revert L1_TX_LIST_RANGE();
+
+                if (
+                    info.size == 0 ||
+                    info.validSince + config.txListCacheExpiry < block.timestamp
+                ) revert L1_TX_LIST_NOT_EXIST();
+            } else {
+                if (input.txListByteEnd > size) revert L1_TX_LIST_RANGE();
+                if (input.txListHash != keccak256(txList))
+                    revert L1_TX_LIST_HASH();
+
+                if (input.cacheTxListInfo != 0) {
+                    state.txListInfo[input.txListHash] = TaikoData.TxListInfo({
+                        validSince: uint64(block.timestamp),
+                        size: size
+                    });
+                    txListCached = true;
+                }
+            }
+        }
     }
 }

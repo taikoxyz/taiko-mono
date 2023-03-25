@@ -31,26 +31,27 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint256 excessGasIssued,
+        uint256 gasExcess,
         uint64 feeBase
     ) internal {
         _checkConfig(config);
 
-        uint64 timeNow = uint64(block.number);
-        state.genesisHeight = timeNow;
-        state.genesisTimestamp = timeNow;
-        state.excessGasIssued = excessGasIssued;
+        state.genesisHeight = uint64(block.number);
+        state.genesisTimestamp = uint64(block.timestamp);
+        state.lastProposedAt = uint64(block.timestamp);
+        state.lastProposedHeight = uint64(block.number);
+        state.gasExcess = gasExcess;
         state.feeBase = feeBase;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
-        blk.proposedAt = timeNow;
+        blk.proposedAt = uint64(block.timestamp);
         blk.nextForkChoiceId = 2;
         blk.verifiedForkChoiceId = 1;
 
         TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
         fc.blockHash = genesisBlockHash;
-        fc.provenAt = timeNow;
+        fc.provenAt = uint64(block.timestamp);
 
         emit BlockVerified(0, genesisBlockHash);
     }
@@ -186,14 +187,14 @@ library LibVerifying {
             config.maxNumProposedBlocks == 1 ||
             config.ringBufferSize <= config.maxNumProposedBlocks + 1 ||
             config.maxNumVerifiedBlocks == 0 ||
-            config.blockMaxGasLimit == 0 ||
+            config.blockGasTarget == 0 ||
+            config.blockGasThrottle < config.blockGasTarget * 2 ||
             config.maxTransactionsPerBlock == 0 ||
             config.maxBytesPerTxList == 0 ||
             // EIP-4844 blob size up to 128K
             config.maxBytesPerTxList > 128 * 1024 ||
             config.minTxGasLimit == 0 ||
             config.slotSmoothingFactor == 0 ||
-            config.anchorTxGasLimit == 0 ||
             // EIP-4844 blob deleted after 30 days
             config.txListCacheExpiry > 30 * 24 hours ||
             config.rewardBurnBips >= 10000

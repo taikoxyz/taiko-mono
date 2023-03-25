@@ -24,12 +24,10 @@ library TaikoData {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 slotSmoothingFactor;
-        uint256 anchorTxGasLimit;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
         // Moving average factors
@@ -37,9 +35,15 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
-        uint32 gasTarget;
-        uint32 gasFeeAdjustmentQuotient;
-        uint32 gasFeeSlackCoefficient;
+        // This is the L2 block target. The max block gasLimit
+        // is twice this value.
+        uint32 blockGasTarget;
+        // This is the max amount of gas that can be sold to all
+        // L2 blocks proposed within one L1 block.
+        // `blockGasThrottle / ( 2 * blockGasTarget)` indicates how much
+        // we can scale Ethereum as a single L2.
+        uint32 blockGasThrottle;
+        uint32 basefeePerGasQuotient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -81,7 +85,8 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         address beneficiary;
-        uint256 basefee1559;
+        // L2 1559 basefee, not to confuse with proposing feeBase.
+        uint64 basefeePerGas;
     }
 
     struct ZKProof {
@@ -140,15 +145,16 @@ library TaikoData {
         uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
-        uint256 excessGasIssued;
+        uint256 gasExcess; // L2 1559 gas pool
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
+        uint64 lastProposedHeight; // Block number in which the last block is proposed.
         uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
+        // Total L2 gas sold in the lastProposedHeight-th L1 block.
+        uint32 gasSoldThisBlock;
         uint64 lastVerifiedBlockId;
-        // the proof time moving average, note that for each block, only the
+        // The proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
         uint64 feeBase;

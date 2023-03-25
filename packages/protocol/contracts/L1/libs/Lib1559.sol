@@ -8,56 +8,66 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-// import {
-//     SafeCastUpgradeable
-// } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
-
-// import {TaikoToken} from "../TaikoToken.sol";
 
 library Lib1559 {
     using LibMath for uint256;
 
-    error L1_BLOCK_GAS_LIMIT_TOO_LARGE();
-
-    function get1559BurnAmountAndBaseFee(
+    function getGasFeeStatus(
+        TaikoData.State storage state,
         TaikoData.Config memory config,
-        uint256 excessGasIssued,
-        uint256 blockGasLimit
+        uint256 gasPurchaseAmount
+    )
+        internal
+        view
+        returns (
+            uint256 basefeePerGas,
+            uint256 gasPurchaseCost,
+            uint256 maxGasPurchaseAmount
+        )
+    {
+        (basefeePerGas, gasPurchaseCost, ) = purchaseGas(
+            config,
+            state.gasExcess,
+            gasPurchaseAmount
+        );
+        maxGasPurchaseAmount = getMaxGasPurchaseAmount(state, config);
+    }
+
+    function getMaxGasPurchaseAmount(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    ) internal view returns (uint256 amount) {
+        amount = config.blockGasThrottle;
+
+        if (state.lastProposedHeight == block.number) {
+            amount -= state.gasSoldThisBlock;
+        }
+    }
+
+    function purchaseGas(
+        TaikoData.Config memory config,
+        uint256 gasExcess,
+        uint256 gasPurchaseAmount
     )
         internal
         pure
-        returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
+        returns (
+            uint64 basefeePerGas,
+            uint256 gasPurchaseCost,
+            uint256 newGasExcess
+        )
     {
-        uint256 gasTarget = config.gasTarget;
-        if (blockGasLimit > gasTarget * config.gasFeeSlackCoefficient)
-            revert L1_BLOCK_GAS_LIMIT_TOO_LARGE();
+        uint256 t = config.blockGasTarget;
+        uint256 q = config.basefeePerGasQuotient;
+        uint256 eq1 = exp(gasExcess / t / q);
+        basefeePerGas = uint64(eq1 / t / q);
 
-        uint256 quality1 = ethQty(
-            gasTarget,
-            config.gasFeeAdjustmentQuotient,
-            excessGasIssued
-        );
+        gasExcess += gasPurchaseAmount;
+        uint256 eq2 = exp(gasExcess / t / q);
+        gasPurchaseCost = eq2 - eq1; // Queston: is this correct???
 
-        uint256 _excessGasIssued = excessGasIssued + blockGasLimit;
-        uint256 quality2 = ethQty(
-            gasTarget,
-            config.gasFeeAdjustmentQuotient,
-            _excessGasIssued
-        );
-
-        ethToBurn = quality2 - quality1;
-
-        basefee = quality1 / gasTarget / config.gasFeeAdjustmentQuotient;
-        newExcessGasIssued = gasTarget.max(_excessGasIssued) - gasTarget;
-    }
-
-    function ethQty(
-        uint256 gasTarget,
-        uint256 gasFeeAdjustmentQuotient,
-        uint256 excessGasIssued
-    ) internal pure returns (uint256) {
-        return exp(excessGasIssued / gasTarget / gasFeeAdjustmentQuotient);
+        newGasExcess = t.max(gasExcess) - t;
     }
 
     // Return `2.71828 ** x`.
