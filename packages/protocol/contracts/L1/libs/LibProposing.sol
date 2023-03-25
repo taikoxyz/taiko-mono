@@ -86,11 +86,13 @@ library LibProposing {
                 revert L1_INSUFFICIENT_ETHER_BURN();
             msg.sender.sendEther(msg.value - gasPurchaseCost);
 
-            if (state.lastProposedHeight == block.number) {
-                state.gasSoldThisBlock += meta.gasLimit;
-            } else {
-                state.lastProposedHeight = uint64(block.number);
-                state.gasSoldThisBlock = meta.gasLimit;
+            unchecked {
+                if (state.lastProposedHeight == block.number) {
+                    state.gasSoldThisBlock += meta.gasLimit;
+                } else {
+                    state.lastProposedHeight = uint64(block.number);
+                    state.gasSoldThisBlock = meta.gasLimit;
+                }
             }
         }
 
