@@ -158,7 +158,7 @@ library LibProving {
                 // Note that this value is not necessary and can be hard-coded
                 // in to the circuit code, but if we upgrade the protocol
                 // and the gas limit changes, then having it here may be handy.
-                inputs[8] = bytes32(config.anchorTxGasLimit);
+                inputs[8] = bytes32(uint256(180000));
 
                 assembly {
                     instance := keccak256(inputs, mul(32, 9))

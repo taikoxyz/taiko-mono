@@ -18,8 +18,6 @@ import {TaikoData} from "../TaikoData.sol";
 library Lib1559 {
     using LibMath for uint256;
 
-    error L1_BLOCK_GAS_LIMIT_TOO_LARGE();
-
     function get1559BurnAmountAndBaseFee(
         TaikoData.Config memory config,
         uint256 excessGasIssued,
@@ -29,26 +27,17 @@ library Lib1559 {
         pure
         returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
     {
-        uint256 gasTarget = config.gasTarget;
-        if (blockGasLimit > gasTarget * config.gasFeeSlackCoefficient)
-            revert L1_BLOCK_GAS_LIMIT_TOO_LARGE();
+        uint256 gasTarget = config.gasTargetPerL2Block;
+        uint256 quotient = config.gasFeeAdjustmentQuotient;
 
-        uint256 quality1 = ethQty(
-            gasTarget,
-            config.gasFeeAdjustmentQuotient,
-            excessGasIssued
-        );
+        uint256 quality1 = ethQty(gasTarget, quotient, excessGasIssued);
+        basefee = quality1 / gasTarget / quotient;
 
         uint256 _excessGasIssued = excessGasIssued + blockGasLimit;
-        uint256 quality2 = ethQty(
-            gasTarget,
-            config.gasFeeAdjustmentQuotient,
-            _excessGasIssued
-        );
+        uint256 quality2 = ethQty(gasTarget, quotient, _excessGasIssued);
 
         ethToBurn = quality2 - quality1;
 
-        basefee = quality1 / gasTarget / config.gasFeeAdjustmentQuotient;
         newExcessGasIssued = gasTarget.max(_excessGasIssued) - gasTarget;
     }
 

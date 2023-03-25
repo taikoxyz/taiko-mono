@@ -24,12 +24,10 @@ library TaikoData {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 blockMaxGasLimit;
         uint256 maxTransactionsPerBlock;
         uint256 maxBytesPerTxList;
         uint256 minTxGasLimit;
         uint256 slotSmoothingFactor;
-        uint256 anchorTxGasLimit;
         uint256 rewardBurnBips;
         uint256 proposerDepositPctg;
         // Moving average factors
@@ -37,9 +35,9 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
-        uint32 gasTarget;
+        uint32 gasTargetPerL2Block;
+        uint32 gasTargetPerL1Block;
         uint32 gasFeeAdjustmentQuotient;
-        uint32 gasFeeSlackCoefficient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -143,10 +141,10 @@ library TaikoData {
         uint256 excessGasIssued;
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
+        uint64 lastProposedHeight;
         uint64 avgBlockTime; // miliseconds
-        uint64 __reserved3;
         // Changed when a block is proven/finalized
-        uint64 __reserved4;
+        uint32 gasSoldThisBlock;
         uint64 lastVerifiedBlockId;
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.

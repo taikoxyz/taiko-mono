@@ -20,9 +20,6 @@ library TaikoConfig {
                 //Each time one more block is verified, there will be ~20k
                 // more gas cost.
                 maxVerificationsPerTx: 10,
-                // Set it to 6M, since its the upper limit of the Alpha-2
-                // testnet's circuits.
-                blockMaxGasLimit: 6000000,
                 //   Set it to 79  (+1 TaikoL2.anchor transaction = 80),
                 // and 80 is the upper limit of the Alpha-2 testnet's circuits.
                 maxTransactionsPerBlock: 79,
@@ -32,7 +29,6 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 slotSmoothingFactor: 946649,
-                anchorTxGasLimit: 180000,
                 // 100 basis points or 1%
                 rewardBurnBips: 100,
                 proposerDepositPctg: 25, // - 25%
@@ -41,9 +37,9 @@ library TaikoConfig {
                 bootstrapDiscountHalvingPeriod: 1 seconds, // owner:daniel
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
-                gasTarget: 10000000, // 10 million
+                gasTargetPerL2Block: 3000000, // 3 million
+                gasTargetPerL1Block: 30000000, // 30 million
                 gasFeeAdjustmentQuotient: 1023, // TODO
-                gasFeeSlackCoefficient: 2,
                 enableSoloProposer: false,
                 enableOracleProver: true,
                 enableTokenomics: true,

@@ -23,12 +23,12 @@ contract TestTaikoL1 is TaikoL1 {
         // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0;
-        config.blockMaxGasLimit = 30000000;
+        config.gasTargetPerL2Block = 15000000;
+        config.gasTargetPerL1Block = 150000000;
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
         config.slotSmoothingFactor = 590000;
-        config.anchorTxGasLimit = 180000;
         config.rewardBurnBips = 100; // 100 basis points or 1%
         config.proposerDepositPctg = 25; // 25%
 

@@ -28,6 +28,7 @@ library LibProposing {
     );
 
     error L1_BLOCK_ID();
+    error L1_INSUFFICIENT_BLOCKSPACE();
     error L1_INSUFFICIENT_ETHER_BURN();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_METADATA();
@@ -88,6 +89,13 @@ library LibProposing {
             if (msg.value < baseCharge1559) revert L1_INSUFFICIENT_ETHER_BURN();
 
             msg.sender.sendEther(msg.value - baseCharge1559);
+
+            if (state.lastProposedHeight == block.number) {
+                state.gasSoldThisBlock += meta.gasLimit;
+            } else {
+                state.lastProposedHeight = uint64(block.number);
+                state.gasSoldThisBlock = meta.gasLimit;
+            }
         }
 
         TaikoData.Block storage blk = state.blocks[
@@ -173,8 +181,13 @@ library LibProposing {
 
         if (
             input.beneficiary == address(0) ||
-            input.gasLimit > config.blockMaxGasLimit
+            input.gasLimit > config.gasTargetPerL2Block * 2
         ) revert L1_INVALID_METADATA();
+
+        if (
+            state.lastProposedHeight == block.number &&
+            input.gasLimit > config.gasTargetPerL1Block - state.gasSoldThisBlock
+        ) revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (
             state.numBlocks >=
@@ -182,7 +195,6 @@ library LibProposing {
         ) revert L1_TOO_MANY_BLOCKS();
 
         // hanlding txList
-
         uint24 size = uint24(txList.length);
         if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
 

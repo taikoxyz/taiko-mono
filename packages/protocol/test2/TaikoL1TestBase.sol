@@ -116,7 +116,6 @@ abstract contract TaikoL1TestBase is Test {
 
     function proveBlock(
         address prover,
-        uint32 gasUsed,
         TaikoData.BlockMetadata memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
