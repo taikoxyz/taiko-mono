@@ -32,7 +32,6 @@ library TaikoConfig {
                 maxBytesPerTxList: 120000,
                 minTxGasLimit: 21000,
                 slotSmoothingFactor: 946649,
-                anchorTxGasLimit: 180000,
                 // 100 basis points or 1%
                 rewardBurnBips: 100,
                 proposerDepositPctg: 25, // - 25%
