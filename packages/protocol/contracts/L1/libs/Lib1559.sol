@@ -38,7 +38,7 @@ library Lib1559 {
         TaikoData.State storage state,
         TaikoData.Config memory config
     ) internal view returns (uint256 amount) {
-        amount = config.blockGasThrottle * 2;
+        amount = config.blockGasThrottle;
 
         if (state.lastProposedHeight == block.number) {
             amount -= state.gasSoldThisBlock;

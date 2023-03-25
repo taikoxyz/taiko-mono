@@ -40,8 +40,8 @@ library TaikoData {
         uint32 blockGasTarget;
         // This is the max amount of gas that can be sold to all
         // L2 blocks proposed within one L1 block.
-        // blockGasThrottle/blockGasTarget indicates how much we can scale
-        // Ethereum as a single L2.
+        // `blockGasThrottle / ( 2 * blockGasTarget)` indicates how much
+        // we can scale Ethereum as a single L2.
         uint32 blockGasThrottle;
         uint32 basefeePerGasQuotient;
         bool enableSoloProposer;

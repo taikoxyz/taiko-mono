@@ -24,7 +24,7 @@ contract TestTaikoL1 is TaikoL1 {
         // the 'the maximum value of the multiplier' close to 20.0
         config.maxVerificationsPerTx = 0;
         config.blockGasTarget = 15000000;
-        config.blockGasThrottle = 150000000;
+        config.blockGasThrottle = 300000000;
         config.maxTransactionsPerBlock = 20;
         config.maxBytesPerTxList = 120000;
         config.minTxGasLimit = 21000;
