@@ -186,7 +186,8 @@ library LibProposing {
 
         if (
             state.lastProposedHeight == block.number &&
-            input.gasLimit > config.blockGasCap * 2 - state.gasSoldThisBlock
+            input.gasLimit >
+            config.blockGasThrottle * 2 - state.gasSoldThisBlock
         ) revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (

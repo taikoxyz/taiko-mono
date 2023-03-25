@@ -38,7 +38,7 @@ library TaikoConfig {
                 constantFeeRewardBlocks: 1024,
                 txListCacheExpiry: 0,
                 blockGasTarget: 3000000, // 3 million
-                blockGasCap: 30000000, // 30 million
+                blockGasThrottle: 30000000, // 30 million
                 gasFeeAdjustmentQuotient: 1023, // TODO
                 enableSoloProposer: false,
                 enableOracleProver: true,
