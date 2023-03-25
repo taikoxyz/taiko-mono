@@ -13,7 +13,7 @@ import {TaikoData} from "../TaikoData.sol";
 library Lib1559 {
     using LibMath for uint256;
 
-    function get1559BurnAmountAndBaseFee(
+    function get1559BurnAmountAndBasefee(
         TaikoData.Config memory config,
         uint256 gasExcess,
         uint256 blockGasLimit

@@ -80,7 +80,7 @@ library LibProposing {
         if (config.enableTokenomics) {
             uint256 baseCharge1559;
             (baseCharge1559, meta.basefee1559, state.gasExcess) = Lib1559
-                .get1559BurnAmountAndBaseFee(
+                .get1559BurnAmountAndBasefee(
                     config,
                     state.gasExcess,
                     input.gasLimit
