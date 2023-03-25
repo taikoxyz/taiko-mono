@@ -101,11 +101,6 @@
   },
   {
     "inputs": [],
-    "name": "L1_CONFLICT_PROOF",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "L1_CONTRACT_NOT_ALLOWED",
     "type": "error"
   },

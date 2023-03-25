@@ -42,7 +42,7 @@ library TaikoData {
     }
 
     struct StateVariables {
-        uint64 feeBaseTwei;
+        uint64 feeBase;
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 numBlocks;
@@ -65,9 +65,9 @@ library TaikoData {
     // 5 slots
     struct BlockMetadata {
         uint64 id;
-        uint32 gasLimit;
         uint64 timestamp;
         uint64 l1Height;
+        uint32 gasLimit;
         bytes32 l1Hash;
         bytes32 mixHash;
         bytes32 txListHash;
@@ -88,7 +88,7 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
-        uint64 gasUsed;
+        uint32 gasUsed;
     }
 
     // 3 slots
@@ -99,17 +99,17 @@ library TaikoData {
         address prover;
     }
 
-    // 5 slots
+    // 4 slots
     struct Block {
+        // ForkChoice storage are reusable
+        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
         uint64 blockId;
         uint64 proposedAt;
+        uint64 deposit;
         uint24 nextForkChoiceId;
         uint24 verifiedForkChoiceId;
         bytes32 metaHash;
-        uint256 deposit;
         address proposer;
-        // ForkChoice storage are reusable
-        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
     }
 
     // This struct takes 9 slots.
@@ -143,7 +143,7 @@ library TaikoData {
         // the proof time moving average, note that for each block, only the
         // first proof's time is considered.
         uint64 avgProofTime; // miliseconds
-        uint64 feeBaseTwei;
+        uint64 feeBase;
         // Reserved
         uint256[42] __gap;
     }

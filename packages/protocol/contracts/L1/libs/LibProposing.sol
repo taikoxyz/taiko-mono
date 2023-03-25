@@ -114,9 +114,9 @@ library LibProposing {
 
         TaikoData.BlockMetadata memory meta = TaikoData.BlockMetadata({
             id: state.numBlocks,
-            gasLimit: input.gasLimit,
             timestamp: timeNow,
             l1Height: uint64(block.number - 1),
+            gasLimit: input.gasLimit,
             l1Hash: blockhash(block.number - 1),
             mixHash: bytes32(mixHash),
             txListHash: input.txListHash,
@@ -142,10 +142,10 @@ library LibProposing {
                 state.balances[msg.sender] -= burnAmount;
             }
             // Update feeBase and avgBlockTime
-            state.feeBaseTwei = LibUtils
+            state.feeBase = LibUtils
                 .movingAverage({
-                    maValue: state.feeBaseTwei,
-                    newValue: LibTokenomics.toTwei(newFeeBase),
+                    maValue: state.feeBase,
+                    newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })
                 .toUint64();
@@ -157,10 +157,10 @@ library LibProposing {
 
         blk.blockId = state.numBlocks;
         blk.proposedAt = meta.timestamp;
+        blk.deposit = uint64(deposit);
         blk.nextForkChoiceId = 1;
         blk.verifiedForkChoiceId = 0;
         blk.metaHash = LibUtils.hashMetadata(meta);
-        blk.deposit = deposit;
         blk.proposer = msg.sender;
 
         if (state.lastProposedAt > 0) {

@@ -47,7 +47,7 @@ struct Config {
 
 ```solidity
 struct StateVariables {
-  uint64 feeBaseTwei;
+  uint64 feeBase;
   uint64 genesisHeight;
   uint64 genesisTimestamp;
   uint64 numBlocks;
@@ -76,9 +76,9 @@ struct BlockMetadataInput {
 ```solidity
 struct BlockMetadata {
   uint64 id;
-  uint32 gasLimit;
   uint64 timestamp;
   uint64 l1Height;
+  uint32 gasLimit;
   bytes32 l1Hash;
   bytes32 mixHash;
   bytes32 txListHash;
@@ -107,6 +107,7 @@ struct BlockEvidence {
   bytes32 blockHash;
   bytes32 signalRoot;
   address prover;
+  uint32 gasUsed;
 }
 ```
 
@@ -125,14 +126,14 @@ struct ForkChoice {
 
 ```solidity
 struct Block {
+  mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
   uint64 blockId;
   uint64 proposedAt;
+  uint64 deposit;
   uint24 nextForkChoiceId;
   uint24 verifiedForkChoiceId;
   bytes32 metaHash;
-  uint256 deposit;
   address proposer;
-  mapping(uint256 => struct TaikoData.ForkChoice) forkChoices;
 }
 ```
 
@@ -164,7 +165,7 @@ struct State {
   uint64 __reserved4;
   uint64 lastVerifiedBlockId;
   uint64 avgProofTime;
-  uint64 feeBaseTwei;
+  uint64 feeBase;
   uint256[42] __gap;
 }
 ```
