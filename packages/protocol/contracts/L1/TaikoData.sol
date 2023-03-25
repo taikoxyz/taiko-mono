@@ -37,6 +37,9 @@ library TaikoData {
         uint64 bootstrapDiscountHalvingPeriod;
         uint64 constantFeeRewardBlocks;
         uint64 txListCacheExpiry;
+        uint32 gasTarget;
+        uint32 gasFeeAdjustmentQuotient;
+        uint32 gasFeeSlackCoefficient;
         bool enableSoloProposer;
         bool enableOracleProver;
         bool enableTokenomics;
@@ -78,6 +81,7 @@ library TaikoData {
         uint24 txListByteStart;
         uint24 txListByteEnd;
         address beneficiary;
+        uint256 basefee1559;
     }
 
     struct ZKProof {
@@ -92,7 +96,6 @@ library TaikoData {
         bytes32 blockHash;
         bytes32 signalRoot;
         address prover;
-        uint32 gasUsed;
     }
 
     // 3 slots
@@ -137,6 +140,7 @@ library TaikoData {
         uint64 __reserved2;
         // Changed when a block is proposed or proven/finalized
         // Changed when a block is proposed
+        uint256 excessGasIssued;
         uint64 numBlocks;
         uint64 lastProposedAt; // Timestamp when the last block is proposed.
         uint64 avgBlockTime; // miliseconds

@@ -12,42 +12,56 @@ import {LibMath} from "../../libs/LibMath.sol";
 //     SafeCastUpgradeable
 // } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
+
 // import {TaikoToken} from "../TaikoToken.sol";
 
-library LibTokenomics {
+library Lib1559 {
     using LibMath for uint256;
-    uint256 private constant ADJUSTMENT_QUOTIENT = 1E12;
 
-    error L1_INSUFFICIENT_TOKEN();
-    error L1_INVALID_PARAM();
+    error L1_BLOCK_GAS_LIMIT_TOO_LARGE();
 
-    function withdraw(
-        TaikoData.State storage state,
-        AddressResolver resolver,
-        uint256 amount
-    ) internal {
-        uint256 balance = state.balances[msg.sender];
-        if (balance < amount) revert L1_INSUFFICIENT_TOKEN();
+    function get1559BurnAmountAndBaseFee(
+        TaikoData.Config memory config,
+        uint256 excessGasIssued,
+        uint256 blockGasLimit
+    )
+        internal
+        pure
+        returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
+    {
+        uint256 gasTarget = config.gasTarget;
+        if (blockGasLimit > gasTarget * config.gasFeeSlackCoefficient)
+            revert L1_BLOCK_GAS_LIMIT_TOO_LARGE();
 
-        unchecked {
-            state.balances[msg.sender] -= amount;
-        }
-
-        TaikoToken(resolver.resolve("taiko_token", false)).mint(
-            msg.sender,
-            amount
+        uint256 quality1 = ethQty(
+            gasTarget,
+            config.gasFeeAdjustmentQuotient,
+            excessGasIssued
         );
+
+        uint256 _excessGasIssued = excessGasIssued + blockGasLimit;
+        uint256 quality2 = ethQty(
+            gasTarget,
+            config.gasFeeAdjustmentQuotient,
+            _excessGasIssued
+        );
+
+        ethToBurn = quality2 - quality1;
+
+        basefee = quality1 / gasTarget / config.gasFeeAdjustmentQuotient;
+        newExcessGasIssued = gasTarget.max(_excessGasIssued) - gasTarget;
     }
 
-    function calcGasFee(uint256 TARGET, uint256 excessGasIssued, uint256 gasLimit) internal pure returns (uint256 fee, uint256 newExcessGasIssued) {
-        uint a = eth_qty(TARGET, excessGasIssued+ gasLimit) - eth_qty(TARGET, excessGasIssued);
-        newExcessGasIssued = (excessGasIssued + gasLimit).max(TARGET) - TARGET;
-
+    function ethQty(
+        uint256 gasTarget,
+        uint256 gasFeeAdjustmentQuotient,
+        uint256 excessGasIssued
+    ) internal pure returns (uint256) {
+        return exp(excessGasIssued / gasTarget / gasFeeAdjustmentQuotient);
     }
 
-    function eth_qty(uint256 TARGET, uint256 gasQuantity) internal pure returns (uint256) {
-        return exp(gasQuantity / TARGET / ADJUSTMENT_QUOTIENT);
+    // Return `2.71828 ** x`.
+    function exp(uint256 x) internal pure returns (uint256 y) {
+        // TODO
     }
-
-    function exp(uint256 b) internal pure returns(uint256 c) {}
 }

@@ -31,6 +31,7 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
+        uint256 excessGasIssued,
         uint64 feeBase
     ) internal {
         _checkConfig(config);
@@ -38,6 +39,7 @@ library LibVerifying {
         uint64 timeNow = uint64(block.number);
         state.genesisHeight = timeNow;
         state.genesisTimestamp = timeNow;
+        state.excessGasIssued = excessGasIssued;
         state.feeBase = feeBase;
         state.numBlocks = 1;
 

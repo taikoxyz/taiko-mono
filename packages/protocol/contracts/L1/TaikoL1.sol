@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../common/AddressResolver.sol";
 import {EssentialContract} from "../common/EssentialContract.sol";
 import {IXchainSync} from "../common/IXchainSync.sol";
+import {Lib1559} from "./libs/Lib1559.sol";
 import {LibProposing} from "./libs/LibProposing.sol";
 import {LibProving} from "./libs/LibProving.sol";
 import {LibTokenomics} from "./libs/LibVerifying.sol";
@@ -28,6 +29,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
+        uint256 _excessGasIssued,
         uint64 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
@@ -35,6 +37,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
+            excessGasIssued: _excessGasIssued,
             feeBase: _feeBase
         });
     }
@@ -53,7 +56,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function proposeBlock(
         bytes calldata input,
         bytes calldata txList
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         TaikoData.Config memory config = getConfig();
         LibProposing.proposeBlock({
             state: state,
@@ -220,6 +223,22 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         returns (TaikoData.StateVariables memory)
     {
         return state.getStateVariables();
+    }
+
+    function get1559BurnAmountAndBaseFee(
+        TaikoData.Config memory config,
+        uint256 blockGasLimit
+    )
+        public
+        view
+        returns (uint256 ethToBurn, uint256 basefee, uint256 newExcessGasIssued)
+    {
+        return
+            Lib1559.get1559BurnAmountAndBaseFee(
+                getConfig(),
+                state.excessGasIssued,
+                blockGasLimit
+            );
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {

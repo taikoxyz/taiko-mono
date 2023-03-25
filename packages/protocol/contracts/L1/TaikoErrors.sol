@@ -10,9 +10,11 @@ abstract contract TaikoErrors {
     // The following custom errors must match the definitions in other V1 libraries.
     error L1_ALREADY_PROVEN();
     error L1_BLOCK_ID();
+    error L1_BLOCK_GAS_LIMIT_TOO_LARGE();
     error L1_CONTRACT_NOT_ALLOWED();
     error L1_EVIDENCE_MISMATCH();
     error L1_FORK_CHOICE_NOT_FOUND();
+    error L1_INSUFFICIENT_ETHER_BURN();
     error L1_INSUFFICIENT_TOKEN();
     error L1_INVALID_CONFIG();
     error L1_INVALID_EVIDENCE();
