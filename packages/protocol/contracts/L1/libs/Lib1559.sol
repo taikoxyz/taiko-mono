@@ -13,16 +13,34 @@ import {TaikoData} from "../TaikoData.sol";
 library Lib1559 {
     using LibMath for uint256;
 
-    function get1559BurnAmountAndBasefee(
+    function get1559Status(
         TaikoData.State storage state,
         TaikoData.Config memory config,
         uint256 blockGasLimit
-    ) internal view returns (uint256 basefee, uint256 ethToBurn) {
+    )
+        internal
+        view
+        returns (uint256 basefee, uint256 ethToBurn, uint256 availabGasForSale)
+    {
         (basefee, ethToBurn, ) = adjust1559Basefee(
             config,
             state.gasExcess,
             blockGasLimit
         );
+        availabGasForSale = getAvailabGasForSale(state, config);
+    }
+
+    function getAvailabGasForSale(
+        TaikoData.State storage state,
+        TaikoData.Config memory config
+    ) internal view returns (uint256) {
+        uint256 max = config.blockGasThrottle * 2;
+
+        if (state.lastProposedHeight != block.number) {
+            return max;
+        } else {
+            return max - state.gasSoldThisBlock;
+        }
     }
 
     function adjust1559Basefee(

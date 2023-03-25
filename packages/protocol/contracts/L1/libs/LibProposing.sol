@@ -180,11 +180,8 @@ library LibProposing {
             input.gasLimit > config.blockGasTarget * 2
         ) revert L1_INVALID_METADATA();
 
-        if (
-            state.lastProposedHeight == block.number &&
-            input.gasLimit >
-            config.blockGasThrottle * 2 - state.gasSoldThisBlock
-        ) revert L1_INSUFFICIENT_BLOCKSPACE();
+        if (input.gasLimit > Lib1559.getAvailabGasForSale(state, config))
+            revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (
             state.numBlocks >=
