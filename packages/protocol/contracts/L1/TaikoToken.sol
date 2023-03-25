@@ -36,6 +36,7 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
 
     error TKO_INVALID_ADDR();
     error TKO_INVALID_PREMINT_PARAMS();
+    error TKO_MINT_DISALLOWED();
 
     /*********************
      * External Functions*
@@ -58,7 +59,7 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         ERC20Upgradeable.__ERC20_init({
             name_: _name,
             symbol_: _symbol,
-            decimals_: 18
+            decimals_: 8
         });
 
         for (uint256 i = 0; i < _premintRecipients.length; ++i) {
@@ -115,5 +116,10 @@ contract TaikoToken is EssentialContract, ERC20Upgradeable, IMintableERC20 {
         if (account == address(0)) revert TKO_INVALID_ADDR();
         _burn(account, amount);
         emit Burn(account, amount);
+    }
+
+    function _mint(address account, uint256 amount) internal override {
+        ERC20Upgradeable._mint(account, amount);
+        if (totalSupply() > type(uint64).max) revert TKO_MINT_DISALLOWED();
     }
 }

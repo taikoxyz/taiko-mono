@@ -31,14 +31,14 @@ library LibVerifying {
         TaikoData.State storage state,
         TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint64 feeBaseTwei
+        uint64 feeBase
     ) internal {
         _checkConfig(config);
 
         uint64 timeNow = uint64(block.number);
         state.genesisHeight = timeNow;
         state.genesisTimestamp = timeNow;
-        state.feeBaseTwei = feeBaseTwei;
+        state.feeBase = feeBase;
         state.numBlocks = 1;
 
         TaikoData.Block storage blk = state.blocks[0];
@@ -135,10 +135,10 @@ library LibVerifying {
             _addToBalance(state, blk.proposer, amount);
 
             // Update feeBase and avgProofTime
-            state.feeBaseTwei = LibUtils
+            state.feeBase = LibUtils
                 .movingAverage({
-                    maValue: state.feeBaseTwei,
-                    newValue: LibTokenomics.toTwei(newFeeBase),
+                    maValue: state.feeBase,
+                    newValue: newFeeBase,
                     maf: config.feeBaseMAF
                 })
                 .toUint64();

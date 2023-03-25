@@ -13,7 +13,7 @@ struct TaikoData.State state
 ### init
 
 ```solidity
-function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBaseTwei) external
+function init(address _addressManager, bytes32 _genesisBlockHash, uint64 _feeBase) external
 ```
 
 ### proposeBlock

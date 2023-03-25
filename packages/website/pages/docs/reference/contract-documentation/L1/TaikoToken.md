@@ -30,6 +30,12 @@ error TKO_INVALID_ADDR()
 error TKO_INVALID_PREMINT_PARAMS()
 ```
 
+### TKO_MINT_DISALLOWED
+
+```solidity
+error TKO_MINT_DISALLOWED()
+```
+
 ### init
 
 ```solidity
@@ -83,3 +89,9 @@ the circulating supply._
 | ------- | ------- | ------------------------------------ |
 | account | address | The address to burn the tokens from. |
 | amount  | uint256 | The amount of tokens to burn.        |
+
+### \_mint
+
+```solidity
+function _mint(address account, uint256 amount) internal
+```
