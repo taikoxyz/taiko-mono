@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibAddress} from "../../libs/LibAddress.sol";
 import {LibTokenomics} from "./LibTokenomics.sol";
-import {Lib1559} from "./Lib1559.sol";
+import {LibEIP1559} from "./Lib1559.sol";
 import {LibUtils} from "./LibUtils.sol";
 import {
     SafeCastUpgradeable
@@ -180,7 +180,7 @@ library LibProposing {
             input.gasLimit > config.blockGasTarget * 2
         ) revert L1_INVALID_METADATA();
 
-        if (input.gasLimit > Lib1559.getAvailabGasForSale(state, config))
+        if (input.gasLimit > LibEIP1559.getAvailabGasForSale(state, config))
             revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (

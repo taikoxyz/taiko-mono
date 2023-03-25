@@ -232,7 +232,7 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
         view
         returns (uint256 basefee, uint256 ethToBurn, uint256 availabGasForSale)
     {
-        return Lib1559.get1559FeeStatus(state, getConfig(), blockGasLimit);
+        return LibEIP1559.get1559FeeStatus(state, getConfig(), blockGasLimit);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
