@@ -186,7 +186,8 @@ library LibProposing {
 
         if (
             state.lastProposedHeight == block.number &&
-            input.gasLimit > config.gasTargetPerL1Block - state.gasSoldThisBlock
+            input.gasLimit >
+            config.gasTargetPerL1Block * 2 - state.gasSoldThisBlock
         ) revert L1_INSUFFICIENT_BLOCKSPACE();
 
         if (
@@ -194,7 +195,7 @@ library LibProposing {
             state.lastVerifiedBlockId + config.maxNumProposedBlocks + 1
         ) revert L1_TOO_MANY_BLOCKS();
 
-        // hanlding txList
+        // verify txList
         uint24 size = uint24(txList.length);
         if (size > config.maxBytesPerTxList) revert L1_TX_LIST();
 

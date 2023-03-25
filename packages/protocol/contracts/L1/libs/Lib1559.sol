@@ -8,12 +8,7 @@ pragma solidity ^0.8.18;
 
 import {AddressResolver} from "../../common/AddressResolver.sol";
 import {LibMath} from "../../libs/LibMath.sol";
-// import {
-//     SafeCastUpgradeable
-// } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {TaikoData} from "../TaikoData.sol";
-
-// import {TaikoToken} from "../TaikoToken.sol";
 
 library Lib1559 {
     using LibMath for uint256;
@@ -29,24 +24,14 @@ library Lib1559 {
     {
         uint256 t = config.gasTargetPerL2Block;
         uint256 q = config.gasFeeAdjustmentQuotient;
-
-        uint256 eq1 = ethQty(t, q, excessGasIssued);
+        uint256 eq1 = exp(excessGasIssued / t / q);
         basefee = eq1 / t / q;
 
         uint256 _excessGasIssued = excessGasIssued + blockGasLimit;
-        uint256 eq2 = ethQty(t, q, _excessGasIssued);
-
+        uint256 eq2 = exp(_excessGasIssued / t / q);
         ethToBurn = eq2 - eq1;
 
         newExcessGasIssued = t.max(_excessGasIssued) - t;
-    }
-
-    function ethQty(
-        uint256 gasTarget,
-        uint256 gasFeeAdjustmentQuotient,
-        uint256 excessGasIssued
-    ) internal pure returns (uint256) {
-        return exp(excessGasIssued / gasTarget / gasFeeAdjustmentQuotient);
     }
 
     // Return `2.71828 ** x`.
