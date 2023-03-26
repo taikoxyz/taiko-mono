@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {TaikoData} from "../contracts/L1/TaikoData.sol";
-import {LibL1Tokenomics} from "../contracts/L1/libs/LibL1Tokenomics.sol";
+import {LibTokenomics} from "../contracts/L1/libs/LibTokenomics.sol";
 
 contract TaikoL1WithConfig is Test {
     struct FeeConfig {
@@ -30,15 +30,14 @@ contract TaikoL1WithConfig is Test {
             multiplerPctg: 200
         });
 
-        (uint256 newFeeBase, uint256 tRelBp) = LibL1Tokenomics
-            .getTimeAdjustedFee(
-                feeConfig,
-                feeBase,
-                true,
-                tNow, // seconds
-                tLast, // seconds
-                (tAvg * 1000) // miliseconds
-            );
+        (uint256 newFeeBase, uint256 tRelBp) = LibTokenomics.getTimeAdjustedFee(
+            feeConfig,
+            feeBase,
+            true,
+            tNow, // seconds
+            tLast, // seconds
+            (tAvg * 1000) // miliseconds
+        );
 
         assertEq(newFeeBase, feeBase);
         assertEq(tRelBp, 0);

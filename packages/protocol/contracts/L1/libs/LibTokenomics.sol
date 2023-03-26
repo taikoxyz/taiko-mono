@@ -14,7 +14,7 @@ import {
 import {TaikoData} from "../TaikoData.sol";
 import {TaikoToken} from "../TaikoToken.sol";
 
-library LibL1Tokenomics {
+library LibTokenomics {
     using LibMath for uint256;
     uint256 private constant TWEI_TO_WEI = 1E12;
 
