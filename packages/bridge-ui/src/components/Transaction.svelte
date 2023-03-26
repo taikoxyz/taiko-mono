@@ -79,7 +79,7 @@
       }
 
       // confirm after switch chain that it worked.
-      if (!isOnCorrectChain($signer, bridgeTx.toChainId)) {
+      if (!(await isOnCorrectChain($signer, bridgeTx.toChainId))) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
@@ -128,7 +128,7 @@
       }
 
       // confirm after switch chain that it worked.
-      if (!isOnCorrectChain($signer, bridgeTx.fromChainId)) {
+      if (!(await isOnCorrectChain($signer, bridgeTx.fromChainId))) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }

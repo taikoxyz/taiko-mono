@@ -123,20 +123,24 @@
     return allowance;
   }
 
-  function isBtnDisabled(
+  async function isBtnDisabled(
     signer: Signer,
     amount: string,
     token: Token,
     tokenBalance: string,
     requiresAllowance: boolean,
     memoError: string,
+    fromChain: Chain,
   ) {
     if (!signer) return true;
     if (!tokenBalance) return true;
-
-    const chainId = $fromChain.id;
+    if (!fromChain) return true;
+    const chainId = fromChain.id;
 
     if (!chainId || !chains[chainId.toString()]) return true;
+
+    if (!(await isOnCorrectChain(signer, fromChain.id))) return true;
+
     if (!amount || ethers.utils.parseUnits(amount).eq(BigNumber.from(0)))
       return true;
     if (isNaN(parseFloat(amount))) return true;
@@ -218,7 +222,7 @@
         throw Error('Invalid custom recipient address');
       }
 
-      if (!isOnCorrectChain($signer, $fromChain.id)) {
+      if (!(await isOnCorrectChain($signer, $fromChain.id))) {
         errorToast('You are connected to the wrong chain in your wallet');
         return;
       }
@@ -373,14 +377,17 @@
 
   $: getUserBalance($signer, $token, $fromChain);
 
-  $: btnDisabled = isBtnDisabled(
+  $: isBtnDisabled(
     $signer,
     amount,
     $token,
     tokenBalance,
     requiresAllowance,
     memoError,
-  );
+    $fromChain,
+  )
+    .then((d) => (btnDisabled = d))
+    .catch((e) => console.error(e));
 
   $: checkAllowance(amount, $token, $bridgeType, $fromChain, $signer)
     .then((a) => (requiresAllowance = a))
