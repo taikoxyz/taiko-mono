@@ -28,14 +28,14 @@ contract TaikoL1 is EssentialContract, IXchainSync, TaikoEvents, TaikoErrors {
     function init(
         address _addressManager,
         bytes32 _genesisBlockHash,
-        uint64 _feeBaseTwei
+        uint64 _feeBase
     ) external initializer {
         EssentialContract._init(_addressManager);
         LibVerifying.init({
             state: state,
             config: getConfig(),
             genesisBlockHash: _genesisBlockHash,
-            feeBaseTwei: _feeBaseTwei
+            feeBase: _feeBase
         });
     }
 

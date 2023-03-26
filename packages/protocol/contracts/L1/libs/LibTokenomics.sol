@@ -53,25 +53,6 @@ library LibTokenomics {
         }
     }
 
-    function fromTwei(uint64 amount) internal pure returns (uint256) {
-        if (amount == 0) {
-            return TWEI_TO_WEI;
-        } else {
-            return amount * TWEI_TO_WEI;
-        }
-    }
-
-    function toTwei(uint256 amount) internal pure returns (uint64) {
-        uint256 _twei = amount / TWEI_TO_WEI;
-        if (_twei > type(uint64).max) {
-            return type(uint64).max;
-        } else if (_twei == 0) {
-            return uint64(1);
-        } else {
-            return uint64(_twei);
-        }
-    }
-
     function getBlockFee(
         TaikoData.State storage state,
         TaikoData.Config memory config
@@ -80,14 +61,13 @@ library LibTokenomics {
         view
         returns (uint256 newFeeBase, uint256 fee, uint256 depositAmount)
     {
-        uint256 feeBase = fromTwei(state.feeBaseTwei);
         if (state.numBlocks <= config.constantFeeRewardBlocks) {
-            fee = feeBase;
-            newFeeBase = feeBase;
+            fee = state.feeBase;
+            newFeeBase = state.feeBase;
         } else {
             (newFeeBase, ) = getTimeAdjustedFee({
                 feeConfig: config.proposingConfig,
-                feeBase: feeBase,
+                feeBase: state.feeBase,
                 isProposal: true,
                 tNow: block.timestamp,
                 tLast: state.lastProposedAt,
@@ -128,15 +108,14 @@ library LibTokenomics {
     {
         if (proposedAt > provenAt) revert L1_INVALID_PARAM();
 
-        uint256 feeBase = fromTwei(state.feeBaseTwei);
         if (state.lastVerifiedBlockId <= config.constantFeeRewardBlocks) {
-            reward = feeBase;
-            newFeeBase = feeBase;
+            reward = state.feeBase;
+            newFeeBase = state.feeBase;
             // tRelBp = 0;
         } else {
             (newFeeBase, tRelBp) = getTimeAdjustedFee({
                 feeConfig: config.provingConfig,
-                feeBase: feeBase,
+                feeBase: state.feeBase,
                 isProposal: false,
                 tNow: provenAt,
                 tLast: proposedAt,
